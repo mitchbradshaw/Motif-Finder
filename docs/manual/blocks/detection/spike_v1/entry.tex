@@ -1,0 +1,194 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.spike_v1 -- "Spike detection (v1)" (Appendix A).
+% The worked example AUTHORING.md points to.
+\entryfield{Algorithm}
+The block wraps \code{detect_spikes} in \code{Working/Detection/analysis/spike_analysis.py}
+(\code{spike_detection_v1} there returns only its indices). It starts from the fast-spike
+rule of \citet{adamatzky2023multiscalar} and departs from it in four named ways, each argued
+in that module's docstring (below, and under References). For a span $x_0,\dots,x_{n-1}$ in
+the recording's stored unit, with width $w$, threshold \emph{delta\_mv}, distance $d$,
+\emph{polarity} and \emph{span\_s}:
+\begin{enumerate}
+\item \emph{The threshold in the stored unit.} \code{read_as_mv} (\code{Working/units.py})
+  gives the factor $f$ from the stored unit to millivolts (V: 1000, mV: 1, $\mu$V: 0.001; an
+  undeclared unit is read as volts, $f = 1000$, with a note). Then
+  $\delta = \text{\emph{delta\_mv}} / f$.
+\item \emph{The local mean} (\code{neighbourhood_mean}). For every sample $i$, with
+  $W_i = \{\, j : \max(0, i-2w) \le j \le \min(n-1, i+2w),\ x_j \text{ finite} \,\}$,
+  \[ a_i = \frac{1}{|W_i|}\sum_{j \in W_i} x_j , \]
+  and $a_i = \mathrm{NaN}$ when $W_i$ is empty. This is the true mean of the samples the
+  window holds, not the paper's sum over $4w$. It is computed from cumulative sums of
+  $x_j - c$, $c$ the mean of the finite samples, so a large DC offset costs no precision.
+\item \emph{Candidates} (\code{spike_deviation}, \code{spike_candidates}). $D_i = x_i - a_i$;
+  sample $i$ is a candidate when $|D_i| > \delta$. A NaN $D_i$ is never a candidate.
+\item \emph{Clusters} (\code{cluster_spikes}). In time order, consecutive candidates closer
+  than $d$ samples are chained into one cluster; a gap of $d$ or more starts a new one. A
+  cluster runs from its first candidate $c_s$ to its last $c_e$.
+\item \emph{One spike per cluster.} The cluster's baseline $b$ is the mean of the finite
+  samples within $2w$ outside it on either side, $[c_s - 2w, c_s)$ and $(c_e, c_e + 2w]$,
+  clipped to the span. (If neither side holds a finite sample, $b$ is the median of the
+  cluster's own finite samples.) The spike is the sample $s \in [c_s, c_e]$, candidate or
+  not, furthest from it, $\arg\max |x_s - b|$, the first on a tie. Its sign is $-1$ if
+  $x_s < b$, else $+1$.
+\item \emph{Polarity.} \texttt{both} keeps every spike, \texttt{up} those with sign $+1$,
+  \texttt{down} those with $-1$. Whole clusters are kept or dropped, never single candidates.
+\end{enumerate}
+
+\begin{algorithm}[H]
+\caption{Spike detection (v1)}
+\begin{algorithmic}[1]
+\Require span $x_0,\dots,x_{n-1}$; width $w$; threshold $\delta$ (stored unit); distance $d$; polarity $p$
+\Ensure spike indices $S$ and their signs
+\State $C \gets \{\, i : |x_i - a_i| > \delta \,\}$ in increasing order \Comment{$a_i$ as in step 2}
+\State split $C$ into clusters wherever two consecutive candidates are $\geq d$ apart
+\State $S \gets \emptyset$
+\For{each cluster $[c_s, c_e]$}
+  \State $b \gets$ mean of finite $x_j$, $j \in [c_s - 2w, c_s) \cup (c_e, c_e + 2w]$
+  \State $s \gets$ first $\arg\max_{c_s \le j \le c_e} |x_j - b|$; \quad $\sigma \gets -1$ if $x_s < b$ else $+1$
+  \If{$p = \texttt{both}$ \textbf{or} ($p = \texttt{up}$ \textbf{and} $\sigma = +1$) \textbf{or} ($p = \texttt{down}$ \textbf{and} $\sigma = -1$)}
+    \State $S \gets S \cup \{s\}$
+  \EndIf
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+The adapter (\code{_run} in \code{Adapters/detection_spike_v1.py}) then draws one span per
+kept spike. With $L = d$ when \emph{span\_s} is 0 and $L = \max(1, \operatorname{round}(
+\text{\emph{span\_s}} \cdot f_s))$ otherwise, and $h = \lfloor L/2 \rfloor$, spike $s$ gets
+the span $[\max(0, s-h),\ \min(n, s-h+L))$. Kept spikes are at least $d$ samples apart (two
+clusters are), so at the default $L = d$ the spans never overlap.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} The block is unit-aware: its \code{_run} takes the recording's
+  \code{units}, and \emph{delta\_mv} means millivolts on every recording whose unit is
+  declared. An undeclared unit is read as volts; \code{meta.units_note} says so and the
+  chain row's summary carries the note. The 1\,mV default is not the paper's value. The
+  paper's $\delta = 0.01$ is \unverified{in its logger's millivolts}; the adapter's
+  docstring explains that on \code{M2_aug_concat_fs1.mat} (sample-to-sample noise about
+  0.025\,mV) that value fires on noise, and calls 1\,mV a placeholder.
+\item \emph{Sampling rate.} $w$ and $d$ count samples, not seconds; \emph{span\_s} is in
+  seconds. The defaults come from 1\,Hz recordings, where the window spans $4w+1 = 81$\,s and
+  $d$ is 30\,s; at 10\,Hz the same settings mean 8.1\,s and 3\,s. The readout beside the
+  settings gives both in seconds.
+\item \emph{Baseline.} The test is signed and the mean is a true mean, so a constant offset
+  of any size or sign changes nothing (pinned by the tests on baselines of $\pm 2$\,V, 0 and
+  $-0.43$\,V). Away from the ends a straight-line trend also cancels, because the window is
+  symmetric. Curvature does not: for a smooth signal $D_i \approx -x''_i\, w(2w+1)/3$, about
+  $-273\,x''_i$ at $w = 20$. That is why changes much slower than the window are invisible
+  and their bends are not.
+\item \emph{Missing values.} NaN samples are skipped: they never enter a neighbour's mean,
+  never become candidates, and never enter a cluster's baseline. A window with no finite
+  sample gives no mean and so no candidate. Their count is \code{meta.n_missing}. Next to a
+  gap the window is one-sided, as at the span's ends (Failure modes). Candidates on either
+  side of a gap shorter than $d$ chain into one cluster.
+\item \emph{Span length.} Any. An empty span, or one with no candidate, gives an empty span
+  set. Within $2w$ samples of either end the window is cut short (one-sided).
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet}, one span per kept spike as above, with no labels or scores. A chain
+ending here writes these spans to the database as detections. \code{meta} holds
+\code{spike_indices} and \code{n_spikes}; \code{n_up} and \code{n_down}; \code{events}, one
+\code{{onset_idx, trough_idx}} per span, both the spike's own index, which the block page
+draws as a mark inside each span; \code{delta_mv}, \code{delta_stored} (the threshold in the
+stored unit), \code{units}, \code{to_mv}, \code{units_note}; \code{polarity},
+\code{span_samples} ($L$), \code{n_missing}; \code{rules} (the four rules in words, with the
+current numbers); and \code{explain} (the page's plain-words text). Every index counts from
+the start of the span the block was given.
+
+The bridge (\code{_spanset} in \code{webui/server/serialize.py}) passes \code{explain},
+\code{n_up}, \code{n_down} and \code{units_note} to the page and appends the counts, and the
+note when there is one, to the chain row's summary:
+``\textit{n} spans · mean \textit{t} s · \textit{u} up, \textit{v} down''.
+
+\emph{The readout} (\code{_derive}), beside the settings: the unit; $\delta$ as stored; $\delta$
+as a multiple of this span's median $|x_i - a_i|$, amber below $4\times$ (on white noise
+about six standard deviations, by the adapter's docstring); the local window, the refractory
+gap and the span per spike, each in samples and seconds.
+
+\entryfield{Cost}
+Linear: $O(n)$ time and memory. The mean and the cluster baselines are cumulative sums, and
+the per-cluster extreme is one \code{np.maximum.reduceat}. Only clusters with no finite
+sample around them go through a Python loop. A test pins 2.6 million samples under one
+second (the module docstring reports about 0.2\,s). The readout computes $D_i$ over the whole
+span each time a setting changes, also $O(n)$. There is no maximum span, and the block is not
+meant for the cluster.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{An undeclared unit.} It is read as volts. On a recording actually stored in
+  millivolts, $\delta$ becomes a thousand times too small and the block fires on noise. The
+  chain row and the readout both say ``read as volts''.
+\item \emph{A fixed yardstick.} 1\,mV holds at M2's noise level but not on noisier channels.
+  The adapter's docstring records measurements from the fix-round review (not a script in
+  the repository): on AR(1) and random-walk backgrounds at M2's noise level, 0 false spikes
+  per hour at 1\,mV and 61--64 per hour at 0.1\,mV; with AR(1) steps of 0.15 and 0.25\,mV,
+  106 and 713 spikes in 12\,h at the default. The amber readout row is the warning.
+\item \emph{Ends of the span, and edges of gaps, on a slope.} There the window is
+  one-sided. At the first sample of a line rising $\beta$ per sample, $a_0 = x_0 + \beta w$,
+  so $D_0 = -\beta w$: a candidate once $|\beta| > \delta / w$ (0.05\,mV per sample at the
+  defaults). The cluster's baseline then comes from one side only, so the spike lands at the
+  end sample. The span's end and both edges of a NaN gap behave the same way. This follows
+  from the arithmetic; no test checks it. \blockref{preprocessing.detrend} first reduces
+  the slope.
+\item \emph{A step reads as one spike of either sign.} At a level shift of size $h$ the
+  samples within $2w$ of the step stand about $h/2$ from their mean, so they form one cluster
+  whose baseline is the average of the two levels. Every sample in it is about $h/2$ from
+  that baseline, so noise picks the spike's sample and its sign. Derived; untested.
+\item \emph{Slow drops.} The inside of a steady fall cancels (Assumptions), but its bends do
+  not: where a flat stretch turns into a fall of $\beta$ per sample,
+  $D \approx \beta\, w(2w+1)/(4w+1)$, about $10\beta$ at $w = 20$. A fall steeper than
+  $\delta/10$ per sample at the defaults can give an ``up'' at its shoulder and a ``down'' at
+  its foot, neither at the drop. Derived; untested. Use \blockref{detection.drop_detection}
+  for drops.
+\item \emph{Bursts read as one spike.} Candidates chain as long as each is within $d$ of the
+  last, with no limit on the cluster's length. A burst of spikes each less than $d$ apart
+  comes out as one spike, at its largest, which shortens every count and every interval
+  measured downstream.
+\item \emph{Polarity drops whole clusters.} Under \texttt{up}, a rise within $d$ samples of a
+  larger dip shares the dip's cluster, takes its sign, and is dropped; \texttt{down} does
+  the same to a dip beside a larger rise.
+\item \emph{The span start is not the spike.} A block downstream that times events by span
+  start (\blockref{interrogation.intervals} or \blockref{interrogation.trains} without an
+  onset column) reads $s - h$, not $s$. That offset cancels between spikes, except where a
+  span was clipped at the start of the span in hand: a spike within $h$ samples of the start
+  has its first gap shortened by up to $h$ samples.
+\item \emph{Overlapping spans.} With \emph{span\_s} wider than $d$ samples, neighbouring
+  spikes' spans can overlap.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_spike_v1.py} checks answers on synthetic traces, not only shapes: a 5\,mV
+dip found under \texttt{both} and \texttt{down}, not \texttt{up}, on four baselines, and
+nothing else on the trace; the same indices on $+2$\,V and $-2$\,V; four planted 4\,mV
+spikes found at exactly their samples, each inside its 30-sample span; 10 planted spikes of
+alternating sign found, with at most 2 extra, on 12-hour AR(1), detrended random-walk and
+slow-sine backgrounds at every default; rectangular dips from 3 to 30 samples wide and 3 to
+60\,mV deep giving exactly one spike, inside the dip, marked as a dip, on three baselines;
+ten 61-sample triangular spikes each found within one sample of its peak; the vectorised mean
+equal to a per-sample loop; a NaN stretch never a spike; \emph{delta\_mv} matching the core
+at 0.005\,V and 5\,mV. No test compares the block's output with hand-marked spikes on a
+fungal recording. The paper reports its rule catching ``over 90\%'' of fast spikes on its
+own data by manual check \citep{adamatzky2023multiscalar}.
+
+\entryfield{References}
+\citet{adamatzky2023multiscalar}, whose rule is $|x_i| - |a_i| > \delta$ with $a_i$ a sum
+over $4w+1$ samples divided by $4w$, followed by removing candidates within $d$ of a kept
+one. The code departs from it in four ways, each argued in the docstring of
+\code{spike_analysis.py}: a signed deviation with a polarity (the paper's magnitudes see
+only one direction on a baseline away from zero, which one depending on the sign of the
+offset); the true local mean (the paper's $1/(4w)$ biases $a_i$ by baseline$/(4w)$, 25\,mV on
+a 2\,V baseline); NaN samples skipped; and one spike per cluster at its extreme rather than
+the first candidate (the first candidate is often the leading edge of the false ``halo'' a
+wide event raises around itself). How the published settings differ between species, and
+which paper these defaults come from, is set out in
+\code{docs/research/analysis-blocks-primary-sources.md}.
+
+\entryfield{Tests}
+\code{tests/test_spike_v1.py} (the answer checks above, the unit conversion, the refusal of
+an old recipe that still names the unitless \code{delta}, the readout rows, and the counts,
+explanation and note reaching the bridge's payload). \code{tests/test_t06_adapter_remap.py}
+checks the type signature and that the output is a well-formed span set. \code{tests/test_end_to_end.py}, \code{tests/test_run_groups.py},
+\code{tests/test_analyse_null_toggle.py} and \code{tests/test_null_draws_methods_cut.py} run
+it inside a chain with its defaults.

@@ -1,0 +1,36 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.rupture -- "Change-point segments" (Part I, the blocks chapter).
+\cardfield{What it does}
+Splits a span into consecutive stretches so that each stretch is statistically steady
+inside and differs from its neighbours, for instance in its average level.
+
+\begin{plainterms}[Change points and the penalty]
+Think of drawing a staircase through a noisy line: every extra step fits the line better,
+but you pay a fixed fee for each step you add. The block finds the staircase with the best
+fit after fees. The fee is the \emph{penalty}: a high fee buys only a few big steps, a low
+fee buys many small ones. The places where one step ends and the next begins are the
+\emph{change points}.
+\end{plainterms}
+
+\cardfield{When to use it}
+When you want to know where the signal's regime changes (a shift in level, or in spread)
+rather than where a particular shape occurs, and you do not know how many changes to expect.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes a set of spans that tile it end to end, one per
+steady stretch; each change point is where one span ends and the next begins.
+
+\cardfield{Settings that matter}
+\emph{penalty} (default 50) sets how many stretches you get; it is the one to tune.
+\emph{cost\_model} sets what counts as different: \emph{l2} (default) a change of average
+level, \emph{l1} the same but less swayed by outliers, \emph{normal} a change of level or
+spread, \emph{rbf} any change in the distribution of values. \emph{jump} (default 5) only
+allows change points every so many samples, trading precision for speed.
+
+\cardfield{Watch out for}
+The penalty is in the units of the cost, which follow the recording's unit squared: a value
+tuned on millivolts finds nothing on volts. There is no right penalty; try several a factor
+of three apart and trust only the change points that persist. The block is slow (minutes on
+tens of thousands of samples), and \emph{rbf} needs memory that grows with the square of the
+span length, enough to fail on a few hours of 1\,Hz data. Because the output covers the whole
+span, every moment falls in some stretch: the spans are a partition, not events.

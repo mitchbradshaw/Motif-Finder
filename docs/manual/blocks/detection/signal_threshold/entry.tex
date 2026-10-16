@@ -1,0 +1,73 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.signal_threshold -- "Signal threshold to spans" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_signal_threshold.py}; the Signal $\to$ SpanSet sibling
+of \blockref{detection.threshold}, sharing its helpers. For a span $x$ and level $\theta$:
+\begin{enumerate}
+\item \emph{Mask} (\code{_mask_and_excursion}): \texttt{above} $x_i > \theta$; \texttt{below}
+  $x_i < \theta$; \texttt{either} $|x_i| > |\theta|$ (the sign of $\theta$ is then ignored, and
+  ``either side'' means either side of zero, not of the baseline).
+\item Contiguous runs of the mask become half-open spans (\code{spans_from_mask} in
+  \code{Adapters/detection_threshold.py}).
+\item Each span scores its peak excursion past the cut, in stored units: $\max x - \theta$,
+  $\theta - \min x$, or $\max|x| - |\theta|$.
+\item \code{tidy_spans}: join spans less than $\operatorname{round}(\text{\emph{merge\_gap\_s}}\,f_s)$
+  samples apart (the merged span scores the maximum of its parts), then drop spans shorter
+  than $\operatorname{round}(\text{\emph{min\_duration\_s}}\,f_s)$ samples. Both off at 0.
+\end{enumerate}
+A sample exactly at the level is not past it.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware: $\theta$ is in the recording's stored unit. On the M2
+  recordings (volts) $\theta = -0.005$ is $-5$\,mV; on a recording stored in millivolts
+  (L\_LM\_Jul\_26\_J, the \emph{S.~commune} and Dwij loggers) the same number is $-0.005$\,mV,
+  inside the noise. A level tuned on one unit must be multiplied or divided by 1000 for the
+  other. Use \blockref{detection.noise_threshold} for a cut that carries across units.
+\item \emph{Baseline.} The level is absolute, so drift moves samples across it; remove the
+  baseline first (the template uses a 600\,s rolling mean).
+\item \emph{Missing values.} NaN compares false on every side, so a NaN sample is never in a
+  span and splits an excursion it falls inside (unless \emph{merge\_gap\_s} rejoins it).
+\item \emph{Sampling rate.} Used only to turn the two tidying settings into samples.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet} (span-relative starts and ends, scores as above), written to
+\code{detections} by the executor with the span offset added. \code{meta}: \code{n_spans},
+\code{n_samples}, \code{n_nan}, \code{threshold}, \code{direction}, \code{min_duration_s},
+\code{merge_gap_s}. No crossing is an empty span set, not an error.
+
+\entryfield{Cost}
+One pass: $O(n)$ time and memory. No estimate or maximum span declared.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Unit mismatch} (above): a level copied between a volts and a millivolts recording is
+  off by 1000.
+\item \emph{The default} ($\theta = 0$, \texttt{above}) keeps every positive stretch; with
+  \texttt{either} it keeps every non-zero sample.
+\item \emph{Overlapping events merge}: a second drop that starts before the first has come back
+  above the level is one span. \code{tests/test_adapter_impulse_events.py} shows this on 8
+  overlapping trough pairs; \blockref{detection.deconvolve} with
+  \blockref{detection.impulse_events} separates them.
+\item \emph{Grazes}: a single sample over the level is a one-sample span (one second at 1\,Hz),
+  often just before a real drop; \emph{min\_duration\_s} or \emph{merge\_gap\_s} removes it.
+\item \emph{A span's extent is where the trace is past the level}, not the whole event: the onset
+  and recovery below the level are not included.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_adapter_signal_threshold.py} checks the rule itself (runs, edges, directions,
+NaN, tidying) and that it agrees span for span with \blockref{detection.threshold} on the same
+values. \code{tests/test_template_signal_threshold.py} runs the template on a synthetic 1\,Hz
+recording with three injected 20\,mV drops and finds each with overlap at least 0.8. No test or
+evidence script evaluates it on real recordings.
+
+\entryfield{References}
+None: a level cut is generic.
+
+\entryfield{Tests}
+\code{tests/test_adapter_signal_threshold.py}, \code{tests/test_template_signal_threshold.py},
+\code{tests/test_adapter_threshold.py}, \code{tests/test_adapter_noise_threshold.py} (the
+direction semantics it shares), \code{tests/test_adapter_impulse_events.py} (the merge of
+overlapping troughs).

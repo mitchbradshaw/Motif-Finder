@@ -1,0 +1,99 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.cnn_score -- "Model stage (CNN)" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} and \code{score_stack} in \code{Adapters/catalogue_cnn_score.py}, over the image
+stack from \blockref{catalogue.window_images} and the \code{windows} side input:
+\begin{enumerate}
+\item Refuse an input that is not an image \code{Encoding}, a missing side input, a stack not
+  shaped $(N, H, W, 3)$, or a stack whose $N$ differs from the window count.
+\item \emph{Load} (\code{load_model} in \code{Working/Catalogue/cnn/apply_cnn.py}): read the
+  state dict at \code{model_path}, take the class count from the shape of
+  \code{backbone.classifier.1.weight}, build \code{EEG_CNN(num_classes)} and load the weights;
+  evaluation mode, on CUDA if available, else the CPU.
+\item \emph{Transform} each image with \code{get_transforms(img_size, is_train=False,
+  is_rgb=True)} from \code{Working/Catalogue/cnn/cnn_rangapur.py}: resize to
+  \code{img_size} $\times$ \code{img_size}, convert to a tensor in $[0,1]$, normalise each
+  channel with mean 0.5 and standard deviation 0.5.
+\item \emph{Infer} in batches of \code{batch_size} without gradients;
+  $p_i = \mathrm{softmax}(\text{logits}_i)_0$, the probability of class 0.
+\item \emph{Lay out}: a score array of the span's length filled with NaN; for each window
+  (start minus $\mathrm{round}(t_0 f_s)$) inside the span, its $L$ samples are set to $p_i$.
+  Where windows overlap the later window wins.
+\end{enumerate}
+\code{EEG_CNN} is an EfficientNet-B0 \citep{tan2019efficientnet} from torchvision with its
+head replaced by dropout ($p = 0.3$) and a linear layer to \code{num_classes} outputs. Class 0
+is ``interesting'' because torchvision's \code{ImageFolder} numbers the class folders
+alphabetically (\code{interesting} before \code{notinteresting}).
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{The checkpoint.} Two classes, class 0 interesting, trained on the image type the
+  stack holds. Nothing checks any of the three. \code{docs/prompts/fixup/reports/AH-blind-test-labelling.md}
+  records, for the checkpoints in \code{MODELS/}: \code{fusion_cnn.pth} has \emph{one}
+  output class, so its softmax is 1.0 for every window; \code{fusion_cnn_2.pth} and
+  \code{fusion_cnn_3.pth} have two, with class 0 interesting (AUC 0.979 and 0.970 on 120
+  hand-labelled 10-minute M2\_aug windows, very likely part of their training data);
+  \code{fusion_prediction_cnn.pth} has 14 classes and answers a different question.
+\item \emph{Training.} \code{cnn_rangapur.py} is the training script: ImageNet-pretrained
+  EfficientNet-B0, a random 80/20 train/validation split of the image folders, Adam at
+  $10^{-3}$ with cosine decay, up to 25 epochs with early stopping on validation accuracy,
+  random horizontal and vertical flips and colour jitter, on 10-minute windows at 1\,Hz.
+  \unverified{That the shipped checkpoints were made with these settings} is not recorded.
+\item \emph{Window geometry.} Starts are channel-absolute; $t_0$ is the span's first time in
+  seconds from the channel's start.
+\item \emph{Units and rate.} The images are unit-free (see \blockentry{catalogue.window_images});
+  the output \code{Scores} carry the span's $f_s$.
+\end{itemize}
+
+\entryfield{Outputs}
+\code{Scores} over the span: $p \in [0,1]$ per sample, NaN where no window lies. \code{meta}
+holds \code{model_path}, \code{n_windows}, \code{window_scores} and \code{starts} (the first
+4{,}096 of each), \code{length} and \code{p_range}.
+
+\entryfield{Cost}
+One forward pass of EfficientNet-B0 per window: linear in $N$, much faster on a GPU. The
+model is loaded on every run. \code{estimate} reads the calibration file (calibrated by
+scoring random images with the default checkpoint) and returns \code{None} until calibrated.
+On the cluster: a recipe exported for SLURM that contains this block is sent to the GPU
+partition with an A100 and CUDA (\code{recipe_uses_gpu} in \code{Working/hpc/job_export.py},
+whose \code{_GPU_ALGORITHMS} names \code{cnn_score}); every other block in this group runs on
+the CPU partition. The block itself runs locally too, on the CPU when there is no GPU.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{The default checkpoint scores everything 1.0.} \code{model_path} defaults to
+  \code{MODELS/fusion_cnn.pth}, the one-class network. The block raises no error; every
+  sample covered by a window reads 1.0, and a threshold downstream marks the whole span.
+\item \emph{A checkpoint with other classes} (14 for \code{fusion_prediction_cnn.pth}) is
+  accepted, and column 0 is reported as ``interesting'' whatever class 0 is.
+\item \emph{Image type mismatch.} A GASF network fed fusion pictures, or the reverse, scores
+  without complaint.
+\item \emph{Missing pretrained weights.} \code{EEG_CNN} asks torchvision for the
+  ImageNet EfficientNet-B0 weights before loading the checkpoint over them; torchvision
+  downloads them into its cache the first time, so an offline machine without that cache
+  cannot build the model. The tests skip for this reason.
+\item \emph{Training augmentations.} Single-axis flips of a Gramian or recurrence image are
+  not images of any signal (\code{docs/prompts/fixup/reports/AI-cnn-arm-slurm.md}); the
+  networks were trained with them.
+\item \emph{Contamination.} Scores on the hand-labelled windows are an upper bound, not a
+  measure of generalisation.
+\item \emph{Partial windows at the span's end} are written as far as the span goes; windows
+  starting before the span are skipped.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_adapter_cnn_score.py} checks the plumbing: the declared types, the
+refusals, and, when a checkpoint and the cached EfficientNet weights are present, that each
+window's samples carry one value in $[0,1]$. It uses \code{fusion_cnn.pth}, the one-class
+checkpoint, so it passes with every value equal to 1.0; it does not check the answer. The
+AUCs above come from a separate check recorded in the AH report, not from a test.
+
+\entryfield{References}
+\citet{tan2019efficientnet}; the images, \citet{wang2015imaging} and
+\citet{eckmann1987recurrence}.
+
+\entryfield{Tests}
+\code{tests/test_adapter_cnn_score.py}. \code{tests/test_block_standard.py} checks that it
+declares a cost estimate. \code{tests/test_job_export.py} checks that a window matrix with a
+CNN stage is sent to the GPU partition; no test checks the same for a recipe containing this
+block.

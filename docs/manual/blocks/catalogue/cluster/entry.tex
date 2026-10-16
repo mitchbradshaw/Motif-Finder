@@ -1,0 +1,88 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.cluster -- "Hierarchical cluster" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/catalogue_cluster.py} (\code{_cluster_window_set}) calls
+\code{preprocess_window_matrix} and \code{cluster_window_matrix} in
+\code{Working/Catalogue/dendrogram/dendrogram_cluster.py}:
+\begin{enumerate}
+\item Drop the bookkeeping columns (\code{BOOKKEEPING_COLUMNS} in
+  \code{Working/types/windowset.py}: \code{split}, \code{event_index}, \code{anchor_offset},
+  \code{overlaps_next}, \code{span_score}, family and cycle columns, and others). A window whose
+  remaining features are all NaN is left out ($-1$) and counted; $k$ larger than the windows left
+  is refused.
+\item \code{preprocess_window_matrix}, with its defaults: set aside the metadata columns
+  \code{category}, \code{fusion_pred_v1}, \code{fusion_pred_v1_error}; drop non-numeric columns,
+  all-NaN columns, columns more than 50\% NaN, constant columns, and near-constant columns (standard
+  deviation below $10^{-8}$ of the column's magnitude); drop the later column of any pair with
+  $|r| > 0.99$ (skipped above 2000 columns); impute remaining NaNs with the column median; z-score
+  every column (\code{StandardScaler}) over \emph{all} windows.
+\item \code{cluster_window_matrix(method=linkage, n_clusters=k)}: for Ward, \code{scipy}'s
+  \code{linkage(X, "ward")} on the scaled matrix \citep{ward1963hierarchical}; for the others, on
+  condensed Euclidean distances. Optimal leaf ordering below 2000 windows. Flat clusters by
+  \code{fcluster(Z, k, "maxclust")}, labelled 1..$k$. Silhouette on the scaled features
+  \citep{rousseeuw1987silhouettes}, sampled above a size cap
+  (\code{_SILHOUETTE_SAMPLE_MAX_N}); cophenetic correlation when the distance array is affordable
+  (under 400\,MB), else \code{None}.
+\end{enumerate}
+$k$ is never chosen by the block: the code says the selection criterion is an open research
+decision, so it stays a setting.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} The z-scoring makes each column unitless; a column's unit only matters through
+  the near-constant filter.
+\item \emph{Missing values.} All-NaN windows are left out; other NaNs are median-imputed, which
+  pulls those windows towards the centre of the cloud.
+\item \emph{Features, not bookkeeping.} Only the columns on \code{BOOKKEEPING_COLUMNS} (and the three
+  metadata names) are excluded. Any other numeric column is clustered on.
+\item \emph{No roles.} The \code{split} column is dropped as bookkeeping, not used: every window is
+  scaled and clustered together.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Grouping}: 1..$k$ per clustered window, $-1$ for a left-out one. \code{meta}:
+\code{linkage}, \code{k}, \code{cluster_counts}, \code{n_windows}, \code{n_clustered},
+\code{n_left_out} and its reason, \code{summary}, \code{n_features}, \code{silhouette},
+\code{cophenetic_r}, \code{feature_names} (the columns actually used), \code{correlation_filter}
+(applied or skipped). The block has a pre-run readout of cluster sizes (\code{_derive}). It
+persists: the labels are written as a CSV (window index, label) under
+\code{DATA/derived/groupings/} and registered as an \code{artifacts(kind='csv')} row.
+
+\entryfield{Cost}
+Ward on the feature matrix needs no explicit distance array, but scipy's linkage is still
+$O(n^2)$ time; other linkages, optimal ordering and the cophenetic correlation need $n(n-1)/2$
+doubles and are refused above 2048\,MB (about 23,000 windows). The estimate is always
+\code{None} (unknown): the cost depends on the window count, which the estimator cannot see.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{$k$ clusters from anything.} The cut always yields $k$ groups; read the silhouette.
+\item \emph{Test windows in the clustering.} When the windows carry a split, test windows shape
+  the scaling and the tree. A classifier trained on these labels has seen the test windows'
+  cluster structure. The pool route (\blockref{catalogue.shape_cluster}) avoids this.
+\item \emph{A pool fed directly.} The \code{pool_*} metadata columns of
+  \blockref{preprocessing.window_pool} (recording id, channel, start, length, rate, scale, set id,
+  stretch bounds) are not on the bookkeeping list, so they would be clustered as features; only
+  the text columns are dropped. Other readers refuse a pool (MiniRocket, multiscale entropy); this
+  one does not.
+\item \emph{Chaining} with \texttt{single} or \texttt{average} linkage gives one big cluster and
+  singletons; the code logs it (\code{_check_cluster_imbalance}).
+\item \emph{CNN and RF columns} from \blockref{preprocessing.window_matrix} carry the human labels
+  into the clustering.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_grouping_adapter.py} recovers three obvious synthetic clusters by membership.
+Nothing tests a choice of $k$ or linkage on real windows.
+
+\entryfield{References}
+\citet{ward1963hierarchical}; \citet{rousseeuw1987silhouettes}. Research question 1:
+\code{docs/rq_roundA/RQ1-cluster-vs-manual-labels.md}.
+
+\entryfield{Tests}
+\code{tests/test_grouping_adapter.py}: signature; linkage and $k$ are settings; the readout; three
+clusters recovered; round trip to disk; meta carries silhouette, cophenetic $r$ and feature names;
+an empty set refused. \code{tests/test_all_nan_feature_rows.py}: all-NaN rows left out, $-1$,
+counted. \code{tests/test_correlation_filter_ceiling.py}: the 2000-column ceiling.
+\code{tests/test_adapter_sliding_windows.py} and \code{tests/test_adapter_event_windows.py}: the
+split and the event bookkeeping are not used as features.

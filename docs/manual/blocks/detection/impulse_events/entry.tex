@@ -1,0 +1,77 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.impulse_events -- "Impulse events" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_impulse_events.py} calls \code{impulse_events} in
+\code{Working/Detection/deconvolution/impulses.py}. With scores $z_0,\dots,z_{n-1}$ (at the
+Scores' own rate $f_s$, falling back to the recording's), signal $x$, and the settings converted
+to samples, $m = \operatorname{round}(\text{\emph{merge\_within\_s}}\,f_s)$,
+$p = \operatorname{round}(\text{\emph{pre\_s}}\,f_s)$,
+$C = \max(1, \operatorname{round}(\text{\emph{max\_extent\_s}}\,f_s))$:
+\begin{enumerate}
+\item \emph{Impulses}: the indices with $z_i >$ \emph{threshold} (a NaN never is one).
+\item \emph{Groups}: split the sorted impulses wherever two consecutive ones are at least
+  $\max(m, 1)$ samples apart; each group is one event.
+\item \emph{Onset} $o_k = \max(f_k - 1, 0)$, the sample before the group's first impulse $f_k$.
+\item \emph{Extent}: start $\max(o_k - p, 0)$; end $\min(o_{k+1}, o_k + C, n)$, at least
+  $o_k + 1$. \code{right_capped} is true when the cap set the end.
+\item \emph{Trough}: the sample of largest $|x_i - x_{o_k}|$ from the onset to the end (the
+  onset itself if $x_{o_k}$ is NaN).
+\item \emph{Size}: the NaN-skipping sum of the scores from the group's first impulse to its
+  last, sub-threshold samples between them included.
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Input.} A \texttt{Scores} with one value per sample of the signal (otherwise
+  refused) that is mostly zero with sharp impulses. On a smooth score, every sample above the
+  cut is an impulse and groups become long runs.
+\item \emph{Units.} Not unit-aware: \emph{threshold} is in the score's units. After
+  \blockref{detection.deconvolve} that is noise SDs, so the block is unit-free; after another
+  score it is whatever that score is in. $x$ is used only to place the trough.
+\item \emph{Missing values.} A NaN score is never an impulse and adds nothing to a size.
+  The trough search skips NaN samples of $x$.
+\item \emph{Polarity.} The trough is the largest departure in either direction, so after a
+  drop it is the bottom, after a spike the top; an overshoot larger than the drop would be taken.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet}: span-relative \code{starts}/\code{ends} as above, \code{scores} = each
+event's size. The executor writes it to \code{detections}. \code{meta}: \code{summary},
+\code{events} (per event: \code{onset_idx}, \code{trough_idx}, \code{impulse_idx},
+\code{last_impulse_idx}, \code{n_impulses}, \code{size}, \code{start_idx}, \code{end_idx},
+\code{left_capped} (always false), \code{right_capped}; span-relative), \code{n_events},
+\code{n_capped}, \code{n_impulse_samples}, the four settings and the printed \code{rules}.
+When nothing exceeds the cut the summary names the largest score.
+
+\entryfield{Cost}
+$O(n)$ for the cut, plus a scan of each event's extent for its trough: at most $O(n)$ more,
+since extents end at the next onset (bounded by $C$). No estimate declared.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Overlapping spans.} Consecutive spans overlap by up to $p$ samples by
+  construction; a later block that assumes disjoint spans double-counts that context.
+\item \emph{Extent is not the recovery.} An isolated event runs to \emph{max\_extent\_s}
+  whether or not it has recovered; a closely followed one is cut at the next onset before it
+  has.
+\item \emph{merge\_within\_s too long} fuses two genuine drops into one event whose size is
+  their sum; too short splits a fall spread over several samples.
+\item \emph{A threshold on the wrong scale}: when the upstream block is not Deconvolve, 4.0 may
+  mean nothing in particular.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_adapter_impulse_events.py}: on a synthetic 12\,h, 1\,Hz train of 30 troughs
+with 8 overlapping pairs, Deconvolve then this block finds every onset within 2 samples and
+each pair as two events, while \blockref{detection.signal_threshold} on the same trace merges
+every pair. The real-recording evidence is the template's
+(\code{docs/prompts/blocks/reports/W1-evaluation.md}; see \blockentry{detection.deconvolve}).
+
+\entryfield{References}
+The extent rule is the project's own (module docstring of \code{impulses.py}); it is built
+for the jumps of \citet{friedrich2017fast}.
+
+\entryfield{Tests}
+\code{tests/test_adapter_impulse_events.py} (extent, merging, clipping, trough, empty result,
+core equals adapter, the acceptance case, scale invariance, the overlap rule);
+\code{tests/test_deconvolve_noise_scale.py}; \code{tests/test_template_deconvolved_troughs.py}.

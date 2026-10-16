@@ -1,0 +1,129 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.wavelet_transform -- "Wavelet transform" (Appendix A).
+\entryfield{Algorithm}
+Stage~1 of the three-block \texttt{dehshibi\_spikes} template (defined in
+\code{webui/server/templates.py}, \code{CANONICAL}):
+\begin{center}
+\blockref{preprocessing.wavelet_transform} $\to$ \blockref{detection.wavelet_summation}
+$\to$ \blockref{detection.summation_threshold}.
+\end{center}
+\blockref{detection.dehshibi_spikes} is the same pipeline as one deprecated block.
+
+The block ports the first half of \code{iApplyWavelet.m} from the authors' own MATLAB
+(Zenodo, doi:10.5281/zenodo.3997031), not the printed Eqs.~(2)--(3) of
+\citet{dehshibi2021electrical}. \code{_run} in \code{Adapters/preprocessing_wavelet_transform.py}
+calls \code{transform} in \code{Working/Detection/analysis/dehshibi_authors.py}:
+\begin{enumerate}
+\item \emph{Cut the span into chunks} (\code{chunks_for}). By default, consecutive windows of
+  $w = \mathrm{round}(\texttt{window\_s}\cdot f_s)$ samples (\code{fixed_windows}); a tail
+  shorter than $w/2$ joins the window before it, so the last window can be up to $1.5w$
+  long. With \emph{slice\_by\_state}, \code{split_signal} ports the authors'
+  \code{iSplitSignal}: two state levels are the modes of the lower and upper halves of a
+  100-bin amplitude histogram (\code{state_levels}, MATLAB's \code{statelevels}); a
+  transition counts only when the signal passes from within 2\,\% of one level to within
+  2\,\% of the other (IEEE Std~181, as MATLAB's \code{pulsesep}); the span is cut at the
+  rising crossing of each pulse that is followed by another. Either way every sample lies in
+  exactly one chunk.
+\item \emph{One frequency grid for the whole span} (\code{morse_scales}): the grid MATLAB's
+  default \code{cwt} builds for a signal of $N = \min(w, n)$ samples (or $w$ with
+  \emph{slice\_by\_state}): analytic Morse wavelet with $\gamma = 3$, $\beta = 20$
+  ($\beta\gamma = 60$), ten voices per octave, from the scale whose filter has fallen to half
+  its peak at Nyquist up to the scale whose wavelet is two time-standard-deviations wide over
+  $N$ samples. A 3000-sample window gives 87 rows.
+\item \emph{Transform each chunk of at least 4 samples} (\code{_modulus_rows}): extend it by
+  reflection (half its length on each side up to 100{,}000 samples, otherwise
+  $\lceil\log_2 n\rceil$), take the FFT, multiply by the Morse filter at each scale (positive
+  frequencies only, L1-normalised, peak 2), invert, keep the modulus $|W(s,\tau)|$. One scale
+  at a time; the whole complex matrix never exists.
+\item \emph{Scale each row of the chunk} (\code{_scale_row}, the authors' Eq.~(3)):
+  \[ G(s,\tau) = 1 + \mathrm{fix}\!\left(\eta\,\frac{|W(s,\tau)| - \min_\tau |W(s,\cdot)|}
+     {\max_\tau\bigl(|W(s,\cdot)| - \min_\tau |W(s,\cdot)|\bigr)}\right), \]
+  with $\eta = 240$, so values are whole numbers from 1 to 241; a row with no range is all
+  ones. The minimum and maximum are taken over the chunk, not the span.
+\item Write the rows into a float32 image, \emph{reversed} so that row~0 is the lowest
+  frequency.
+\end{enumerate}
+
+\emph{How it connects.} \blockref{detection.wavelet_summation} sums a band of this image's
+rows into $\Omega(\tau)$. The authors sum the rows whose frequency is at most a quarter of the
+frequency range (\code{low_band_rows}); because an \texttt{Encoding} carries no frequency axis,
+this block reports that band as a fraction of the image height, in its readout and in
+\code{meta["authors_band"]["row_to"]}, and the template passes $\texttt{row\_to} = 0.7586$
+(66 of 87 rows) to the summation.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} The block is not unit-aware, and needs not be: each row is rescaled by its
+  own minimum and maximum, and the Morse filter has no response at zero frequency, so the
+  image does not change if the signal is multiplied by a constant or shifted by one.
+\item \emph{Sampling rate.} \emph{window\_s} is in seconds and converted with $f_s$. The
+  number of rows depends on the window's length in samples, so the same 3000\,s window
+  makes more rows at 10\,Hz than at 1\,Hz (\unverified{about 120}). A window needing more
+  than 128 rows is refused in words (\code{MAX_ROWS}); on the default window that happens at
+  \unverified{roughly 20\,Hz and above}.
+\item \emph{Missing values.} The signal is read with \code{np.asarray(x, dtype=float)} and
+  NaNs are kept. One NaN in a window makes its FFT, and so every value of that window's image,
+  NaN. A chunk shorter than 4 samples is left NaN too. Such windows are counted in
+  \code{meta["n_chunks_skipped"]}; downstream they carry ``no evidence'', not zero.
+\item \emph{Span length.} With fixed windows, a span shorter than one window is transformed
+  as one chunk on its own grid.
+\end{itemize}
+
+\entryfield{Outputs}
+An \texttt{Encoding} of kind \texttt{image}: a float32 array of shape (rows, $n$), one column
+per sample of the span, rows low to high frequency. \code{meta} holds \code{n_chunks},
+\code{n_chunks_skipped}, \code{n_rows}, \code{chunks} (half-open, span-relative),
+\code{freqs_hz} (one per row, ascending) and \code{authors_band} (\code{rows}, \code{row_to}).
+The readout beside the settings (\code{_derive}) shows the number of windows, of frequency
+rows (warned above 128), and the authors' band as a \code{row_to} fraction.
+
+\entryfield{Cost}
+FFT-bound: about $O(R\,n\log w)$ for $R$ rows. The block declares \code{max_span_samples} =
+320{,}000: the image costs $128 \times 4 = 512$ bytes per sample at the row ceiling, plus about
+112 bytes of transient per sample, 624 in all, against the 200\,MB budget the gramian blocks
+use. That is 88.9\,h at 1\,Hz but 8.9\,h at 10\,Hz; \code{Working.execution.execute_recipe}
+refuses a longer span before allocating. The time estimate (\code{_estimate}, cost model
+exponent 1.1) answers nothing until \code{Working.block_cost.calibrate()} has been run on the
+machine.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Every window looks busy.} The per-row, per-window rescaling stretches whatever a
+  window holds to 1--241, so a flat, noisy window paints as brightly as one with events.
+  This is the method's, and it carries into the extrema of $\Omega$ downstream.
+\item \emph{A step at a window boundary.} Neighbouring windows are scaled independently, so
+  the image can change level abruptly at a window edge.
+\item \emph{Mismatched windows across the template.} \emph{window\_s} and
+  \emph{slice\_by\_state} also exist on \blockref{detection.summation_threshold}, which cuts the
+  score into its own windows. The template leaves both at their defaults; change one and not
+  the other and the threshold's windows no longer match the transform's normalisation.
+\item \emph{A stale band.} The template's \code{row_to} of 0.7586 is right only for a
+  3000-sample window. At another rate or window, the summation sums a different band from the
+  authors' unless you copy the fraction this block prints.
+\item \emph{State slicing on the nominal grid.} With \emph{slice\_by\_state}, a piece longer
+  than \emph{window\_s} is transformed on the nominal window's grid, where MATLAB's
+  \code{cwt} would add lower frequencies (fixup-J report, \S10).
+\item \emph{A lost window.} A single NaN blanks a whole window (3000\,s by default).
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_dehshibi_authors.py} holds the core to what the authors' unmodified MATLAB
+returned in MATLAB R2025b on three synthetic recordings with known events
+(\code{tests/fixtures/dehshibi/reference.json}, made by \code{scripts/fixup_j_synthetic.py}):
+the frequency grid to $10^{-9}$, the row sums of the modulus to $10^{-6}$, and the band sum
+$\Omega$ to within one count. \code{tests/test_adapter_wavelet_transform.py} checks the block
+against the same fixture: one column per sample, rows low to high, values whole numbers
+1--241, and the authors' band. A further test checks that the reflection padding stops an
+end-to-start jump from dominating the image. How well the whole template detects spikes is in
+\blockentry{detection.summation_threshold}.
+
+\entryfield{References}
+\citet{dehshibi2021electrical}; the authors' code, Zenodo doi:10.5281/zenodo.3997031. The
+clause-by-clause comparison of the paper, the code and the blocks is
+\code{docs/prompts/fixup/reports/J-dehshibi-vs-the-paper.md}, \S4.
+
+\entryfield{Tests}
+\code{tests/test_adapter_wavelet_transform.py} (types, defaults, the image against MATLAB,
+window-by-window agreement with the core, NaN for a span too short to transform, the span cap,
+refusal of a window needing too many rows); \code{tests/test_dehshibi_authors.py} (the core);
+\code{tests/test_template_dehshibi.py} (the template end to end).

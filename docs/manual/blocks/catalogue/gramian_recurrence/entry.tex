@@ -1,0 +1,61 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.gramian_recurrence -- "Recurrence plot" (Appendix A).
+\entryfield{Algorithm}
+The block wraps \code{compute_recurrence(x, m, tau)} in
+\code{Working/Catalogue/gramian/gramian_calc.py}. For a span $x_0,\dots,x_{n-1}$, embedding
+dimension $m$ and lag $\tau$:
+\begin{enumerate}
+\item \emph{Time-delay embedding}: $n' = n - (m-1)\tau$ vectors
+  \[ \mathbf y_k = (x_k,\; x_{k+\tau},\; \dots,\; x_{k+(m-1)\tau}), \qquad k = 0,\dots,n'-1. \]
+\item \emph{Distances}: $R_{kl} = \lVert \mathbf y_k - \mathbf y_l \rVert_2$, computed with
+  \code{scipy.spatial.distance.cdist(Y, Y)} (Euclidean, its default).
+\end{enumerate}
+This is the \emph{unthresholded} recurrence plot. The classical plot of
+\citet{eckmann1987recurrence} marks $R_{kl} \le \varepsilon$ as a black dot; this block
+applies no threshold $\varepsilon$ and returns the distances themselves. There is no
+rescaling and no piecewise aggregation.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware: the distances are in the recording's stored unit, so the
+  values differ by a factor of 1{,}000 between a span stored in volts and the same span in
+  millivolts. The image's pattern does not change.
+\item \emph{Sampling rate.} $m$ and $\tau$ count samples. At the defaults a vector spans
+  $(m-1)\tau = 8$ samples: 8\,s at 1\,Hz, 0.8\,s at 10\,Hz.
+\item \emph{Missing values.} A NaN sample makes NaN every distance involving any vector that
+  contains it: up to $m$ NaN rows and columns per missing sample. The rest of the image is
+  unaffected.
+\item \emph{Span length.} At most 5{,}000 samples, and more than $(m-1)\tau$ (below).
+\end{itemize}
+
+\entryfield{Outputs}
+An \code{Encoding} with \code{kind="image"}: an $n' \times n'$ float64 array, symmetric, with
+a zero diagonal and non-negative entries. Nothing is added to \code{meta}. The plot hook
+draws all four encodings of the span, with the same $m$ and $\tau$.
+
+\entryfield{Cost}
+$O(n^2 m)$ time and $O(n^2)$ memory, capped by \code{max_span_samples=5000} (about
+200\,MB), enforced by \code{execute_recipe} before the block runs (see
+\blockentry{catalogue.gramian_gasf}).
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{A span of $(m-1)\tau$ samples or fewer} gives no embedding vectors. At exactly
+  $(m-1)\tau$ the result is an empty $0 \times 0$ image; shorter, the slices have unequal
+  lengths and \code{np.column_stack} raises an error.
+\item \emph{Amplitude dominates.} Without rescaling, a large slow swing in the span makes
+  most of the image bright and hides fine structure; detrend first
+  (\blockref{preprocessing.detrend}) if the swing is not of interest.
+\end{itemize}
+
+\entryfield{Validation}
+No test in the repository checks the values of the image; the tests check only the declared
+types and the span limit.
+
+\entryfield{References}
+\citet{eckmann1987recurrence}.
+
+\entryfield{Tests}
+\code{tests/test_t07_adapter_remap.py} checks the declared types and that a span one sample
+over the limit is refused. \code{tests/test_block_standard.py} checks that the block declares
+a cost limit.

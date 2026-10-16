@@ -1,0 +1,133 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.sax_csax -- "Symbolic encoding (cSAX)" (Appendix A).
+% The segmentation arithmetic (segment_plan) and the derive read-out are shared by all three
+% SAX blocks and are set out here once; the pSAX and dSAX entries point back.
+\entryfield{Algorithm}
+\emph{Segmentation (shared by cSAX, pSAX and dSAX).} \code{_run} in
+\code{Adapters/detection_sax_csax.py} first calls \code{segment_plan} in
+\code{Adapters/_sax_common.py}. For a span of $n$ samples at rate $f_s$, the live control
+named by \emph{segment\_mode} gives a requested segment length $r$
+(\code{resolve_samples_per_symbol}):
+\[
+r = \begin{cases}
+\max(1, \operatorname{round}(\text{seconds\_per\_symbol}\cdot f_s)) & \text{seconds\_per\_symbol}\\
+\max(1, \operatorname{round}(\text{samples\_per\_symbol})) & \text{samples\_per\_symbol}\\
+\max(1, \operatorname{round}(n / \text{target\_symbol\_count})) & \text{target\_symbol\_count}\\
+\max(1, \operatorname{round}(1/\text{dim\_ratio})) & \text{dim\_ratio.}
+\end{cases}
+\]
+The number of symbols is $m = \max(1, \lfloor n/r \rfloor)$. The encoder is called with
+$\text{dim\_ratio} = (m + 0.5)/n$, which its own $\lfloor \text{dim\_ratio}\cdot n\rfloor$
+turns back into exactly $m$. The span is trimmed to $n' = n - (n \bmod m)$ samples, and every
+segment holds $s = n'/m = \lfloor n/m \rfloor$ samples (the \emph{achieved} length, which can
+differ from $r$). Symbol $i$ covers samples $[is, (i+1)s)$ of the span; the last
+$n \bmod m$ samples are dropped. In \emph{target\_symbol\_count} mode the count you get is
+$\lfloor n/r\rfloor$, which need not equal the target.
+
+\emph{cSAX proper.} The adapter then calls \code{csax} in
+\code{Working/Detection/sax/csax_python/csax.py} with the whole span as its training set
+(\code{training_len = len(x)}), a port of the authors' code
+\citep{bountrogiannis2022distribution}:
+\begin{enumerate}
+\item Trim to $n'$. If \emph{normalize} is on, subtract the mean and, unless the standard
+  deviation is below $0.001$ (in the stored unit), divide by it.
+\item Take the piecewise aggregate approximation (PAA, \code{ts_paa}): the mean of each of
+  the $m$ segments.
+\item Cluster the $m$ PAA values with Mean-Shift (\code{hg_meanshift_cluster}, Gaussian
+  kernel). The bandwidth is
+  $h = \mu\cdot 0.9686\cdot \min(\mathrm{sd}, \mathrm{IQR}/1.34)\cdot m^{-1/7}$ with
+  multiplier $\mu = 1$. Seed points are drawn from a local generator with the fixed seed
+  \code{KMEANSPP_SEED} $=0$.
+\item If fewer than two clusters come back, halve $\mu$ to $0.5$ and cluster once more.
+\item With $k \geq 2$ sorted centres $c_1<\dots<c_k$, the cutlines are the midpoints
+  $(c_j + c_{j+1})/2$ and the alphabet has $k$ letters. With fewer than two, the block
+  falls back to classic SAX: nine cutlines at the standard normal quantiles $j/10$
+  (\code{normal_cutlines(10)}), ten letters, and \code{details["fallback_used"] = True}.
+\item Quantise (\code{timeseries2symbol}, one window spanning the whole span, no numerosity
+  reduction): the PAA is computed again after a second normalisation of the same window, and
+  each segment's symbol is the number of cutlines at or below its PAA value, counted from 0.
+\end{enumerate}
+Because the data were already trimmed and normalised in step 1, the second normalisation in
+step 6 is the identity up to rounding.
+
+\emph{The read-out (derive).} \code{derive_sax_rows} in \code{Adapters/_sax_common.py} runs
+the same \code{segment_plan} on the span (after the stages before the block, as a run would
+hand it) and returns six rows: \emph{Span}, \emph{Samples per symbol} (achieved),
+\emph{Seconds per symbol}, \emph{Symbols produced} (error below 2, warning below 10 or above
+2000), \emph{Effective dim\_ratio} ($m/n$) and \emph{Samples dropped} (warning above 1\%).
+The bridge serves it from \code{block_readout} in \code{webui/server/readout.py}.
+
+\emph{Span-aware defaults (recommend).} \code{recommend_sax_params} proposes
+$m^\ast = \operatorname{clip}(\operatorname{round}(n/20), 16, 256)$ symbols,
+$r = \max(1, \operatorname{round}(n/m^\ast))$, \emph{seconds\_per\_symbol} $= r/f_s$ and a
+\code{preprocess_window_s} that is not one of this block's settings. The web UI lists the
+hook as declared but does not call it (\code{webui/client/src/analyse/BlockPage.tsx}), so the
+static defaults apply.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware. With \emph{normalize} on, the letters do not depend on
+  the unit, except through the fixed $0.001$ threshold: a span stored in volts whose
+  standard deviation is under 1\,mV is only mean-subtracted, never scaled. With
+  \emph{normalize} off, and in the fallback, the standard normal cutlines are applied to
+  values in the stored unit, which on a millivolt or volt recording puts nearly every
+  segment in one or two middle letters.
+\item \emph{Sampling rate.} Only through \emph{seconds\_per\_symbol}.
+\item \emph{Missing values.} No guard. One NaN makes the mean, and so every normalised value
+  and PAA value, NaN. In the Mean-Shift loop every distance is then NaN, no point is ever in
+  range and the convergence test never succeeds; read from the code, the block
+  \unverified{does not return}.
+\item \emph{Span length.} At least two segments are needed for a string; the read-out flags
+  fewer in red.
+\end{itemize}
+
+\entryfield{Outputs}
+An \code{Encoding} of kind \code{symbolic}: an integer array of $m$ symbols, 0 for the
+lowest level. \code{meta["details"]} holds the segment length and count, the trimmed length
+and \code{n_trimmed}, the PAA and cutlines in the working (normalised) domain and in raw
+units (\code{paa_raw}, \code{cutlines_raw}), the cluster centres
+(\code{representatives}, \code{representatives_raw}), the realised \code{alphabet_size},
+the composed normalisation constants, \code{fallback_used} and the \code{segment_plan};
+\code{meta["encoded_x"]} and \code{meta["encoded_t"]} hold the exact array that was encoded.
+The bridge (\code{_encoding} in \code{webui/server/serialize.py}) sends at most 20{,}000
+symbols, spelt \emph{a, b, c}\ldots, with the cutlines, centres and working-domain PAA; it
+does not send \code{fallback_used}.
+
+\entryfield{Cost}
+PAA is $O(n)$. Each Mean-Shift step measures distances to all $m$ PAA values, and steps
+repeat until every value has been visited, so the clustering grows faster than linearly in
+$m$; no measurement of it exists in the repository and the block has no \code{estimate}
+hook, so the app treats it as free. Memory is $O(n)$.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Silent fallback.} When Mean-Shift finds one cluster (a unimodal or constant
+  span), the result is classic ten-letter SAX, not cSAX. \code{diagnostic_rows} in
+  \code{Adapters/_sax_common.py} would say so in red, but the web UI does not call it; the
+  only visible trace is ``alphabet 10'' in the result's summary.
+\item \emph{Seed-sensitive alphabet.} Mean-Shift's seed points are random. The fixed seed
+  makes every run repeat, but on M2\_aug CH1\_A1 80--84\,h other seeds gave 3 to 6 letters
+  (24 of 32 seeds gave 4), recorded in \code{docs/rq_roundA/RQ4-bands-and-symbols.md}.
+\item \emph{Drift.} Levels are learned from the whole span; a slow drift spreads the PAA
+  values and the letters then track the drift rather than distinct states. Remove the
+  baseline first.
+\item \emph{Too many symbols.} With \emph{samples\_per\_symbol} $=1$ the PAA is the signal
+  itself and Mean-Shift runs on every sample.
+\end{itemize}
+
+\entryfield{Validation}
+No test compares the strings with the authors' MATLAB implementation or with hand-labelled
+levels. The tests check internal consistency: re-quantising \code{details["paa"]} against
+\code{details["cutlines"]} reproduces the string, the raw-unit conversions round-trip, the
+fallback is flagged on a constant input, the read-out agrees with a real run, and the
+encoder gives one string whatever the global random state.
+
+\entryfield{References}
+\citet{lin2003symbolic} for SAX and PAA; \citet{bountrogiannis2022distribution} for cSAX.
+
+\entryfield{Tests}
+\code{tests/test_sax_details.py} (details, re-quantisation, fallback, trimming);
+\code{tests/test_sax_adapters.py} (\code{segment_plan} round trip, the four modes agree, the
+recommend rule, read-out against a run, the diagnostic functions);
+\code{tests/test_sax_determinism.py} (fixed seed, global generator untouched);
+\code{tests/test_t07_adapter_remap.py} (output shape); \code{tests/test_encoding_cache.py}.

@@ -1,0 +1,97 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.event_windows -- "Event windows" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/catalogue_event_windows.py} calls \code{event_windows} in
+\code{Working/Catalogue/event_windows.py}, then the split, all in the span's own (span-relative)
+frame:
+\begin{enumerate}
+\item \emph{Length.} length\_s $> 0$ is used as given. length\_s $= 0$ (\code{auto_length_s}):
+  $\ell = \min\!\big(7200, \max(60, 10\lceil 2\tilde d/10\rceil)\big)$ seconds, where $\tilde d$ is
+  the median of Event shape's \code{duration_s} (onset to half recovery), an unmeasured (NaN)
+  duration counting as longer than every finite one; when more than half are NaN the median is
+  infinite and $\ell = 7200$\,s. With no \code{duration_s} column (or none finite) the span lengths
+  $(\text{end}-\text{start})/f_s$ stand in; with no events, 60\,s. The factor 2 is marked in the
+  code as a placeholder. $L = \mathrm{round}(\ell f_s)$ samples, refused below 2.
+\item \emph{Anchor} (\code{_anchors}): the event's \code{onset_idx} (anchor \texttt{onset}),
+  \code{extremum_idx} (\texttt{extremum}) or span start (\texttt{start}), rounded to a sample. A
+  NaN anchor falls back to the span start and is counted; a missing column makes every event fall
+  back, with one note naming Event shape.
+\item \emph{Placement.} Offset $o = \mathrm{round}(\text{pre\_frac}\cdot L)$; window
+  $[\,\text{anchor} - o,\ \text{anchor} - o + L)$. The same $o$ for every window.
+\item \emph{Left out}, in this order, each event once: \code{past_start} (window starts before
+  the span), \code{past_end} (ends after it), \code{too_much_nan} (NaN fraction above
+  max\_nan\_frac, from a cumulative count of \code{np.isnan(x)}). No padding.
+\item Kept windows are sorted by start (stable).
+\item \emph{Split}: \code{assign_split} imported from
+  \code{Adapters/preprocessing_sliding_windows.py}, called with the span-relative starts and the
+  span length, so it is the same blocked-by-time rule (\blockentry{preprocessing.sliding_windows}).
+  \code{_split_leaks} counts windows that share samples with a later window of a different role.
+\item \emph{Features} (\code{window_features}): the SpanSet's feature row of each kept event; every
+  \code{<name>_idx} column becomes \code{<name>_win} = idx $-$ window start, NaN outside
+  $[0, L)$ (never clipped), the original dropped; the SpanSet's scores and labels ride as
+  \code{span_score} and \code{span_label}; then \code{event_index}, \code{anchor_offset},
+  \code{overlaps_next} and \code{split}.
+\item Starts are made channel-absolute by adding $\mathrm{round}(t_0 f_s)$.
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Values are only read to count NaNs; units do not enter. The carried measures
+  keep whatever unit Event shape gave them.
+\item \emph{Sampling rate.} Lengths are in seconds; anchors and \code{_win} columns in samples.
+\item \emph{Missing values.} A window with at most max\_nan\_frac NaN (default 0.1) is kept with
+  its NaNs; the block after decides. \blockref{catalogue.shape_families} fills them by linear
+  interpolation.
+\item \emph{Event shape upstream.} Without it, onset and extremum anchors fall back to span
+  starts, the auto length uses span lengths, and no recovery coverage is reported.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{WindowSet} of length $L$, starts channel-absolute, in time order; features as above.
+\code{event_index}, \code{anchor_offset}, \code{overlaps_next}, \code{split} and
+\code{span_score} are bookkeeping (\code{BOOKKEEPING_COLUMNS}): \blockref{catalogue.cluster} and
+the classifier do not use them as features. \code{meta}: \code{n_events}, \code{n_windows},
+\code{omitted} by reason and \code{omitted_rows} (at most 4096 per reason), \code{n_overlapping},
+\code{n_split_leaks}, \code{length_s}, \code{length}, \code{length_basis}, \code{anchor},
+\code{anchor_used}, \code{anchor_offset}, \code{anchor_fallback}, \code{blocks},
+\code{split_counts}, \code{n_recovery_outside_window} (kept windows whose \code{recovery_idx}
+falls outside them or was never found; a warning above a quarter), \code{n_duration_unmeasured},
+\code{rules} (every rule in words), \code{carried} (the columns usable as features).
+
+\entryfield{Cost}
+One pass over the events and one cumulative sum over the span: $O(n + E)$. Instant.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Recovery cut off.} The auto length covers onset to about half recovery. The code's
+  own note records a critic measuring 35--90\% of the depth still missing at the window's end on
+  synthetic drops with recovery constants of 50--1200\,s. Waveform consumers (window images,
+  MiniRocket, families) see a truncated event.
+\item \emph{Edge events lost.} A long window on a short span leaves out every event near the
+  ends; with a window longer than the span, all are left out, with a note rather than an error.
+\item \emph{Leaks through overlap.} Dense chains of events give overlapping windows; at a block
+  border an overlapping pair can sit on opposite roles. Counted in \code{n_split_leaks}, not
+  refused. The split also inherits the border behaviour of
+  \blockref{preprocessing.sliding_windows}: no buffer between roles.
+\item \emph{Silent fallback.} If Event shape did not run, the ``onset'' anchor is the span start,
+  said once in \code{notes}.
+\end{itemize}
+
+\entryfield{Validation}
+The tests check the geometry on synthetic events with known onsets, including a dense chain on
+AR(1) noise. No test checks the auto length against real recoveries; the code calls the factor 2
+a placeholder.
+
+\entryfield{References}
+\code{docs/research/analysis-blocks-from-literature.md}, section 5 row 7 and section 7.1, as
+cited in the core's docstring.
+
+\entryfield{Tests}
+\code{tests/test_event_windows.py}: every kept window has its onset at exactly
+\code{anchor_offset}; extremum and start anchors; fallback counted; the missing-column note; the
+auto length (doubling, rounding, clamping, Event shape's duration preferred, unmeasured durations
+and the ceiling, non-unit rates); recovery outside counted; edge and NaN omissions; a window
+longer than the span; \code{_idx} to \code{_win}; overlap flags; time order.
+\code{tests/test_adapter_event_windows.py}: channel-absolute starts; the split equals Sliding
+windows' rule for the same starts; random split refused; warnings and meta; cluster, classifier
+and window images accept the output and skip the bookkeeping; step-cache round trip.

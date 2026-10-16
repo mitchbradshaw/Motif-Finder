@@ -1,0 +1,161 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: interrogation.cycle_shapes -- "Cycle shapes" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/interrogation_cycle_shapes.py} checks the optional
+\emph{waveform} side input (a \texttt{Signal} of the chain's length and sampling rate) and
+calls \code{cycle_shapes} in \code{Working/interrogation/cycle_shapes.py}. The method is the
+back half of \citet{colominas2023iterative}'s iterative warping and clustering, written from
+the paper (the authors' MATLAB carries no licence and was not read). Every adaptation is
+argued, with measurements, in that module's docstring; the steps:
+
+\begin{enumerate}
+\item \emph{Event times and sequences.} An event's anchor is its \code{onset_idx} (with
+  \emph{anchor} = \texttt{onset} and the column present) or its span start. Sequences come
+  from \code{train_id} if present (events in no train open no cycle,
+  \code{in_no_train}), else from \code{group}, else the whole span (\code{sequences_of}).
+  An event with a NaN anchor is \code{no_anchor}. Within a sequence, sorted by anchor,
+  cycle $k$ runs from event $k$'s anchor to event $k{+}1$'s; the last event opens none.
+\item \emph{Gaps and splits.} With $\tilde\ell_k$ the median of the 11 cycle lengths around
+  cycle $k$: a cycle longer than \emph{max\_cycle\_s}, or (at 0) than $1.6\,\tilde\ell_k$,
+  is \code{gap_long}; one shorter than \emph{min\_cycle\_s}, or (at 0) than $0.4\,\tilde\ell_k$,
+  or than 8 samples, is \code{too_short}. Both are left out and counted; over 10\,\% gaps in
+  a sequence raises a warning.
+\item \emph{Cut} (\code{prepare_cycle}) from the \emph{waveform} if bound, else from the
+  chain's signal. More than \emph{max\_nan\_frac} NaN: \code{missing_values}; fewer are
+  interpolated. With \emph{cycle\_detrend} = \texttt{chord}, subtract the straight line
+  between the pre-drop levels at the two ends, each the median of the 2\,\% of samples (at
+  least 2) just before that anchor. Zero peak-to-peak: \code{flat}. \code{cycle_amplitude} is
+  the peak-to-peak of the detrended cut.
+\item \emph{Warp}: resample to \emph{n\_points} (256) and z-normalise.
+\item \emph{Refine} (\code{refine}): align every cycle to the pointwise median of the stack by
+  zero-padded cross-correlation, the shift bounded by \emph{max\_shift\_frac} of the cycle;
+  move the anchors by that shift (never more than that fraction from the detector's
+  anchor), re-cut and re-warp. A round is kept only while the SVD entropy (eq.~17 of the
+  paper) falls by more than its own bootstrap SD over 5 resamples; at most \emph{max\_iter}
+  rounds.
+\item \emph{Align} (\code{align_stack}): bounded cross-correlation to the median template,
+  then to the stack's medoid (the cycle with the highest summed correlation to the others);
+  vacated samples take the row's edge value; re-z-normalise. Not the paper's cyclic shifts:
+  a fungal cycle does not wrap round.
+\item \emph{Choose groups} (\code{choose_groups}) on the refined, warped (not aligned) stack.
+  $K = 1$ unless the best two-way split (2-means, 50 starts, on the top 32 principal
+  components) passes all of:
+  \begin{itemize}
+  \item its cluster index (within over total sum of squares) is below that of the same split
+    on every null stack and more than 3 robust SDs below their median; the null stacks are
+    the background pseudo-cycles (step 9), and when there is a background, also per-cycle
+    phase-randomised copies of the real cycles (both must be beaten); when the background
+    fell back, the phase copies alone;
+  \item the cycles projected onto the line through the two centroids are two modes: they
+    split better than uniform samples of the same size (\code{bimodality_test});
+  \item each half has at least \emph{min\_cycles} cycles.
+  \end{itemize}
+  Each group is split again only while its own split passes the same tests at a level
+  scaled by its size \citep{kimes2017statistical}, up to \emph{k\_max} groups, settled by one
+  Lloyd pass. Groups are numbered 1..$K$ by size. SigClust \citep{liu2008statistical},
+  without its background-noise floor, and the Calinski--Harabasz choice are reported but do
+  not decide.
+\item \emph{Change points and order}: a used cycle whose group differs from the previous used
+  cycle's is a change (\code{cycle_change}). The order test counts runs of equal groups
+  against \emph{n\_perm} shuffles of the cycle order: $p = (1 + \#\{\text{shuffles with as few
+  runs}\})/(1 + n_{\text{perm}})$. It tests order, not shape.
+\item \emph{Coherence and its verdict.} SVD entropy (\code{svd_entropy}, eq.~17, and the
+  $\sigma^2$ variant, shown first) of the whole stack and of each group, at three points:
+  fixed-length cuts, after warping, after alignment. The verdict null is \emph{null\_draws}
+  draws of pseudo-cycles cut where no event lies, with lengths drawn from the real cycles,
+  through the same chord, warp, refinement and alignment; a group is judged against the null
+  group of its own entropy rank from the same $K$-means on each draw. A value beats the null
+  when it is below every draw and more than 3 robust SDs (1.4826 MAD, floored at 0.002 of
+  the median) below the draws' median. A group's key is unmarked only when eq.~17 and
+  $\sigma^2$ both beat it; otherwise \texttt{\textasciitilde noise\_like}. If more than half
+  the pseudo-cycles found no free stretch (a chain that fills its span), or the whole stack
+  beats the background but not the phase copies of its own cycles (a background of another
+  colour), every group is \texttt{\textasciitilde untested}.
+\item \emph{Plateau measures} (\code{plateau}), on each warped, chord-detrended cycle after a
+  5-point running median: \code{cycle_floor_frac} is the share of the cycle from the first
+  sample in the lowest \emph{floor\_band} of its range to the last one before the climb's
+  top; \code{cycle_half_recovery_frac} is where (0--1) it first gets half way back from its
+  deepest point to the pre-drop level, NaN if never.
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware: \code{cycle_amplitude} is in the stored unit of the trace
+  the cycles were cut from. Everything else is z-normalised or a fraction. Lengths and
+  shifts are in seconds via $f_s$.
+\item \emph{Signal shape.} Built for chains of drops with a slow climb between them. A
+  detector usually runs on a short-detrended trace that flattens the climb (from a 600\,s
+  rolling-mean trace, synthetic sharkfins read half back at 0.16 of the cycle against 0.69
+  from the raw trace); bind \emph{waveform} to the root signal. An unbound waveform is
+  warned.
+\item \emph{Missing values}: per cycle, as in step 3. The background windows avoid NaN.
+\item \emph{Edges.} Cycles exist only between events, so the stretch before the first event
+  and after the last is never a cycle; it can be background.
+\item \emph{Count.} Under \emph{min\_cycles} usable cycles in a sequence: measures but no
+  group (\code{too_few_cycles}); under twice that: $K = 1$ by construction.
+\item \emph{Seeds.} One \emph{seed} drives every random draw (nulls, $k$-means starts, stack
+  sample).
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet} with the spans and upstream columns unchanged, plus, on the event that
+opens each cycle: \code{cycle_index}, \code{cycle_length_s}, \code{cycle_amplitude},
+\code{cycle_group} ($-1$ = none), \code{cycle_change}, \code{cycle_shift_s},
+\code{cycle_corr}, \code{cycle_floor_frac}, \code{cycle_half_recovery_frac} and
+\code{cycle_omit_reason} (\code{""} when used). Index, group, change, shift, correlation and
+omit reason are bookkeeping columns. With \emph{write\_group}, \code{group} is the group key
+(\code{t<train>:<g>} with several trains, \texttt{-1} for events whose cycle was left out or
+that open none).
+
+\code{meta} (made JSON-safe) carries per-sequence results (counts, omissions, iteration
+history, $K$ and its tests, the order test, a Kendall trend of the floor fraction over time),
+the coherence values and every null draw, the verdicts, \code{exemplar_events} (each group's
+medoid cycle, a member), the \code{cycle_stack} drawing payload, \code{warnings},
+\code{rules} and a summary line.
+
+\entryfield{Cost}
+Superlinear in the number of cycles: the adapter's cost model uses exponent 1.4, measured at
+7.3\,s for 98 cycles and about 55\,s for 400 at the defaults on a loaded machine. Most of it is
+the null: \emph{null\_draws} background stacks each refined and aligned, plus the $K$ nulls
+and \emph{n\_perm} shuffles. The estimate assumes one cycle per 30 minutes of span. The run
+can be cancelled between steps.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Long cycles lost.} The automatic gap rule removes the longest cycles first: true
+  cycles lost at a jitter CV of 0.3 / 0.5 are about 5.5\,\% / 17.5\,\% (module docstring); on
+  rec 3 it left out 21\,\% of cycles (\code{W3-evaluation.md}). A bias against long plateaus.
+\item \emph{Low power for a minority shape.} A random walk at 30\,\% noise with 80/20 or
+  90/10 shape proportions reads $K = 1$ (module docstring).
+\item \emph{Untested, not noise-like.} A chain that fills its span, or sits on a background
+  of a different colour from its quiet margins, gets \texttt{\textasciitilde untested}
+  everywhere; on a drifting background at 30\,\% noise that check raised a false alarm on a
+  real two-shape chain.
+\item \emph{One drifting family.} A steadily changing shape stays one group by design; the
+  drift shows only in the per-cycle measures and the floor-fraction trend.
+\item \emph{The detrended trace.} With \emph{waveform} unbound on a short-detrended chain,
+  floor and half-recovery fractions describe the detrended shape, not the recording's.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_cycle_shapes.py} (40 tests) checks answers on synthetic chains: two shapes
+give two groups with one change at the switch and beat the background on both entropies; a
+lengthening plateau stays one group with its drift in the floor fraction; chain-timed noise on
+a random walk is one group in every seed; Poisson events on coloured noise give one
+noise-like group; the same chain at 1 and 10\,Hz gives the same groups; missed and split
+detections are caught; floor fractions land where expected; a span-filling chain is
+untested, not noise-like. On real recordings (\code{docs/prompts/blocks/reports/W3-evaluation.md})
+the \texttt{chain\_cycles} template beat its background null on all three long chains
+(rec 3, rec 6, rec 542) and shipped; all three gave $K = 1$. The registry description still
+says ``not yet run on a real recording''; that is out of date.
+
+\entryfield{References}
+\citet{colominas2023iterative} (the method's back half); \citet{liu2008statistical}
+(SigClust, reported only); \citet{kimes2017statistical} (the sequential rule for splitting a
+hierarchy). Sources: \code{docs/research/analysis-blocks-primary-sources.md}, section 2.
+
+\entryfield{Tests}
+\code{tests/test_cycle_shapes.py}, \code{tests/test_adapter_cycle_shapes.py} (columns,
+\emph{write\_group}, suffixes, the side input checked and used, JSON meta, the estimate),
+\code{tests/test_template_chain_cycles.py} (the template end to end, with and without the
+waveform bound), \code{tests/test_webui_w3f_ui.py}, \code{tests/test_webui_run_routing.py}.

@@ -1,0 +1,27 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.signal_threshold -- "Signal threshold to spans" (Part I, the blocks chapter).
+\cardfield{What it does}
+Marks every stretch where the signal is above, or below, a level you type.
+
+\cardfield{When to use it}
+When you know the size of the events you want: ``every stretch where the trace falls more
+than 5 millivolts under its baseline''. It is the simplest detector in the app. Put
+\blockref{preprocessing.detrend} in front so the level is measured from the baseline; the
+ready-made template \texttt{signal\_threshold} does that and looks for drops below $-5$\,mV.
+
+\cardfield{What goes in, what comes out}
+In goes a stretch of one channel. Out come the stretches past the level, each scored by how
+far past it they reach.
+
+\cardfield{Settings that matter}
+\emph{threshold} is the level; you can drag it on the trace. \emph{direction}: \texttt{above}
+(the default) keeps stretches over the level, \texttt{below} keeps stretches under it (give a
+negative level for drops), \texttt{either} keeps stretches further from zero than the level on
+either side. \emph{min\_duration\_s} and \emph{merge\_gap\_s} tidy the result: drop very short
+stretches, join ones that are nearly touching.
+
+\cardfield{Watch out for}
+The level is in the unit the recording is \emph{stored} in, not always millivolts. The M2
+recordings are stored in volts, so $-5$\,mV is typed as $-0.005$; on a recording stored in
+millivolts the same $-0.005$ is a thousand-fold smaller cut and catches noise. The default level,
+0 with \texttt{above}, keeps every stretch above zero: always set it.

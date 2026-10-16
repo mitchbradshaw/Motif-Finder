@@ -1,0 +1,190 @@
+% !TEX root = ../main.tex
+\chapter{A first session}\label{ch:first-session}
+This chapter takes one recording from start to finish in about fifteen minutes. You find a
+stretch of one channel in Explore, run a two-block chain over it in Analyse, and judge what
+the chain found in Review. Each step names the control you press. Where the screenshot shows
+a different recording or chain from the one in the steps, the caption says so; the controls
+are the same.
+
+\begin{plainterms}[The plan in one line]
+Find a piece of the recording worth a look, ask the machine to mark every spike in it, then
+go through its marks one by one and say which you agree with. It is the same loop as
+proof-reading a spell-checker's suggestions: the program underlines, you accept or reject.
+\end{plainterms}
+
+\section{Before you start}\label{sec:first-session-before}
+\begin{itemize}
+  \item The app must be running and open in your browser. Someone who runs the project
+    starts it with \code{webui\start.ps1} from the repository; it serves the
+    app at \code{http://127.0.0.1:8765} (\code{CLAUDE.md}, ``Web UI'').
+  \item The left edge of every page is the navigation rail: \ui{Explore}, \ui{Analyse},
+    \ui{Discovery}, \ui{Models}, \ui{Review} and \ui{Library} at the top, \ui{Jobs} and
+    \ui{Settings} at the foot. Across the top of the page a small path strip shows
+    \ui{Explore}, \ui{Analyse}, \ui{Review} and lights the one you are on. Either takes you
+    to a workspace.
+  \item One recording, \code{M4_aug_concat_fs1.mat}, is \emph{held out}: it is kept unseen
+    for the final test of the project, and every page refuses to open it. The header's
+    \ui{M4 held out} chip is a reminder. Pick any other recording.
+  \item A page marked with a dashed \ui{demo data} chip in its header is showing example
+    data on part of the page, not your recording.
+\end{itemize}
+
+\section{Find a span in Explore}\label{sec:first-session-explore}
+\begin{enumerate}
+  \item Press \ui{Explore} in the rail. You land on \apppage{explore.corpus}: a coverage
+    map with one row per channel and one column per time bin, shaded by how many annotations
+    and detections fall in each bin.
+  \item If the recording named at the top left is not the one you want, click its name to
+    open the recordings menu and pick another, or step through recordings with the arrows
+    beside it.
+  \item Click a channel's row on the map to select it. The bar at the bottom names the
+    channel and counts what is on it.
+  \item Press \ui{Open \textit{channel}} at the bottom right (for example \ui{Open CH4\_A2}).
+    Double-clicking a row does the same. You are now on \apppage{explore.signal}.
+\end{enumerate}
+
+\screenshot{pages/explore/explore.corpus--default}{The coverage map of a 16-channel,
+721-hour recording. Darker bins hold more spans. CH4\_A2 is selected, and \ui{Open CH4\_A2}
+at the bottom right opens it.}
+
+The Signal page has three tiers on one time axis. The top tier, \textsf{CHANNEL}, shows the
+whole channel with a blue box on it. The middle tier, \textsf{SPAN}, shows what is inside
+that box at full detail. The bottom tier, \textsf{MOTIF}, shows one selected shape.
+
+\begin{enumerate}[resume]
+  \item Choose your span. Drag the blue box along the top tier, or drag its edges to widen
+    or narrow it. In the middle tier, drag to pan and use the mouse wheel to zoom; the
+    \ui{+} and \ui{−} buttons and the keys \texttt{+} and \texttt{−} zoom too, and
+    \texttt{F} fits the whole channel. A span of an hour or two is a good size for a first
+    chain.
+  \item Read the line \ui{Selected span} in the action row under the tiers. It gives the
+    start, the end and the length of what the middle tier shows. \emph{That} is the span
+    you are about to send.
+  \item Press \ui{Send span to Analyse} (or the key \texttt{a}). A message confirms the span
+    was sent as the chain's source, and the app opens Analyse.
+\end{enumerate}
+
+\screenshot{pages/explore/explore.signal--default}{Explore's Signal page. The blue box on the
+top tier sets the two-hour span drawn in the middle tier; \ui{Send span to Analyse} in the
+bottom row sends exactly that span. This channel carries example data, hence the
+\ui{demo data} chip.}
+
+\begin{watchout}[Save span is not a send]
+\ui{Save span} keeps only the tags and note you typed. \ui{Take span for Review} writes the
+span to the database as your own annotation and puts it in a Review queue. Neither sends the
+span to Analyse; only \ui{Send span to Analyse} does.
+\end{watchout}
+
+\section{Run a chain over it in Analyse}\label{sec:first-session-analyse}
+You arrive on \apppage{analyse.chain}. The toolbar's source chip names your recording,
+channel and span; the \textsf{Source} row draws the raw span. If the page still holds a
+chain from an earlier visit, its blocks are listed under the source; delete them with each
+row's bin icon, or add your blocks around them.
+
+\begin{plainterms}[What the chain will do]
+The first block, \blockref{preprocessing.detrend}, takes away the slow drift of the
+baseline, the way you would level a photo taken on a slope before measuring anything in it.
+The second, \blockref{detection.spike_v1}, then marks every point that stands clearly above
+or below its own neighbourhood: a spike.
+\end{plainterms}
+
+\begin{enumerate}
+  \item On an empty chain, a \ui{Start a chain} card offers \ui{Import a template},
+    \ui{Add the first block}, and an example chain. Press \ui{Add the first block}. (On a
+    chain that already has blocks, press the \ui{+ insert} pill where you want the block.)
+  \item The \ui{Insert a stage} window opens. Its top line says which type of thing the new
+    block must accept here: at the start of a chain, a \term{signal}{Signal}. Type
+    \texttt{baseline} in \ui{search blocks}, or open the \ui{preprocess} tab, and click
+    \ui{Baseline removal}. Blocks that do not fit at this point are greyed, each with the
+    reason.
+  \item Press \ui{+ Insert}. The window closes and the chain gains row \textsf{01 Baseline
+    removal}, marked \ui{new}. Its caption reads its main setting: a 600-second rolling mean
+    is subtracted.
+  \item Press \ui{+ insert · end of chain} below it, search for \texttt{spike}, click
+    \ui{Spike detection (v1)} under the \ui{detect} tab, and press \ui{+ Insert}. Row
+    \textsf{02} appears.
+  \item Press \ui{Run chain} at the top right. Each row fills in as its step finishes:
+    the baseline row draws the signal before (grey) and after (blue); the spike row draws its
+    spans over the signal, one per spike, and counts them, for example ``\textit{n} spans ·
+    mean \textit{t} s · \textit{u} up, \textit{v} down''. The footer gives the run its number and says how many detections it wrote.
+\end{enumerate}
+
+\screenshot{pages/analyse/analyse.chain--2-insert-stage}{The \ui{Insert a stage} window.
+The three pills at the top say what the block before gives and what the block after needs;
+\ui{Fits here} lists the blocks that match, and the rest are greyed with their reason.}
+
+\screenshot{pages/zz_analyse_run/analyse.chain--fixup-h-thumbnails-mp_threshold}{A chain
+after a run (here a baseline removal, a matrix profile and a threshold, not the two blocks
+in the steps). Every row shares the time axis at the bottom; the footer reads
+``8 written to detections'' and offers \ui{→ Pass 8 to Review}.}
+
+\begin{watchout}[If the spike row finds nothing, or far too much]
+Spike detection's threshold, \emph{delta\_mv}, is in millivolts; the block converts it by
+the unit the recording declares. Its default, 1\,mV, is a placeholder chosen for one
+recording's noise (\cref{block:detection.spike_v1}). \unverified{Whether the default finds
+spikes on your span depends on the recording.} To change it, press the row's settings icon
+(the first of the four small icons) to open the block's page, lower \emph{delta\_mv} under
+\ui{Parameters} if it finds nothing or raise it if it fires on noise, and press \ui{Re-run
+from 02}. The readout beside the settings turns amber when the threshold is close to the
+span's own wobble. \ui{full chain} takes you back. If the chain row says ``read as volts'',
+the recording's unit is not declared: declare it in \apppage{settings.datasets}.
+\end{watchout}
+
+The spike detector draws one short stretch around each spike, with the spike's own moment
+marked inside it. Each stretch is one detection, so each is one item to judge in Review.
+
+\section{Judge what it found in Review}\label{sec:first-session-review}
+\begin{enumerate}
+  \item In the chain's footer press \ui{→ Pass \textit{N} to Review}. The app makes a Review
+    queue over the \textit{N} detections the run wrote, names it after the chain and the run
+    number, and opens it on \apppage{review.inspector}. The button stays grey until the run
+    has finished, and greys again if you change the chain without re-running it.
+  \item The page shows one candidate at a time. \ui{Candidate in context} draws the detection
+    as a blue band on the surrounding signal; the \ui{padding} buttons (\ui{±30 s},
+    \ui{±120 s}, \ui{±300 s}) set how much surrounds it. The counter at the top says how many
+    are judged out of how many.
+  \item Give a verdict by pressing its key or its card under \ui{Verdict}:
+    \texttt{I} \ui{interesting}, \texttt{N} \ui{not interesting}, \texttt{A} \ui{artifact}
+    (a recording fault, kept out of training), \texttt{U} \ui{unsure}. \texttt{Space}
+    \ui{skip} moves on without writing anything. With \ui{auto-advance} on, the next
+    candidate opens by itself.
+  \item Made a mistake? \texttt{Ctrl}+\texttt{Z} undoes the last verdict, in the database
+    too. The arrow keys move to the next and previous candidate.
+  \item Work through a dozen or so. The chip \ui{writes adjudications} in the toolbar is
+    the app telling you where your verdicts go: to the human-verdict table, never into the
+    machine's rows (\cref{sec:core-ideas-detections}).
+\end{enumerate}
+
+\screenshot{pages/review/review.inspector--1-candidate (deep link, live detection)}{One
+candidate in Review (from a drop detector's queue, not the spike chain). The candidate is
+the blue band; the verdict cards along the bottom each show their key.}
+
+\begin{watchout}[S is not ``skip'']
+\texttt{S} gives the verdict \ui{seed}, which promotes the candidate to a new exemplar in
+the Library. Use it only for a shape you want to search for again. To pass over a
+candidate, press \texttt{Space}.
+\end{watchout}
+
+\section{Where to go next}\label{sec:first-session-next}
+You have now done the whole loop once. From here:
+\begin{itemize}
+  \item Press \ui{Save template} in Analyse's toolbar to keep your chain. A
+    \term{template}{template} is the chain without the recording and span, ready to apply
+    elsewhere (\cref{ch:analyse}).
+  \item Run the template across many channels, with a check against chance, in Discovery
+    (\cref{ch:discovery}).
+  \item Learn the words this chapter used without stopping to explain them:
+    \cref{ch:core-ideas}.
+  \item Read each page in full: Explore (\cref{ch:explore}), Analyse (\cref{ch:analyse}),
+    Review (\cref{ch:review}).
+\end{itemize}
+
+\begin{underthehood}[What the clicks call]
+\ui{Send span to Analyse}: \code{webui/client/src/explore/SignalPage.tsx}, \code{send},
+which sets the chain's source from the viewport. \ui{Run chain}:
+\code{webui/client/src/analyse/ChainPage.tsx}, \code{run}; the run itself is
+\code{Working/execution.py}, \code{execute_recipe}, which writes a terminal span set as
+detections. \ui{Pass N to Review}: \code{webui/client/src/analyse/sendToReview.ts},
+\code{useSendRunToReview} (\code{POST /api/review/queues}). Verdict keys:
+\code{webui/client/src/review/keys.ts}.
+\end{underthehood}

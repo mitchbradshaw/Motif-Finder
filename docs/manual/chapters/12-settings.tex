@@ -1,0 +1,129 @@
+% !TEX root = ../main.tex
+\chapter{Settings}\label{ch:settings}
+Settings has sixteen pages, listed down its left side. Fourteen are \emph{project} settings: they are
+stored in the project's database and apply to everyone who opens that database. Two, Display and
+Keyboard \& behaviour, are \emph{personal}: they are stored in this browser and change only how the
+site looks and responds to you. The table says what each page holds; the section after it explains
+the two kinds, and the audit log that records every change.
+
+On a project page your edits are a draft until you press \ui{Save}; \ui{Discard} drops them, and
+leaving the page with unsaved edits asks first. A personal page applies each change at once.
+
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.2\linewidth}>{\raggedright\arraybackslash}p{0.22\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}@{}}
+\toprule
+\bfseries Page & \bfseries Applies to & \bfseries What it controls\\
+\midrule\endhead
+\pageanchor{settings.datasets}Datasets & the project; stored in its database & The registered
+\term{recordings}{recording}, grouped by \term{dataset}{dataset}. Per dataset: its identity (display
+name, species, organism id, experiment date, condition, notes), its recording conditions (substrate,
+electrode configuration, start time, time zone, noise floor, temperature, humidity), the unit its
+samples are stored in, and facts read from the data (sampling rate, channels, duration). \ui{Import a
+recording\dots} registers a new file. The \term{held-out}{held-out} lock is set here; turning it off
+needs the recording's name typed exactly. The noise floor is read by the Library's view filter
+(\code{Working/library/view_filter.py}).\\
+\pageanchor{settings.channels-events}Channels \& events & the project; stored in its database &
+Per-channel metadata of one recording (status, ground, noise floor and the like) and its timed
+\emph{event log}: marked moments or spans, each with a kind and an effect, plus your own event
+kinds. Training-window pools read the added and removed events and their effects
+(\code{Working/training/pool.py}).\\
+\pageanchor{settings.vocabulary}Vocabulary & the project; stored in its database & The words a
+person judges with: the five \term{verdicts}{verdict} (fixed) with their keys and how many
+annotations and adjudications use each, the optional \term{classes}{class} for multi-class models,
+and the morphology \term{tags}{tag} for Library entries. Tags can be added, renamed and merged.\\
+\pageanchor{settings.nulls}Nulls & the project; stored in its database & Which
+\term{null}{null} each kind of analysis uses (the method, from those the surrogate block offers, and
+how many draws), the significance level, the correction for many channels, the block length of a
+block shuffle, and whether null draws count toward the local time limits. Seed searches and an
+Analyse run with its null switched on read the method and draws
+(\code{Working/discovery/seeded_search.py}, \code{null_from_settings}).\\
+\pageanchor{settings.analysis-defaults}Analysis defaults & the project; stored in its database &
+The rule for when two events are the same (overlap and onset tolerance, read by
+\code{Working/discovery/matching.py}), window-label containment, the seed-search scale bank and
+exclusion zone, the cross-channel classification thresholds (\code{Working/cross_channel.py}), the
+frequency bands a fan-out over bands uses (\code{Working/run_groups.py}), the reference for the
+Library's rose plot, and the artifact flags shown in Review. It also shows the step cache's size and
+can clear it.\\
+\pageanchor{settings.compute-hpc}Compute \& HPC & the project; stored in its database & This
+machine (detected cores and memory, how many local jobs run at once), the \emph{local limit} per
+workspace above which work is written as a cluster job instead of run here, the cluster profiles
+and the script preview, and how often to remind you about a running cluster job. The Analyse and
+Discovery limits are read by the bridge and the core (\code{webui/server/chain.py},
+\code{Working/discovery/fanout.py}); \unverified{no code reading the cluster profiles was found:
+the job writers use the constants in \code{Working/config.py}}.\\
+\pageanchor{settings.blocks}Blocks & the project; stored in its database & Every registered
+\term{block}{block}, read from \code{Adapters/} when the bridge starts: its types, whether it is
+known to be broken, and which templates use it. Each has an on/off switch;
+\unverified{no code outside the Settings pages was found that reads the switch}.\\
+\pageanchor{settings.review-queues}Review queues & the project; stored in its database & Defaults
+for new \term{review queues}{review-queue} by source (order, cap, blind or not), batch verdicts on
+clusters (cohesion limit, largest batch, undo), and promotion of a seed to the Library.
+\unverified{Which of these the queue builder reads was not traced.}\\
+\pageanchor{settings.models-registration}Models \& registration & the project; stored in its
+database & Defaults for new training jobs: the evaluation split (test portion,
+\term{blocked split}{blocked-split}, gap), label arms, repeats with different seeds, early
+stopping, calibration, and the checks a \term{model}{model} must pass to be registered. Lists the
+registered models. \unverified{Which defaults the training code reads was not traced.}\\
+\pageanchor{settings.library-groupings}Library groupings & the project; stored in its database &
+Defaults for new \term{groupings}{grouping}: the unit and basis, when a motif is omitted, when
+events form one sequence, the feature bases, and whether hand edits are re-applied after a regroup.
+\unverified{Which defaults the grouping engine reads was not traced.}\\
+\pageanchor{settings.storage-backups}Storage \& backups & the project; stored in its database &
+The folders the app reads and writes, each with a \ui{scan} that finds files to register
+(\cref{sec:extending-data}); the naming convention for files stages write; database backups
+(where, how many to keep, \ui{Back up now}, restore); and the free-space warning.\\
+\pageanchor{settings.export}Export & the project; stored in its database & What an export carries:
+the fields every export includes, the formats and contents for motifs and families, window sets,
+templates, models and run reports, and the reproducibility bundle.\\
+\pageanchor{settings.audit-log}Audit log & the project; read only & Every recorded change, newest
+first, filterable by kind, with a link to where it happened and a CSV download. See below.\\
+\pageanchor{settings.about}About & the project; read only & What this installation runs: the
+code version, database schema, number of blocks and known-broken ones, the Python packages, the
+mode (sandbox or project) and the database path, with a button that copies these as diagnostics.\\
+\pageanchor{settings.display}Display & this browser only & Theme and density, how times,
+amplitudes and sample indices are written, colours for roles and families, how many items a view
+shows per page, and the figure profile run reports and figure exports use.\\
+\pageanchor{settings.keyboard}Keyboard \& behaviour & this browser only & The keyboard shortcuts,
+each rebindable (a clash with another key is shown), and how adjudication behaves in Review. The
+verdict and class keys are part of the vocabulary and are set on Vocabulary.\\
+\bottomrule
+\end{longtable}
+
+\screenshot{pages/settings/settings.datasets--default}{Settings opens on Datasets. The left rail
+groups the fourteen project pages above the two personal ones.}
+
+\section{Project and personal settings}\label{sec:settings-scopes}
+\begin{plainterms}[Two kinds of setting]
+Think of a shared lab notebook and your own desk. What is written in the notebook (which recordings
+exist, what a verdict means, how long a run may take on the laptop) is the same for everyone who
+opens it. How you arrange your desk (light or dark, which key does what) is yours alone.
+\end{plainterms}
+
+A \textbf{project} setting is a row of the \code{settings} table (\code{page}, \code{key}, a value
+as JSON, when, by whom), read with \code{GET /api/settings/{page}} and saved with
+\code{PUT /api/settings/{page}} (\code{webui/server/registration.py}). It lives in the project's
+database, so it travels with that database and applies to every page and every person using it.
+The six identity fields of a dataset are the exception: they are stored in the \code{datasets}
+table, keyed by source file. A setting reaches a run only through the code that reads it: the
+local limit decides where a run goes, the null settings decide which null a run carries, the
+matching rule decides which detections count as the same event. The app does not store a copy of
+every setting with every run; \unverified{whether a given result records the setting values it used
+depends on the code that produced it}, and \cref{sec:architecture-reproducibility} says what a run
+does record.
+
+In the bridge's sandbox mode (\cref{sec:architecture-sandbox}) a save writes to the sandbox's copy
+of the database, so it is gone when the sandbox is.
+
+A \textbf{personal} setting never reaches the server. Display and Keyboard \& behaviour are kept in
+this browser's \code{localStorage} (\code{webui/client/src/settings/store.ts}), so they differ
+between browsers and between people, and a private window starts from the defaults.
+
+\section{The audit log}\label{sec:settings-audit}
+Every project save appends an entry to the audit log naming the page and each changed value, old
+and new. So do turning the held-out lock off, registering or unregistering a file, declaring a
+recording's unit, backups, and Library changes such as hand edits. The \code{audit_log} table
+(\code{Working/database/schema.py}) is append-only: nothing in the code updates or deletes a row.
+The Audit log page reads it through \code{GET /api/audit}, filters it by kind, links each entry to
+the page it came from, and downloads it as CSV (\code{GET /api/audit.csv}).
+
+\screenshot{pages/settings/settings.audit-log--all}{The audit log, newest first. Each entry says
+what changed, where, and links back to that page.}

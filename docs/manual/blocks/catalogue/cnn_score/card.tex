@@ -1,0 +1,26 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.cnn_score -- "Model stage (CNN)" (Part I, the blocks chapter).
+\cardfield{What it does}
+Shows each window's picture to a trained image network and writes down how sure the network
+is that the window is ``interesting'', laid back onto the recording's time line.
+
+\cardfield{When to use it}
+After \blockref{catalogue.window_images}, when you want the networks trained on the earlier
+hand-sorted windows to flag candidates. Feed its scores to \blockref{detection.threshold} to
+turn ``sure enough'' into marked stretches.
+
+\cardfield{What goes in, what comes out}
+In go the stack of window pictures and, as a second input, the windows they were cut from.
+Out comes a score between 0 and 1 for every sample: the score of the window that covers it,
+and blank where no window does.
+
+\cardfield{Settings that matter}
+\emph{model\_path} is the trained network: pick it from Settings, and make sure it was
+trained on the same kind of picture the stack holds. \emph{img\_size} must match the
+network's input (224). \emph{batch\_size} only trades memory for speed.
+
+\cardfield{Watch out for}
+The default network, \code{fusion_cnn.pth}, has only one output, so it scores every window
+1.0 whatever it sees. Choose \code{fusion_cnn_2.pth} or \code{fusion_cnn_3.pth} for fusion
+pictures. The networks' training data was never recorded and was very likely the same
+hand-sorted windows you are looking at, so a high score on those windows proves little.

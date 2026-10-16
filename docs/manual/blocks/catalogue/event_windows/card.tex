@@ -1,0 +1,37 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.event_windows -- "Event windows" (Part I, the blocks chapter).
+\cardfield{What it does}
+Cuts one window of fixed length around every event a detector found, lined up so the event
+starts at the same point in every window.
+
+\cardfield{When to use it}
+After a detector (and ideally \blockref{interrogation.event_shape}), when you want the window
+blocks (clustering, the classifier, window images, \blockref{catalogue.shape_families}) to work
+on the events themselves instead of on a regular grid of windows.
+
+\begin{plainterms}[Lining windows up on events]
+Think of photographing runners at a finish line: each photo is taken a fixed moment before the
+runner crosses, so in every photo the runner is in the same place. Here each event is the
+runner. By default a fifth of the window comes before the event's onset and four fifths after,
+so the onset sits at the same column in every window and the shapes can be laid over each
+other.
+\end{plainterms}
+
+\cardfield{What goes in, what comes out}
+In go the events (a span set). Out come windows, one per event that fits, each carrying the
+event's measures (amplitude, width, recovery, if Event shape measured them) and a train,
+validation or test role from a blocked split, as \blockref{preprocessing.sliding_windows}
+makes it.
+
+\cardfield{Settings that matter}
+\emph{length\_s} is the window length in seconds. Left at 0 it is chosen for you: twice the
+typical event duration, between one minute and two hours. That holds the onset, the trough and
+about half the recovery, not the return to baseline; set it yourself when the whole recovery
+matters. \emph{anchor} picks what is lined up: the onset, the extremum, or the span's start.
+\emph{pre\_frac} is the share of the window before the anchor.
+
+\cardfield{Watch out for}
+Events too close to the start or end of the span to fit a whole window are left out, not
+padded, and counted. Events closer together than one window give overlapping windows; when two
+overlapping windows have different roles, that is a leak, counted on the block's page but not
+refused.

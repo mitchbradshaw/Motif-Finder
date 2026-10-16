@@ -1,0 +1,178 @@
+% !TEX root = ../main.tex
+\chapter{Extending the app}\label{ch:extending}
+This chapter condenses the two guides a researcher follows to add to the app,
+\code{docs/BLOCK_INTEGRATION.md} and \code{docs/DATA_REGISTRATION.md}, and ends with how to keep
+this manual in step with the code. Where this chapter and those guides differ, the guides and the
+tests they name are the authority.
+
+\section{Adding a block}\label{sec:extending-block}
+\subsection{The contract}
+A \term{block}{block} is one \code{AdapterSpec} (\code{Adapters/base.py}) registered from one file,
+\code{Adapters/<stage>_<name>.py}, by calling \code{register} (\code{Adapters/registry.py}). The
+spec is the whole contract: the executor, the bridge, the pages and the cluster job writer read the
+spec and never the function it wraps. Its fields:
+
+\begin{description}
+\item[Identity] \code{name} (\code{"<stage>.<short_name>"}, with the stage one of
+  \code{Working.recipes.STAGES}: preprocessing, detection, catalogue, comparison, interrogation),
+  \code{display_name}, \code{page_name} (what pages call it), \code{category} (its tab in the
+  Insert-a-stage window: preprocess, encode, detect, cluster, model or control; an unknown one is an
+  error at import), and \code{description}, one paragraph a newcomer can act on.
+\item[Types] exactly one \code{input_kind} and one \code{output_kind}, each one of the seven
+  interchange types in \code{Working/types/}: \code{signal}, \code{scores}, \code{spanset},
+  \code{windowset}, \code{encoding}, \code{grouping}, \code{model}. A block at the start of a chain
+  takes \code{signal}; \code{None} is refused at registration.
+\item[Settings] a list of \code{ParamSpec}s, each typed (int, float, str or bool), bounded
+  (\code{min}, \code{max} or \code{choices}) and with a default. \code{validate_params} fills
+  defaults before the recipe is hashed, so typing a default and leaving it out give the same hash
+  (\cref{sec:architecture-reproducibility}).
+\item[\code{run}] \code{run(x, t, fs, **params, ...)} receives the chain's current signal, its
+  absolute time axis and the sampling rate. A block whose input is not a signal also receives the
+  previous step's typed output as \code{value}; each declared \term{side input}{side-input} arrives
+  under its own name. It returns \code{AdapterResult(output_kind, value=..., meta={...})}:
+  \code{value} is the only payload, and anything a page wants besides goes in \code{meta}.
+\end{description}
+
+Optional hooks, each read off the spec: \code{side_inputs} (a second typed input: an earlier step,
+the root signal or a Library exemplar); \code{estimate} (seconds for this span, or \code{None} when
+not calibrated here); \code{max_span_samples} (refuse a longer span before allocating);
+\code{recommend} (defaults that depend on the span); \code{derive} (read-only numbers shown beside
+the settings); \code{persist} (write the output to disk and register it as an \code{artifacts} row,
+so a headless or cluster run produces a browsable result); and \code{known_broken} (registered, but
+cannot run here, with the reason). Two keywords on \code{run} itself change how the executor treats
+the block: \code{conn} and \code{recording} make it read the live database, so it and every later
+step bypass the step cache; \code{units} makes it receive the recording's declared unit, for a block
+that prints millivolts (convert with \code{Working.units.read_as_mv}, never a bare factor of 1000;
+\cref{sec:architecture-units}).
+
+\begin{watchout}[Index conventions]
+\code{x} is the span, so index 0 is the span's first sample. A span set a block emits is
+span-relative, and the executor adds the span's start when it writes \code{detections}. A window
+set is channel-absolute: its producer adds \code{t[0] * fs}, and a consumer that slices \code{x}
+subtracts it. A block that mixes the two draws every window in the wrong place and raises nothing.
+\end{watchout}
+
+\subsection{The drawing standard}
+A block needs no drawing code of its own. Its picture follows from its types: the \emph{output} type
+picks one of seven views, and the \emph{input-to-output} conversion picks a modifier that adds the
+evidence (for example, a \code{scores->spanset} block gets its cut drawn on the score curve,
+draggable, if it has a float setting named \code{threshold}). The table is
+\code{webui/server/views.py}; the client holds one component per view in
+\code{webui/client/src/analyse/views/registry.tsx}; every value is serialised through
+\code{to_payload} in \code{webui/server/serialize.py}. No view is ever chosen by a block's name. A
+block with a conversion no other block has still draws its output type's view, but
+\code{tests/test_block_standard.py} fails until a row is added to \code{views.py} and
+\code{registry.tsx}. Other conventions a view reads (named \code{meta} keys such as \code{events},
+\code{rules}, \code{layers}) are listed in \code{docs/BLOCK_INTEGRATION.md} \S2. The drawing rules
+hold for every view: never interpolate, decimate by a minimum--maximum envelope and say so, grey for
+no data, and select by sample range, never by window index.
+
+\subsection{Cost}
+A block that is not cheap in proportion to the span declares \code{estimate}, returning seconds for
+this span or \code{None} when it is not calibrated on this machine, never a guessed constant.
+Calibration is per machine: \code{Working/Detection/matrix_profiling/cost.py} and
+\code{Working/Preprocessing/window_matrix/cost.py} for the two big ones, and
+\code{Working/block_cost.py} for the rest (\code{register_cost_model(name, exponent, run_once)} next
+to the spec makes \code{estimate} one line). A block whose cost depends on windows rather than span
+length returns \code{None} with that reason, and the chain page then reports the route as unknown.
+The estimate is what routes a run to the cluster (\cref{sec:architecture-long-work}). Add a costed
+block to \code{COSTED} in \code{tests/test_block_standard.py}.
+
+\subsection{Templates}
+A \term{template}{template} is a named, versioned chain, a row of the \code{templates} table. Its
+kind follows from the chain's last output type: detection, encoding, training, or interrogation for
+a chain ending in an interrogation block. The canonical templates ship as code in
+\code{webui/server/templates.py} (\code{CANONICAL}) and are seeded into the table on first start by
+\code{seed_canonical}, never overwriting. A multi-stage detector is a template of single-stage
+blocks, not one big block, so that each stage can be inspected, swapped and swept: the Dehshibi
+detector is \blockref{preprocessing.wavelet_transform} then \blockref{detection.wavelet_summation}
+then \blockref{detection.summation_threshold}.
+
+\subsection{The checklist}
+\begin{enumerate}
+\item Write \code{Adapters/<stage>_<name>.py}: wrap the core function, declare types, settings,
+  category, page name and cost, put what a page might want in \code{meta}. No UI imports
+  (\cref{sec:architecture-halves}).
+\item The file registers itself on import; \code{discover_adapters()} finds it.
+\item Test it in \code{tests/test_adapter_<name>.py}: types and category, defaults and bounds, one
+  run on a synthetic signal, the error when the typed input is missing. A new output shape needs a
+  case in \code{tests/test_webui_serialize.py}; a block in a template needs that template run end to
+  end through \code{execute_recipe}.
+\item Add its glyph to \code{BY_NAME} in \code{webui/client/src/analyse/glyphs.tsx}.
+\item Add a smoke state for its block page to \code{webui/smoke_pages/zz_analyse_run.json}.
+\item Run the gate: \code{pytest}, \code{npx tsc -b} and \code{npm run build} in
+  \code{webui/client}, and \code{webui/smoke.py} against a running bridge.
+\item Document it: run \code{python scripts/manual_tables.py} (the conda Python, from the repository
+  root). It adds the block to \code{docs/manual/generated/} and writes stub files
+  \code{docs/manual/blocks/<stage>/<short>/card.tex} and \code{entry.tex}. Write the card (plain
+  words, for \cref{ch:blocks}) and the entry (exact, for \cref{app:blocks}), following
+  \code{docs/manual/AUTHORING.md} and the worked example \blockref{detection.spike_v1}.
+\end{enumerate}
+Before adding a block, look for one that already does it. Reuse when the meaning matches, not just
+the types, and say in the new block's docstring why an existing one would not do.
+
+\section{Adding a kind of data}\label{sec:extending-data}
+Nothing on disk is reachable from the app until it is registered. Registration is the same four
+verbs for every kind of data (\code{Working/registration/}, routes in
+\code{webui/server/registration.py}):
+
+\begin{description}
+\item[scan] walks the kind's usual folders and lists every candidate, registered or not, with what
+  can be read without loading bulk data (\code{GET /api/registry/{kind}});
+\item[check] runs the kind's checks against the file and the database, and never raises: a broken
+  file is a failed check that says why (\code{POST /api/registry/{kind}/check});
+\item[register] refuses unless every check passes, then writes the row, writes the sidecar manifest
+  (\cref{app:data}) and adds an audit entry (\code{POST /api/registry/{kind}/register});
+\item[unregister] sets \code{active = 0}; the row and everything that points to it stay
+  (\code{DELETE /api/registry/{kind}/{id}}).
+\end{description}
+Every kind also gets three common checks: the file exists, it is not already registered, and its
+hash. Recordings are imported from Settings \textrightarrow{} Datasets (\apppage{settings.datasets}),
+models from Settings \textrightarrow{} Models \& registration, and every other kind from a folder's
+\ui{scan} on Settings \textrightarrow{} Storage \& backups (\apppage{settings.storage-backups}).
+
+To add a new kind:
+\begin{enumerate}
+\item Decide its convention (folder, file naming, the manifest fields its producer writes) and add
+  it to the kinds table in \code{docs/DATA_REGISTRATION.md}.
+\item Add one \code{KindSpec} to the \code{KINDS} dictionary in \code{Working/registration/kinds.py}.
+  For a kind stored in \code{registered_artifacts}, the helper \code{_art_kind} fills most fields;
+  you write a scan function (facts from headers only) and a check function, which binds the
+  recording by content (source file and channel, never a stored row id) with
+  \code{_bind_recording}.
+\item Test it: scan on a temporary tree, a broken file fails the right check, registering writes the
+  right row and sidecar.
+\item To offer a \ui{scan} button on Storage \& backups, add a root to \code{get_storage} in
+  \code{webui/server/registration.py} and its kind to \code{KIND_OF} in
+  \code{webui/client/src/settings/StoragePage.tsx}.
+\item Make the producer (a cluster script, a pipeline) write the fields the checks read.
+\end{enumerate}
+
+\section{Keeping this manual true}\label{sec:extending-manual}
+The manual lives in \code{docs/manual/}, next to the code. Two kinds of content keep it in step.
+
+\begin{description}
+\item[Generated] The list of blocks, each block's metadata (names, types, code path, side inputs,
+  behaviour flags, the registry's own description) and its settings table come from the adapter
+  registry. \code{scripts/manual_tables.py} writes them into \code{docs/manual/generated/}, and
+  creates card and entry stubs for any new block; it never overwrites hand-written text. Never edit
+  \code{generated/} by hand.
+\item[Hand-written] Everything else, including each block's card and entry.
+\end{description}
+
+Three commands, all run with the conda Python from the repository root:
+\begin{itemize}
+\item \code{python scripts/manual_tables.py} after a block is added, removed or changes its
+  settings;
+\item \code{python scripts/manual_tables.py --check} writes nothing and fails if a generated file is
+  stale, a block has no card or entry, or a hand-written folder names a block that no longer exists;
+\item \code{python scripts/manual_check.py chapter <file>} or
+  \code{... blocks <registry names>}, each with \code{--outdir <folder>}, builds one slice of the book
+  and reports LaTeX errors without building the whole thing.
+\end{itemize}
+
+When a page is added to the app (\code{webui/client/src/shell/pages.ts}), give it a
+\code{\pagesection} with the same id in its workspace's chapter. The rules for writing,
+above all ``read the code before you write about it'' and ``never guess'', are in
+\code{docs/manual/AUTHORING.md}. A passage not yet written is marked as such, a claim not yet checked
+is marked unverified, and the title page counts both.

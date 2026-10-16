@@ -1,0 +1,189 @@
+% !TEX root = ../main.tex
+\chapter{Jobs and long runs}\label{ch:jobs}
+Most chains finish in seconds. Some take minutes, and a few would take hours or days on a laptop.
+The app handles long work in three ways. Work that fits runs here, on the machine serving the site,
+as a \term{job}{job} you can watch. Work too long for this machine is written as a job for the
+university's computing cluster, which you send and bring back yourself. And work that waits for a
+person, such as a queue of detections to judge, waits in Review. The Jobs page shows all three in
+one place.
+
+\begin{plainterms}[Here, the cluster, and review]
+Think of a kitchen. Some dishes cook on the hob while you watch. A big roast goes to the baker's
+oven down the road: you write out the instructions, carry the tray there, and collect it later.
+And some plates wait at the pass for someone to taste them. Jobs is the board on the kitchen wall
+that lists all three.
+\end{plainterms}
+
+\pagesection{jobs.all}{All jobs}{In progress here, waiting on the cluster, waiting in review}{live}
+One page, with three boards stacked in the order you wait on them: \emph{In progress here},
+\emph{Waiting on the cluster}, and \emph{Waiting in review}, plus the \ui{Manifest inbox} in a drawer.
+Every row comes from the bridge; nothing on the page is example data. The boards re-read
+themselves every few seconds while the tab is visible, faster while something is running.
+
+\pagefield{When you'd come here}
+\begin{itemize}
+\item A training run, a window set, a tree or an import is running and you want to see how far it
+  has got, or why it failed.
+\item You wrote a job for the cluster and want to know what to copy, or its results are back and
+  need importing.
+\item You want to know how much is left to judge in Review.
+\end{itemize}
+
+\screenshot{pages/jobs/jobs.all--default}{The Jobs page. The chips under the title count what is in
+progress here, waiting on the cluster, back to import, and left to judge; each chip scrolls to its
+board.}
+
+\pagefield{Doing things here}
+
+\subsection{Watch work running on this machine}\label{sec:jobs-local}
+The first board, \emph{In progress here · this bridge's jobs}, lists the bridge's own jobs: chain
+runs, model training, window sets and trees, blind-queue work, sweeps and imports. Running jobs come
+first, then the newest.
+\begin{enumerate}
+\item Read each row: its id, what it is doing (the stage), its state with a progress bar when the
+  job reports a fraction, when it started, the estimate (for a chain run, from each block's own
+  estimator), and how long it took.
+\item Narrow the list with the two switches at the right of the board: by state (\ui{all},
+  \ui{in progress}, \ui{failed}, \ui{finished}) and by kind.
+\item Click a row to open it. A failed job shows its error and the full traceback.
+\item Press \ui{Cancel} to stop a running job. A chain run has no \ui{Cancel} here; stop it from its
+  own page in Analyse. A job stops at the next point where it checks, not mid-calculation.
+\item Press the link at the end of a row to open its result in the workspace that reads it.
+\item Press \ui{show older jobs} to list more than the first six.
+\end{enumerate}
+
+\screenshot{pages/zzzzzzzzz_aj_jobs/jobs.all--fixup-aj-running-here-is-the-bridges-own-job-table}{In
+progress here: the bridge's own job table, with state, stage and timing for each job.}
+
+\subsection{Send a job to the cluster}\label{sec:jobs-cluster}
+The second board, \emph{Waiting on the cluster · scripts the site wrote}, lists every job the site
+has written for the cluster. The site does not write them here; you write one from the page whose
+work it is (\cref{sec:jobs-sending}). Then:
+\begin{enumerate}
+\item Click the job's row. It lists \emph{what to copy to the cluster}, with each file's size and
+  its path relative to the repository, and the command to run there, from the repository root, such
+  as \code{sbatch HPC/Training/generated/<job>/<job>.sh}.
+\item Copy those files to the same paths in your copy of the repository on the cluster, and run
+  the command. The site never logs in to the cluster or submits anything itself.
+\item Wait. The row says \emph{written · waiting for results}. A seed search that has sent back a
+  checkpoint says \emph{running on the cluster · checkpoint back}, with how many channels are done.
+\item When the job has finished, copy its results back to the place the row names: a job folder's
+  \code{out/} folder, or a seed search's result file. Press \ui{Look again}; the row now says
+  \emph{results back · not imported}.
+\item Press \ui{Import results} (or \ui{Import result} for a seed search). The results are checked
+  before anything is stored. The row then says \emph{results imported}, with the run, and its link
+  opens it; or \emph{import refused}, with the reason.
+\end{enumerate}
+A row whose results cannot come back through the site (Discovery's chain export, Models' paired
+training) says so instead of offering an import.
+
+\screenshot{pages/jobs/jobs.all--cluster-row-opened}{An opened cluster row: what to copy, how big it
+is, and the sbatch command to run on the cluster.}
+
+\subsection{Import a returned job folder}\label{sec:jobs-inbox}
+\begin{enumerate}
+\item Press \ui{Manifest inbox · import results} at the top of the page. A drawer opens.
+\item Type the path of the job folder the results were copied back into, or press \ui{use this
+  folder} beside one the site already sees as back.
+\item Press \ui{Import}. The drawer follows the import and says \emph{Results imported},
+  \emph{Already imported}, or \emph{Import refused — nothing was recorded} with the reason.
+\item When it is imported, press the button that opens the result in Models \textrightarrow{}
+  Results or in Analyse.
+\end{enumerate}
+The drawer also lists recent import attempts. A seed search's result is a file, not a folder: import
+it from its row on the board.
+
+\screenshot{pages/zzzzzzzzz_aj_jobs/jobs.all--fixup-aj-the-manifest-inbox-refuses-a-folder-with-the-reason}{The
+Manifest inbox refuses a folder whose results do not match the job it was written as, and says
+why. Nothing is stored.}
+
+\subsection{See what waits in review}\label{sec:jobs-review}
+The third board, \emph{Waiting in review · open queues}, lists every open
+\term{review queue}{review-queue}: what it judges, how many are judged out of how many, how many are
+left, and the pace so far with a time left. Press \ui{Judge} to open the queue in Review
+(\apppage{review.inspector}), or \ui{Open Review} for the workspace.
+
+\begin{watchout}[A job written but not sent is not running]
+``Waiting on the cluster'' means the site wrote the job. It does not know whether you sent it. A
+row stays \emph{written} until results appear where it expects them.
+\end{watchout}
+
+\pagefield{Where it leads}
+A finished local job links to its result: Analyse for a chain or a tree, Models for training
+(\apppage{models.results}). An imported cluster job opens in Models \textrightarrow{} Results,
+Analyse or Discovery (\apppage{discovery.seed}), depending on what wrote it. A review queue opens in
+Review (\apppage{review.inspector}).
+
+\begin{underthehood}[Jobs page]
+Client: \code{webui/client/src/jobs/AllPage.tsx} and \code{LiveJobs.tsx}, reading through
+\code{webui/client/src/api/jobs.ts}. Local jobs: \code{GET /api/jobs}
+(\code{webui/server/jobs.py}, \code{JobManager.list_jobs}), cancel \code{POST
+/api/jobs/{id}/cancel}. Cluster jobs: \code{GET /api/hpc/cluster}
+(\code{webui/server/jobs_routes.py}), which joins the job folders
+(\code{Working.hpc.job_export.list_exported_jobs}), Discovery's seed searches sent to the cluster,
+and the flat recipe-and-script pairs. Inbox: \code{POST /api/hpc/inbox/import} starts a local job of
+kind \code{import} that calls \code{Working.training.hpc_import.import_results}; \code{GET
+/api/hpc/inbox} lists the attempts. Seed results: \code{POST /api/hpc/seed/import}. Review:
+\code{GET} of the open queues through \code{webui/client/src/api/review.ts}.
+\end{underthehood}
+
+\section{Sending a long run to the cluster}\label{sec:jobs-sending}
+\subsection{What runs here and what goes to the cluster}
+Before a run starts, the app estimates how long it will take on this machine, from each
+\term{block}{block}'s own cost model, and compares that with a \emph{local limit} set per workspace
+in Settings \textrightarrow{} Compute \& HPC (\apppage{settings.compute-hpc}). Without a saved
+value the limit is 15 minutes in Analyse (\code{CLUSTER_ROUTING_CEILING_S}), 20 minutes for a
+Discovery template run (\code{DEFAULT_CEILING_MIN}), and 10 minutes for a seed search
+(\code{SEED_CEILING_S}). A run under the limit starts here. A run over it does not start:
+\begin{itemize}
+\item In Analyse, pressing \ui{Run} on a chain over the limit writes a SLURM job for the chain
+  instead, and the message says how long the run would take, which stage is slow, the longest span
+  that would run here, and the \code{sbatch} command.
+\item On Discovery's Seed page, a seed search over the limit is written as a cluster job
+  (\apppage{discovery.seed}).
+\item Models \textrightarrow{} Launch writes a CNN training job, and the shape-clustering block page in
+  Analyse writes a Ward clustering over every training window
+  (\apppage{models.launch}).
+\end{itemize}
+A run whose cost model is still being timed on this machine is held until the estimate exists, so it
+is not started blind.
+
+\begin{plainterms}[What SLURM is]
+A \term{cluster}{cluster-hpc} is many computers shared by many people. SLURM is the program that
+queues their work: you hand it a short script saying what to run and for how long, with the
+\code{sbatch} command, and it runs the script when a computer is free.
+\end{plainterms}
+
+\subsection{What is sent, and how results come back}
+Every job is a folder or a pair of files under \code{HPC/} in the repository: the recipe or
+specification, the \code{sbatch} script, and, in the script's comments, the code, input files and
+outputs the job needs. Recording samples travel as their channel files. The cluster runs the same
+core code as the laptop, so a cluster result and a local one are the same calculation.
+
+\begin{watchout}[The cluster's 20-minute limit]
+This account's cluster limit stops any job after 20 minutes. A seed search saves its progress after
+every channel and resubmits itself until it is done, so it survives the limit. A chain written from
+Analyse cannot resume: if its estimate is over 20 minutes, the message says it will most likely be
+killed and gives the span that would fit. Shorten the span, or split it.
+\end{watchout}
+
+Results come back three ways, and each row on the Jobs page says which applies:
+\begin{description}
+\item[Manifest inbox] A job folder (CNN training, Ward clustering) writes its results into its
+  \code{out/} folder. Copy that back and import it. The import checks that the recipe the results
+  were made from is the recipe the job was written with, that the windows and the pool are the ones
+  in this database, and that no test score would change under a frozen cut. If any check fails,
+  nothing is recorded.
+\item[Seed import] A seed search writes one small result file. Copy it back and import it from its
+  row; it is checked against the search it was written for.
+\item[Not through the site] Discovery's chain export and Models' paired training write their runs
+  into the cluster's copy of the database. There is no return path for them yet; the row says so.
+\end{description}
+Importing the same job twice records it once. \Cref{sec:architecture-long-work} gives the code.
+
+\subsection{What ``waiting in review'' means}
+Some work is finished by the machine but not by you. When a run's detections, a training set's
+windows or a family's members are sent to Review from their own page, they become a review queue.
+That queue is listed under \emph{Waiting in review} until every item has a
+\term{verdict}{verdict}. Nothing runs while it waits; the board only counts what is left and how fast
+you have been going. \Cref{ch:review} covers judging.

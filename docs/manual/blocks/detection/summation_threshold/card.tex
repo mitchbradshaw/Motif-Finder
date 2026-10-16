@@ -1,0 +1,28 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.summation_threshold -- "Summation threshold" (Part I, the blocks chapter).
+\cardfield{What it does}
+Reads the activity curve from \blockref{detection.wavelet_summation} together with the signal
+itself, and marks the stretches the method of \citet{dehshibi2021electrical} calls spikes.
+
+\cardfield{When to use it}
+As the last block of the \texttt{dehshibi\_spikes} template. It will also take any other block
+that gives one score per sample, so you can try a different activity curve in front of the
+same spike rules.
+
+\cardfield{What goes in, what comes out}
+In goes a score curve (and, automatically, the signal). Out come the spikes, one stretch each,
+scored by how far the signal moves inside it. The block's page also shows each step on the way
+(a ``funnel''): the candidate stretches, those that passed, those set aside, and the final
+spikes.
+
+\cardfield{Settings that matter}
+\emph{epsilon\_factor} (0.05) is how prominent a rise or dip in the score must be, as a share
+of the score's range within the window: raise it for fewer candidates. \emph{min\_separation\_s}
+(60\,s) is the shortest gap between those rises and dips, and the shortest candidate kept.
+\emph{window\_s} must match the one used by \blockref{preprocessing.wavelet_transform}.
+
+\cardfield{Watch out for}
+Every threshold is relative to its own window, so a quiet window still yields candidates. On
+the M2\_aug recording the method put a spike in 91\,\% of the ten-minute windows a researcher
+had marked interesting, but also in 86\,\% of those marked not interesting, and half of the
+time lay inside a spike. Treat it as a faithful baseline, not a selective detector.

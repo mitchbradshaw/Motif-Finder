@@ -1,0 +1,234 @@
+% !TEX root = ../main.tex
+\chapter{Models: train on what Analyse produced}\label{ch:models}
+Models answers one question honestly: can a classifier learn what you mean by an interesting
+\term{window}{window}, and do labels made by clustering teach it as well as labels made by a person?
+It trains on windows Analyse cut, scores the result on windows it never saw, and sets every score
+against a \term{null}{null}.
+
+\begin{plainterms}[An exam the student has not seen]
+A classifier is like a student. Marking it on the questions it practised says nothing; you mark it on
+an exam it has never seen. Models keeps three such exams apart: (i) the last stretch of time on each
+channel it trained on, (ii) channels it never trained on, and (iii) a whole recording held back until
+the end of the project. And it compares the student with one who was given shuffled answers: if both
+score the same, the first one learned nothing.
+\end{plainterms}
+
+The workspace has four tabs that follow one job from start to decision. \apppage{models.launch} sets
+up and starts a \emph{paired} training job; \apppage{models.results} reads one arm of it on one exam;
+\apppage{models.compare} sets the two arms against each other; \apppage{models.registry} is where a
+model is signed off for use. Launch, Results and Compare read the bridge and the core's paired training
+job (\code{Working/training/}); the Registry is still a preview on example data. A \emph{Jobs} link on
+every tab opens \cref{ch:jobs}.
+
+\begin{plainterms}[Paired label arms]
+A paired job trains the same classifier twice, on exactly the same windows, with the same settings and
+the same random seed. Only the labels differ. \textbf{Arm A} learns from your manual verdicts (the
+labels a person gave in Review). \textbf{Arm B} learns from cluster labels: the training windows are
+grouped by a clustering, and each group is translated to \emph{interesting} or \emph{not
+interesting}. Because nothing else differs, any difference in their scores can be put down to the
+label source. The classifier in both arms is a random forest, which is also the baseline.
+\end{plainterms}
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{models.launch}{Launch}{Train a template across channels, with paired label arms}{live}
+Launch sets up one paired training job in five numbered cards, checks it, estimates its cost, and
+either trains it on this machine or writes a SLURM script for the cluster.
+
+\pagefield{When you'd come here}
+\begin{itemize}
+  \item You saved a training template in Analyse (a chain with a window-matrix step) and want to
+        train on several channels.
+  \item You pressed \ui{Train model} on a Window pool chain in Analyse: Launch opens with arm B.2
+        filled in (see below).
+\end{itemize}
+
+\screenshot{pages/models/models.launch--live-default}{The five cards of a paired job: template,
+sources, label arms, evaluation and options, with the checks and the cost estimate.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item \textbf{1 · Training template.} Pick a template. Its window-matrix step sets the window
+        length, the step and the features. \ui{Open in Analyse} opens it on the chain page.
+  \item \textbf{2 · Sources · channels.} Give each channel of the recording a role: \ui{train}
+        (cut into time blocks; its last blocks are exam i), \ui{exam} (scored, never trained on:
+        exam ii) or \ui{off}. Set the gap between blocks (\ui{\(\ge\) 1 window} or
+        \ui{\(\ge\) 2 windows}). Press \ui{Save window set} to save the pooled windows with their
+        blocked split, or pick a saved set from the table. The held-out recording is shown locked.
+  \item \textbf{3 · Label arms.} Arm A needs nothing. For arm B press \ui{Propose cuts}: the training
+        windows (test windows take no part) are clustered once, and a table lists each number of
+        clusters \(k\) with its silhouette score, cluster sizes and how many clusters are real rather
+        than specks. Pick a \(k\) (one is marked \texttt{draft}). A translation table then maps each
+        cluster to \emph{interesting} or \emph{not interesting}, drafted by the majority human verdict
+        on the training windows, with each cluster's purity; a cluster under 75\,\% is flagged
+        \texttt{impure}. Change the translation now.
+  \item \textbf{4 · Evaluation.} Shows the split by time for each channel, and the three exams,
+        never pooled.
+  \item \textbf{5 · Options.} The forest's size and seed (shared by both arms), the number of
+        label shuffles for the null, and the bootstrap.
+  \item \ui{Before launch} lists the checks the job itself runs before it starts; an error disables
+        both buttons and names itself. The estimate chip gives the cost from the measured time of one
+        forest fit times the number of fits.
+  \item Press \ui{Train locally} when the estimate is within the local limit, or
+        \ui{Create SLURM script} when it is over. When a local job finishes, \ui{Open Results}.
+\end{enumerate}
+
+\begin{watchout}[The cut freezes after the first test score]
+Once any run has scored a window set's test block at some \(k\), the cut and the translation table
+are frozen on that set, and another \(k\) is refused. Choosing \(k\) after seeing test scores would
+be tuning on the exam. Decide the cut and the translation before you train.
+\end{watchout}
+
+\subsection*{Arm B.2: from a Window pool}
+\ui{Train model} on an Analyse Window pool chain ending in Shape clustering opens Launch as
+\emph{arm B.2 · cluster labels · trace shape}. The template and the pool arrive filled in; the cut and
+the mapping are read-only here because they are set on the Shape clustering block's page in Analyse,
+where the dendrogram is. The pool is unlabelled, so there is no arm A. \ui{Train locally} trains;
+\ui{Create SLURM script} writes the cluster job instead.
+
+\pagefield{Where it leads}
+\apppage{models.results} for the scores; Jobs for a cluster job; \apppage{analyse.chain} via
+\ui{Open in Analyse}.
+
+\begin{underthehood}
+Client: \code{webui/client/src/models/LaunchPage.tsx} (\code{PairedLaunchPage}),
+\code{B2Launch.tsx}; reads in \code{webui/client/src/api/models.ts} (\code{getModelsSetup},
+\code{proposeCut}, \code{checkPairedJob}, \code{trainPairedJob}, \code{slurmPairedJob}). Bridge:
+\code{webui/server/training_routes.py} (\code{/api/models/setup}, \code{/windowsets},
+\code{/propose}, \code{/checks}, \code{/train}, \code{/slurm}); arm B.2 in
+\code{webui/server/shape_routes.py} (\code{/api/models/b2/setup}, \code{/b2/train}). Arm A's labels
+are \blockref{catalogue.manual_labels}; the classifier is \blockref{catalogue.classifier}.
+\end{underthehood}
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{models.results}{Results}{One arm on the test block, against baseline and nulls}{live}
+Results shows one paired run, one arm and one exam at a time, never pooled. Each number comes with
+how sure it is and with what chance would give.
+
+\pagefield{When you'd come here}
+When a training job has finished, to see how well each arm did, and whether it beat its null.
+
+\screenshot{pages/zz_models_ab/models.results--fixup-ab-arm-a}{Arm A on exam i: macro F1 with its
+interval, the null behind it, the confusion matrix, per-class and per-channel scores, and
+calibration.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item Pick the run, the arm (A or B) and the exam (i, ii, or iii; exam iii stays locked).
+  \item Read the headline tiles: \emph{macro F1} (the average of the F1 score of each class, so a
+        rare class counts as much as a common one) with its block-bootstrap confidence interval, and
+        balanced accuracy.
+  \item \ui{Against the null}: the arm's macro F1 (blue, with its band) over the spread of macro
+        F1s of the same forest trained on shuffled labels. An arm inside that spread learned nothing
+        usable.
+  \item \ui{Confusion}: rows are the human verdict, columns the arm's prediction, row-normalised,
+        with counts. \ui{Per class} gives precision, recall and F1 with \(n\); \ui{Per channel} gives
+        both arms' macro F1 on each channel.
+  \item \ui{Calibration · validation block}: how well the model's \(P(\text{interesting})\) matches
+        reality on the validation block, and the lowest threshold that reaches a target precision
+        there.
+  \item \ui{Reference line · the existing MODELS/} scores older models on the same exams. They were
+        trained differently, probably on overlapping labels, so they are a reference, not an arm.
+  \item \ui{Yardstick (B)} scores arm B in its own cluster vocabulary against blind hand-labelling of
+        test windows.
+\end{enumerate}
+
+\begin{plainterms}[Calibration]
+A weather forecast that says ``70\,\% chance of rain'' is calibrated if it rains on about 70\,\% of
+those days. A calibrated model's ``70\,\% interesting'' is right about 70\,\% of the time. The
+reliability plot shows how close the model comes.
+\end{plainterms}
+
+For an arm B.2 run, Results shows the blind test instead: \ui{Label test windows blind} opens a Review
+queue of the run's test windows with no hint of the model's call; afterwards the page sets your answers
+against the model's, per exam, beside how often you agree with yourself on windows shown twice (no
+model can be expected to beat that), and beside the manual-label models scored on the same windows.
+
+\pagefield{Where it leads}
+\apppage{models.compare} for the paired difference; \apppage{models.registry} to register a model.
+
+\begin{underthehood}
+\code{webui/client/src/models/ResultsPage.tsx}, \code{B2Blind.tsx}; \code{GET /api/models/runs} and
+\code{/api/models/runs/{run_id}} (\code{webui/server/training_routes.py}); the blind test in
+\code{webui/server/blind_routes.py}.
+\end{underthehood}
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{models.compare}{Compare}{Manual against cluster labels, paired}{live}
+Compare sets arm A against arm B of one paired run. The only thing that differs between them is the
+label source, so the difference is attributable to it.
+
+\pagefield{When you'd come here}
+To answer whether cluster-derived labels teach a classifier as well as manual ones (research question
+one), with a measure of how sure the answer is.
+
+\screenshot{pages/zz_models_ab/models.compare--fixup-ab-a-vs-b}{Arm A against arm B: the paired
+difference in macro F1 with its interval, McNemar's test, and the window-by-window agreement.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item Pick the run and the exam.
+  \item \ui{Paired difference}: \(\Delta\)F1 between the arms under the same bootstrap resamples,
+        with its confidence interval; the line at zero is no difference. McNemar's test asks whether
+        the two arms are wrong on different windows more often than chance.
+  \item \ui{Agreement, window by window}: a 2\(\times\)2 table of \emph{both right}, \emph{only A
+        right}, \emph{only B right}, \emph{both wrong}. Click a cell to step through its windows with
+        \ui{Prev} and \ui{Next}; \ui{Open the channel in Explore} shows a window in context.
+  \item Per class and per channel differences.
+  \item \ui{Cluster \textrightarrow{} class}: how arm B's clusters fall against the human verdicts on
+        the training windows, the translation table fixed in the recipe, and purity.
+\end{enumerate}
+
+\begin{watchout}[An interval that crosses zero]
+If the \(\Delta\)F1 interval includes zero, the data do not tell the two label sources apart on that
+exam. That is a result, not a failure.
+\end{watchout}
+
+\pagefield{Where it leads}
+Back to \apppage{models.results}; \apppage{explore.signal} for a window in context.
+
+\begin{underthehood}
+\code{webui/client/src/models/ComparePage.tsx}; \code{GET /api/models/runs/{run_id}/compare} and
+\code{/disagreements} in \code{webui/server/training_routes.py}.
+\end{underthehood}
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{models.registry}{Registry}{Register with held-out checks and sign-off}{preview}
+The registry lists every model the installation has scored, with its status: \emph{candidate}
+(results, no sign-off), \emph{registered} (can be inserted in Analyse as a Model stage),
+\emph{retired} (can be restored) or \emph{rejected} (keeps the checks it failed). Registering a
+candidate is a three-part gate: automatic held-out checks, a sample of its windows judged blind in
+Review, and a written decision.
+
+\textbf{This page is a preview.} Its models come from \code{webui/client/src/fixtures/models.ts};
+register, retire, restore and reject change only browser memory, and \ui{Open sample in Review} makes
+a pretend queue. No bridge route serves a model registry yet.
+
+\pagefield{When you'd come here}
+To see how a model is meant to be signed off before Analyse may use it.
+
+\screenshot{pages/models/models.registry--candidate}{A candidate's registration card: its held-out
+checks, the blind verification sample, and the sign-off form.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item Filter the list: \ui{all}, \ui{registered}, \ui{candidates}, \ui{retired}. Each row says what
+        uses the model.
+  \item Open a candidate. \textbf{1 · Held-out checks} are automatic: a failure blocks registration,
+        a warning needs a written reason.
+  \item \textbf{2 · Verification}: judge a sample of the model's windows in Review (\ui{Open sample in
+        Review}, \ui{Add 20 more}). Sign-off waits until the sample is judged.
+  \item \textbf{3 · Decision}: give the registered name and version and your reason, then register, or
+        \ui{Reject}. Only this third step registers anything.
+  \item A registered model can be retired (blocked while a template uses it) and later restored with
+        its old sign-off.
+\end{enumerate}
+
+\pagefield{Where it leads}
+A registered model would be offered in Analyse's \ui{Insert a stage} window as a Model stage, its
+calibration thresholds becoming the threshold stage's recommended values \unverified{(this is the
+design; no live code path does it yet)}.
+
+\begin{underthehood}
+\code{webui/client/src/models/RegistryPage.tsx}; \code{getRegistry} in
+\code{webui/client/src/api/models.ts} returns fixture data through \code{demo(...)}.
+\end{underthehood}

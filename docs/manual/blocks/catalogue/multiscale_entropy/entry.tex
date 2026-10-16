@@ -1,0 +1,124 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.multiscale_entropy -- "Multiscale entropy" (Appendix A).
+\entryfield{Algorithm}
+The block calls \code{multiscale_entropy} in \code{Working/Catalogue/multiscale_entropy.py},
+which implements multiscale entropy \citep{costa2005multiscale} and its refined composite
+form \citep{wu2014analysis} itself (no library is used; the counting kernel is numba). For
+each window $w$ of $L$ samples:
+\begin{enumerate}
+\item \emph{Slice} $w$ from the span at its channel-absolute start minus
+  $\mathrm{round}(t_0 f_s)$ (\code{span_relative_starts}), one window at a time. A window
+  pool is refused.
+\item \emph{Gaps} (\code{fill_gaps}): non-finite runs of at most \code{max_gap_s} are bridged
+  by straight lines (an end gap holds the nearest value). The window is left out (a NaN row,
+  counted by reason) if a run is longer (\code{gap_over_max}), if more than 5\,\% of it was
+  filled (\code{filled_over_5pct}), if its standard deviation is zero (\code{flat}), or if its
+  MAD is zero (\code{mad_zero}).
+\item \emph{Tolerance}: $r = r_{\mathrm{frac}} \cdot \sigma(w)$, where $\sigma$ is
+  $1.4826\,\mathrm{MAD}(w)$ (\code{r_scale="mad"}) or the standard deviation (\code{"sd"}),
+  computed once on the window as it arrives and held fixed across scales, as the authors'
+  \code{mse.c} does.
+\item \emph{Scales} (\code{scale_taus}): \code{n_scales} values spaced geometrically from
+  \code{scale_min_s} to \code{scale_max_s}; $\tau = \max(1, \mathrm{round}(s \cdot f_s))$,
+  duplicates merged. The scale reported is $\tau / f_s$ seconds.
+\item \emph{Coarse-grain} by non-overlapping means \citep[eq.~16]{costa2005multiscale}:
+  \[ y^{(\tau,k)}_j = \frac{1}{\tau} \sum_{i = k + j\tau}^{k + (j+1)\tau - 1} w_i , \]
+  for offset $k$.
+\item \emph{Sample entropy} \citep{richman2000physiological}: over the first $N-m$ templates
+  of a coarse series of length $N$, $B$ is the number of pairs of $m$-point templates within
+  Chebyshev distance $r$ and $A$ the number of pairs of $(m+1)$-point templates within $r$,
+  self-matches excluded; $\mathrm{SampEn} = -\ln(A/B)$. Counted exactly, using templates
+  sorted on their first coordinate (\code{_count_sorted}).
+\item \emph{Method}. \code{mse}: SampEn of the offset-0 series. \code{rcmse} (default):
+  the counts of the series at offsets $k = 0,\dots,\tau-1$ are pooled,
+  $\mathrm{RCMSE} = -\ln\bigl(\sum_k A_k / \sum_k B_k\bigr)$. This form is taken from the
+  restatement in \citet{azami2017refined}; \unverified{that it matches Wu et al.'s own
+  equation} (the paper's full text was not reached; see
+  \code{docs/research/analysis-blocks-primary-sources.md}, section 1).
+\item \emph{Cost cap} (\code{max_points}): a coarse series longer than \code{max_points} is
+  scored on \code{max_points} templates taken from 10 contiguous stretches spread across the
+  window, and RCMSE pools only $\min\bigl(\tau, \lfloor(\mathit{max\_points}/N)^2\rfloor\bigr)$
+  evenly spaced offsets. This is a departure from the papers, for cost.
+\item \emph{Undefined is NaN}: a scale whose coarse series is shorter than
+  \code{min_coarse_len} (\code{too_short}), or with no $m$-match or no $(m+1)$-match, is NaN
+  and counted; nothing is extrapolated.
+\item \emph{Collapse guard}: inflation $= \sigma(w) / \sigma(w - \bar w_{2\,\mathrm h})$, the
+  spread before and after removing a centred 2-hour rolling mean (the window itself is not
+  changed). Above \code{inflation_limit}, every defined scale of the window is flagged as
+  collapsed: drift or outliers inflated $r$.
+\end{enumerate}
+Then, over the scales defined in \emph{every} kept window: the complexity index
+\code{mse_ci} is the sum of the entropies; \code{mse_slope_small} and \code{mse_slope_large}
+are least-squares slopes of entropy against $\log_{10}$ of the scale in seconds over the
+lower and upper halves of those scales.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware, and it need not be: $r$ is a fraction of the window's
+  own spread, so the entropies do not depend on the stored unit. Only \code{mse_r} is in the
+  stored unit, which is why it is a bookkeeping column.
+\item \emph{Sampling rate.} Scales are in seconds and converted to samples, so a 1\,Hz and a
+  10\,Hz recording of the same process give the same curve (tested).
+\item \emph{Stationarity.} The block never detrends. An undetrended window collapses towards
+  0; the inflation flag catches it. Both the 2-hour detrend and the limit 1.5 are
+  placeholders from synthetic measurements (stationary and detrended backgrounds 0.95--1.22,
+  collapsed ones 2.8--13).
+\item \emph{Window length.} A scale is defined only while $L/\tau \ge$
+  \code{min_coarse_len} (1{,}000, after \citealt{costa2005multiscale}, section VI), so the
+  reach is about $L / (1000 f_s)$ seconds.
+\item \emph{Missing values.} As in step 2. The gap limit and the 5\,\% fill limit are
+  placeholders.
+\end{itemize}
+
+\entryfield{Outputs}
+A \code{WindowSet}: the same windows (left-out ones as NaN rows) with columns
+\code{mse_<scale>s} per scale, \code{mse_ci}, \code{mse_slope_small},
+\code{mse_slope_large}, and the bookkeeping columns \code{mse_r}, \code{mse_n_scales},
+\code{mse_drift_share} (the variance share of a fitted straight line), \code{mse_inflation}
+and \code{mse_n_collapsed}. Bookkeeping columns are not features, so a clustering or
+classifier downstream does not separate windows by unit or drift. \code{meta} holds the
+scales and $\tau$s, the rule for $r$, counts defined and undefined per scale with reasons,
+the left-out counts, the collapse counts, \code{rho_median} (information only), the scales
+behind the index and slopes, warnings, a summary, the rules in words, and a drawing payload
+of at most 64 curves (a sample drawn with \code{seed} beyond that) plus the median curve.
+
+\entryfield{Cost}
+Each scale of each window costs about $\mathit{max\_points}^2/2$ template pairs times the
+share the sorted-template trick actually compares, so every scale costs about the same; one
+24-hour window at 1\,Hz at the defaults took about 1.6\,s in the calibration. \code{estimate}
+assumes the costliest tiling of the span (\code{costliest_pairs}): it never under-estimates
+and over-estimates a 72-hour tiling by up to about three times. Memory is one window at a
+time. A cancel is honoured between windows.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Collapse from drift}: entropy near 0 at every scale for a reason that is not the
+  signal's. Flagged, values kept; detrend upstream. Switching \code{r_scale} to \code{mad}
+  does not undo a drift.
+\item \emph{Blank scales}: windows too short for \code{scale_max_s}; no index or slopes when
+  no scale is defined in every window (warned).
+\item \emph{A coloured-noise curve read as structure.} Pink noise has a flat curve of its
+  own; a curve means something only against surrogates with the same spectrum and value
+  distribution. The block runs no null itself.
+\item \emph{The index depends on the set.} \code{mse_ci} sums over the scales defined in
+  every kept window of \emph{this} set, so the same window can get a different index in a
+  different set.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_multiscale_entropy.py} checks the answer: white noise follows its closed
+form within 0.06 and falls with scale; pink noise stays flat; the sorted counter and RCMSE
+pooling equal a naive loop; 1\,Hz and 10\,Hz give the same curve; drift-collapsed cases are
+flagged and stationary ones are not; drops with slow recovery on an AR(1) background lie
+outside 20 surrogate curves while plain AR(1) does not. Those surrogates are
+phase-randomised, not the amplitude-adjusted ones the registry description recommends.
+
+\entryfield{References}
+\citet{costa2005multiscale}; \citet{wu2014analysis} as restated by \citet{azami2017refined};
+\citet{richman2000physiological}.
+
+\entryfield{Tests}
+\code{tests/test_multiscale_entropy.py} (above, plus gaps, flat and MAD-zero windows,
+refusals, cancellation, column rules, the cost cap, the drawing payload).
+\code{tests/test_adapter_multiscale_entropy.py} (registration, bounded settings, meta, the
+readout, the estimate and its costliest-tiling rule).

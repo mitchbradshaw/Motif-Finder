@@ -1,0 +1,463 @@
+% !TEX root = ../main.tex
+\chapter{Example workflows}\label{ch:workflows}
+This chapter walks through complete pieces of research done with the app, one per section.
+The first is the path the researcher and the supervisor share: from spikes to statistics
+about how the spikes are spaced. The other six are the project's six research questions, in
+the order of the research files that track them (\code{docs/rq_roundA/}). Each section says
+what the question is, the clicks, what you should see, how to judge it, and what the app
+cannot yet answer.
+
+\begin{plainterms}[A workflow is a recipe, not a result]
+A cookbook tells you how to bake the cake; it cannot promise yours will rise. Each section
+below is the recipe. Where the project has tried it on real recordings, the section says
+what came out and how sure anyone can be. Where nobody has, it says so.
+\end{plainterms}
+
+\begin{watchout}[The status of each question moves]
+What each question can do is recorded, with dates, in its own file under
+\code{docs/rq_roundA/}, and the clicks in \code{docs/RESEARCH_RUNBOOK.md}. This chapter
+follows those files as they stood on 15~October~2026. Where they disagree with the app in
+front of you, trust the app and the file, in that order.
+\end{watchout}
+
+%% ------------------------------------------------------------------------------------------
+\section{From spikes to spike-train statistics}\label{sec:workflows-spikes}
+The question: does a channel produce \term{spike}{spikes}, and if it does, are they spaced
+at random, evenly, or in bursts? The answer comes in three parts: find the spikes, measure the
+gaps between them, and ask whether the result beats chance. This is the path both the
+researcher and the supervisor read, so it is the one to run most carefully.
+
+\begin{plainterms}[Spikes, trains and gaps]
+Think of raindrops on a tin roof. Each drop is a spike. The time between two drops is an
+\term{inter-spike-interval}{inter-spike interval}. A shower that comes in gusts, several drops
+quickly and then a pause, is made of \term{spike-train}{trains}. Whether the drops fall
+steadily, at random or in gusts is what the interval statistics tell you.
+\end{plainterms}
+
+\subsection*{Step 1: pick a span}
+\begin{enumerate}
+\item Open \apppage{explore.signal} on the channel you want.
+\item Drag across the trace to mark a \term{span}{span}. A few hours is a good start: long
+  enough to hold many spikes, short enough to run in seconds.
+\item Press \ui{Send span to Analyse}.
+\end{enumerate}
+
+\subsection*{Step 2: detect the spikes}
+On \apppage{analyse.chain} you have three ways to find spikes. Choose one; they rest on
+different ideas of what a spike is.
+\begin{itemize}
+\item \textbf{The simple rule.} \ui{Insert a stage} and pick \blockref{detection.spike_v1}. It
+  marks a spike wherever the signal stands out from its own local average, up or down, by
+  more than \emph{delta\_mv} millivolts; candidates closer together than \emph{d} samples
+  count as one spike, at the most extreme of them. It starts from the rule of
+  \citet{adamatzky2023multiscalar}, with changes its block entry lists.
+\item \textbf{The Dehshibi detector.} \ui{Import} the \code{dehshibi_spikes} template. It is
+  three blocks, a wavelet transform, a summation and a threshold, that follow the authors'
+  own code for \citet{dehshibi2021electrical}. Each stage's output is drawn on its block page,
+  so you can see what was kept and what was dropped. The older one-block version,
+  \blockref{detection.dehshibi_spikes}, is kept only so old recipes still run.
+\item \textbf{The inverted drop detector.} \ui{Import} the \code{spike_event_features}
+  template. It turns the signal upside down, runs the project's drop detector, measures each
+  event's shape (told that the signal was inverted, so the events are reported as spikes) and
+  ends with \blockref{interrogation.intervals}.
+\end{itemize}
+Press \ui{Run chain}. Open the detector's block page from its row and look at the spikes over
+the trace before you trust any number built on them.
+
+\begin{watchout}[Three things that make spike counts wrong]
+\begin{itemize}
+\item \emph{Units and noise.} \blockref{detection.spike_v1} reads \emph{delta\_mv} in
+  millivolts and converts it by the recording's declared unit. A recording with no declared
+  unit is read as volts, and the chain row says ``read as volts''; if the file is really in
+  millivolts, the threshold is then a thousand times too small and the block fires on
+  noise. Check the recording's unit in \apppage{settings.datasets} first. The 1\,mV default
+  is a placeholder: on a noisier channel raise it until the readout on the block page is no
+  longer amber.
+\item \emph{Samples, not seconds.} \emph{width} and \emph{d} count samples, so the same
+  setting means ten times less time on a 10\,Hz recording than on a 1\,Hz one.
+\item \emph{Bursts become one spike.} \blockref{detection.spike_v1} joins candidates that
+  are each closer than \emph{d} samples to the last into one spike, however long the run.
+  Spikes inside a tight burst are not counted separately, so the intervals inside it are
+  never measured. Lower \emph{d} if your spikes come closer together than that.
+\end{itemize}
+\end{watchout}
+
+\subsection*{Step 3: trains and intervals}
+\begin{enumerate}
+\item If the chain does not already end in it, \ui{Insert a stage} after the detector and pick
+  \blockref{interrogation.intervals}. It measures the gap before and after every event and,
+  for each group of events, the median gap, how variable the gaps are (CV), whether they drift
+  over time (a trend and a drift ratio), and two local measures, LV and CV2, which compare each
+  gap only with the next. Near 0 means clockwork, near 1 means random. The block prints the
+  rule behind every number beside it.
+\item To find bursts, insert \blockref{interrogation.trains} between the detector and
+  Intervals. It sorts gaps into ``short, inside a train'' and ``long, between trains'' by
+  looking for two humps in a histogram of the gaps. When there is one hump, it says ``no
+  trains'' rather than inventing some. Turn on \emph{write\_group} if you want Intervals
+  to measure timing \emph{within} each train.
+\end{enumerate}
+
+\begin{watchout}[Trains is experimental]
+Trains found nothing beyond its surrogate null on the real recordings it was tried on
+(\code{docs/prompts/blocks/reports/W1-evaluation.md}), and its template
+\code{event_trains} is kept in the code but not offered in the app. ``No trains'' can also
+mean that the gaps inside and between trains are too alike to tell apart. LV and CV2 are
+very noisy on short runs: a group with fewer than three events gets none, with the reason.
+\end{watchout}
+
+\subsection*{Step 4: judge the count against chance}
+\begin{enumerate}
+\item On the Analyse toolbar, turn \ui{surrogate null} on. It is off by default, because
+  tuning is meant to be fast.
+\item Press \ui{Run chain} again. After the real run, the app runs the whole chain again on
+  surrogate copies of the span: 20 by default, set in \apppage{settings.nulls}.
+\item Read the footer. It says, for example, ``detected 120 · null expects 31 over 20 phase
+  randomize draws · 3.9× null''. A count well above what the null expects is evidence that
+  the detector is finding something the noise does not produce.
+\end{enumerate}
+To make the same comparison on many channels at once, save the detector alone as a template
+(\ui{Save template}) and apply it in \apppage{discovery.runs}, which always draws a null for
+every channel. Discovery's \ui{Apply template} lists only detection templates; a chain that
+ends in Intervals or Trains is an interrogation template and is not offered there.
+
+\subsection*{What this does not yet tell you}
+The null above judges the \emph{number} of spikes. It does not judge the interval
+statistics: no part of the app yet compares an LV, a CV or a train count with what shuffled
+spike times would give. That null was specified and never built
+(\code{docs/prompts/fixup/future/R-interrogation-null.md}). Until it is, read the interval
+numbers as a description of the spikes you found, and say so when you report them. Nor does
+any test in the repository check either spike detector against spikes a person marked by
+hand. \Cref{app:nulls} explains the nulls in full.
+
+%% ------------------------------------------------------------------------------------------
+\section{Do cluster labels train a better classifier than hand labels?}\label{sec:workflows-rq1}
+The question (RQ1): you can teach a computer to sort stretches of signal in two ways. You can
+show it stretches you sorted yourself, \emph{interesting} or \emph{not interesting}. Or you can
+let a clustering method group similar-looking stretches first and teach the computer those
+groups. Give both the same exam on data neither has seen: which does better?
+
+\begin{plainterms}[Two ways to learn birds]
+One student learns birds from a field guide a person wrote. Another sorts a thousand
+photographs into piles by look, names the piles, and learns from those. Then both sit the same
+exam. The question is not which pile-maker is cleverer; it is whose knowledge carries over to
+birds neither has seen.
+\end{plainterms}
+
+The question has two forms in the app. The first, the \emph{baseline}, is finished and has a
+result. The second, which the researcher made the main one on 5~October~2026, is built and
+waiting for the researcher's own blind labels.
+
+\subsection*{The baseline: a paired job}
+\begin{enumerate}
+\item In \apppage{models.launch}, choose a training template, the recording and its channels,
+  and the two label arms: A, the human labels, and B, one clustering of the pooled training
+  \term{window}{windows}.
+\item Under \emph{Evaluation} the split is blocked by time, with a gap of at least one window
+  between training and test (the windows overlap, so a random split would leak; see
+  \term{blocked-split}{blocked split}).
+\item Press \ui{Train locally}. Both arms train the same random forest; a label-shuffle null
+  is drawn for each.
+\item Read \apppage{models.results} and \apppage{models.compare}: the difference in macro F1
+  with its interval, McNemar's test, and results per class and per channel.
+\end{enumerate}
+\screenshot{pages/zz_models_ab/models.compare--fixup-ab-a-vs-b}{Models › Compare puts the two
+arms side by side on the same exam windows: one difference, the label source, is changed.}
+
+\emph{What came out} (run 79, real database, recorded in
+\code{docs/rq_roundA/RQ1-cluster-vs-manual-labels.md}): on channels never trained on, the
+hand-label arm scored macro F1 0.793 and the cluster arm 0.635; the difference, $+0.159$
+with 95\% interval $[0.120, 0.197]$, excludes zero. The hand labels won on both exams, as the
+researcher predicted before the run. The research file explains why this comparison is tilted
+towards the hand labels: the clusters are translated into \emph{interesting} or not by
+majority vote on the same hand labels, so the cluster arm can tie or lose but hardly win.
+
+\subsection*{The main form: cluster the unlabelled pool, check blind}
+\begin{enumerate}
+\item In Library › Window sets, \ui{New window set} cuts a recording into non-overlapping
+  windows at 1, 10 and 30 minutes, ignoring the hand labels.
+\item In \apppage{analyse.chain}, \ui{Start from a Window pool}. The chain is Window pool
+  $\to$ Trace shape $\to$ Shape clustering. A whole pack of channels is held out as an exam.
+  The Shape clustering block's page is a dendrogram: drag the cut, look at each cluster's most
+  typical member and a dozen others, and say which clusters are interesting.
+\item \ui{Train model} opens Models › Launch filled in, with arm \emph{B.2 cluster labels ·
+  trace shape}. \ui{Train locally} trains a random forest on the clusters. A CNN arm is
+  written as a cluster script (\ui{Create SLURM script}) and brought back through
+  \apppage{jobs.all}.
+\item In \apppage{models.results}, \ui{Label test windows blind} opens a Review queue that
+  shows each test window's raw trace with nothing else: no prediction, cluster, channel or
+  earlier label. Answer \ui{I}, \ui{N}, \ui{U} (can't tell) or \ui{A}. Some windows come back
+  twice, so your own consistency is measured too. Your first label freezes the cut and the
+  mapping, so they cannot be tuned to the answers.
+\item Read \emph{against a blind human} in Results: agreement per exam with its interval, the
+  label-shuffle null, and the existing hand-label models scored on the same windows as a
+  comparison line.
+\end{enumerate}
+
+\subsection*{How to judge it}
+Read each exam separately, never pooled. A difference counts when its 95\% interval excludes
+zero, the rule the researcher fixed before the baseline. Agreement with a blind person is the
+yardstick for the main form; the forest reproducing its own clusters is not a score.
+
+\subsection*{What is not yet answerable}
+\begin{itemize}
+\item The main result needs the researcher's own blind labelling of a real run; every number
+  from that path so far is a placeholder from a test walk.
+\item The third exam, the \term{held-out}{held-out} recording, is refused by every page until
+  after the freeze, by design. It is run once.
+\item The CNN arm has not yet been run on the cluster.
+\end{itemize}
+
+%% ------------------------------------------------------------------------------------------
+\section{Can one accepted example find the rest?}\label{sec:workflows-rq2}
+The question (RQ2): you point at one wiggle you have checked yourself and say ``find me more
+like this''. The app searches the recordings for look-alikes, and you check each one by hand.
+Are most of what it finds things you also accept, and does it find more than it would by
+chance?
+
+\begin{plainterms}[Searching by example]
+It is like showing a shop assistant a photo of the shoe you want. They come back with a stack.
+Some are your shoe, some only look like it in the photo. You learn how good the assistant is
+by checking every box, and you learn whether they were trying by comparing with a stack
+picked off the shelf at random.
+\end{plainterms}
+
+\subsection*{The clicks}
+\begin{enumerate}
+\item In \apppage{review.inspector}, on a detection worth searching for, press \ui{S}. It
+  becomes a Library entry (an \term{exemplar}{exemplar}); the message names the entry.
+  Alternatively, in \apppage{explore.signal}, mark a span and take it for Review: it appears as
+  a seed under \emph{Explore selection}.
+\item Press \ui{Seed search in Discovery}, or open \apppage{discovery.seed} and choose the
+  seed there. The picker reaches every Library entry and filters by how it was made: your own
+  first.
+\item Set the \ui{Scope}: recording, channels and a section of hours. Keep it to hours, not the
+  whole recording, while you learn.
+\item Press \ui{Run seed search}. The page draws a histogram of how close each match is, with
+  the matches the null gives behind it, and a recommended cut. Drag the cut and run again.
+\item \ui{Open in Runs}, then \ui{Send \(n\) unjudged to Review}, and judge every match.
+\item Back on Runs, \ui{Refresh after reviewing} and read the seed run's row.
+\end{enumerate}
+\screenshot{pages/discovery/discovery.seed--done}{The Seed page after a search: the real
+matches and, behind them, what the null gives at each distance, with the cut drawn.}
+
+\subsection*{What you should see, and how to judge it}
+The row reads, in order, \emph{found}, \emph{already judged}, \emph{reviewed},
+\emph{interesting}, \emph{precision}, \emph{null expects / draws} and \emph{× null}. The
+answer is that row read with its null: precision says what share of the matches you accept,
+and \emph{× null} says how many more matches the real signal gives than the surrogates do at
+the same cut. Nothing on the row claims to beat chance unless \emph{× null} does. Precision
+comes as two figures, each with its rule printed: one over the reviewed windows a match falls
+in, one over the event-shaped human labels.
+
+A seed search draws 200 surrogates per channel by default (\apppage{settings.nulls}). The
+recommended cut is worked out per channel, each against its own null, at the significance
+level and multiple-comparison correction set there; the sentence beside the cut says which.
+A search estimated at more than ten minutes is offered as a cluster job instead
+(\ui{Create SLURM script}); its result is brought back with \ui{Import HPC result}.
+
+\subsection*{What is not yet answerable}
+\begin{itemize}
+\item \emph{Recall} on the row still uses an older rule that gives 0 on window labels by
+  construction. Read precision and × null, not recall.
+\item The first answer at scale, a seed search over a whole recording on the cluster, judged
+  by the researcher, has not yet been made. The research file's walks in a sandbox used
+  placeholder verdicts.
+\end{itemize}
+
+%% ------------------------------------------------------------------------------------------
+\section{Does a shape keep its identity when it is stretched or squashed?}\label{sec:workflows-rq3}
+The question (RQ3): is a slow, stretched-out version of a \term{motif}{motif} ``the same
+motif'' as a fast, squashed one? The Library assumes yes: it groups motifs after stretching
+them all to one length. If that is wrong, the Library's \term{family}{families} are wrong, so
+``no'' is a real finding, not a failure.
+
+\begin{plainterms}[The same tune, faster]
+A song played at a faster tempo is still recognisably the same song. A different song played
+at the same tempo is not. The question is whether the fungal shapes behave like songs, where
+speed does not change identity, or like spoken words, where squashing ``cat'' can turn it
+into something else.
+\end{plainterms}
+
+\subsection*{The clicks}
+\begin{enumerate}
+\item Open a family in \apppage{library.family}. Prefer a trough family: for sharkfins, how
+  long the shape really is remains an open question, and the page says so.
+\item Press \ui{Seed search in Discovery}. On the Seed page, turn on the \ui{scale bank}: the
+  exemplar is searched at several lengths (by default 0.8, 1 and 1.25 times its own), each
+  with its own null.
+\item Run, send the matches to Review, and judge them.
+\item On \apppage{discovery.runs}, add the accepted matches to the family. Each accepted pair
+  gets one \term{edge}{edge} per way of measuring distance.
+\item Back on the family's page, read the scale read-out: for each length, how many matches,
+  how many judged and how many accepted, with the shape distance that ignores length beside a
+  control that does not.
+\end{enumerate}
+\screenshot{pages/library_edges/library.family--fixup-v-trough-exemplar-edges-and-readout}{The
+scale read-out on a trough family: one row per length, the length-blind distance beside its
+control. The numbers in this picture come from a test walk with placeholder verdicts.}
+
+\subsection*{How to judge it}
+Identity holds under scale if acceptance stays high across the lengths while the length-blind
+distance stays small and the control grows. Read each length against its own null: at the
+same cut a shorter copy finds chance matches about twice as easily as the native length did
+in the sandbox walk. Since 15~October a fourth distance, MPdist, is written on each edge too;
+it asks whether two shapes share short pieces, and it is not itself a test of scale.
+
+\subsection*{What is not yet answerable}
+\begin{itemize}
+\item The researcher's verdicts on a handful of trough exemplars' banked searches. Until then
+  the read-outs show that the instrument works, not what the answer is.
+\item Which grouping to read: the stored grouping g-05 and Ward re-run on today's events agree
+  only partly (adjusted Rand 0.57), so g-05's families need re-checking first.
+\item The sharkfin's own length, which decides whether any sharkfin row can be read
+  (\code{docs/prompts/fixup/future/N-event-extent.md}).
+\end{itemize}
+
+%% ------------------------------------------------------------------------------------------
+\section{Do bands and symbols find what the raw signal hides?}\label{sec:workflows-rq4}
+The question (RQ4): split the recording into slow, middle and fast layers, turn each layer
+into a string of letters (up, down, flat), and search the letters for patterns. Does that
+find regions that a method working on the plain signal misses? You check the extra finds by
+hand to see whether they are real.
+
+\begin{plainterms}[Bass, middle and treble]
+A recording is like a song with bass, middle and treble mixed together. A quiet bass line can
+be lost under the treble. Turn the treble down and you may hear it. The band filter is the
+mixing desk; the letters are a way to write down the tune so a computer can search it.
+\end{plainterms}
+
+\subsection*{The clicks}
+\begin{enumerate}
+\item In \apppage{discovery.runs}, set the \ui{Scope}: a recording, its channels and a section.
+\item \ui{Apply template} with a raw-signal detector and no band: \code{drop_detection_v1},
+  or the plain amplitude cut \code{signal_threshold}. This is side A.
+\item \ui{Apply template} again with the symbolic template \code{symbol_search}, this time
+  ticking bands under \emph{Bands}: the named bands from \apppage{settings.analysis-defaults}
+  (0.001--0.01, 0.01--0.1 and 0.1--0.45\,Hz unless edited) and, if you like, \emph{Wavelet
+  levels}. Each band becomes one run across the channels, with its own null.
+\item Apply \code{symbol_search} once more with no band, for the like-for-like comparison.
+\item Tick side A and the band set as side B, then \ui{Compare}. The overlap reads
+  \emph{only A}, \emph{both} and \emph{only B}, split by verdict.
+\item \ui{Send only-B unjudged to Review}, judge them, then \ui{Refresh after reviewing}.
+\end{enumerate}
+\screenshot{pages/band_scope/discovery.compare--fixup-z-band-set-as-side-b}{Compare with every
+band run of one application taken together as side B, one row per band beneath.}
+
+\subsection*{How to judge it}
+The answer on that scope is the sentence under the verdict split: of the regions only a band
+found, how many a person has judged and how many they accepted, with the bands' null count
+beside it. Then use the like-for-like comparison to see how much is due to the band alone
+rather than to the symbolic method.
+
+\begin{watchout}[So far the null out-finds the signal]
+On the 3-channel, 4-hour scope the project measured, the surrogates gave more regions than
+the real signal on every band, wavelet layers included (for example 75 found against 247.75
+expected on 0.01--0.1\,Hz, 20 draws per band). At those untuned settings nothing yet beats
+chance. Counts stored before the symbolic encoder was given a fixed seed (3~October) should
+be re-run once with \emph{force} before you read them.
+\end{watchout}
+
+\subsection*{What is not yet answerable}
+Nothing the question needs is still to be built. Two gaps remain in running it: a band run
+sent to the cluster comes back with no null, and the cluster-script writer writes a script
+for the first pending run only, so a large band application gets one script, not one per
+band. The answer itself needs the researcher's verdicts.
+
+%% ------------------------------------------------------------------------------------------
+\section{Where do people and the machine disagree?}\label{sec:workflows-rq5}
+The question (RQ5): sometimes you say ``interesting'' where the detector saw nothing, and
+sometimes the detector fires where you would say ``not interesting''. Where do those
+disagreements happen? Do they bunch up on certain channels, times or shapes, or are they
+scattered?
+
+\begin{plainterms}[Two markers, one exam]
+Two teachers mark the same essays. Where they disagree tells you something: if the
+disagreements all fall on essays about one topic, one of them has a blind spot there. If they
+are scattered, it is ordinary noise.
+\end{plainterms}
+
+\subsection*{The clicks}
+\begin{enumerate}
+\item In \apppage{discovery.runs}, \ui{Apply template} over a scope. Each run carries its
+  null.
+\item \ui{Send \(n\) unjudged to Review} and judge. Each verdict on a detection is an
+  \term{adjudication}{adjudication}, which fills the ``machine yes, human no'' direction.
+\item Open \apppage{discovery.compare} with \emph{human annotations} as one side. It shows
+  four cells (machine yes or no, against human yes or no) and a fifth, \emph{not comparable},
+  for stretches no run covered or no person reviewed; those are never counted as
+  disagreements. Beneath, the two disagreement cells are broken down by channel, by time and
+  by the tags people gave.
+\item In \apppage{explore.corpus}, \emph{colour by · disagree} draws the same two cells over
+  the map of the whole recording.
+\end{enumerate}
+\screenshot{pages/zzz_x_divergence/discovery.compare--fixup-x-human-side-pairs-by-the-divergence-with-the-breakdown}{Compare
+against the human record: the four cells, \emph{not comparable} kept apart, and the
+breakdown of the disagreements.}
+
+\subsection*{How to judge it}
+Look at whether the disagreement cells concentrate on a few channels, hours or shapes. The
+page says plainly that it has no test of ``structured'' and no null for it: whether the
+bunching is more than chance is, for now, your judgement, and should be reported as such.
+
+\subsection*{What is not yet answerable}
+\begin{itemize}
+\item There is too little data. On 15~October the research file recorded no adjudications in
+  the real database, and only a few dozen detections inside a reviewed window at all. The
+  instrument is built; the hours in Review are not.
+\item The machine side has no shape classes: no detector stores one, and classes given in
+  Review are not yet stored.
+\item Recall still uses an older rule that gives 0 on window labels by construction.
+\end{itemize}
+
+%% ------------------------------------------------------------------------------------------
+\section{Does a pattern recur across channels and recordings?}\label{sec:workflows-rq6}
+The question (RQ6): if the same motif shows up on many electrodes, that could mean three
+things. One wire picking up another's signal (an \term{artifact}{artifact}): the copies sit at
+exactly the same instant. The signal travelling through the mycelium (propagation): the copy
+on the next electrode is a little later. Or the organism doing the same thing again in
+different places or at different times. Once the first two are taken out, is there still
+recurrence?
+
+\begin{plainterms}[Echoes and choruses]
+You hear a phrase sung from several rooms. If every room sings it at the very same moment,
+it is probably one singer on a loudspeaker system. If each room sings it a moment after the
+last, it is passing from room to room. If rooms sing it at different times of their own
+accord, the phrase is something they all know. Only the last is recurrence.
+\end{plainterms}
+
+\subsection*{The clicks}
+\begin{enumerate}
+\item In \apppage{discovery.runs}, \ui{Apply template} across channels. Each channel gets
+  its own surrogates, so a family built from the run has a null beside its counts.
+\item Build the family's members and \term{edge}{edges} from the accepted matches (as in
+  \cref{sec:workflows-rq3}).
+\item On \apppage{library.family}, \ui{Classify across channels}. Each member is compared with
+  every other channel of its recording over the same stretch of time. A pair counts only if it
+  beats the same comparison at 100 random other times. The machine flags a \emph{suspected
+  artifact} (copies within 1\,s at $|r| \geq 0.98$) and propagation (1--50\,s at
+  $|r| \geq 0.5$); members under 30 samples are \emph{too short to tell}. These thresholds
+  are settings in \apppage{settings.analysis-defaults}.
+\item \ui{Send suspected artifacts to Review}. Only artifacts a person confirms are taken out.
+\item Read \apppage{library.recurrence} with \emph{excluding artifacts} and
+  \emph{propagation counted once}. A cell with no reviewed coverage reads \texttt{?}.
+\end{enumerate}
+\screenshot{pages/zzzz_ad_suspected_artifact/library.family--fixup-ad-classify-against-chance}{Classify
+across channels on a family: each pair carries its chance test, and the machine only flags.}
+
+\subsection*{How to judge it}
+Recurrence persists if the counts with artifacts excluded and propagation counted once stay
+above what the run's surrogates give. The Library shows only members above the dataset's
+noise floor by default, so recurrence is counted over members large enough to be events.
+
+\subsection*{What is not yet answerable}
+\begin{itemize}
+\item The three families tried first (from a 10\,Hz recording) cannot answer it: most of
+  their members are too short and too small to tell. A family built from a run, on larger
+  and longer members, can.
+\item The 64 members flagged on M2\_aug wait for a person to judge them.
+\item Families imported rather than found by a run have no surrogates, so their counts have
+  no null; the page says so.
+\item ``Across recordings'' of other species is only starting: recordings of other fungi
+  were derived in October 2026 and some were registered by 15~October. Each needs its own
+  noise floor set in \apppage{settings.datasets} before its members are counted.
+\end{itemize}

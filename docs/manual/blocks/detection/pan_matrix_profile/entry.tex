@@ -1,0 +1,141 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.pan_matrix_profile -- "Pan matrix profile" (Appendix A).
+\entryfield{Algorithm}
+The pan matrix profile of \citet{madrid2019matrix} (matrix profile XX) stacks matrix profiles over a
+range of window lengths. \code{_run} in \code{Adapters/detection_pan_matrix_profile.py} calls
+\code{pan_matrix_profile} in \code{Working/Detection/matrix_profiling/pan.py}, whose docstring sets
+out every rule; in order:
+\begin{enumerate}
+\item \emph{Ladder} (\code{window_lengths}). \emph{n\_lengths} lengths spaced geometrically from
+  \emph{min\_window\_s} to \emph{max\_window\_s}, $m = \mathrm{round}(s f_s)$, duplicates removed. A
+  length below 4 samples or above half the span is dropped and named. One exact
+  \code{stumpy.stump} per length, not stumpy's \code{stimp}, which visits a linear ladder and whose
+  \code{PAN_} is binarised at 0.2 by default.
+\item \emph{Gaps and stalls} (\code{prepare_gaps}). NaN runs of at most \emph{max\_fill\_s} are
+  bridged by a straight line; longer runs stay NaN. A stall, a run of at least \emph{stall\_s} where
+  every second difference $|x_{i+2} - 2x_{i+1} + x_i|$ is within 1\,\% of the span's 75th percentile
+  of them (\code{stall_mask}, \code{STALL_TOL}), is made NaN too, because a held value, detrended,
+  is a ramp that matches every other ramp exactly. Both are counted.
+\item \emph{Brightness} (\code{normalised_profile}). For each length, the exact z-normalised
+  matrix profile (\blockentry{detection.matrix_profile}; exclusion zone $m/4$), scaled as stumpy
+  scales its pan profile, $\min\bigl(d/(2\sqrt m),\,1\bigr)$, so that every length shares one 0--1
+  scale (the paper gives no per-length rule); the image holds $1 -$ that. 1 means an identical shape
+  exists elsewhere; about 0.29 is what two windows of white noise score; 0, anti-correlated. A
+  window touching a long gap or stall is NaN.
+\item \emph{Distinct windows} (\code{distinct_values}). Sort the profile and keep a window only if no
+  kept window starts within $m$ samples: $N$ non-overlapping windows. $r_K$ is the mean of the best
+  $K = 3$, so one lucky pair cannot carry a length.
+\item \emph{Null.} For each length that can be judged (step 6), \emph{null\_draws} copies of the
+  filled span are profiled the same way: \texttt{aaft} (the default) is the amplitude-adjusted
+  Fourier transform surrogate of \citet{theiler1992testing} (the recording's own values, reordered
+  so the spectrum is roughly kept and every shape destroyed;
+  \code{aaft_surrogate} in \code{Adapters/preprocessing_surrogate.py}); \texttt{phase} keeps the
+  spectrum exactly but makes the values bell-shaped, and is kept for comparison only. Each draw is
+  seeded by (\emph{seed}, draw number), so every length sees the same copies, and the long gaps are
+  put back. From each draw's distinct windows: $z_K$ (mean of the best 3) and $z_{\mathrm{med}}$
+  (the median), averaged over draws.
+\item \emph{Verdict} (\code{length_verdict}). A length is judged only if the usable samples make at
+  least 14 windows (\code{MIN_WINDOWS}); then
+  \[ \mathrm{gap} = N^{1/3}\,\frac{\ln(z_K / r_K)}{\ln(z_{\mathrm{med}} / z_K)}, \]
+  how far the recording's best look-alikes reach beyond noise's best, in units of how far noise's
+  best reach beyond its typical window. The length \emph{clears} when the gap reaches the cut,
+  \code{GAP_MIN} $= 6$ once the span holds 24 windows, rising linearly to about 8.5 at 14
+  (\code{gap_cut}), \emph{and} $r_K$ is below every single draw's $z_K$. The exponent $1/3$, the
+  cut and the window counts are measured on synthetic noise (calibration tables beside the
+  constants in \code{pan.py}), not derived.
+\item \emph{Answer.} The band of cleared lengths (\code{cleared_s}) and the cleared length with the
+  largest gap (\code{suggested_window_s}; the summary says ``strongest gap at''). If none clears:
+  ``no length stands out''; the shortest length is never a fallback.
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Z-normalised throughout, so units do not matter. A constant span is reported as
+  ``no spread to measure''.
+\item \emph{Sampling rate.} Lengths are in seconds, converted at $f_s$; a short length at a low rate
+  has few samples (30\,s at 0.5\,Hz is 15), and z-normalising so few samples is itself noisy, which
+  the measured exponent allows for.
+\item \emph{Missing values.} Short NaN runs are bridged by a line, long ones and stalls left out of
+  the picture and every statistic; real and null lose the same windows. The default
+  \emph{max\_fill\_s} (5\,s) and \emph{stall\_s} (60\,s) are marked as placeholders.
+\item \emph{Detrending.} Assumed done upstream: the gap was calibrated after a 2\,h rolling-mean
+  detrend, and slow drift otherwise dominates long windows.
+\item \emph{Same length.} Two occurrences of a shape at different durations do not match at any
+  single length.
+\end{itemize}
+
+\entryfield{Outputs}
+An \texttt{Encoding} of kind \texttt{image}: a float32 array with one row per length, longest first
+(row 0 is the longest), and one column per sample of the span, start-aligned: column $i$ is the
+window starting at sample $i$, so each row's last $m - 1$ columns are NaN. Followed by
+\blockref{detection.wavelet_summation}, a band of rows sums to ``how strongly the windows starting
+here repeat across these lengths''. \code{meta} carries \code{lengths_s} and
+\code{lengths_samples} (row order), \code{lengths_dropped_samples}, \code{per_length} (per row: the
+best distance and where, 5th percentile, median, window counts, $N$, $r_K$, the null's $z_K$ per
+draw and median, gap, cut, judged, clears, and the reason in words), \code{cleared_s},
+\code{suggested_window_s}, \code{suggested_row}, \code{verdict}, \code{reasons},
+\code{n_filled}, \code{n_long_gap}, \code{n_stalled}, the null settings, \code{alignment}
+(\texttt{start}), \code{summary} and \code{rules}. Nothing is persisted beyond the run's own
+result.
+
+\entryfield{Cost}
+One exact matrix profile ($O(n^2)$, flat in $m$) per length, plus \emph{null\_draws} per judged
+length: at the defaults up to $12 + 3\times 12 = 48$ profiles of the whole span. The estimate is the
+matrix-profile cost model times that count (\code{profile_units}), plus about 40\,s for stumpy's
+first compilation in a fresh process (\code{FIRST_CALL_S}). There is no approximate mode: stumpy's
+\code{scrump} drew from numpy's global random generator and was not reproducible beside other
+threads. Memory is the limit that is enforced: about 1\,kB per sample at peak (16 numba threads),
+so the span is capped at $10^6$ samples (\code{MAX_SPAN_SAMPLES}, about 277\,h at 1\,Hz). Progress
+is reported after every profile and a cancel is honoured before each. Over the Analyse ceiling a
+chain is sent to the cluster.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Reading the strongest gap as an event length.} It is not: it leans towards the longest
+  judged length when an event dominates long windows (a planted 90\,s spike gave anything from 30 to
+  976\,s) and towards an edge on drop chains (the 30--72\,s fall); in a later check it fell near
+  either planted motif in 2 of 10 seeds. The band holds the event length; the strongest gap does
+  not pick it out.
+\item \emph{Lengths out of reach.} A length is judged only on a span 14 windows long: an 8\,h span
+  cannot judge a drop chain's roughly 30-minute unit (expect ``no length'' or the fall edge); judge
+  chains on 24\,h or more.
+\item \emph{A null that keeps the rhythm.} The null keeps the spectrum, so a quasi-periodic chain
+  keeps its spacing in its own copies and its period is partly in the null.
+\item \emph{Twice-only motifs.} A shape that occurs only twice barely moves $r_K$ ($K = 3$).
+\item \emph{Amplitude is invisible.} A quiet stretch and a loud one of the same shape match; pure
+  noise has no shape of its own.
+\item \emph{On real recordings everything repeats.} Every judged length repeated beyond the null on
+  the real chains and the spiking recording tried
+  (\code{docs/prompts/blocks/reports/W3-evaluation.md}, as summarised in
+  \code{docs/research/analysis-blocks-primary-sources.md}, 13b), so a cleared band there says less
+  than on synthetic data.
+\end{itemize}
+Window versus event: the picture is start-aligned and says so (\code{meta["alignment"]}); a bright
+pixel marks where a repeating window \emph{starts}, not where the event is.
+
+\entryfield{Validation}
+The false-alarm rate and the cut were measured, not derived: at the defaults no suggestion on 150
+spans with no structure (random walks, AR(1), pink noise, a lopsided exp-AR(1) series), and 6 of 6
+suggestions on spans with planted motifs, 5 within one rung of a planted scale (table beside
+\code{GAP_MIN} in \code{pan.py}; measured with a scratch script the comment names, \code{w3c_hold/fix1_sweep.py}).
+\code{tests/test_pan_matrix_profile.py} checks the answer on synthetic recordings
+(\code{tests/_pan_synthetic.py}): two planted motif lengths both clear the null and are bright where
+they sit; spans with no structure (2\,h and 4\,h, and a lopsided series) rarely or never suggest a
+length; a dominant motif clears a band holding its length; the shortest length is never a
+fallback; and flatlines, quantised loggers and stalls are handled as described. It also checks the
+layout (rows long first, start-aligned, NaN tail, distances not the binarised pan), the ladder, the
+gaps, and progress and cancelling. \code{tests/test_adapter_pan_matrix_profile.py} checks the
+meta, the summary's caveat, the estimate (the cost model times the profile count, plus the first
+compile), the memory guard, the recommended \emph{max\_window\_s}, and that
+\blockref{detection.wavelet_summation} after it sums the intended lengths. No test uses a real
+recording.
+
+\entryfield{References}
+\citet{madrid2019matrix} for the pan matrix profile; \citet{theiler1992testing} for the AAFT
+surrogate. The normalisation is stumpy's \citep{law2019stumpy}, not the paper's;
+\code{docs/research/analysis-blocks-primary-sources.md}, 13b, records the differences.
+
+\entryfield{Tests}
+\code{tests/test_pan_matrix_profile.py}, \code{tests/test_adapter_pan_matrix_profile.py},
+\code{tests/test_template_motif_lengths.py} (the template that uses it), and
+\code{tests/test_end_to_end.py}.

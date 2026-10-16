@@ -1,0 +1,38 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.sliding_windows -- "Sliding windows" (Part I, the blocks chapter).
+\cardfield{What it does}
+Cuts the span into equal, non-overlapping windows and marks each one as training,
+validation or test, keeping whole stretches of time together.
+
+\cardfield{When to use it}
+At the start of any chain that will train or test something on windows: a classifier, a
+clustering you want to check on unseen time, window images or MiniRocket. The windows
+carry no measurements yet; put a feature block after it. To pool windows from several
+recordings and channels, use \blockref{preprocessing.window_pool} instead. The Library's
+window sets explain the same rules from the page side: \apppage{library.window-sets}.
+
+\begin{plainterms}[Why a blocked split]
+A fungal recording changes slowly. Two windows next to each other in time are near-copies.
+If you shuffle windows at random into ``train'' and ``test'', the test set is full of
+near-twins of training windows, and the model looks far better than it is: like marking a
+student's exam with questions copied from their homework. A \emph{blocked split} cuts the
+recording into a few long blocks of time and gives each block, whole, to one role. The test
+windows then come from a stretch of time the model never saw.
+\end{plainterms}
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes a set of window positions, each with its role
+(train, validation or test) attached. The windows touch end to end unless you ask for a gap.
+
+\cardfield{Settings that matter}
+\emph{window\_s} is the window length in seconds (default ten minutes). \emph{n\_blocks}
+is how many blocks of time the span is cut into; \emph{holdout\_frac} and
+\emph{validation\_frac} say what share of those blocks becomes test and validation. The
+last blocks in time are the ones held out.
+
+\cardfield{Watch out for}
+The share of blocks is rounded: with five blocks a validation share of 0.1 rounds to no
+validation block at all. There is no empty gap at the border between a training block and
+the test block, so the last training window and the first test window can sit side by
+side. A random split is refused unless you tick \emph{allow\_random\_split}, and you
+should not.

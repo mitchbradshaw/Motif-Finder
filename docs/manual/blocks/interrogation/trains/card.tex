@@ -1,0 +1,32 @@
+% !TEX root = ../../../main.tex
+% Block card: interrogation.trains -- "Trains" (Part I, the blocks chapter).
+\cardfield{What it does}
+Looks at the gaps between consecutive events and groups events that come close together into
+trains (bursts), marking every event with the train it belongs to, or with none.
+
+\cardfield{When to use it}
+When you want to know whether spikes or drops arrive in clusters with quiet spells between
+them, as \citet{adamatzky2022language} described fungal ``words''. Put it after a detector
+and \blockref{interrogation.event_shape}. Put \blockref{interrogation.intervals} after it
+with \emph{write\_group} on to time events inside each train. The block is marked
+experimental: on the real recordings tried so far it found no trains, on the recordings or on
+their scrambled copies.
+
+\cardfield{What goes in, what comes out}
+In go the events from earlier in the chain. The same events come out, unchanged, each with
+four new labels: which train it is in, how big that train is, its place in the train, and the
+gap since the event before it.
+
+\cardfield{Settings that matter}
+\emph{rule} picks how a train is decided. The default, \texttt{logisi}, looks for two kinds
+of gap (short ones inside trains and long ones between) and cuts between them; if it cannot
+see two kinds it says ``no trains'' rather than inventing some. \texttt{adamatzky} joins
+events whose gap is no more than \emph{theta\_mult} times the average gap.
+\texttt{maxinterval} uses four fixed gap lengths in seconds, whose defaults are placeholders
+nobody has checked on fungi. \emph{min\_events} is the smallest train (3 by default).
+
+\cardfield{Watch out for}
+The default rule needs at least eleven events (ten gaps) or it refuses. ``No trains'' can
+mean ``could not tell'': when the timing inside a train is irregular, the gaps between trains
+must be 30 to 100 times longer before the rule can see them. The block knows nothing about
+holes in the recording; a hole simply looks like a long gap.

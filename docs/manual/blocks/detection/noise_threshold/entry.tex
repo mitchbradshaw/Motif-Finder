@@ -1,0 +1,102 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.noise_threshold -- "Noise threshold" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_noise_threshold.py}, after
+\citet{quianquiroga2004unsupervised}, eq.~3.1 ($\mathrm{Thr} = 4\sigma_n$,
+$\sigma_n = \operatorname{median}\{|x|/0.6745\}$), adapted to a cut around the median:
+\begin{enumerate}
+\item \emph{Centre and noise} (\code{noise_level} in
+  \code{Working/Detection/analysis/noise_level.py}), over the finite samples:
+  \[
+  c = \operatorname{median}(x),\qquad
+  \sigma_n = 1.4826\,\operatorname{median}|x - c|
+  \]
+  (\code{robust_sigma}; $1.4826 \approx 1/0.6745$). This is the median absolute
+  \emph{deviation} about the median, not the paper's $\operatorname{median}|x|$ about zero; on
+  a zero-median trace they agree. With \texttt{noise\_from = rolling} (\code{rolling_noise}),
+  $c$ and $\sigma_n$ are the median and $1.4826\,\operatorname{MAD}$ of windows of
+  $w = \max(300, \operatorname{round}(\text{\emph{noise\_window\_s}}\,f_s))$ samples, evaluated
+  every $w/4$ samples at the window centres and linearly interpolated. Windows less than half
+  finite give no estimate; windows with $\operatorname{MAD} = 0$ are not anchors, and every
+  sample within half a window plus one hop of one gets $\sigma_n = 0$ (``not judged'').
+\item $z_i = (x_i - c_i)/\sigma_{n,i}$ for the judged samples (finite, $\sigma_n > 0$); NaN
+  otherwise.
+\item \emph{Direction}, by \blockref{detection.signal_threshold}'s own
+  \code{_mask_and_excursion} applied to $z$: \texttt{above} $z > k$, \texttt{below} $z < -k$,
+  \texttt{either} $|z| > k$, with $k$ = \emph{k\_sigma}.
+\item Contiguous runs become spans (\code{spans_from_mask}); each scores its peak excursion
+  past the cut in $\sigma_n$: $\max z - k$, $-k - \min z$ or $\max|z| - k$.
+\item \emph{Tidy} (\code{tidy_spans} from \code{Adapters/detection_threshold.py}): join spans
+  less than $\operatorname{round}(\text{\emph{merge\_gap\_s}}\,f_s)$ samples apart (score: the
+  maximum of the parts), then drop spans shorter than
+  $\operatorname{round}(\text{\emph{min\_duration\_s}}\,f_s)$ samples. Both off at 0.
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Unit-free without being told the unit: the cut is $k\sigma_n$ of the
+  span's own noise, so a trace stored in V or mV gives the same spans
+  (\code{test_volts_and_millivolts_give_the_same_spans}). The readout and meta print $\sigma_n$
+  and the cut in the stored unit, unconverted.
+\item \emph{Events are rare}: the paper's own assumption, that spikes are a small fraction of
+  all samples, behind the median estimate.
+\item \emph{Baseline removed first.} A drift moves samples past a fixed cut; the template uses
+  a 600\,s rolling mean.
+\item \emph{Sampling rate.} Only the seconds settings use it; the rolling window's minimum of
+  300 is in samples, so a shorter window is raised to it, with a warning.
+\item \emph{Missing values.} NaN samples are skipped by the estimate and never belong to a span;
+  a NaN inside an excursion splits it in two unless \emph{merge\_gap\_s} rejoins it.
+  \code{n_nan} counts them.
+\item \emph{No band-pass.} The paper filters at 300--6000\,Hz first; at 1\,Hz that band does
+  not exist, and the block applies no filter of its own.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet} (span-relative starts and ends, scores in $\sigma_n$ past the cut), written
+to \code{detections} by the executor. \code{meta}: \code{n_spans}, \code{n_samples},
+\code{n_nan}, \code{n_unjudged}, the settings, \code{noise_window_samples} (the window actually
+used), \code{cut_varies}, \code{centre}, \code{sigma}, \code{sigma_min}, \code{sigma_max},
+\code{cut_above}, \code{cut_below} (stored units; medians along the trace for \texttt{rolling}),
+\code{sigma_ratio_diff}, \code{plain_sd}, \code{fraction_past_cut}, \code{warnings},
+\code{rules}. The readout prints $\sigma_n$ and the cut in stored units.
+
+\entryfield{Cost}
+Whole span: a median and a MAD, $O(n)$ to $O(n\log n)$. Rolling: about $4n/w$ windows of $w$
+samples, roughly $O(n\log w)$, evaluated in chunks so memory stays bounded. No estimate or
+maximum span declared.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Common events inflate $\sigma_n$.} Above 20\% of judged samples past the cut, a
+  warning. But events common enough can raise $\sigma_n$ until they no longer cross the cut, and
+  then there is no span and no warning (40\% of samples in 5$\sigma$ or 8$\sigma$ drops gives
+  $\sigma_n \approx 2.8\sigma$). \code{sigma_ratio_diff}, $\sigma_n$ divided by the robust SD of the first differences
+  over $\sqrt2$ (\code{robust_sigma}), reads that case: about 1 for white noise, about 2.75 at 40\% drops; slow, coloured noise also
+  raises it, so it is a number to read, not a warning. A rolling window does not cure this.
+\item \emph{Flat or coarsely quantised traces}: when more than half the samples share one value,
+  $\operatorname{MAD} = 0$ and nothing is judged; a warning says so.
+\item \emph{Short rolling windows}: a MAD from few samples is noisy and fires on noise; hence
+  the 300-sample floor.
+\item \emph{One-sample grazes} of the cut become one-sample spans unless
+  \emph{min\_duration\_s} or \emph{merge\_gap\_s} is set (the template sets 30\,s and 60\,s).
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_adapter_noise_threshold.py} checks the estimator: $\sigma_n$ within 3\% of a
+white noise's SD, within 10\% when 5\% of samples are large spikes, blind to an offset; and the
+false-positive rate at the minimum rolling window. On real recordings,
+\code{docs/prompts/blocks/reports/W1-evaluation.md} records the \texttt{noise\_threshold}
+template beating a phase-randomised null on 5 of 6 spans (for example 44, 55 and 77 events on
+three 24\,h spans against at most 0.05 on the null); the sixth found nothing on either. No test
+compares its spans with hand-marked events.
+
+\entryfield{References}
+\citet{quianquiroga2004unsupervised}, eq.~3.1, implemented from the published equation (no
+Wave\_clus code was read). Details in \code{docs/research/analysis-blocks-primary-sources.md},
+section 4.
+
+\entryfield{Tests}
+\code{tests/test_adapter_noise_threshold.py} (registration, the estimator, NaN, V versus mV,
+agreement with \blockref{detection.signal_threshold} at the equivalent cut, warnings, flat and
+all-NaN traces, tidying, rolling noise and its minimum, \code{sigma_ratio_diff}, the readout);
+\code{tests/test_template_noise_threshold.py} (the template end to end, the same spans in mV).

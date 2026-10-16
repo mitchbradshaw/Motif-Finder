@@ -1,0 +1,34 @@
+% !TEX root = ../../../main.tex
+% Block card: interrogation.cycle_shapes -- "Cycle shapes" (Part I, the blocks chapter).
+\cardfield{What it does}
+For a chain of repeating drops, takes each stretch from one drop to the next (a cycle),
+stretches every cycle to the same length, and asks whether they all share one shape or fall
+into a few kinds, and where in the chain the kind changes.
+
+\cardfield{When to use it}
+On a long, regular chain of drops (the ``sharkfin'' rhythms), to see whether the cycle's
+shape stays the same over hours or switches. A chain is like a drummer whose tempo drifts:
+stretching each beat to one length lets you compare the beats themselves. Put
+\blockref{interrogation.event_shape} and \blockref{interrogation.trains} (with
+\texttt{maxinterval} set to chain-scale gaps) before it and
+\blockref{interrogation.intervals} after it.
+
+\cardfield{What goes in, what comes out}
+In go the events. They come out unchanged, the event that opens each cycle carrying that
+cycle's measures: its length, its size, which shape group it is in, whether the shape changed
+there, how long it sits on its floor before climbing, and where it is half way back. A
+stacked picture of all the cycles comes with them.
+
+\cardfield{Settings that matter}
+\emph{max\_cycle\_s}: a cycle much longer than its neighbours is treated as a gap (a missed
+drop), not a cycle. The automatic rule (0) leaves out cycles over 1.6 times the local typical
+length; set a number if many real long cycles are being thrown away. \emph{min\_cycles}
+(10) is the fewest usable cycles before any sorting happens. Bind the \emph{waveform} side
+input to the root signal when the detector ran on a smoothed-out trace, so the slow climb of
+each cycle is kept.
+
+\cardfield{Watch out for}
+More than one shape is claimed only when the split clearly beats the same split on stretches
+of quiet background; with fewer than 20 usable cycles it can never find two kinds. A chain
+that fills its whole span leaves no quiet background, and its verdicts are then marked
+untested. The cycle size is in the recording's stored unit, not converted to millivolts.

@@ -1,0 +1,24 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.gramian_gadf -- "Gramian GADF" (Part I, the blocks chapter).
+\cardfield{What it does}
+Turns a short stretch of one channel into a square picture in which every pixel shows how
+two moments of the stretch \emph{differ}: the sister of \blockref{catalogue.gramian_gasf},
+whose card explains the idea.
+
+\cardfield{When to use it}
+Beside the summation field, when you want to see change rather than level: where the
+signal rises or falls relative to other moments. On its own it is mostly for looking; the
+trained networks take it through \blockref{catalogue.window_images}.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel, at most 5{,}000 samples. Out comes a square image with one
+row and one column per sample. The image is mirror-reversed across its diagonal (the top
+right is the negative of the bottom left), and the diagonal itself is always zero.
+
+\cardfield{Settings that matter}
+None. The span you choose is everything.
+
+\cardfield{Watch out for}
+The same as the summation field: the span's own lowest and highest values set the scale,
+so one spike flattens the rest; a flat span or one missing sample gives an image with no
+values; a span over 5{,}000 samples is refused.

@@ -1,0 +1,151 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.beads -- "BEADS baseline" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/preprocessing_beads.py} calls \code{remove_baseline} in
+\code{Working/Preprocessing/beads.py}, passes on its \code{corrected} trace and its \code{meta},
+and adds a list of plain-language \code{rules} to the meta. The core has two layers: a faithful
+algorithm (\code{beads}) and a wrapper that adapts it to long, slow recordings
+(\code{remove_baseline}).
+
+\paragraph{The algorithm (\texttt{beads}).} BEADS \citep{ning2014chromatogram} models a trace as
+$y = f + x + w$: $f$ a low-pass baseline, $x$ a sparse layer of events whose first and second
+differences are also sparse, $w$ noise. It minimises
+\[
+F(x) = \tfrac12\lVert H(y-x)\rVert^2 + \lambda_0\sum_n \theta_\varepsilon(x_n; r)
+  + \lambda_1\sum_n \phi([D_1x]_n) + \lambda_2\sum_n \phi([D_2x]_n),
+\]
+where $H = BA^{-1}$ is a zero-phase high-pass filter built from banded Toeplitz matrices of order
+$d$ and cut-off $f_c$ (cycles per sample; \code{_filter_matrices}, the \texttt{BAfilt} of the
+reference code), $\theta_\varepsilon$ is an asymmetric smoothed absolute value (positive $x$
+costs 1 per unit, negative $x$ costs $r$), $\phi(v) = \sqrt{v^2+\varepsilon_1}$, and $D_1$,
+$D_2$ are first and second differences. It is solved by majorisation--minimisation: each
+iteration forms the diagonal weights $\Gamma = \mathrm{diag}\bigl((1+r)/(4\max(|x_n|,
+\varepsilon_0))\bigr)$ and $\Lambda = \lambda_1 D_1^{\mathsf T}W_1D_1 + \lambda_2
+D_2^{\mathsf T}W_2D_2$ with $W_k = \mathrm{diag}(1/\phi([D_kx]_n))$, then solves the banded
+symmetric system
+\[
+x \leftarrow A\,\bigl(B^{\mathsf T}B + A^{\mathsf T}(\Lambda + 2\lambda_0\Gamma)A\bigr)^{-1}
+  \bigl(B^{\mathsf T}BA^{-1}y - \lambda_0 A b\bigr), \qquad b_n = (1-r)/2,
+\]
+by banded Cholesky (\code{scipy.linalg.solveh_banded}), falling back to banded LU. It stops when
+the cost changes by at most a fraction \code{tol} $= 10^{-3}$ between iterations, or after
+\code{max_iter} $= 30$ iterations. The baseline is $f = y - x - H(y-x)$. The update equations
+follow Laurent Duval's BSD-3 MATLAB \texttt{beads.m} line for line (with its \texttt{L1\_v2}
+penalty, pybaselines' default); the paper's own text could not be read, so the equations are
+the reference implementation's, and \unverified{their match to the published equations} is not
+checked.
+
+\paragraph{The wrapper (\texttt{remove\_baseline}).} Every step here is the project's adaptation,
+not the paper's:
+\begin{enumerate}
+\item Check the inputs: at least 64 samples (\code{MIN_SAMPLES}) and 64 finite ones;
+  $P = \mathit{baseline\_period\_s}\cdot f_s > 2$ samples; then $f_c = 1/P$ cycles per sample.
+\item \emph{Missing samples.} Trim NaN runs at either end from the solve; bridge interior NaNs
+  with straight lines.
+\item \emph{Noise level.} $\sigma = \mathrm{MAD}(\Delta y)/(0.6745\sqrt2)$ on the finite samples
+  (\code{robust_sigma}), falling back to the standard deviation of the difference, then to 0 for
+  a straight line.
+\item \emph{Polarity and weights.} \emph{drop} negates the trace and uses $r = 6$, \emph{spike}
+  uses $r = 6$, \emph{both} uses $r = 1$ (symmetric). $(\lambda_0, \lambda_1, \lambda_2) =
+  \mathit{sparsity}\times(0.15, 1.5, 1.2)$: the worked ratio $0.5 : 5 : 4$ times 0.3
+  (\code{LAMBDA_RATIOS}); $\lambda_1$ and $\lambda_2$ are not exposed because small changes in
+  $\lambda_1$ are reported to destabilise BEADS.
+\item \emph{A coarse grid.} Average blocks of $q = \max\bigl(1, \min(\lfloor 0.02/f_c\rfloor,
+  \lfloor m/64\rfloor)\bigr)$ samples (\code{grid_factor}, $m$ the trimmed length), lifting the
+  cut-off to about 0.02 cycles per grid point (\code{FC_GRID}) where the banded system is well
+  conditioned. At the defaults on a 1\,Hz recording $q = 144$ (144\,s blocks).
+\item \emph{Ends.} Pad the grid at each end by one baseline period (at most the grid's length
+  minus one), point-reflected about the end value ($2g_0 - g_k$), so level and slope continue;
+  subtract a line through the medians of the two end regions (each the shorter of 5\% of the
+  padded grid and a quarter period).
+\item \emph{Scale.} Divide by $\sigma_g = \max\bigl(\mathrm{MAD}(Hz)/0.6745,\ \sigma/\sqrt q\bigr)$,
+  the robust level of the high-passed grid measured without the padding (\code{grid_scale}),
+  floored at the white-noise level. This makes \emph{sparsity} unit-free.
+\item Run \code{beads} on the scaled grid with $f_c q$, order $d$ = \emph{filter\_order},
+  $\varepsilon_0 = \varepsilon_1 = 10^{-4}$ (\code{EPS}).
+\item Undo the scale, sign and end line; drop the padding; interpolate the baseline linearly
+  back to every sample (continued linearly, not held flat, over the half block at each end);
+  put every NaN back; return $\mathit{corrected} = y - \mathit{baseline}$.
+\item Warn (in \code{meta["warnings"]}) when the event layer exceeds 3 scale units on more than
+  80\% of the grid (not for \emph{both}), when it exceeds 3 units within a quarter period of
+  either end, or when an interior gap is longer than a tenth of the period.
+\end{enumerate}
+A trace with $\sigma = 0$ is returned whole as baseline (corrected output zero).
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware (no \code{units} argument), but scale-equivariant by
+  construction: multiplying the input by $k$ multiplies the output by $k$, so \emph{sparsity}
+  means the same on volts and millivolts.
+\item \emph{Sampling rate.} \emph{baseline\_period\_s} is in seconds; the registry allows
+  60\,s to 30 days.
+\item \emph{Missing values.} Kept as NaN in the output, as above; the count, the trimmed end
+  samples and the longest interior gap are reported. Near a long bridged gap the baseline is a
+  straight line, not an estimate.
+\item \emph{Signal shape.} Events must be the minority and faster than the period; the
+  asymmetric penalty assumes they point one way unless \emph{polarity} is \emph{both}.
+\item \emph{Span length.} At least 64 samples. A span shorter than the period still runs and
+  sets \code{span_shorter_than_period} in the meta.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Signal}: the corrected trace, same length and $f_s$. The baseline and the event layer
+$x$ are computed but not passed on. \code{meta} carries the solve: \code{fc_cycles_per_sample},
+\code{baseline_period_s}, \code{polarity}, \code{r}, \code{lam0}--\code{lam2},
+\code{sparsity}, \code{filter_order}, \code{grid_factor}, \code{grid_step_s},
+\code{fc_grid_cycles_per_sample}, \code{iterations}, \code{max_iter}, \code{converged},
+\code{final_cost}, \code{sigma}, \code{sigma_grid}, \code{sigma_grid_white},
+\code{sigma_source}, \code{baseline_min}, \code{baseline_max}, \code{grid_points},
+\code{end_pad_grid_points}, \code{end_region_grid_points}, \code{n_nan}, \code{longest_gap_s},
+\code{trimmed_end_samples}, \code{event_fraction_3sigma}, \code{span_shorter_than_period},
+\code{warnings}, and the adapter's \code{rules}, which the block page reads out.
+
+\entryfield{Cost}
+Each iteration is one banded solve, linear in the number of grid points; at most 30 iterations.
+Because the solve runs on the grid, a 2.6-million-sample channel becomes about 18\,000 grid
+points (module notes; \code{tests/test_beads.py} has a test that a whole channel of that size is
+fast and lean). The block registers a calibrated cost model (\code{register_cost_model}) and an
+estimate, \code{_estimate}, from the padded grid size; it returns nothing when the inputs would
+be refused. Memory is linear in the span. Meant to run locally on whole channels.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Events as slow as the period} are baseline. The filter's slope is gentle: drift
+  at twice the period leaves about 4\% RMS of its amplitude in the output, at 1.5 times about
+  12\%, at 3 times about 0.9\% (module notes; bounds checked in
+  \code{tests/test_beads.py}).
+\item \emph{Event-dominated spans.} If events fill most of the span the baseline settles partway
+  into them; levels are then unreliable, shapes and relative depths are kept.
+\item \emph{An event near either end} is reflected into the padding and bends the baseline over
+  the last half period (measured 0.63 of a drop's depth for a span cut 1040\,s after a drop
+  onset); a warning names it.
+\item \emph{Drift absorbed as events} at very low \emph{sparsity}: a warning fires above 80\%
+  event coverage on a drop or spike run.
+\item \emph{Not converged.} After 30 iterations the last iterate is used and
+  \code{converged} is false.
+\item \emph{Too short a span or period} is refused with a message.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_beads.py} holds the evidence. The banded port matches a dense transcription of
+\texttt{beads.m} to $10^{-6}$ of the signal scale for orders 1 and 2, and the cost never rises
+between iterations. On a synthetic 48\,h, 1\,Hz acceptance trace (6\,h sine drift of amplitude
+5, 20 drops of depth 1, noise 0.05) the residual drift away from the drops is below 0.1 RMS,
+every drop keeps at least 85\% of its depth, the ends carry no edge artefact above 0.1, and the
+overshoot beside the drops is less than half that of a 600\,s rolling mean (measured about
+0.06 against 0.34). Other tests cover drift far larger than the noise, AR(0.95) noise, a random
+walk, the warnings, NaN handling, scale equivariance and polarity. All of this is on synthetic
+traces: no test checks BEADS against hand-marked baselines on a fungal recording.
+
+\entryfield{References}
+\citet{ning2014chromatogram}. The reference implementation is Laurent Duval's
+\texttt{beads.m} (BSD-3), also adapted by pybaselines; what was verified from the
+implementations and what was not is in \code{docs/research/analysis-blocks-primary-sources.md}
+(section 6).
+
+\entryfield{Tests}
+\code{tests/test_beads.py} (the core, as above); \code{tests/test_adapter_beads.py}
+(registration, parameter bounds, that the output is the input minus a baseline, the meta and its
+rules, warnings as rules, refusal of a short span, the estimate);
+\code{tests/test_adapter_spec.py}, \code{tests/test_block_standard.py} and
+\code{tests/test_end_to_end.py} (registry and chain plumbing).

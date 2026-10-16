@@ -1,0 +1,161 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: interrogation.event_shape -- "Event shape" (Appendix A).
+\entryfield{Algorithm}
+The adapter (\code{_run} in \code{Adapters/interrogation_event_shape.py}) calls
+\code{measure_events} in \code{Working/interrogation/event_shape.py}, which calls
+\code{measure_event} once per event. The anatomy reuses the drop detector's own rules:
+\code{find_trough} (\code{Working/Detection/drop_motifs/detect.py}), \code{refine_onset} and
+\code{walk_back_to_shoulder} (\code{detect5.py}) and \code{fall_gradients}
+(\code{gradients.py}).
+
+For each event with window $[s, e)$ (clipped to the span):
+\begin{enumerate}
+\item \emph{Orient.} Decide drop or spike (\emph{polarity}; \texttt{auto} calls it a drop when
+  the steepest fall, by \code{np.gradient}, is at least as steep as the steepest rise). Form
+  the oriented trace $z = o \cdot c \cdot x$ from $s$ up to the next event's start (or the
+  span end), with $o = +1$ for a drop and $-1$ for a spike and $c$ the factor to millivolts
+  (below). Every event is then measured as a fall.
+\item \emph{Refuse} the window if it has fewer than 3 samples or any non-finite sample:
+  every measure NaN.
+\item \emph{Anatomy}, on the window $w = z[s{:}e]$, unless the input already carries
+  \code{onset_idx} and \code{extremum_idx} columns, in which case those are the onset and
+  extremum and the search is skipped:
+  \begin{itemize}
+  \item steepest: $k^* = \arg\min \nabla w$; if $\nabla w[k^*] \ge 0$ there is no fall;
+  \item knee (\code{find_trough}): walking forward from $k^*$, the first of three
+    consecutive samples whose slope is shallower than \emph{knee\_frac}$\,\cdot \nabla w[k^*]$;
+  \item extremum: the lowest sample of $w$ between $k^*$ and the knee;
+  \item onset: \code{refine_onset}, the same knee rule read backwards from $k^*$, then, with
+    \emph{walk\_onset\_back}, \code{walk_back_to_shoulder}: step back while the previous
+    sample is at least as high, never before the window start.
+  \end{itemize}
+\item \emph{Depth} $D = w[\text{onset}] - w[\text{ext}]$; $D \le 0$ means no fall: every
+  measure NaN.
+\item \emph{Measures}, with interpolated crossings between samples and $f_s$ the sample
+  rate:
+  \begin{description}
+  \item[\code{event_amplitude_mv}] $D$: a drop's depth, a spike's height.
+  \item[\code{precursor_height_mv}] $w[\text{onset}] - \min w[0..\text{onset}]$: how far the
+    onset stands above the lowest point before it in the window (a drop's preceding rise, a
+    spike's preceding dip).
+  \item[\code{event_width_s}] $(\text{ext} - \text{onset})/f_s$.
+  \item[\code{recovery_idx}, \code{recovery_time_s}] the first crossing after the extremum
+    of $w[\text{ext}] + \text{\emph{recovery\_frac}}\cdot D$, searched past the window's end
+    but never into the next event's window and never further than
+    \emph{recovery\_max\_mult} event widths; recovery time is extremum to that crossing.
+  \item[\code{duration_s}] onset to the recovery crossing.
+  \item[\code{fwhm_s}] full width at half maximum: the half level is $w[\text{onset}] - D/2$;
+    from its last crossing on the way down to its first on the way back (same search
+    bound).
+  \item[\code{rise_time_s}] spikes only (in the recorded frame): from the crossing of
+    $f D$ to that of $(1-f) D$ below the onset level on the way to the extremum,
+    $f$ = \emph{rise\_time\_frac} (0.1 gives the 10--90\,\% rise time). NaN for a drop,
+    never 0.
+  \item[\code{max_slope_mv_s}] the steepest value of $\nabla w \cdot f_s$ over
+    $[\text{onset}, \text{ext}]$.
+  \item[\code{onset_slope_mv_s}] $\nabla w \cdot f_s$ at the onset sample.
+  \item[\code{chord_slope_mv_s}] $(w[\text{ext}] - w[\text{onset}]) / \text{width}$.
+  \item[\code{peakedness}] max slope / chord slope: 1 for a straight fall, larger for a
+    front-loaded one.
+  \item[\code{span_ptp_mv}] peak to peak over the whole window.
+  \end{description}
+\item \emph{Back to the recorded frame.} Signed quantities (the three slopes) are multiplied
+  by $o$, and by $-1$ again when \emph{upstream\_inverted}; \code{polarity} is $-1$ for a
+  drop and $+1$ for a spike in the recorded frame. Amplitudes and widths stay positive.
+\end{enumerate}
+
+\emph{The rose.} \code{event_rose} hands the oriented snippets to \code{gradients.rose_data}
+(field \code{max_slope_mv_s}), split by an upstream \code{group} column when there is one.
+Every event is drawn as a fall, so a spike's rise is drawn as its mirror. What 45\textdegree{}
+means is set by \emph{rose\_scale}; on \texttt{raw} it is \emph{rose\_reference\_mv\_s}, or,
+at 0, the Library's stored rose reference (\code{Working/library/rose_reference.py}), or, when
+none is stored, these events' own pooled median, said in the rose's text.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} The block is unit-aware: \code{_run} takes the recording's declared
+  \code{units} and \code{Working/units.py}'s \code{read_as_mv} gives the factor $c$ (V
+  $\times$1000, mV $\times$1, µV $\times$0.001). An undeclared unit is read as volts and
+  \code{meta.units_note} says so. Amplitudes are in mV, slopes in mV/s (the sample rate is
+  applied once), widths and times in seconds.
+\item \emph{Sampling rate.} Slopes are $\nabla x \cdot f_s$, so they are comparable across
+  sampling rates; the knee rule counts samples (three in a row), so at higher rates it is a
+  shorter time.
+\item \emph{Baseline.} The detrended trace is the right input: the slow drift of a raw trace
+  adds to every slope (\code{fall_gradients}' docstring). The block measures whatever signal
+  the chain hands it.
+\item \emph{Missing values.} Any NaN inside an event's window: no measures for that event
+  (counted, see below). NaNs beyond the window stop the recovery and FWHM searches, since a
+  comparison with NaN is false: recovery is then NaN.
+\item \emph{Edges.} A window running past the span is clipped to it. The recovery search of
+  the last event may run to the span's end.
+\item \emph{Indices} (\code{onset_idx}, \code{extremum_idx}, \code{recovery_idx}) are in
+  the span-relative frame, like the span starts; \code{recovery_idx} can be fractional.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet} with the spans, labels and scores unchanged and a feature table with one
+row per event: \code{polarity}, \code{onset_idx}, \code{extremum_idx}, \code{recovery_idx},
+\code{event_amplitude_mv}, \code{precursor_height_mv}, \code{event_width_s},
+\code{duration_s}, \code{fwhm_s}, \code{recovery_time_s}, \code{rise_time_s},
+\code{max_slope_mv_s}, \code{onset_slope_mv_s}, \code{chord_slope_mv_s}, \code{peakedness},
+\code{span_ptp_mv}, followed by any upstream columns (one of the same name is replaced).
+
+\code{meta}: \code{rules} (the printed rule for every measure, including the unit), the
+\code{rose} payload, \code{n_events}, \code{n_no_fall}, \code{n_not_recovered},
+\code{n_no_fwhm}, \code{n_no_rise}, \code{measures}, \code{units}, \code{to_mv} and
+\code{units_note}.
+
+\entryfield{Cost}
+Each event's work reaches at most to the next event's start, so the total is $O(n)$ in the
+span length plus the knee walks. The per-event loop is plain Python. The rose is a histogram
+over the events.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Counted under the wrong name.} A window holding one NaN, a window of fewer than
+  3 samples and a window with no fall are all counted in \code{n_no_fall} (and
+  \code{n_no_rise}); the reason (\code{why} in \code{measure_event}) is not passed to the
+  output.
+\item \emph{\texttt{auto} polarity} called 50 of 410 seed drops spikes, because their windows
+  carry minutes of context with a rise as fast as the fall (module docstring).
+\item \emph{The wrong fall.} In a wide window the steepest sample can belong to a
+  neighbouring event: on 360 stored snippets the search matched the detector's trough within
+  3 samples on 345 and locked onto a steeper neighbouring fall on 10 (module docstring).
+  Upstream \code{onset_idx}/\code{extremum_idx} columns avoid this.
+\item \emph{Square bottoms.} On a flat floor the extremum is the floor's first sample, and
+  the onset can land well inside a slow dip: on a synthetic square dip the onset landed
+  0--230\,s after the dip's start (\code{Adapters/interrogation_event_families.py},
+  docstring).
+\item \emph{No recovery.} An event that never climbs back within the search bound has NaN
+  recovery, duration and often FWHM; counted.
+\item \emph{A unit not declared} is read as volts: a recording stored in mV then reads
+  1000 times too large, with the note printed.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_adapter_event_shape.py} builds a drop by hand (10\,Hz, volts: a rise to
++2\,mV, a fall to $-8$\,mV over 2\,s, a floor, a linear recovery) and checks every measure
+against values worked out on paper: onset 50, extremum 70, amplitude 10\,mV, precursor
+2\,mV, width 2\,s, FWHM 4.5\,s, recovery 3.5\,s, duration 5.5\,s, max and chord slope
+$-5$\,mV/s, peakedness 1, and the exact onset slope. It also checks a spike as the mirror of
+a drop, the 10--90\,\% rise time of a spike, NaN rather than 0 for a drop's rise time, the
+recovery search stopping at the next event, upstream anchors, and upstream inversion.
+\code{tests/test_units_reach_the_blocks.py} checks true millivolts on a channel stored in mV.
+The module docstring reports agreement with the detector's own depths on the 410 seed events
+when the store's anchors are used. No test compares the measures with hand-marked events on a
+fungal recording.
+
+\entryfield{References}
+The anatomy rules are the project's drop detector's (\code{detect.py}, \code{detect5.py});
+FWHM, recovery, duration and precursor are defined in
+\code{Working/interrogation/event_shape.py}. The 10--90\,\% rise time is the usual
+electrophysiological convention. No external paper defines this block.
+
+\entryfield{Tests}
+\code{tests/test_adapter_event_shape.py} (24 tests, above); \code{tests/test_rose_reference.py}
+(the rose's 45\textdegree{}); \code{tests/test_units_reach_the_blocks.py} (units);
+\code{tests/test_webui_interrogation_shape.py} (the page's use of it); and the template
+chains in \code{tests/test_template_event_features.py}, \code{test_template_event_trains.py},
+\code{test_template_event_families.py}, \code{test_template_chain_cycles.py} and others run it
+inside chains.

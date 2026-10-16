@@ -1,0 +1,330 @@
+% !TEX root = ../main.tex
+\chapter{Discovery: one template, many channels}\label{ch:discovery}
+Analyse works on one span of one channel. Discovery takes what you built there and applies it at
+scale: a saved \term{template}{template} run over several channels and many hours, or a
+\term{seed-search}{seed search} for more of a shape you already have. Every Discovery run is
+paired with its \term{null}{null}, so each result can be read against what chance would find on
+the same stretch of recording. This is the workspace where a claim is made; Analyse is where a
+method is tuned.
+
+\begin{plainterms}[Why every run carries a null]
+Suppose a detector finds 40 events in a day of recording. Is that a lot? You cannot tell until you
+know how many it finds in a recording that has the same overall wiggle but no real events in it.
+The app makes such stand-ins, called \term{surrogate}{surrogates}, by scrambling the recording in a
+way that keeps its general character, runs the same template on them, and reports ``null expects
+\(m\)'': the average count on the scrambled versions. ``\(40\) found, null expects 2'' is a finding;
+``40 found, null expects 38'' is not.
+\end{plainterms}
+
+The four pages share one \emph{session}: a \textbf{scope} (one recording, one or more channels and a
+section of hours) and a list of \textbf{runs} over it. \apppage{discovery.runs} is home: it applies
+templates and shows where each run fires and how it scores. \apppage{discovery.seed} sets up a seed
+search as a draft run in the same list. \apppage{discovery.compare} sets two runs side by side, and
+\apppage{discovery.stages} pushes one place where they disagree through both chains, stage by stage.
+All four read the bridge (\pagestatus{live}); the few controls that are still simulated are named
+in each section. The held-out recording is refused on every Discovery route.
+
+\begin{watchout}[Discovery runs write to the database]
+In the project mode the researcher uses (\cref{ch:settings}), a Discovery run writes real rows:
+runs, detections and the paired surrogate runs. That is the point, but it cannot be undone except
+by \ui{Discard run}, which marks a run superseded.
+\end{watchout}
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{discovery.runs}{Runs}{Apply templates and seeds across channels}{live}
+The Runs page applies saved templates to the scope, runs them, and shows the results: where each
+run fires, a scoreboard against the human record and the null, and a browser to step through the
+detections one at a time.
+
+\pagefield{When you'd come here}
+\begin{itemize}
+  \item You saved a detection template in Analyse and want to run it over many channels.
+  \item You want to know how a run scores: how many it found, how many a human judged, the
+        precision, and how many the null expects.
+  \item You want to send a run's detections to Review to be judged.
+\end{itemize}
+
+\screenshot{pages/discovery/discovery.runs--default}{A session: the scope strip at the top, the
+runs list on the left, and on the right where each run fires per channel, the scoreboard and the
+detection browser.}
+
+\pagefield{Doing things here}
+
+\subsection*{Set the scope}
+\begin{enumerate}
+  \item In the \ui{Scope} card, pick the \ui{recording}. Changing it asks first, because it clears
+        the channels and marks every run stale.
+  \item Add channels with \ui{+ channel} (a tick list with \ui{Select all}), or remove one with the
+        cross on its chip. The scope keeps at least one channel. Strips show three channels at a
+        time; the arrows beside them page through the rest.
+  \item Set the section with the \ui{section} chip (from and to, in hours), or by dragging on the
+        strips. The chip reads, for example, ``0--174 h · 174 h \(\times\) 3 ch''.
+\end{enumerate}
+
+\subsection*{Apply a template}
+\begin{enumerate}
+  \item Press \ui{Apply template} in the runs list. A window lists the saved templates that fit the
+        scope, each with its chain drawn as a strip of glyphs, filterable and sortable.
+  \item Tick one or more. The detail pane shows the template's locked parameters, its estimated
+        cost per channel, and compute, disk and null tiles. A cost the bridge has not measured yet
+        is left empty rather than guessed. For a template that starts with a filter, a band list
+        (from Settings \textrightarrow{} Analysis defaults) can run it once per named band.
+  \item The cost decides the button. Within the local limit (20 minutes by default, set in
+        Settings \textrightarrow{} Compute \& HPC) the button is \ui{Add and run}; above it,
+        \ui{Create SLURM script}.
+\end{enumerate}
+The toolbar's cost chip totals the pending runs (``\ldots{} local'' or ``\ldots{} routes to
+cluster''); the toolbar button then reads \ui{Run \(n\)} or \ui{Create SLURM script for \(n\)}. The
+null chip beside it says which surrogate method and how many draws the next template run and the
+next seed search will carry; when no null method is available it says ``none'' and why.
+
+\subsection*{Read where each run fires}
+One row per run, grouped by channel, all on one time axis. In \ui{density} mode each 3-hour bin is
+shaded by how many detections fell in it; in \ui{spans} mode each detection is one mark. The human
+row shows reviewed hours as a grey underlay: recall can only be measured there. Click a bin to open
+that run's first detection at or after it in the browser below. \ui{Open the map} goes to the
+detection map across every dataset.
+
+\subsection*{Read the scoreboard}
+One row per run, expandable to its channels:
+\begin{description}
+  \item[found] detections the run made on the scope.
+  \item[already judged] detections that had a human verdict before the run started.
+  \item[reviewed, interesting, precision] how many fall where a human has judged, how many of those
+        were judged interesting, and the share. Precision is shown as two figures, each with its
+        rule on hover: \emph{containment} (over the windows a reviewer judged) and \emph{extent}
+        (over the event-shaped human rows, matched by overlap).
+  \item[recall · reviewed overlap] the share of human-marked events the run found, over the hours
+        a human reviewed; the row states those hours, or says there are too few.
+  \item[null expects / draws] the mean count on the run's surrogate draws, and how many draws that
+        run made.
+  \item[\(\times\) null] found divided by null expects. Empty when the null found nothing: there
+        is no ratio to take, which is the best result there is.
+\end{description}
+After judging in Review, press \ui{Refresh after reviewing}: the scores are re-read from the
+verdict tables, not recomputed.
+
+\begin{watchout}[Precision alone rewards timidity]
+A run that fires twice and is right both times has precision 1. Read precision with recall, the
+found count and \(\times\) null, never alone.
+\end{watchout}
+
+\subsection*{Browse, review or discard a run}
+\begin{enumerate}
+  \item In \ui{Browse detections}, pick a run and a channel and step through its detections with
+        the pager. Each shows its time, depth, score, any prior verdict, and which other runs found
+        it too. Browsing writes nothing: verdicts are given in Review.
+  \item \ui{Send \(n\) unjudged to Review} builds a Review queue over that run's detections that have
+        no verdict yet (never its surrogates' detections) and offers \ui{Open Review}. Pressing it
+        again reuses the same queue.
+  \item \ui{Discard run} (after a confirmation) marks the run superseded. It writes no verdicts:
+        its detections are \emph{not} marked uninteresting, because thousands of automatic ``no''
+        verdicts would distort every later comparison between machine and human.
+  \item A seed run offers a button to add its accepted matches to the Library entry it searched
+        for.
+  \item \ui{History} lists past Discovery runs; \ui{Open} brings one into this session.
+\end{enumerate}
+
+\pagefield{Where it leads}
+\apppage{discovery.seed} (\ui{Seed search} in the runs list); \apppage{discovery.compare} (tick two
+runs, A and B, then \ui{Compare}); \apppage{review.inspector} for the queue; Jobs for runs on the
+cluster. \ui{Analyse events} is not wired yet.
+
+\begin{watchout}[Simulated parts of this page]
+The scope card's \ui{Preview on a 4 h sample} button plays a timed animation with example counts;
+it measures nothing. The measured preview is the one in the \ui{Apply template} window.
+\end{watchout}
+
+\begin{underthehood}
+Client: \code{webui/client/src/discovery/RunsPage.tsx}, \code{chrome.tsx} (\code{ScopeCard},
+\code{RunsCard}, \code{NullChip}, \code{CostChip}, \code{SlurmModal}), \code{AddTemplateModal.tsx},
+\code{session.ts}; reads in \code{webui/client/src/api/discovery.ts}. Bridge:
+\code{webui/server/discovery.py} (\code{/api/discovery/session}, \code{/runs}, \code{/fires},
+\code{/scoreboard}, \code{/detections}, \code{/templates/apply}, \code{/plan}, \code{/preview},
+\code{/slurm}, \code{/runs/{run_key}/discard}, \code{/runs/{run_key}/review}). The fan-out and its
+ceiling: \code{Working/discovery/fanout.py} (\code{ceiling_s}, Settings key
+\code{limit.Discovery}).
+\end{underthehood}
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{discovery.seed}{Seed search}{Set up a seed run}{live}
+A seed search finds more of a shape you already have. The \term{seed}{seed} is one example: a
+Library entry, a span you judged in Review, or a span you took in Explore. The search slides it
+along every channel in the scope and scores how alike each position is; the ones under a distance
+cut are the matches. The page sets the search up as a draft run in the session's runs list.
+
+\begin{plainterms}[How a seed search decides]
+Picture laying a tracing of one shape over a long strip of recording and sliding it along, noting
+at every position how far the strip is from the tracing. Most positions are far off; a few are
+close. The \emph{distance} is that closeness score (0 is identical), and the \emph{cut} is the
+largest distance you will still call a match. The null shows how close scrambled recordings come:
+the sensible cut is where the null starts to produce matches too.
+\end{plainterms}
+
+\pagefield{When you'd come here}
+\begin{itemize}
+  \item You have one good example of an event and want to find others like it.
+  \item Review or Explore sent you here with a seed already chosen (\ui{Seed search in Discovery}).
+\end{itemize}
+
+\screenshot{pages/discovery/discovery.seed--default}{The seed card with its provenance, the
+parameters with the where-to-cut histogram (the null behind it), the distance profile on one
+channel, and the apply bar.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item Check the \ui{Seed} card: the shape, and where it came from (recording, channel, samples,
+        content hash). \ui{change seed} opens a picker filtered by kind (Library, Review, Explore
+        selection) and paged through the Library.
+  \item Choose what happens when the search is saved as a template: \emph{carry} keeps this exemplar
+        with the template; \emph{rebind} asks for a new one each time it is applied.
+  \item In \ui{Parameters}: the algorithm (MASS, a z-normalised distance); the window, locked at the
+        seed's own length; an optional \ui{scale bank} that also searches stretched and squeezed
+        copies of the seed; the \ui{exclusion zone} (matches closer than this to a better match are
+        dropped); the \ui{match threshold}; and what to do \ui{on overlap}.
+  \item Read the histogram of distances, with the null behind it, and drag the cut. A green tick
+        marks the recommended cut, where the null starts to keep matches.
+  \item The \ui{Distance profile} shows one channel and one zoomed view: the signal, the distance at
+        every position with the cut, and the matches beneath. The \ui{Matches} card shows each match
+        overlaid on the seed (both centred on their own mean, in millivolts), sorted by distance.
+  \item Choose the run's null in the apply bar: \ui{from the preview} (the draws already made while
+        you set up), \ui{rigorous · 200 paired runs}, or \ui{off}.
+  \item Press \ui{Run seed search}. Or \ui{Save as template}, which stores the search with its cut,
+        bank and exclusion zone (a taken name updates that template).
+\end{enumerate}
+
+\subsection*{The cost estimate, progress, and the cluster}
+Before you press anything, the apply bar shows what the run will cost on this scope, for example
+``about 4 min''. The estimate is \emph{work over a rate}: channels \(\times\) samples \(\times\) (one
+search plus every null draw), divided by how much work this machine does per second. Until a search
+has finished on this session the rate is an assumed one, and the estimate says so (``assumed
+rate''); after that it is the rate measured on the last search.
+
+While a search runs, a real progress bar shows the fraction done, the time so far, and about how
+long is left; \ui{Cancel} stops it. When it finishes, \ui{Open in Runs} shows it in the runs list.
+
+\begin{watchout}[Over ten minutes: run it on the cluster]
+If the estimate is over the seed-search local limit (10 minutes unless Settings \textrightarrow{}
+Compute \& HPC sets a Discovery limit), \ui{Run seed search} is disabled and \ui{Create SLURM
+script} takes its place. The laptop is not meant for these.
+\begin{enumerate}
+  \item \ui{Create SLURM script} writes a \emph{spec} (the seed's own samples, the channels, the
+        section, the parameters and the null) and an \texttt{sbatch} script that runs
+        \texttt{python -m Working.discovery.seed\_job} on the cluster. The window shows the paths,
+        the \texttt{sbatch} command, and where the result file is expected. The run row now reads
+        \emph{on cluster}.
+  \item Copy the spec and the script to the cluster and submit the job. It checkpoints after every
+        channel and every ten null draws and resubmits itself while the result is incomplete, so a
+        job stopped at the cluster's 20-minute wall time loses minutes, not the run.
+  \item Bring the small result file back and press \ui{Import HPC result} (on the apply bar or in
+        the window). The matches and the null draws enter the session's run.
+\end{enumerate}
+\end{watchout}
+
+\pagefield{Where it leads}
+\apppage{discovery.runs} to score the run and send its matches to Review; Library
+\textrightarrow{} Templates for the saved search.
+
+\begin{underthehood}
+Client: \code{webui/client/src/discovery/SeedPage.tsx} (\code{SearchProgress},
+\code{SeedSlurmModal}, \code{ImportResultButton}, \code{SaveTemplateModal}). Bridge:
+\code{webui/server/discovery.py} \code{get_seed_estimate} (\code{_seed_estimate},
+\code{_seed_work}: channels \(\times\) samples \(\times\) (1 + draws), divided by a rate measured
+on the session or \code{DEFAULT_SEED_RATES}; ceiling \code{_seed_ceiling_s}, default
+\code{SEED_CEILING_S} = 600\,s), \code{/api/discovery/seed/results}, \code{/seed/run},
+\code{/seed/slurm}, \code{/seed/import}, \code{/seed/template}. The cluster job:
+\code{Working/discovery/seed_job.py} (\code{build_spec}, \code{run_spec}, \code{write_job}), which
+calls the same \code{seeded_search.candidates} and \code{null_distances} as the local preview. The
+search block is \blockref{detection.seed_matches}.
+\end{underthehood}
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{discovery.compare}{Compare}{Template run A against seed run B}{live}
+Compare sets two runs on the same scope side by side: what differs between their chains, where each
+fires, how far their detections overlap, and every place they disagree. Either side can be the human
+annotations instead of a run.
+
+\pagefield{When you'd come here}
+\begin{itemize}
+  \item You ran two methods (a template and a seed search, or two settings of one template) and want
+        to know where they agree.
+  \item You want to measure a method against the human record.
+  \item You want to judge only what the second method adds.
+\end{itemize}
+
+\screenshot{pages/discovery/discovery.compare--default}{Two runs compared: the chains aligned by
+role, where A and B fire on one channel, the set overlap, and the disagreement stepper.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item On the Runs page tick one run as A and one as B and press \ui{Compare}. \ui{Swap A / B}
+        exchanges them; \ui{all runs} goes back.
+  \item \ui{What differs} lays the two chains out in columns by role, so stages doing the same job
+        line up: identical stages grey, differing ones amber, an empty slot where a chain has no
+        stage in that role. Click a stage for its parameters.
+  \item \ui{Where A and B fire} draws one channel's signal clean, with A's detections, B's, and an
+        agreement track beneath (grey both, blue only A, purple only B).
+  \item \ui{Set overlap} counts \emph{only A}, \emph{both} and \emph{only B}, per channel. Two
+        detections are the same event when their spans overlap by an intersection-over-union of at
+        least 0.5 (Settings \textrightarrow{} Analysis defaults). Against the human record the rule
+        is different, because most human labels are long review windows: a detection counts as
+        \emph{both} when its human verdict is yes. A verdict split shows how much of each cell has
+        been judged and accepted.
+  \item \ui{Step through the disagreements} shows one window at a time: the signal, the span the
+        firing run found, and the other run's own score there against its own threshold, so you see
+        how close it came. Filter to only A or only B and page through.
+  \item \ui{Send only-B unjudged to Review} queues what B found and A did not, for judging;
+        \ui{Refresh after reviewing} re-reads the verdicts.
+\end{enumerate}
+
+\begin{plainterms}[Overlap by intersection over union]
+Two spans of time overlap by some amount. Divide the shared part by the total stretch the two cover
+together and you get a number from 0 (no overlap) to 1 (the same span). At 0.5 or more the app calls
+them one event.
+\end{plainterms}
+
+\pagefield{Where it leads}
+\apppage{discovery.stages} (\ui{Compare every stage}) to see why a disagreement happened; Review
+for the queued remainder.
+
+\begin{underthehood}
+\code{webui/client/src/discovery/ComparePage.tsx}, \code{Divergence.tsx}, \code{Precision.tsx};
+bridge \code{GET /api/discovery/compare}, \code{/compare/window}, \code{POST /compare/review} in
+\code{webui/server/discovery.py}. Both runs are read from their stored results; nothing re-runs to
+compare them.
+\end{underthehood}
+
+% ---------------------------------------------------------------------------------------------
+\pagesection{discovery.stages}{Compare every stage}{One disagreement pushed through both runs}{live}
+This page takes one window where A and B disagree and shows what every stage of each chain did
+there, in two columns aligned by role, so you can see at which stage the two chains part ways.
+
+\pagefield{When you'd come here}
+From a disagreement on \apppage{discovery.compare}, when you want to know why one method fired and
+the other did not.
+
+\screenshot{pages/discovery/discovery.stages--default}{One window through both chains:
+stage cards side by side, each badged identical, differs, A only or absent, and the table of the
+numbers behind them.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item Step through disagreements with the pager. Each step runs both chains afresh on a window
+        around the new disagreement; nothing is written. The page labels this ``40 s'', but the
+        request asks the bridge for a 240-second window, and the ``about 1 s'' chip and the
+        brief re-running veil are fixed, not measured.
+  \item Read the stage cards. The step bar names the \emph{first stage whose output differs}. That
+        is where the outputs diverge, not proof of what caused the disagreement.
+  \item \ui{What each stage decided here} lists the numbers behind the pictures, one row per role;
+        a tinted row is a role where the outputs differ. Click a stage for its parameters.
+  \item \ui{Swap A / B}, or go back to Compare.
+\end{enumerate}
+
+\pagefield{Where it leads}
+Back to \apppage{discovery.compare}. \ui{Open in Analyse} on a stage is not wired yet: it opens the
+chain page without the run.
+
+\begin{underthehood}
+\code{webui/client/src/discovery/StagesPage.tsx}; bridge \code{GET /api/discovery/compare/stages}
+in \code{webui/server/discovery.py}.
+\end{underthehood}

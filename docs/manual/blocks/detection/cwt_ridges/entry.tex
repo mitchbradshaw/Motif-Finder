@@ -1,0 +1,140 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.cwt_ridges -- "CWT ridges" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_cwt_ridges.py} calls \code{detect} in
+\code{Working/Detection/cwt_ridges.py}, the project's own implementation of the ridge-line peak
+detector of \citet{du2006improved}. It does \emph{not} use \code{scipy.signal.find_peaks_cwt},
+which is not the paper's algorithm (its noise is the 10th percentile of the signed smallest-scale
+coefficients and its SNR numerator the smallest-scale coefficient;
+\code{docs/research/analysis-blocks-primary-sources.md}, \S7), nor scipy's \code{cwt} or
+\code{ricker}, which scipy~1.17 removed. The Ricker wavelet and the transform are written in the
+module, with FFT convolution from \code{scipy.fft}; scipy's \code{find_peaks},
+\code{maximum_filter1d} and \code{median_filter} are used for maxima and medians.
+
+``Spikes and troughs at every scale'' means: the transform is computed at $S$ scales, and at
+each scale the local maxima of the coefficients (spikes) and of the negated coefficients
+(troughs) are both traced into ridges. An event of any duration within the scale range can
+then be found, each with its own scale.
+
+\begin{enumerate}
+\item \emph{Scales.} $S$ = \emph{n\_scales} geometric scales from \emph{min\_scale\_s} to
+  \emph{max\_scale\_s}, in samples $a_j = s_j f_s$. Scales with $a_j > n/4$ are dropped and
+  counted; fewer than three left is refused by the adapter.
+\item \emph{Wavelet} (\code{ricker}): the Mexican hat at scale $a$, normalised by $1/a$ (the
+  paper uses $1/\sqrt a$; departure A0), truncated to $[-5a, 5a]$, discrete mean removed.
+  Under $1/a$ an event's peak coefficient is about $0.84\times$ its amplitude whatever its width.
+\item \emph{Edges} (A4): NaNs are first filled by linear interpolation (A11); the span is then
+  extended by odd (point) reflection, hinged on the median of the first and last
+  $\lceil a_1\rceil$ samples, so a straight drift continues past the ends.
+\item \emph{Transform} in chunks of $2^{21}$ samples with overlap enough for the largest wavelet,
+  ridge wander, baseline and noise windows (A3), streamed one scale at a time. Each row has its
+  running median over $\pm 10a$ subtracted (A12), which removes curved drift the hat does not
+  cancel.
+\item \emph{Maxima} at each scale: columns that are the maximum of their $\pm a$ window and
+  positive; the same on the negated row for troughs.
+\item \emph{Ridges} (\code{_trace_ridges}), from the largest scale down: each ridge takes the
+  nearest maximum at the next smaller scale within $0.5a$; a contested maximum goes to the
+  nearer ridge; a ridge ends after \emph{max\_gap\_scales} consecutive misses; an unclaimed
+  maximum starts a new ridge.
+\item \emph{Events} (\code{_candidates}): a ridge needs at least \emph{min\_ridge\_scales}
+  points. Every interior maximum of its coefficient profile over scale is a candidate (A6, so a
+  fast event on a slow one gives two); a maximum at either end of the ridge is counted, not
+  reported. A candidate must reach \emph{min\_snr} times the noise and stand at least one noise
+  above the saddle to its neighbour.
+\item \emph{Noise} (A15): $1.96\times1.4826\times$ the median absolute deviation of the
+  coefficients \emph{at the candidate's own best scale}, in a window of
+  $\max(\texttt{noise\_window\_s}, \pm30a)$ around it less $\pm4a$, floored at the span's
+  smallest-scale noise scaled by $\sqrt{a_1/a}$. Two passes: pass~1 accepts at a fixed SNR of 3;
+  pass~2 re-measures with pass~1's events left out of the windows and judges at \emph{min\_snr}.
+  The paper's noise, the 95th percentile of $|$coefficients$|$ at the smallest scale, is kept per
+  event as the diagnostic \code{noise_min_scale}.
+\item \emph{Side lobes, steps, duplicates}: a candidate is dropped as a side lobe of an
+  opposite-polarity event if, at its best scale within 2.5 scales, the opposite side reaches
+  $1/0.6$ of its coefficient (A7); flagged \code{step_pair} if the opposite side is between 0.6
+  and $1/0.6$ of it (A14); of two same-polarity events closer than half a scale with best scales
+  within $1.5\times$, the stronger is kept (A8).
+\item \emph{Location and width}: the location is the ridge's position at the smallest scale of
+  the event's band whose coefficient is still at least half the peak (A9); the best scale is
+  refined by a parabola in log-scale (A10); $\texttt{duration\_s} = 2\sqrt{\ln2}\,\times
+  \texttt{best\_scale\_s} \approx 1.665\times$, the FWHM of a Gaussian bump whose response peaks
+  at that scale. The span is $\texttt{peak} \pm \texttt{duration\_s}$, clipped to the span.
+\end{enumerate}
+Each departure from the paper (A0--A15) is set out, with its reason and measurements, in the
+docstring of \code{Working/Detection/cwt_ridges.py}.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware, and needs not be: \emph{min\_snr} is a ratio of
+  coefficients to noise measured on the same trace. \code{peak_coef} and \code{noise} are in the
+  stored unit.
+\item \emph{Sampling rate.} Scales are in seconds; \emph{min\_scale\_s} must be at least one
+  sample. The tests and calibration are at 1\,Hz.
+\item \emph{Baseline.} A constant and a straight drift cancel exactly; curved drift is removed
+  per scale by the running median. No detrend block is needed.
+\item \emph{Missing values.} NaNs are bridged by linear interpolation for the transform; an
+  event whose support ($\pm5a$) touches a filled sample is flagged \code{nan_in_support}; the
+  count is \code{meta["n_nan"]}. A span more than half NaN, or all NaN, is refused in words.
+\item \emph{Span length.} The largest usable scale is $n/4$ samples.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet}, one span per event, label \texttt{spike} or \texttt{drop}, score the SNR.
+Its feature table holds \code{peak_idx} (span-relative), \code{best_scale_s},
+\code{duration_s}, \code{cwt_duration_s} (the same, under a name \blockref{interrogation.event_shape}
+does not overwrite), \code{ridge_scales}, \code{snr}, \code{peak_coef}, \code{noise},
+\code{noise_min_scale}, \code{polarity} ($\pm1$), \code{ridge_polarity}, \code{edge_flag},
+\code{step_pair}, \code{nan_in_support}. \code{meta} holds the counts (by polarity, flagged,
+NaN, chunks, every rejection reason), the scales used and dropped, the rules in words, the
+ridges of up to 500 strongest events as (time, scale) points, a coarse scalogram (at most 1024
+columns per scale, as integers times \code{unit}), and, when nothing is found, an
+\code{absence} sentence giving the reasons.
+
+\entryfield{Cost}
+Linear in the span at a fixed scale range: each chunk costs $O(\text{chunk}\log\text{chunk}
+\times S)$, memory is $O(\text{chunk})$, never $O(nS)$. The docstring measures 19--23\,s for
+2.6 million samples at the defaults on the development machine, about 48\,s under load; the
+estimate (cost model exponent 1) is empty until calibrated. No span cap.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Composites} (A13): at scales near the spacing of events, the hat spans several and
+  a ridge can describe their arrangement as one slow event; most reach an edge and are flagged,
+  not all. Keep \emph{max\_scale\_s} below the usual spacing.
+\item \emph{Edge ridges}: on drift and noise alone, 0--4 edge-flagged events a day (mean 1.0)
+  over 20 seeds; none unflagged.
+\item \emph{Dense trains}: neighbours' opposite lobes pull the best scale down, so durations
+  shrink (480\,s events every 600\,s read about 181\,s), and when events cover more than half of
+  every noise window at their scale they become the noise: 24\,s drops every 120\,s, only 9--13
+  of 718 found.
+\item \emph{Slow events on wandering noise} sit at low SNR at their own scale and are lost
+  (random walk: 4.7 of 7 amplitude-1 events found).
+\item \emph{Lopsided events}: the centre sits towards the slow side (A5); onset needs
+  \blockref{interrogation.event_shape}.
+\item \emph{A genuine opposite event} close to and much weaker than its neighbour is dropped as
+  a side lobe.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_cwt_ridges.py} checks answers, not only plumbing, on synthetic 1\,Hz days:
+every event of three widths (24\,s, 8\,min, 43\,min), both polarities, and a sharkfin is found
+on a curved drift ten times the smallest event, with the right polarity and duration within
+$1.5\times$ (three seeds); every extra event is flagged; drift and noise alone give no event
+away from the edges; a fast event on a slow one gives two events; side lobes are not reported;
+a train of 24\,s drops every 300\,s is fully recalled; chunked and unchunked runs agree; the
+duration rule is calibrated on isolated Gaussian bumps. On real recordings, the
+\texttt{cwt\_events} template (this block for drops, then \blockref{interrogation.event_shape})
+beat a 20-draw phase-randomised null on three 24\,h spans: 24, 38 and 6 events against null
+means of 0.2--0.3; on 4--6\,h spans it found 0--2, too few to tell
+(\code{docs/prompts/blocks/reports/W1-evaluation.md}). No test compares its events with
+hand-marked ones.
+
+\entryfield{References}
+\citet{du2006improved}. The paper's steps and scipy's differences:
+\code{docs/research/analysis-blocks-primary-sources.md}, \S7. Build report:
+\code{docs/prompts/blocks/reports/W1-C-cwt-ridges.md}.
+
+\entryfield{Tests}
+\code{tests/test_cwt_ridges.py} (the core, above); \code{tests/test_adapter_cwt_ridges.py}
+(one span per event with its features, span-relative indices, meta contents and size, the
+absence sentence, polarity, refusal of a too-short span); \code{tests/test_template_cwt_events.py}
+(the template).

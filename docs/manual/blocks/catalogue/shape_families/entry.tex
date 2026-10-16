@@ -1,0 +1,108 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.shape_families -- "Shape families" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/catalogue_shape_families.py} calls \code{shape_families} in
+\code{Working/Catalogue/shape_families.py}, which calls the Library's grouping engine
+(\code{run_grouping} in \code{Working/library/grouping/engine.py}).
+\begin{enumerate}
+\item \emph{Waveforms.} If the windows carry \code{shape_file} (a Trace shape step ran), row
+  \code{shape_row} of that file is each window's waveform. Otherwise each window is sliced from the
+  chain's span $x$ at start $-\,\mathrm{round}(t_0 f_s)$; a window not wholly inside the span is
+  \code{outside_span} ($-1$). In that case a quiet-stretch background is built from the same trace
+  (\code{span_background}): windows of the same length cut where no window of the set lies.
+\item \emph{Screening} (\code{_screen}): a waveform with $\pm\infty$ is \code{infinite_values};
+  one that is empty, all NaN, or more than 10\% NaN (\code{EW.DEFAULT_MAX_NAN_FRAC}) is
+  \code{missing_values}; a few NaNs are filled by linear interpolation and counted
+  (\code{n_gap_filled}).
+\item \emph{Grouping}: \code{run_grouping(items, unit="single_motifs", basis="shape-distance",
+  method, params)}. The engine prepares the vectors (\code{ward.shape_vectors}: linear resample to
+  resample\_length, default 256, then z-normalise) and runs the method:
+  \begin{itemize}
+  \item \texttt{hdbscan} (\code{methods/hdbscan.py}): scikit-learn's HDBSCAN
+    \citep{campello2013density} on a precomputed square matrix of SBD$/2$ (default) or Ward's
+    normalised Euclidean distance, fitted on at most hdbscan\_sample rows (seeded); the rest join
+    the family of their nearest fitted member if within that family's largest core distance, else
+    \code{not_in_a_dense_family}. Each family is tested against trend-kept phase-randomised
+    surrogates of its members and, where enough quiet signal exists, against quiet-stretch windows.
+  \item \texttt{kshape} (\code{methods/kshape.py}): k-Shape \citep{paparrizos2015kshape}, k fixed
+    or chosen from 2 to 12 by silhouette, kshape\_n\_init random starts, fitted on at most
+    kshape\_sample rows; members further from their centre than kshape\_omit\_d (0 = the 95th
+    percentile of noise) are \code{past_cut}.
+  \item \texttt{ward}: Ward linkage \citep{ward1963hierarchical} on the normalised scale-invariant
+    distance, cut at the distance ward\_cut (0.42); a window whose nearest family medoid is
+    further than ward\_omit\_d (0.5) is \code{past_cut}. No noise test. Refused past 5000 waveforms
+    (\code{WARD_MAX_ITEMS}), since it builds a square matrix.
+  \end{itemize}
+  The engine then omits every group under min\_group members (\code{group_too_small}) for every
+  method, and names each family's medoid.
+\item \emph{Numbering.} Families are renumbered 1..K by size, largest first (ties: earliest
+  member); the engine's label rides as \code{library_label}.
+\item \emph{Coherence} per family (\code{coherence_of} $\to$ \code{svd_entropy} in
+  \code{Working/library/coherence.py}): the SVD entropy of the members aligned to the medoid,
+  beside the same statistic on its null (quiet-stretch where usable, else trend-kept).
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} None: every waveform is z-normalised, so amplitude does not enter at all.
+\item \emph{Sampling rate.} Every window becomes resample\_length points; windows of different
+  length or rate are compared by shape alone.
+\item \emph{Missing values.} Up to 10\% NaN is interpolated; more is omitted.
+\item \emph{Roles.} The block reads no \code{split} or \code{pool_role}: training, validation, test
+  and exam windows are grouped together. That is right for describing a recording's events; it is
+  not a training-only clustering.
+\item \emph{One trace.} Without a Trace shape step the windows are sliced from the chain's own
+  span.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Grouping}: per window 1..K or $-1$. \code{meta}: \code{method}, \code{method_params},
+\code{k}, \code{family_sizes}, \code{families} (per family: size, medoid, flags
+\code{noise_like} / \code{tested} / \code{why}, coherence with its null), \code{omitted} by reason,
+\code{n_placed}, \code{n_confident}, \code{fraction_placed}, \code{fraction_confident} (None for a
+method that draws no null), \code{n_noise_like}, \code{n_gap_filled}, \code{fit_summary},
+\code{recipe_hash}, \code{warnings}, \code{notes}, \code{rules}, \code{exemplars} (each family's
+medoid window, a member, never an average), \code{vectors_from} (\texttt{shape\_file} or
+\texttt{x}), \code{summary}. Nothing is persisted.
+
+\entryfield{Cost}
+HDBSCAN and k-Shape build distances among at most their sample (5000) rows, so time and memory
+are capped near $5000^2$ distances plus a linear assignment of the rest; Ward is $O(n^2)$ memory
+up to its 5000 cap. Coherence adds about 2\,ms per member (measured, per the code). The estimate
+(\code{estimate_seconds}) assumes one window per 300\,s of span, since it cannot see the
+upstream windows.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Test windows grouped.} Feeding a pool or a split window set groups every role
+  together; using these families as training labels would leak.
+\item \emph{A pool without Trace shape.} The windows of \blockref{preprocessing.window_pool} come
+  from many recordings and channels, but without \code{shape_file} the block slices them from the
+  chain's one span, by start index alone. Any window whose start happens to fall inside that span
+  gets the wrong trace. Nothing refuses this. Always put \blockref{preprocessing.trace_shape}
+  between a pool and this block.
+\item \emph{Noise families.} Coloured noise crowds; a family flagged \code{noise_like} should not
+  be read as a recurring shape. Ward's families are untested.
+\item \emph{Amplitude blindness}, as for Trace shape.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_shape_families.py} checks that two clear-cut synthetic shapes give two confident
+families and that phase-randomised noise falls mostly into no family. The code's
+\code{UNTRUSTED_NULLS} note records a no-structure test on random-walk and AR(1) events (every
+family flagged noise-like) in \code{tests/test_library_background_null.py} and
+\code{tests/test_adapter_event_families.py}. No test checks families against human-judged shapes
+on real recordings.
+
+\entryfield{References}
+\citet{campello2013density} (HDBSCAN); \citet{paparrizos2015kshape} (k-Shape and SBD);
+\citet{ward1963hierarchical} (Ward). The installed versions and their defaults are in
+\code{docs/research/analysis-blocks-primary-sources.md}, sections 10 and 11.
+
+\entryfield{Tests}
+\code{tests/test_adapter_shape_families.py}: windows sliced with channel-absolute starts; outside
+the span counted; Trace shape vectors used when present; meta carries flags, coherence and
+exemplars; a noise-like family said in the summary; empty input; params reach the engine; the
+estimate. \code{tests/test_shape_families.py}: the methods are the registry's; Ward reproduces
+\code{run_grouping}; numbering by size; the exemplar is the medoid; coherence; NaN filling;
+sample caps; Ward's cap; seeds reproduce.

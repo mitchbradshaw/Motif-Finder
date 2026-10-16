@@ -1,0 +1,66 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.gramian_fusion -- "Gramian fusion" (Appendix A).
+\entryfield{Algorithm}
+The block wraps \code{compute_fusion(x, m, tau)} in
+\code{Working/Catalogue/gramian/gramian_calc.py}:
+\begin{enumerate}
+\item $G^{S} = $ \code{compute_GASF(x)} and $G^{D} = $ \code{compute_GADF(x)}, both
+  $n \times n$ (\blockentry{catalogue.gramian_gasf}, \blockentry{catalogue.gramian_gadf}).
+\item $R = $ \code{compute_recurrence(x, m, tau)}, $n' \times n'$ with $n' = n-(m-1)\tau$
+  (\blockentry{catalogue.gramian_recurrence}), resized to $n \times n$ with
+  \code{skimage.transform.resize(..., anti_aliasing=True)}. This is a small upsampling
+  (8 rows and columns at the defaults).
+\item Each of the three is min--max normalised over its own pixels,
+  $\hat A = (A - \min A)/(\max A - \min A)$, or set to zeros when $\max A \le \min A$
+  (including when the extremes are NaN, since a comparison with NaN is false).
+\item The three are stacked as the last axis: red $\hat G^{S}$, green $\hat G^{D}$, blue
+  $\hat R$.
+\end{enumerate}
+No piecewise aggregation: the image has one row and column per sample.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware, but every layer is normalised, so the result does not
+  depend on the stored unit.
+\item \emph{Sampling rate.} $m$ and $\tau$ count samples (see the recurrence entry).
+\item \emph{Missing values.} One NaN makes every pixel of $G^S$ and $G^D$ NaN and puts NaN
+  into $R$; their extremes are then NaN, so step 3 sets each layer to zeros. A single
+  missing sample gives an all-black image, not an error.
+\item \emph{Span length.} At most 5{,}000 samples, and more than $(m-1)\tau$.
+\end{itemize}
+
+\entryfield{Outputs}
+An \code{Encoding} with \code{kind="image"}: an $n \times n \times 3$ float64 array in
+$[0,1]$. Nothing is added to \code{meta}.
+
+\entryfield{Cost}
+$O(n^2)$, with three $n \times n$ matrices and the stacked array alive together: about four
+times the memory of one field. The limit is the same \code{max_span_samples=5000}; the
+adapter's own docstring puts the worst case at about 600\,MB for the stacked array.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{A NaN anywhere} or \emph{a flat span}: a black image, silently (above).
+\item \emph{Colour is relative.} Each layer's range is its own, so a quiet span and a
+  violent one can give the same colours.
+\item \emph{Settings away from the trained ones.} The networks under
+  \blockref{catalogue.cnn_score} were \unverified{trained on fusion images with $m=3$,
+  $\tau=4$}: those are the values \code{save_gramian_windows}, the code that writes the
+  training images, uses, but no record says which code made the shipped checkpoints. A
+  fusion image with other settings is not what
+  they saw.
+\end{itemize}
+
+\entryfield{Validation}
+No test in the repository checks the values of the image; the tests check only the declared
+types and the span limit. \blockref{catalogue.window_images} turns the same function's output
+into 8-bit images; its tests check the shape and that the image is not blank.
+
+\entryfield{References}
+\citet{wang2015imaging} for the two angular fields, \citet{eckmann1987recurrence} for the
+recurrence plot. Stacking them as colour channels is this project's own construction.
+
+\entryfield{Tests}
+\code{tests/test_t07_adapter_remap.py} checks the declared types and that a span one sample
+over the limit is refused. \code{tests/test_block_standard.py} checks that the block declares
+a cost limit.

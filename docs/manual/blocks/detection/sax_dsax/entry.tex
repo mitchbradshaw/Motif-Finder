@@ -1,0 +1,141 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.sax_dsax -- "Symbolic encoding (dSAX)" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_sax_dsax.py} resolves the segment length with the
+shared \code{segment_plan} (see \blockentry{detection.sax_csax}) and calls \code{dsax} in
+\code{Working/Detection/sax/dsax_python/dsax.py}, with the whole span as training set. An
+\emph{absolute\_threshold} or \emph{min\_same\_halfwidth} of 0 is passed on as ``unset''.
+With $m$ segments of $s$ samples and alphabet size $k$:
+\begin{enumerate}
+\item \emph{Checks.} Unknown estimator or mode, $k<2$, $m<2$ or $s<2$ raise
+  \code{ValueError}; so does \emph{absolute} mode with $k\neq 3$ or no threshold, and
+  \emph{quantile} mode with \emph{same\_fraction} outside $(0,1)$.
+\item \emph{Trim} to $n' = ms$ samples. Mark every non-finite sample as missing; a segment
+  that touches one is a \emph{missing segment}.
+\item \emph{Normalise} once (unlike cSAX and pSAX): with \emph{normalize} on, subtract the
+  mean $\mu$ of the recorded samples and divide by their standard deviation $\sigma$, unless
+  $\sigma < 0.001$ in the stored unit, in which case only subtract.
+\item \emph{Measure each segment's rise} $\delta_i$ (\code{compute_deltas} in
+  \code{trend_estimators.py}), always as rise across the segment, so estimators are
+  interchangeable:
+  \begin{itemize}
+  \item \code{endpoints}: last sample minus first;
+  \item \code{robust_endpoints}: median of the last $k_e$ samples minus median of the first
+    $k_e$, $k_e = \min(\text{endpoint\_k}, \lfloor s/2\rfloor)$;
+  \item \code{ols_slope} (default): least-squares slope against sample index, times $s-1$;
+  \item \code{theil_sen}: \code{scipy.stats.theilslopes} slope, times $s-1$, on at most 200
+    evenly spaced samples per segment.
+  \end{itemize}
+  Missing segments are measured on a zero-filled copy and their $\delta_i$ then set to NaN.
+\item \emph{Cutlines} in the working delta domain, from the recorded segments' deltas:
+  \begin{itemize}
+  \item all deltas zero (within $10^{-9}$ of the signal's scale), in \emph{learned} or
+    \emph{quantile} mode: a band wide enough that every segment is the middle letter;
+  \item all deltas equal but not zero (a clean ramp): equal-width cutlines across
+    $[-|v|, |v|]$, so the ramp reads all-up or all-down;
+  \item \emph{learned}: pSAX's quantiser on the deltas, unchanged (Epanechnikov density,
+    k-means++ start with the fixed seed, Lloyd--Max; see \blockentry{detection.sax_psax});
+  \item \emph{absolute}: $\pm\,\text{absolute\_threshold}/\sigma$ (the threshold is in raw
+    units of rise per segment);
+  \item \emph{quantile}: for $k=3$ the $\tfrac{1-f}{2}$ and $\tfrac{1+f}{2}$ quantiles with
+    $f$ = \emph{same\_fraction}; for $k>3$ equiprobable quantiles $j/k$.
+  \end{itemize}
+  With \emph{force\_symmetric} on (learned and quantile modes), fold the cutlines about zero:
+  $c'_j = (c_j - c_{k-2-j})/2$. Then widen the middle band to at least
+  $\pm$\emph{min\_same\_halfwidth} if one is given (odd $k$ only), and nudge any cutlines
+  that collide apart by $10^{-9}$ of their scale.
+\item \emph{Quantise}: $\text{symbol}_i = \#\{j : c_j \leq \delta_i\}$
+  (\code{np.searchsorted}, right side); missing segments get $-1$.
+\end{enumerate}
+The live read-out (\code{derive_sax_rows}) and the declared but unused span-aware defaults
+are the shared ones described under \blockentry{detection.sax_csax}.
+
+\emph{The 14 settings, briefly.} Five set the segment length (\emph{segment\_mode} and the
+four controls it chooses between). \emph{alphabet\_size} (2--9) and \emph{trend\_estimator}
+set what is measured and into how many letters; \emph{endpoint\_k} matters only for
+\code{robust_endpoints}. \emph{threshold\_mode} chooses the cutline rule, and
+\emph{absolute\_threshold} and \emph{same\_fraction} feed only the \emph{absolute} and
+\emph{quantile} modes. \emph{min\_same\_halfwidth} and \emph{force\_symmetric} adjust the
+cutlines afterwards, and \emph{normalize} chooses the working domain.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware. \emph{absolute\_threshold} is in the stored unit per
+  segment: the same number means a thousand times more on a recording stored in volts than
+  on one stored in millivolts. \emph{min\_same\_halfwidth} is in the \emph{working} domain,
+  that is, in standard deviations of the span when \emph{normalize} is on. The fixed
+  $0.001$ normalisation threshold is in the stored unit.
+\item \emph{Missing values} (since 2026-10-14). A segment touching a NaN or infinity is
+  symbol $-1$, spelt \emph{-} by the bridge and by \blockref{detection.symbol_search}. The
+  normalisation (which used to be the third statistic a single NaN poisoned), the cutlines,
+  the observed ``same'' share and the mean delta are all taken over the recorded samples or
+  segments. A span with no recorded segment comes out all $-1$. Gap-free input gives the
+  same result as before the change, bit for bit. Unlike the five-stage encoding, the
+  read-out gives no \emph{Missing samples} warning before a run.
+\item \emph{Baseline.} A trend encoder reads drift as morphology; remove the baseline
+  first. The shipped template pairs it with baseline removal
+  (\code{webui/server/templates.py}).
+\item \emph{Sampling rate.} The rise is per segment, not per second, so at matched seconds
+  per symbol the encoding does not depend on the sampling rate (test 11 below).
+\end{itemize}
+
+\entryfield{Outputs}
+An \code{Encoding} of kind \code{symbolic}: $m$ symbols in $0,\dots,k-1$ (0 the steepest
+fall) or $-1$. \code{meta["details"]} holds the shared keys (segment length and count,
+trimming, \code{paa}, \code{paa_raw}, cutlines, representatives, normalisation constants)
+and dSAX's own: \code{cutline_domain} \code{= "delta"}, \code{deltas}, \code{deltas_raw},
+\code{delta_scale} ($\sigma$ only: a difference takes no offset), \code{delta_mean},
+\code{seg_slope}, \code{segment_starts}, \code{segment_ends}, \code{zero_symbol},
+\code{same_fraction_observed}, \code{cutlines_degenerate}, \code{theil_sen_subsampled},
+\code{min_same_halfwidth_applied} and \code{n_missing_segments}. The bridge sends the
+symbols spelt \emph{a, b, c}\ldots{} (not the D/S/U of \code{dsax_letters}) with the
+working-domain cutlines and their domain.
+
+\entryfield{Cost}
+The three default estimators are vectorised, $O(n)$. \code{theil_sen} is a Python loop of
+$m$ fits of up to $200^2/2$ pairs each. \emph{learned} mode adds pSAX's density step, about
+$1000\times m$ values per array. No \code{estimate} hook.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Noise reads as shape.} On pure Gaussian noise (3000 segments) learned mode
+  labelled 53.5\% of segments up or down, with 96.6\% of the maximum occupancy entropy; a
+  phase-randomised noise floor made 94.6\% of them ``same''
+  (\code{Working/Detection/sax/dsax_python/IMPLEMENTATION_NOTES.md}, section 6.3). The
+  post-run warning for this (\code{trend_diagnostic_rows}) and the noise-floor estimator
+  (\code{surrogate_same_halfwidth}) exist in the code, but the web UI calls neither, and
+  the ``Estimate noise floor'' button the \emph{min\_same\_halfwidth} help text mentions is
+  not in the web UI.
+\item \emph{Drift.} A net trend pushes every segment towards one end of the alphabet
+  (section 7.3 of the notes; test 9).
+\item \emph{Offset sensitivity.} Shifting the segment grid by a few samples changes many
+  letters on signals that turn within a segment: 11.7\% agreement on a triangle wave in the
+  notes' section 6.1.
+\item \emph{Even alphabets} have a cutline at zero and no ``same'' letter.
+\item \emph{Degenerate cutlines} (\code{cutlines_degenerate}) on constant spans, clean
+  ramps or colliding cutlines; the explanation exists in \code{degeneracy_explanation} but
+  is not shown by the web UI.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_dsax_engineered.py} checks the answers on engineered signals: ramps encode
+all-up or all-down, a constant is all-same in every mode, a step marks exactly its segment,
+a staircase fills a five-letter alphabet in order, a ``sharkfin'' matches its pattern, white
+noise stays balanced about zero, drift swamps the encoding and detrending fixes it, the
+encoding is invariant to amplitude scaling and to sampling rate at matched seconds, and the
+fitted estimators flip less than endpoints under noise. No test checks the strings against
+hand-labelled fungal data. The prior art is a family of trend encodings; this one is its
+slope channel with a learned zero-anchored alphabet, and claims nothing more.
+
+\entryfield{References}
+\citet{esmael2012multivariate} (trend symbols), \citet{sun2014improvement} (the endpoints
+trend), \citet{malinowski2013onedsax} (the slope channel of 1d-SAX),
+\citet{agrawal1995querying} (up/down/stable shapes), \citet{bountrogiannis2022distribution}
+(the quantiser), \citet{theiler1992testing} (the surrogates of the noise-floor estimator).
+
+\entryfield{Tests}
+\code{tests/test_dsax.py} (33 tests: segmentation round trip, the delta conversion rule,
+modes, details); \code{tests/test_dsax_engineered.py} (17, above);
+\code{tests/test_dsax_diagnostics.py} (14, the post-run rows);
+\code{tests/test_drop_detection_nan.py} (missing segments, gap-free input unchanged);
+\code{tests/test_sax_determinism.py} (fixed seed).

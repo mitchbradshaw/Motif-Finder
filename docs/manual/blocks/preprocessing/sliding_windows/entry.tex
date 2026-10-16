@@ -1,0 +1,90 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.sliding_windows -- "Sliding windows" (Appendix A).
+\entryfield{Algorithm}
+Everything is in \code{Adapters/preprocessing_sliding_windows.py}; no \code{Working/}
+function is called. For a span of $n$ samples at rate $f_s$:
+\begin{enumerate}
+\item \code{plan_windows}: window length $L = \mathrm{round}(\text{window\_s}\cdot f_s)$
+  samples, refused if $L < 2$. The stride is $g = \mathrm{round}(\text{gap\_s}\cdot f_s)$ when
+  gap\_s $> 0$, else $g = L$. Despite its name, gap\_s is the distance between window
+  \emph{starts}, not the empty time between windows. A stride $g < L$ (overlapping windows)
+  is refused. Starts are $0, g, 2g, \dots$ up to the last start that admits a whole window;
+  none fitting is an error.
+\item \code{assign_split}, rule \texttt{blocked\_by\_time}: block edges
+  $e_j = j\,n/B$ for $j = 0..B$ ($B$ = n\_blocks, \code{np.linspace}). A window belongs to the
+  block its \emph{start} falls in. With $n_t = \mathrm{round}(B\cdot\text{holdout\_frac})$
+  and $n_v = \mathrm{round}(B\cdot\text{validation\_frac})$ (Python's \code{round}, which
+  rounds halves to even), the last $n_t$ blocks are test, the $n_v$ before them validation,
+  the rest train. Labels: 0 train, 1 validation, 2 test.
+\item Rule \texttt{random} (only with allow\_random\_split): one uniform draw $u_i$ per
+  window from \code{np.random.default_rng(seed)}; $u_i <$ holdout\_frac is test, the next
+  validation\_frac is validation.
+\item \code{spacing_check} records the smallest stride and whether it is $\geq L$.
+\item The starts are made channel-absolute by adding $\mathrm{round}(t_0 f_s)$, the span's
+  offset in the channel.
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} The signal's values are never read, only its length; units do not matter.
+\item \emph{Sampling rate.} Lengths are given in seconds and converted with the recording's
+  $f_s$, so the same settings mean the same duration at any rate.
+\item \emph{Missing values.} NaNs are not checked. A window over a gap is kept, and the
+  block after it decides what to do with the missing samples.
+\item \emph{Independence.} The blocked split assumes that dependence between windows fades
+  within about one window. Nothing enforces an empty buffer at a block border (below).
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{WindowSet} of length $L$, starts channel-absolute, whose feature table holds one
+column, \code{split} (0/1/2). \code{split} is on the bookkeeping list
+(\code{BOOKKEEPING_COLUMNS} in \code{Working/types/windowset.py}), so
+\blockref{catalogue.cluster} and the classifier drop it before treating the table as
+features. \code{meta}: \code{length}, \code{gap} (the stride), \code{n_windows},
+\code{split_rule}, \code{span_start}, \code{blocks} (index, start, end, role and window
+count of every block; empty for a random split), \code{split_counts}, \code{spacing},
+\code{seed}. The block also has a pre-run readout (\code{_derive}) showing the window count
+and the split counts.
+
+\entryfield{Cost}
+$O(n/g)$ time and memory; the signal is not read. Instant at any span length.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{No buffer at block borders.} Windows tile the span, and roles change at a block
+  border without any window being dropped, so the last training window can end exactly
+  where the first test window begins. Two neighbouring windows still leak through the slow
+  autocorrelation at every border. The training pool is stricter: it carves a gap at every
+  role change (\blockref{preprocessing.window_pool}), and \code{blocked_split} in
+  \code{Working/training/windows.py} drops windows within one window of a border. This
+  block does neither.
+\item \emph{A window can reach into the next block.} Roles follow the window's start. When
+  the block edge $n/B$ is not a multiple of the stride, the last window of a training block
+  runs on into the test block's time. It shares no samples with any test window, but it
+  does cover test-block time.
+\item \emph{Rounding to zero blocks.} With $B = 5$, validation\_frac $= 0.1$ gives
+  $\mathrm{round}(0.5) = 0$ validation blocks, and holdout\_frac $= 0.1$ gives no test block.
+  Unlike \code{Working/training/windows.py::blocked_split}, this block neither forces at least
+  one test block nor refuses a plan that leaves nothing to train on: holdout and validation
+  fractions summing to more than one give every block a held-out role.
+\item \emph{One window per block or fewer.} Few windows and many blocks leave blocks empty;
+  the counts in \code{meta["blocks"]} show it, and the readout warns under ten windows.
+\item \emph{Random split.} Allowed only when ticked, and then leaks neighbours by design.
+\end{itemize}
+
+\entryfield{Validation}
+The leakage argument for blocked splits on dependent data is set out by
+\citet{roberts2017cross}. The tests check the geometry and the refusals, not any
+downstream effect on a model's score.
+
+\entryfield{References}
+\citet{roberts2017cross} on blocked cross-validation. The window sets and their split, as the
+Library shows them: \apppage{library.window-sets}.
+
+\entryfield{Tests}
+\code{tests/test_adapter_sliding_windows.py}: windows tile the span at gap\_s $= 0$; starts
+are channel-absolute; a span shorter than a window and a stride shorter than the window are
+refused; the blocked split holds out whole last blocks; a random split is refused unless
+accepted; cluster and classifier ignore the \code{split} column.
+\code{tests/test_adapter_event_windows.py} checks that \blockref{catalogue.event_windows}
+uses the same \code{assign_split}.

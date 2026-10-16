@@ -1,0 +1,124 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.seed_matches -- "Seeded search" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_seed_matches.py}. The query $q$ is the \emph{exemplar}
+side input's samples, $m = |q|$; it is resolved before the run by
+\code{resolve_side_inputs} in \code{Working/side_inputs.py}, from a library exemplar (sliced fresh
+from its recording's \code{.npy} by source file, channel and sample range), the chain's root signal,
+or an earlier step's output.
+
+\emph{The native search} (\emph{scales} = \texttt{1}, \code{match_exemplar}). The block calls
+\code{stumpy.match}$(q, x, \text{max\_matches}=k, \text{max\_distance}=D)$ with $D = \infty$ when
+\emph{max\_distance} is 0. stumpy computes the distance profile
+$D_i = \lVert \hat q - \hat T_i \rVert_2$, the z-normalised Euclidean distance from $q$ to every
+window $T_i = x_{i..i+m-1}$ (FFT-based MASS), then ranks and cuts greedily:
+\begin{algorithmic}[1]
+\State matches $\gets [\,]$; $e \gets \lceil \textit{exclusion} \times m \rceil$
+\Loop
+  \State $i \gets \arg\min_j D_j$
+  \If{$D_i > D + 10^{-8}$ \textbf{or} $D_i$ is not finite \textbf{or} $|\text{matches}| = k$} \textbf{break} \EndIf
+  \State append $(D_i, i)$; set $D_j \gets \infty$ for $i - e \le j \le i + e$
+\EndLoop
+\end{algorithmic}
+So matches come out closest first, no two starting within $e$ samples of each other. stumpy reads
+its zone from the global \code{stumpy.config.STUMPY_EXCL_ZONE_DENOM} (default 4, i.e.\ $m/4$); the
+block sets it to $1/\textit{exclusion}$ for the call, under a module lock, and restores it. Each match
+becomes the span $[i, i+m)$, labelled \texttt{match$r$} by rank $r$ and scored by $D_i$.
+
+\emph{The scale bank} (any other \emph{scales}, \code{match_exemplar_bank}). For each factor $s$
+the query is linearly resampled to $L = \mathrm{round}(m s)$ samples (\code{resample_to_length} in
+\code{Working/distances.py}) and searched as above, with up to $k$ matches per length. Because a
+z-normalised distance grows as the square root of the length, every distance is put on the native
+footing, $d \sqrt{m/L}$ (and the cutoff divided by the same factor before the search). Matches of
+\emph{different} lengths that overlap are then reduced by \emph{overlap}: \texttt{lowest} keeps the
+smaller distance, \texttt{first} the earlier start, \texttt{all} keeps both (\code{reduce_overlaps}).
+Two matches of one length are left to the exclusion zone. The survivors are sorted by distance and
+the best $k$ kept; each span is as long as the copy that found it, labelled
+\texttt{match$r$@$s$x}.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Z-normalisation removes offset and scale, so units do not matter, and neither
+  does a constant offset between the exemplar's recording and this one.
+\item \emph{Sampling rate.} The query is used sample for sample. Nothing compares the exemplar's
+  rate with the span's: it is recorded in \code{meta["exemplar_fs"]} but not used. An exemplar
+  from a 1\,Hz recording searched on a 10\,Hz span looks for a shape ten times faster than the one
+  it was cut from.
+\item \emph{Preprocessing.} A library exemplar is sliced from the stored channel as it is, while
+  the span may have been filtered or detrended by earlier steps of the chain; the two are then
+  compared after different treatment.
+\item \emph{Missing values.} A NaN in the exemplar makes \code{stumpy.match} refuse (``Q contains
+  illegal values''). A window of the span touching a NaN gets an infinite distance and is never a
+  match.
+\item \emph{Length.} The exemplar must have at least 3 samples and be no longer than the span.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet} of window-long spans, closest first, scored by distance and labelled as above;
+the executor writes each to \code{detections}. \code{meta}: \code{m}, \code{exemplar_fs},
+\code{n_matches}, \code{distances}, \code{exclusion} and \code{exclusion_samples}; with a bank also
+\code{scales}, \code{per_scale} (matches per factor), \code{overlap} and \code{footing}.
+Indices count from the start of the span.
+
+In Discovery, the seed search (\code{Working/discovery/seeded_search.py}) uses this block's own
+\code{match_exemplar} and \code{match_exemplar_bank} for its candidates, so the page and a run agree.
+It adds what the block lacks: the same search on \term{surrogate}{surrogate} copies of the channel
+(200 draws by default, phase randomisation unless Settings~\textrightarrow~Nulls says otherwise),
+and a recommended cut, \code{recommended_cut}: the largest observed distance still below the
+$\lfloor \alpha \times \text{draws}\rfloor$-th smallest null distance, so that chance would give at
+most $\alpha$ matches per draw below it.
+
+\entryfield{Cost}
+One FFT distance profile per scale factor, about $O(n \log n)$ time and $O(n)$ memory: seconds on a
+whole channel. The block declares no estimate and no span limit. Discovery multiplies it by
+channels and null draws, and routes a seed search by a measured rate per channel
+(\code{_seed_per_channel_s} in \code{webui/server/discovery.py}). Above the local ceiling,
+Settings~\textrightarrow~Compute \& HPC's limit or ten minutes (\code{SEED_CEILING_S} $= 600$) when
+none is saved, the search is not run in the bridge: \code{post_seed_slurm} writes a spec and an
+\texttt{sbatch} script (\code{Working/discovery/seed_job.py}, \code{build_spec} and
+\code{write_job}) that run the same candidates and null draws on the cluster, checkpointing and
+resubmitting itself against the wall-clock limit, and the small result file is brought back through
+\code{/api/discovery/seed/import}. \unverified{The page's \ui{Run seed search} button then reads
+\ui{Create SLURM script}} (the endpoint's docstring).
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Matches in noise.} With \emph{max\_distance} at 0 the block returns the $k$ best
+  windows whatever they are. A ranked list is not evidence of recurrence; use Discovery's null and
+  cut, or a calibrated \emph{max\_distance}.
+\item \emph{The exemplar finds itself.} If the exemplar comes from the searched span (the root
+  signal or a library entry on the same channel), \texttt{match0} is the exemplar at distance 0 and
+  takes one of the $k$ places.
+\item \emph{Overlapping matches.} At the default zone ($m/2$) two matches may share up to about
+  half their samples, so one event can still be found twice, shifted. Set \emph{exclusion} to 1 or
+  more to forbid any overlap. This is the overlapping-matches artefact of the older report tool
+  (\code{Pipelines/motif_report/}); the block's default halves it rather than removing it. With a
+  bank and \texttt{all}, matches of different lengths may overlap freely.
+\item \emph{A cutoff that depends on length.} \emph{max\_distance} is an unnormalised
+  z-normalised distance: it ranges up to $2\sqrt{m}$, so one value is strict for a long exemplar and
+  lenient for a short one.
+\item \emph{Sampling-rate mismatch} (above), unchecked.
+\item \emph{Shared stumpy setting.} The zone is set by changing stumpy's global configuration. The
+  lock serialises seed searches with one another, but a matrix profile or
+  \blockref{detection.mp_motifs} run on another thread at that moment reads the changed zone.
+\end{itemize}
+The window-versus-event offset of the older tool does not arise in the same way: each span has
+exactly the exemplar's footprint, so an exemplar cut to frame its event yields matches that frame
+theirs the same way.
+
+\entryfield{Validation}
+\code{tests/test_adapter_seed_matches.py} plants a burst three times in noise and checks that the
+exemplar finds itself at distance 0 and a second copy, closest first.
+\code{tests/test_seed_exclusion_zone.py} checks that the zone defaults to $m/2$ and reaches stumpy.
+\code{tests/test_library_seed_edges.py} checks that a bank finds a stretched shape at the right
+length, the $\sqrt{m/L}$ footing and the overlap policies. No test measures how often matches on a
+real recording are real events; that is the job of Discovery's null.
+
+\entryfield{References}
+\code{stumpy.match} \citep{law2019stumpy}; the distance is the matrix profile's
+\citep{yeh2016matrix}. The $m/2$ zone is the project's choice (the spec's \S7.6).
+
+\entryfield{Tests}
+\code{tests/test_adapter_seed_matches.py}, \code{tests/test_seed_exclusion_zone.py},
+\code{tests/test_library_seed_edges.py}; Discovery around it: \code{tests/test_discovery_seeded_search.py},
+\code{tests/test_discovery_seed_job.py}, \code{tests/test_webui_discovery.py}.

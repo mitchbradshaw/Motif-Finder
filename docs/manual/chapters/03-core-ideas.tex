@@ -1,0 +1,223 @@
+% !TEX root = ../main.tex
+\chapter{Core ideas}\label{ch:core-ideas}
+The rest of this manual leans on a small set of words. This chapter explains each one in
+everyday terms, in the order you meet them when you use the app. \Cref{ch:glossary} has a
+one-line definition of each, and of many more.
+
+\section{Recordings, channels and spans}\label{sec:core-ideas-recordings}
+A \term{recording}{recording} is one experiment's data file: the voltages from every
+electrode in one fungus (or one set-up) over the whole time it was measured. A
+\term{channel}{channel} is one electrode's trace inside it. The recording
+\code{M2_aug_concat_fs1.mat}, for example, has 16 channels, each about 721 hours long, with one
+value per second. A \term{span}{span} is a stretch of time on one channel: ``CH4\_A2, from
+276.4 to 278.4 hours''.
+
+\begin{plainterms}[A library of tapes]
+Think of a recording as a long multi-track tape, one track per microphone. A channel is one
+track. A span is a few minutes you cut out of one track to listen to closely.
+\end{plainterms}
+
+Every recording is stored with its sampling rate (how many values per second) and, where it
+is known, its unit (volts or millivolts). Explore shows them on every page; the unit matters
+whenever a setting is a threshold (\cref{ch:explore}). One recording is \term{held-out}{held
+out}: it is kept unseen for the final test, and every page refuses it.
+
+\section{Blocks, chains and templates}\label{sec:core-ideas-blocks}
+A \term{block}{block} is one analysis step with one job: remove the slow drift, find
+spikes, cut the signal into windows, group similar windows. The app has \ubnumblocks{}
+blocks; \cref{ch:blocks} gives each a card. A block takes one kind of thing in and gives one
+kind of thing out, and has a few settings.
+
+A \term{chain}{chain} is blocks in a row, each feeding the next, starting from a span. You
+build and run chains in Analyse. One position in a chain is a \term{step}{step}. Running a
+chain over a span once is a \term{run}{run}; every run is numbered and kept.
+
+A \term{template}{template} is a chain saved without its recording and span, so you can
+apply the same steps somewhere else: on another span, or across many channels at once in
+Discovery.
+
+\begin{plainterms}[Kitchen words]
+A block is one kitchen task: chop, boil, sieve. A chain is a recipe: those tasks in order. A
+run is one time you cooked it, on one batch of ingredients. A template is the recipe card,
+with no particular ingredients written on it.
+\end{plainterms}
+
+The app checks a chain as you build it. A block can only follow a block whose output it
+accepts, so the \ui{Insert a stage} window greys out the blocks that do not fit at that point
+and says why. The app also remembers each step's result: if you change the third block of a
+four-block chain, the run button reads \ui{Re-run from 03}, and the first two steps' results
+can be reused instead of recomputed.
+
+\section{The seven kinds of thing a block passes on}\label{sec:core-ideas-types}
+What passes between two blocks is always one of seven kinds of thing. These seven
+\emph{types} are what decide which block may follow which. The project fixed the list at
+seven on purpose: a method that fits none of them is out of scope, rather than a reason to
+add an eighth (\code{Working/types/__init__.py}).
+
+\begin{description}[style=nextline, leftmargin=1.6em, font=\sffamily\bfseries]
+\item[Signal]
+  A trace: one value per moment, plus how many moments per second. It is the raw span
+  you start every chain with, and what a cleaning block gives back, cleaned. \emph{Made by}
+  the source and by cleaning blocks such as \blockref{preprocessing.detrend} or
+  \blockref{preprocessing.bandpass}. \emph{Read by} almost every block that comes first in a
+  chain.
+\item[Span set]
+  A list of stretches of time, each with a start and an end, and optionally a label and a
+  score: ``here, here and here''. It is what a detector's marks are, and what a
+  person's marks are. \emph{Made by} detectors such as \blockref{detection.spike_v1} and
+  \blockref{detection.threshold}. \emph{Read by} blocks that measure the marks, such as
+  \blockref{interrogation.intervals}. A chain that ends in a span set writes its spans to the
+  database as detections, ready for Review.
+\item[Window set]
+  The signal cut into pieces of a fixed length, like slicing a loaf, often with a table of
+  measurements for each slice. \emph{Made by} \blockref{preprocessing.sliding_windows} and
+  \blockref{preprocessing.window_matrix}. \emph{Read by} blocks that compare or group the
+  slices, such as \blockref{catalogue.cluster}.
+\item[Scores]
+  One number for every moment of the signal: a running ``how unusual is this?'' line drawn
+  under the trace. It lines up with the signal moment for moment, which is what lets a
+  threshold turn it into a span set. \emph{Made by} \blockref{detection.matrix_profile}.
+  \emph{Read by} \blockref{detection.threshold}.
+\item[Encoding]
+  The signal redrawn in another form: as a picture per window, or as a string of letters.
+  \emph{Made by} encoders such as the symbolic encodings (\blockref{detection.sax_dsax}) and
+  the Gramian images (\blockref{catalogue.gramian_gasf}). \emph{Read by}
+  \blockref{detection.symbol_search} and \blockref{detection.drop_detection}, which search
+  the letters.
+\item[Grouping]
+  A label for every window: which group it belongs to. \emph{Made by}
+  \blockref{catalogue.cluster} (groups the machine finds) and
+  \blockref{catalogue.manual_labels} (labels a person gave). \emph{Read by}
+  \blockref{catalogue.classifier}.
+\item[Model]
+  A trained classifier: a program that has learned, from labelled windows, to label new
+  ones. The type is only a pointer to the saved file. \emph{Made by}
+  \blockref{catalogue.classifier}. Models are trained and compared in Models
+  (\cref{ch:models}).
+\end{description}
+
+\begin{plainterms}[Why types at all]
+Plugs and sockets. A kettle plug fits a kettle socket and not a phone charger. The seven
+types are the plug shapes, and the app refuses to connect two blocks whose plugs do not fit,
+before anything runs, rather than letting a long run fail an hour in.
+\end{plainterms}
+
+\begin{underthehood}[The types in code]
+Each type is a small frozen dataclass in \code{Working/types/}: \code{Signal},
+\code{SpanSet}, \code{WindowSet}, \code{Scores}, \code{Encoding}, \code{Grouping},
+\code{Model}, each with \code{to_path} and \code{from_path} for the step cache. A
+\code{Scores} is checked against the length of the \code{Signal} it came from; a
+\code{WindowSet}'s feature table is deliberately not time-aligned. One chain-validation
+function answers ``can this output feed this block'' for both the Insert window and the
+runner (\code{Working/chain_validation.py}).
+\end{underthehood}
+
+\section{Detections and annotations: machine and human}\label{sec:core-ideas-detections}
+Two kinds of mark can sit on a recording, and the app never lets them mix.
+\begin{itemize}
+  \item A \term{detection}{detection} is a span a \emph{machine} proposed: one mark written by
+    one run of a chain. It is a \term{candidate}{candidate}, never a result.
+  \item An \term{annotation}{annotation} is a span a \emph{person} marked, with that person's
+    verdict. Explore's \ui{Take span for Review} writes one, and so does the project's older
+    hand labelling.
+\end{itemize}
+They live in separate tables of the database. When you judge a detection in Review, your
+verdict goes into a third table, of human verdicts on machine marks, and the detection itself
+is untouched. No code path may write a person's verdict into a machine row, or the reverse:
+this is rule 5 of the project (\code{CLAUDE.md}).
+
+\begin{plainterms}[Why it matters]
+One of the project's questions is ``where do people and the machine disagree?''
+(\cref{sec:why-found}). That question has an answer only while the two sets of marks stay
+apart. Mix them once, and you can no longer tell who said what: like a marked exam where the
+teacher's ticks were written over the pupil's answers.
+\end{plainterms}
+
+\section{Verdicts}\label{sec:core-ideas-verdicts}
+A \term{verdict}{verdict} is a person's judgement of one span. There are exactly five, the
+same five for annotations and for judgements of detections, so there is no translation
+table to drift (\code{Working/database/schema.py}, \code{VERDICTS}):
+\begin{description}[style=nextline, leftmargin=1.6em, font=\sffamily\bfseries]
+\item[seed] Worth keeping as an example to search for. In Review it also makes a new
+  Library entry. Counts as accepted.
+\item[interesting] Yes, this is a real pattern. Counts as accepted.
+\item[not interesting] No. Counts as rejected.
+\item[artifact] A fault of the recording, not the fungus (a loose wire, a shared ground).
+  Kept, because one of the questions needs it, but kept out of training.
+\item[unsure] You cannot tell.
+\end{description}
+In Review the keys are \texttt{S}, \texttt{I}, \texttt{N}, \texttt{A} and \texttt{U};
+\texttt{Space} skips without writing anything. The list is fixed: the app never adds a sixth
+verdict. Anything finer, such as a shape class (\ui{spike-train}, \ui{burst},
+\ui{slow-drift}, \ui{plateau}), is a class or a tag given beside the verdict.
+
+\section{Families, motifs, exemplars and seeds}\label{sec:core-ideas-families}
+A \term{motif}{motif} is a shape that recurs: a particular dip, a sharkfin rise, a burst.
+The Library is the catalogue of motifs the project has found, with every place each one
+occurs (\code{docs/LIBRARY_STORAGE.md}, section~1). Each occurrence is a \emph{member}.
+
+A \term{family}{family} is a group of members that look alike, made by grouping them by
+shape. Two members of a family stand for it:
+\begin{itemize}
+  \item the \term{medoid}{medoid}, the member closest, on average, to all the others: the
+    family's most typical member, picked by the computer;
+  \item the \term{exemplar}{exemplar}, the member chosen to represent the shape.
+    \unverified{A person can choose it, for example with the \ui{seed} verdict in Review;
+    an entry imported from an older event store has its exemplar chosen by that import.}
+\end{itemize}
+A \term{seed}{seed} is a shape you search for: a Library exemplar, a family's medoid, or a
+span you took in Explore. A \term{seed-search}{seed search} (in Discovery) slides the seed
+along other channels and recordings and lists the closest look-alikes, which you then judge
+in Review.
+
+\begin{plainterms}[Families of faces]
+Sort a box of photographs into piles of people who look alike. Each pile is a family. The
+medoid is the face most like everyone else in the pile; the exemplar is the photo you would
+pin on the wall to say ``this lot''. A seed search is holding one photo up against a crowd
+and asking who looks most like it.
+\end{plainterms}
+
+\section{Nulls: is this more than chance?}\label{sec:core-ideas-nulls}
+Any long, noisy trace contains look-alikes by accident. So a count on its own (``the chain
+found 40 spikes'') says little. The question is always: \emph{more than chance would give?}
+
+A \term{surrogate}{surrogate} is a fake copy of the signal that keeps its general character
+(how jumpy it is, how much slow drift it has) but scrambles any real pattern in it. Run the
+same chain on many surrogates and you learn what the chain finds in noise of the same kind.
+That expectation is the \term{null}{null}. A result counts as more than chance only if the
+real signal beats it.
+
+\begin{plainterms}[Shuffling the deck]
+You deal yourself a hand with three aces and wonder whether the deck is rigged. Shuffle and
+deal a thousand more hands: if three aces turns up in a fifth of them, your hand proves
+nothing. The surrogates are the reshuffled hands.
+\end{plainterms}
+
+In the app, \blockref{preprocessing.surrogate} makes surrogates. Analyse's \ui{surrogate
+null} toggle (off unless you turn it on) runs a paired chain on one and shows detected
+against surrogate counts. Discovery draws several surrogates per channel for its runs (20 for a template run, 200 for
+a seed search, as the 3 October 2026 changes set them) and prints how many it drew next to
+its counts. \Cref{app:nulls} explains each null the app
+uses and what it does and does not test.
+
+\begin{watchout}[A missing null is not a pass]
+Some pages draw no null and say so in words. Read such a number as a description of what is
+there, not as evidence that it beats chance.
+\end{watchout}
+
+\section{Jobs: work that takes a while}\label{sec:core-ideas-jobs}
+Some work takes seconds; some takes hours. A \term{job}{job} is a piece of work the app runs
+in the background while you carry on: a chain run, a Discovery run across channels, a model
+training. The \ui{Jobs} button at the foot of the rail shows how many are running, and the
+Jobs page lists what is in progress here, what is waiting on the cluster and what is waiting
+in Review (\cref{ch:jobs}).
+
+Work too long for your computer goes to the university's computing cluster. The app writes a
+script for the cluster's queue (SLURM); the same analysis code runs there unattended, and
+you bring its results back into the app (\cref{sec:why-built}).
+
+\begin{plainterms}[Takeaway and dine-in]
+A short run is a meal cooked at your table. A long one is an order sent to a big kitchen
+down the road: you get a ticket (the job), carry on with your evening, and collect the order
+when the ticket says it is ready.
+\end{plainterms}

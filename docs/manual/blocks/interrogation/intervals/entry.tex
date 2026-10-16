@@ -1,0 +1,138 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: interrogation.intervals -- "Intervals" (Appendix A).
+\entryfield{Algorithm}
+The adapter (\code{_run} and \code{measure} in \code{Adapters/interrogation_intervals.py})
+calls the one interval implementation in the repository,
+\code{Working/interrogation/intervals.py} (\code{inter_event_intervals},
+\code{interval_statistics}). It never reads the signal.
+
+\begin{enumerate}
+\item \emph{The anchor.} With \emph{anchor} = \texttt{onset} and an upstream
+  \code{onset_idx} column, each event's anchor $a_j$ is its onset sample (from
+  \blockref{interrogation.event_shape}: the foot of the fall, walked back to the shoulder it
+  departs from). Otherwise $a_j$ is the span start. The choice is made for the whole input,
+  not per event: with the column present, an event whose onset is NaN is left out of the
+  timing; it does not fall back to its span start. \code{meta.anchor_used} says which.
+\item \emph{The groups.} The key of event $j$ is its upstream \code{group} value as text, or
+  \texttt{all} when there is no \code{group} column.
+\item \emph{Per group}, in order of first appearance: keep the events with a finite anchor,
+  sort them by anchor (stable), convert to seconds $t_k = a_k / f_s$, and form the gaps
+  $I_k = t_{k+1} - t_k$, $k = 1,\dots,m-1$ for $m$ events.
+  \code{interval_before_s} of the $(k{+}1)$th event is $I_k$ and \code{interval_after_s} of
+  the $k$th is $I_k$; the group's first event has no gap before and its last none after
+  (NaN).
+\item \emph{Statistics} of the group's finite gaps (\code{interval_statistics}), with
+  $\bar I$ their mean and $n = m-1$ their number:
+  \begin{itemize}
+  \item \code{median_s}, \code{mean_s}, \code{min_s}, \code{max_s};
+  \item $\mathrm{CV} = s/\bar I$ with the sample SD $s$ (ddof 1) (\code{regularity},
+    moved from \code{sequences11});
+  \item \code{r2_trend}: $r^2$, the squared Pearson correlation of $I_k$ with its index $k$;
+    0 for a perfectly constant gap, where $r$ is undefined;
+  \item \code{drift_ratio}: the mean of the last $\lfloor n/3 \rfloor$ gaps over the mean of
+    the first $\lfloor n/3 \rfloor$ (at least one gap each); 1 is no drift, above 1 the gaps
+    widen;
+  \item the local measures over neighbouring pairs, $r_k = |I_k - I_{k+1}|/(I_k + I_{k+1})$,
+    leaving out pairs whose two gaps are both 0\,s (a 0/0):
+    \[ \mathrm{LV} = \frac{3}{p}\sum_{k} r_k^2 , \qquad
+       \mathrm{CV2} = \frac{2}{p}\sum_{k} r_k , \]
+    with $p$ the number of kept pairs (\code{n_local_pairs}). LV is
+    \citet{shinomoto2003differences}'s local variation (the 2009 form, eq.~2, which the
+    repository's sources verified); CV2 is \citet{holt1996comparison}'s. Both are about 0
+    for clockwork and 1 for Poisson timing. The refractory-corrected LvR is not offered: its
+    constant (5\,ms) was fitted to cortical neurons.
+  \end{itemize}
+\end{enumerate}
+
+\code{inter_event_intervals} sorts before differencing, so an unsorted input never gives a
+negative gap. The block applies no threshold to these numbers: it reports them, and the
+judgement of whether a run is a regular train is left to the reader.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Gaps are in seconds, from sample indices divided by the chain's $f_s$.
+  The signal's unit never enters. CV, $r^2$, the drift ratio, LV and CV2 have no unit.
+\item \emph{Index frame.} Starts and \code{onset_idx} are both span-relative (counted from
+  the start of the span the chain ran on), so their differences are the same in any frame.
+\item \emph{What is timed.} Onset to onset (or span start to span start). The block does
+  not measure the quiet time between one event's end and the next's start, nor peak to
+  peak.
+\item \emph{Missing values.} The trace is not read, so a NaN stretch is invisible: the gap
+  across it is reported as one long gap. A NaN anchor drops the event from its group's
+  timing (step 1).
+\item \emph{Edges.} An event near either end of the span is treated like any other; the gap
+  to an event outside the span is unknown, so the first and last events of each group have
+  one NaN gap each.
+\item \emph{How many events.} One event: no gap, every statistic \code{None}. Two events:
+  one gap, median and mean but no CV, no $r^2$, no drift ratio and no LV or CV2 (all
+  \code{None}). LV and CV2 need three events. Every undefined value is \code{None}, never 0, inf or
+  NaN, and \code{local_note} says why.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet} with the input's spans, labels, scores and feature columns unchanged, plus
+\code{interval_before_s} and \code{interval_after_s} (seconds; replacing columns of the same
+name upstream). \code{meta.interval_stats} maps each group key to \code{n_events},
+\code{n_intervals}, \code{median_s}, \code{mean_s}, \code{min_s}, \code{max_s}, \code{cv},
+\code{r2_trend}, \code{drift_ratio}, \code{lv}, \code{cv2}, \code{n_local_pairs} and
+\code{local_note}. \code{meta} also holds \code{rules} (the printed rule for every
+quantity), \code{anchor_used}, \code{n_events}, \code{n_groups} and
+\code{n_groups_local_unmeasured} (groups with no LV).
+
+A group key written by an upstream feature block can carry a suffix:
+\texttt{\textasciitilde noise\_like} or \texttt{\textasciitilde untested} (from
+\blockref{interrogation.event_families} and \blockref{interrogation.cycle_shapes}). Such a
+row is the rhythm of a family that did not pass, or was not given, a noise test; the key
+\texttt{-1} collects events in no train or family, and its gaps are between unrelated
+events.
+
+\entryfield{Cost}
+$O(n \log n)$ in the number of events, dominated by the per-group sort; negligible memory.
+The span length enters only through the number of events. Not meant for the cluster.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Duplicate onsets.} One duplicated onset in an otherwise regular train (gaps 30,
+  30, 0, 30, 30, 30) gives LV 1.20 and CV2 0.80, which reads as random (module docstring).
+\item \emph{Few gaps.} LV's Poisson SD is 0.89 at 2 gaps, 0.59 at 4 and 0.37 at 9 (module
+  docstring); \citet{shinomoto2003differences} used fragments of at least 100 gaps.
+\item \emph{The sampling grid.} Onsets fall on whole samples. A strictly periodic 2.5\,s
+  train on a 1\,Hz grid reads CV2 0.20; a small LV or CV2 for gaps of a few samples is grid
+  noise.
+\item \emph{CV and drift.} CV mixes a slow change of rate with irregularity: in the tests a
+  ten-fold rise in rate gives CV above 1.15 while LV and CV2 stay near 1. Read CV beside
+  \code{drift_ratio} and \code{r2_trend}.
+\item \emph{A missed event doubles a gap; a split event halves one.} The block trusts its
+  input; a detector's misses show up here as outliers, not as warnings.
+\item \emph{Pooling by mistake.} Without a \code{group} column every event in the span is
+  one group. That is right for one channel's span, and wrong if events of different kinds
+  share the span and you meant to separate them: put Trains or Event families with
+  \emph{write\_group} on before it.
+\end{itemize}
+
+\entryfield{Validation}
+The tests check numbers, not only shapes. \code{tests/test_adapter_intervals.py}: gaps
+worked by hand from span starts (10, 15, 5\,s at 10\,Hz) and from an upstream onset column;
+CV, $r^2$ and drift equal to the hand-computed values; groups never pooled; unsorted spans
+ordered first; one event giving no statistics and no error; a regular 3\,s train giving CV 0.
+\code{tests/test_intervals_lv.py}: LV and CV2 equal to the published formulas on a small
+case; 0 for a regular train; within 0.1 of 1 for 5{,}000 Poisson gaps; CV fooled by a
+ten-fold rate rise while LV and CV2 are not; the handling of zero-gap pairs; per-group
+reporting differing from pooled. No test compares the block's output with intervals measured
+by hand on a fungal recording.
+
+\entryfield{References}
+\citet{shinomoto2003differences} (LV); \citet{holt1996comparison} (CV2). CV, $r^2$ and the
+drift ratio are the project's own regularity gate from \code{sequences11}, now in
+\code{Working/interrogation/intervals.py}. Background:
+\code{docs/research/analysis-blocks-primary-sources.md}, section 9, and
+\code{docs/research/analysis-blocks-from-literature.md}.
+
+\entryfield{Tests}
+\code{tests/test_adapter_intervals.py} (the block, and that the three earlier interval
+implementations now share \code{inter_event_intervals}); \code{tests/test_intervals_lv.py}
+(LV and CV2); \code{tests/test_units_reach_the_blocks.py},
+\code{tests/test_template_event_trains.py}, \code{tests/test_template_event_families.py},
+\code{tests/test_template_chain_cycles.py} and \code{tests/test_end_to_end.py} run it inside
+chains, with per-group rhythms checked in the families template (within 10\,\%) and the cycle
+shapes template.

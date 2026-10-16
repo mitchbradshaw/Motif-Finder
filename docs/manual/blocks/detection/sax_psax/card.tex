@@ -1,0 +1,28 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.sax_psax -- "Symbolic encoding (pSAX)" (Part I, the blocks chapter).
+\cardfield{What it does}
+Turns a span into a string of letters, one per piece of time, using a fixed number of
+letters whose boundaries are fitted to how the signal's piece-averages are actually spread.
+(How the SAX family works is explained on the card for \blockref{detection.sax_csax}.)
+
+\cardfield{When to use it}
+When you want a level-based string, as with cSAX, but with a number of letters you choose
+and always get. It does not assume the signal is bell-shaped: the letters go where the
+averages are.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes a string with one letter per piece, \emph{a} for
+the lowest level. \blockref{detection.symbol_search} can then search it.
+
+\cardfield{Settings that matter}
+\emph{alphabet\_size} is the number of letters (default 8). The piece length is set as for
+cSAX: \emph{segment\_mode} picks the live control, by default 20\,s per letter, and the
+block page shows the same live read-outs (letters produced, samples dropped and so on)
+before you run.
+
+\cardfield{Watch out for}
+Above 26 letters the later letters are spelt with two characters (\emph{aa}, \emph{ab}\ldots),
+which breaks \blockref{detection.symbol_search}: keep \emph{alphabet\_size} at 26 or below
+if you will search the string. On a span that is mostly noise the letters split the noise
+finely and still look meaningful. A missing sample (NaN) anywhere in the span makes the
+block fail.

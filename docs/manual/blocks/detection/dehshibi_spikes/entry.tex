@@ -1,0 +1,74 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.dehshibi_spikes -- deprecated monolith (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/detection_dehshibi_spikes.py} calls \code{detect_spikes} in
+\code{Working/Detection/analysis/dehshibi_authors.py} with $\texttt{thr} = \texttt{epsilon\_factor}$
+and a separation of $\texttt{n\_p}/f_s$ seconds. \code{detect_spikes} is the three template
+stages in one call:
+\begin{enumerate}
+\item \code{transform}: the scaled Morse scalogram in 3000\,s windows (stage~1,
+  \blockentry{preprocessing.wavelet_transform});
+\item $\Omega$ = the sum of the rows whose frequency is at most a quarter of the frequency
+  range, chosen by \code{low_band_rows} from the actual frequencies (stage~2,
+  \blockentry{detection.wavelet_summation});
+\item \code{detect_from_omega}: candidate regions, the spike / pseudo-spike split, envelope
+  regions, merge (stage~3, \blockentry{detection.summation_threshold}).
+\end{enumerate}
+Since fixup-J the block and the template share this core, so they cannot drift apart. It
+follows the authors' MATLAB, not the printed paper; the differences are listed under
+stage~3. \emph{min\_spike\_duration} and \emph{min\_roi\_wavelet} belonged to the printed
+Algorithm~4, have no counterpart in the authors' code, and are accepted and ignored.
+
+The one real difference from the template is step~2: the monolith picks the band from the
+frequencies, so it is the authors' band at any sampling rate, whereas the template passes a
+fixed fraction (0.7586) that is the authors' band only for 3000-sample windows.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} As for the template: the spans do not depend on the unit (every threshold
+  is relative).
+\item \emph{Sampling rate.} \emph{n\_p} is in samples (the template's
+  \emph{min\_separation\_s} is in seconds); 60 is the authors' value at 1\,Hz. The window is
+  fixed at 3000\,s and state slicing is off; neither can be changed here.
+\item \emph{Missing values.} As for the template: a NaN blanks its whole 3000\,s window, which
+  is then skipped.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{SpanSet} of half-open spans, \emph{without} labels or scores. \code{meta} holds
+\code{pseudo_spikes} (half-open), \code{n_spikes}, \code{n_pseudo_spikes} and \code{n_chunks};
+none of the funnel the template's last block reports. A \code{_plot} hook draws spikes and
+pseudo-spikes with \code{plot_spike_detection} from the older module
+\code{dehshibi_detection_analysis.py}, with $f_s$ fixed at 1.
+
+\entryfield{Cost}
+As the template's stages together: FFT-bound, about $n\log n$ (cost model exponent 1.1; the
+estimate is empty until \code{Working.block_cost.calibrate()} has run). The block declares no
+\code{max_span_samples}, so, unlike \blockref{preprocessing.wavelet_transform}, a long span is
+not refused: the float32 image costs 4 bytes per row per sample, \unverified{about 0.9\,GB for
+2.6 million samples at 87 rows}.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item Every failure mode of the three stages, above all the lack of selectivity on real
+  recordings (\blockentry{detection.summation_threshold}).
+\item \emph{No memory guard} (above).
+\item \emph{Settings that do nothing.} Two of its four settings are ignored, with no warning
+  beyond their descriptions.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_template_dehshibi.py} runs the template and this block on the 3000\,s, 1\,Hz
+fixture recording and checks that both return exactly the five spikes the authors' MATLAB
+returned. The core is checked stage by stage in \code{tests/test_dehshibi_authors.py}. The
+detection rates on synthetic and real data are given under
+\blockentry{detection.summation_threshold}; they apply here unchanged.
+
+\entryfield{References}
+\citet{dehshibi2021electrical}; the authors' code, Zenodo doi:10.5281/zenodo.3997031;
+\code{docs/prompts/fixup/reports/J-dehshibi-vs-the-paper.md}.
+
+\entryfield{Tests}
+\code{tests/test_template_dehshibi.py} (agreement with the template and with MATLAB; filed under
+control and its description points to the template); \code{tests/test_t06_adapter_remap.py}
+(the output is a well-formed span set).

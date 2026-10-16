@@ -1,0 +1,107 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.surrogate -- "Surrogate generator" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/preprocessing_surrogate.py} creates one
+\code{numpy.random.RandomState(seed)} and calls one of three functions in the same file on
+the span $x_0,\dots,x_{n-1}$. This entry covers what the block does; how nulls are drawn
+and judged across the app is in \cref{app:nulls}.
+
+\begin{description}
+\item[\texttt{phase\_randomize}] (\code{_phase_randomise}, a Fourier surrogate). Take
+  $X = \mathrm{rfft}(x)$; draw $\phi_k \sim U[0, 2\pi)$ for every bin; set $\phi_0 = 0$ (the
+  mean) and, for even $n$, the Nyquist bin's $\phi = 0$, so the inverse is real; return
+  $\mathrm{irfft}(X_k e^{i\phi_k}, n)$. Every bin keeps its magnitude.
+  \emph{Keeps}: the power spectrum exactly (so the autocorrelation) and the mean.
+  \emph{Destroys}: every phase relation, so every local shape, any asymmetry in time, and the
+  value distribution (the output tends towards Gaussian).
+\item[\texttt{block\_shuffle}] (\code{_block_shuffle}). Refuse if \emph{block\_s} is 0 or
+  $\textit{block\_s}\cdot f_s < 2$. With $L = \mathrm{round}(\textit{block\_s}\cdot f_s)$ and
+  $B = \lfloor n/L \rfloor$ whole blocks: if $B \le 1$, return $x$ unchanged; otherwise
+  reorder the $B$ blocks by a random permutation and leave the trailing partial block in
+  place, so the length is exact.
+  \emph{Keeps}: every sample value, and everything inside a block, so any motif shorter than a
+  block. \emph{Destroys}: order and timing between blocks, and slow structure longer than a
+  block; it adds a jump at each block seam.
+\item[\texttt{aaft}] (\code{aaft_surrogate}; \citet{theiler1992testing}'s amplitude-adjusted
+  Fourier transform). Rank-map $x$ onto sorted standard-normal draws; phase-randomise that
+  Gaussian series with \code{_phase_randomise}; rank-map the result back onto $x$'s own
+  sorted values. \emph{Keeps}: the exact multiset of values (the output is a permutation of
+  $x$) and approximately the spectrum; the last step distorts it slightly (IAAFT, which
+  iterates to fix that, is not offered). \emph{Destroys}: phase structure and shapes.
+\end{description}
+
+\emph{Seeds.} The seed is an ordinary parameter, so it is part of the step's recipe and of
+its hash: the same recipe reproduces the same surrogate bit for bit, and a cached result is
+reused only for the same seed. When a run's null is drawn (\code{draw_paired_null} and
+\code{run_paired_recipe} in \code{Working/run_groups.py}), the chain is copied with this
+block prepended, and draw $i$ runs at seed $\text{seed} + i$ (base seed 0 unless set), each
+as its own run linked to the real one by \code{runs.surrogate_of_run_id}. For block
+shuffling, unless the caller fixes \emph{block\_s}, the null sets it to twice the longest
+span the real run detected (at least two samples), and skips the null with a reason when the
+real run detected nothing (\code{surrogate_draw_params}).
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} None needed: every method returns values in the input's unit (AAFT
+  returns the input's own values).
+\item \emph{Sampling rate.} Only \texttt{block\_shuffle} uses $f_s$, to turn \emph{block\_s}
+  seconds into samples. The output keeps the input's $f_s$.
+\item \emph{Missing values.} Not handled. \texttt{phase\_randomize}: one NaN makes the FFT,
+  and so the whole output, NaN. \texttt{block\_shuffle}: NaNs move with their blocks.
+  \texttt{aaft}: NaNs sort last, so they are reassigned to the positions where the
+  randomised series is highest, scattered through the output.
+\item \emph{Stationarity.} Phase randomisation and AAFT treat the span as one stationary
+  stretch: a slow trend becomes part of the spectrum and is smeared, and the FFT treats the
+  span as periodic, so a level difference between its two ends leaks into every frequency.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Signal} of the same length and $f_s$. No \code{meta}: the method and seed are in
+the step's recipe.
+
+\entryfield{Cost}
+\texttt{phase\_randomize}: one forward and one inverse real FFT, $O(n \log n)$. \texttt{aaft}:
+two sorts and the same FFTs, $O(n \log n)$. \texttt{block\_shuffle}: $O(n)$. Memory a few
+copies of the span. Each null draw reruns the whole chain after it, so the chain's cost, not
+this block's, dominates.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{A silent identity null.} Block shuffling on a span shorter than two blocks
+  returns the input unchanged with no warning; a chain then ``beats'' nothing and matches
+  its null exactly.
+\item \emph{NaN} in the span (above): a phase-randomised null of a span with a gap is all
+  NaN.
+\item \emph{The wrong null.} A phase-randomised copy keeps the spectrum: a smooth slow
+  shape lives in the spectrum, so a detector of smooth slow shapes can find them in the
+  copies too. The blocks that need a different null (the quiet-stretch null of
+  \blockref{interrogation.event_families} and \blockref{interrogation.cycle_shapes}) build
+  their own.
+\item \emph{A non-Gaussian measure against a Gaussian null.} Phase randomisation makes the
+  values roughly Gaussian; a measure that reads the value distribution (multiscale entropy
+  with a MAD-based tolerance) beat its phase-randomised surrogates 20 of 20 times on a
+  non-Gaussian linear process (module docstring). Use \texttt{aaft} for such a measure.
+\item \emph{Different generators.} The block uses \code{RandomState}; the older pipeline
+  in \code{Pipelines/drop_motifs/nulls1.py} uses \code{default_rng}. The same seed gives
+  different surrogates in the two places.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_surrogate.py} checks that a fixed seed reproduces a bit-identical surrogate
+for every method, that phase randomisation keeps every rFFT magnitude (to $10^{-6}$), that
+AAFT's output is a permutation of its input with its spectrum within a factor of 2 per band,
+and that the AAFT moved here is bit-identical to the old one.
+\code{tests/test_null_draws_methods_cut.py} checks the refusal of a block under two samples
+or of no block length, and that a paired run draws $N$ surrogates at $N$ seeds.
+\code{tests/test_drop_motifs_nulls1.py} checks, through \code{nulls1}'s wrapper, that block
+shuffling keeps the length and every sample, actually reorders, and keeps a block's
+waveform intact.
+
+\entryfield{References}
+\citet{theiler1992testing} (phase randomisation and AAFT). Nulls in general: \cref{app:nulls}.
+
+\entryfield{Tests}
+\code{tests/test_surrogate.py}, \code{tests/test_null_draws_methods_cut.py},
+\code{tests/test_drop_motifs_nulls1.py}, \code{tests/test_discovery_seeded_search.py} (the
+methods the seed search offers are the block's), \code{tests/test_band_scope.py},
+\code{tests/test_hpc_job_dependencies.py}, \code{tests/test_adapter_spec.py}.

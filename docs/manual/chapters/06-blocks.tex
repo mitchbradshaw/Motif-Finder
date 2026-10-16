@@ -1,0 +1,76 @@
+% !TEX root = ../main.tex
+\chapter{The blocks at a glance}\label{ch:blocks}
+
+Every analysis the app can do is a \emph{block}: one step that takes something in, does
+one job, and passes something on. You build an analysis by putting blocks in a row, a
+\emph{chain}, on the Chain page (\apppage{analyse.chain}). This chapter gives each of the
+\ubnumblocks{} blocks a short card in everyday words. Skim it to see what exists; come back
+when you need one.
+
+\begin{plainterms}[Blocks are like kitchen tools]
+A chain is a recipe and each block is one tool in it: a sieve, a knife, a scale. Each tool
+expects a certain kind of thing (you cannot weigh soup with a sieve) and hands on a certain
+kind of thing. The app checks the hand-offs for you: if a block cannot take what the step
+before it gives, the chain marks that junction invalid and says which kind each side expects,
+in the form ``Seed matches needs Signal · previous emits SpanSet''.
+\end{plainterms}
+
+\section*{How to read a card}
+Each card has the same parts.
+\begin{itemize}
+\item \emph{The title} is the block's name as the app shows it.
+\item \emph{The coloured tag} is the tab of the Insert-a-stage window it sits under (the six
+  sections of this chapter follow those tabs).
+\item \emph{Takes \ldots, gives \ldots} names the kind of thing the block takes and the kind
+  it hands on: a Signal, a SpanSet, a WindowSet, Scores, an Encoding, a Grouping or a Model.
+  \Cref{ch:core-ideas} explains each kind.
+\item \emph{What it does, When to use it, What goes in and what comes out, Settings that
+  matter, Watch out for}: five short answers in plain words.
+\item \emph{Full details} links to the block's entry in \cref{app:blocks}: the algorithm,
+  every setting with its default, how it fails, how it was checked, and where its code lives.
+\end{itemize}
+
+\begin{underthehood}
+A card's title, tag, input and output types and appendix link are read from the block's
+\code{AdapterSpec} in \code{Adapters/} by \code{scripts/manual_tables.py}, as is the whole
+settings table of its appendix entry; the bridge checks the same input and output types
+when it validates a chain (\code{webui/server/chain.py}). A block that is registered but
+cannot run on this machine says so on its card.
+\end{underthehood}
+
+% One paragraph under each group's heading.
+\ubcategoryintro{preprocess}{These blocks change the signal before anything looks for
+patterns in it: they remove slow drift, keep or drop bands of frequencies, or flip the sign.
+\blockref{preprocessing.decompose} splits a trace into its slow baseline, its fast noise and
+the signal left between them, and lets you pass any one of the three on.
+Two work on windows rather than whole signals: \blockref{preprocessing.trace_shape} reduces
+each window to its shape, and \blockref{preprocessing.window_pool} starts a chain from window
+sets you saved earlier instead of from a span.}
+
+\ubcategoryintro{encode}{These blocks re-describe the signal in another form: a string of
+letters, an image, a spectrum, a set of wavelet coefficients, a fingerprint of numbers. An
+encoding does not mark anything by itself; later blocks search it, compare it or learn from
+it.}
+
+\ubcategoryintro{detect}{These blocks find where something happens. Most return the
+stretches of time where it happens (a span set). Four return a score at every moment
+instead (\blockref{detection.matrix_profile}, \blockref{detection.fluss},
+\blockref{detection.wavelet_summation} and \blockref{detection.deconvolve}), and four more
+turn such scores into stretches (\blockref{detection.threshold},
+\blockref{detection.mp_motifs}, \blockref{detection.summation_threshold} and
+\blockref{detection.impulse_events}).}
+
+\ubcategoryintro{cluster}{These blocks cut a recording into windows, measure them, and group
+the ones that look alike. They make the raw material of the Library and of every model:
+windows, the measures on them, and groupings of them, whether drawn by a person or found by
+the machine.}
+
+\ubcategoryintro{model}{These blocks learn from labelled windows and then score new ones.}
+
+\ubcategoryintro{control}{These blocks measure what was found and supply the controls to
+judge it against: the shape of each event, the intervals between events and the trains
+they form, and surrogate data that keeps some properties of a recording while destroying
+others, so a pattern can be tested against chance. The one-block version of the Dehshibi
+spike detector, \blockref{detection.dehshibi_spikes}, also sits under this tab.}
+
+\ubcatalogue{card}

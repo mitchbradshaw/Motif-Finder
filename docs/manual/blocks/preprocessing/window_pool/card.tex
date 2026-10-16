@@ -1,0 +1,42 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.window_pool -- "Window pool" (Part I, the blocks chapter).
+\cardfield{What it does}
+Starts a chain from window sets you saved in the Library, combines them into one pool, and
+gives every window a role: train, validation, test or exam.
+
+\cardfield{When to use it}
+When you want to cluster or train on windows from many recordings, channels and window
+lengths at once, as research question 1 does: pool the windows, cluster the training ones on
+their shape (\blockref{preprocessing.trace_shape}, then \blockref{catalogue.shape_cluster}),
+and test on time the clustering never saw. It is a \emph{source} block: it replaces the
+span, so it can only be step 01. You make the window sets first, in the Library
+(\apppage{library.window-sets}).
+
+\begin{plainterms}[Roles before windows]
+The pool decides the roles first, as stretches of time, and only then looks at the windows.
+Think of a field split into plots before anyone plants: a plant belongs to the plot it
+stands wholly inside. Each recording is cut into blocks of time; the last ones are the test,
+the one before them validation, the rest training. Between two roles a strip of
+no-man's-land is left empty, so no window of one role sits next to a window of another.
+A window lying in that strip, or across a border, is dropped and counted. A whole mushroom
+pack, or chosen channels, can be held out as the \emph{exam}: windows nothing is ever
+trained or tuned on.
+\end{plainterms}
+
+\cardfield{What goes in, what comes out}
+In go the saved window sets you tick (by default every saved unlabelled set). The signal of
+the chain is ignored. Out comes one set of windows, each still knowing its recording,
+channel, length (scale) and role. The pool is saved in the Library too; the same pool built
+twice is reused, not saved again.
+
+\cardfield{Settings that matter}
+\emph{hold\_out\_pack} (default D, channels 13 to 16) is held out as the exam on every
+recording. \emph{gap\_min} is the no-man's-land, in minutes; it must be at least the
+longest window in the pool. \emph{per\_scale} draws an equal number of windows from each
+window length (20,000 by default). \emph{pool} reopens a saved pool and ignores every other
+setting.
+
+\cardfield{Watch out for}
+Raising \emph{gap\_min} or changing the blocks changes which windows survive; the counts of
+windows dropped, and why, are on the block's page. The held-out recording (M4) is refused
+outright, whatever you tick.

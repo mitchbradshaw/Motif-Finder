@@ -1,0 +1,31 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.wavelet_bands -- "Wavelet bands" (Part I, the blocks chapter).
+\cardfield{What it does}
+Splits a signal into a ladder of layers, each holding movements about half as fast as the
+layer above, and passes one chosen layer on down the chain.
+
+\cardfield{When to use it}
+When you want to look at one time-scale of activity but do not know in advance where to cut.
+It works like sorting coins by size through a stack of sieves: each tray catches one size, and
+all the trays together hold every coin you started with. Compared with
+\blockref{preprocessing.bandpass}, it keeps a sharp event sharper and in exactly the right
+place in time, and every layer lines up sample for sample with the recording. Discovery can
+also run a template once per layer (a wavelet band scope).
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel with no missing samples. Out comes one layer, as an ordinary
+signal of the same length and rate. The block page draws every layer, with its range of
+speeds in hertz, so you can see which one carries your events.
+
+\cardfield{Settings that matter}
+\emph{level} picks the layer that goes on: 1 is the fastest (from a quarter to half the
+sampling rate), each higher number half as fast, and 0 is the slow remainder below the deepest
+layer. \emph{levels} is how many layers to make; leave it at 0 and the block chooses. On a
+1\,Hz recording the default level 4 holds movements of roughly 16 to 32 seconds per cycle
+(0.031--0.062\,Hz). \emph{wavelet} is the shape used to cut; the default db4 is a good
+general choice.
+
+\cardfield{Watch out for}
+A span with any missing sample is refused: fill or avoid gaps first. The deepest layers are
+distorted near both ends of the span. The edges between layers are approximate: a little of
+each layer leaks into its neighbours.

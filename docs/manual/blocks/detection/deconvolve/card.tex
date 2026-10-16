@@ -1,0 +1,40 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.deconvolve -- "Deconvolve (OASIS)" (Part I, the blocks chapter).
+\cardfield{What it does}
+Explains the trace as a list of sudden jumps, each followed by the same slow fade, and gives
+every moment a score: how big a jump starts there, in units of the background noise. Almost
+every score is zero.
+
+\cardfield{When to use it}
+When your events are troughs: a sudden drop, then a slow recovery. Its advantage over a
+plain level cut is that a second drop starting before the first has recovered counts as an
+event of its own instead of merging into one blob. Put a long \blockref{preprocessing.detrend}
+in front and \blockref{detection.impulse_events} after it; the ready-made template
+\texttt{deconvolved\_troughs} does both.
+
+\begin{plainterms}[Jumps and fades]
+Think of a bath with the plug out, slowly draining at the same rate every time. Each time
+someone pours in a bucket, the level jumps and then drains away the same way. Looking only at
+the water level, this block works out when buckets were poured and how big each was, even when
+a second bucket went in before the first had drained. A fungal trough is the same picture
+upside down: a sudden drop, then a slow climb back.
+\end{plainterms}
+
+\cardfield{What goes in, what comes out}
+In goes a stretch of one channel. Out comes a score for every sample: zero where nothing
+starts, and the size of the jump, counted in noise widths, where one does.
+
+\cardfield{Settings that matter}
+\emph{recovery\_half\_s} first: the time a trough takes to climb half-way back. Read it off a
+few of the recording's own troughs. At 0 the block estimates it, as a fallback. A value much
+shorter than the real recovery splits every trough into a jump and many small follow-ons.
+Then \emph{min\_jump\_sigma}: the smallest jump allowed, in noise widths; raise it to stop
+noise being explained as tiny jumps. \emph{baseline\_window\_s} lets the floor under the trace
+follow slow drift; make it about 15 recovery half-times.
+
+\cardfield{Watch out for}
+Events that are not a sudden drop and the same fade (a sharkfin's slow climb and plateau) are
+split into many small events. The summary flags this when the leftover misfit (the residual
+SD) is above about 1.5: then the event count is not a trough count. The summary also warns
+when jumps come faster than they could recover, which usually means the recovery half-time is
+wrong. The scores do not depend on whether the recording is stored in volts or millivolts.

@@ -1,0 +1,32 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.seed_matches -- "Seeded search" (Part I, the blocks chapter).
+\cardfield{What it does}
+Takes one example of a shape, a \term{seed}{seed}, and finds the places in the span where the
+signal looks most like it.
+
+\cardfield{When to use it}
+When you already have an example of what you are looking for, usually an
+\term{exemplar}{exemplar} saved in the Library, and want to know where else it occurs. This is the
+block behind Discovery's \term{seed-search}{seed search}. Unlike the matrix profile it compares one
+shape against the recording, not every window against every other, so it is fast enough to run
+over whole channels.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel, plus the example shape as a second input. Out come the stretches
+that match best, each as long as the example, ranked closest first and labelled
+\texttt{match0}, \texttt{match1}, \dots, each with its distance from the example. They are saved as
+detections.
+
+\cardfield{Settings that matter}
+\emph{k} is how many matches to keep. \emph{max\_distance} drops matches that are too far to count
+(0 keeps the best \emph{k} whatever they are). \emph{exclusion} sets how close two matches may
+start: at the default 0.5 they may overlap by up to half the example's length; at 1 they cannot
+overlap at all. \emph{scales} also searches stretched and squeezed copies of the example, for the
+same shape at a different speed.
+
+\cardfield{Watch out for}
+The block always returns \emph{k} matches if it can, however poor: without a cut, ``the ten best
+matches'' are found in pure noise too. Discovery's seed search exists to set that cut against a
+\term{null}{null}. Only shape is compared, not size. The example is used sample for sample, so it
+must come from a recording with the same sampling rate. If the example was cut from the span being
+searched, it finds itself first, at distance 0.

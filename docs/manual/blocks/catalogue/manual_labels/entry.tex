@@ -1,0 +1,92 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.manual_labels -- "Manual labels" (Appendix A).
+\entryfield{Algorithm}
+Everything is in \code{Adapters/catalogue_manual_labels.py}.
+\begin{enumerate}
+\item \emph{Read} (\code{human_spans}) every human span on the chain's recording, channel-absolute:
+  rows of \code{annotations} with \code{deleted_at IS NULL} (imported 10-minute labels, the Excel
+  catalogue, spans drawn in Review or Explore), and \code{window_verdicts} written on any saved
+  window set whose \code{recording_id} is this recording, placed with that set's own
+  \code{windowset.npz} or \code{windows.npz} (\code{_saved_window_bounds}; missing files raise).
+  The \code{detections} table is never read.
+\item \emph{Votes} (\code{_VOTE}): \texttt{seed} and \texttt{interesting} vote interesting,
+  \texttt{not\_interesting} votes not interesting, \texttt{artifact} votes artifact,
+  \texttt{unsure} (and any other word) votes nothing. Empty spans are ignored.
+\item \emph{Fate of a window} $[a, a+L)$ (\code{_fate_of}): the spans it \emph{contains}
+  ($s \geq a$, $e \leq a+L$) vote; the spans that \emph{enclose} it ($s \leq a$, $e \geq a+L$) vote
+  too, except an enclosing \texttt{interesting} span. Spans that only partly overlap do not vote.
+  No vote: \texttt{unlabelled}; more than one distinct vote: \texttt{conflicting}; otherwise the
+  vote (\texttt{interesting}, \texttt{not\_interesting} or \texttt{artifact}).
+\item \emph{Non-overlap} (\code{non_overlapping_keep}, when on): in start order, keep each labelled
+  window that does not overlap the last kept one; then keep each unlabelled window that overlaps no
+  kept window; every other window becomes \texttt{dropped\_for\_overlap}. For windows of one length
+  the first pass keeps the largest non-overlapping subset of the labelled windows.
+\item \emph{Labels}: 1 interesting, 0 not interesting, $-1$ for the other four fates. Seeds are
+  counted within interesting.
+\item \emph{Grid hint} (\code{_grid_hint}): if labelled spans no longer than a window lie in the
+  windows' range but none is wholly inside a window, a sentence says the windows are off the labels'
+  grid (the 10-minute set: 600 samples, step 200, span start a multiple of 200).
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units and NaN.} The signal is not read; neither matters.
+\item \emph{One recording.} Spans are read for \code{recording["id"]}, the chain's root recording,
+  and compared with the windows' starts as sample indices on that channel.
+\item \emph{Rule 5.} Human annotations and machine detections are separate tables
+  (\code{CLAUDE.md}, rule 5). The block reads only the human tables (\code{annotations},
+  \code{window_verdicts}) and writes nothing (\code{tests/test_catalogue_manual_labels.py} checks
+  that it writes nothing). Because it declares \code{conn}, it and every later step bypass the step
+  cache, so a new label reaches the next run.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Grouping} of 1 / 0 / $-1$. \code{meta}: \code{coverage} (a count for every fate, which
+together add up to the window count, plus \code{labelled}, \code{seed}, the non-overlap rule,
+the number of spans and their sources), \code{class_names} (\texttt{0} not\_interesting,
+\texttt{1} interesting), \code{excluded_label} ($-1$), \code{fates} (one per window), \code{rules}
+(the rules in words, the coverage line and the grid hint), \code{summary},
+\code{non_overlapping}. Nothing is persisted.
+
+\entryfield{Cost}
+For each window, a binary search for the spans that can reach it: about $O(W \log S + W\,c)$ for
+$W$ windows, $S$ spans and $c$ spans per window. The non-overlap pass inserts into a sorted array,
+$O(W^2)$ in the worst case. Instant at the label set's size (about 11,000 windows).
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Off-grid windows take almost nothing.} One-minute windows can never wholly contain a
+  600-sample label, so they are only ever not interesting (by lying inside a longer one) or
+  unlabelled. The grid hint names this when no window contains any label.
+\item \emph{A single class.} About one label per hour per channel was measured on M2\_aug
+  (\code{docs/rq_roundA/RQ1-cluster-vs-manual-labels.md}); a day of one channel can hold only one
+  class, and a classifier after it has nothing to learn.
+\item \emph{A pool fed in.} Windows from \blockref{preprocessing.window_pool} come from many
+  recordings and channels, but labels are read for the root recording only and matched by sample
+  index. Nothing refuses a pool. Verdicts written on a pool's or an unlabelled set's windows are not
+  read either, since those \code{window_sets} rows carry no \code{recording_id}
+  \unverified{(whether Review can write verdicts on them was not checked)}.
+\item \emph{Overlap drops labels.} With non\_overlapping on, a labelled window overlapping an
+  earlier kept labelled window is dropped (1,135 of 11,110 labelled windows overlap a neighbour, per
+  the RQ1 file).
+\end{itemize}
+
+\entryfield{Validation}
+The rule is the researcher's (QUESTIONS.md Q41 and Q-W1, 2026-10-03), recorded in the module
+docstring. The tests check every clause on small hand-made span sets. Measured on the 16 M2\_aug
+channels, labelled-first non-overlap keeps 10,077 of 11,110 labelled windows, against 3,906 for a
+single grid phase (module docstring).
+
+\entryfield{References}
+Research question 1: \code{docs/rq_roundA/RQ1-cluster-vs-manual-labels.md}.
+
+\entryfield{Tests}
+\code{tests/test_catalogue_manual_labels.py}: a wholly contained span labels the window; seed is
+interesting; partial overlap does not label; disagreement is conflicting; agreement labels;
+inside a longer not-interesting span is not interesting; inside a longer interesting span is
+unlabelled; unlabelled time is never not interesting; artifact excluded; the fates partition the
+windows; labelled-first on a 600/200 grid; sparse labels on different phases kept; non-overlap a
+no-op on a tiling grid; the block writes nothing; a new label reaches the next run; window verdicts
+are read; the classifier trains on labelled windows only.
+\code{tests/test_template_minirocket_manual_labels.py} and \code{tests/test_training_paired.py}
+use it in chains.

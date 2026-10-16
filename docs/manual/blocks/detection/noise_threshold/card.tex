@@ -1,0 +1,36 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.noise_threshold -- "Noise threshold" (Part I, the blocks chapter).
+\cardfield{What it does}
+Marks every stretch where the signal strays further from its usual level than a chosen
+number of times its own background noise.
+
+\cardfield{When to use it}
+As a first, simple detector that works the same on every channel, whatever its size and
+whether it is stored in volts or millivolts: you never type a level, only ``how many times the
+noise''. Put \blockref{preprocessing.detrend} in front; the ready-made template
+\texttt{noise\_threshold} does, and looks for drops 4 noise widths below the usual level.
+
+\begin{plainterms}[The noise width]
+To decide what counts as unusual, the block first measures how much the signal normally
+wobbles. It does not use the ordinary spread, which the events themselves would inflate.
+Instead it takes the typical distance of a sample from the middle value, which a few large
+events barely move: like judging the usual height of waves on a lake by the middle wave,
+not the average, so that one passing boat does not change the answer.
+\end{plainterms}
+
+\cardfield{What goes in, what comes out}
+In goes a stretch of one channel. Out come the stretches that cross the cut, each scored by
+how many noise widths past the cut it reaches.
+
+\cardfield{Settings that matter}
+\emph{k\_sigma}: the cut, in noise widths. 4 is the value from the spike-sorting paper it
+comes from; lower finds weaker events and more false ones. \emph{direction}: \texttt{below} for
+drops, \texttt{above} for rises, \texttt{either} (the default) for both.
+\emph{noise\_from}: \texttt{rolling} measures the noise over a moving window instead of the
+whole stretch, for a channel whose noise changes over days.
+
+\cardfield{Watch out for}
+The noise width is only honest when events are a small part of the trace. When they fill much
+of it, they inflate the noise width and hide under it; the block warns when more than a fifth of
+the samples are past the cut, and prints a second number to compare when even that check is
+blind.

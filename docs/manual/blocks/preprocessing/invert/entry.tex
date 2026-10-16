@@ -1,0 +1,35 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.invert -- "Invert" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/preprocessing_invert.py} returns $y_i = -x_i$, computed as
+\code{-np.asarray(x, dtype=float)}, with the input's $f_s$. There is no \code{Working/} function
+behind it.
+
+\entryfield{Assumptions}
+None on units, rate or length. NaNs stay NaN.
+
+\entryfield{Outputs}
+A \texttt{Signal} of the input's length and $f_s$; nothing in \code{meta}.
+
+\entryfield{Cost}
+$O(n)$ time and memory. The block registers a cost model and an estimate (\code{_estimate},
+proportional to the span's length) under the block standard.
+
+\entryfield{Failure modes}
+None in the arithmetic. The risk is interpretive: downstream measurements are in the inverted
+frame unless \blockref{interrogation.event_shape} is told \emph{upstream\_inverted}, as the
+\texttt{spike\_event\_features} template does (per the adapter's docstring).
+
+\entryfield{Validation}
+\code{tests/test_adapter_invert.py} checks that the output is exactly $-x$ with the same length
+and rate, that inverting twice is the identity, and that on a synthetic train of fast-rise,
+slow-fall spikes the five-stage drop detector (\code{detect_drops5}) finds more events, or
+faster falls, on the inverted trace than on the original.
+
+\entryfield{References}
+None.
+
+\entryfield{Tests}
+\code{tests/test_adapter_invert.py} (above); \code{tests/test_template_event_features.py} (the
+template that inverts before detecting); \code{tests/test_adapter_spec.py},
+\code{tests/test_block_standard.py} and \code{tests/test_end_to_end.py} (plumbing).

@@ -1,0 +1,34 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.sax_dsax -- "Symbolic encoding (dSAX)" (Part I, the blocks chapter).
+\cardfield{What it does}
+Cuts a span into equal pieces and gives each piece a letter for how much the signal rose or
+fell across it: with the default three letters, \emph{a} for down, \emph{b} for about the
+same, \emph{c} for up. (The SAX family is explained on the card for
+\blockref{detection.sax_csax}; dSAX codes a piece's \emph{rise} where the others code its
+average.)
+
+\cardfield{When to use it}
+When you are after shapes rather than levels: a sharp rise then a long fall becomes a
+pattern of letters such as \emph{cc} followed by several \emph{a}s, which
+\blockref{detection.symbol_search} can find anywhere in the string. This is the route
+research question RQ4 uses: band-pass, remove the baseline, dSAX, then symbol search.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel, ideally with its baseline removed. Out comes a string with
+one letter per piece. A piece that touches a missing sample gets a dash, never a letter.
+
+\cardfield{Settings that matter}
+The piece length works as in cSAX (default 20\,s per letter, with the same live read-outs on
+the block page). \emph{threshold\_mode} decides where ``about the same'' ends:
+\emph{learned} (the default) fits the boundaries to the rises seen in this span;
+\emph{absolute} uses a rise you state, in the recording's own unit per piece;
+\emph{quantile} makes a share you choose, \emph{same\_fraction}, come out as ``same''.
+\emph{trend\_estimator} decides how a rise is measured; the default fits a straight line
+through each piece, which is steadier under noise than comparing its two ends.
+
+\cardfield{Watch out for}
+In \emph{learned} mode the letters are balanced even on pure noise: about half the pieces
+come out as rises or falls when nothing is happening. Do not read a learned string as
+structure until you have compared it with a null. A slow drift pushes every piece towards
+\emph{c} or \emph{a}; remove the baseline first. Keep the alphabet odd: an even one has no
+``same'' letter at all. The app spells the letters \emph{a, b, c}, not D, S, U.

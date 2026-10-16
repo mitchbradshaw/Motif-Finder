@@ -1,0 +1,132 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.window_matrix -- "Sliding windows + features" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/preprocessing_window_matrix.py} checks the geometry, then calls
+\code{build_window_matrix} in \code{Working/Preprocessing/window_matrix/build.py}.
+\begin{enumerate}
+\item \emph{Geometry.} $m = \mathrm{round}(60\,\text{window\_min}\cdot f_s)$ samples, refused
+  below 32 (\code{WM_MIN_WINDOW_SAMPLES}) or above the span length. Step
+  $s = \max(1, \lfloor \text{step\_frac}\cdot m\rfloor)$ (\code{step_samples}). Starts
+  $0, s, 2s, \dots$ up to the last start admitting a whole window
+  (\code{create_matrix_at_timescale} in \code{matrix_calc.py}), or up to the span's end when
+  partial\_tail is on. Fewer than 3 windows (\code{WM_MIN_WINDOWS}) is refused. Starts are
+  stored channel-absolute.
+\item \emph{Stages}, run stage by stage (not window by window), each filling its columns:
+  \begin{itemize}
+  \item \texttt{catch22} (22 columns \code{catch22_<name>}): aeon's \code{Catch22} with
+    \code{replace_nans=True} on the raw window (\code{catch22_features} in
+    \code{Working/Detection/aeon_features/transformations.py}), the canonical set of
+    \citet{lubba2019catch22}: two histogram modes, autocorrelation decay and first minimum,
+    automutual information, time-reversibility, successive-difference and binary-stretch
+    statistics, transition-matrix and periodicity measures, outlier timing, Welch spectral
+    area and centroid, local-prediction residual ratios, and two fluctuation-analysis
+    scaling measures. The exact names are in \code{CATCH22_FEATURE_NAMES}.
+  \item \texttt{fast\_entropy} (\code{Working/Detection/analysis/entropy_analysis.py}):
+    \emph{Shannon entropy}, in bits, of a 50-bin amplitude histogram of the finite samples;
+    \emph{spectral entropy}, the Shannon entropy in bits of the power spectrum
+    $|\mathrm{rfft}(w)|^2$ treated as a distribution (mean not removed, not divided by its
+    maximum); \emph{SVD entropy}, the Shannon entropy of the normalised singular values of the
+    order-3 delay-embedding matrix; \emph{permutation entropy} of order 3, in bits, unnormalised
+    (maximum $\log_2 6 \approx 2.58$) \citep{bandt2002permutation}.
+  \item \texttt{slow\_entropy}: \emph{sample entropy} $-\ln(A/B)$ with template length 2 and
+    tolerance $r = 0.2\,\sigma_w$, self-matches excluded \citep{richman2000physiological}; and
+    \emph{approximate entropy}, $m = 2$, $r = 0.2\,\sigma_w$, computed as
+    $\phi(2) - \phi(3)$ with $\phi(k) = \ln\!\big(\sum_i C_i^k/(N-k+1)\big)$, where $C_i^k$
+    counts templates within $r$ of template $i$ (self-matches included). That is the log of
+    the \emph{summed} match count, not the mean of per-template logs of
+    \citet{pincus1991approximate}. Skipped for $m > 4096$
+    (\code{WM_SLOW_ENTROPY_MAX_SAMPLES}).
+  \item \texttt{cnn} (off by default): for each Gramian image type (fusion, GASF, GADF,
+    recurrence) the softmax probability of class 0 from \code{<type>_cnn.pth} in
+    cnn\_model\_dir, batched 32 at a time, as \code{cnn_p_<type>_interesting}. Skipped for
+    $m > 5000$ (\code{WM_GRAMIAN_MAX_SAMPLES}); a missing model file leaves its column
+    uncomputed.
+  \item \texttt{rf} (off by default): \code{predict_proba(...)[:, 1]} of the joblib pipeline at
+    rf\_model\_path, as \code{rf_p_interesting}; no path leaves the column uncomputed.
+  \end{itemize}
+\item \emph{The mask.} A cell is \emph{computed} once attempted. A window whose function raises
+  is recorded as attempted with NaN, so it is never retried.
+\item \emph{Timeout and resume.} With timeout\_s $> 0$ the build stops cleanly at the deadline
+  and returns a partial matrix. \code{_seed_from_existing} copies attempted cells from
+  resume\_path, matched by (start index, column name), not by position; a \emph{backfilled}
+  artifact (mask inferred from NaN) is refused as a resume source. Cancelling raises
+  \code{RecipeCancelled} and caches nothing.
+\end{enumerate}
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware (\code{_run} takes no \code{units}). The entropies are
+  invariant to a change of scale (histogram bins and $r$ follow the window's own range or
+  standard deviation). Whether every Catch22 feature is scale-free depends on aeon's
+  implementation \unverified{(Catch22 normally z-normalises each series first)}.
+\item \emph{Sampling rate.} The window length is in minutes and converted with $f_s$, so
+  windows match in duration across rates; the entropies are not (order 3 and $m = 2$ count
+  samples).
+\item \emph{Missing values.} The window is passed as it is. Shannon entropy drops NaNs; SVD
+  entropy returns NaN; sample entropy returns NaN; but \emph{spectral entropy returns 0} (an
+  FFT with a NaN is all NaN, every bin fails the \code{power > 0} test, and the empty sum is
+  0), \emph{approximate entropy returns 0} (no template matches, so both $\phi$ are set to 0),
+  and permutation entropy ignores the NaN's value (\code{argsort} places it last). Catch22's
+  handling of NaN inputs is \unverified{not checked}.
+\item \emph{Leakage.} No split is made. The \texttt{cnn} and \texttt{rf} columns come from
+  models trained on the human interesting/not labels; \code{Working/training/windows.py}
+  refuses them for the paired job for that reason.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{WindowSet} of length $m$ whose feature table is the matrix (columns in the order
+Catch22, fast entropy, slow entropy, CNN, RF). Requested stages impossible at this $m$ keep
+their columns, uncomputed, and are listed in \code{meta["stages_skipped"]}. \code{meta} holds
+\code{computed} (the mask), \code{columns}, \code{start_idx}, \code{m}, \code{step},
+\code{n_windows}, \code{stages_run}, \code{complete}, \code{elapsed_s}, \code{timed_out}.
+The block persists: \code{_persist} writes a v1 \code{.npz} (values, mask, columns, starts,
+geometry, data SHA-1) under \code{RESULTS_DIR} with a name carrying the recording, channel,
+window\_min, step\_frac, span and recipe key, and registers it as an
+\code{artifacts(kind='encoding')} row.
+
+\entryfield{Cost}
+Catch22 and the fast entropies cost about $O(m\log m)$ per window; sample and approximate
+entropy are $O(m^2)$ per window in plain Python loops, which is why they stop at 4096 samples;
+the CNN stage builds an $m\times m$ image per window. Total time is linear in the number of
+windows. \code{_estimate} reads the machine's calibration (\code{cost.estimate_seconds}) and
+returns \code{None} when a stage is uncalibrated; \code{max_span_samples} is derived from the
+same calibration. Long recordings at fine scales are meant for the cluster, with timeout\_s set
+a few minutes under the job's limit and resume\_path set from the first job.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Silent zeros from NaN} (spectral and approximate entropy), above. A gap in the
+  recording becomes a cluster of ``perfectly regular'' windows.
+\item \emph{Approximate entropy is not Pincus's.} It is a ratio of summed match counts, closer
+  to a sample entropy that counts self-matches. Values are not comparable with published ApEn.
+\item \emph{Spectral entropy follows the baseline.} The mean is not removed, so on a signal far
+  from zero the DC bin dominates and the entropy is low whatever the fluctuations do.
+\item \emph{Label leakage through cnn and rf}, above.
+\item \emph{Two roundings of $m$.} The adapter computes $m$ with \code{round},
+  \code{create_matrix_at_timescale} with \code{int} (truncation). When $60\,\text{window\_min}\cdot
+  f_s$ is not a whole number they can differ by one sample, and the WindowSet's length is the
+  adapter's $m$ while the measures used the other. \unverified{Not observed on the ladder
+  scales at 1 Hz, where the product is whole.}
+\item \emph{partial\_tail on} puts short windows into the last rows; their measures are not
+  comparable with the rest of the column.
+\end{itemize}
+
+\entryfield{Validation}
+\code{tests/test_analysis_modules.py} checks simple cases of the entropy functions (a constant
+gives zero Shannon and spectral entropy; a monotone ramp gives zero permutation entropy; SVD
+entropy is NaN below its order). No test compares the matrix with a reference implementation,
+and none checks the NaN cases above.
+
+\entryfield{References}
+Catch22: \citet{lubba2019catch22}. Permutation entropy: \citet{bandt2002permutation}. Sample
+entropy: \citet{richman2000physiological}. Approximate entropy: \citet{pincus1991approximate}.
+
+\entryfield{Tests}
+\code{tests/test_window_matrix_resume.py}: a failing window is attempted, not pending; a
+legitimately NaN window is not retried; a timeout resumes to completion and matches an
+uninterrupted build value for value; a backfilled artifact is refused; resume matches by name
+and index; a stage impossible at the scale does not keep the matrix incomplete; starts are
+absolute; no window is computed on a truncated slice.
+\code{tests/test_window_matrix_artifact_name.py}: artifact naming and keys.
+\code{tests/test_execution.py}, \code{tests/test_webui_run_cancel.py} and
+\code{tests/test_catalogue_manual_labels.py} run it inside chains.

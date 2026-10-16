@@ -1,0 +1,30 @@
+% !TEX root = ../../../main.tex
+% Block card: preprocessing.detrend -- "Baseline removal" (Part I, the blocks chapter).
+\cardfield{What it does}
+Takes away the slowly wandering level of a signal by subtracting a moving average (or a single
+straight line), so that what is left sits around zero.
+
+\cardfield{When to use it}
+Before almost any detector or symbolic encoding on a channel that drifts. It is like measuring
+the height of waves from the water's current level rather than from the sea floor: the moving
+average stands in for the current level. It is the step the drop-detection template starts
+with, in its \emph{rolling\_mean\_nearest} form. If large drops or spikes dominate the
+channel, \blockref{preprocessing.beads} disturbs them less.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes a signal of the same length and rate: the original
+minus its local average. In the \emph{rolling\_z} form it is also divided by the local spread,
+so it comes out without units.
+
+\cardfield{Settings that matter}
+\emph{mode} chooses the method: \emph{rolling\_mean} (the default) subtracts a moving average;
+\emph{rolling\_mean\_nearest} is the drop detector's own version, which differs only near the
+ends of the span; \emph{rolling\_z} also rescales to a local z-score; \emph{linear} subtracts
+one straight line fitted to the whole span. \emph{window\_s} is how many seconds the moving
+average covers (ten minutes by default); it should be much longer than the events you want to
+keep.
+
+\cardfield{Watch out for}
+A big drop drags the moving average down with it, so after subtraction the trace overshoots
+upwards on either side of the drop, and an event longer than the window is partly removed.
+Missing samples stay missing in the rolling modes, but \emph{linear} fails on them.

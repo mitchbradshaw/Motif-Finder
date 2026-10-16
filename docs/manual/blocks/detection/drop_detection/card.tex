@@ -1,0 +1,46 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.drop_detection -- "Drop detection" (Part I, the blocks chapter).
+\cardfield{What it does}
+Finds each sudden drop in the signal, marks where it starts and where it bottoms out, and
+draws a frame around it that holds that one drop and nothing of its neighbours.
+
+\cardfield{When to use it}
+When the events you care about are steep falls: the ``sharkfins'' (a slow climb, then a
+sudden fall) and ``troughs'' (a sudden fall from a flat stretch, then a slow recovery) seen on
+long fungal recordings. It is the last of three blocks in the ready-made drop detector:
+\blockref{preprocessing.detrend} removes the slow drift, \blockref{detection.stage_encoding}
+turns the trace into letters, and this block reads the letters and the trace to find the
+drops. It needs that encoding in front of it; it refuses anything else.
+
+\cardfield{What goes in, what comes out}
+In go the letters from the encoding and the detrended trace. Out comes one stretch of time
+per confirmed drop, scored by how deep the drop is in millivolts. Each drop's start, its
+bottom and how it was judged are kept with it, and the block page lists the candidates it
+threw away and why.
+
+\begin{plainterms}[How it decides]
+Think of walking along a mountain path and noting every place the ground falls away
+steeply. The block first looks only at places the encoding already marked as a fast fall, or
+just after a climb. At each one it asks: is the ground really steeper here than the usual
+bumpiness of the path? Where does the fall level out? Was there a real climb before it? Is
+this fall the biggest thing in its own frame? A drop that fails any question is set aside and
+counted.
+\end{plainterms}
+
+\cardfield{Settings that matter}
+\emph{slope\_sigma} is the main one. A drop is only seen if, somewhere along its fall, the
+trace drops faster than this many times its own background jitter. Lower it (to 6, 4, even 2)
+when the block misses gentle drops you can see by eye; raise it to keep only the sharpest.
+It must be the same number as in the encoding block before it. \emph{min\_depth\_frac}
+throws away drops shallower than this fraction of the deepest drop in the span: at 0.1, a
+drop a tenth the size of the biggest one is dropped. \emph{morphology} says whether the span
+is made of sharkfins or troughs; \texttt{auto} decides once for the whole span.
+
+\cardfield{Watch out for}
+When the block finds too few drops, the cause is almost always the slope gate
+(\emph{slope\_sigma}), not the length of the drift removal in front of it: lower
+\emph{slope\_sigma} first. The two copies of \emph{slope\_sigma} (here and in the encoding)
+are not checked against each other. Because the shallow-drop filter is relative to the
+deepest drop, one huge drop in a span can push real smaller ones out. Gaps in the recording
+are skipped: no drop is drawn across a gap, and a drop that runs into one is left out and
+counted.

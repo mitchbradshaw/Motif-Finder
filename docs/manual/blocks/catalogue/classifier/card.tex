@@ -1,0 +1,29 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.classifier -- "Classifier (model)" (Part I, the blocks chapter).
+\cardfield{What it does}
+Learns to tell your groups of windows apart from the measures each window carries, and saves
+what it learned as a model file.
+
+\cardfield{When to use it}
+At the end of a chain that has made windows, measured them (window matrix, MiniRocket,
+multiscale entropy) and given them labels, either from a clustering
+(\blockref{catalogue.cluster}) or from your own verdicts (\blockref{catalogue.manual_labels}).
+The block does not care where the labels came from, which is what lets the two be compared.
+For the full comparison across recordings and channels, use the Models page
+(\cref{ch:models}, \apppage{models.launch}).
+
+\cardfield{What goes in, what comes out}
+In go the labels, one per window, and (bound as a second input) the windows with their
+measures. Out comes a saved model and a report card: how many windows it trained on, how
+many it left out and why, and how well it did on a quarter of the windows it held back.
+
+\cardfield{Settings that matter}
+\emph{holdout\_frac} is the share held back to check the fit; 0 trains on everything and
+reports no score. \emph{class\_weight} (balanced) stops a big group drowning out a small one.
+\emph{n\_estimators} is the number of trees: more is steadier and slower.
+
+\cardfield{Watch out for}
+The held-back score is a sanity check, not a measure of how well the model works on new
+recordings. The held-back windows are drawn at random from the same stretch, and neighbouring
+windows that overlap look alike, so the score flatters the model. Compare it with the
+majority share the card shows beside it.

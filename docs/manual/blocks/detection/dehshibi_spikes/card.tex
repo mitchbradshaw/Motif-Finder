@@ -1,0 +1,24 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.dehshibi_spikes -- "Spike detection (Dehshibi, monolithic -- deprecated)".
+\cardfield{What it does}
+Runs the whole spike detector of \citet{dehshibi2021electrical} in one step: the same three
+stages as the \texttt{dehshibi\_spikes} template, without showing you what happens in between.
+
+\cardfield{When to use it}
+Only to rerun an old recipe that names it. For new work use the template:
+\blockref{preprocessing.wavelet_transform}, then \blockref{detection.wavelet_summation}, then
+\blockref{detection.summation_threshold}. It gives the same spikes at the defaults and lets you
+see each stage. That is why this block is filed under control, not detect.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel; out come the spikes, one stretch each.
+
+\cardfield{Settings that matter}
+\emph{n\_p} is the shortest gap, in samples, between the rises and dips the method looks for
+(60, which is 60\,s at 1\,Hz but only 6\,s at 10\,Hz). \emph{epsilon\_factor} is how prominent
+they must be. The other two settings do nothing; they are kept so old recipes still load.
+
+\cardfield{Watch out for}
+Unlike the template, it has no limit on span length and no window setting (always 3000\,s), and
+its spikes carry no labels or scores. It is as unselective on real recordings as the template
+(see \blockref{detection.summation_threshold}).

@@ -1,0 +1,35 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.freq_stft -- "STFT spectrum" (Part I, the blocks chapter).
+\begin{plainterms}[A spectrum]
+A spectrum says how much of a signal's wiggle happens at each speed: slow swells at the low
+frequencies, fast flicker at the high ones, like the bass and treble bars on a music
+player. The block measures it on short overlapping windows and averages them. It groups
+frequencies into bands that widen as the frequency rises, so the slow end, where most of
+the interest lies, gets more and narrower bands.
+\end{plainterms}
+
+\cardfield{What it does}
+Measures how the span's power is spread across frequencies, averaged over the whole span,
+in bands spaced evenly on a logarithmic scale.
+
+\cardfield{When to use it}
+To compare the frequency content of spans or channels, or to choose a band before a
+band-pass filter. It gives one spectrum for the span; it does not show how the spectrum
+changes over time.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes one list of numbers, the average power in each
+band, with each band's centre frequency; the block page draws it as a curve.
+
+\cardfield{Settings that matter}
+\emph{window\_size} is the window length in samples (default 300): longer windows resolve
+slower frequencies, down to one cycle per window. \emph{hop\_size} is the step between
+windows (default 150, so windows overlap by half). \emph{n\_log\_bins} is the number of
+bands (default 64).
+
+\cardfield{Watch out for}
+At the slow end the bands are narrower than the window can resolve, so many of them hold no
+frequency at all and read as exactly zero power: at the defaults, roughly the lowest third.
+A zero there means ``no measurement'', not ``no power''. Power is in the recording's unit
+squared, and a single missing sample (NaN) turns the whole spectrum into NaN. Settings
+count samples, so the same numbers mean different frequencies at 1\,Hz and at 10\,Hz.

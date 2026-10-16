@@ -1,0 +1,37 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.cwt_ridges -- "CWT ridges" (Part I, the blocks chapter).
+\cardfield{What it does}
+Finds bumps (spikes) and dips (troughs) of every duration in one pass, from seconds to hours,
+and says how long each one is.
+
+\cardfield{When to use it}
+When the events you care about come in very different lengths and you do not want to choose one
+window size in advance. It also copes with a slowly drifting baseline without a separate
+detrending step. Put \blockref{interrogation.event_shape} after it when you need each event's
+onset and recovery: that pair is the \texttt{cwt\_events} template.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes one stretch per event, centred on it, labelled
+\texttt{spike} or \texttt{drop}, scored by how far it stands out from the noise at its own
+duration. Each event also carries its own scale and an estimated duration.
+
+\begin{plainterms}[Spikes and troughs at every scale]
+Imagine a rubber stamp shaped like a Mexican hat: a hump with a shallow dip on each side.
+Press it along the trace at many sizes, from small to large. A bump in the signal matches the
+stamp best at the size closest to its own width; a dip matches the stamp turned upside down.
+Following the best match across neighbouring sizes traces a ``ridge''; a long, strong ridge is an
+event, and the size at which it is strongest tells you how long the event lasts. Doing this for
+the hat both ways up and at every size is what ``spikes and troughs at every scale'' means.
+\end{plainterms}
+
+\cardfield{Settings that matter}
+\emph{min\_snr} (3) first: how many times the local noise at an event's own duration it must
+reach. \emph{min\_scale\_s} and \emph{max\_scale\_s} set the shortest and longest events it
+looks for (an event lasts about 1.67 times its scale). \emph{polarity} chooses spikes, drops or
+both in the output; both are always traced.
+
+\cardfield{Watch out for}
+Keep \emph{max\_scale\_s} below the usual gap between events: at larger sizes the hat covers
+several events and can report their arrangement as one slow event. Events near the ends of the
+span are reported but flagged; so are events that may be one corner of a sudden step. For a
+lopsided event such as a sharkfin the centre sits towards the slow side.

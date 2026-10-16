@@ -1,0 +1,131 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: detection.matrix_profile -- "Matrix profile" (Appendix A).
+\entryfield{Algorithm}
+The block's \code{_run} in \code{Adapters/detection_matrix_profile.py} converts the window to
+samples, $m = \mathrm{round}(\textit{window\_min} \times 60 \times f_s)$ (10 minutes at 1\,Hz is
+600 samples), refuses $m < 4$ (\code{MP_MIN_WINDOW_SAMPLES} in \code{Working/config.py}, stumpy's
+own floor) and $m \geq n$, and calls \code{matrix_profile} or \code{matrix_profile_scrump} in
+\code{Pipelines/matrix_profile/run_matrix_profile.py}. Those call stumpy
+\citep{law2019stumpy}, which computes the matrix profile of \citet{yeh2016matrix}.
+
+For a span $x_0,\dots,x_{n-1}$, let $T_i = (x_i,\dots,x_{i+m-1})$ for $i = 0,\dots,n-m$ and let
+$\hat T_i$ be $T_i$ z-normalised (its mean subtracted, divided by its standard deviation). The
+distance between two windows is the z-normalised Euclidean distance
+\[ d(i,j) = \lVert \hat T_i - \hat T_j \rVert_2 = \sqrt{2m\,(1 - \rho_{ij})}, \]
+where $\rho_{ij}$ is the Pearson correlation of the two windows. It runs from 0 (identical shape)
+through about $\sqrt{2m}$ (uncorrelated) to $2\sqrt{m}$ (one is the other upside down). The
+profile is
+\[ P_i = \min_{\,|i-j| > e} d(i,j), \qquad I_i = \arg\min_{\,|i-j| > e} d(i,j), \]
+with the exclusion zone $e = \lceil m/4 \rceil$ (stumpy's \code{STUMPY_EXCL_ZONE_DENOM} $= 4$).
+The zone stops a window from matching itself shifted by a sample or two, a ``trivial match''. It
+does \emph{not} stop a window and its nearest neighbour from overlapping: they may share up to
+three quarters of their samples. stumpy also returns the left and right nearest-neighbour
+indices (the best match among earlier and among later windows), which the block keeps for the
+saved artifact.
+
+The \emph{backend} chooses the computation. \texttt{stump} is the exact CPU algorithm;
+\texttt{gpu\_stump} the exact GPU one; \texttt{auto} tries the GPU and falls back to
+\texttt{stump} on \emph{any} failure, without saying why (the backend actually used is in
+\code{meta}). \texttt{scrump} is stumpy's anytime SCRIMP++ (\code{stumpy.scrump}) computing a
+fraction \emph{scrump\_percentage} of the work; at 1.0 it is exact, below it each $P_i$ is an upper
+bound on the true value.
+
+Finally the profile, $n-m+1$ values long, is padded with NaN to $n$ values so that it is a
+\texttt{Scores} with one value per sample. Value $i$ belongs to the window \emph{starting} at
+sample $i$: the profile is start-aligned, not centred.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware, and it does not need to be: z-normalisation removes offset and
+  scale, so the distances are the same in volts and millivolts.
+\item \emph{Sampling rate.} The window is set in minutes and converted at the span's $f_s$, so one
+  setting means the same duration on every recording; the number of samples it holds does not.
+\item \emph{Missing values.} The span is handed to stumpy as it is. A window containing a NaN has
+  no defined mean or spread; stumpy gives it $P_i = \infty$ and $I_i = -1$, and it is never anyone's
+  neighbour. So one NaN sample removes the $m$ windows that touch it. Downstream, an infinite value
+  is not NaN: \blockref{detection.threshold} counts it as above any cut.
+\item \emph{Signal shape.} A window with no spread (a held value) cannot be z-normalised; stumpy
+  treats two constant windows as identical and a constant window as unlike any other. Slow drift
+  is not removed: after z-normalisation, two stretches of a smooth ramp are each other's perfect
+  match, so on an undetrended recording the lowest distances belong to the drift.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Scores} of length $n$: $P_0,\dots,P_{n-m}$ followed by $m-1$ NaN. \code{meta} holds the
+raw arrays \code{mp}, \code{mpi}, \code{left_i}, \code{right_i} (unpadded), \code{t_mp}, the window
+\code{m} in samples, the \code{backend} used, \code{elapsed_s}, and \code{approx} with
+\code{approx_percentage} (true only for \texttt{scrump} below 1.0).
+
+The block declares \code{persist} (\code{_persist}). When it runs through
+\code{Working.execution.execute_recipe}, from the app or from a cluster job, the raw arrays are
+written by \code{save_matrix_profile} to
+\code{Results/Detection/matrix_profile/mp_v2_<file>_CH<channel>_WIN<window_min>min.npz} with the
+recording's identity, the channel's SHA-1, the stumpy version and the timing, and registered as an
+\code{artifacts} row of kind \texttt{encoding}. That is the browsable artifact the
+matrix-profile pages read, and how a profile computed on the cluster comes home without a separate
+import step.
+
+\entryfield{Cost}
+stumpy's exact algorithm is $O(n^2)$ in time and, for practical purposes, independent of $m$;
+memory is $O(n)$ (a few arrays of length $n$ per thread). The cost model in
+\code{Working/Detection/matrix_profiling/cost.py} times one 20\,000-sample profile on this machine
+(\code{calibrate}, after a warm-up so that numba's one-off compilation is not counted) and predicts
+$t(n) = k\,n^2$ (\code{estimate_seconds}); the block's estimate is that prediction, or nothing
+until the machine is calibrated. When a chain is run from Analyse, the bridge calibrates on first
+need (\code{route_local} in \code{webui/server/chain.py}, a few seconds) and sends any chain whose
+estimate exceeds the local ceiling to the cluster as a SLURM job; the ceiling is
+Settings~\textrightarrow~Compute \& HPC's Analyse limit, or 900\,s
+(\code{CLUSTER_ROUTING_CEILING_S}) when none is saved.
+
+\code{max_span_samples} is $\sqrt{900\,\mathrm{s}/k}$ (\code{max_span_samples_for_background},
+with \code{MP_BACKGROUND_BUDGET_S} $= 900$), the span at which even a background run would take a
+quarter of an hour; a longer span is refused by the executor and by the bridge. It is computed once,
+when the adapter is imported, from \code{DATA/db/mp_calibration.json}: it is unlimited on a machine
+never calibrated, and a calibration made after the bridge started takes effect only at the next
+start. \unverified{At $k \approx 10^{-9}$, the plausibility anchor in \code{calibrate}'s docstring,
+the cap is about $9.5\times 10^5$ samples, some 260 hours at 1\,Hz.}
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{Drift wins.} On an undetrended recording the most-repeated ``shapes'' are slow ramps;
+  any two ramps are perfect matches once z-normalised. Detrend first.
+\item \emph{A window, not an event.} A low $P_i$ marks the window that starts at $i$. The window
+  lands wherever the distance is lowest, often part-way into an event, so an event's onset can lie
+  before the window and its end inside or after it. The older report tool
+  (\code{Pipelines/motif_report/}) padded every drawn window with context for this reason; this
+  block passes the start-aligned values on unchanged.
+\item \emph{Overlapping neighbours.} With the exclusion zone at $m/4$, a window's nearest
+  neighbour can overlap it by up to $3m/4$ samples; on a smooth signal the nearest neighbour is
+  often the same event, slightly shifted.
+\item \emph{A GPU that silently is not used.} \texttt{auto} falls back to the CPU on any error;
+  read \code{meta["backend"]}. Forcing \texttt{gpu\_stump} raises instead.
+\item \emph{Gaps.} One NaN sample removes $m$ windows; a recording with many short dropouts can
+  lose most of its profile at long windows.
+\item \emph{An approximate profile is not reproducible.} \texttt{scrump} below 1.0 draws its order
+  of work from numpy's global random generator (found when the same call was removed from
+  \blockref{detection.pan_matrix_profile}; see \code{Working/Detection/matrix_profiling/pan.py}),
+  so two runs can differ.
+\item \emph{One file per channel and window.} The artifact's file name carries the recording,
+  channel and window but not the span, so a second run of the same window on another span of the
+  same channel writes over the first run's file.
+\end{itemize}
+
+\entryfield{Validation}
+The arithmetic is stumpy's, \unverified{which its authors test against a naive implementation in
+stumpy's own suite}. No test in this
+repository compares the block's profile with known values: the tests check that the output has one
+value per sample, that the artifact is written and registered, and that the profile chains into
+\blockref{detection.threshold}.
+
+\entryfield{References}
+\citet{yeh2016matrix} define the matrix profile; \citet{law2019stumpy} describes stumpy. Where
+stumpy departs from the papers for the rest of the family is set out in
+\code{docs/research/analysis-blocks-primary-sources.md}, section 13.
+
+\entryfield{Tests}
+\code{tests/test_execution.py} (\code{test_matrix_profile_declares_scores_and_persists_artifact},
+\code{test_matrix_profile_to_threshold_chain_writes_detections}),
+\code{tests/test_step_cache.py}, \code{tests/test_manifest.py} and \code{tests/test_job_export.py}
+run it in chains and check the plumbing, the cache, the manifest and the cluster export.
+\code{tests/test_matrix_profile_store.py} checks the saved artifacts' store. None checks the
+distances themselves.

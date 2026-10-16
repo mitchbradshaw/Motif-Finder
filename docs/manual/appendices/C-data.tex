@@ -1,0 +1,216 @@
+% !TEX root = ../main.tex
+\chapter{Data formats and units}\label{app:data}
+This appendix says how recordings and everything made from them are stored. The rule behind all of
+it: bulk arrays live on disk as files, and the database holds paths and small facts
+(\cref{sec:architecture-storage}). Paths are relative to the repository root. \code{DATA/},
+\code{MODELS/}, \code{MATRICES/} and \code{Plots/} are not in version control; each machine
+provisions its own. The sources are \code{docs/DATA_REGISTRATION.md},
+\code{docs/LIBRARY_STORAGE.md}, \code{Working/database/schema.py} and \code{Working/units.py}.
+
+\section{Recordings on disk}\label{sec:data-recordings}
+A \term{recording}{recording} arrives as a raw file and is \emph{derived} into one array per
+\term{channel}{channel} before the app can read it.
+
+\begin{description}
+\item[Raw files] \code{DATA/raw/}, named \code{<stem>[_fs<N>].mat} or \code{.csv}. The layouts met
+  so far: a flat vector of sixteen channels end to end (\code{M2_aug_concat_fs1.mat}), a matrix of
+  samples by channels, a channels-by-samples MATLAB v7.3 matrix, and one CSV column per channel.
+  The \term{sampling rate}{sampling-rate} comes from the \code{_fs<N>} in the name or is supplied at
+  import; a raw file whose rate cannot be known is refused.
+\item[Derived channels] \code{DATA/derived/channels/<stem>/}: one file \code{CH<n>.npy} per channel,
+  a one-dimensional float64 array, with \code{<n>} the zero-based channel index, plus a
+  \code{manifest.json} giving \code{source_file}, \code{fs}, \code{n_channels},
+  \code{n_samples_per_channel}, \code{dtype}, \code{fs_note}, \code{time_base} and \code{units}.
+  Importing a raw file writes this folder (staged, then swapped in at once) and registers it.
+\item[The \code{recordings} table] One row per channel, unique on \code{(source_file, channel)}:
+  \code{fs}, \code{n_samples}, \code{global_offset}, \code{npy_path} (repository-relative, which is
+  why the bridge runs from the repository root), \code{notes}, and, added later, registration
+  provenance (\code{fs_source} read or inferred, \code{registered_at}, \code{registered_by},
+  \code{warnings_json}, \code{active}), the excerpt link (\code{parent_recording_id},
+  \code{parent_offset}, \code{decimation}) and the unit (\code{units}, \code{units_note}).
+\end{description}
+
+The core reads a channel by memory-mapping its \code{.npy} file and slicing the span it needs
+(\code{_load_signal} in \code{Working/execution.py}); recordings are never written by a run.
+
+\begin{plainterms}[Channel names count from one]
+Files and the database count channels from zero, as programmers do: \code{CH2.npy} is stored channel
+2. The app prints names counting from one, as people do, so that file is ``CH3''
+(\code{channel_name} in \code{Working/discovery/channels.py}). Where it matters, the stored index is
+shown beside the name.
+\end{plainterms}
+
+A \term{dataset}{dataset} is the set of channel rows that share a \code{source_file}. Its identity
+(display name, species, organism id, experiment date, condition, notes) is one row of the
+\code{datasets} table, keyed by source file and created the first time a field is filled. A display
+name is a label only; nothing keys, joins or caches on it.
+
+\begin{description}
+\item[Excerpts] A channel that is a shorter, downsampled piece of another registered channel is an
+  \emph{excerpt}, not a new recording. The registration check (\code{Working/registration/excerpt.py})
+  block-averages the longer channel to the shorter one's rate and slides one along the other; a
+  correlation above 0.99 that clearly beats its neighbours marks an excerpt, which is linked to its
+  parent rather than registered again.
+\item[Held out] \code{M4_aug_concat_fs1.mat} is the \term{held-out}{held-out} recording. Registration
+  refuses it, every Explore and Analyse route refuses its rows with HTTP 423, and the executor
+  refuses it unless \code{HELD_OUT_UNLOCK} is set in \code{Working/config.py}.
+\end{description}
+
+\section{The sidecar manifest}\label{sec:data-manifest}
+Every registered file gets a provenance file beside it, written by \code{register}:
+\code{<file>.manifest.json} next to a file, or \code{<dir>/registration.manifest.json} inside a
+folder. The database row points at it (\code{registered_artifacts.manifest_path}). Its fields, from
+\code{docs/DATA_REGISTRATION.md}:
+
+\begin{description}
+\item[\code{manifest_version}, \code{kind}, \code{name}, \code{path}] what the file is and where.
+\item[\code{source}] the recording, its row id, channel, span, and the raw file, if any.
+\item[\code{fs}, \code{fs_source}] the sampling rate and whether it was read or inferred.
+\item[\code{parameters}] what the producer used (for a matrix profile: window length, config hash,
+  backend).
+\item[\code{producer}, \code{recipe_hash}] the recipe, script or cluster job that made the file.
+\item[\code{created_at}, \code{registered_by}, \code{code_version}] when, by whom, at which commit.
+\item[\code{checks_passed}, \code{warnings}, \code{sha1}, \code{row}] the checks it passed, the
+  warnings raised, a fingerprint of the file, and the database row as inserted.
+\end{description}
+
+The fingerprint of a file is its SHA-1; of a folder, each file's name, size and the SHA-1 of its first
+and last 4\,MB. In the bridge's sandbox mode, sidecars are written under
+\code{webui/runtime/<stamp>/sidecars/} instead (\cref{sec:architecture-sandbox}).
+
+Not to be confused with this: the per-recording \code{manifest.json} in a derived-channels folder
+(above), and the run manifest a cluster job writes through \code{Pipelines/run_recipe}
+(\code{Working/manifest.py}).
+
+\section{Units}\label{sec:data-units}
+\code{recordings.units} is \code{V}, \code{mV} or \code{uV}; empty means \emph{undeclared}.
+\code{recordings.units_note} says where the unit came from, or why it is unknown. A unit comes from,
+in order: the derived folder's manifest (\code{units}; free text is read by its first word, so
+``millivolts as stored \ldots'' is \code{mV}), an override at registration, or Settings
+\textrightarrow{} Datasets afterwards (\code{PUT /api/registry/recording/{id}/units}, which sets
+every channel of the dataset together and writes an audit entry). An unreadable unit fails
+registration's \code{units} check; an undeclared one is a warning.
+
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\bfseries Stored unit & \bfseries Factor to mV (\code{to_mv_factor}) & \bfseries Read by a block that prints mV\\
+\midrule
+\code{V} & 1000 & $\times 1000$\\
+\code{mV} & 1 & $\times 1$\\
+\code{uV} & 0.001 & $\times 0.001$\\
+undeclared & none & read as volts, $\times 1000$, with a note saying so\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The core never converts stored samples. The bridge converts only what it draws
+(\code{display_channel} in \code{webui/server/corpus.py}) and labels an undeclared recording ``unit
+undeclared'' rather than ``mV''. A block that prints millivolts is told the unit and converts with
+\code{read_as_mv}; every other block works in the stored unit (\cref{sec:architecture-units}).
+\code{init_db()} fills in the unit measured on 2026-09-23 for each known file
+(\code{RECORDING_UNITS_EVIDENCE} in \code{Working/units.py}) on rows with no unit and no note, so a
+declared unit is never overwritten. At the time of writing, the M2 files and
+\code{Mushroom_260720_0509_4hrs_CH14_fs1.mat} are recorded as volts, \code{L_LM_Jul_26_J_raw.mat}
+as millivolts, and the others (including M1, M100, M101\_t, MJu26a and the synthetic
+\code{Fig2A_dt0p1.csv}) as undeclared, each with its reason. Recordings registered since then by
+the derivation scripts declare their own unit in their manifest.
+
+\begin{watchout}[A threshold is in the stored unit]
+A block that is not unit-aware compares its threshold with the samples as stored. The same number is
+a thousand times stricter on a millivolts recording than on a volts one. Each block's entry in
+\cref{app:blocks} says whether it is unit-aware.
+\end{watchout}
+
+\section{The database}\label{sec:data-database}
+One SQLite file, \code{DATA/db/annotations.sqlite}, plain SQL, its whole schema in
+\code{Working/database/schema.py}, created and migrated by \code{init_db()}
+(\cref{sec:architecture-storage}). The tables a researcher meets most:
+
+\begin{description}
+\item[\code{recordings}, \code{datasets}] the channels and their datasets (above).
+\item[\code{configs}] one row per distinct recipe: \code{config_hash} (the
+  \term{recipe}{recipe}'s eight-character short hash, unique) and \code{config_json} (the recipe as
+  canonical JSON).
+\item[\code{runs}] one row per execution of a recipe over a recording and span: \code{config_id},
+  \code{recording_id}, \code{span_start}, \code{span_end}, \code{status}, \code{started_at},
+  \code{finished_at}, \code{duration_s}, \code{step_timings_json}, \code{error_text} (a full
+  traceback on failure), \code{current_step}, a fan-out group, a surrogate pairing, an optional name,
+  and \code{superseded_at} for a discarded run.
+\item[\code{detections}] machine output: \code{run_id}, \code{start_idx}, \code{end_idx} (sample
+  indices in the whole channel), \code{score}, \code{meta_json}. Written only by runs.
+\item[\code{artifacts}] files a run produced: \code{run_id}, \code{kind} (plot, encoding, model,
+  csv, other), \code{path} (repository-relative).
+\item[\code{annotations}] human judgements of a span: \code{recording_id}, \code{start_idx},
+  \code{end_idx}, \code{verdict} (one of the five, enforced by a \code{CHECK}), tag, note, the scale
+  viewed, source, time; deleting sets \code{deleted_at} rather than removing the row.
+\item[\code{adjudications}] a human verdict on one machine detection (\code{detection_id},
+  unique), kept apart from both \code{detections} and \code{annotations}
+  (\cref{sec:core-ideas-detections}).
+\item[\code{tag_vocabulary}] the controlled tags, linked to annotations, adjudications and motifs.
+\item[\code{motif_entry}, \code{motif_member}, \code{motif_edge}, \code{motif_member_revision},
+  \code{groupings}, \code{grouping_assignments}, \code{hand_edits}, \code{sequences},
+  \code{sequence_members}] the Library: shapes, their occurrences, relationships, revisions and
+  saved groupings. An entry's identity is a hash of its z-normalised, resampled waveform
+  (\code{docs/LIBRARY_STORAGE.md} \S2).
+\item[\code{window_sets} and its member tables] saved training-window sets; their bulk bounds are on
+  disk.
+\item[\code{review_queues}, \code{window_verdicts}, \code{review_audit}, \code{blind_test_labels}]
+  Review's queues and the verdicts given in them.
+\item[\code{discovery_sessions}, \code{discovery_runs}, \code{run_groups}] Discovery's scopes and the
+  runs fanned out from one recipe.
+\item[\code{templates}] saved chains with recording and span removed.
+\item[\code{jobs}] the bridge's long work: kind, status, times, progress, error, linked run.
+\item[\code{step_artifacts}] the step cache's index (below).
+\item[\code{registered_artifacts}, \code{encodings}] registered files other than recordings: path,
+  manifest path, recording, channel, span, settings, producer, SHA-1, checks, warnings,
+  \code{active}.
+\item[\code{settings}] project settings: page, key, JSON value, time, actor (\cref{ch:settings}).
+\item[\code{audit_log}] append-only record of changes: time, kind, what, where, route, actor, detail.
+\end{description}
+
+\begin{underthehood}[Which code writes which table]
+Machine tables and human tables are written through two separate doors, \code{write_machine} and
+\code{write_human} in \code{webui/server/writes.py}, each refusing the other's tables. The executor
+writes runs, detections and artifacts through \code{Working/database/runs.py}. Library writes go
+through \code{webui/server/library.py}; \code{docs/LIBRARY_STORAGE.md} \S3.5 lists the door for each
+Library table.
+\end{underthehood}
+
+\section{Derived files and caches}\label{sec:data-derived}
+Everything below is made by the app from the recordings, and can be made again. Default locations,
+in \code{--project} mode:
+
+\begin{center}\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.42\linewidth}>{\raggedright\arraybackslash}p{0.52\linewidth}@{}}
+\toprule
+\bfseries Where & \bfseries What\\
+\midrule
+\code{DATA/derived/step_cache/<prefix-hash>/<step>/} & cached typed output of a slow step, indexed by \code{step_artifacts} (\code{STEP_CACHE_ROOT})\\
+\code{Results/Detection/matrix_profile/} & matrix profiles, \code{mp_v2_<stem>_CH<n>_WIN<len>min[_span<a>-<b>].npz}\\
+\code{Results/Preprocessing/window_matrix/} & window matrices, \code{wm_v1_<stem>_CH<n>_WIN<len>min_STEP<pct>pct.npz}; older ones in \code{MATRICES/}\\
+\code{DATA/derived/encodings/} & cached encodings, \code{enc_<type>_<stem>_CH<n>_<hash8>.npz}\\
+\code{DATA/derived/window_sets/<name>/} & window sets: \code{windows.npz} and \code{manifest.json}\\
+\code{DATA/derived/models/}, \code{MODELS/} & trained models (\code{.joblib}, \code{.pth})\\
+\code{DATA/derived/groupings/}, \code{shape_trees/}, \code{trace_shapes/} & clustering labels, shape trees, trace-shape vectors\\
+\code{DATA/derived/drop_motifs/<run>/} & drop-detector event stores: \code{events.csv}, \code{snippets.npz}, \code{manifest.json}\\
+\code{DATA/db/*_calibration.json} & per-machine cost calibrations (matrix profile, window matrix, other blocks)\\
+\code{DATA/db/backups/} & database backups; the bridge writes one on every \code{--project} start and keeps ten\\
+\code{HPC/} & cluster jobs the site wrote, and results copied back (\cref{ch:jobs})\\
+\code{webui/runtime/<stamp>/} & a sandbox: its database copy, caches, results, sidecars, server log\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The step cache has no eviction: an entry stays until it is cleared (Settings \textrightarrow{}
+Analysis defaults shows its size and can clear it). A missing or unreadable entry is recomputed and
+overwritten. In sandbox mode the step cache, the results folders of the blocks that write files, the
+classifier's model folder and two of the calibration files are redirected into the runtime folder
+(\cref{sec:architecture-sandbox}); \unverified{the window-matrix calibration file is not among the
+redirected paths in \code{webui/server/runtime.py}}.
+
+\begin{watchout}[Do not move a file the database points to]
+A database row holds a path. Moving or renaming a derived file, or the folder of a recording, leaves
+the row pointing at nothing. Register the file again from its new place, and unregister the old row,
+rather than moving it.
+\end{watchout}

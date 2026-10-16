@@ -1,0 +1,75 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.gramian_gasf -- "Gramian GASF" (Appendix A).
+\entryfield{Algorithm}
+The block wraps \code{compute_GASF} in \code{Working/Catalogue/gramian/gramian_calc.py}, the
+Gramian angular summation field of \citet{wang2015imaging}. For a span $x_0,\dots,x_{n-1}$:
+\begin{enumerate}
+\item \emph{Rescale} (\code{_polar_encode}) to $[-1, 1]$ by the span's own extremes:
+  \[ \tilde x_i = \frac{2\,(x_i - \min_k x_k)}{\max_k x_k - \min_k x_k} - 1, \]
+  clipped to $[-1,1]$ against rounding.
+\item \emph{Angle}: $\phi_i = \arccos \tilde x_i \in [0, \pi]$.
+\item \emph{Field}:
+  \[ G_{ij} = \cos(\phi_i + \phi_j) = \tilde x_i \tilde x_j - \sqrt{1-\tilde x_i^2}\,\sqrt{1-\tilde x_j^2}, \]
+  computed as \code{np.cos(np.add.outer(phi, phi))}.
+\end{enumerate}
+The paper's polar radius (the time stamp) plays no part in the field and is not computed.
+There is \emph{no piecewise aggregate approximation (PAA)}: \citet{wang2015imaging} shrink the
+series with PAA before building the image, but this code builds the full $n \times n$ field
+from every sample. Any shrinking to a network's input size happens later, as image resizing,
+in \blockref{catalogue.window_images}.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Units.} Not unit-aware, and it does not need to be: the min--max rescaling
+  removes level and scale, so a span in volts and the same span in millivolts give the same
+  image.
+\item \emph{Sampling rate.} Ignored. One pixel is one sample, whatever the rate.
+\item \emph{Missing values.} \code{x.min()} and \code{x.max()} are NaN if any sample is NaN,
+  so a single missing sample makes every pixel NaN.
+\item \emph{Span length.} At most \code{max_span_samples} $= 5000$ (below).
+\end{itemize}
+
+\entryfield{Outputs}
+An \code{Encoding} with \code{kind="image"} whose values are an $n \times n$ float64 array in
+$[-1, 1]$, symmetric ($G_{ij} = G_{ji}$), with the diagonal $\cos 2\phi_i = 2\tilde x_i^2 - 1$.
+The adapter adds nothing to \code{meta}. The block's plot hook (\code{plot_gramian_suite})
+draws all four encodings of the span together, not only this one. Like any step, the result
+is kept by the executor's step cache when it is slow enough to be worth it
+(\code{Working/execution.py}).
+
+\entryfield{Cost}
+$O(n^2)$ time and memory: the field is an $n \times n$ float64 matrix, 8 bytes a cell. The
+adapter declares \code{max_span_samples=5000} (\code{MAX_SPAN_SAMPLES} in
+\code{Adapters/catalogue_gramian_gasf.py}), which caps the matrix at $5000^2 \times 8$ bytes
+$= 200$\,MB. \code{execute_recipe} in \code{Working/execution.py} checks the span against it
+before calling the block and refuses a longer span with a message naming the limit. The
+same number is duplicated as \code{WM_GRAMIAN_MAX_SAMPLES} in \code{Working/config.py} for the
+window matrix's image stage, and a test keeps the two equal.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{A flat span} (all samples equal) divides zero by zero: every pixel is NaN.
+\item \emph{Any NaN in the span}: every pixel is NaN (above).
+\item \emph{One outlier sets the scale.} Because the rescaling uses the span's extremes, one
+  large spike pushes every other sample towards one end of $[-1,1]$, and the rest of the
+  image loses contrast.
+\item \emph{Different spans are not on one scale.} Two spans with very different amplitudes
+  can give the same image, because each is rescaled by its own extremes.
+\end{itemize}
+
+\entryfield{Validation}
+The formula is the published one \citep{wang2015imaging}. No test in the repository checks
+the values of the image: the tests check the block's declared types and that a too-long span
+is refused, and one checks the shape of the result ($600 \times 600$ for a 600-sample span).
+
+\entryfield{References}
+\citet{wang2015imaging}.
+
+\entryfield{Tests}
+\code{tests/test_t07_adapter_remap.py} checks the declared input and output types and that
+\code{execute_recipe} refuses a span one sample over the limit.
+\code{tests/test_window_matrix_store.py} checks that the window matrix's limit equals this
+block's, refuses a whole-channel span and checks the output shape on a 600-sample span (the
+last two skip when the real channel data are absent). \code{tests/test_execution.py},
+\code{tests/test_chain_validation.py} and \code{tests/test_artifacts.py} use the block as a
+stand-in step in a recipe.

@@ -1,0 +1,45 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.matrix_profile -- "Matrix profile" (Part I, the blocks chapter).
+\cardfield{What it does}
+For every window of the signal, it measures how far that window is from its closest
+look-alike anywhere else in the span. That list of distances is the
+\term{matrix-profile}{matrix profile}.
+
+\begin{plainterms}[The matrix profile]
+Cut the trace into every possible stretch of one fixed length, say ten minutes, one starting at
+each sample. Take one stretch and slide it along the whole recording, looking for the stretch
+whose \emph{shape} is most like it; write down how unlike they still are. Do that for every
+stretch. A low number means ``this shape happens again somewhere''; a high number means ``nothing
+else looks like this'': a one-off. It is like checking every sentence of a book against every
+other sentence and noting how close its nearest echo is. Only the shape counts: each stretch is
+shifted and scaled to the same average and spread before the comparison, so a loud and a quiet
+copy of the same wiggle count as the same.
+\end{plainterms}
+
+\cardfield{When to use it}
+When you want to know which parts of a recording repeat and which are unusual, without saying in
+advance what you are looking for. It is the foundation of the matrix-profile family: follow it
+with \blockref{detection.mp_motifs} to list the shapes that repeat, or with
+\blockref{detection.threshold} to mark the stretches with no look-alike.
+\blockref{detection.fluss}, \blockref{detection.pan_matrix_profile} and
+\blockref{catalogue.snippets} compute their own profiles and do not need this block before them.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes one number per sample: the distance from the window
+\emph{starting} at that sample to its nearest look-alike. The last stretch of the span, one window
+long less a sample, has no number, because no full window starts there. The profile is also saved
+to disk so the matrix-profile pages can show it again without recomputing it.
+
+\cardfield{Settings that matter}
+\emph{window\_min} is the window length in minutes, and it is the question you are asking:
+``what repeats at this length?''. A pattern much shorter than the window is diluted by everything
+around it; one much longer is cut into pieces. \emph{backend} chooses how it is computed; leave it
+on \texttt{auto} unless you have a reason.
+
+\cardfield{Watch out for}
+The cost grows with the square of the span: twice the span takes four times as long. Long spans
+are sent to the cluster or refused (see the entry). A low distance is a matched \emph{shape}, not
+a matched size: a stretch of flat drift matches every other stretch of drift almost perfectly, so
+remove the baseline first (\blockref{preprocessing.detrend}). Each number belongs to the window
+that \emph{starts} at that sample, not to the moment it is drawn at, so an event sits up to a
+window to the right of where its low distance is plotted.

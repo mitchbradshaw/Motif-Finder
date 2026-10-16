@@ -1,0 +1,36 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.fluss -- "FLUSS regime change" (Part I, the blocks chapter).
+\cardfield{What it does}
+Scores every moment of the span by how strongly the recording seems to change its kind of
+behaviour there: 0 for no sign of a change, towards 1 for a clear one.
+
+\begin{plainterms}[How FLUSS sees a change]
+The matrix profile (\blockref{detection.matrix_profile}) finds, for every window, its closest
+look-alike. Draw a string from each window to its look-alike. While the recording keeps doing the
+same kind of thing, the strings stay within that stretch; where it switches to something else,
+few strings cross the switch, because nothing before it looks like what comes after. Count the
+strings passing over each moment, compare with how many would pass there by chance, and a dip in
+that count is a change. The score is high where the dip is deep.
+\end{plainterms}
+
+\cardfield{When to use it}
+When you suspect a recording moves between distinct regimes (say, quiet and active phases) and
+want to find where, without describing the regimes in advance. Follow it with
+\blockref{detection.threshold} for one span per change. It is marked experimental: on the real
+recordings tried so far it found nothing beyond what shuffled copies of the same recordings give.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes one score per sample, between 0 and 1. The two ends of the
+span, five windows each at the default, and the last window's worth of samples carry no score.
+
+\cardfield{Settings that matter}
+\emph{window\_s} is the window in seconds: set it to about one period of the behaviour, one typical
+event or cycle, and tune it first. \emph{excl\_factor} is how many windows are left unscored at
+each end. \emph{n\_regimes\_readout} only changes how many candidate changes the block lists in its
+numbers; it does not change the score.
+
+\cardfield{Watch out for}
+Detrend first: on a drifting recording every window looks like every other and the score stays
+flat. A change near either end of the span cannot be seen. A threshold chosen for one window
+length does not hold at another, because longer windows give higher peaks everywhere. It costs a
+full matrix profile, so long spans are slow.

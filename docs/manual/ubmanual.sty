@@ -1,0 +1,387 @@
+% ubmanual.sty -- the house style of the Underground Brains manual.
+% Every command an author uses is listed, with an example, in AUTHORING.md.
+% The \ubblock... commands read the files scripts/manual_tables.py generates
+% from the adapter registry (generated/); nobody writes those by hand.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{ubmanual}[2026/10/15 Underground Brains manual]
+
+%% ---- fonts, encoding, page ---------------------------------------------------
+\RequirePackage[T1]{fontenc}
+\RequirePackage[utf8]{inputenc}
+\RequirePackage{lmodern}
+\RequirePackage{textcomp}
+\RequirePackage{microtype}
+\RequirePackage[a4paper,margin=2.4cm,headheight=14pt]{geometry}
+\RequirePackage[parfill]{parskip}
+\RequirePackage{fancyhdr}
+\RequirePackage{titlesec}
+
+%% ---- maths, tables, figures, code --------------------------------------------
+\RequirePackage{amsmath,amssymb,mathtools}
+\RequirePackage{graphicx}
+\RequirePackage{xcolor}
+\RequirePackage{array,booktabs,longtable,tabularx}
+\RequirePackage{enumitem}
+\RequirePackage{needspace}
+\RequirePackage{caption}
+\RequirePackage{siunitx}
+\RequirePackage{listings}
+\RequirePackage{algorithm}
+\RequirePackage{algpseudocode}
+% tcolorbox 6.9 (TeX Live 2025's final) declares PDF-tagging structures with two
+% commands from the 2025-11 LaTeX kernel; the TinyTeX this was built on has the
+% 2025-06 kernel. Tagging is off here, so no-ops stand in where the kernel lacks them.
+\providecommand\NewStructureName[1]{}
+\providecommand\AssignStructureRole[2]{}
+\RequirePackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+\RequirePackage[round,authoryear]{natbib}
+\RequirePackage{xurl}
+\RequirePackage{hyperref}
+\RequirePackage{bookmark}
+\RequirePackage[capitalise,noabbrev]{cleveref}
+
+%% ---- colours -------------------------------------------------------------------
+\definecolor{ubaccent}{HTML}{1F6FB2}
+\definecolor{ubaccentdark}{HTML}{174A75}
+\definecolor{ubplainfill}{HTML}{EBF4FC}
+\definecolor{ubwarn}{HTML}{B45309}
+\definecolor{ubwarnfill}{HTML}{FFF6E5}
+\definecolor{ubhood}{HTML}{5B6573}
+\definecolor{ubhoodfill}{HTML}{F2F4F7}
+\definecolor{ubtodo}{HTML}{BE185D}
+\definecolor{ubtodofill}{HTML}{FCE8F1}
+\definecolor{ubunverified}{HTML}{C2410C}
+\definecolor{ublive}{HTML}{15803D}
+\definecolor{ubpreview}{HTML}{B45309}
+\definecolor{ubunchecked}{HTML}{6B7280}
+% one colour per insert-modal tab (Adapters/base.py, CATEGORIES)
+\definecolor{ubcat-preprocess}{HTML}{0F766E}
+\definecolor{ubcat-encode}{HTML}{6D28D9}
+\definecolor{ubcat-detect}{HTML}{1D4ED8}
+\definecolor{ubcat-cluster}{HTML}{15803D}
+\definecolor{ubcat-model}{HTML}{B91C1C}
+\definecolor{ubcat-control}{HTML}{4B5563}
+
+\hypersetup{colorlinks=true, linkcolor=ubaccentdark, citecolor=ubaccentdark,
+  urlcolor=ubaccentdark, filecolor=ubaccentdark, bookmarksnumbered=true,
+  bookmarksopen=true, bookmarksopenlevel=0, bookmarksdepth=2, destlabel=true,
+  pdftitle={Underground Brains: the manual},
+  pdfsubject={The Pipeline GUI for fungal electrophysiology}}
+\setcounter{tocdepth}{1}
+\setcounter{secnumdepth}{2}
+
+%% ---- headings, running heads, lists, captions, code -------------------------
+\titleformat{\chapter}[display]{\normalfont\sffamily\bfseries\color{ubaccentdark}}%
+  {\large\chaptertitlename\ \thechapter}{4pt}{\huge}
+\titlespacing*{\chapter}{0pt}{-12pt}{18pt}
+\titleformat{\section}{\normalfont\sffamily\bfseries\Large\color{ubaccentdark}}{\thesection}{0.75em}{}
+\titleformat{\subsection}{\normalfont\sffamily\bfseries\large}{\thesubsection}{0.75em}{}
+\titleformat{\subsubsection}{\normalfont\sffamily\bfseries\normalsize}{\thesubsubsection}{0.75em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand\chaptermark[1]{\markboth{#1}{}}
+\fancyhead[L]{\small\sffamily\color{ubhood}\leftmark}
+\fancyhead[R]{\small\sffamily\color{ubhood}\thepage}
+\renewcommand\headrulewidth{0pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\small\sffamily\color{ubhood}\thepage}}
+
+\setlist{itemsep=2pt, topsep=4pt, parsep=2pt}
+\captionsetup{font=small, labelfont={sf,bf}, hypcap=false}
+\sisetup{group-minimum-digits=4}
+\lstset{basicstyle=\ttfamily\small, columns=fullflexible, keepspaces=true,
+  breaklines=true, frame=single, rulecolor=\color{ubhood!40}, framesep=4pt,
+  backgroundcolor=\color{ubhoodfill}, xleftmargin=4pt, xrightmargin=4pt,
+  showstringspaces=false, upquote=true}
+\algrenewcommand\algorithmicrequire{\textbf{Input:}}
+\algrenewcommand\algorithmicensure{\textbf{Output:}}
+\renewcommand\bibsection{\chapter{References}\label{app:references}}
+
+% Symbols an author may type directly in prose (the generator maps the same set).
+\DeclareUnicodeCharacter{03B1}{\ensuremath{\alpha}}
+\DeclareUnicodeCharacter{03B2}{\ensuremath{\beta}}
+\DeclareUnicodeCharacter{03B3}{\ensuremath{\gamma}}
+\DeclareUnicodeCharacter{03B4}{\ensuremath{\delta}}
+\DeclareUnicodeCharacter{03B5}{\ensuremath{\varepsilon}}
+\DeclareUnicodeCharacter{03B7}{\ensuremath{\eta}}
+\DeclareUnicodeCharacter{03B8}{\ensuremath{\theta}}
+\DeclareUnicodeCharacter{03BA}{\ensuremath{\kappa}}
+\DeclareUnicodeCharacter{03BB}{\ensuremath{\lambda}}
+\DeclareUnicodeCharacter{03BC}{\ensuremath{\mu}}
+\DeclareUnicodeCharacter{03C0}{\ensuremath{\pi}}
+\DeclareUnicodeCharacter{03C1}{\ensuremath{\rho}}
+\DeclareUnicodeCharacter{03C3}{\ensuremath{\sigma}}
+\DeclareUnicodeCharacter{03C4}{\ensuremath{\tau}}
+\DeclareUnicodeCharacter{03C6}{\ensuremath{\varphi}}
+\DeclareUnicodeCharacter{03C7}{\ensuremath{\chi}}
+\DeclareUnicodeCharacter{03C8}{\ensuremath{\psi}}
+\DeclareUnicodeCharacter{03C9}{\ensuremath{\omega}}
+\DeclareUnicodeCharacter{0393}{\ensuremath{\Gamma}}
+\DeclareUnicodeCharacter{0394}{\ensuremath{\Delta}}
+\DeclareUnicodeCharacter{0398}{\ensuremath{\Theta}}
+\DeclareUnicodeCharacter{039B}{\ensuremath{\Lambda}}
+\DeclareUnicodeCharacter{03A0}{\ensuremath{\Pi}}
+\DeclareUnicodeCharacter{03A3}{\ensuremath{\Sigma}}
+\DeclareUnicodeCharacter{03A6}{\ensuremath{\Phi}}
+\DeclareUnicodeCharacter{03A8}{\ensuremath{\Psi}}
+\DeclareUnicodeCharacter{03A9}{\ensuremath{\Omega}}
+\DeclareUnicodeCharacter{2192}{\ensuremath{\to}}
+\DeclareUnicodeCharacter{2190}{\ensuremath{\leftarrow}}
+\DeclareUnicodeCharacter{2194}{\ensuremath{\leftrightarrow}}
+\DeclareUnicodeCharacter{21D2}{\ensuremath{\Rightarrow}}
+\DeclareUnicodeCharacter{2264}{\ensuremath{\leq}}
+\DeclareUnicodeCharacter{2265}{\ensuremath{\geq}}
+\DeclareUnicodeCharacter{2248}{\ensuremath{\approx}}
+\DeclareUnicodeCharacter{2260}{\ensuremath{\neq}}
+\DeclareUnicodeCharacter{2212}{\ensuremath{-}}
+\DeclareUnicodeCharacter{221A}{\ensuremath{\surd}}
+\DeclareUnicodeCharacter{221E}{\ensuremath{\infty}}
+\DeclareUnicodeCharacter{2211}{\ensuremath{\sum}}
+\DeclareUnicodeCharacter{2208}{\ensuremath{\in}}
+\DeclareUnicodeCharacter{2032}{\ensuremath{^\prime}}
+\DeclareUnicodeCharacter{2500}{---}
+
+%% ---- draft status: what is still to write, what is not yet verified ----------
+\newcounter{ubtowrite}
+\newcounter{ubunverified}
+\newcommand\ub@towritetotal{?}
+\newcommand\ub@unverifiedtotal{?}
+\AtEndDocument{\if@filesw
+  \immediate\write\@auxout{\gdef\string\ub@towritetotal{\theubtowrite}}%
+  \immediate\write\@auxout{\gdef\string\ub@unverifiedtotal{\theubunverified}}%
+  \fi}
+% \towrite{what goes here}: a visible placeholder, counted on the title page.
+\DeclareRobustCommand\towrite[1]{\stepcounter{ubtowrite}%
+  {\sffamily\small\color{ubtodo}\textbf{[To write}%
+   \if\relax\detokenize{#1}\relax\else\textbf{:}~#1\fi\textbf{]}}}
+% \unverified{claim}: a claim the author could not check against the code or a source.
+\DeclareRobustCommand\unverified[1]{\stepcounter{ubunverified}%
+  {\color{ubunverified}#1}\textsuperscript{\sffamily\scriptsize\color{ubunverified}[unverified]}}
+\newcommand\ubwritingstatus{\ub@towritetotal\ passages still to write;
+  \ub@unverifiedtotal\ claims marked unverified}
+% The two markers' look, for explaining them, without counting.
+\newcommand\towritesample[1]{{\sffamily\small\color{ubtodo}\textbf{[To write:}~#1\textbf{]}}}
+\newcommand\unverifiedsample[1]{{\color{ubunverified}#1}%
+  \textsuperscript{\sffamily\scriptsize\color{ubunverified}[unverified]}}
+
+%% ---- boxes ------------------------------------------------------------------------
+\tcbset{ub/box/.style={enhanced, breakable, boxrule=0pt, leftrule=3pt, arc=0pt,
+  outer arc=0pt, left=8pt, right=8pt, top=6pt, bottom=6pt, before skip=10pt,
+  after skip=10pt}}
+% The title is detached and set as the first line of the body; \tcbtitle carries the
+% box's own title colour and font (coltitle, fonttitle), so those are set per box.
+% plainterms: the everyday explanation of a technical idea, analogy welcome.
+\newtcolorbox{plainterms}[1][In plain terms]{ub/box, colback=ubplainfill,
+  colframe=ubaccent, coltitle=ubaccentdark, fonttitle=\sffamily\bfseries,
+  detach title, title={#1}, before upper={\tcbtitle\par}}
+% watchout: a pitfall that costs a reader time or gives a wrong answer.
+\newtcolorbox{watchout}[1][Watch out]{ub/box, colback=ubwarnfill, colframe=ubwarn,
+  coltitle=ubwarn, fonttitle=\sffamily\bfseries,
+  detach title, title={#1}, before upper={\tcbtitle\par}}
+% underthehood: pointers into the code for researchers and agents; lay readers skip it.
+\newtcolorbox{underthehood}[1][Under the hood]{ub/box, colback=ubhoodfill,
+  colframe=ubhood, fontupper=\small, coltitle=ubhood, fonttitle=\sffamily\bfseries\small,
+  detach title, title={#1}, before upper={\tcbtitle\par}}
+
+\newcommand\ub@badge[2]{\tcbox[on line, colback=#1, colframe=#1, coltext=white,
+  boxrule=0pt, arc=2pt, left=3pt, right=3pt, top=1pt, bottom=1pt, boxsep=0pt,
+  fontupper=\sffamily\scriptsize\bfseries]{#2}}
+\newcommand\ub@catbadge[1]{\ub@badge{ubcat-#1}{\MakeUppercase{#1}}}
+% \catbadge{detect}: a category's coloured tag, as the cards show it.
+\newcommand\catbadge[1]{\ub@catbadge{#1}}
+
+%% ---- pages of the app ---------------------------------------------------------------
+% \pagestatus{live|preview|unchecked}
+\newcommand\ub@status@live{\ub@badge{ublive}{LIVE: RUNS ON YOUR DATA}}
+\newcommand\ub@status@preview{\ub@badge{ubpreview}{PREVIEW: NOT YET ON YOUR DATA}}
+\newcommand\ub@status@unchecked{\ub@badge{ubunchecked}{STATUS NOT YET CHECKED}}
+\newcommand\pagestatus[1]{\ifcsname ub@status@#1\endcsname\csname ub@status@#1\endcsname
+  \else\PackageError{ubmanual}{Unknown page status `#1'}{Use live, preview or unchecked.}\fi}
+% \pagesection{page id from webui/client/src/shell/pages.ts}{Title}{one-line purpose}{status}
+\newcommand\pagesection[4]{\section{#2}\label{page:#1}%
+  {\sffamily\small\color{ubhood}\textit{#3}\hfill\pagestatus{#4}\par
+   App page \texttt{\detokenize{#1}}\par}}
+% \pageanchor{id}: a page documented inside a table (Settings) rather than its own section.
+\newcommand\pageanchor[1]{\phantomsection\label{page:#1}}
+% \apppage{id}: a link to a page's section, by its title.
+\newcommand\apppage[1]{\hyperref[page:#1]{\nameref*{page:#1}} (\cref*{page:#1})}
+\newcommand\pagefield[1]{\subsubsection*{#1}}
+
+%% ---- prose helpers ----------------------------------------------------------------------
+% \ui{Run chain}: a label exactly as the app shows it (a button, tab, field or menu item).
+\newcommand\ui[1]{\textsf{\textbf{#1}}}
+% \code{Adapters/detection_spike_v1.py}: a path or identifier, breakable, no escaping needed.
+\DeclareUrlCommand\code{\urlstyle{tt}}
+% \screenshot[width]{path under webui/screenshots, no .png}{caption}
+\newcommand\ub@shotroot{../../webui/screenshots/}
+\newcommand\screenshot[3][\linewidth]{\par\needspace{8\baselineskip}%
+  \begin{center}%
+  \IfFileExists{\ub@shotroot#2.png}%
+    {{\setlength\fboxsep{0pt}\fcolorbox{ubhood!50}{white}{%
+      \includegraphics[width=\dimexpr#1-1pt\relax,height=0.42\textheight,keepaspectratio]%
+        {\ub@shotroot#2.png}}}}%
+    {\stepcounter{ubtowrite}\fcolorbox{ubtodo}{ubtodofill}{\parbox{0.8\linewidth}{\centering
+      \sffamily\small Screenshot not found:\\\texttt{webui/screenshots/\detokenize{#2}.png}}}}%
+  \captionof{figure}{#3}%
+  \end{center}}
+% Glossary: \begin{glossarylist} \glossitem{key}{Term} definition ... \end{glossarylist};
+% elsewhere \term{key}{text} links text to the entry.
+\newenvironment{glossarylist}{\begin{description}[style=nextline, leftmargin=1.6em,
+  font=\sffamily\bfseries]}{\end{description}}
+\newcommand\glossitem[2]{\item[#2]\phantomsection\label{gls:#1}}
+\newcommand\term[2]{\hyperref[gls:#1]{#2}}
+% \faq{The question?} followed by the answer.
+\newcommand\faq[1]{\par\needspace{4\baselineskip}%
+  {\sffamily\bfseries\color{ubaccentdark}#1}\par\nobreak}
+
+%% ---- blocks: metadata the generator writes ---------------------------------------------
+\newcommand\ub@set[3]{\expandafter\gdef\csname ub@#1@#2\endcsname{#3}}
+\newcommand\ub@get[2]{\csname ub@#1@#2\endcsname}
+% \ubblock{registry name}{page name}{display name}{category}{input}{output}{code}{folder}
+\newcommand\ubblock[8]{\ub@set{#1}{title}{#2}\ub@set{#1}{display}{#3}%
+  \ub@set{#1}{category}{#4}\ub@set{#1}{in}{#5}\ub@set{#1}{out}{#6}%
+  \ub@set{#1}{code}{#7}\ub@set{#1}{dir}{#8}}
+\newcommand\ubblockdescription[2]{\ub@set{#1}{description}{#2}}
+\newcommand\ubblockflags[2]{\ub@set{#1}{flags}{#2}}
+\newcommand\ubblocksideinputs[2]{\ub@set{#1}{sideinputs}{#2}}
+\newcommand\ubblockbroken[2]{\ub@set{#1}{broken}{#2}}
+\newcommand\ubblockparams[2]{\ub@set{#1}{params}{#2}}
+\newcommand\ubnumblocks{?}
+\newcommand\ubblocktotal[1]{\gdef\ubnumblocks{#1}}
+\newcommand\ubversion{unknown}
+\newcommand\ubgeneratedon{never}
+
+% Expands to #3 unless the stored value is empty; leaves no \fi behind, so it is
+% safe around \item and table rows.
+\newcommand\ub@ifnonempty[3]{\expandafter\ifx\csname ub@#1@#2\endcsname\@empty
+  \expandafter\@gobble\else\expandafter\@firstofone\fi{#3}}
+\newcommand\ub@require[1]{\ifcsname ub@#1@title\endcsname\else
+  \PackageError{ubmanual}{No block named `#1'}{Use the registry name, as in
+  generated/catalogue.tex, or run scripts/manual_tables.py.}\fi}
+
+% \blockref{detection.spike_v1}: the block's name, linked to its card.
+\newcommand\blockref[1]{\ub@require{#1}\hyperref[block:#1]{\ub@get{#1}{title}}}
+% \blockentry{detection.spike_v1}: "Appendix A.x.y", linked to the full entry.
+\newcommand\blockentry[1]{\ub@require{#1}\cref{app:block:#1}}
+
+\newcommand\ub@flagtext[2]{\ifcsname ub@flag@#1\endcsname\csname ub@flag@#1\endcsname{#2}%
+  \else\texttt{#1}\fi}
+\newcommand\ub@flag@source[1]{Source block: starts a chain from saved data instead of a
+  span, so it can only be step 01.}
+\newcommand\ub@flag@units[1]{Unit-aware: it is told the recording's declared unit and
+  converts the signal to millivolts before it works.}
+\newcommand\ub@flag@maxspan[1]{Refuses a span longer than \num{#1} samples.}
+\newcommand\ub@flag@recommend[1]{Span-aware defaults: the app suggests settings fitted to the
+  span you picked, so the defaults below are only a starting point.}
+\newcommand\ub@flag@derive[1]{Live read-outs: shows derived numbers beside its settings as
+  you change them.}
+\newcommand\ub@flag@estimate[1]{Estimates its running time before it runs.}
+\newcommand\ub@flag@persist[1]{Saves its output to disk as it runs, so later steps and
+  jobs can reuse it.}
+
+\newcommand\ub@ifbroken[1]{\ifcsname ub@#1@broken\endcsname
+  \begin{watchout}[Not available on this machine]\csname ub@#1@broken\endcsname\end{watchout}\fi}
+
+\newcommand\ub@hand[2]{\edef\ub@handpath{blocks/\ub@get{#1}{dir}/#2.tex}%
+  \IfFileExists{\ub@handpath}{\input{\ub@handpath}}{\stepcounter{ubtowrite}%
+    {\sffamily\small\color{ubtodo}[No hand-written #2 yet: run
+     scripts/manual\_tables.py to create its stub]}}}
+
+\newcommand\ub@entrymeta[1]{%
+  \begin{description}[style=sameline, leftmargin=3.3cm, labelwidth=3.1cm, labelsep=0.2cm,
+      font=\sffamily\small\mdseries\color{ubhood}, itemsep=1pt, parsep=0pt, topsep=4pt]
+  \item[Registry name] \texttt{\detokenize{#1}}
+  \item[Display name] \ub@get{#1}{display}
+  \item[Category] \ub@catbadge{\ub@get{#1}{category}}
+  \item[Takes, gives] \ub@get{#1}{in} \ensuremath{\to} \ub@get{#1}{out}
+  \item[Code] \texttt{\ub@get{#1}{code}}
+  \ub@ifnonempty{#1}{sideinputs}{\item[Side inputs]\begingroup\def\ub@sep{}%
+    \def\ubsideinput##1##2##3##4{\ub@sep\texttt{##1}: a ##2 from ##3 (##4)\def\ub@sep{\newline}}%
+    \ub@get{#1}{sideinputs}\endgroup}%
+  \ub@ifnonempty{#1}{flags}{\item[Behaviour]\begingroup\def\ub@sep{}%
+    \def\ubflag##1##2{\ub@sep\ub@flagtext{##1}{##2}\def\ub@sep{\newline}}%
+    \ub@get{#1}{flags}\endgroup}%
+  \end{description}}
+
+% \ubparamtable{name}: every parameter, straight from the registry.
+\newcommand\ubparamtable[1]{\expandafter\ifx\csname ub@#1@params\endcsname\@empty
+  \expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi
+  {\par\textit{This block has no settings.}\par}%
+  {\begingroup\small\setlength\LTpre{4pt}\setlength\LTpost{4pt}%
+   \def\ubparam##1##2##3##4{##1 & ##2 & ##3 & ##4\tabularnewline}%
+   \begin{longtable}{@{}>{\raggedright\arraybackslash\ttfamily}p{0.2\linewidth}%
+       >{\raggedright\arraybackslash}p{0.12\linewidth}%
+       >{\raggedright\arraybackslash}p{0.2\linewidth}%
+       >{\raggedright\arraybackslash}p{0.38\linewidth}@{}}
+   \toprule
+   \normalfont\bfseries Setting & \bfseries Default & \bfseries Allowed & \bfseries What it does\\
+   \midrule\endhead
+   \csname ub@#1@params\endcsname
+   \bottomrule
+   \end{longtable}\endgroup}}
+
+\newcommand\cardfield[1]{\par{\sffamily\bfseries\small\color{ubaccentdark}#1.}\enskip\ignorespaces}
+\newcommand\entryfield[1]{\subsubsection*{#1}}
+
+% One block's card (Part I) and its appendix entry.
+\newcommand\ub@card[1]{\ub@require{#1}\needspace{8\baselineskip}%
+  \subsection{\ub@get{#1}{title}}\label{block:#1}%
+  \begin{tcolorbox}[ub/box, colback=white, colframe=ubcat-\ub@get{#1}{category}]
+  {\sffamily\small\color{ubhood}\ub@catbadge{\ub@get{#1}{category}}\enskip
+   Takes \ub@get{#1}{in}, gives \ub@get{#1}{out}\hfill
+   Full details: \cref{app:block:#1}}\par
+  \ub@ifbroken{#1}%
+  \ub@hand{#1}{card}%
+  \end{tcolorbox}}
+
+\newcommand\ub@entry[1]{\ub@require{#1}\needspace{10\baselineskip}%
+  \subsection{\ub@get{#1}{title}}\label{app:block:#1}%
+  \ub@entrymeta{#1}%
+  \ub@ifbroken{#1}%
+  \ub@ifnonempty{#1}{description}{\entryfield{In the app's own words}%
+    \begin{quote}\itshape\ub@get{#1}{description}\end{quote}}%
+  \entryfield{Settings}\ubparamtable{#1}%
+  \ub@hand{#1}{entry}%
+  \par{\sffamily\small\color{ubhood}The plain-language card: \cref{block:#1}.}\par}
+
+%% ---- the catalogue: every block, card mode (chapter) or entry mode (appendix) ----------
+\newcommand\ubcategorytitle[2]{\expandafter\gdef\csname ub@cattitle@#1\endcsname{#2}}
+\newcommand\ubcategoryintro[2]{\expandafter\gdef\csname ub@catintro@#1\endcsname{#2}}
+\ubcategorytitle{preprocess}{Preprocess}
+\ubcategorytitle{encode}{Encode}
+\ubcategorytitle{detect}{Detect}
+\ubcategorytitle{cluster}{Cluster}
+\ubcategorytitle{model}{Model}
+\ubcategorytitle{control}{Control}
+\def\ub@cardmode{card}
+% \ubcatalogue{card} or \ubcatalogue{entry}
+\newcommand\ubcatalogue[1]{\def\ub@mode{#1}\input{generated/catalogue}}
+\newcommand\ubcategory[2]{%
+  \ifx\ub@mode\ub@cardmode
+    \section{\csname ub@cattitle@#1\endcsname}\label{cat:#1}%
+    \ifcsname ub@catintro@#1\endcsname\csname ub@catintro@#1\endcsname\par\fi
+  \else
+    \section{\csname ub@cattitle@#1\endcsname}\label{app:cat:#1}%
+  \fi
+  {\sffamily\small\color{ubhood}\ub@catbadge{#1}\enskip #2 block\ifnum#2=1 \else s\fi\
+   under this tab of the Insert-a-stage window.}\par}
+\newcommand\ubcatalogueitem[1]{\csname ub@\ub@mode\endcsname{#1}}
+% scripts/manual_check.py: one block's card and entry on their own.
+\newcommand\ubcheckblock[1]{\chapter*{\detokenize{#1}}\section*{Card}\ub@card{#1}%
+  \section*{Appendix entry}\ub@entry{#1}}
+
+%% ---- title page -----------------------------------------------------------------------
+\newcommand\ubtitlepage{\begin{titlepage}\centering\sffamily
+  \vspace*{0.16\textheight}
+  {\Huge\bfseries\color{ubaccentdark}Underground Brains\par}
+  \vspace{0.8em}{\LARGE The manual\par}
+  \vspace{1.6em}{\large How to use the web application for analysing fungal\\
+    electrical recordings, and what each analysis does\par}
+  \vfill
+  {\small Documents the code at commit \texttt{\ubversion}; block tables generated
+   \ubgeneratedon.\par\smallskip
+   \color{ubtodo}Draft: \ubwritingstatus.\par}
+  \end{titlepage}}
+
+\endinput

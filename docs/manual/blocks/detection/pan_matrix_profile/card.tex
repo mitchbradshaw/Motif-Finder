@@ -1,0 +1,31 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.pan_matrix_profile -- "Pan matrix profile" (Part I, the blocks chapter).
+\cardfield{What it does}
+Asks ``at which time scales does anything in this span repeat?'': it computes the matrix profile
+at a ladder of window lengths, from 30 seconds to an hour by default, draws them as one picture,
+and says which lengths repeat more than noise of the same kind would.
+
+\cardfield{When to use it}
+Before choosing a window for \blockref{detection.matrix_profile}, \blockref{detection.fluss} or a
+motif search, when you do not know the scale of the events. The picture shows where in time the
+repeating happens; the verdict says whether it beats chance.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel. Out comes a picture: one row per window length, longest at the top,
+time along the bottom, bright where the window starting at that moment has a close look-alike of
+the same length elsewhere. With it comes a verdict in words: ``clears from A to B s; strongest gap at
+C s'' (the band of lengths that repeat beyond noise) or ``no length stands out''.
+
+\cardfield{Settings that matter}
+\emph{max\_window\_s} first: a length is only judged when the span holds at least 14 windows of
+it, so a 4-hour span can judge lengths up to about 17 minutes and an 8-hour span up to about 34.
+\emph{min\_window\_s} and \emph{n\_lengths} set the rest of the ladder. \emph{null\_draws} is how
+many shuffled copies each length is compared with; 3 is the measured minimum, and 0 gives the
+picture without a verdict.
+
+\cardfield{Watch out for}
+``Strongest gap at C s'' is \emph{not} the length of the event, and not a window to hand to another
+block: read the whole band and the picture. ``No length stands out'' means nothing repeats more than
+this kind of noise, not that nothing happens. Detrend first. Two occurrences must have the same
+length to match, and only shape counts, not size. It is slow: one full matrix profile per length,
+plus one per shuffled copy.

@@ -1,0 +1,29 @@
+% !TEX root = ../../../main.tex
+% Block card: detection.threshold -- "Threshold to spans" (Part I, the blocks chapter).
+\cardfield{What it does}
+Turns a curve of scores into stretches of time: every unbroken run where the score is above a
+level you set becomes one span.
+
+\cardfield{When to use it}
+After any block that gives one score per sample, to get detections you can review and count: after
+\blockref{detection.fluss} to get one span per change of behaviour, after
+\blockref{detection.matrix_profile} to mark the stretches with no close look-alike, or after a
+classifier's scores. It is the common last step of many detection chains.
+
+\cardfield{What goes in, what comes out}
+In goes a \term{scores}{scores} curve. Out come \term{span-set}{spans}, each scored by the highest
+value inside it, written as detections.
+
+\cardfield{Settings that matter}
+\emph{threshold} is the level; only values strictly above it count. \emph{merge\_gap\_s} joins two
+spans separated by a shorter gap than this, so an event broken by one dip below the level stays
+one event. \emph{min\_duration\_s} then drops spans shorter than this, so a single sample that
+grazes the level does not count. Both are off at 0.
+
+\cardfield{Watch out for}
+It only keeps what is \emph{above} the level. On a matrix profile, high means ``unlike anything
+else'', so this block finds the oddities, not the repeats. The level is in the units of whatever
+score comes in, and for matrix-profile scores it changes meaning with the window length: re-choose
+it whenever the window changes. And when the scores belong to windows that start at each sample,
+each span marks where those windows \emph{start}; the stretch of signal they cover runs on by up to
+one window past the span's end.

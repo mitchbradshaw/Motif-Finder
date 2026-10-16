@@ -1,0 +1,369 @@
+% !TEX root = ../main.tex
+\chapter{Explore: find a span}\label{ch:explore}
+Explore is where you look at the recordings before you analyse anything. Its job is to help
+you find a \term{span}{span}, a stretch of one \term{channel}{channel} worth a closer look, and
+then to hand that span on: to Analyse, to run a chain over it, or to Review, to judge it.
+
+The four pages go from wide to narrow. \apppage{explore.corpus} shows every channel of one
+recording at once, coloured by how much has been marked where. \apppage{explore.signal} opens
+one channel at its real scale, and is where you pick and send a span.
+\apppage{explore.cross-channel} draws the same short window on several channels together,
+with the time lag between them. \apppage{explore.span-edit} is the odd one out: you reach it
+from Review, to redraw the edges of a span, and it still runs on example data.
+
+\begin{plainterms}[Annotations and detections]
+Two kinds of marks appear on every Explore page. An \term{annotation}{annotation} is a mark a
+person made: a span with a \term{verdict}{verdict} such as \emph{interesting}. A
+\term{detection}{detection} is a mark a machine made: a span a run of a detection chain
+found. Think of a teacher's red pen and a spell-checker's underline on the same essay. The
+app keeps them in separate tables and never mixes them (\cref{ch:review} explains why).
+\end{plainterms}
+
+\begin{plainterms}[Held-out data]
+One recording, \code{M4_aug_concat_fs1.mat}, is \term{held-out}{held out}. It is kept
+locked away for the final test of any model, like an exam paper nobody may see before the
+exam. If you looked at it while building a method, you could tune the method to it without
+meaning to, and the final test would no longer be fair. So every Explore page shows it as a
+locked card, and the bridge refuses every request for its data.
+\end{plainterms}
+
+\pagesection{explore.corpus}{Corpus}{A bird's-eye view across every channel}{live}
+Corpus draws one recording as a grid: a row per channel, a column per stretch of time. Each
+cell is shaded by how many spans fall in it. You use it to see where people and machines
+have been looking, and where they disagree.
+
+\pagefield{When you'd come here}
+At the start of a session, to choose a recording and a channel. Also when you want to know
+which parts of a recording nobody has reviewed yet, or where a detection run and the human
+labels disagree.
+
+\screenshot{pages/explore/explore.corpus--default}{The coverage map of one recording. Darker
+cells hold more spans; the outlined row is the selected channel, and the bottom bar repeats
+its counts.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item \textbf{Choose a recording.} Click the recording selector at the top left. The menu
+    lists every recording with its channel count, length and sampling rate. Type in
+    \ui{filter recordings} to narrow it. A row marked \ui{held out · locked} cannot be
+    picked. A row marked \ui{linked fs2} (or similar) is the same recording resampled at
+    another rate, so its counts are not independent of its partner's. The arrows beside the
+    selector page through the recordings one at a time.
+  \item \textbf{Read the map.} Hover a cell to see the channel, the hours it covers and its
+    count. The shading is by rank among the non-empty cells, not by raw count, so one very
+    busy cell does not wash the rest out. Grey cells hold nothing. The \ui{bin} menu sets how
+    many hours each column covers; \ui{auto} uses 57 columns.
+  \item \textbf{Choose what is counted.} \ui{colour by} offers \ui{annotations},
+    \ui{detections}, \ui{annotations + detections} (the sum of the two, not the cells where
+    both occur) and \ui{disagree} (see below). In the right-hand rail, \ui{Show} turns the
+    two layers on or off; \ui{Detections from} limits the detections to chosen runs and
+    methods; \ui{Verdict} limits the annotations to chosen verdicts; \ui{Morphology tag}
+    dims the channels that carry none of the chosen tags. The foot of the rail says how many
+    spans pass every filter, on how many channels.
+  \item \textbf{Look for unreviewed stretches.} Tick \ui{reviewed coverage} to hatch the
+    cells no reviewed span covers (a cell counts as reviewed when at least half of it lies
+    under one). Tick \ui{unreviewed only} to fade the reviewed ones.
+  \item \textbf{Select and open a channel.} Click a row to select it; double-click it, or
+    press Enter on the selected row, to open it. The bottom bar shows the selected channel's
+    counts and two buttons: \ui{Open} \emph{channel} goes to \apppage{explore.signal}, and
+    \ui{Cross-channel from} \emph{channel} goes to \apppage{explore.cross-channel}.
+\end{enumerate}
+
+\subsection{Where machine and human disagree}\label{sec:explore-disagree}
+\ui{colour by disagree} turns the map amber where a run and a person gave different answers
+about the same place. Two cases count: \emph{machine yes, human no} (a detection a person
+rejected in Review, or one inside reviewed windows marked as not interesting) and
+\emph{machine no, human yes} (a span a person said yes to, where a run covered the place and
+found nothing). A place no run covered, or no person reviewed, is \emph{not comparable}: it
+stays grey and is counted separately in the bottom bar. With no run chosen under
+\ui{Detections from}, every run on the recording is pooled, and the map says so.
+
+\screenshot{pages/zzz_x_divergence/explore.corpus--fixup-x-disagree-on-one-run-picked}{Disagree mode
+with one run chosen: amber cells are places where that run and a reviewer differ; grey ones
+could not be compared.}
+
+\pagefield{Where it leads}
+\apppage{explore.signal} for one channel; \apppage{explore.cross-channel} to compare
+channels. The recording menu's \ui{Import a recording in Settings › Datasets} link opens
+\apppage{settings.datasets}.
+
+\begin{watchout}[A demo marker that is out of date]
+With \ui{reviewed coverage} ticked, the caption under the map still carries a \ui{demo} tag.
+The hatching is in fact drawn from your database (the reviewed spans the bridge returns), so
+the tag is wrong and can be ignored.
+\end{watchout}
+
+\begin{underthehood}[Corpus]
+Client: \code{webui/client/src/explore/CorpusPage.tsx}, \code{Heatmap.tsx},
+\code{RightRail.tsx}, \code{RecordingMenu.tsx}. Reads: \code{GET /api/recordings} and
+\code{GET /api/corpus/{file}/coverage} (\code{webui/server/app.py}, which calls
+\code{corpus.coverage} in \code{webui/server/corpus.py}); the rail's runs, tags and reviewed
+coverage come through \code{getCorpusLive} in \code{webui/client/src/api/explore.ts}, from
+\code{GET /api/corpus/{file}/runs} and \code{GET /api/channels/{id}/tags}
+(\code{webui/server/explore_routes.py}). The run and method filters are sent as run ids; when
+no run matches both, the page sends \code{run=-1} so the detection layers come back empty
+rather than unfiltered. The disagreement counts come from
+\code{Working/discovery/divergence.py}. The coverage route answers 423 for the held-out file.
+\end{underthehood}
+
+\pagesection{explore.signal}{Signal}{One channel at real scale}{live}
+Signal shows one channel in three tiers on one time axis: the whole channel, the span you
+are looking at, and the one event (the app calls it a \term{motif}{motif}) you have opened.
+It is where you choose a span and send it on.
+
+\pagefield{When you'd come here}
+After choosing a channel on \apppage{explore.corpus}, or from a channel name anywhere else in
+the app. Come here when you want to see what the signal actually looks like, step through
+the marked events one at a time, or pick a stretch to analyse.
+
+\screenshot{pages/explore/explore.signal--motif}{A channel with a motif open. The top tier
+is the whole channel with the blue span box; the middle tier is that span with its marks;
+the bottom tier is the selected motif with its onset and end.}
+
+\pagefield{Doing things here}
+\subsection{Find a span}\label{sec:explore-find-span}
+\begin{enumerate}
+  \item In the top tier, drag the blue box, or drag either of its grips, to choose the
+    stretch the middle tier shows. Under the trace, a ribbon shows annotation verdicts by
+    colour and another shows how dense the detections are.
+  \item In the middle tier, drag to pan and scroll to zoom about the cursor. The keyboard
+    does the same: the left and right arrows pan by a tenth, \ui{+} and \ui{-} zoom, \ui{F}
+    fits the whole channel. Coloured bands mark annotations (green), detections (blue),
+    artifacts (red) and the selected motif (orange).
+  \item Choose which runs' detections are drawn with the \ui{detections} chip. Its checklist
+    can group runs \ui{by run}, \ui{by method} or \ui{by template}, and has \ui{colour by
+    run} and \ui{hide surrogates}.
+  \item Click a band to open it in the bottom tier, or walk the marks in time order with the
+    arrows beside the counter (keys \ui{[} and \ui{]}). The bottom tier shows the motif with
+    $\pm$10, 20 or 60\,s of context (\ui{context}), and an axis in seconds from its onset.
+\end{enumerate}
+
+\subsection{Send a span on}\label{sec:explore-send-span}
+The row under the tiers, \emph{Selected span}, always describes the stretch in the middle
+tier.
+\begin{enumerate}
+  \item \ui{Send span to Analyse} (key \ui{A}) makes that stretch the source of the chain on
+    \apppage{analyse.chain} and takes you there.
+  \item \ui{Take span for Review} (key \ui{R}) writes the stretch to the database as a human
+    annotation with verdict \emph{seed}, puts it in Review's \emph{Explore spans} queue, and
+    offers it as a seed in Discovery. A message with \ui{Open Review} appears.
+  \item The bottom tier has the same two acts for the motif alone: \ui{Send motif to
+    Analyse} and \ui{Review this motif} (Shift+\ui{R}).
+  \item You can add tags (\ui{+ tag}, key \ui{T}) and a note to the span. A tag is lower-case
+    words joined by hyphens. A note is never a verdict: verdicts are given in Review.
+\end{enumerate}
+
+\subsection{The drawer}\label{sec:explore-drawer}
+The four cards along the bottom (\ui{Filters \& search}, \ui{Annotations}, \ui{Detections},
+\ui{Keyboard shortcuts}) open a drawer over the lower tiers. It lists every annotation or
+detection on the channel in a table you can filter, sort and export with \ui{Export CSV} or
+\ui{Export JSON}. Click a row to open it as the motif. Press \ui{D} to open or close the
+drawer and \ui{?} for the full keyboard map.
+
+\pagefield{Where it leads}
+\apppage{analyse.chain} with the span as its source; \apppage{review.inspector} for a span
+taken for Review; \apppage{explore.cross-channel} (key \ui{C}, or the \ui{Signal} /
+\ui{Cross-channel} switch in the top bar) to see the same place on other channels.
+
+\begin{watchout}[Some buttons only remember in this browser tab]
+\ui{Save span} keeps the span's tags and note in this browser tab only; nothing is written
+to the database and a reload loses it. The same is true of the drawer's \ui{Send selected to
+Review}, \ui{Add tag} and \ui{Stage for Analyse}: each shows a message, but writes nothing.
+\ui{Analyse events} says it is not wired yet. To put a span in front of a reviewer, use
+\ui{Take span for Review}, which does write.
+\end{watchout}
+
+\begin{watchout}[A recording with no declared unit]
+If the recording's file does not say whether it holds volts or millivolts, an amber note
+appears and the y axis reads ``?'' instead of mV. The numbers are drawn as stored.
+\end{watchout}
+
+\begin{underthehood}[Signal]
+Client: \code{webui/client/src/explore/SignalPage.tsx}, with \code{Overview.tsx} (top tier),
+\code{SpanView.tsx} (middle), \code{MotifView.tsx} (bottom), \code{SpanActions.tsx},
+\code{SignalDrawer.tsx} and \code{DetectionsPicker.tsx}. Reads: \code{GET
+/api/channels/{id}}, \code{/window} (a min/max envelope sized to the plot's width) and
+\code{/spans} in \code{webui/server/app.py}; runs and drawer rows through \code{getSignalLive}
+in \code{webui/client/src/api/explore.ts}. \ui{Take span for Review} posts to
+\code{/api/annotations/seed} (\code{take_span_for_review} in
+\code{webui/server/explore_routes.py}), which writes through the human-only door
+\code{write_human} and finds or creates the open \code{explore-spans} queue. The medoid
+overlay and the nearest-family line have no live source yet and stay empty. The page passes
+its live read to the header as if it were demo data, so the \ui{demo data} chip shows on
+every channel even though the data is yours.
+\end{underthehood}
+
+\pagesection{explore.cross-channel}{Cross-channel}{The same window on every channel}{live}
+Cross-channel draws one short window on several channels of the same recording, stacked, with
+one channel as the reference. For each other channel it gives the time lag and the
+correlation with the reference, and sorts the pair into a bin: artifact, propagation or
+independent.
+
+\begin{plainterms}[Lag and correlation]
+Two microphones in one room hear the same clap a moment apart. The \emph{lag} is that moment:
+how far one trace must slide to line up best with the other. The \emph{correlation} $r$ says
+how well they line up once slid, from $-1$ (mirror images) through 0 (unrelated) to 1
+(identical). If two electrodes show the same shape at the same instant, one wire is probably
+picking up the other: an artifact. If the shape arrives a little later on the second
+electrode, it may be a signal travelling through the mycelium: propagation.
+\end{plainterms}
+
+\begin{plainterms}[Why the page takes the drift out first]
+Two people walking up two different hills at the same time are both ``going up'' for an hour,
+whatever their steps look like. Two electrodes whose level drifts slowly over ten minutes are
+the same: compared as they are, they look almost perfectly related at lag 0, even when their
+events have nothing in common. So before measuring the lag and $r$, the page removes from
+each channel the straight line that best fits its window (\emph{detrending}). The traces are
+still drawn as recorded; only the measurement uses the straightened copy. A straight line
+cannot remove a drift that curves, so a curved drift can still look like a shared signal; the
+page marks rows where that may be happening.
+\end{plainterms}
+
+\pagefield{When you'd come here}
+When you have found an event on one channel and want to know whether it is local, appears
+elsewhere at the same moment, or travels from one channel to another.
+
+\screenshot{pages/explore/explore.cross-channel--default}{The reference channel on top, with
+its span shaded, and the other selected channels below it. Each row ends with its lag, its $r$
+and its bin.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item \textbf{Choose the window.} The window is one span of the reference channel plus a pad
+    each side. The page opens on the channel's most notable human span (a \emph{seed} first,
+    then \emph{interesting}, \emph{artifact}, \emph{unsure}; the earliest within each), else
+    its first detection, else its first span of any kind; a channel with no span at all opens
+    on its first ten minutes. A span longer than ten minutes is cut to
+    its first ten. The \ui{window} list offers the default span, up to 40 human spans worth
+    anchoring on, and the one in view; the \ui{‹} and \ui{›} arrows step through every span of
+    the channel, annotations and detections together, in time order, and \ui{span} \emph{n}
+    \ui{of} \emph{N} says where you are. \ui{pad} adds \ui{20 s each side} (the default) or
+    \ui{60 s each side}. Above the stack the page says what the window is, for example ``seed
+    span at 1.25\,h $\cdot$ 300\,s span + 20\,s each side = 340\,s'', and the time axis counts
+    seconds from the span's start.
+  \item \textbf{Choose the channels.} \ui{reference} picks the channel the others are
+    compared with; \ui{channels} picks up to ten rows. At first the page shows the reference
+    and the five other channels with the strongest $|r|$ against it, strongest first, however
+    weak. Drag a row's grip, or press Alt and an arrow key, to reorder it. Click a channel
+    name to open it in Signal.
+  \item \textbf{Read the lags.} Hover to get a crosshair across every row. \ui{align}:
+    \ui{lag-aligned} slides each row back by its measured lag so the shapes sit on top of each
+    other; a row whose lag is beyond \ui{max lag} stays as recorded and says ``not aligned''.
+    Hover a row's $r$ to see the reading as recorded, drift left in, beside the detrended one.
+  \item \textbf{Read the bins.} The \emph{Classification for this window} card counts the
+    rows in each bin (\emph{artifact}, \emph{propagation}, \emph{independent}, and \emph{no
+    match} for a row whose lag and $r$ could not be measured); click a tile to highlight its
+    rows. Hover a bin badge for the rule that produced it, as the bridge applied it. A row
+    marked \ui{may be curved drift} reads $|r| \ge 0.9$ near lag 0 both detrended and as
+    recorded: read its trace before its bin.
+  \item \textbf{Choose the y scale.} \ui{y} offers \ui{absolute mV}, \ui{shared gain,
+    centred} (the default) and \ui{per channel} (each row scaled to fit, marked
+    \ui{normalised}). In the centred view every row has the same millivolts per row height:
+    the widest row's own range, which fills its row and says ``sets the gain''. Each row is
+    drawn about the middle of its own range, so none is clipped and depths still compare.
+    Electrodes can sit volts apart in baseline while their events are a few millivolts high,
+    so a shared absolute scale draws every trace flat. Every row prints its own true range at
+    the right.
+\end{enumerate}
+
+\paragraph{A window opened from a link.} A link with an exact start and end
+(\texttt{?t0=} and \texttt{?t1=}) shows that window unpadded, as a button you click to return to
+the channel's own spans. When the link came from an edge on \apppage{library.family}, the
+window is measured as recorded, without detrending, so the page reproduces the lag, $r$ and bin
+the edge stores; the note above the stack then reads ``lag $\cdot$ r as recorded''. Any other
+exact window is detrended like a picked one, so the same window gives the same answer whichever
+link opened it.
+
+\pagefield{Where it leads}
+\ui{Apply a template across these} \emph{N} \ui{channels} opens Discovery with the channels
+filled in (\apppage{discovery.runs}). \ui{Classify every} \emph{family} \ui{member in
+Library} runs only when you came here from a family's edge on \apppage{library.family}; it
+starts a job that classifies every member of that family across channels. Opened any other
+way, the card is greyed and prints why under it.
+
+\begin{watchout}[A bin here is a lead, not a finding]
+The bins on this page come from the lag and $r$ alone. The chance test and the noise-floor
+test that the family classification from Library runs are not run on a window, and each bin's
+tooltip now says so. With the default settings a pair is an artifact when
+$|{\rm lag}| \le 1$\,s and $|r| \ge 0.98$, propagation when $1 < |{\rm lag}| \le 50$\,s and
+$|r| \ge 0.5$, and independent otherwise. The lag is searched over the whole window, so
+unrelated channels can land in \emph{propagation} by chance: the project's own simulation (the
+note for research question 6) put about one pair in six of independent random walks there. A
+straight line does not remove a curved drift; the same simulation found curved drifts binned
+\emph{artifact} almost every time after a straight-line detrend, which is what the \ui{may be
+curved drift} mark is for. The bridge can also take out a cubic instead of a line
+(\texttt{detrend=cubic} on \texttt{/api/cross}), but the page does not offer it yet.
+\end{watchout}
+
+\begin{watchout}[Controls that do less than they look]
+\ui{max lag} only changes which rows lag-aligned moves; it does not recompute anything, and the
+progress bar that appears when you change it is a short animation. The \ui{lag} list's
+\ui{computed on whole channel} option is not available yet, and nor is the \ui{display}
+list's detrended view. \ui{Review this window on all channels} only records the request in
+this browser tab. The \ui{shared ground} chip in the channel picker is drawn for one fixed
+pair of channel names, not read from Settings.
+\end{watchout}
+
+\begin{underthehood}[Cross-channel]
+Client: \code{webui/client/src/explore/CrossChannelPage.tsx}; the window, the detrend choice,
+the centred gain and the lag shift are decided in \code{crossModel.ts}
+(\code{resolveCrossWindow}, \code{crossDetrendFor}, \code{centredStack}, \code{lagShift}), the
+y geometry in \code{crossScale.ts}. Read: \code{getCrossChannel} in
+\code{webui/client/src/api/explore.ts} resolves the window and calls \code{getCrossWindow},
+\code{GET /api/cross/{id}} with \texttt{t0}, \texttt{t1} and \texttt{detrend} (\code{get_cross_channel} in
+\code{webui/server/explore_routes.py}). The bridge cuts the same absolute window from every
+sibling channel, strides it down past 200{,}000 samples, and makes one call per pair to
+\code{Working.cross_channel.classify_waveforms} with the page's detrend (\texttt{linear}, or
+\texttt{none} for an edge's window). That call removes each window's trend
+(\code{_remove_trend}), takes the peak of the z-normalised cross-correlation and bins it with
+\code{bin_for} under the rule from Settings › Analysis defaults (\code{rule_from_settings}),
+with its chance and floor arguments left at their pass-through defaults. When it detrends, a
+second call as recorded rides along as \code{as_recorded}, never binning, and
+\code{drift_suspect} sets the curved-drift mark. A channel that is nothing but its trend raises
+\code{FlatWindow} and reads \emph{no match} with the reason. The words behind each bin are
+\code{CrossChannelRule.describe_window}. Held-out siblings are skipped. A row whose data cannot
+be read says so on the row instead of being drawn as a second reference.
+\end{underthehood}
+
+\pagesection{explore.span-edit}{Span edit}{Editing a span, opened from Review}{preview}
+Span edit is where you will redraw the start and end of a span a machine found, without
+changing what the machine found. It is reached from Review's \ui{Edit span in Explore}
+button (key \ui{E}) and from \ui{Redraw in Explore} on a Library family. Today the page runs
+only on one example span from the demo data and saves nothing.
+
+\pagefield{When you'd come here}
+When a candidate in Review is the right event but its edges are wrong: it starts too early,
+or cuts off the tail.
+
+\screenshot{pages/explore/explore.span-edit--edited}{The original extent in grey behind your
+new extent in blue. The card below lists what saving would write: a new revision, not a
+change to the detection.}
+
+\pagefield{Doing things here}
+\begin{enumerate}
+  \item Drag either blue grip, or type a sample number into \ui{start} or \ui{end}. The
+    small arrows and the arrow keys nudge by one sample (Shift for ten).
+  \item \ui{snap to} chooses where a dragged edge lands: \ui{steepest sample},
+    \ui{trough}, \ui{zero crossing} or \ui{free}.
+  \item Read \emph{What saving writes}: a new revision of the span, kept beside the
+    machine's original, in the human store.
+  \item \ui{Save and return to Review}, or \ui{Return without saving}.
+\end{enumerate}
+
+\pagefield{Where it leads}
+Back to \apppage{review.inspector}.
+
+\begin{watchout}[Preview only]
+Everything on this page comes from \code{webui/client/src/fixtures/explore.ts}. Only the
+span \code{m-1846} exists; opening any other span, which is what Review's button does for a
+real candidate, shows ``No span \ldots{} in the demo data''. Saving stays in this browser
+tab. The design it shows is the intended one: a person's redrawn edges go to the annotation
+store as a new revision, and the detection row is never touched.
+\end{watchout}
+
+\begin{underthehood}[Span edit]
+Client: \code{webui/client/src/explore/SpanEditPage.tsx}; data from \code{getSpanEdit} in
+\code{webui/client/src/api/explore.ts}, which returns \code{spanEditDemo} from the fixtures.
+The core already has revisions (\code{Working/library/revisions.py}, \code{add_revision});
+nothing connects this page to it yet.
+\end{underthehood}

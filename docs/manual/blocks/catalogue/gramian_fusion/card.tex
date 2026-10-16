@@ -1,0 +1,25 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.gramian_fusion -- "Gramian fusion" (Part I, the blocks chapter).
+\cardfield{What it does}
+Makes one colour picture from three: the summation field as red, the difference field as
+green and the recurrence plot as blue (see the card of \blockref{catalogue.gramian_gasf}
+for what each one shows).
+
+\cardfield{When to use it}
+To see on one span the picture the fusion networks were trained on. To build such pictures
+for many windows, ready for \blockref{catalogue.cnn_score}, use
+\blockref{catalogue.window_images}, which makes the same picture window by window.
+
+\cardfield{What goes in, what comes out}
+In goes a span of one channel, at most 5{,}000 samples. Out comes a square colour image with
+one row and one column per sample.
+
+\cardfield{Settings that matter}
+\emph{m} and \emph{tau} shape the blue layer only, as in
+\blockref{catalogue.gramian_recurrence}. Leave them at 3 and 4 if the picture is going to a
+trained network: that is what the networks saw.
+
+\cardfield{Watch out for}
+Each colour is stretched to its own full range, so the colours say where a pixel sits within
+its own layer, not how strong anything is. A single missing sample, or a perfectly flat
+span, turns the whole picture black.

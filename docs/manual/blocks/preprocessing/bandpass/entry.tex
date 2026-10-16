@@ -1,0 +1,103 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: preprocessing.bandpass -- "Bandpass filter" (Appendix A).
+\entryfield{Algorithm}
+\code{_run} in \code{Adapters/preprocessing_bandpass.py} first refuses
+$\mathit{low\_hz} \geq \mathit{high\_hz}$ with a \code{ValueError}, then calls the factory
+\code{make_bandpass_filter} in \code{Working/Detection/analysis/freq_analysis.py} and applies
+the function it returns to the span. With sampling rate $f_s$, order $N$ and edges
+$f_\mathrm{lo} < f_\mathrm{hi}$:
+\begin{enumerate}
+\item Normalise the edges by the Nyquist frequency $f_s/2$:
+  $W = \bigl(2f_\mathrm{lo}/f_s,\ 2f_\mathrm{hi}/f_s\bigr)$.
+\item Design a digital Butterworth band-pass filter \citep{butterworth1930theory} with
+  \code{scipy.signal.butter(N, W, btype="band")} \citep{virtanen2020scipy}, returned as
+  transfer-function coefficients $(b, a)$, each of length $2N+1$ (a band-pass of order $N$ is a
+  filter of order $2N$).
+\item Run it forwards and then backwards over the span with
+  \code{scipy.signal.filtfilt(b, a, x)}, after casting $x$ to floating point.
+\end{enumerate}
+Because the filter runs both ways, the result has no phase shift (an event stays at the sample
+where it happened), and its magnitude response is the square of the single-pass Butterworth
+response:
+\[ |H_\mathrm{ff}(f)| = |H_\mathrm{B}(f)|^2 , \]
+so each band edge is attenuated to one half in amplitude ($-6$\,dB), not to $1/\sqrt2$
+($-3$\,dB) as in the single-pass design, and the roll-off outside the band is twice as steep.
+
+\code{filtfilt} is called with SciPy's defaults: before filtering it extends the span at each
+end by an odd reflection about the end sample ($2x_0 - x_{k}$ at the start and the mirror at
+the end) of length $3\max(\mathrm{len}(a), \mathrm{len}(b)) = 3(2N+1)$ samples (27 at the
+default $N = 4$), starts the filter from the steady state for that end value
+(\code{lfilter_zi}), and trims the extension off afterwards. The output has the span's length.
+
+\entryfield{Assumptions}
+\begin{itemize}
+\item \emph{Sampling rate.} The edges are in hertz and converted with the span's own $f_s$, so
+  the same settings select the same physical band on a 1\,Hz and a 10\,Hz recording. Both edges
+  must lie strictly between 0 and $f_s/2$: the registry enforces only a minimum of
+  $10^{-6}$\,Hz, and SciPy's \code{butter} rejects a normalised edge at or above 1 with a
+  \code{ValueError}. The default band list in \code{Working/run_groups.py}
+  (\code{DEFAULT_BANDS}) stops its third band at 0.45\,Hz for this reason.
+\item \emph{Units.} The block is linear and not unit-aware (its \code{_run} takes no
+  \code{units} argument); the output is in the recording's stored unit, and scaling the input
+  scales the output by the same factor.
+\item \emph{Missing values.} Nothing removes or bridges NaNs. In an infinite-impulse-response
+  filter a NaN enters the filter's state and every later output becomes NaN; the backward pass
+  then carries it to every earlier output, so one NaN anywhere in the span makes the whole
+  output NaN. \unverified{No test checks this; it follows from how \code{lfilter} propagates
+  state.}
+\item \emph{Span length.} \code{filtfilt} refuses a span no longer than its padding,
+  $3(2N+1)$ samples (27 at $N = 4$, 63 at $N = 10$), with a \code{ValueError}.
+\item \emph{Mean.} A band-pass removes the zero-frequency part, so the output sits near zero
+  whatever the recording's baseline.
+\end{itemize}
+
+\entryfield{Outputs}
+A \texttt{Signal} with the filtered samples and the input's $f_s$. Nothing is put in
+\code{meta}. Like every block's output it is held by the chain's step cache; the block writes
+nothing of its own.
+
+\entryfield{Cost}
+Two passes of a recursive filter of order $2N$: $O(nN)$ time and $O(n)$ memory, vectorised in
+SciPy. Fast on a whole channel; no estimate is registered and it is not meant for the cluster.
+
+\entryfield{Failure modes}
+\begin{itemize}
+\item \emph{An edge at or above Nyquist} (for example 0.5\,Hz on a 1\,Hz recording) stops the
+  step with SciPy's error about critical frequencies; an edge \emph{close} to Nyquist is
+  accepted.
+\item \emph{One NaN blanks the span} (above).
+\item \emph{Ringing and pre-ringing.} A step or a sharp drop passed through a band-pass gives
+  an oscillating response; because the filter runs both ways the oscillation appears
+  symmetrically, \emph{before} the event as well as after it. Detectors downstream can mark
+  these lobes as events of the opposite sign, and depths measured on the filtered trace are not
+  the depths on the raw trace.
+\item \emph{Edge transients.} The odd reflection pads only $3(2N+1)$ samples, far fewer than
+  the filter's impulse response is long when the lower edge is a small fraction of $f_s$ (its
+  response lasts on the order of $1/f_\mathrm{lo}$ seconds: 100\,s at the 0.01\,Hz default).
+  Expect distortion over roughly that length at each end of the span.
+  \unverified{The length of the distorted region has not been measured.}
+\item \emph{Numerical accuracy at very low edges.} The filter is designed and applied in
+  transfer-function form $(b, a)$, not as second-order sections (\code{sosfiltfilt}). For a
+  band whose edges are tiny fractions of $f_s$ (the 0.001--0.01\,Hz default band on a 1\,Hz
+  recording normalises to $W = (0.002, 0.02)$, at order 8 overall) this form is known to lose
+  precision. \unverified{Whether it materially distorts the output at the shipped defaults has
+  not been checked.}
+\end{itemize}
+
+\entryfield{Validation}
+No test in the repository checks the filter's frequency response or its output values.
+SciPy's \code{butter} and \code{filtfilt} are standard and widely tested
+\citep{virtanen2020scipy}; what is untested here is the wrapping (edge normalisation, the
+choice of transfer-function form, the defaults).
+
+\entryfield{References}
+\citet{butterworth1930theory} for the filter family; \citet{virtanen2020scipy} for the
+implementation.
+
+\entryfield{Tests}
+\code{tests/test_t06_adapter_remap.py} checks the declared types and that the output is a
+\texttt{Signal} of the input's length and rate. \code{tests/test_chain_validation.py} uses it
+to check chain type-validation. \code{tests/test_band_scope.py} checks that a band run inserts
+exactly this block with the band's edges (and that the surrogate run is band-passed the same
+way), and that an upside-down band in Settings is refused. \code{tests/test_artifacts.py}
+checks figure file names. None of them checks which frequencies pass.
