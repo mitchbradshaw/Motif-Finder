@@ -270,7 +270,8 @@ The bridge runs in one of two modes, chosen when it starts and printed in its lo
   \code{webui/runtime/<stamp>/}. Before any run, every path the core could write is redirected
   under that folder by rebinding module attributes: \code{Working.config.STEP_CACHE_ROOT}, the
   results folders of the matrix-profile, window-matrix, clustering, trace-shape and shape-cluster
-  blocks, the window-pool root, the classifier's model root, and the two cost-calibration files.
+  blocks, the window-pool root, the classifier's model root, and the three cost-calibration files
+  (matrix profile, block cost, window matrix).
   The step-cache write threshold is lowered to zero so every step is cached. The bridge refuses to
   start if any redirected path lies outside the runtime folder. Nothing you do in a sandbox reaches
   the real database. The smoke walk (\code{webui/smoke.py}) runs against a sandbox.

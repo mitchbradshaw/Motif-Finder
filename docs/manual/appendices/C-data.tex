@@ -205,9 +205,9 @@ in \code{--project} mode:
 The step cache has no eviction: an entry stays until it is cleared (Settings \textrightarrow{}
 Analysis defaults shows its size and can clear it). A missing or unreadable entry is recomputed and
 overwritten. In sandbox mode the step cache, the results folders of the blocks that write files, the
-classifier's model folder and two of the calibration files are redirected into the runtime folder
-(\cref{sec:architecture-sandbox}); \unverified{the window-matrix calibration file is not among the
-redirected paths in \code{webui/server/runtime.py}}.
+classifier's model folder and all three cost-calibration files (matrix profile, block cost, window
+matrix) are redirected into the runtime folder, and the bridge refuses to start if any of them
+points outside it (\cref{sec:architecture-sandbox}).
 
 \begin{watchout}[Do not move a file the database points to]
 A database row holds a path. Moving or renaming a derived file, or the folder of a recording, leaves

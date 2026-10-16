@@ -13,8 +13,10 @@ Nothing here has been changed in the code: these are reports, not fixes.
 Most of what follows is detail. These are the findings that matter most before 21 October,
 in order:
 
-1. **A calibration file escapes the sandbox** (confirmed): a sandboxed bridge can write
-   `DATA/db/wm_calibration.json` into the real `DATA/` (see "Found while writing Jobs…").
+1. ~~**A calibration file escapes the sandbox**~~ **Fixed by merge 4f9de45** (2026-10-16): a
+   sandboxed bridge could write `DATA/db/wm_calibration.json` into the real `DATA/`; it now
+   keeps that file inside its runtime folder and refuses to start if it is not (see "Found while
+   writing Jobs…").
 2. **Screens that say something happened when it did not.** Explore's Save span toasts "span
    saved" for an in-memory demo write; Save template says "throwaway database copy" when it
    wrote the real one; the blind popover says the blind state is stored with every verdict,
@@ -618,8 +620,12 @@ windows longer than `WM_GRAMIAN_MAX_SAMPLES`.
   rows; the duplicate points nudge the silhouette up, and the suggested k is chosen on it.
 
 ### Found while writing Jobs, Settings, Architecture and the data appendix
-- **A calibration file escapes the sandbox** (confirmed by the orchestrator, 2026-10-16).
-  `Working/Preprocessing/window_matrix/cost.py:54` sets
+- ~~**A calibration file escapes the sandbox**~~ **Fixed by merge 4f9de45** (2026-10-16; branch
+  `claude/wonderful-engelbart-da8936`: `0b5f713` red test, `bdcb6d3` fix). `webui/server/runtime.py`
+  now redirects the window-matrix calibration into the runtime folder, carrying this machine's
+  existing file over, and its start-up escape check covers that file as it covers the other two;
+  `tests/test_webui_runtime.py` pins both. What was wrong, as found (confirmed by the orchestrator,
+  2026-10-16): `Working/Preprocessing/window_matrix/cost.py:54` sets
   `CALIBRATION_PATH = os.path.join("DATA", "db", "wm_calibration.json")`, a relative path, and
   `webui/server/runtime.py` redirects, and checks for escape, only the matrix-profile
   (`mp_calibration.json`, line 169) and block-cost paths (lines 172 and 228–231). A sandboxed
