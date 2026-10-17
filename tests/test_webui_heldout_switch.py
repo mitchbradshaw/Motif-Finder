@@ -27,7 +27,9 @@ into the test's own temporary directory.
 
 import json
 import os
+import sqlite3
 import sys
+import time
 
 import numpy as np
 import pytest
@@ -381,3 +383,154 @@ def test_the_library_caches_are_keyed_on_the_lock(bridge):
         assert L._DIST_CACHE["distributions"][0] != dist_off, "the editor's distributions would not be recomputed"
     finally:
         conn.close()
+
+
+# ── fix round (the critic's findings) ───────────────────────────────────────
+
+SLIDING = [{"stage": "preprocessing", "algorithm": "sliding_windows", "params": {"window_s": 600.0, "n_blocks": 5}}]
+NOW = "2026-10-17T10:00:00"
+
+
+def _wait_job(client, job_id, timeout=180):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        s = client.get(f"/api/jobs/{job_id}").json()
+        if s["status"] in ("completed", "failed", "cancelled"):
+            return s
+        time.sleep(0.2)
+    raise AssertionError(f"job {job_id} did not finish")
+
+
+def _rows(client, sql, args=()):
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    try:
+        return conn.execute(sql, args).fetchone()[0]
+    finally:
+        conn.close()
+
+
+def _write(client, fn):
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    try:
+        out = fn(conn)
+        conn.commit()
+        return out
+    finally:
+        conn.close()
+
+
+def test_a_window_set_on_the_held_out_recording_is_refused_whatever_the_lock(bridge):
+    """B1. A saved window set is a training artifact, and training keeps its own
+    lock (exam iii) whatever Settings › Datasets says. Its only guards used to be
+    the runner's and the Analyse run route's, which a2-p1 made follow the switch:
+    unlocked, an Analyse run on M4 is fine, but saving its windows as a set was
+    accepted, registered and listed for the Window pool. Re-locked, the same save
+    died inside the runner (an unhandled HeldOutRecordingLocked, a 500)."""
+    client, info = bridge
+    held = info["held"][0]
+    _lock(client, False)
+    r = client.post("/api/runs", json={"recording_id": held, "span": [0, N], "steps": SLIDING})
+    assert r.status_code == 200, r.text
+    job = r.json()["job_id"]
+    assert _wait_job(client, job)["status"] == "completed", "unlocked, the Analyse run on M4 itself is allowed"
+
+    save = client.post("/api/windowsets", json={"job_id": job, "step": 0, "name": "m4_windows"})
+    assert save.status_code == 423, save.text
+    assert "exam iii" in save.text
+    assert _rows(client, "SELECT COUNT(*) FROM window_sets") == 0, "nothing was saved"
+    assert _rows(client, "SELECT COUNT(*) FROM registered_artifacts WHERE kind = 'window_set'") == 0
+
+    # a returned TRAINING job that names M4 is refused by name, whatever the lock says
+    inbox = client.post("/api/hpc/inbox/import", json={"path": f"returned/{HELD_OUT_FILE}/job"})
+    assert inbox.status_code == 423, inbox.text
+
+    # a window set on M4 that exists anyway (written by hand) is never offered to the Window pool block
+    _write(client, lambda c: c.execute(
+        "INSERT INTO window_sets (name, version, path, recording_id, channel, fs, window_length, n_windows, created_at) "
+        "VALUES ('m4_by_hand', 1, 'nowhere', ?, 0, 1.0, 600, 12, ?)", (held, NOW)))
+    lib = client.get("/api/windowsets/library")
+    assert lib.status_code == 200, lib.text
+    assert all(HELD_OUT_FILE not in s["source_files"] for s in lib.json()["sets"]), \
+        "the Window pool lists a set on the held-out recording because the lock is off"
+
+    # re-locked: the same save answers 423 again, not a 500 from deep inside the runner
+    _lock(client, True)
+    again = client.post("/api/windowsets", json={"job_id": job, "step": 0, "name": "m4_windows_again"})
+    assert again.status_code == 423, again.text
+    assert _rows(client, "SELECT COUNT(*) FROM registered_artifacts WHERE kind = 'window_set'") == 0
+
+
+def _seed_run_on_m4(client, info):
+    """A finished seed search on M4 as Discovery records it: the Library entry it
+    searched for (on M4: the first of the fixture's detections is the exemplar's
+    own span), its `runs` row (the fixture's), and one accepted match."""
+    held = info["held"][0]
+
+    def write(c):
+        entry = c.execute("INSERT INTO motif_entry (recording_id, start_idx, end_idx, label) "
+                          "VALUES (?, 600, 660, 'M4 exemplar')", (held,)).lastrowid
+        c.execute("INSERT INTO adjudications (detection_id, verdict, created_at) VALUES (?, 'interesting', ?)",
+                  (info["held_detections"][1], NOW))
+        sid = c.execute("INSERT INTO discovery_sessions (name, source_file, channels_json, span_start, span_end, "
+                        "null_json, state_json, created_at, updated_at) VALUES ('m4 demo', ?, ?, 0, ?, '{}', '{}', ?, ?)",
+                        (HELD_OUT_FILE, json.dumps(["CH1"]), N, NOW, NOW)).lastrowid
+        c.execute("INSERT INTO discovery_runs (session_id, run_key, kind, label, params_json, status, created_at, "
+                  "updated_at) VALUES (?, 'seed_m4', 'seed', 'seed on M4', ?, 'completed', ?, ?)",
+                  (sid, json.dumps({"run_ids": [info["held_run"]], "entryId": entry, "cut": 1.0}), NOW, NOW))
+        return entry
+
+    return _write(client, write)
+
+
+def test_add_matches_refuses_a_seed_run_on_the_held_out_recording_once_relocked(bridge):
+    """M1. *Add N matches to E-xxxx* writes Library members and edges on the
+    seed run's own recordings. A search made on M4 while it was unlocked must not
+    leave a door that writes its matches once the lock is back on."""
+    client, info = bridge
+    _seed_run_on_m4(client, info)
+    _lock(client, False)
+    g = client.get("/api/library/runs/seed_m4/matches")
+    assert g.status_code == 200, g.text
+    assert g.json()["eligible"] == 1, "unlocked, the accepted match on M4 can be added"
+
+    _lock(client, True)
+    members = _rows(client, "SELECT COUNT(*) FROM motif_member")
+    edges = _rows(client, "SELECT COUNT(*) FROM motif_edge")
+    _assert_423_with_the_way_out(client.get("/api/library/runs/seed_m4/matches"), "GET Add N matches (locked)")
+    _assert_423_with_the_way_out(client.post("/api/library/runs/seed_m4/matches", json={}),
+                                 "POST Add N matches (locked)")
+    assert _rows(client, "SELECT COUNT(*) FROM motif_member") == members, "a locked M4 match became a member"
+    assert _rows(client, "SELECT COUNT(*) FROM motif_edge") == edges, "a locked M4 match got edges"
+
+
+def test_a_seed_draft_left_on_the_held_out_recording_falls_back_once_relocked(bridge):
+    """m2. The Seed page reads its draft through GET /api/discovery/seed/setup.
+    A draft made on M4 while it was unlocked turned that read into a 423 once the
+    lock was back on, and the page offered only a Retry that repeated it: no
+    picker. The remembered draft now falls back to the first seed that is
+    available and says why; a seed asked for by link still refuses, and the
+    remembered draft comes back when the lock is turned off again."""
+    client, info = bridge
+    other = info["other"]
+    _write(client, lambda c: c.execute("INSERT INTO motif_entry (recording_id, start_idx, end_idx, label) "
+                                       "VALUES (?, 1000, 1060, 'normal exemplar')", (other,)))
+    m4_seed = f"explore:{info['held'][0]}:600:660"
+    _lock(client, False)
+    r = client.get("/api/discovery/seed/setup", params={"seed": m4_seed})
+    assert r.status_code == 200, r.text
+    assert r.json()["draft"]["seedId"] == m4_seed, "unlocked, an M4 seed becomes the draft"
+
+    _lock(client, True)
+    r = client.get("/api/discovery/seed/setup")
+    assert r.status_code == 200, r.text
+    d = r.json()["draft"]
+    assert d["seedId"] != m4_seed and d["seedId"].split(":")[1] == str(other), d["seedId"]
+    assert UNLOCK_WORDS in (d.get("heldOutNote") or ""), "the fallback says why, and how to unlock"
+    # asked for by link, the held-out seed still refuses
+    _assert_423_with_the_way_out(client.get("/api/discovery/seed/setup", params={"seed": m4_seed}),
+                                 "GET seed setup by link (locked)")
+    # the remembered draft was kept: unlocked again, it is back
+    _lock(client, False)
+    r = client.get("/api/discovery/seed/setup")
+    assert r.status_code == 200, r.text
+    assert r.json()["draft"]["seedId"] == m4_seed and not r.json()["draft"].get("heldOutNote")
