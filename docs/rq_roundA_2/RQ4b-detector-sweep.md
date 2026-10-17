@@ -146,6 +146,31 @@ at once.
 - **Measured on synthetic data** (`scripts/measure_window_defaults.py`; tables in *Decision: the window bound at the
   sweep's short scales* below).
 
+### The CNN templates on real data (2026-10-18, `docs/prompts/blocks/reports/W4-A-evaluation.md`)
+
+In plain words: the four CNNs read 10-minute windows well, 30-minute windows nearly as well, and 1-minute windows not
+at all. They call almost every minute "interesting".
+
+- **Blind labels (RQ1 queue 3, 986 interesting / not labels, each window resampled to 600 points):**
+  - **10 min:** balanced accuracy **0.78–0.83 at 0.5 and 0.86–0.88 at 0.05–0.1** (AUC 0.93–0.96). Plain accuracy is
+    0.90–0.92 against a majority baseline of 0.81.
+  - **30 min:** 0.82–0.84 at 0.5 (AUC 0.92–0.93). Out-of-sample (M2_concat): GADF 0.87, GASF 0.86.
+  - **1 min:** **0.39–0.51, AUC 0.30–0.46**: no better than a constant answer, and ranked backwards.
+  - **Out-of-sample at 10 min:** M2_concat holds 13 interesting windows. The scores rank them well (AUC 0.81–0.91),
+    but the 0.5 cut finds only a third of them.
+  - **The ceiling:** the human agrees with themself on 94 % of 98 repeat pairs.
+  - **No sign of recall:** M2_aug windows that overlap an earlier label score no better than the ones that do not.
+- **One whole channel (M2_aug CH14, 721 h), share of windows ≥ 0.5:**
+  - **1 min: 95–96 %.** That is 770–912 merged detections, covering nearly the whole recording.
+  - **10 min: 9–12 %**, 253–343 detections.
+  - **1 h: 40–54 %.**
+  - No window was skipped. A 10-minute score is *anti*-correlated with its ten 1-minute scores (ρ ≈ −0.5).
+- **Cost:** fusion ≈ 48 ms a window, the others ≈ 22–24 ms. One channel through all twelve templates takes ≈ 1.6 h on
+  the PC; `cnn_fusion3_1min` alone takes 35 min.
+- **Read-out consequence:** the four `cnn_*_1min` results from the overnight sweep are a negative control, not a
+  detector. Start the 10-minute templates at **threshold 0.1** (sweep 0.05 · 0.1 · 0.2 · 0.5) and the 1-hour ones at
+  0.5 (sweep 0.3 · 0.5 · 0.9; no 1-hour labels exist). If one model is picked, lean GASF, with GADF close.
+
 ### What blocks the full design today
 
 1. ~~**Template runs on the HPC never come back.**~~ Built 2026-10-17 (P2, above); waits for the first real round trip.
@@ -413,6 +438,15 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
 
 ## Open decisions
 
+- **The CNN templates' thresholds, and whether the 1-minute ones stay in the sweep** (W4-A evaluation, 2026-10-18).
+  In plain words: the 0.5 cut was a guess. Against the blind labels, 0.1 suits the 10-minute models better, and no
+  cut rescues the 1-minute ones. Options:
+  (a) change the 10-minute templates' default to 0.1 and drop or retire the 1-minute ones;
+  (b) keep every default and only sweep the cut;
+  (c) keep the 1-minute templates as a labelled negative control.
+  **Recommended:** (a) for 10 minutes, plus (c) for 1 minute. Label a few dozen 1-hour windows blind before trusting
+  `cnn_*_60min`.
+
 - **Which single figure picks the "best" variant:** a hit rate against accepted human spans; a precision at a fixed
   alarm rate; or the agreement with the other detectors (no ground truth needed, but it rewards the herd).
 - **Whether windowed runs (P3) become the default for drop detection,** or stay a choice beside the whole-span run.
@@ -464,3 +498,8 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
   application once. A block-shuffle null uses one block per channel (the per-window block left 8–26 % of the null
   out). Windowed specs are version 2. Planning 10-minute windows over 16 channels: 46 s → 4 s. The legacy scan's
   mark is kept per database file.
+- 2026-10-18 · W4-A evaluation · the four CNNs on real data (`docs/prompts/blocks/reports/W4-A-evaluation.md`): on
+  the RQ1 blind labels they work at 10 min (balanced accuracy 0.78–0.83 at 0.5, 0.86–0.88 at 0.1) and at 30 min
+  (0.82–0.84), and fail at 1 min (0.39–0.51, AUC < 0.5). On M2_aug CH14 they call 95–96 % of 1-minute windows
+  interesting. Recommended: 10-minute threshold 0.1; 1-minute templates read as a negative control. Read only; no
+  code changed.
