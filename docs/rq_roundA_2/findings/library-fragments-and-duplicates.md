@@ -94,6 +94,11 @@ members assigned). Definitions are in the script's docstring:
   (`webui/server/discovery.py::_seed_by_id`), and the button refuses with "this run's seed is not a Library entry".
   `../prompts/P4-seed-search-on-demand.md` links medoid seeds to the Library entry with the same span and backfills
   the two runs. Until then, start a seed from Library › Family › *Seed search in Discovery*, which carries an entry.
+  - 2026-10-17 · a2-p4: built. A catalogue span (the old tab, now named *Catalogue spans*) whose span is a Library
+    entry's resolves to that entry when a run is made, and the Seed page's *Family medoids* tab lists every family of a
+    grouping as a Library entry. The two existing dip-search rows are linked only when
+    `scripts/backfill_seed_entry_ids.py --real --apply` is run (without `--apply` it is a dry run that shows what it
+    would change); until then this bullet holds for them.
 
 ### 5. What a ≤ 10-family grouping would look like
 
