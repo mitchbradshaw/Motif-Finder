@@ -1,0 +1,1272 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "deconvolved_troughs__recovery_half_s_240",
+  "runKey": null,
+  "sessionId": null,
+  "template": "deconvolved_troughs__recovery_half_s_240",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "detrend",
+      "params": {
+        "mode": "rolling_mean",
+        "window_s": 3600.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "deconvolve",
+      "params": {
+        "baseline_window_s": 1800.0,
+        "noise_scale": "level",
+        "recovery_half_s": 240.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "impulse_events",
+      "params": {},
+      "side_inputs": {}
+    },
+    {
+      "stage": "interrogation",
+      "algorithm": "event_shape",
+      "params": {},
+      "side_inputs": {}
+    },
+    {
+      "stage": "interrogation",
+      "algorithm": "intervals",
+      "params": {},
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    2595600
+  ],
+  "sourceFile": "M2_aug_concat_fs1.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 16,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 1,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 0,
+      "channelName": "CH1_A1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH0.npy",
+      "npySha1": "11ff75b1414110706bcedaa5014bc88dad58ce92",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 1,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "5cd82109",
+      "prefixHashes": [
+        "8887555536e94332a7aa15209cc466419c0c2dbc8cd6a121e6133d6393fe3a6c",
+        "2a722fc7bee9b0cbfc1996718e682d2071720925a81b267f27a72e393ea0d046",
+        "912bbd1ad8909ef847c9bf23810b2f7c1a79cddbf9a9e805d94a1e6c27cbf3cd",
+        "d470fa464828c29a5f50bd25d8f2c6f8c051362e071454c1248840687868ba23",
+        "5cd821095c628a6d28d4fd97c52d5b242081c9c650e12862a640966f04ff5645"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 2,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 1,
+      "channelName": "CH2_A1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 2595600,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH1.npy",
+      "npySha1": "2e7d50f90329731f32008150e0ce8b3bb342bc4e",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 2,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "1abb8032",
+      "prefixHashes": [
+        "dac0b8fb2d9daae980a942a533ee5351cafe5c71f69a3b06c96d89d546d02bd4",
+        "3a8de693aebd66c3e61c0167f0f645588c67607a31f4e37e6c3895d6b4616cdd",
+        "897b0196e320919d8b2a675dc2b1e27a943eb26bbbcc3f26302d8665cad3beb1",
+        "c95a6a60f80a73d19c98ddaa87f546c1cc79d418b1b7330abe60c37eb9702bd4",
+        "1abb80324e2638164ee3516c2230375f742bbbb2cb314f9c93f3d32428c80fbb"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 3,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 2,
+      "channelName": "CH3_A2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 5191200,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH2.npy",
+      "npySha1": "fddce685beababbe673ad6fe46f6679288c59ef6",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 3,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "012205a1",
+      "prefixHashes": [
+        "d27704a8dd24b84fa8b8e5bf2e8f5d0dc6b3d65129403f67c387744a45900aac",
+        "c079e8b66cc4cc6d7401d7a7a8fc88c43aa01a5bbbe1967b91c88b7da81e17b3",
+        "43657457d4831afe8e5762dae210a490dabd752d1d4272ec1b2562f15e092ced",
+        "00fb69697046c8f17c0ecc0a99e304de8b156833773ecb550942976d4db7929a",
+        "012205a19b702398cdfcb98a32c9e1ed0efb9550621debff8d3edbc5f9aae818"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 4,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 3,
+      "channelName": "CH4_A2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 7786800,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH3.npy",
+      "npySha1": "2cc973d8ae05dae5cd29870dc61b731d07371409",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 4,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "31cea7b5",
+      "prefixHashes": [
+        "f5551d8833fbde3b6d3d2b610192df880231a354c90fff6df62a58fde891b10c",
+        "605cf2d777cad7746290abf97d18d18b0e7eb9fdd1df7fc2bd4b2428c775ed76",
+        "f82a811a7fc67f5537197d71c51121d22a7ffe52e73dd58ff5af6bb98de81107",
+        "db4c64bf8d25d3d2863c3abf8067070ec2d4e6dea9dafd4358da6b259baa3169",
+        "31cea7b50bb70477dd69e7c78b39359cd461ab1227d1b07544551cda03bd0c4e"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 5,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 4,
+      "channelName": "CH5_B1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 10382400,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH4.npy",
+      "npySha1": "25cbf7cf929ac651dfe0e838dc62fe05b2eb0ca9",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 5,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "4ecd37e6",
+      "prefixHashes": [
+        "5fa4a799e8f1456de3e70dbcb9100cd8679b8a4cb117288cffb320345bc60f73",
+        "66a1d56ca2a0c49d6b3f4767def6d5af73e65ba9f7b0931d6dd371f1966b5f89",
+        "feec8836a7b5ac1a011f886283009d0259b93ac21f12e6fddbfbac5515a2eb06",
+        "35fbdd78f27f2073680264cc4d9c3c9979e1bfc6409f0c7757d3d7ddef12a3b7",
+        "4ecd37e6f73475e57c2ac104f43049662629b1b3da964618e7731f9f888f4025"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 5,
+      "recordingId": 6,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 5,
+      "channelName": "CH6_B1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 12978000,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH5.npy",
+      "npySha1": "3802a67f63d343a11715a159d94f9f1f7cf60b3e",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 6,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "e485619a",
+      "prefixHashes": [
+        "821487422b77496c2d7d94316743dc11ea9b199f43290a2caa7a1845a990d506",
+        "eef89d35d0e612d1f61dadad5a680f3769654dd38625f4554d719fdf33759f91",
+        "1651174055374f93b1430e16e4c414b3c97e1dfaa4e5a0ddcc913e6e094737e8",
+        "912b841ddeaf3b1069469eb43d3b3c74b9ebff0939341876eb07070c7e38626b",
+        "e485619a0a5c9582ba39de8e099192f4ea388aea52cb92b188c17bf70a02263b"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 6,
+      "recordingId": 7,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 6,
+      "channelName": "CH7_B2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 15573600,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH6.npy",
+      "npySha1": "3d1b8d26ff94f250738403a2e7aa52510540595b",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 7,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "bb569a74",
+      "prefixHashes": [
+        "d44bd894b9a66f81de9d2a3c46ba9c255e371a154a589a185ecdf5cb60df4af9",
+        "e65417d1588670118f2d4190649b1eb37c1021437f1c36fb9e1e0c3a802c1fde",
+        "f1ee9bcff263fcdd5546e3c4fe18ceffebc6135dd929d1cb876d764350664a18",
+        "9fe901cf87fbf0c323a87e8b67678518048fb5f54218b67a4080c15030bb65a5",
+        "bb569a74946786195d8800f771cc2ea789b5f02d92de6fc6803512d23c43bbc0"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 7,
+      "recordingId": 8,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 7,
+      "channelName": "CH8_B2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 18169200,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH7.npy",
+      "npySha1": "e6a66c488877565fe101b0a801f4b707c0342975",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 8,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "6df3e216",
+      "prefixHashes": [
+        "7e0ffc7e13154fe4dbf36a888ddd7ca9fb8ffa5704c130e6d3a88b640810ee92",
+        "da6dbb0f4731d04ef830edd2194a560e008edf0166ca5d65b8ada2dfc9724253",
+        "d423f04eb202e51b662d563547b5c3bf0799f1bdb071c3b89224f49b31c7da26",
+        "e8be2224ce60cef8440fae219c81e4f9f3f9883b9bc788cff9a0cf489fe26cfc",
+        "6df3e216d5a631679a5c0ac83055d87883b8fed576abd664e2314210cd361c49"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 8,
+      "recordingId": 9,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 8,
+      "channelName": "CH9_C1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 20764800,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH8.npy",
+      "npySha1": "137e88e14d6f137b63af6b8cfaf5ffdb8e9c2739",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 9,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "4dde83d9",
+      "prefixHashes": [
+        "55eaa592405a7b1731e3b3c507c38f390dd0bc87101b85f16f7f440c7b4cd970",
+        "7f4d20ad6e75901889901d1cdcfca5df44b2a124d29be984b58d642d9987259f",
+        "5377b2297b3691ea74168f4f4f1a3f62cac6cd60b7873c69321f7cf876723147",
+        "e2c15e0eeeb5d14aa8e7257730729d5770d7f3793681af24058f3b762f48d498",
+        "4dde83d9a27085f873ea904712320664a57c667063a6f080962cc715d2e51c75"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 9,
+      "recordingId": 10,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 9,
+      "channelName": "CH10_C1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 23360400,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH9.npy",
+      "npySha1": "7883268ccc20decb1ce035b1dec35fafb784067d",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 10,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "81830a8b",
+      "prefixHashes": [
+        "7e47f5574fbb1dcf4cee5f8c4868169c7ee74e4757e68a08f2f0a1b45b566171",
+        "52491c1ffba8ca87540413aac0357a85ba458400fceec5b39e035c36a64d6709",
+        "44dd7729ed0f91caee9fc5dac9751789ba860aed03c19d833a5cbf3003df17cc",
+        "28aa23faa9b72c44b29d9ed21dc99d3e5cfd5bae8b6d278d59951ddded539420",
+        "81830a8bcdb9b3b87563eb8f603fb2f7b2f107b919dc93a8bec258c0dcef3e03"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 10,
+      "recordingId": 11,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 10,
+      "channelName": "CH11_C2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 25956000,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH10.npy",
+      "npySha1": "b5a79faa68f079e2f2d256ca75000accd71af168",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 11,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "4469c6b0",
+      "prefixHashes": [
+        "798aca1d52f6a3a950636e2d341bbe29b9742555881ec2c5a2fc49b18a2f5dfd",
+        "c59ba960ab7f0652645026c6845cf9966cf6c57ab2ea8b57de7114f939047c5d",
+        "f38adc55de1515ba94c30573b841eb4b1bda873d1f139325a55ab373abade9c6",
+        "6effb036ebab6cf220539436e327ad847ca389b5c3d677d53e33a10fa77c6110",
+        "4469c6b063eea2565cf9402cfb76588ed13c584fb0f0123600956dba14f5398c"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 11,
+      "recordingId": 12,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 11,
+      "channelName": "CH12_C2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 28551600,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH11.npy",
+      "npySha1": "2416f1e650d37dc1a745e97339926f5dface8205",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 12,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "e07d1255",
+      "prefixHashes": [
+        "ad473dcb4733c99c2a88e0e9d1ed9e1b7d61769729e3ca9cf43e6054c207f4ff",
+        "6f95bbfb992eb9607055cae153faca91bc71861ab44864a8aeff9966c23660bb",
+        "408f508cebba1acfad65ee11d0cb67eb868489a9b4ee96857a9a058cd2044fb0",
+        "316b37fdb4900c9ab8bdc5090ae1b5a429355fd2ddf8abf16cfefaea9f965c6a",
+        "e07d1255dab5042b82b6c437062df41d037acd878d7a946f2034bd3dcdcb9a38"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 12,
+      "recordingId": 13,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 12,
+      "channelName": "CH13_D1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 31147200,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH12.npy",
+      "npySha1": "d3b652cfda966b1ae1f3af5c6517d7fd0ac1e9e3",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 13,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "4e2f5b61",
+      "prefixHashes": [
+        "da6640211a8fbed7caec96dc335094b73afeaa946d04301323e15bbd2fa05b19",
+        "aea083f2559999c1724a4d7eede485fd7e8ee30715824eb1b71e75d25ee0f964",
+        "e4402654b8ac5625702ce7cf886bca45783c460cb2ddd0a040e7201d31fada6c",
+        "075d046e70af35535945c584f0b37eee597c799d10e099ca7dc3bd9a727f3089",
+        "4e2f5b618993681346e248e75c2483ddaf5a3c191ed3f4595483cb610d50be6b"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 13,
+      "recordingId": 14,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 13,
+      "channelName": "CH14_D1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 33742800,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH13.npy",
+      "npySha1": "29365ff8828f5280d049f36777407e17351b4b8f",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 14,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "ba7c9f42",
+      "prefixHashes": [
+        "64e424afd650ec7f0c862eca8bced3f44e5a543eaf1c84b8ed1bff823ef3877d",
+        "7d922ab4b10a5a18a55bf5346199f58dec8b54cca159c9075b7d289298449166",
+        "40fad5cc1659f75f7b274356fbe123979342cf0e7c09291e7e89941fb1be44b1",
+        "fcb6187e1b885b242a1e966b69aebfb801d1d91aa7913f1c9ff8328170e561dd",
+        "ba7c9f423880f5ef6bf96f13b5d0e5d4ba55e2ad1eaac63a049bdc71c3eda36a"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 14,
+      "recordingId": 15,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 14,
+      "channelName": "CH15_D2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 36338400,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH14.npy",
+      "npySha1": "4b6be3024c3f63a25190d35a787befc75dce21ea",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 15,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "111e3921",
+      "prefixHashes": [
+        "b745204b6e76902b2ec29cdefd22747710b542ca2736170f038f115ba1b294b8",
+        "ff706d18d2d63d1dd08c2a59f95f7453cf81e76cf44f036d47cf83720f225043",
+        "6df8f9db3adc8eb2f2d12f0ea9e5ce934821c6c79c3e929ef6b5d2d4503234bf",
+        "97a63d4bcdf8d47ee3851c704ca95f36e584d1f92c658f9ea62b52d84b2e9850",
+        "111e3921a1a65397ddc6baa8d4d1b6fdd2923c52989be21c44c1d68796657184"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 15,
+      "recordingId": 16,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 15,
+      "channelName": "CH16_D2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 38934000,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH15.npy",
+      "npySha1": "75ef540170756e17bf36cb8ef9762f012852726f",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 16,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "5ab53e75",
+      "prefixHashes": [
+        "8c0b48cf3f59ca2199864c51c085f508ba0a377848e40c66542b2f4913941dc9",
+        "238e5b047d92cf314ad1f182acc0430b952f8ac1997abf9dfe9a1754defc2c92",
+        "f5cb0106cfea12cf6ed2d73897d5a3829f3ed8a22200fab8bcc1a0033b6a6b69",
+        "99af9fbf9fefc1ac7e95ec91feceb5fc6530125f5807e70aa3a1e72308115d69",
+        "5ab53e755dc8e1aed7742796377d6be335e497840a50b3dc43a68a3488e43ea4"
+      ],
+      "chunks": []
+    }
+  ]
+}

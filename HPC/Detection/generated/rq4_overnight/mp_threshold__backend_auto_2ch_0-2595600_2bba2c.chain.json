@@ -1,0 +1,185 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "mp_threshold__backend_auto",
+  "runKey": null,
+  "sessionId": null,
+  "template": "mp_threshold__backend_auto",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "detrend",
+      "params": {
+        "mode": "rolling_mean",
+        "window_s": 600.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "matrix_profile",
+      "params": {
+        "backend": "auto",
+        "window_min": 1.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "threshold",
+      "params": {
+        "threshold": 8.0
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    2595600
+  ],
+  "sourceFile": "M2_aug_concat_fs1.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": true,
+    "partition": "a100",
+    "cpus": 4,
+    "condaEnv": "torch_env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 2,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 1,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 0,
+      "channelName": "CH1_A1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH0.npy",
+      "npySha1": "11ff75b1414110706bcedaa5014bc88dad58ce92",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 1,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "matrix_profile",
+            "params": {
+              "backend": "auto",
+              "window_min": 1.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 8.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "99f30e73",
+      "prefixHashes": [
+        "86f1e9f1bea99b93a769fad3fdecae9d38c254036de36c2b81ff3d67cb8f53c6",
+        "5b40e349b2acff4e418f28a3be59823173ba863043ff0abaa9d2e40f84625298",
+        "99f30e73869d63d89c35017e37320c0d75f93ada6d441c1f653bd8f81f83a829"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 2,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 1,
+      "channelName": "CH2_A1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 2595600,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH1.npy",
+      "npySha1": "2e7d50f90329731f32008150e0ce8b3bb342bc4e",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 2,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "matrix_profile",
+            "params": {
+              "backend": "auto",
+              "window_min": 1.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 8.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b3ada035",
+      "prefixHashes": [
+        "69073d48d1214d89416c5c03cd174e2f2c9bc172003befb87ad21a11d5588c97",
+        "4d601cec97f6d018f2d7785ee61221fa104be143a6ea61383dd079f750806b66",
+        "b3ada035af490e641d74262da05d25da8089f273b3c1bff5d11ac4357b172d14"
+      ],
+      "chunks": []
+    }
+  ]
+}

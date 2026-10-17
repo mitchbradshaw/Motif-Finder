@@ -1,0 +1,1070 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "cnn_recurrence_1min",
+  "runKey": null,
+  "sessionId": null,
+  "template": "cnn_recurrence_1min",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "sliding_windows",
+      "params": {
+        "gap_s": 0.0,
+        "window_s": 60.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "catalogue",
+      "algorithm": "cnn_window_scores",
+      "params": {
+        "image_type": "recurrence",
+        "model_path": "MODELS/recurrence_cnn.pth",
+        "resample_to": 600
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "threshold",
+      "params": {
+        "threshold": 0.5
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    2595600
+  ],
+  "sourceFile": "M2_aug_concat_fs1.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 16,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 1,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 0,
+      "channelName": "CH1_A1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH0.npy",
+      "npySha1": "11ff75b1414110706bcedaa5014bc88dad58ce92",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 1,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "3fd1bac2",
+      "prefixHashes": [
+        "b5ce28639dba029286142eac0bc3698e5aa45c8d63bb30d0c629a76385f4fb52",
+        "462f1e6c9322a03574ded8f9aa258bf8eed50e6a98caa38503136d35a9568633",
+        "3fd1bac2d455aa220e2c385b742ebc7bf463e6c8305b319d3196e8047a706867"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 2,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 1,
+      "channelName": "CH2_A1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 2595600,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH1.npy",
+      "npySha1": "2e7d50f90329731f32008150e0ce8b3bb342bc4e",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 2,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b5f965af",
+      "prefixHashes": [
+        "103365d1747fa6dd51399c76505d6a8728e3da24efbe927b52968e60fe93ba30",
+        "b9edb0f19c62b3db9cb1d781838f4850acb986c0c9abaf16f970a40ea20199e5",
+        "b5f965afef56890d5227ee529048fb7420ea7ff30e7bbdee9a7f8c8d04547107"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 3,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 2,
+      "channelName": "CH3_A2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 5191200,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH2.npy",
+      "npySha1": "fddce685beababbe673ad6fe46f6679288c59ef6",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 3,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "10835fcb",
+      "prefixHashes": [
+        "76cd609d3bbfc4e1c325ed65df42c7045546fe3852d311d0439a845005c05fa4",
+        "76c32072b1ad98ada335c4f2d32e581e03a04bc69df256611c336a4da79509a0",
+        "10835fcb7d7982c071e7bb4595d5633519e89d58cdbdb069ad1808a2b6822bca"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 4,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 3,
+      "channelName": "CH4_A2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 7786800,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH3.npy",
+      "npySha1": "2cc973d8ae05dae5cd29870dc61b731d07371409",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 4,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "30a29506",
+      "prefixHashes": [
+        "31c08ac442d960205a9c9cb32f978fa806d4cbe4a18dc5db88eb383f60ffd55d",
+        "e5ba3786710a2ebaa416f31aa8af1cd03168e52b8d927907ca13eeb8aced5bcc",
+        "30a29506e3411a980dcddeef4da50b761ec36cba1c3c78e9f5ef06fe2ce71a5b"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 5,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 4,
+      "channelName": "CH5_B1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 10382400,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH4.npy",
+      "npySha1": "25cbf7cf929ac651dfe0e838dc62fe05b2eb0ca9",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 5,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b7f7bfbd",
+      "prefixHashes": [
+        "b80c12d5eaa026b2c44bf22543948cdf6082f948f882fcacef4237965f67d760",
+        "c98a555d69354c5bbf86e79adff60a56ea8412aaa192ac78b65810edf9089369",
+        "b7f7bfbd3c7336c3ef4ff858480f4185ab09ed79f49273782c8a79607ec10910"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 5,
+      "recordingId": 6,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 5,
+      "channelName": "CH6_B1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 12978000,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH5.npy",
+      "npySha1": "3802a67f63d343a11715a159d94f9f1f7cf60b3e",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 6,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "53ed8f64",
+      "prefixHashes": [
+        "43abac968f01b386bf86ab2c2a72432dfeb37bf677beb06601d7abdf7b668767",
+        "a3ebf412214dee8c4681d1dc20e137ab6b188ef5c660c00690711fdd3480dfe3",
+        "53ed8f641c3aa91b2a02d239311417f2769f9025df2378f4053af642284f8f91"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 6,
+      "recordingId": 7,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 6,
+      "channelName": "CH7_B2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 15573600,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH6.npy",
+      "npySha1": "3d1b8d26ff94f250738403a2e7aa52510540595b",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 7,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "a2ac16cd",
+      "prefixHashes": [
+        "4a2f14270cac5e6d3cf6aeffcd39c39361a64a36940e58073b0b4b28fdf04636",
+        "bc1ef95694e9cb63a64ee9b6befb51afafc32731957c7070c576fb842e55615e",
+        "a2ac16cd151ed64518727da6dfc3530e5bb050e8eaac6d68f0c207e554dd1f5e"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 7,
+      "recordingId": 8,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 7,
+      "channelName": "CH8_B2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 18169200,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH7.npy",
+      "npySha1": "e6a66c488877565fe101b0a801f4b707c0342975",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 8,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "a1fcea63",
+      "prefixHashes": [
+        "a512772aac64953d0bc9cc32b9bc94857f5813e5812e7e71b88bd896ae68fae0",
+        "2a02428feb7839347f2ed7955d25d74c7fbfa4b67f431b463c3ede73f2074cf8",
+        "a1fcea636b5057369daad0cfc685a2ed3eae36f162f1ee294183dd7b0392161c"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 8,
+      "recordingId": 9,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 8,
+      "channelName": "CH9_C1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 20764800,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH8.npy",
+      "npySha1": "137e88e14d6f137b63af6b8cfaf5ffdb8e9c2739",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 9,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "a0048157",
+      "prefixHashes": [
+        "58b39c7607341495363599577839c00874c3f0b098735da13d05e2a4bd8b41a0",
+        "7f53d56b4373c4da87d962f8ed5bc24dc8dbeed5567671d1937f703c9fa631cd",
+        "a0048157418192709d4f2c0deb99432903479b4f4d2c8a4ce15d327f71355b1b"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 9,
+      "recordingId": 10,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 9,
+      "channelName": "CH10_C1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 23360400,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH9.npy",
+      "npySha1": "7883268ccc20decb1ce035b1dec35fafb784067d",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 10,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "270f09cd",
+      "prefixHashes": [
+        "b512da2010f19c481aec9a231f036b4094a0f811f2327e57bea2bf48b1f99ff8",
+        "464704dc6ddcd3d4a58aa548371c29f36575175ed3a6272175a76eec1982cb7b",
+        "270f09cdc2f815923d881b2fe7ff5a7d88684f1ea433d75e38fc6f1dd24182ed"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 10,
+      "recordingId": 11,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 10,
+      "channelName": "CH11_C2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 25956000,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH10.npy",
+      "npySha1": "b5a79faa68f079e2f2d256ca75000accd71af168",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 11,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "431bf3a1",
+      "prefixHashes": [
+        "39ea4073fac63ed26032f98269cc4c7f81d63fee76c97796fa5c406e15713011",
+        "d206aef1d32be2ddacfb7c33b1cc10428a6448d14bbaf3e7dc1175ae3091c693",
+        "431bf3a12f3ae7b4465fa695a26cbe7b559779cf6f1c1d9a1628f8115590feb4"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 11,
+      "recordingId": 12,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 11,
+      "channelName": "CH12_C2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 28551600,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH11.npy",
+      "npySha1": "2416f1e650d37dc1a745e97339926f5dface8205",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 12,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "ea1b6bfb",
+      "prefixHashes": [
+        "3dc05c049e5ebc6847238eece1aabb1520a1eb8c52642a85ec706d236e186fc5",
+        "f9d875d1801872cf0605600d1ae75e798e4b21d0ea4b8d9639187b766ccffc26",
+        "ea1b6bfb54909d6e12e972c662e32ac8a18fcc95a43d190e9cf65053b9db1238"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 12,
+      "recordingId": 13,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 12,
+      "channelName": "CH13_D1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 31147200,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH12.npy",
+      "npySha1": "d3b652cfda966b1ae1f3af5c6517d7fd0ac1e9e3",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 13,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "a9e39d5a",
+      "prefixHashes": [
+        "b7f4a275f0c4d64fe22fd5333d5dd6fa2ea30cab327b897da9e37926330ac031",
+        "d7f440129e391b138a8e9dd735754d317d7251b9573fe8dc44363360cff9cbe3",
+        "a9e39d5a0e6e433da70848b041a855eae4041a3dc907bdaad524bc655d8798cc"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 13,
+      "recordingId": 14,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 13,
+      "channelName": "CH14_D1",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 33742800,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH13.npy",
+      "npySha1": "29365ff8828f5280d049f36777407e17351b4b8f",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 14,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "6817e3c0",
+      "prefixHashes": [
+        "16f1ed8c6589fb3df996a21a2aa3f4ca4e4fdd3fe6d0e42dabccf80ac8bf501c",
+        "e1209abac99f39b00fe23985adf93a0882b0ee4685da8d90fcff67bf2dcfb77c",
+        "6817e3c037cc10f6d26372750ee6a2487ae6f5ff89223cddc8e2df9c74a541ea"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 14,
+      "recordingId": 15,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 14,
+      "channelName": "CH15_D2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 36338400,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH14.npy",
+      "npySha1": "4b6be3024c3f63a25190d35a787befc75dce21ea",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 15,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "beacb257",
+      "prefixHashes": [
+        "95d690f25d7b5ce7e84437d71cdc3de209de8d5754be464b02c868b85326bd56",
+        "2e5da9229610cd50aff420989601ca1f856a2b43266aea74cc301678cf5a8ac2",
+        "beacb25753bc8971336752840dad4b73ec13e3e64a2a4eb09f2930900478f414"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 15,
+      "recordingId": 16,
+      "sourceFile": "M2_aug_concat_fs1.mat",
+      "channel": 15,
+      "channelName": "CH16_D2",
+      "fs": 1.0,
+      "nSamples": 2595600,
+      "globalOffset": 38934000,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the drop-motif seed store's __raw_mv snippets equal these samples x 1000 bit-exactly (410 events, max |ratio - 1000| 1.1e-13); motif depths then run 1.2-98 mV, median 9.1 mV, and sample-to-sample noise is 0.025 mV (MAD) \u2014 the band and the 0.1 mV floor the researcher states for M2.",
+      "npy": "DATA/derived/channels/M2_aug_concat_fs1/CH15.npy",
+      "npySha1": "75ef540170756e17bf36cb8ef9762f012852726f",
+      "npyBytes": 20764928,
+      "span": [
+        0,
+        2595600
+      ],
+      "recipe": {
+        "recording_id": 16,
+        "span": [
+          0,
+          2595600
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "bdb04297",
+      "prefixHashes": [
+        "fe38694ca11b6d3eb88d8dbe8b8a34cd8eceeb0580efbffa1cc6eacbf03ceb97",
+        "49b3ece3fbabd92bc8bc5726623b98d3166857e91b0f4d06c1233102490ab4f4",
+        "bdb0429744b726b4a558caa982a469a53e68a7e37a5fc04ff8a4fea7d873a8e5"
+      ],
+      "chunks": []
+    }
+  ]
+}

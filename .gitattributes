@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# SLURM scripts: sbatch refuses DOS line breaks (HPC/README.md), so a .sh is always checked out with LF,
+# whatever core.autocrlf says on the machine
+*.sh text eol=lf

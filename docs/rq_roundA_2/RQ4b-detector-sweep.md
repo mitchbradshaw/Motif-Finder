@@ -122,6 +122,17 @@ at once.
 - **A null of 1 draw is allowed** for sweeps (Settings › Nulls; the floor was 20). Changed in
   `webui/client/src/settings/NullsPage.tsx` on 2026-10-17. A kind that reports a p is still bounded by the α check.
 - **M4_aug is used for demos from now on** (P1); see RQ1b's open decision on the held-out exam.
+- **2026-10-17, evening: the first sweep runs overnight on the cluster, before P2 merges.** It covers M2_aug, all 16
+  channels, the whole signal, 1 null draw.
+  - What runs: the 13 base templates and the 24 volts variants, plus the 12 W4-A CNN templates.
+  - Results come back later: an adoption step registers each job as a waiting Discovery run once P2 is merged.
+- **Scales:** 10-minute and 1-hour windows plus the whole signal, each scale treated as its own version of the
+  algorithm (its own Map row). Windows wait for P3, and the decision is written into P3's brief.
+- **Matrix profile, first look:** the real signal on CH1_A1 and CH2_A1 on the A100. It is run as one
+  `mp_threshold` with `backend: auto` and its null, so the other three MP templates can read the profiles from the
+  cache.
+- **The account runs three jobs at once, CPU and A100 together.** The sweep is therefore packed into two CPU and
+  two A100 jobs; the fourth queues.
 
 ## What is still needed
 
@@ -156,3 +167,14 @@ at once.
 - 2026-10-17 · a2-p2 · template runs round-trip to the cluster (chain job, import into the step cache, the local
   sweep writes the rows); the matrix-profile cap is routing, not a refusal; profile files named by span and key;
   chunked profiles; walls per partition recorded (only a100-test's measured).
+- 2026-10-17 · overnight sweep · 43 P2 chain jobs, 674 tasks, packed as `rq4_cpu1/2` (cpu, 8 cores, 20-min wall,
+  chained) and `rq4_gpuA/B` (a100, 8 cores, no `--time`).
+  - Where it lives: branch `rq4/sweep-code` (main + `a2/p2-hpc-round-trip`, not main), in the worktree
+    `.claude/worktrees/rq4-sweep`. The generator is `scripts/rq4_overnight.py` there; it writes
+    `HPC/Detection/generated/rq4_overnight/`.
+  - Checked locally: the merged tree passes `tests/test_chain_job.py` and `tests/test_template_cnn_window_scores.py`
+    (55). Four packs on a 5.5 h section ran 50 tasks with no crash. P2's `verify_results` and `restore_cache`
+    accepted every result.
+  - Measured locally, one whole-signal task (real run + 1 draw, one channel), the PC loaded: 133–415 s and
+    18–56 MB per CPU task. About 20 GB comes back in all.
+  - Not yet: run on the cluster, imported, or read.

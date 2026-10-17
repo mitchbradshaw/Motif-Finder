@@ -63,6 +63,16 @@ Both go through `run_recipe.py` rather than a stage-specific script, so the
 cluster run registers its own `runs`/`artifacts` rows and the returned artifact
 appears in the UI with no separate import step.
 
+Two more generators work in packs, because the account runs three jobs at once (below):
+
+- **`scripts/seed_job_parallel.py`** splits a Seed-page seed job into one job per channel (`split`), packs those into
+  three jobs (`pack`), and merges the results back (`merge`).
+- **`scripts/rq4_overnight.py`** writes the RQ4 sweep (`HPC/Detection/generated/rq4_overnight/`): P2 chain jobs,
+  packed into two CPU and two A100 jobs. It imports `Working.discovery.chain_job`, which is on branch
+  `a2/p2-hpc-round-trip` and not yet on main. Until P2 merges, the cluster gets that code from
+  `HPC/Detection/generated/rq4_overnight_upload.tar.gz` (the code, the jobs and the four CNN models; not tracked),
+  built from branch `rq4/sweep-code`.
+
 Generated window-matrix jobs take a chain position as `$1` (defaulting to 1) and
 pass `--force`, because `execute_recipe` short-circuits on a completed run for
 the same recipe and span — without it a resuming job would "reuse" the partial
@@ -152,6 +162,11 @@ they were hit and fixed in session (2026-08-31), so treat them as load-bearing:
   everything `run_recipe.py`'s own imports need beyond `aeon` itself
   (`numpy`/`pandas` etc.) — if a *different* `ModuleNotFoundError` shows up
   next, that's the first thing to check.
+- **Only three jobs run at once.** More are accepted and wait in the queue (the researcher, 2026-10-17, with
+  16 one-channel seed jobs submitted). Splitting work into many small jobs therefore stops paying after three.
+  Pack the work into three jobs that each use several cores instead. A seed search is single-threaded (CPU time
+  1.08× wall time, about 0.5 GB per channel, measured locally), so
+  `scripts/seed_job_parallel.py pack --jobs 3` runs one channel per core inside each of three jobs.
 - **Generated scripts must use LF line endings, not CRLF.** `sbatch` rejects
   a script outright with `"Batch script contains DOS line breaks"`. On
   Windows (this repo's dev environment), Python's default text-mode file
