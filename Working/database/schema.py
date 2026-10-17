@@ -1570,8 +1570,15 @@ def migrate_legacy_detections(conn):
 #: 1-hour windowed application over 16 channels of M2_aug (46,000 runs), 1.4 s once it holds a 10-minute one
 #: (277,000). After the first full scan of a file in a process, only the rows written since are checked: a legacy
 #: (span-relative) row is one below its run's span_start, so when no new row is, the migration has nothing new to do
-#: and is not run again. A run written since that is merely ambiguous (span_length > span_start, its rows absolute:
-#: every window but the first of a windowed application) is no longer warned about on every open.
+#: and is not run again. A run written since that is merely ambiguous (span_length > span_start, so a relative index
+#: could pass for an absolute one: of a windowed application's windows, those that start within one window length of
+#: the recording's start, the first excepted — it starts at 0 and is never scanned) is no longer warned about on
+#: every open.
+#:
+#: The mark is kept per file, not per path (the critic's m9): keyed by the path and the file's identity (its device
+#: and inode — the NTFS file index on Windows), and it remembers the row it names. A database put back at the same
+#: path — a backup moved over it (another file), or copied over it (the same file, other rows) — whose legacy rows lie
+#: below the mark is scanned whole again.
 _LEGACY_SCANNED: dict = {}
 
 
@@ -1580,20 +1587,35 @@ def _database_file(conn):
     return (row[2] if row is not None else "") or ""
 
 
+def _file_identity(path):
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_dev, st.st_ino)
+
+
+def _mark_row(conn, detection_id):
+    row = conn.execute("SELECT run_id, start_idx, end_idx FROM detections WHERE id = ?",
+                       (int(detection_id),)).fetchone()
+    return tuple(int(x) for x in row) if row is not None else None
+
+
 def _migrate_legacy_detections(conn):
     path = _database_file(conn)
+    key = (path, _file_identity(path)) if path else None
     top = int(conn.execute("SELECT COALESCE(MAX(id), 0) FROM detections").fetchone()[0])
-    seen = _LEGACY_SCANNED.get(path) if path else None
-    if seen is not None and top >= seen:
+    seen = _LEGACY_SCANNED.get(key) if key else None
+    if seen is not None and top >= seen[0] and _mark_row(conn, seen[0]) == seen[1]:
         fresh = conn.execute(
             "SELECT 1 FROM detections d JOIN runs r ON r.id = d.run_id "
-            "WHERE d.id > ? AND r.span_start > 0 AND d.start_idx < r.span_start LIMIT 1", (seen,)).fetchone()
+            "WHERE d.id > ? AND r.span_start > 0 AND d.start_idx < r.span_start LIMIT 1", (seen[0],)).fetchone()
         if fresh is None:
-            _LEGACY_SCANNED[path] = top
+            _LEGACY_SCANNED[key] = (top, _mark_row(conn, top))
             return
     migrate_legacy_detections(conn)
-    if path:
-        _LEGACY_SCANNED[path] = top
+    if key:
+        _LEGACY_SCANNED[key] = (top, _mark_row(conn, top))
 
 
 # ── fixup-AD: `review_queues` learns the suspected-artifact kind ─────────────
