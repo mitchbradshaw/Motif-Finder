@@ -7,6 +7,7 @@ import {
   SectionCard, fmtInt, recordDemoWrite, useNotWired, useQueryState, useSim, type BadgeStatus, type SlideEvent, type SlideSort,
 } from '../kit'
 import { Header } from '../shell/Header'
+import { useHeldOutLock } from '../shell/heldOutLock'
 import { useToast } from '../shell/Toast'
 import { navigate, setQuery } from '../state'
 import { useSourced } from '../api/seam'
@@ -51,6 +52,8 @@ function SourceBody({ block }: { block: SourceBlock }) {
   const [excludeArtifacts, setExcludeArtifacts] = useQueryState('artifacts', 'out')
   const [adjOnly, setAdjOnly] = useQueryState('adjudicated', '')
   const [recordingQ, setRecordingQ] = useQueryState('recording', 'all')
+  // a2-p1 fix round (m3): M4_aug is offered as locked only while Settings › Datasets' lock is on
+  const heldOut = useHeldOutLock()
   const [channelQ, setChannelQ] = useQueryState('channel', 'all')
   const [alignQ, setAlignQ] = useQueryState('align', 'onset')
   const [distanceQ, setDistanceQ] = useQueryState('distance', block.family.threshold.toFixed(2))
@@ -239,7 +242,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
                 options={['0.25', '0.30', '0.35', '0.40', '0.50'].map(v => ({ value: v, label: v }))} />
               <Dropdown size="sm" testid="filter-recording" prefix="recording" value={recordingQ} onChange={v => { setRecordingQ(v); setPage(1) }}
                 options={[{ value: 'all', label: 'all' }, ...fam.recordings.map(r => ({ value: r, label: r })),
-                  { value: 'M4_aug', label: 'M4_aug', disabled: true, reason: 'M4_aug_concat_fs1.mat is held out (D6) · every workspace refuses it' }]} />
+                  ...(heldOut.on ? [{ value: 'M4_aug', label: 'M4_aug', disabled: true, reason: 'M4_aug_concat_fs1.mat is held out (D6) · every workspace refuses it while the lock is on — turn it off in Settings › Datasets' }] : [])]} />
               <Dropdown size="sm" testid="filter-channel" prefix="channel" value={channelQ} onChange={v => { setChannelQ(v); setPage(1) }}
                 options={[{ value: 'all', label: 'all' }, ...channels.map(ch => ({ value: ch, label: ch }))]} />
             </div>

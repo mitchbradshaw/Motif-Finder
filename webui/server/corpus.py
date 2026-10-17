@@ -18,6 +18,7 @@ from Working.database import queries as q
 from Working.database import runs as r
 from Working.database.runs import list_runs, load_recipe
 from Working.database.schema import BUSY_TIMEOUT_S, VERDICTS
+from Working.registration import settings as _settings
 from Working.units import to_mv_factor
 
 from .decimate import envelope
@@ -57,6 +58,32 @@ def dataset_name(conn, source_file: str) -> str:
 def dataset_names(conn) -> dict:
     """`source_file -> name` for every registered file, in one query."""
     return _datasets.display_names(conn)
+
+
+# ── the held-out lock (a2-p1) ────────────────────────────────────────────────
+#: How a refusal of the held-out recording says to unlock it — the core's own sentence.
+HELD_OUT_UNLOCK_HINT = _settings.HELD_OUT_UNLOCK_HINT
+
+
+def held_out_locked(conn) -> bool:
+    """Settings › Datasets' held-out lock as it stands NOW: the core's one
+    predicate (`Working.registration.settings.held_out_locked`), asked per
+    request and never cached here, so turning the lock off or on takes effect on
+    the next request with no bridge restart."""
+    return _settings.held_out_locked(conn)
+
+
+def is_held_out(conn, source_file) -> bool:
+    """True when `source_file` is the held-out recording AND the lock is on —
+    the bridge's one question before a 423 or a list exclusion. The file name is
+    compared first, so any other recording costs no settings read."""
+    return source_file == HELD_OUT_FILE and _settings.held_out_locked(conn)
+
+
+def held_out_refusal(what: str) -> str:
+    """The sentence a refusal carries while the lock is on: the file, what is
+    refused, and how to unlock it."""
+    return f"{HELD_OUT_FILE} is held out (spec §0 D6): {what} while the lock is on — {HELD_OUT_UNLOCK_HINT}"
 
 
 @functools.lru_cache(maxsize=32)
@@ -129,6 +156,7 @@ def recordings(conn) -> list[dict]:
     for row in rows:
         by_file.setdefault(row["source_file"], []).append(row)
     names, meta = dataset_names(conn), _datasets.list_datasets(conn)
+    locked = held_out_locked(conn)          # a2-p1: once per read, from the settings row as it stands now
     out = []
     for sf, chans in by_file.items():
         chans.sort(key=lambda c: c["channel"])
@@ -152,9 +180,9 @@ def recordings(conn) -> list[dict]:
             "fs_source": c0.get("fs_source") or "unrecorded",
             "warnings": json.loads(c0["warnings_json"]) if c0.get("warnings_json") else [],
             "excerpt_of": parent,
-            "n_channels": len(chans), "held_out": sf == HELD_OUT_FILE,
-            "held_out_reason": (f"{HELD_OUT_FILE} is held out (spec §0 D6 / Working.config.HELD_OUT_RECORDING_FILE); "
-                                "the bridge refuses every request for it and the pages never draw it") if sf == HELD_OUT_FILE else None,
+            "n_channels": len(chans), "held_out": sf == HELD_OUT_FILE and locked,
+            "held_out_reason": (held_out_refusal("the bridge refuses every request for it and the pages never draw it")
+                                if sf == HELD_OUT_FILE and locked else None),
             "channels": [{"id": c["id"], "channel": c["channel"],
                           "name": channel_name(sf, c["channel"], len(chans)),
                           "npy_exists": os.path.isfile(c["npy_path"])} for c in chans],
@@ -171,7 +199,7 @@ def recording_row(conn, recording_id: int) -> dict | None:
     d = dict(row)
     n_ch = conn.execute("SELECT COUNT(*) FROM recordings WHERE source_file = ?", (d["source_file"],)).fetchone()[0]
     d["name"] = channel_name(d["source_file"], d["channel"], n_ch)
-    d["held_out"] = d["source_file"] == HELD_OUT_FILE
+    d["held_out"] = is_held_out(conn, d["source_file"])      # a2-p1: the lock as it stands now
     d["duration_s"] = d["n_samples"] / d["fs"]
     d["display_unit"] = display_unit(d)
     return d
@@ -319,7 +347,7 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
                            "rules": {"containment": DIV.containment_rule_text(DIV.containment_from_settings(conn)),
                                      "extent": DIV.extent_rule_text(DIV.rule_from_settings(conn))},
                            "verdicts": "every verdict counts here; the verdict filter shapes the annotation layers only"},
-            "held_out": source_file == HELD_OUT_FILE, "compute_ms": (time.perf_counter() - t0) * 1e3}
+            "held_out": is_held_out(conn, source_file), "compute_ms": (time.perf_counter() - t0) * 1e3}
 
 
 def _finite(v):

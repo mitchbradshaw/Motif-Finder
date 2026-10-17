@@ -336,7 +336,6 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
                               on_step_result=None):
     from Working.config import (
         HELD_OUT_RECORDING_FILE,
-        HELD_OUT_UNLOCK,
         STEP_CACHE_ROOT,
         STEP_CACHE_WRITE_THRESHOLD_S,
     )
@@ -345,12 +344,15 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
     if recording is None:
         raise ValueError(f"No recording with id={recipe['recording_id']}")
 
-    # Guard against accessing the held-out recording unless explicitly unlocked
-    if not HELD_OUT_UNLOCK and recording["source_file"] == HELD_OUT_RECORDING_FILE:
-        raise HeldOutRecordingLocked(
-            f"Access to held-out recording '{HELD_OUT_RECORDING_FILE}' is locked. "
-            f"Set HELD_OUT_UNLOCK=True in Working/config.py to temporarily allow access."
-        )
+    # Guard against accessing the held-out recording while it is locked: Settings › Datasets' switch, read
+    # now (a2-p1), or the HELD_OUT_UNLOCK override a script may set — both inside `held_out_locked`
+    if recording["source_file"] == HELD_OUT_RECORDING_FILE:
+        from Working.registration.settings import HELD_OUT_UNLOCK_HINT, held_out_locked
+        if held_out_locked(conn):
+            raise HeldOutRecordingLocked(
+                f"Access to held-out recording '{HELD_OUT_RECORDING_FILE}' is locked: "
+                f"{HELD_OUT_UNLOCK_HINT}."
+            )
 
     # Hard-fail before any computation (or run row) — a hand-edited or
     # cluster-generated recipe that bypassed `Working.recipes.make_recipe`

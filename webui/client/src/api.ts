@@ -1556,3 +1556,12 @@ export interface DiscSeedPickerQuery {
 }
 export interface DiscSeedPage { grouping?: DiscSeedGrouping | null; groupings?: DiscSeedGrouping[] }
 export const getDiscoverySeedPicker = (q: DiscSeedPickerQuery) => req<DiscSeedPage>(`/api/discovery/seeds${dq({ ...q })}`)
+
+/* ---------------- a2-p1: the held-out lock ---------------- */
+/** GET /api/held-out — the lock every route obeys now: Settings › Datasets' `heldout.on` (or a script's
+ *  HELD_OUT_UNLOCK override). `locked` is the effective state the header chip shows; `on` is the setting alone;
+ *  `unlock` says how to turn it off. Read per request on the bridge; nothing is cached there. */
+export interface HeldOutLockState {
+  locked: boolean; on: boolean; recording: string; name: string; file: string; unlock: string; override: boolean
+}
+export const getHeldOutLock = () => req<HeldOutLockState>('/api/held-out')

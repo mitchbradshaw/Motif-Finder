@@ -65,6 +65,15 @@ at once.
 - A cell is detections per covered hour. Where runs overlap, the newest run wins, so sections stitch without double
   counting.
 
+### The held-out lock (a2-p1, 2026-10-17)
+
+- **M4_aug follows Settings › Datasets' lock switch** (branch `a2/p1-held-out-lock`; live once it is merged and the
+  bridge restarted). Off: Explore, Analyse, Discovery (scope, apply, seed search, the Map) and Review and Library use
+  it like any other recording. On: every one of those refuses it again (423), and each refusal says how to unlock.
+  No restart either way: every route reads the switch on every request.
+- The real database has had the lock **off** since 2026-10-17 15:02 (audit 519), so M4_aug can join the sweep.
+- RQ1's exam (iii) and the Library importers keep their own lock whatever the switch says.
+
 ### What blocks the full design today
 
 1. **Template runs on the HPC never come back.**
@@ -84,7 +93,8 @@ at once.
    - its default model has one class.
 
    → **`docs/prompts/blocks/W4-A-cnn-window-scores.md`** (12 CNN templates: 4 models × 1 / 10 / 60 min).
-5. **M4_aug cannot be used** although the lock was turned off in Settings › Datasets at 15:02 today. → **P1.**
+5. ~~**M4_aug cannot be used** although the lock was turned off in Settings › Datasets at 15:02 today. → **P1.**~~
+   Done by a2-p1 (2026-10-17): every refusal now obeys the switch; see *The held-out lock* above.
 
 ## Decisions already made (the researcher, 2026-10-17)
 
@@ -115,7 +125,7 @@ at once.
 
 | Step | Owner |
 |---|---|
-| The held-out lock honours Settings › Datasets | P1 |
+| ~~The held-out lock honours Settings › Datasets~~ — done 2026-10-17, a2-p1 (branch `a2/p1-held-out-lock`) | ~~P1~~ |
 | HPC template runs return as real Discovery runs, cached and reusable; matrix profile over the whole span on the cluster | P2 |
 | Windowed detection: window length + overlap as a run setting, results stitched and de-duplicated | P3 |
 | The CNN window-score block and its 12 templates | W4-A |
@@ -151,3 +161,5 @@ at once.
   - Measured locally, one whole-signal task (real run + 1 draw, one channel), the PC loaded: 133–415 s and
     18–56 MB per CPU task. About 20 GB comes back in all.
   - Not yet: run on the cluster, imported, or read.
+- 2026-10-17 · a2-p1 · the held-out lock obeys Settings › Datasets everywhere but exam (iii) and the Library importers;
+  with the lock off (as it is in the real database) M4_aug can be swept like any other recording.

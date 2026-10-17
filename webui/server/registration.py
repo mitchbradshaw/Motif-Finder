@@ -203,10 +203,11 @@ def _split_dataset_keys(request: Request, c, values: dict) -> tuple:
 def _put_datasets(c, by_file: dict, keys: dict, actor: str) -> list:
     """Write the dataset fields (uncommitted), audit each file's change by its FILE name; the changed page keys."""
     changed = []
-    lock_on = held_out_state(c)["on"]
+    lock_on = corpus.held_out_locked(c)          # a2-p1: the one predicate every refusal of the file asks
     for sf, fields in by_file.items():
         if sf == HELD_OUT_FILE and lock_on:
-            raise HTTPException(423, f"{HELD_OUT_FILE} is held out · its metadata is read-only while the lock is on (D6)")
+            raise HTTPException(423, f"{HELD_OUT_FILE} is held out · its metadata is read-only while the lock is on (D6) — "
+                                     f"{corpus.HELD_OUT_UNLOCK_HINT}")
         before = datasets.get_dataset(c, sf)
         did = datasets.put_dataset(c, sf, fields, actor=actor, commit=False)
         if did:
@@ -353,8 +354,9 @@ def put_recording_units(request: Request, row_id: int, body: UnitsBody):
         r = c.execute("SELECT source_file, units FROM recordings WHERE id = ?", (row_id,)).fetchone()
         if r is None:
             raise HTTPException(404, f"no recordings row {row_id}")
-        if r["source_file"] == HELD_OUT_FILE:
-            raise HTTPException(423, f"{HELD_OUT_FILE} is held out; its unit is not declared through the interface")
+        if corpus.is_held_out(c, r["source_file"]):
+            # a2-p1: like its other metadata (`_put_datasets`), read-only only while Settings › Datasets' lock is on
+            raise HTTPException(423, corpus.held_out_refusal("its unit is not declared through the interface"))
         try:
             out = declare_units(c, r["source_file"], body.units, note=body.note, actor=body.actor)
         except ValueError as e:

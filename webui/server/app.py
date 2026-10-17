@@ -95,8 +95,8 @@ def create_app(rt: Runtime) -> FastAPI:
             c.close()
         if rec is None:
             raise HTTPException(404, f"no recording id {recording_id}")
-        if rec["held_out"]:
-            raise HTTPException(423, f"{HELD_OUT_FILE} is held out (spec §0 D6 / Working.config.HELD_OUT_RECORDING_FILE); the web UI refuses it")
+        if rec["held_out"]:          # a2-p1: true only while Settings › Datasets' lock is on (corpus.recording_row)
+            raise HTTPException(423, corpus.held_out_refusal("the web UI refuses it"))
         return rec
 
     # the canonical templates are rows from the first start on (prompt 01 "Templates")
@@ -135,6 +135,22 @@ def create_app(rt: Runtime) -> FastAPI:
     def runtime_info():
         return rt.describe()
 
+    @app.get("/api/held-out")
+    def held_out_lock():
+        """a2-p1: the held-out lock as every route obeys it now — what the header chip reads. `locked` is
+        the effective state (Settings › Datasets' `heldout.on`, or the HELD_OUT_UNLOCK override a script
+        may set); `on` is the setting alone. Read per request; nothing here is cached."""
+        import Working.config as _config
+        from Working.registration.settings import held_out_state
+        c = conn()
+        try:
+            state = held_out_state(c)
+            return {"locked": corpus.held_out_locked(c), "on": state["on"], "recording": state["recording"],
+                    "name": state["name"], "file": HELD_OUT_FILE, "unlock": corpus.HELD_OUT_UNLOCK_HINT,
+                    "override": bool(getattr(_config, "HELD_OUT_UNLOCK", False))}
+        finally:
+            c.close()
+
     @app.get("/api/boom")
     def boom(kind: str = "server"):
         """Deliberate failure endpoint for the loud-failure evidence."""
@@ -151,10 +167,10 @@ def create_app(rt: Runtime) -> FastAPI:
 
     @app.get("/api/corpus/{source_file}/coverage")
     def get_coverage(source_file: str, bins: int = 57, verdicts: str | None = None, run: str | None = None, method: str | None = None):
-        if source_file == HELD_OUT_FILE:
-            raise HTTPException(423, f"{HELD_OUT_FILE} is held out; the corpus map refuses it")
         c = conn()
         try:
+            if corpus.is_held_out(c, source_file):          # a2-p1: only while the lock is on
+                raise HTTPException(423, corpus.held_out_refusal("the corpus map refuses it"))
             vs = tuple(v for v in verdicts.split(",") if v) if verdicts else None
             run_ids = [int(r) for r in run.split(",") if r.strip()] if run else None
             return corpus.coverage(c, source_file, bins=max(4, min(400, bins)), verdicts=vs, run_ids=run_ids, method=method or None)
@@ -369,7 +385,8 @@ def create_app(rt: Runtime) -> FastAPI:
             rec_or_423(recording_id)
         c = conn()
         try:
-            held = {r["id"] for r in c.execute("SELECT id FROM recordings WHERE source_file = ?", (HELD_OUT_FILE,))}
+            held = ({r["id"] for r in c.execute("SELECT id FROM recordings WHERE source_file = ?", (HELD_OUT_FILE,))}
+                    if corpus.held_out_locked(c) else set())          # a2-p1: hidden only while the lock is on
             # the run history lists results; a paired surrogate run is its parent's null, not
             # a result, and its n_detections is not a count of detections (fixup-T)
             real = {r["id"] for r in c.execute("SELECT r.id FROM runs r WHERE " + not_surrogate("r"))}

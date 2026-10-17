@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { setDemo, useDemoState } from '../kit'
 import { ApiError, putSettingsPage } from '../api'
 import { refreshDatasetNames } from '../naming'
+import { HELD_OUT_LOCK_KEY } from '../shell/heldOutLock'
 import { useToast } from '../shell/Toast'
 import {
   CONSEQUENCE, DEFAULTS, HELD_OUT_STEM, PAGE_META, SEEDS, SEED_SENTENCE, SLUGS, genericConsequence,
@@ -58,8 +59,9 @@ function ensurePersonal() {
 }
 
 /** The held-out lock (D6) is read outside Settings — the header chip, every picker. Mirror the SAVED
- *  value (never the draft) into its own demo-store key so other workspaces can bind to it. */
-export const HELD_OUT_KEY_STORE = 'settings.heldOut'
+ *  value (never the draft) into its own demo-store key so other workspaces can bind to it. It is the key
+ *  shell/heldOutLock fills from GET /api/held-out (a2-p1), so a save here and the bridge's answer meet. */
+export const HELD_OUT_KEY_STORE = HELD_OUT_LOCK_KEY
 export interface HeldOutLock { on: boolean; recording: string }
 function syncHeldOut(saved: Values) {
   setDemo<HeldOutLock>(HELD_OUT_KEY_STORE, { on: Boolean(saved['heldout.on'] ?? true), recording: String(saved['heldout.recording'] ?? HELD_OUT_STEM) })

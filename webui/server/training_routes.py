@@ -153,6 +153,16 @@ def save_window_set(request: Request, body: SaveBody):
     recipe = snap["recipe"]
     if not (0 <= body.step < len(recipe["steps"])):
         raise HTTPException(422, f"step {body.step} is not in this {len(recipe['steps'])}-step recipe")
+    # a2-p1 fix round (B1): a saved window set is a training artifact, so the held-out recording is refused
+    # here by training's own rule (exam iii), whatever Settings › Datasets' lock says — and before the recipe
+    # re-runs, so a re-locked recording is this 423 rather than the runner's exception
+    c = _conn(request)
+    try:
+        src = c.execute("SELECT source_file FROM recordings WHERE id = ?", (int(recipe["recording_id"]),)).fetchone()
+    finally:
+        c.close()
+    if src is not None:
+        _refuse_held_out(src["source_file"])
     sub = dict(recipe); sub["steps"] = recipe["steps"][:body.step + 1]
     root = rt.window_sets_root
     if os.path.isdir(os.path.join(root, body.name)):
