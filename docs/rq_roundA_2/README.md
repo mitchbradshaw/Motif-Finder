@@ -78,16 +78,18 @@ blocks. The sandbox browser walk (`webui/smoke.py`) cannot finish on a copy of t
 on it time out. The states were checked by hand instead.
 
 **Waiting for the researcher:**
-1. **The short scales** (RQ4b): when a window is shorter than 4 × a template's own averaging (10-minute windows
+1. ~~**The short scales** (RQ4b): when a window is shorter than 4 × a template's own averaging (10-minute windows
    on the 600 s templates, 1-hour windows on the drop detectors): refuse (default), fit the chain, or run it as it
-   is, warned.
+   is, warned.~~ Decided 2026-10-18: as recommended (RQ4b, *Decisions already made*).
 2. **The overnight `auto` profiles** (RQ4b): `mp_threshold`'s variants and `mp_motifs` use `backend: stump`, so they do
    not read the overnight profiles; `auto` variants, or an alias once `scripts/measure_gpu_stump.py` has run on the
    A100.
-3. **The windowed null and the rescue** (RQ4b, "The stitch, the null and Explore").
+3. ~~**The windowed null and the rescue** (RQ4b, "The stitch, the null and Explore").~~ Decided 2026-10-18: the
+   rescue is kept.
 4. **The backfill** for the dip searches' *Add N matches*:
    `python scripts/backfill_seed_entry_ids.py --real`, then `--real --apply`.
-5. **A new held-out exam for RQ1b**: M4_aug is open for the demos.
+5. ~~**A new held-out exam for RQ1b**: M4_aug is open for the demos.~~ Decided 2026-10-18: M4_aug stays the exam,
+   because the Library holds no M4 motifs (RQ1b).
 
 ## Rules (as round A)
 

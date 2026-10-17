@@ -66,6 +66,16 @@ train a CNN on window-pool clusters but not yet on Library families.
   - duplicates and fragments are handled **when RQ1b's training starts**, not before.
 - **Order (the researcher, 2026-10-17): after the RQ4b detection sweep,** so the sweep's accepted detections can grow
   the Library first.
+- **2026-10-18 (the researcher): M4_aug stays the held-out exam.**
+  - **Why it still counts:** the Library holds no M4 motifs, so nothing trained or grouped has seen it, although M4 is
+    open for the demos.
+  - **Keeping it that way:**
+    - Don't add M4 matches to the Library while the lock is off (*Add N matches* on an M4 seed run, or a Review
+      promotion of an M4 span). The Library's importers refuse M4 by name whatever the switch says, and training
+      always does.
+    - Turn the lock back on after the demos.
+- **2026-10-18 (the researcher): training data first.** Upload the further datasets, run the existing detectors on
+  them, and review as many motifs as possible (up to about 10,000) to fill RQ1b's training data.
 
 ## What is still needed
 
@@ -92,9 +102,9 @@ train a CNN on window-pool clusters but not yet on Library families.
 - **Which classes?** The ten reviewed families include near-duplicates of one shape at different lengths (troughs
   154 / 164 / 165). Merging by shape rather than by family id is the likely answer.
 - **Window length per class:** fixed (resample every event to 600, as W4-A does), or per-class scale.
-- **Is M4_aug still the held-out exam?** The researcher is using it for demos from 2026-10-17 (see P1). Once it is
+- ~~**Is M4_aug still the held-out exam?** The researcher is using it for demos from 2026-10-17 (see P1). Once it is
   looked at, it is no longer an untouched exam for RQ1 or RQ1b. Choose another held-out pack (a whole M2 pack) before
-  training.
+  training.~~ Decided 2026-10-18: yes, M4_aug stays the exam (*Decisions already made*).
 
 ## Log
 
@@ -102,3 +112,5 @@ train a CNN on window-pool clusters but not yet on Library families.
 - 2026-10-17 · a2-p1 · with Settings › Datasets' lock off, M4_aug opens in Explore, Analyse, Discovery, Review and
   Library (it stays refused by exam (iii) and by training); once looked at there it is no longer an untouched exam, so
   the open decision on the held-out exam above now matters before any RQ1b training.
+- 2026-10-18 · the researcher · M4_aug stays the held-out exam (the Library holds no M4 motifs); the next step is
+  training data: new datasets uploaded, the existing detectors run on them, and up to ~10,000 motifs reviewed.

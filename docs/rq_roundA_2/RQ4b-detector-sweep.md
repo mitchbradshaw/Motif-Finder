@@ -222,6 +222,12 @@ at all. They call almost every minute "interesting".
   keys apart. The decision is under* What is still needed*.)*
 - **The account runs three jobs at once, CPU and A100 together.** The sweep is therefore packed into two CPU and
   two A100 jobs; the fourth queues.
+- **2026-10-18, the window bound at the short scales: as recommended** (the *Decision* below).
+  - *Refuse* stays the default.
+  - The drop detectors run their 1-hour scale *as they are* (warned).
+  - The 10-minute scale is run only for the 600 s threshold family, *as it is*: not `drop_detection_v1`, and
+    `dehshibi_spikes` fitted or not at all.
+- **2026-10-18, the stitch's rescue: kept, as recommended.** A windowed run's × null is read within one scale only.
 
 ## What is still needed
 
@@ -453,11 +459,13 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
   *Measured 2026-10-18 (P3, the tables above): on synthetic recordings windows recover weak drops the whole span misses
   (drop_detection_v1 0 → 40–82 %, v5 0 → 86 %) and add no noise detections; on M2_aug it is not measured yet.
   Recommendation: a choice, beside the whole-span run, until M2_aug's human row agrees.*
-- **The window bound at the sweep's short scales** (refuse, fit, or run as it is): *Decision* above.
-- **The rescue** (P3 fix round, 2026-10-18): it is the stitch rule now (the table in *The stitch, the null and
+- ~~**The window bound at the sweep's short scales** (refuse, fit, or run as it is): *Decision* above.~~ Decided
+  2026-10-18, as recommended (*Decisions already made*).
+- ~~**The rescue** (P3 fix round, 2026-10-18): it is the stitch rule now (the table in *The stitch, the null and
   Explore*). *Options:* keep it (recommended: no event kept twice, up to six more planted events at 75–90 % overlap,
   and × null on noise only reads lower); keep it for the run but not the null (× null would read higher than it
-  should); or drop it (3–9 of about 55 events lost at 25–90 % overlap). *Recommendation: keep it.*
+  should); or drop it (3–9 of about 55 events lost at 25–90 % overlap). *Recommendation: keep it.*~~ Kept, 2026-10-18
+  (*Decisions already made*).
 
 ## Log
 
@@ -503,3 +511,5 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
   (0.82–0.84), and fail at 1 min (0.39–0.51, AUC < 0.5). On M2_aug CH14 they call 95–96 % of 1-minute windows
   interesting. Recommended: 10-minute threshold 0.1; 1-minute templates read as a negative control. Read only; no
   code changed.
+- 2026-10-18 · the researcher · the short scales as recommended (drop detectors at 1 h as they are; 10 min only for
+  the 600 s threshold family, as it is); the stitch's rescue kept.
