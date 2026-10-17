@@ -424,15 +424,6 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
             spec = get_adapter(adapter_name)
             params = spec.validate_params(step.get("params"))
 
-            if spec.max_span_samples is not None and len(x) > spec.max_span_samples:
-                raise ValueError(
-                    f"Step {i} ('{adapter_name}'): span is {len(x)} samples, which "
-                    f"exceeds this adapter's max_span_samples={spec.max_span_samples}. "
-                    "Choose a smaller span — this is an O(n^2)-or-worse encoding "
-                    "and a larger span would attempt to allocate a matrix whose "
-                    "size scales with the square of the span length."
-                )
-
             # Resume walk: the cache key is the recipe prefix through this
             # step. A hit restores the step's typed output from disk and
             # skips `spec.run`; a miss computes it and (if slow enough)
@@ -446,6 +437,18 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
             if from_cache:
                 step_timings[i] = 0.0
             else:
+                # The span cap guards a COMPUTATION, so it is checked here, where
+                # the step is about to compute (round A_2, P2): a cached result is
+                # served whatever its length — a whole-channel matrix profile
+                # computed on the cluster and imported is read back, not refused.
+                if spec.max_span_samples is not None and len(x) > spec.max_span_samples:
+                    raise ValueError(
+                        f"Step {i} ('{adapter_name}'): span is {len(x)} samples, which "
+                        f"exceeds this adapter's max_span_samples={spec.max_span_samples}. "
+                        "Choose a smaller span — this is an O(n^2)-or-worse encoding "
+                        "and a larger span would attempt to allocate a matrix whose "
+                        "size scales with the square of the span length."
+                    )
                 accepted = inspect.signature(spec.run).parameters
                 extra = {}
                 if run_kwargs:

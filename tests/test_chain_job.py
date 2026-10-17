@@ -538,3 +538,23 @@ def test_a_chunked_profile_is_cached_as_the_one_shot_profile(world, monkeypatch)
     finite = np.isfinite(oneshot)
     assert np.array_equal(finite, np.isfinite(chunked))
     np.testing.assert_allclose(chunked[finite], oneshot[finite], rtol=1e-5, atol=1e-5)
+
+
+# ── the command line the script runs ───────────────────────────────────────
+
+def test_the_command_line_computes_a_task_from_the_spec_file_and_reports_the_job(world):
+    """`python -m Working.discovery.chain_job --spec … --out … --task i`, then
+    `--status` for one task and for the whole job (its job.json names the tasks)."""
+    _, spec, made = _export(world, CHEAP, world["ids"][:2], label="cli")
+    assert chain_job.main(["--status", "--out", made["result_dir"]]) == 1, "nothing is back yet"
+    assert chain_job.main(["--spec", made["spec_path"], "--out", made["result_dir"], "--task", "0",
+                           "--budget-s", "600"]) == 0
+    assert chain_job.main(["--status", "--out", made["result_dir"], "--task", "0"]) == 0
+    assert chain_job.main(["--status", "--out", made["result_dir"]]) == 1, "task 1 is still to run"
+    assert chain_job.main(["--spec", made["spec_path"], "--out", made["result_dir"], "--task", "1"]) == 0
+    assert chain_job.main(["--status", "--out", made["result_dir"]]) == 0
+    with open(os.path.join(made["result_dir"], "return", "task1", "result.json"), encoding="utf-8") as f:
+        res = json.load(f)
+    assert res["complete"] is True and res["specHash"] == chain_job.spec_hash(spec)
+    assert all(not e["path"].startswith("/") and "\\" not in e["path"] for e in res["cache"]), \
+        "cache paths are relative to the task folder, with forward slashes, so the folder can move"

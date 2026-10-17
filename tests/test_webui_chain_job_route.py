@@ -232,14 +232,15 @@ def test_the_import_from_discovery_runs_the_sweep_here_and_the_run_is_done(clien
     r = client.post("/api/discovery/chain/import", json={"runKey": key})
     assert r.status_code == 200, r.text
     ack = r.json()
-    assert ack["run_key"] == key and ack["copied"] > 0
+    assert ack["run_key"] == key and ack["entries"] > 0, "checked here; the copy is the job's first act"
     assert _wait_job(client, ack["job_id"])["status"] == "completed"
     run = _runs(client)[key]
     assert run["status"] == "done"
     assert run["found"] == sum(t["run"]["detections"] for t in results), "the rows say what the cluster found"
-    assert run.get("hpcImported") is True
+    assert run.get("hpcImported") is True and run.get("clusterAgrees") is True
     params = _params(client, key)
     assert params["hpc"]["importedAt"] and len(params["run_ids"]) == 2
+    assert params["hpc"]["imported"]["copied"] == ack["entries"], "every verified entry was restored"
     assert params["null"]["drawn"] == 1
     row = _chain_row(client, key)
     assert row["state"] == "imported" and row["open"]["route"].startswith("discovery/")
@@ -301,3 +302,36 @@ def test_an_over_cap_profile_goes_to_the_cluster_and_comes_back_reusable(client,
     assert _wait_job(client, again["job_id"])["status"] == "completed"
     assert _runs(client)[again["run_key"]]["status"] == "done"
     monkeypatch.setattr(mp, "run", real_run)
+
+
+# ── Analyse: the cap guards a computation, not a cached result ─────────────
+
+MP_STEPS = [
+    {"stage": "preprocessing", "algorithm": "detrend", "params": {"mode": "rolling_mean", "window_s": 600.0}},
+    {"stage": "detection", "algorithm": "matrix_profile", "params": {"window_min": 1.0, "backend": "stump"}},
+    {"stage": "detection", "algorithm": "threshold", "params": {"threshold": 8.0}},
+]
+
+
+def _analyse_run(client):
+    return client.post("/api/runs", json={"recording_id": 1, "span": [0, N], "steps": MP_STEPS})
+
+
+def test_analyse_serves_an_over_cap_profile_the_cache_holds(client, monkeypatch):
+    mp = get_adapter("detection.matrix_profile")
+    monkeypatch.setattr(mp, "max_span_samples", None)
+    first = _analyse_run(client)
+    assert first.status_code == 200, first.text
+    assert _wait_job(client, first.json()["job_id"])["status"] == "completed"
+    monkeypatch.setattr(mp, "max_span_samples", 500)
+    again = _analyse_run(client)
+    assert again.status_code == 200, again.text          # it used to be a 422: "exceeds its local ceiling"
+    assert _wait_job(client, again.json()["job_id"])["status"] == "completed"
+
+
+def test_analyse_routes_an_uncached_over_cap_profile_to_slurm(client, monkeypatch):
+    monkeypatch.setattr(get_adapter("detection.matrix_profile"), "max_span_samples", 500)
+    r = client.post("/api/runs", json={"recording_id": 2, "span": [0, N], "steps": MP_STEPS})
+    assert r.status_code == 422, r.text
+    body = r.json()["detail"]
+    assert body["route"] == "cluster" and body["slurm"]["sbatch_command"].startswith("sbatch "), body

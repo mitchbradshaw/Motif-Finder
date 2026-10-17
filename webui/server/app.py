@@ -234,8 +234,10 @@ def create_app(rt: Runtime) -> FastAPI:
                 c.close()
             out["estimate"] = chain_mod.estimate(recipe, n, rec["fs"])
             out["route"] = {k: routed[k] for k in ("route", "estimate_s", "ceiling_s", "slowest")}
-            out["over_ceiling"] = [i for i, s in enumerate(recipe["steps"])
-                                   if (lambda spec: spec.max_span_samples is not None and n > spec.max_span_samples)(chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}"))]
+            # round A_2 (P2): a step the step cache holds is served whatever its span — it is not over anything
+            cached = {s["index"] for s in out["cache"] if s["cached"]}
+            out["over_ceiling"] = [i for i, s in enumerate(recipe["steps"]) if i not in cached
+                                   and (lambda spec: spec.max_span_samples is not None and n > spec.max_span_samples)(chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}"))]
         return out
 
     @app.post("/api/chain/compatible")
@@ -267,9 +269,21 @@ def create_app(rt: Runtime) -> FastAPI:
         except ValueError as e:
             raise HTTPException(422, str(e))
         n = (span[1] - span[0]) if span else rec["n_samples"]
+        # round A_2 (P2): the span cap guards a COMPUTATION. A step the step cache holds (a whole-span matrix
+        # profile imported from the cluster) is served whatever its span; a step over a TIME cap (the matrix
+        # profile's, this machine's budget) is routed with the estimate below — written as a SLURM job — not
+        # refused here; a memory cap still refuses
+        from Working.discovery import routing as _routing
+        c = conn()
+        try:
+            cached = {s_["index"] for s_ in chain_mod.cache_status(dict(recipe, surrogate=True) if body.surrogate
+                                                                   else recipe, c) if s_["cached"]}
+        finally:
+            c.close()
         over = [{"index": i, "name": f"{s['stage']}.{s['algorithm']}", "max_span_samples": chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}").max_span_samples}
                 for i, s in enumerate(recipe["steps"])
-                if chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}").max_span_samples is not None
+                if i not in cached and _routing.cap_kind(f"{s['stage']}.{s['algorithm']}") != "time"
+                and chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}").max_span_samples is not None
                 and n > chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}").max_span_samples]
         if over:
             raise HTTPException(422, {"message": f"stage {over[0]['index'] + 1:02d} ({over[0]['name']}) exceeds its local ceiling of {over[0]['max_span_samples']:,} samples (span is {n:,}); shorten the span or route it to HPC (out of slice scope)",
@@ -297,8 +311,16 @@ def create_app(rt: Runtime) -> FastAPI:
         try:
             routed = chain_mod.route_local(recipe, n, rec["fs"], ceiling_s=chain_mod.analyse_ceiling_s(c),
                                            draws=(null or {}).get("draws", 0))
+            # round A_2 (P2): what the step cache holds costs nothing, in the real run and in each null draw, and a
+            # step that must compute over a time cap goes to SLURM — the rule Discovery's plan uses
+            cost = _routing.target_cost(c, recipe, samples=n, fs=rec["fs"], draws=(null or {}).get("draws", 0),
+                                        surrogate_params=(null or {}).get("params"))
         finally:
             c.close()
+        if cost["cached"] or cost["draws_cached"] or cost["capped"]:
+            routed = dict(routed, route=_routing.route(cost["seconds"], routed["ceiling_s"], capped=cost["capped"]),
+                          estimate_s=(cost["seconds"] if cost["seconds"] is not None else routed["estimate_s"]),
+                          estimate_real_s=cost["real_s"], cached=cost["cached"], capped=cost["capped"])
         if routed["route"] == "cluster":
             raise HTTPException(422, _slurm_refusal(recipe, rec, routed))
         if routed.get("calibrating"):

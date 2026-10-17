@@ -302,6 +302,18 @@ HPC_REMOTE_REPO_ROOT = "/home/Student/s4699158/CNN"
 # own QOS via `sacctmgr show qos` or an actual longer job that succeeds.
 HPC_MAX_WALLTIME_MINUTES = 20
 
+# ── The wall per partition (round A_2, P2) ──────────────────────────────────
+# Measured values only, {partition: minutes}. `a100-test`'s 20 minutes is the
+# QOS refusal above. The `cpu` and `a100` partitions' own limits are NOT
+# measured yet: until the researcher reads them on rangpur and records them
+# here, a job on them asks for HPC_MAX_WALLTIME_MINUTES and says the value is
+# unverified (`Working.hpc.job_export.partition_wall_minutes`). How to read one:
+#   sacctmgr show qos format=Name,MaxWall,MaxTRESPU%40     (the QOS limits)
+#   sacctmgr show assoc user=$USER format=Partition,QOS%30  (which QOS a partition uses)
+#   scontrol show partition cpu | grep -i -E "MaxTime|QoS"  (the partition's own limit)
+# or submit a deliberately long job (--time=01:00:00) and see whether sbatch accepts it.
+HPC_WALLTIME_MINUTES_BY_PARTITION = {"a100-test": 20}
+
 # `sinfo -o "%P %a %l %D %G %f"` on the real account (2026-08-31) is the
 # source of truth here, not a guess: the hand-written scripts' hardcoded
 # `--partition=gpu` does not exist on this cluster at all (`sbatch: error:
