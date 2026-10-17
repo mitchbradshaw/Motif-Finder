@@ -59,6 +59,36 @@ build, and the branch's smoke states on a sandbox bridge).
   bounded by the α check.
 - **`scripts/library_fragment_audit.py`,** the read-only Library audit behind the findings file.
 
+## Built and merged, 2026-10-17/18 (the managing session's ledger)
+
+Each prompt was built by its own implementer in its own worktree, reviewed by one critic, fixed in one round, gated
+(the full suite against the baseline's failure set; `tsc -b` and the build) and merged into `main`, not pushed.
+
+| Prompt | Merge commit | Critic → fixed | Checked beyond the tests |
+|---|---|---|---|
+| P1 held-out lock | `25d0590` | 1 blocker (a training window set saved on M4 with the lock off), 1 major, 3 minor | Sandbox browser: the amber *M4 unlocked* chip, Explore opening M4's map, the toggle re-locking it |
+| P4 seed on demand | `1b9b750` | 1 major (a failed preview was a dead end), 5 minor | Sandbox browser: *Family medoids* on g-05 (149 families); a seed pick starts no job; the backfill's dry run on a copy (10 runs, both dip searches) |
+| P2 HPC round trip | `bdf94d3` | 2 major, 4 minor; the overnight sweep's 43 specs pinned by `tests/test_rq4_overnight_specs.py` | Sandbox rehearsal: export → both tasks run here → *Import results* → Runs ("computed on the cluster, its counts agree"), Jobs, the Map |
+| P3 windowed detection | `7cd0454` | 2 major (window runs counted on Explore; 0 % overlap double count), 10 minor | Sandbox check once `main` holds it (its fast-forward waits on uncommitted RQ4b edits in the main checkout) |
+
+Integration commits (`a2-int:`), each test-first: the seed-results read refuses M4 once re-locked; the Seed page says
+why its seed moved off M4; P2's held-out checks follow P1's lock; the block-classification test reads only shipped
+blocks. The sandbox browser walk (`webui/smoke.py`) cannot finish on a copy of the real database:
+`GET /api/discovery/templates` takes about 4.5 minutes there (it was 2.5–3 before this round), so pages that wait
+on it time out. The states were checked by hand instead.
+
+**Waiting for the researcher:**
+1. **The short scales** (RQ4b): when a window is shorter than 4 × a template's own averaging (10-minute windows
+   on the 600 s templates, 1-hour windows on the drop detectors): refuse (default), fit the chain, or run it as it
+   is, warned.
+2. **The overnight `auto` profiles** (RQ4b): `mp_threshold`'s variants and `mp_motifs` use `backend: stump`, so they do
+   not read the overnight profiles; `auto` variants, or an alias once `scripts/measure_gpu_stump.py` has run on the
+   A100.
+3. **The windowed null and the rescue** (RQ4b, "The stitch, the null and Explore").
+4. **The backfill** for the dip searches' *Add N matches*:
+   `python scripts/backfill_seed_entry_ids.py --real`, then `--real --apply`.
+5. **A new held-out exam for RQ1b**: M4_aug is open for the demos.
+
 ## Rules (as round A)
 
 1. Move a step from *What is still needed* to *What is known*, with the date and your report's path.
