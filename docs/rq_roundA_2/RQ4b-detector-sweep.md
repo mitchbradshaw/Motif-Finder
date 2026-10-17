@@ -130,7 +130,8 @@ at once.
   algorithm (its own Map row). Windows wait for P3, and the decision is written into P3's brief.
 - **Matrix profile, first look:** the real signal on CH1_A1 and CH2_A1 on the A100. It is run as one
   `mp_threshold` with `backend: auto` and its null, so the other three MP templates can read the profiles from the
-  cache.
+  cache. *(Correction, 2026-10-18, P2 fix round: as things stand they cannot. They say `backend: "stump"`, which
+  keys apart. The decision is under* What is still needed*.)*
 - **The account runs three jobs at once, CPU and A100 together.** The sweep is therefore packed into two CPU and
   two A100 jobs; the fourth queues.
 
@@ -146,6 +147,45 @@ at once.
 | Declare units for M1, M100, M101_t, MJu26a | researcher |
 | The sweep: null draws 1, apply every variant per dataset (M2_aug, M2, Schizophyllum and L_LM first) | researcher |
 | The read-out: Map level 3 → 2 → 1 on M2_aug against the human row; Compare best variants against drop_detection_v1 and against verdicts; one variant per template re-run with 20 null draws | researcher |
+| Decide how the overnight matrix profiles serve the other MP templates (below) | researcher |
+
+### Decision: the overnight matrix profiles and the other matrix-profile templates (P2 fix round, 2026-10-18)
+
+**In plain words.** The overnight sweep computes the matrix profile once, as `mp_threshold` with `backend: "auto"`.
+The plan was that `mp_threshold` at thresholds 6 and 10, and `mp_motifs`, would then read the same profiles from the
+cache. They will not. Those three templates say `backend: "stump"`, and the cache key holds every parameter, the
+backend included. So after the import they still need their own profile, and on the whole signal that means the
+cluster again. Both backends are exact, so the two profiles should be the same within float rounding. That has not
+been measured on the A100 yet.
+
+**Why the key is not simply changed.** Every overnight matrix-profile spec carries step keys (prefix hashes) that
+include the backend. The import recomputes them and refuses a result whose keys moved. Taking the backend out of the
+key would refuse the overnight results. `tests/test_rq4_overnight_specs.py` now guards those keys.
+
+**Options.**
+
+1. **`backend: "auto"` variants of the other matrix-profile templates (data, no code).**
+   - What: `mp_threshold__threshold_6`, `mp_threshold__threshold_10` and `mp_motifs`, each copied with
+     `backend: "auto"`. Their detrend → profile steps are then the overnight ones.
+   - What it gives: their runs over the same whole-signal section, with the same null (phase randomisation, seed 0,
+     1 draw), read the imported profiles. Only the threshold or motif step computes, in seconds.
+   - Cost: three more templates, each its own Map row beside the `stump` ones. More null draws would compute their
+     own profiles.
+2. **A read-only cache alias across the exact backends.**
+   - What: a chain that asks for `stump` is served a cached `auto` (or `gpu_stump`) profile of the same prefix.
+   - When: only after `scripts/measure_gpu_stump.py` confirms on the A100 that the backends agree (the profile
+     within rounding, the same spans at thresholds 6, 8 and 10).
+   - The key stays as it is, so the overnight imports are untouched; the alias works at lookup.
+   - Cost: code in the step cache's lookup and in the plan's cache status, and provenance has to say "profile served
+     from `auto`".
+3. **Leave them separate.** The `stump` templates get their own profiles from the cluster in a later sweep. They
+   share one detrend → profile prefix, so that is a second set of four profiles (two channels, real and draw), read
+   by all four `stump` templates.
+
+**Recommendation.** Take (1) now. It costs no code and keeps every hash. The three readings come from the overnight
+profiles within seconds of the import, and the Map's own rows say how they were computed. Consider (2) only once the
+A100 measurement shows the backends agree, and only if the `stump` templates' history should join up. Until then a
+profile served across backends would be a claim nobody has checked. Neither is built.
 
 ## How it gets answered
 
@@ -178,3 +218,10 @@ at once.
   - Measured locally, one whole-signal task (real run + 1 draw, one channel), the PC loaded: 133–415 s and
     18–56 MB per CPU task. About 20 GB comes back in all.
   - Not yet: run on the cluster, imported, or read.
+- 2026-10-18 · a2-p2 fix round · main merged into the branch. The overnight specs are now a committed guard
+  (`tests/test_rq4_overnight_specs.py`: every spec, config, prefix and draw hash, and the local plan's recipes).
+  - The other MP templates do not read the `auto` profiles; decision above.
+  - Import fixes: a held-out (M4) target exported with the lock off runs on the cluster; a task that crashes writes
+    a result saying why; a restore that fails part-way reads failed with its reason; the restore can be cancelled
+    between entries.
+  - Analyse no longer writes the old one-way SLURM job for an over-cap profile; it points to Discovery's chain job.

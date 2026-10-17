@@ -12,9 +12,15 @@ The researcher's plan of 2026-10-17 (docs/rq_roundA_2/RQ4b-detector-sweep.md), a
   - `dehshibi_spikes` and its two variants: `preprocessing.wavelet_transform`'s 320,000-sample cap is a memory
     limit that holds on the cluster too, so they wait for P3's windows.
   - The matrix profile, mostly. It runs as ONE template, `mp_threshold` with `backend: auto` (exact, GPU where
-    there is one), on CH1_A1 and CH2_A1, with its null draw. The other three MP templates (thresholds 6 and 10,
-    motifs) share its detrend → profile prefix, so once the result is imported their local runs read the
-    profiles from the cache. Four profiles instead of eight, all reusable.
+    there is one), on CH1_A1 and CH2_A1, with its null draw.
+
+    Correction (round A_2 P2 fix round, 2026-10-18): the other three MP templates (thresholds 6 and 10, motifs)
+    do NOT read these profiles. They say `backend: "stump"`, and the backend is part of the step cache's key
+    (`Working.execution._recipe_prefix_hash` hashes every param of the prefix). So their profile steps miss the
+    cache, and after the import they still route to the cluster. What these four profiles serve is
+    `mp_threshold__backend_auto` itself and any chain with the same detrend → profile prefix and
+    `backend: "auto"`. The key is not changed: these specs' prefix hashes include the backend, and the import
+    checks them. The options are in RQ4b's "What is still needed".
 * **How it runs.** Each template run is a P2 chain job (`Working.discovery.chain_job`): one spec, one task per
   channel, the task computing the real chain and its draw on a scratch database and writing `return/task<i>/`.
   The account runs three jobs at once (HPC/README.md), so instead of P2's arrays the tasks go into four PACKS.

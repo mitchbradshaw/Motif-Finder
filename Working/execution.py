@@ -134,6 +134,17 @@ def _recipe_prefix_hash(recipe, up_to_index, units=None):
     since declared in another (2026-10-15). Every caller that looks a key up
     — the executor, the bridge's readout, sidecar and cache status — passes
     the recording's unit.
+
+    Every param is in the key, the matrix profile's `backend` among them: a
+    profile computed with `backend: "auto"` (the GPU where there is one) is
+    not served to a chain that says `"stump"`, though both are exact. It
+    STAYS in the key (round A_2 P2 fix round, 2026-10-18): the RQ4 overnight
+    specs' `prefixHashes` include it, and the import
+    (`chain_job.verify_results`) refuses a result whose keys no longer
+    reproduce (`tests/test_rq4_overnight_specs.py` guards them). Sharing
+    profiles across the exact backends is the researcher's decision (RQ4b,
+    "What is still needed"); it would be an alias at lookup, not a change to
+    this key.
     """
     prefix = dict(recipe)
     prefix["steps"] = recipe["steps"][:up_to_index + 1]
