@@ -65,11 +65,13 @@ function Body({ data }: { data: Data }) {
               key: 'draws', header: 'draws', width: '13%', render: k => {
                 const full = k.id === 'full-model'
                 const max = full ? 50 : 10000
+                /* 2026-10-17, the researcher: a sweep of many template variants needs 1 draw, not 20; the floor
+                   was arbitrary. A kind that reports a p is still bounded by the α check below (draws ≥ 1/α). */
                 return (
                   <span className={s.dirty(`null.${k.id}.draws`) ? 'unsaved' : undefined} style={{ display: 'inline-flex' }}>
-                    <NumberField value={Number(s.value(`null.${k.id}.draws`) ?? k.draws)} min={full ? 1 : 20} max={max} integer width={100} testid={`draws-${k.id}`}
+                    <NumberField value={Number(s.value(`null.${k.id}.draws`) ?? k.draws)} min={1} max={max} integer width={100} testid={`draws-${k.id}`}
                       onValid={n => { s.set(`null.${k.id}.draws`, n); s.markInvalid(`null.${k.id}.draws`, null) }}
-                      onChange={(_r, reason) => s.markInvalid(`null.${k.id}.draws`, reason ? `Draws must be a whole number between ${full ? 1 : 20} and ${max.toLocaleString('en-US')}` : null)} />
+                      onChange={(_r, reason) => s.markInvalid(`null.${k.id}.draws`, reason ? `Draws must be a whole number between 1 and ${max.toLocaleString('en-US')}` : null)} />
                   </span>
                 )
               },
