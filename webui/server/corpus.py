@@ -216,24 +216,38 @@ def _absolute(start_idx, end_idx, span_start):
     return s, e
 
 
-def run_methods(conn, source_file: str) -> list[dict]:
-    """Every run on a recording file (with or without detections), with its method (the algorithms of its recipe)."""
+def run_methods(conn, source_file: str, run_ids=None) -> list[dict]:
+    """Every run on a recording file (with or without detections), with its method (the algorithms of its recipe),
+    newest first. A run's null is not a method to filter Explore by (q.not_surrogate), nor is one window of a
+    windowed application: its stitched run is the result (q.not_window_part) — unless `run_ids` names it. One query,
+    each recipe read once per config (a2-p3 fix round: this walked every run in the database, counting each one's
+    detections and loading its recipe in turn — 2.26 s once one recording held 20,000 window runs)."""
     out = []
     recs = {row["id"]: dict(row) for row in q.list_recordings(conn, source_file)}
-    for row in list_runs(conn):
-        if row["recording_id"] not in recs:
-            continue
-        if row["surrogate_of_run_id"] is not None:
-            continue    # a run's null is not a method to filter Explore by (q.not_surrogate)
-        n = conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ?", (row["id"],)).fetchone()[0]
-        try:
-            recipe = load_recipe(conn, row["config_id"])
-            algos = [s["algorithm"] for s in recipe["steps"]]
-        except Exception:
-            algos = []
+    if not recs:
+        return out
+    where = "x.source_file = ? AND " + q.not_surrogate("r")
+    args = [source_file]
+    if run_ids:
+        ids = [int(i) for i in run_ids]
+        where += " AND r.id IN (%s)" % ",".join(str(i) for i in ids)
+    else:
+        where += " AND " + q.not_window_part("r")
+    rows = conn.execute("SELECT r.*, (SELECT COUNT(*) FROM detections d WHERE d.run_id = r.id) AS n_det FROM runs r "
+                        "JOIN recordings x ON x.id = r.recording_id WHERE " + where + " ORDER BY r.id DESC",
+                        args).fetchall()
+    algos_of = {}
+    for row in rows:
+        if row["config_id"] not in algos_of:
+            try:
+                recipe = load_recipe(conn, row["config_id"])
+                algos_of[row["config_id"]] = [s["algorithm"] for s in recipe["steps"]]
+            except Exception:
+                algos_of[row["config_id"]] = []
+        algos = algos_of[row["config_id"]]
         out.append({"id": row["id"], "recording_id": row["recording_id"], "channel": recs[row["recording_id"]]["channel"],
                     "status": row["status"], "started_at": row["started_at"], "name": row["name"] if "name" in row.keys() else None,
-                    "algorithms": algos, "method": algos[-1] if algos else "?", "n_detections": int(n)})
+                    "algorithms": algos, "method": algos[-1] if algos else "?", "n_detections": int(row["n_det"])})
     return out
 
 
@@ -244,7 +258,7 @@ def _runs_matching(conn, source_file: str, run_ids, method) -> list | None:
     if not run_ids and not method:
         return None
     keep = []
-    for r in run_methods(conn, source_file):
+    for r in run_methods(conn, source_file, run_ids=run_ids or None):
         if run_ids and r["id"] not in run_ids:
             continue
         if method and not any(method.lower() in a.lower() for a in r["algorithms"]):
@@ -293,7 +307,8 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
         rid = rec["id"]
         ann = conn.execute("SELECT start_idx, end_idx, verdict FROM annotations WHERE recording_id = ? AND deleted_at IS NULL",
                            (rid,)).fetchall()
-        det = conn.execute("SELECT d.start_idx, d.end_idx, d.run_id, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + q.not_surrogate("r"),
+        det = conn.execute("SELECT d.start_idx, d.end_idx, d.run_id, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + q.not_surrogate("r")
+                           + ("" if keep_runs is not None else " AND " + q.not_window_part("r")),   # a2-p3: a window run is its stitched run's part
                            (rid,)).fetchall()
         if keep_runs is not None:
             det = [d for d in det if d["run_id"] in keep_runs]
@@ -334,7 +349,7 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
                                       "runs": len(div["run_ids"])},
                        "reviewed_pct": reviewed_pct},
         })
-    n_runs = conn.execute("SELECT COUNT(DISTINCT r.id) FROM runs r JOIN detections d ON d.run_id = r.id JOIN recordings x ON x.id = r.recording_id WHERE x.source_file = ? AND " + q.not_surrogate("r"), (source_file,)).fetchone()[0]
+    n_runs = conn.execute("SELECT COUNT(DISTINCT r.id) FROM runs r JOIN detections d ON d.run_id = r.id JOIN recordings x ON x.id = r.recording_id WHERE x.source_file = ? AND " + q.not_surrogate("r") + " AND " + q.not_window_part("r"), (source_file,)).fetchone()[0]
     return {"source_file": source_file, "fs": fs, "n_samples": n, "duration_h": n / fs / 3600.0,
             "bins": bins, "bin_h": n / fs / 3600.0 / bins, "bin_edges_h": (edges / fs / 3600.0).tolist(),
             "rows": rows, "verdict_counts": verdict_counts, "n_detection_runs": int(n_runs),
@@ -367,7 +382,7 @@ def spans(conn, recording_id: int, t0_s: float, t1_s: float, fs: float, cap: int
     # legacy relative rows must be shifted before the window test, so the filter is done in Python
     det_all = conn.execute(
         "SELECT d.id, d.start_idx, d.end_idx, d.score, d.run_id, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id "
-        "WHERE r.recording_id = ? AND " + q.not_surrogate("r") + " ORDER BY d.start_idx", (recording_id,)).fetchall()
+        "WHERE r.recording_id = ? AND " + q.not_surrogate("r") + " AND " + q.not_window_part("r") + " ORDER BY d.start_idx", (recording_id,)).fetchall()
     det = []
     for d in det_all:
         a, b = _absolute(d["start_idx"], d["end_idx"], d["span_start"])
@@ -389,7 +404,7 @@ def ribbons(conn, recording_id: int, fs: float, n: int, buckets: int = 300) -> d
     verdict (coverage) and detection count (density)."""
     edges = np.linspace(0, n, buckets + 1)
     ann = conn.execute("SELECT start_idx, end_idx, verdict FROM annotations WHERE recording_id = ? AND deleted_at IS NULL", (recording_id,)).fetchall()
-    det = conn.execute("SELECT d.start_idx, d.end_idx, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + q.not_surrogate("r"), (recording_id,)).fetchall()
+    det = conn.execute("SELECT d.start_idx, d.end_idx, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + q.not_surrogate("r") + " AND " + q.not_window_part("r"), (recording_id,)).fetchall()
     det_starts = [_absolute(d["start_idx"], d["end_idx"], d["span_start"])[0] for d in det]   # legacy relative rows shifted, like spans()
     cov = [None] * buckets
     counts = {v: np.zeros(buckets, int) for v in VERDICTS}
@@ -411,7 +426,7 @@ def ribbons(conn, recording_id: int, fs: float, n: int, buckets: int = 300) -> d
 
 def channel_summary(conn, recording_id: int) -> dict:
     a = conn.execute("SELECT COUNT(*) FROM annotations WHERE recording_id = ? AND deleted_at IS NULL", (recording_id,)).fetchone()[0]
-    real = q.not_surrogate("r")     # a paired null's spans are not detections (fixup-T)
+    real = q.not_surrogate("r") + " AND " + q.not_window_part("r")     # a paired null's spans are not detections (fixup-T); a window run is its stitched run's part (a2-p3)
     d = conn.execute("SELECT COUNT(*) FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + real, (recording_id,)).fetchone()[0]
     runs = conn.execute("SELECT COUNT(DISTINCT r.id) FROM runs r JOIN detections d ON d.run_id = r.id WHERE r.recording_id = ? AND " + real, (recording_id,)).fetchone()[0]
     return {"annotations": int(a), "detections": int(d), "detection_runs": int(runs)}

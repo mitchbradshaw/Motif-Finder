@@ -1564,8 +1564,58 @@ def migrate_legacy_detections(conn):
     return dict(plan, rewritten=rewritten)
 
 
+#: round A_2, P3: the highest `detections.id` the full legacy scan has seen, per database file, in this process.
+#: `plan_legacy_detections` reads every spanned run's detections, and `init_db` runs it on every open —
+#: `execute_recipe` opens one per run. Measured (2026-10-18): 13 ms on an empty database, 0.2 s once it holds one
+#: 1-hour windowed application over 16 channels of M2_aug (46,000 runs), 1.4 s once it holds a 10-minute one
+#: (277,000). After the first full scan of a file in a process, only the rows written since are checked: a legacy
+#: (span-relative) row is one below its run's span_start, so when no new row is, the migration has nothing new to do
+#: and is not run again. A run written since that is merely ambiguous (span_length > span_start, so a relative index
+#: could pass for an absolute one: of a windowed application's windows, those that start within one window length of
+#: the recording's start, the first excepted — it starts at 0 and is never scanned) is no longer warned about on
+#: every open.
+#:
+#: The mark is kept per file, not per path (the critic's m9): keyed by the path and the file's identity (its device
+#: and inode — the NTFS file index on Windows), and it remembers the row it names. A database put back at the same
+#: path — a backup moved over it (another file), or copied over it (the same file, other rows) — whose legacy rows lie
+#: below the mark is scanned whole again.
+_LEGACY_SCANNED: dict = {}
+
+
+def _database_file(conn):
+    row = conn.execute("PRAGMA database_list").fetchone()
+    return (row[2] if row is not None else "") or ""
+
+
+def _file_identity(path):
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_dev, st.st_ino)
+
+
+def _mark_row(conn, detection_id):
+    row = conn.execute("SELECT run_id, start_idx, end_idx FROM detections WHERE id = ?",
+                       (int(detection_id),)).fetchone()
+    return tuple(int(x) for x in row) if row is not None else None
+
+
 def _migrate_legacy_detections(conn):
+    path = _database_file(conn)
+    key = (path, _file_identity(path)) if path else None
+    top = int(conn.execute("SELECT COALESCE(MAX(id), 0) FROM detections").fetchone()[0])
+    seen = _LEGACY_SCANNED.get(key) if key else None
+    if seen is not None and top >= seen[0] and _mark_row(conn, seen[0]) == seen[1]:
+        fresh = conn.execute(
+            "SELECT 1 FROM detections d JOIN runs r ON r.id = d.run_id "
+            "WHERE d.id > ? AND r.span_start > 0 AND d.start_idx < r.span_start LIMIT 1", (seen[0],)).fetchone()
+        if fresh is None:
+            _LEGACY_SCANNED[key] = (top, _mark_row(conn, top))
+            return
     migrate_legacy_detections(conn)
+    if key:
+        _LEGACY_SCANNED[key] = (top, _mark_row(conn, top))
 
 
 # ── fixup-AD: `review_queues` learns the suspected-artifact kind ─────────────
@@ -1686,4 +1736,44 @@ def init_db(db_path=None):
     _migrate_annotations_verdict(conn, db_path)
     # After the review tables exist (fixup-AD): widen the queue kinds once.
     _migrate_review_queues_kinds(conn, db_path)
+    # round A_2, P3: a windowed run's provenance and what each window fitted (additive)
+    _migrate_windowed_tables(conn)
     return conn
+
+
+# Round A_2, P3 (windowed detection, `Working/discovery/windowed.py`). A windowed application stitches its windows'
+# detections into one stitched run per channel. `stitched_windows` says which window runs a stitched run (or a
+# stitched null draw) is made of — each window's span, its core (the part of the timeline it owns), what it found and
+# how many of the kept spans are its view — so a stitched run is reused only while it is made of the same window
+# runs. `window_fits` keeps what a window run's blocks fitted to their own window (sigma, cutlines, the slope floor),
+# from the blocks' `meta`. Additive: CREATE TABLE IF NOT EXISTS only.
+_WINDOWED_SCHEMA = """
+CREATE TABLE IF NOT EXISTS stitched_windows (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id         INTEGER NOT NULL REFERENCES runs(id),
+    window_index   INTEGER NOT NULL,
+    window_run_id  INTEGER REFERENCES runs(id),
+    span_start     INTEGER NOT NULL,
+    span_end       INTEGER NOT NULL,
+    core_start     INTEGER NOT NULL,
+    core_end       INTEGER NOT NULL,
+    found          INTEGER NOT NULL DEFAULT 0,
+    kept           INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (run_id, window_index)
+);
+CREATE INDEX IF NOT EXISTS idx_stitched_windows_window_run ON stitched_windows(window_run_id);
+
+CREATE TABLE IF NOT EXISTS window_fits (
+    run_id       INTEGER PRIMARY KEY REFERENCES runs(id),
+    fitted_json  TEXT NOT NULL
+);
+
+-- the reuse lookup (`runs.find_completed_run`: config, recording, span) as a seek, not a scan of every run of the
+-- recording — a windowed application puts thousands of runs on one channel (1.2 ms -> 0.1 ms at 200,000)
+CREATE INDEX IF NOT EXISTS idx_runs_config ON runs(config_id, recording_id, span_start, span_end);
+"""
+
+
+def _migrate_windowed_tables(conn):
+    conn.executescript(_WINDOWED_SCHEMA)
+    conn.commit()

@@ -85,6 +85,8 @@ function rowTitle(row: DiscMapRow): string {
   if (row.kind === 'human') return 'human annotations · interesting and seed verdicts · the fixed reference'
   const bits = [row.kind === 'seed' ? `seed ${row.seedId ?? ''}${row.cut != null ? ` · cut ${row.cut}` : ''}` : `template ${row.template ?? ''}${row.version != null ? ` v${row.version}` : ''}`]
   if (row.band) bits.push(`band ${row.band}`)
+  // round A_2 · P3: a windowed application is its own row; say its scale and that its windows are stitched
+  if (row.windows) bits.push(`${row.windows.label} · each window its own scale, stitched`)
   bits.push(`from session${row.sessionNames.length === 1 ? '' : 's'} ${row.sessionNames.join(', ') || '—'}`)
   bits.push(`${row.runs} channel run${row.runs === 1 ? '' : 's'}`)
   if (row.detail) bits.push(row.detail)

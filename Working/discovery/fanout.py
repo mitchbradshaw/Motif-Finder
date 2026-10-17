@@ -110,7 +110,7 @@ def _uncosted_steps(steps):
 
 
 def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_channel_s=None,
-         null_draws=0, surrogate=None, surrogate_params=None):
+         null_draws=0, surrogate=None, surrogate_params=None, windows=None, stitch_rule=None):
     """The scope, checked, costed and routed — before anything runs.
 
     Parameters
@@ -150,6 +150,14 @@ def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_
     params, backend, unit — and a profile over a longer span is not a profile
     of a shorter one (the self-join's neighbours change), so containment reuse
     would have served wrong distances.
+
+    ``windows`` (round A_2, P3) is a window scope (``{window_s, overlap_frac,
+    fit}``, `Working.discovery.windowed`): each channel's section is cut into
+    windows and each window is one target, an ordinary run over its own span;
+    the plan then carries ``windows`` (the count per channel, the runs left,
+    the chain's minimum window and what fitting changed). ``stitch_rule`` is
+    the matching rule the windows are stitched by (Settings › Analysis
+    defaults when None). Without ``windows`` nothing here changes.
 
     Returns
     -------
@@ -206,6 +214,14 @@ def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_
 
     null_draws = max(0, int(null_draws or 0))
     surrogate = (null_draws > 0) if surrogate is None else bool(surrogate)
+
+    if windows is not None:
+        # round A_2, P3: the same channels, refused the same way, each cut into windows
+        from Working.discovery import windowed
+        return windowed.plan_windows(conn, steps=steps, targets=targets, refused=refused, span=span,
+                                     ceiling=ceiling, measured_per_window_s=measured_per_channel_s,
+                                     null_draws=null_draws, surrogate=surrogate,
+                                     surrogate_params=surrogate_params, scope=windows, stitch_rule=stitch_rule)
 
     recipe = None
     if targets:
@@ -286,6 +302,13 @@ def start(plan_dict, *, db_path=None, on_progress=None, on_target_done=None, sho
     """
     if not plan_dict.get("runnable"):
         raise ValueError(f"this scope cannot run: {plan_dict.get('reason')}")
+    if plan_dict.get("windows"):
+        # round A_2, P3: every window, then each channel's windows stitched into its stitched run
+        from Working.discovery import windowed
+        return windowed.start_windows(plan_dict, db_path=db_path, on_progress=on_progress,
+                                      on_target_done=on_target_done, should_cancel=should_cancel,
+                                      surrogate=surrogate, surrogate_params=surrogate_params, force=force,
+                                      run_kwargs=run_kwargs, surrogate_draws=surrogate_draws, on_draw=on_draw)
     recipe = plan_dict["recipe"]
     targets = recipe["fan_out"]["targets"]
     n = len(targets)
@@ -480,6 +503,23 @@ def preview(plan_dict, *, db_path=None, sample_samples=14400, target_index=0):
     scale = (b - a) / float(sample_samples) if sample_samples else 1.0
     spans = int(result.get("detections_written") or 0)
     per_channel = measured * scale
+    if plan_dict.get("windows"):
+        # round A_2, P3: the sample is (part of) one window, timed with its run's bookkeeping; the application is
+        # every window of every channel, each with its draws, and each window's own share of the timeline is
+        # (1 - overlap) of it
+        w = plan_dict["windows"]
+        runs = len(plan_dict["targets"]) * (1 + (int(plan_dict.get("null_draws") or 0)
+                                                 if plan_dict.get("surrogate") else 0))
+        share = 1.0 - float(w["scope"]["overlap_frac"])
+        return {
+            "channel": target["channel_name"], "recording_id": target["recording_id"],
+            "sample_samples": sample_samples, "sample_span": [a, a + sample_samples],
+            "sample_hours": sample_samples / target["fs"] / 3600.0, "measured_s": measured,
+            "per_window_s": per_channel, "per_channel_s": per_channel * w["per_channel"],
+            "estimate_s": per_channel * runs, "windows": w["targets"], "runs": runs,
+            "spans_in_sample": spans, "extrapolated_spans": int(round(spans * scale * w["targets"] * share)),
+            "run_id": result.get("run_id"), "scale": scale,
+        }
     return {
         "channel": target["channel_name"],
         "recording_id": target["recording_id"],

@@ -74,6 +74,12 @@ import time
 import numpy as np
 
 SPEC_VERSION = 1
+#: round A_2, P3 (the critic's m8): a windowed spec (``windows`` on the spec and every target) is version 2. P2's
+#: cluster code reads version 1 only and refuses any other at task start, so a windowed spec never runs there as a
+#: plain target — its first window, called complete. Every plain spec stays version 1, its hash unchanged.
+WINDOWED_SPEC_VERSION = 2
+#: what this code reads
+SPEC_VERSIONS = (SPEC_VERSION, WINDOWED_SPEC_VERSION)
 KIND = "detection_chain"
 RESULT_KIND = "detection_chain_result"
 SPEC_SUFFIX = ".chain.json"
@@ -313,7 +319,8 @@ def build_spec(conn, plan, *, label, null, run_key=None, session_id=None, templa
         params["seed"] = int(params.get("seed") or 0)
     profile = _profile(steps)
     targets = []
-    for i, t in enumerate(plan["targets"]):
+    # round A_2, P3: a windowed plan's targets are its windows; its tasks are its channels (`_window_targets`)
+    for i, t in enumerate([] if plan.get("windows") else plan["targets"]):
         rec = q.get_recording_by_id(conn, int(t["recording_id"]))
         per = fanout.target_recipe(recipe, i, paired)
         units = recording_units(rec)
@@ -332,13 +339,84 @@ def build_spec(conn, plan, *, label, null, run_key=None, session_id=None, templa
             # only on such a target: every other spec (the overnight sweep's) keeps the hash it was exported with
             target["heldOutUnlocked"] = True
         targets.append(target)
-    return {
+    if plan.get("windows"):
+        targets = _window_targets(conn, plan, paired)
+    spec = {
         "version": SPEC_VERSION, "kind": KIND, "label": label, "runKey": run_key, "sessionId": session_id,
         "template": template, "band": band, "steps": steps, "span": recipe["span"],
         "sourceFile": targets[0]["sourceFile"] if targets else None,
         "null": {"paired": paired, "params": params, "draws": draws},
         "profile": profile, "tasks": len(targets), "targets": targets,
     }
+    if plan.get("windows"):
+        # only on a windowed spec, so every other spec keeps the hash it was exported with
+        from Working.discovery import windowed as WD
+        spec["version"] = WINDOWED_SPEC_VERSION
+        spec["windows"] = {"scope": plan["windows"]["scope"], "rule": plan["windows"]["rule"],
+                           "stitch": WD.STITCH_VERSION}
+    return spec
+
+
+def spec_refusal(spec):
+    """None when this code reads ``spec``, else why not: its kind, a version this code does not read, or a version
+    that does not say what the spec holds (a windowed spec is version 2 and every one of its targets names its
+    windows; a plain one is version 1 and names none)."""
+    version = int(spec.get("version") or 0)
+    if spec.get("kind") != KIND or version not in SPEC_VERSIONS:
+        return (f"not a chain job spec this code reads (version {spec.get('version')!r}, kind {spec.get('kind')!r}; "
+                f"it reads versions {', '.join(str(v) for v in SPEC_VERSIONS)}, kind {KIND!r})")
+    windowed = bool(spec.get("windows")) or any(t.get("windows") for t in spec.get("targets") or [])
+    if windowed and version != WINDOWED_SPEC_VERSION:
+        return (f"a version {version} spec that names windows: a windowed spec is version {WINDOWED_SPEC_VERSION} "
+                f"(written by code that predates round A_2, P3's fix round — export it again)")
+    if not windowed and version != SPEC_VERSION:
+        return f"a version {version} spec that names no windows: a plain spec is version {SPEC_VERSION}"
+    if windowed and not (spec.get("windows") and all(t.get("windows") for t in spec.get("targets") or [])):
+        return "a windowed spec whose scope or targets name no windows"
+    return None
+
+
+def _window_targets(conn, plan, paired):
+    """A windowed plan's tasks (round A_2, P3): one per channel, as a whole-span run's, each naming its windows and
+    every window's config hash.
+
+    One target per window would be 1,441 to 8,651 array tasks per channel at the RQ4 sweep's scales (1-hour and
+    10-minute windows over 721 h), a spec of tens to hundreds of megabytes, and a scratch database per window. So a
+    task runs every window of its channel, and its ``recipe`` / ``configHash`` / ``prefixHashes`` are its first
+    window's, which the cluster asserts before anything runs, as for any target; each later window's recipe is the
+    first one over its own span (`windowed.with_span`), asserted against ``windows.configHashes`` before it runs."""
+    from Working.database import queries as q
+    from Working.discovery import fanout
+    from Working.discovery import windowed as WD
+    from Working.execution import _recipe_prefix_hash, recording_units
+    from Working.hpc.job_export import repo_relative
+    from Working.recipes import short_hash
+
+    recipe = plan["recipe"]
+    out = []
+    for c, (rid, idxs) in enumerate(WD._channels(plan["targets"]).items()):
+        t = plan["targets"][idxs[0]]
+        rec = q.get_recording_by_id(conn, int(rid))
+        first = fanout.target_recipe(recipe, idxs[0], paired)
+        units = recording_units(rec)
+        npy = rec["npy_path"]
+        spans = [list(plan["targets"][i]["span"]) for i in idxs]
+        hasher = WD.window_hasher(first)
+        target = {
+            "index": c, "recordingId": int(rec["id"]), "sourceFile": rec["source_file"], "channel": int(rec["channel"]),
+            "channelName": t["channel_name"], "fs": float(rec["fs"]), "nSamples": int(rec["n_samples"]),
+            "globalOffset": int(rec["global_offset"]), "units": units,
+            "unitsNote": (rec["units_note"] if "units_note" in rec.keys() else None),
+            "npy": repo_relative(npy), "npySha1": _file_sha1(npy), "npyBytes": int(os.path.getsize(npy)),
+            "span": list(t["section"]), "recipe": first, "configHash": short_hash(first),
+            "prefixHashes": [_recipe_prefix_hash(first, k, units) for k in range(len(first["steps"]))],
+            "chunks": [],
+            "windows": {"spans": spans, "configHashes": [hasher(sp) for sp in spans]},
+        }
+        if _held_out_unlocked(conn, rec["source_file"]):
+            target["heldOutUnlocked"] = True
+        out.append(target)
+    return out
 
 
 # ── the job script ──────────────────────────────────────────────────────────
@@ -827,6 +905,120 @@ def _compute(spec, target, db, work_dir, stop):
     return real, draws, chunked
 
 
+def _detections_of(db_conn, run_id):
+    return [[int(r[0]), int(r[1]), (float(r[2]) if r[2] is not None else None)] for r in db_conn.execute(
+        "SELECT start_idx, end_idx, score FROM detections WHERE run_id = ? ORDER BY start_idx, id", (int(run_id),))]
+
+
+def _compute_windows(spec, target, db, stop, *, into):
+    """Every window of a windowed task (round A_2, P3), then each one's null draws, on the scratch database.
+
+    Each window's recipe is asserted against the spec's hash before it runs; a resubmitted task reuses the windows
+    and draws its earlier jobs finished (they are completed runs in the scratch database). Each finished window is
+    appended to ``into`` (the result's ``windows``) as ``{index, span, configHash, detections, stepTimings, fitted,
+    draws: [{configHash, detections, stepTimings}], drawParams, drawsSkipped}``; raises `_Stopped` between windows
+    and draws. A block shuffle with no block length set draws with the channel's block, as the local sweep does
+    (`windowed.channel_draw_params`): every window runs first, then every window draws. Returns the result's ``run``
+    and ``draws`` summaries (totals over the windows)."""
+    from Working import run_groups as RG
+    from Working.database import runs as R
+    from Working.database.schema import init_db
+    from Working.discovery import windowed as WD
+    from Working.execution import RecipeCancelled, execute_recipe
+    from Working.recipes import short_hash
+
+    base, w = target["recipe"], target["windows"]
+    if len(w["spans"]) != len(w["configHashes"]):
+        raise ChainJobRefused(f"{target['channelName']}: the spec names {len(w['spans'])} windows and "
+                              f"{len(w['configHashes'])} window hashes")
+    null = spec["null"]
+    asked = int(null["draws"]) if null["paired"] else 0
+    channel_block = bool(asked) and WD.fixed_draw_params(null["params"]) is None
+
+    def timings(run_id, conn):
+        row = conn.execute("SELECT step_timings_json FROM runs WHERE id = ?", (int(run_id),)).fetchone()
+        return {str(a): float(b) for a, b in json.loads((row[0] if row else None) or "{}").items()}
+
+    def draw_all(conn, entry, recipe, real_id, draw_ids, base_p):
+        for j in range(asked if base_p is not None else 0):
+            dr = RG.surrogate_recipe(recipe, dict(base_p, seed=base_p["seed"] + j))
+            if draw_ids is not None:
+                d_id = draw_ids[j]
+            else:
+                if stop():
+                    raise _Stopped()
+                try:
+                    d = execute_recipe(dr, db_path=db, should_cancel=stop)
+                except RecipeCancelled:
+                    raise _Stopped()
+                d_id = int(d["run_id"])
+                R.update_run(conn, d_id, surrogate_of_run_id=real_id)
+            entry["draws"].append({"configHash": short_hash(dr), "detections": _detections_of(conn, d_id),
+                                   "stepTimings": timings(d_id, conn)})
+
+    conn = init_db(db)
+    try:
+        # what earlier jobs of this task finished: read, not run again (a resubmitted job would otherwise spend its
+        # wall re-reading thousands of windows through the executor)
+        done = WD.lookup_windows(conn, base, w["spans"], int(target["recordingId"]), draws=asked,
+                                 surrogate_params=null["params"])
+        pending = []
+        for k, (span, h) in enumerate(zip(w["spans"], w["configHashes"])):
+            if stop():
+                raise _Stopped()
+            recipe = WD.with_span(base, span)
+            got = short_hash(recipe)
+            if got != h:
+                raise ChainJobRefused(f"{target['channelName']}: window {k + 1}'s recipe hashes {got} here, {h} at "
+                                      f"the export — the code computing it differs")
+            st = done[k]
+            if st["complete"]:
+                real_id, draw_ids = st["real"], list(st["draws"])
+                step_timings = timings(real_id, conn)
+            else:
+                fits = {}
+                try:
+                    real = execute_recipe(recipe, db_path=db, should_cancel=stop,
+                                          on_step_result=WD.capture_fits(fits, recipe["steps"]))
+                except RecipeCancelled:
+                    raise _Stopped()
+                real_id, draw_ids = int(real["run_id"]), None
+                step_timings = {str(a): float(b) for a, b in (real["step_timings"] or {}).items()}
+                if fits:
+                    WD.save_fits(conn, real_id, fits)
+            entry = {"index": k, "span": [int(span[0]), int(span[1])], "configHash": got,
+                     "detections": _detections_of(conn, real_id), "stepTimings": step_timings,
+                     "fitted": WD.load_fits(conn, real_id), "draws": [], "drawParams": None, "drawsSkipped": None}
+            if channel_block:
+                pending.append((entry, recipe, real_id, draw_ids))
+                continue
+            base_p = None
+            if null["paired"]:
+                base_p, entry["drawsSkipped"] = RG.surrogate_draw_params(conn, real_id, null["params"])
+                entry["drawParams"] = base_p
+            draw_all(conn, entry, recipe, real_id, draw_ids, base_p)
+            into.append(entry)
+        if channel_block:
+            base_p, skipped = WD.channel_draw_params(conn, [p[2] for p in pending], null["params"],
+                                                     float(target["fs"]))
+            for entry, recipe, real_id, draw_ids in pending:
+                entry["drawParams"], entry["drawsSkipped"] = base_p, skipped
+                draw_all(conn, entry, recipe, real_id, draw_ids if base_p is not None else None, base_p)
+                into.append(entry)
+    finally:
+        conn.close()
+    drew = [e for e in into if e["drawParams"] is not None]
+    run = {"configHash": target["configHash"], "detections": sum(len(e["detections"]) for e in into),
+           "stepTimings": {}, "reused": False}
+    draws = {"asked": asked, "drawn": (min(len(e["draws"]) for e in drew) if drew else 0),
+             "skipped": next((e["drawsSkipped"] for e in into if e["drawsSkipped"]), None),
+             # per window (`windows[].drawParams`): a block shuffle's block is the channel's
+             "params": None, "configHashes": [],
+             "detections": [sum(len(e["draws"][j]["detections"]) for e in drew if j < len(e["draws"]))
+                            for j in range(asked)]}
+    return run, draws
+
+
 def run_task(spec, task, out_dir, *, budget_s=None, should_cancel=None, repo_root=None):
     """Compute task ``task`` of ``spec`` (one channel) into ``out_dir`` and return
     its result (also written to ``return/task<i>/result.json``, atomically).
@@ -850,14 +1042,15 @@ def run_task(spec, task, out_dir, *, budget_s=None, should_cancel=None, repo_roo
     os.makedirs(ret_dir, exist_ok=True)
     os.makedirs(work_dir, exist_ok=True)
     result_path = os.path.join(ret_dir, RESULT_NAME)
-    result = {"version": SPEC_VERSION, "kind": RESULT_KIND, "specHash": None, "task": int(task),
+    result = {"version": int(spec.get("version") or SPEC_VERSION) if isinstance(spec, dict) else SPEC_VERSION,
+              "kind": RESULT_KIND, "specHash": None, "task": int(task),
               "recordingId": None, "channelName": None, "complete": False, "error": None, "configHash": None,
               "prefixHashes": None, "run": None, "draws": None, "cache": [], "chunked": [], "elapsedS": None,
               "finishedAt": None, "host": None, "versions": None}
     try:
-        if int(spec.get("version") or 0) != SPEC_VERSION or spec.get("kind") != KIND:
-            raise ValueError(f"not a chain job spec this code reads (version {spec.get('version')!r}, kind "
-                             f"{spec.get('kind')!r}; it reads version {SPEC_VERSION}, kind {KIND!r})")
+        why = spec_refusal(spec)
+        if why:
+            raise ValueError(why)
         h = spec_hash(spec)
         target = spec["targets"][int(task)]
         result.update(specHash=h, recordingId=target["recordingId"], channelName=target["channelName"],
@@ -876,7 +1069,10 @@ def run_task(spec, task, out_dir, *, budget_s=None, should_cancel=None, repo_roo
             result["host"] = platform.node()
         except Exception:
             pass
-        cache_root = os.path.join(ret_dir, CACHE_DIR)
+        # round A_2, P3: a windowed task's windows come back as runs (`windows` in its result), not as cache
+        # entries — each window's steps are too quick for the step cache to keep — so its cache stays in work/
+        windowed = bool(target.get("windows"))
+        cache_root = os.path.join(work_dir if windowed else ret_dir, CACHE_DIR)
         db = os.path.join(work_dir, "scratch.sqlite")
         with _cluster_environment(cache_root):
             _scratch(db, target, repo_root)
@@ -884,16 +1080,22 @@ def run_task(spec, task, out_dir, *, budget_s=None, should_cancel=None, repo_roo
             _check_stall(work_dir, _progress_mark(db, work_dir))
             stop = _stopper(t0, budget_s, should_cancel)
             try:
-                real, draws, chunked = _compute(spec, target, db, work_dir, stop)
-                result.update({
-                    "complete": True, "configHash": real["config_hash"],
-                    "run": {"configHash": real["config_hash"], "detections": int(real["detections_written"]),
-                            "stepTimings": {str(k): float(v) for k, v in (real["step_timings"] or {}).items()},
-                            "reused": bool(real["reused"])},
-                    "draws": draws, "chunked": chunked, "finishedAt": _now()})
+                if windowed:
+                    result["windows"] = []
+                    real, draws = _compute_windows(spec, target, db, stop, into=result["windows"])
+                    result.update({"complete": True, "configHash": target["configHash"], "run": real,
+                                   "draws": draws, "chunked": [], "finishedAt": _now()})
+                else:
+                    real, draws, chunked = _compute(spec, target, db, work_dir, stop)
+                    result.update({
+                        "complete": True, "configHash": real["config_hash"],
+                        "run": {"configHash": real["config_hash"], "detections": int(real["detections_written"]),
+                                "stepTimings": {str(k): float(v) for k, v in (real["step_timings"] or {}).items()},
+                                "reused": bool(real["reused"])},
+                        "draws": draws, "chunked": chunked, "finishedAt": _now()})
             except _Stopped:
                 pass
-            result["cache"] = _cache_entries(db, cache_root)
+            result["cache"] = [] if windowed else _cache_entries(db, cache_root)
     except ChainJobRefused as e:
         result["error"] = str(e)
     except Exception as e:                 # anything else: written down, and the task's chain stops (status 3)
@@ -1073,7 +1275,89 @@ def restore_cache(conn, checked, *, cache_root, should_cancel=None):
         insert_step_artifact(conn, h, k, dst)
         copied += 1
         size += nbytes
-    return {"copied": copied, "already": already, "bytes": size}
+    out = {"copied": copied, "already": already, "bytes": size}
+    if checked.get("windows") is not None:
+        # round A_2, P3: a windowed job's windows are written as the runs the local sweep then reuses, one
+        # transaction per channel; a cancel stops between channels, the channels written kept whole
+        written = present = 0
+        for i, task in enumerate(checked["windows"]):
+            if should_cancel is not None and should_cancel():
+                raise RestoreCancelled(f"the restore was cancelled after {i} of {len(checked['windows'])} channels' "
+                                       f"windows; the ones written are kept, whole", copied, already, size)
+            w, p = _write_window_rows(conn, task)
+            written += w
+            present += p
+        out.update(windowRuns=written, windowRunsAlready=present)
+    return out
+
+
+def _write_window_rows(conn, task):
+    """One channel's windows from a verified windowed result: each window's run and each draw's (linked to its
+    window by `surrogate_of_run_id`), with their detections and what each window fitted — the rows `execute_recipe`
+    would have written here, so the local sweep reuses every one. A window this machine already holds is left as it
+    is. One transaction. Returns ``(written, already)``."""
+    from Working.discovery import windowed as WD
+
+    from Working import run_groups as RG
+
+    rid = int(task["recordingId"])
+    rows = task["rows"]
+    now = _now()
+    configs = {}                                          # config hash -> canonical json, every window and draw
+    real_text = WD.window_hasher(task["recipe"])
+    draw_text = {}
+    for r in rows:
+        configs[r["configHash"]] = real_text.canonical(r["span"])
+        for j, d in enumerate(r["draws"]):
+            p = dict(r["drawParams"], seed=int(r["drawParams"]["seed"]) + j)
+            key = json.dumps(p, sort_keys=True)
+            if key not in draw_text:
+                draw_text[key] = WD.window_hasher(RG.surrogate_recipe(WD.with_span(task["recipe"], r["span"]), p))
+            configs[d["configHash"]] = draw_text[key].canonical(r["span"])
+    with conn:
+        conn.executemany("INSERT OR IGNORE INTO configs (config_hash, config_json, created_at) VALUES (?, ?, ?)",
+                         [(h, js, now) for h, js in configs.items()])
+    cfg = {}
+    for chunk in WD._chunks(sorted(configs)):
+        for row in conn.execute("SELECT id, config_hash FROM configs WHERE config_hash IN (%s)"
+                                % ",".join("?" * len(chunk)), chunk):
+            cfg[row[1]] = int(row[0])
+    have = WD._completed(conn, rid, [r["configHash"] for r in rows], [r["span"] for r in rows])
+    flat = [(k, j) for k, r in enumerate(rows) for j in range(len(r["draws"]))]
+    have_draws = dict(zip(flat, WD._completed(conn, rid, [rows[k]["draws"][j]["configHash"] for k, j in flat],
+                                              [rows[k]["span"] for k, _ in flat])))
+    written = present = 0
+
+    def insert(config_hash, span, dets, timings, surrogate_of=None):
+        duration = float(sum(float(v) for v in (timings or {}).values()))
+        cur = conn.execute(
+            "INSERT INTO runs (config_id, recording_id, span_start, span_end, started_at, status, finished_at, "
+            "duration_s, step_timings_json, surrogate_of_run_id) VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?)",
+            (cfg[config_hash], rid, int(span[0]), int(span[1]), now, now, duration, json.dumps(timings or {}),
+             surrogate_of))
+        run_id = int(cur.lastrowid)
+        conn.executemany("INSERT INTO detections (run_id, start_idx, end_idx, score) VALUES (?, ?, ?, ?)",
+                         [(run_id, int(d[0]), int(d[1]), d[2] if len(d) > 2 else None) for d in dets])
+        return run_id
+
+    with conn:
+        for k, (r, hit) in enumerate(zip(rows, have)):
+            if hit is not None:
+                real_id = hit[0]
+                present += 1
+            else:
+                real_id = insert(r["configHash"], r["span"], r["detections"], r["stepTimings"])
+                written += 1
+                if r.get("fitted"):
+                    WD.save_fits(conn, real_id, r["fitted"], commit=False)
+            for j, d in enumerate(r["draws"]):
+                dh = have_draws.get((k, j))
+                if dh is not None and dh[1] is not None and int(dh[1]) == int(real_id):
+                    present += 1
+                    continue
+                insert(d["configHash"], r["span"], d["detections"], d["stepTimings"], surrogate_of=real_id)
+                written += 1
+    return written, present
 
 
 def verify_results(conn, spec, out_dir):
@@ -1084,8 +1368,9 @@ def verify_results(conn, spec, out_dir):
     bytesToCopy, counts, copy, importedAt}``; ``copy`` is the entries to restore,
     ``(prefix hash, step, source dir, bytes)``, and ``bytesToCopy`` their sum
     (the disk the restore needs)."""
-    if int(spec.get("version") or 0) != SPEC_VERSION or spec.get("kind") != KIND:
-        raise ImportRefused(f"not a chain job spec (version {spec.get('version')!r}, kind {spec.get('kind')!r})")
+    why = spec_refusal(spec)
+    if why:
+        raise ImportRefused(why)
     st = collect(spec, out_dir)
     if not st["complete"]:
         missing = [t for t in st["tasks"] if t["state"] != "complete"]
@@ -1095,13 +1380,22 @@ def verify_results(conn, spec, out_dir):
             + f". Bring {os.path.join(out_dir, RETURN_DIR)} back once every task reads complete.")
     problems = _local_checks(conn, spec)
     plan_copy, counts = [], []
+    windows = [] if spec.get("windows") else None
     for t, task in zip(spec["targets"], st["tasks"]):
         res = task["result"]
         if res.get("configHash") != t["configHash"] or list(res.get("prefixHashes") or []) != list(t["prefixHashes"]):
             problems.append(f"task {t['index']} ({t['channelName']}): the cluster computed config "
                             f"{res.get('configHash')}, the spec asked for {t['configHash']}")
             continue
-        keys, more = _expected_keys(spec, t, res)
+        if t.get("windows"):
+            # round A_2, P3: every window and every draw checked; the rows they make come back, not cache entries
+            rows, more = _window_results(spec, t, res)
+            keys = set()
+            if windows is not None:
+                windows.append({"recordingId": int(t["recordingId"]), "channelName": t["channelName"],
+                                "recipe": t["recipe"], "rows": rows})
+        else:
+            keys, more = _expected_keys(spec, t, res)
         problems += more
         ret_dir = _task_dirs(out_dir, t["index"])[0]
         for e in res.get("cache") or []:
@@ -1124,8 +1418,106 @@ def verify_results(conn, spec, out_dir):
                        "draws": [int(n) for n in (draws.get("detections") or [])]})
     if problems:
         raise ImportRefused("nothing was imported: " + "; ".join(problems))
-    return {"tasks": len(spec["targets"]), "entries": len(plan_copy), "counts": counts, "copy": plan_copy,
-            "bytesToCopy": int(sum(c[3] for c in plan_copy)), "importedAt": _now()}
+    out = {"tasks": len(spec["targets"]), "entries": len(plan_copy), "counts": counts, "copy": plan_copy,
+           "bytesToCopy": int(sum(c[3] for c in plan_copy)), "importedAt": _now()}
+    if windows is not None:
+        out["windows"] = windows
+        out["windowRunsToWrite"] = sum(len(w["rows"]) + sum(len(r["draws"]) for r in w["rows"]) for w in windows)
+    return out
+
+
+def _window_results(spec, target, res):
+    """A windowed task's result checked window by window (round A_2, P3): every window came back, over the exported
+    span, computed from the exported recipe (its hash, and the same recipe rebuilt here), its detections inside its
+    window; its draws at the spec's null (method and seed; a block shuffle's block twice the longest
+    detection of its channel's windows) and each draw's recipe rebuilt here. Returns ``(rows, problems)``: the rows
+    the import writes."""
+    from Working import run_groups as RG
+    from Working.discovery import windowed as WD
+
+    who = f"task {target['index']} ({target['channelName']})"
+    spans, hashes = target["windows"]["spans"], target["windows"]["configHashes"]
+    got = res.get("windows") or []
+    problems, rows = [], []
+    if "windows" not in res:
+        return [], [f"{who}: its result names no windows — the cluster's Working/discovery/chain_job.py predates "
+                    f"windowed jobs (round A_2, P3), so it ran the first window only: update the code on the cluster "
+                    f"and run the job again"]
+    if len(got) != len(spans):
+        return [], [f"{who}: {len(got)} of its {len(spans)} windows came back"]
+    null = spec["null"]
+    want = dict(null["params"] or {}) if null["paired"] else {}
+    fs = float(target["fs"])
+    real_hash = WD.window_hasher(target["recipe"])
+    draw_hash = {}
+    # a block shuffle with no block length set: one block for the channel, twice the longest detection any of its
+    # windows found (`windowed.channel_draw_params`); none found anything: no window draws
+    longest = max((int(d[1]) - int(d[0]) for x in got for d in (x.get("detections") or [])), default=0)
+    channel_block = (max(2.0 * longest / fs, 2.0 / fs) if longest > 0 else None)
+    for k, (w, span, h) in enumerate(zip(got, spans, hashes)):
+        where = f"{who} window {k + 1}"
+        if [int(x) for x in w.get("span") or ()] != [int(span[0]), int(span[1])]:
+            problems.append(f"{where}: the cluster ran {w.get('span')}, the spec's window is {span}")
+            continue
+        if w.get("configHash") != h:
+            problems.append(f"{where}: the cluster computed config {w.get('configHash')}, the spec asked for {h}")
+            continue
+        recipe = WD.with_span(target["recipe"], span)
+        if real_hash(span) != h:
+            problems.append(f"{where}: its recipe hashes {real_hash(span)} here, {h} in the spec")
+            continue
+        dets = w.get("detections") or []
+        if any(not (int(span[0]) <= int(d[0]) <= int(d[1]) <= int(span[1])) for d in dets):
+            problems.append(f"{where}: a detection lies outside its window {span}")
+            continue
+        row = {"index": k, "span": [int(span[0]), int(span[1])], "configHash": h, "detections": dets,
+               "stepTimings": w.get("stepTimings") or {}, "fitted": w.get("fitted"), "draws": [], "drawParams": None}
+        if null["paired"]:
+            base = w.get("drawParams")
+            if base is None:
+                if not (w.get("drawsSkipped") and want.get("method") == "block_shuffle" and not want.get("block_s")
+                        and channel_block is None):
+                    problems.append(f"{where}: it drew no null ({w.get('drawsSkipped')!r}) and the spec's null is "
+                                    f"{want}")
+                    continue
+            else:
+                if base.get("method") != want.get("method") or int(base.get("seed") or 0) != int(want.get("seed") or 0):
+                    problems.append(f"{where}: its draws ran with {base}, not the spec's {want}")
+                    continue
+                if want.get("block_s"):
+                    if float(base.get("block_s") or 0) != float(want["block_s"]):
+                        problems.append(f"{where}: its draws' block is {base.get('block_s')}, the spec's {want['block_s']}")
+                        continue
+                elif base.get("method") == "block_shuffle":
+                    if channel_block is None or abs(float(base.get("block_s") or 0) - channel_block) > 1e-9:
+                        problems.append(f"{where}: its draws' block ({base.get('block_s')}) is not twice the longest "
+                                        f"detection of its channel's windows ({channel_block})")
+                        continue
+                draws = w.get("draws") or []
+                if len(draws) != int(null["draws"]):
+                    problems.append(f"{where}: {len(draws)} of {null['draws']} null draws were made")
+                    continue
+                bad = False
+                row["drawParams"] = dict(base)
+                for j, d in enumerate(draws):
+                    key = (json.dumps(base, sort_keys=True), j)
+                    if key not in draw_hash:
+                        draw_hash[key] = WD.window_hasher(RG.surrogate_recipe(recipe, dict(base, seed=int(base["seed"]) + j)))
+                    dh = draw_hash[key](span)
+                    if dh != d.get("configHash"):
+                        problems.append(f"{where}: draw {j} hashes {dh} here, {d.get('configHash')} on the cluster")
+                        bad = True
+                        break
+                    if any(not (int(span[0]) <= int(x[0]) <= int(x[1]) <= int(span[1])) for x in d.get("detections") or []):
+                        problems.append(f"{where}: a detection of draw {j} lies outside its window")
+                        bad = True
+                        break
+                    row["draws"].append({"configHash": d["configHash"], "detections": d.get("detections") or [],
+                                         "stepTimings": d.get("stepTimings") or {}})
+                if bad:
+                    continue
+        rows.append(row)
+    return rows, problems
 
 
 def local_plan(conn, spec, *, ceiling_s=None):
@@ -1135,6 +1527,8 @@ def local_plan(conn, spec, *, ceiling_s=None):
     is refused here or its recipe is no longer the exported one."""
     from Working.discovery import fanout
 
+    if spec.get("windows"):
+        return _local_windows_plan(conn, spec, ceiling_s=ceiling_s)
     null = spec["null"]
     ids = [int(t["recordingId"]) for t in spec["targets"]]
     plan = fanout.plan(conn, steps=spec["steps"], recording_ids=ids, span=spec["span"], ceiling_s=ceiling_s,
@@ -1151,6 +1545,46 @@ def local_plan(conn, spec, *, ceiling_s=None):
     plan["channels"] = [t["channel_name"] for t in plan["targets"]]
     plan["null"] = {"paired": bool(null["paired"]), "params": null["params"],
                     "draws": int(null["draws"]) if null["paired"] else 0, "reason": None, "source": "cluster"}
+    return plan
+
+
+def _local_windows_plan(conn, spec, *, ceiling_s=None):
+    """`local_plan` for a windowed spec (round A_2, P3): the spec's chain, channels, section, null, window scope and
+    stitch rule — never the session's or Settings' — refused when a channel's windows or any window's recipe here are
+    not the exported ones."""
+    from Working.discovery import fanout
+    from Working.discovery import windowed as WD
+
+    null, w = spec["null"], spec["windows"]
+    paired = bool(null["paired"])
+    ids = [int(t["recordingId"]) for t in spec["targets"]]
+    plan = fanout.plan(conn, steps=spec["steps"], recording_ids=ids, span=spec["span"], ceiling_s=ceiling_s,
+                       null_draws=(int(null["draws"]) if paired else 0), surrogate=paired,
+                       surrogate_params=null["params"], windows=w["scope"], stitch_rule=w["rule"])
+    if plan["refused"]:
+        raise ImportRefused("refused here: " + "; ".join(f"recording {r['recording_id']}: {r['reason']}"
+                                                         for r in plan["refused"]))
+    if not plan["runnable"]:
+        raise ImportRefused(f"refused here: {plan['reason']}")
+    chans = WD._channels(plan["targets"])
+    if list(chans) != ids:
+        raise ImportRefused("the plan's channels are not the exported ones")
+    for t, idxs in zip(spec["targets"], chans.values()):
+        who = f"task {t['index']} ({t['channelName']})"
+        spans = [list(plan["targets"][i]["span"]) for i in idxs]
+        if spans != [list(s) for s in t["windows"]["spans"]]:
+            raise ImportRefused(f"{who}: its windows here are not the exported ones ({len(spans)} windows here, "
+                                f"{len(t['windows']['spans'])} at the export) — the window scope or the way a "
+                                f"section is cut changed")
+        first = fanout.target_recipe(plan["recipe"], idxs[0], paired)
+        if first != t["recipe"]:
+            raise ImportRefused(f"{who}: the chain is not the exported one")
+        hasher = WD.window_hasher(first)
+        if [hasher(sp) for sp in spans] != list(t["windows"]["configHashes"]):
+            raise ImportRefused(f"{who}: a window's recipe hashes differently here than at the export")
+    plan["channels"] = [plan["targets"][idxs[0]]["channel_name"] for idxs in chans.values()]
+    plan["null"] = {"paired": paired, "params": null["params"], "draws": int(null["draws"]) if paired else 0,
+                    "reason": None, "source": "cluster"}
     return plan
 
 

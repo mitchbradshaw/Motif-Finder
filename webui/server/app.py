@@ -441,8 +441,11 @@ def create_app(rt: Runtime) -> FastAPI:
             held = ({r["id"] for r in c.execute("SELECT id FROM recordings WHERE source_file = ?", (HELD_OUT_FILE,))}
                     if corpus.held_out_locked(c) else set())          # a2-p1: hidden only while the lock is on
             # the run history lists results; a paired surrogate run is its parent's null, not
-            # a result, and its n_detections is not a count of detections (fixup-T)
-            real = {r["id"] for r in c.execute("SELECT r.id FROM runs r WHERE " + not_surrogate("r"))}
+            # a result, and its n_detections is not a count of detections (fixup-T); a window run
+            # of a windowed application is part of its stitched run, which is listed (a2-p3)
+            from Working.database.queries import not_window_part
+            real = {r["id"] for r in c.execute("SELECT r.id FROM runs r WHERE " + not_surrogate("r")
+                                               + " AND " + not_window_part("r"))}
             rows = [r for r in list_runs(c, recording_id=recording_id)
                     if r["recording_id"] not in held and r["id"] in real][:limit]
             out = []

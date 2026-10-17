@@ -351,6 +351,12 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
         STEP_CACHE_WRITE_THRESHOLD_S,
     )
 
+    if recipe.get("windows"):
+        # round A_2, P3: a stitched run's recipe names a window scope; run as one span it would be a whole-section
+        # run filed under the windowed run's identity. Its windows are ordinary recipes, run by the fan-out.
+        raise ValueError("this recipe is a windowed application (its 'windows' scope): it is run window by window "
+                         "and stitched (Working.discovery.windowed), never as one span")
+
     recording = q.get_recording_by_id(conn, recipe["recording_id"])
     if recording is None:
         raise ValueError(f"No recording with id={recipe['recording_id']}")

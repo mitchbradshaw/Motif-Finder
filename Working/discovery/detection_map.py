@@ -70,9 +70,21 @@ STATE_RANK = ("covered", "running", "failed", "discarded", "not_run", "not_revie
 
 def steps_key(config_json: str) -> str:
     """The row key of one executed recipe: its steps, with recording and span
-    stripped. A map key only — not the recipe hash, which keys the cache."""
+    stripped. A map key only — not the recipe hash, which keys the cache.
+
+    Round A_2, P3: a stitched run's recipe carries its window scope, and the
+    window length and overlap join the key — "treat each scale as a new
+    version of the detection algorithm" (the researcher, 2026-10-17), so
+    "drop_detection_v1 · 1 h windows · 50 %" and the whole-span run are two
+    rows. A recipe without a window scope keys exactly as before."""
     cfg = json.loads(config_json or "{}")
     steps = cfg.get("steps", cfg)
+    windows = cfg.get("windows") if isinstance(cfg, dict) else None
+    if isinstance(windows, dict) and windows.get("window_s") is not None:
+        ident = {"steps": steps, "windows": {"window_s": float(windows["window_s"]),
+                                             "overlap_frac": float(windows.get("overlap_frac", 0.5))}}
+        digest = hashlib.sha1(json.dumps(ident, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+        return f"steps:{digest[:12]}"
     digest = hashlib.sha1(json.dumps(steps, sort_keys=True, default=str).encode("utf-8")).hexdigest()
     return f"steps:{digest[:12]}"
 
@@ -124,18 +136,27 @@ def _row_meta(dr, params):
     kind = dr["kind"] if dr["kind"] in ("template", "seed") else "template"
     label = dr["label"]
     band = params.get("band") or {}
+    # round A_2, P3: a windowed application names its scale (its own row: `steps_key`)
+    scope = (params.get("windows") or {}).get("scope")
+    windows = None
+    if scope:
+        from Working.discovery.windowed import scope_label
+        windows = {"scope": scope, "label": scope_label(scope)}
     if kind == "template":
         label = dr["template_name"] or dr["label"]
         if params.get("version") is not None:
             label = f"{label} v{params['version']}"
         if band.get("label"):
             label = f"{label} · {band['label']}"
+        if windows:
+            label = f"{label} · {windows['label']}"
     return {
         "kind": kind, "label": label, "colour": dr["colour"], "detail": params.get("detail"),
         "template": dr["template_name"], "version": params.get("version"),
         "seedId": params.get("seedId"), "cut": params.get("cut"), "k": params.get("k"),
         "exclusion": params.get("exclusion"), "scales": params.get("scales"),
         "band": band.get("label") if kind == "template" and params.get("band") else None,
+        "windows": windows,
     }
 
 
@@ -221,7 +242,7 @@ def _gather(conn, exclude_files=()):
     human = {"key": HUMAN_KEY, "kind": "human", "label": "human", "colour": HUMAN_COLOUR,
              "detail": "interesting and seed verdicts · coverage is where a person looked",
              "template": None, "version": None, "seedId": None, "cut": None, "k": None, "exclusion": None,
-             "scales": None, "band": None, "sessions": [], "sessionNames": [], "latestSession": None,
+             "scales": None, "band": None, "windows": None, "sessions": [], "sessionNames": [], "latestSession": None,
              "latestRunKey": None, "latestRunId": None, "runs": 0}
     order = {"template": 0, "seed": 1}
     rows = [human] + sorted(rows_meta.values(), key=lambda m: (order.get(m["kind"], 2), m["label"].lower()))
