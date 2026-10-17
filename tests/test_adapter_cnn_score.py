@@ -3,13 +3,18 @@ test_adapter_cnn_score.py
 ===========================
 `catalogue.window_images` (WindowSet → image stack) and `catalogue.cnn_score`
 (image stack + windows → Scores). The stack test is pure numpy/PIL; the
-inference test needs torch, a checkpoint and the cached EfficientNet
-weights, and skips honestly when any is absent.
+inference test needs torch and scores with a random-weight two-class
+checkpoint written to a temp directory (`tests/_cnn_checkpoints.py`).
+
+W4-A: this test used to score with `MODELS/fusion_cnn.pth`, which has ONE
+output class, so every window scored 1.0 and the test could not tell. A
+one-class checkpoint is now refused (`Working.Catalogue.cnn.window_scores`),
+so the test brings its own two-class checkpoint and runs without `MODELS/`
+or the cached ImageNet weights (loading builds the network unpretrained).
 
 Runnable standalone:  python tests/test_adapter_cnn_score.py
 """
 
-import glob
 import os
 import sys
 
@@ -21,15 +26,14 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 while not os.path.isdir(os.path.join(PROJECT_ROOT, "Working")) \
         and os.path.dirname(PROJECT_ROOT) != PROJECT_ROOT:
     PROJECT_ROOT = os.path.dirname(PROJECT_ROOT)
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+for p in (PROJECT_ROOT, os.path.join(PROJECT_ROOT, "tests")):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 from Adapters.registry import discover_adapters, get_adapter  # noqa: E402
 from Working.types import Encoding, WindowSet  # noqa: E402
 
 discover_adapters()
-CKPT = os.path.join(PROJECT_ROOT, "MODELS", "fusion_cnn.pth")
-HUB = glob.glob(os.path.join(os.path.expanduser("~"), ".cache", "torch", "hub", "checkpoints", "efficientnet_b0*"))
 
 
 def windows(n=3, L=64, fs=1.0):
@@ -57,14 +61,15 @@ def test_cnn_score_refuses_a_missing_stack_windows_or_checkpoint():
         spec.run(x, None, 1.0, value=stack, windows=ws, **spec.validate_params({"model_path": "no/such.pth", "img_size": 8}))
 
 
-@pytest.mark.skipif(not (os.path.isfile(CKPT) and HUB), reason="needs MODELS/fusion_cnn.pth and cached EfficientNet-B0 weights")
-def test_cnn_score_lays_probabilities_onto_the_time_axis():
+def test_cnn_score_lays_probabilities_onto_the_time_axis(tmp_path):
     pytest.importorskip("torch")
+    import _cnn_checkpoints as ck
+    ckpt = ck.write_checkpoint(str(tmp_path / "fusion_cnn_3.pth"), 2)
     x, ws = windows(n=2, L=64)
     imgs = get_adapter("catalogue.window_images")
     stack = imgs.run(x, None, 1.0, value=ws, **imgs.validate_params({"img_size": 224})).value
     spec = get_adapter("catalogue.cnn_score")
-    r = spec.run(x, None, 1.0, value=stack, windows=ws, **spec.validate_params({"model_path": CKPT}))
+    r = spec.run(x, None, 1.0, value=stack, windows=ws, **spec.validate_params({"model_path": ckpt}))
     v = r.value.values
     assert len(v) == len(x) and np.isfinite(v).all()
     assert (v[:64] == v[0]).all() and (v[64:] == v[64]).all()

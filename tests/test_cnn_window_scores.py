@@ -93,8 +93,9 @@ def test_downsampling_is_anti_aliased(L):
 def test_downsampling_does_not_droop_at_the_window_edges():
     """A level window stays level at its edges (a zero-padded low-pass would pull the ends toward 0 and draw
     a false drop at both sides of every window)."""
-    out = WS.resample_window(np.full(36001, 5.0) + 1e-3 * random_walk(36001), 600)
-    assert np.abs(out - 5.0).max() < 0.05
+    level = np.full(36001, 5.0) + 1e-3 * np.random.default_rng(0).standard_normal(36001)
+    out = WS.resample_window(level, 600)
+    assert np.abs(out - 5.0).max() < 0.01
 
 
 # ── the pixels the model sees ───────────────────────────────────────────────

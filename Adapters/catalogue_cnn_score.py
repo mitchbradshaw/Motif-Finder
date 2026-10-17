@@ -19,6 +19,15 @@ for the window matrix).
 the checkpoints and the block page offers them; the recipe records the path
 so a run is reproducible without the registry. Inference is torch on CPU
 unless a GPU is present; `estimate` answers from the calibration file.
+
+The batched inference lives in `Working.Catalogue.cnn.window_scores`
+(`score_stack`), shared with `catalogue.cnn_window_scores` (W4-A), and so
+does its refusal: a checkpoint with other than two classes is refused, naming
+the file and the count. `MODELS/fusion_cnn.pth`, this block's default, has
+ONE class — softmax over one output is 1.0 for every window — so it now fails
+loudly instead of scoring everything as certain; pick `fusion_cnn_3.pth`. The
+default is left as it was so no recipe hash moves. The calibration times the
+inference on random weights held in memory, so it needs no checkpoint file.
 """
 
 import os
@@ -28,42 +37,38 @@ import numpy as np
 from Adapters.base import AdapterResult, AdapterSpec, ParamSpec, SideInputSpec
 from Adapters.registry import register
 from Working.block_cost import estimate_seconds, register_cost_model
+from Working.Catalogue.cnn import window_scores as WS
 from Working.types import Scores
 
 DEFAULT_MODEL = os.path.join("MODELS", "fusion_cnn.pth")
 COST_MODEL = "catalogue.cnn_score"
 
 
+_CALIBRATION = {}
+
+
+def _warm_up():
+    """Untimed: import torch and build a random-weight two-class network (no download, no checkpoint file)."""
+    if "model" not in _CALIBRATION:
+        from Working.Catalogue.cnn.cnn_rangapur import EEG_CNN
+        _CALIBRATION["model"] = EEG_CNN(num_classes=2, pretrained=False).to(WS._device()).eval()
+
+
 def _time_once(x, fs):
-    """Score one 600 s window per 600 samples of the calibration signal (needs the default checkpoint)."""
+    """Score one 600 s window per 600 samples of the calibration signal."""
+    _warm_up()
     n = len(x); L = min(600, max(8, n // 20)); k = max(1, n // L)
     stack = np.random.default_rng(0).integers(0, 255, size=(min(k, 32), 224, 224, 3), dtype=np.uint8)
-    score_stack(stack, DEFAULT_MODEL, img_size=224, batch_size=32)
+    WS.score_stack(stack, "(calibration: random weights)", img_size=224, batch_size=32, model=_CALIBRATION["model"])
 
 
-register_cost_model(COST_MODEL, 1.0, _time_once)
+register_cost_model(COST_MODEL, 1.0, _time_once, warm_up=_warm_up)
 
 
 def score_stack(stack, model_path, img_size=224, batch_size=32):
-    """P(interesting) for each image of an `(n, H, W, 3)` uint8 stack."""
-    import torch
-    from PIL import Image
-    from Working.Catalogue.cnn.apply_cnn import load_model
-    from Working.Catalogue.cnn.cnn_rangapur import get_transforms
-
-    if not os.path.isfile(model_path):
-        raise ValueError(f"catalogue.cnn_score: model_path {model_path!r} does not exist; register a checkpoint in Settings › Models.")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = load_model(model_path, device)
-    transform = get_transforms(img_size, is_train=False, is_rgb=True)
-    out = np.zeros(len(stack), dtype=float)
-    with torch.no_grad():
-        for b0 in range(0, len(stack), batch_size):
-            imgs = [transform(Image.fromarray(np.asarray(img, dtype=np.uint8), mode="RGB")).unsqueeze(0) for img in stack[b0:b0 + batch_size]]
-            logits = model(torch.cat(imgs, dim=0).to(device))
-            probs = torch.softmax(logits, dim=1)[:, 0].cpu().numpy()   # class 0 = "interesting" (ImageFolder order)
-            out[b0:b0 + len(probs)] = probs
-    return out
+    """P(interesting) for each image of an `(n, H, W, 3)` uint8 stack (the shared core's `score_stack`; class 0 =
+    "interesting", ImageFolder order; a checkpoint with other than two classes is refused)."""
+    return WS.score_stack(stack, model_path, img_size=img_size, batch_size=batch_size)
 
 
 def _run(x, t, fs, model_path=DEFAULT_MODEL, img_size=224, batch_size=32, value=None, windows=None):

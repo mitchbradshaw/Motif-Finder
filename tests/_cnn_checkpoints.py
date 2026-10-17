@@ -34,11 +34,41 @@ def _efficientnet(n_classes, seed):
             return self.backbone(x)
 
     torch.manual_seed(seed)
-    return _Net()
+    net = _Net()
+    # Fresh from its initialiser, EfficientNet in eval mode answers the same to every picture (its BatchNorm
+    # running statistics are 0 / 1, and the activations wash out through sixteen blocks), which would let a
+    # test comparing two scoring paths pass on wrong pixels. Settle the running statistics on a few random
+    # pictures of the four kinds the blocks draw, so the probability depends on the picture.
+    for m in net.modules():
+        if isinstance(m, nn.BatchNorm2d):
+            m.momentum = None                     # a plain average over the settling batches
+    net.train()
+    with torch.no_grad():
+        for size in (224, 64):
+            net(_settling_pictures(size))
+    return net.eval()
+
+
+def _settling_pictures(size):
+    """Sixteen training-style pictures (four random walks × the four image types) as one transformed batch."""
+    import numpy as np
+    import torch
+    from PIL import Image
+    from Working.Catalogue.cnn.apply_cnn import _window_to_pil
+    from Working.Catalogue.cnn.cnn_rangapur import get_transforms
+    rng = np.random.default_rng(123)
+    out = []
+    for image_type in ("fusion", "GASF", "GADF", "recurrence"):
+        tf = get_transforms(size, is_train=False, is_rgb=(image_type == "fusion"))
+        for _ in range(4):
+            w = np.cumsum(rng.standard_normal(200))
+            out.append(tf(_window_to_pil(w, image_type).resize((size, size), Image.BILINEAR)))
+    return torch.stack(out)
 
 
 def write_checkpoint(path, n_classes=2, seed=0):
-    """A random-weight `EEG_CNN`-layout state dict with `n_classes` outputs at `path`."""
+    """A random-weight `EEG_CNN`-layout state dict with `n_classes` outputs at `path`, whose output depends on
+    the picture it is shown."""
     import torch
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     torch.save(_efficientnet(n_classes, seed).state_dict(), path)

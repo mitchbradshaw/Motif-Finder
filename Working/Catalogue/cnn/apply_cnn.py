@@ -213,7 +213,8 @@ def load_model(
     num_classes = ckpt[weight_key].shape[0]
     print(f"  Model: {num_classes} classes  <-  {model_path}")
 
-    model = EEG_CNN(num_classes=num_classes)
+    # pretrained=False: the state dict overwrites every weight, so fetching ImageNet's first is a wasted download
+    model = EEG_CNN(num_classes=num_classes, pretrained=False)
     model.load_state_dict(ckpt)
     model.to(device)
     model.eval()
