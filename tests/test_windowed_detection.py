@@ -228,6 +228,24 @@ def test_a_block_that_cuts_its_input_into_pieces_needs_one_whole_piece():
     assert why is not None and "step 01" in why and "3000" in why
 
 
+def test_every_preprocessing_and_detection_block_says_whether_it_has_an_internal_window():
+    """The bound reads a table, not the parameter names: a new block that reads a stretch of signal around each point
+    and is in neither list would let a window shorter than its own through without a word."""
+    from Adapters.registry import list_adapters
+
+    W = _w()
+    names = {s.name for s in list_adapters()}
+    known = set(W.INTERNAL_WINDOWS) | set(W.NO_INTERNAL_WINDOW)
+    missing = sorted(n for n in names if n.split(".")[0] in ("preprocessing", "detection") and n not in known)
+    assert not missing, f"classify these in Working/discovery/windowed.py (INTERNAL_WINDOWS or NO_INTERNAL_WINDOW): {missing}"
+    assert not (set(W.INTERNAL_WINDOWS) & set(W.NO_INTERNAL_WINDOW))
+    for name, entries in W.INTERNAL_WINDOWS.items():
+        spec = get_adapter(name)
+        for e in entries:
+            if not e["param"].startswith("(") and e["unit"] != "exemplar":
+                assert e["param"] in {p.name for p in spec.params}, f"{name} has no parameter {e['param']}"
+
+
 def test_fitting_the_internal_windows_makes_a_different_chain():
     W = _w()
     steps, changes = W.fit_steps(NT, FS, 600.0)
@@ -560,21 +578,29 @@ def test_the_row_key_takes_the_window_scope():
 
 # ── noise ───────────────────────────────────────────────────────────────────
 
+#: a sensitive cut (2.5 sigma_n, 10 s), so pure noise gives the windows something to find and the comparison with
+#: the null is not 0 against 0
+SENSITIVE = [NT[0], {"stage": "detection", "algorithm": "noise_threshold",
+                     "params": {"k_sigma": 2.5, "direction": "below", "min_duration_s": 10.0, "merge_gap_s": 10.0}}]
+
+
 @pytest.mark.parametrize("colour", ["ar1", "random_walk"])
 def test_on_coloured_noise_the_windowed_run_finds_no_more_than_its_null(world, colour):
     rng = np.random.default_rng(11)
     n = 24 * H
     x = _ar1(n, 0.97, 0.0001, rng) if colour == "ar1" else np.cumsum(rng.standard_normal(n) * 0.0001)
     rid = world["add"](x, name=f"{colour}.mat")
-    plan = _plan(world, NT, [rid], (0, n), windows={"window_s": 4 * H}, draws=3)
+    plan = _plan(world, SENSITIVE, [rid], (0, n), windows={"window_s": 4 * H}, draws=3)
     out = _start(world, plan, draws=3)
     conn = init_db(world["db"])
     try:
         s = RG.null_summary(conn, out["run_ids"][0])
+        raw = sum(len(R.list_detections(conn, w)) for w in out["runs"][0]["window_run_ids"])
     finally:
         conn.close()
-    assert s["null_draws"] == 3
+    assert s["null_draws"] == 3 and s["null_expects"] >= 10, "the noise gives the cut something to find"
     assert s["found"] <= s["null_expects"] + 2.0 * np.sqrt(s["null_expects"]) + 2.0, s
+    assert raw > s["found"], "the raw windows count overlapping events twice; the stitched set does not"
 
 
 # ── drop detection, the held-out lock, dehshibi ──────────────────────────────

@@ -190,6 +190,9 @@ REASONED = {
     "Working/run_groups.py": "the null's own module: sizes a block by one named real run and counts a run's draws",
     "webui/server/jobs.py": "one job's own run id",
     "webui/server/review.py": "the held-out refusal looks a detection up by id and must see every row to refuse it",
+    # round A_2, P3
+    "Working/discovery/windowed.py": "stitches named window runs: a window's draw into the stitched draw, on purpose",
+    "Working/discovery/chain_job.py": "a windowed task reads each named window run and draw on its scratch database",
 }
 _READS = re.compile(r"\b(FROM|JOIN)\s+detections\b", re.IGNORECASE)
 

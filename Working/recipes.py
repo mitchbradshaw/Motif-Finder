@@ -260,13 +260,31 @@ def _normalize_fan_out(fan_out):
     if not isinstance(fan_out, dict):
         raise ValueError("fan_out must be a dict with 'kind' and 'targets'.")
     kind = fan_out.get("kind")
-    if kind not in ("channels", "bands"):
+    if kind not in ("channels", "bands", "windows"):
         raise ValueError(
-            f"fan_out.kind must be 'channels' or 'bands', got {kind!r}."
+            f"fan_out.kind must be 'channels', 'bands' or 'windows', got {kind!r}."
         )
     targets = fan_out.get("targets")
     if not isinstance(targets, list) or not targets:
         raise ValueError("fan_out.targets must be a non-empty list.")
+
+    if kind == "windows":
+        # round A_2, P3: one window of one channel per target, each run as the
+        # ordinary recipe over its own span (`run_groups.materialize_target`)
+        norm_targets = []
+        for t in targets:
+            rid = t.get("recording_id") if isinstance(t, dict) else None
+            span = t.get("span") if isinstance(t, dict) else None
+            if isinstance(rid, bool) or not isinstance(rid, int) or not isinstance(span, (list, tuple)) \
+                    or len(span) != 2:
+                raise ValueError(
+                    f"fan_out window targets are {{'recording_id': int, 'span': [start, end]}}, got {t!r}."
+                )
+            a, b = int(span[0]), int(span[1])
+            if b <= a:
+                raise ValueError(f"a window target's span end must be > start, got {[a, b]}.")
+            norm_targets.append({"recording_id": int(rid), "span": [a, b]})
+        return {"kind": "windows", "targets": norm_targets}
 
     if kind == "channels":
         norm_targets = []

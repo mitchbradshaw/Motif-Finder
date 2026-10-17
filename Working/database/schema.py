@@ -1686,4 +1686,40 @@ def init_db(db_path=None):
     _migrate_annotations_verdict(conn, db_path)
     # After the review tables exist (fixup-AD): widen the queue kinds once.
     _migrate_review_queues_kinds(conn, db_path)
+    # round A_2, P3: a windowed run's provenance and what each window fitted (additive)
+    _migrate_windowed_tables(conn)
     return conn
+
+
+# Round A_2, P3 (windowed detection, `Working/discovery/windowed.py`). A windowed application stitches its windows'
+# detections into one stitched run per channel. `stitched_windows` says which window runs a stitched run (or a
+# stitched null draw) is made of — each window's span, its core (the part of the timeline it owns), what it found and
+# how many of the kept spans are its view — so a stitched run is reused only while it is made of the same window
+# runs. `window_fits` keeps what a window run's blocks fitted to their own window (sigma, cutlines, the slope floor),
+# from the blocks' `meta`. Additive: CREATE TABLE IF NOT EXISTS only.
+_WINDOWED_SCHEMA = """
+CREATE TABLE IF NOT EXISTS stitched_windows (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id         INTEGER NOT NULL REFERENCES runs(id),
+    window_index   INTEGER NOT NULL,
+    window_run_id  INTEGER REFERENCES runs(id),
+    span_start     INTEGER NOT NULL,
+    span_end       INTEGER NOT NULL,
+    core_start     INTEGER NOT NULL,
+    core_end       INTEGER NOT NULL,
+    found          INTEGER NOT NULL DEFAULT 0,
+    kept           INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (run_id, window_index)
+);
+CREATE INDEX IF NOT EXISTS idx_stitched_windows_window_run ON stitched_windows(window_run_id);
+
+CREATE TABLE IF NOT EXISTS window_fits (
+    run_id       INTEGER PRIMARY KEY REFERENCES runs(id),
+    fitted_json  TEXT NOT NULL
+);
+"""
+
+
+def _migrate_windowed_tables(conn):
+    conn.executescript(_WINDOWED_SCHEMA)
+    conn.commit()

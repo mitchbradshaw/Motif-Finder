@@ -516,11 +516,20 @@ def _run_payload(conn, row, index, span, jobs=None):
                 # what the cluster found against what the sweep here wrote, per channel: the same code on the
                 # same cached profile finds the same spans, and a difference is said, never smoothed over
                 here = {int(c["recording_id"]): int(c["detections"]) for c in st["channels"]}
+                if params.get("windows"):
+                    # round A_2, P3: the cluster counts each window's own spans, before stitching
+                    from Working.discovery import windowed as WD
+                    tot = WD.window_totals(conn, [c["run_id"] for c in st["channels"]])
+                    here = {int(c["recording_id"]): tot[int(c["run_id"])]["found"] for c in st["channels"]}
                 diff = [f"{c['channelName']}: {here.get(int(c['recordingId']))} here, {c['detections']} on the cluster"
                         for c in hpc["counts"] if here.get(int(c["recordingId"])) != int(c["detections"])]
                 out["clusterAgrees"] = not diff
                 if diff:
                     out["clusterCheck"] = "; ".join(diff)
+    if params.get("windows"):
+        # round A_2, P3: a windowed application — its scale, how many windows, what fitting changed, the stitch
+        out["windows"] = {k: params["windows"].get(k) for k in
+                          ("scope", "label", "per_channel", "targets", "fitted", "minimum", "stitch", "tradeOff")}
     if progress is not None and status == "running":
         out["progress"] = round(progress, 3)
     if progress_text:
@@ -2250,6 +2259,9 @@ class PlanBody(BaseModel):
     #: the seed to bind a `rebind` template's exemplar to when it is applied
     #: (a seed id as the Seed page's list names them); a carry template ignores it
     exemplar: str | None = None
+    #: round A_2, P3: a window scope — {window_s, overlap_frac (0.5 recommended), fit}
+    #: (`Working.discovery.windowed`); None is the whole section
+    windows: dict | None = None
 
 
 # ── the band scope (fixup-Z, Q43) ───────────────────────────────────────────
@@ -2438,9 +2450,17 @@ def _plan(conn, body: PlanBody):
     # keys the exact question, and is what a cluster run's import restores.)
     on, sp, why, draws = _surrogate_for(
         conn, seeded_search.NULL_KIND if seed else seeded_search.DETECTION_KIND, s)
-    plan = fanout.plan(conn, steps=steps, recording_ids=[ch["id"] for ch in chans], span=span,
-                       ceiling_s=ceiling, measured_per_channel_s=measured_s,
-                       null_draws=(draws if on else 0), surrogate=on, surrogate_params=sp)
+    if body.windows is not None and seed is not None:
+        raise HTTPException(422, {"message": "a window scope applies to a template, not a seed search"})
+    try:
+        plan = fanout.plan(conn, steps=steps, recording_ids=[ch["id"] for ch in chans], span=span,
+                           ceiling_s=ceiling, measured_per_channel_s=measured_s,
+                           null_draws=(draws if on else 0), surrogate=on, surrogate_params=sp,
+                           windows=body.windows)
+    except ValueError as e:
+        if body.windows is None:
+            raise
+        raise HTTPException(422, {"message": f"window scope: {e}"})
     plan["null"] = {"paired": on, "params": sp, "reason": why, "draws": (draws if on else 0)}
     plan["template"] = template["name"] if template else None
     plan["seedId"] = seed["id"] if seed else None
@@ -2470,6 +2490,8 @@ def _band_plans(conn, body: PlanBody, bands):
     route = "unknown" if total is None else ("cluster" if total > ceiling else "local")
     if any(p[0].get("capped") for p in plans):
         route = "cluster"      # round A_2 (P2): a band's profile must compute over this machine's cap
+    if any(p[0].get("route") == "cluster" for p in plans):
+        route = "cluster"      # round A_2 (P3): a band's windows alone are over the ceiling (their run overhead)
     return plans, total, route, ceiling
 
 
@@ -2485,9 +2507,9 @@ def post_plan(request: Request, body: PlanBody):
                          "bands": [{**p[0]["band"], "estimate_s": p[0]["estimate_s"], "route": p[0]["route"]}
                                    for p in plans],
                          "note": f"{len(bands)} bands × one sweep across {plan['n_channels']} channels"})
-            return _clean(plan)
+            return _clean(_windows_public(plan))
         plan, *_ = _plan(c, body)
-        return _clean(plan)
+        return _clean(_windows_public(plan))
     finally:
         c.close()
 
@@ -2628,6 +2650,10 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
             if skipped:
                 null_rec["skipped"] = skipped
             params["null"] = null_rec
+            if plan.get("windows") and params.get("windows") is not None:
+                # round A_2, P3: what the stitch did per channel (the windows' own spans, kept, merged, dropped)
+                params["windows"]["stitch"] = [dict(r["stitch"], channel=r["channel_name"], windows=r["windows"],
+                                                    windowsReused=r["windows_reused"]) for r in out["runs"]]
             # the group the runs are actually in: a reused run keeps the first
             # group it joined, so this is not always out["run_group_id"]
             groups = sorted({r["run_group_id"] for r in out["runs"] if r["run_group_id"]})
@@ -2673,6 +2699,10 @@ class ApplyBody(BaseModel):
     #: with. It used to stay in the browser; the template went out with an
     #: empty binding and the core refused it (the researcher, 2026-10-13).
     exemplars: dict[str, str] | None = None
+    #: round A_2, P3: a window scope beside Channels and Bands — {window_s,
+    #: overlap_frac (0.5 recommended), fit}. Each template becomes ONE run whose
+    #: runs are its stitched windows.
+    windows: dict | None = None
 
 
 def _band_set_key(conn, session_id, template_name):
@@ -2696,7 +2726,7 @@ def _apply_bands(request, c, body: ApplyBody, name: str, bands: list[dict]):
     whole application (`_band_plans`): over the ceiling every band run is added
     and none started, and the page's primary action is *Create SLURM script*."""
     pb = PlanBody(template=name, channels=body.channels, t0=body.t0, t1=body.t1,
-                  exemplar=(body.exemplars or {}).get(name))
+                  exemplar=(body.exemplars or {}).get(name), windows=body.windows)
     plans, total, route, ceiling = _band_plans(c, pb, bands)
     for plan, *_ in plans:
         if not plan["runnable"]:
@@ -2707,6 +2737,8 @@ def _apply_bands(request, c, body: ApplyBody, name: str, bands: list[dict]):
     for i, (band, (plan, steps, template, _seed, span, chans, _s)) in enumerate(zip(bands, plans)):
         key = _next_key(c, s["id"], _slug(f"{name}_{band['label'].replace(' ', '')}"))
         label = f"{name} · {band['label']}"
+        if plan.get("windows"):
+            label = f"{label} · {plan['windows']['label']}"         # round A_2, P3
         params = {"stage_count": len(steps), "version": template.get("version"),
                   "null": dict(plan["null"]),
                   "detail": f"v{template.get('version') or 1} · {len(steps)} stages · band {band['label']}",
@@ -2714,6 +2746,8 @@ def _apply_bands(request, c, body: ApplyBody, name: str, bands: list[dict]):
                   "route": route, "estimate_s": plan["estimate_s"],
                   "band": band, "bandSet": set_key, "bandIndex": i, "bandCount": len(bands),
                   "applicationEstimate_s": total}
+        if plan.get("windows"):
+            params.update(_windows_params(plan, params["detail"]))
         _insert_run(c, s["id"], run_key=key, kind="template", label=label,
                     template_name=name, template_id=template.get("id"), params=params)
         job_id = None
@@ -2758,22 +2792,26 @@ def apply_templates(request: Request, body: ApplyBody):
                 out.extend(_apply_bands(request, c, body, name, bands))
                 continue
             pb = PlanBody(template=name, channels=body.channels, t0=body.t0, t1=body.t1,
-                          exemplar=(body.exemplars or {}).get(name))
+                          exemplar=(body.exemplars or {}).get(name), windows=body.windows)
             plan, steps, template, _seed, span, chans, s = _plan(c, pb)
             if not plan["runnable"]:
                 raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"],
                                           "template": name})
-            key = _next_key(c, s["id"], name)
+            # round A_2, P3: a windowed application is one run named by its scale (its own row on the Map)
+            label = f"{name} · {plan['windows']['label']}" if plan.get("windows") else name
+            key = _next_key(c, s["id"], _slug(label) if plan.get("windows") else name)
             params = {"stage_count": len(steps), "version": template.get("version"),
                       "null": dict(plan["null"]),
                       "detail": f"v{template.get('version') or 1} · {len(steps)} stages",
                       "glyph": D.glyph_for(f"{steps[-1]['stage']}.{steps[-1]['algorithm']}"),
                       "route": plan["route"], "estimate_s": plan["estimate_s"]}
-            _insert_run(c, s["id"], run_key=key, kind="template", label=name,
+            if plan.get("windows"):
+                params.update(_windows_params(plan, params["detail"]))
+            _insert_run(c, s["id"], run_key=key, kind="template", label=label,
                         template_name=name, template_id=template.get("id"), params=params)
             job_id = None
             if body.run and plan["route"] != "cluster":
-                job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=name,
+                job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=label,
                                    surrogate=plan["null"]["paired"], surrogate_params=plan["null"]["params"])
                 job_id = job.id
                 c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? "
@@ -2785,6 +2823,8 @@ def apply_templates(request: Request, body: ApplyBody):
                         "note": (None if job_id else
                                  ("over the local ceiling — create a SLURM script" if plan["route"] == "cluster"
                                   else "added, not started"))})
+            if plan.get("windows"):
+                out[-1]["windows"] = {k: plan["windows"][k] for k in ("label", "per_channel", "targets", "runs")}
         return out
     finally:
         c.close()
@@ -3247,7 +3287,9 @@ def post_slurm(request: Request, body: SlurmBody):
                                                      f"to the cluster"})
             rp = json.loads(row["params_json"] or "{}")
             body = body.model_copy(update={"template": row["template_name"] or body.template,
-                                           "band": rp.get("band") or body.band, "seedId": None})
+                                           "band": rp.get("band") or body.band, "seedId": None,
+                                           # round A_2, P3: a windowed run goes out with its own window scope
+                                           "windows": (rp.get("windows") or {}).get("scope") or body.windows})
         plan, steps, template, seed, span, chans, s = _plan(c, body)
         if seed is not None:
             raise HTTPException(422, {"message": "a seed search goes to the cluster from the Seed page, as its own job "
@@ -3255,6 +3297,8 @@ def post_slurm(request: Request, body: SlurmBody):
         if not plan["runnable"]:
             raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"]})
         label = (row["label"] if row is not None else None) or body.label or plan["template"] or "discovery"
+        if row is None and plan.get("windows") and not body.label:
+            label = f"{label} · {plan['windows']['label']}"
         try:
             spec = chain_job.build_spec(c, plan, label=label, null=plan["null"],
                                         run_key=(row["run_key"] if row is not None else None),
@@ -3292,7 +3336,9 @@ def post_slurm(request: Request, body: SlurmBody):
                                   "null": dict(plan["null"]), "detail": f"v{(template or {}).get('version') or 1} · "
                                                                         f"{len(steps)} stages",
                                   "glyph": D.glyph_for(f"{steps[-1]['stage']}.{steps[-1]['algorithm']}"),
-                                  "estimate_s": plan["estimate_s"]})
+                                  "estimate_s": plan["estimate_s"],
+                                  **(_windows_params(plan, f"v{(template or {}).get('version') or 1} · "
+                                                           f"{len(steps)} stages") if plan.get("windows") else {})})
             out["run_key"] = key
         params = json.loads(row["params_json"] or "{}")
         params.pop("error", None)
@@ -4559,3 +4605,33 @@ def import_chain_result_for(request: Request, *, run_key=None, spec_path=None):
                          f"the heavy steps read from the cache, the cheap ones recomputed")}
     finally:
         c.close()
+
+
+# ── round A_2, P3: the window scope (`Working.discovery.windowed`) ──────────
+#
+# Appended so the branches working beside this one merge cleanly; called from `post_plan`, `apply_templates`,
+# `_apply_bands` and `post_slurm` above.
+
+def _windows_public(plan):
+    """A windowed plan as the page reads it: counts per channel, not one entry per window (thousands at the RQ4
+    sweep's 10-minute scale). Any other plan is returned as it is."""
+    if not plan.get("windows") or not plan.get("recipe"):
+        return plan
+    from Working.discovery import windowed as WD
+    return WD.public_plan(plan)
+
+
+def _windows_params(plan, detail):
+    """What a windowed application's Discovery row records about its scope: the scope (the Map reads its scale off
+    it, `detection_map._row_meta`), the counts, the chain's minimum window, what fitting changed and the stitch
+    rule, and the row's ``detail`` line with the scale on it; the stitch's own numbers are added when the sweep ends
+    (`_start_sweep`)."""
+    w = plan["windows"]
+    bits = [detail, w["label"], f"{w['per_channel']} windows per channel"]
+    if w.get("fitted"):
+        bits.append("fitted: " + ", ".join(f"step {f['step'] + 1:02d} {f['param']} {f['from']:g} → {f['to']:g}"
+                                           for f in w["fitted"]))
+    return {"windows": {"scope": w["scope"], "label": w["label"], "per_channel": w["per_channel"],
+                        "targets": w["targets"], "fitted": w.get("fitted") or [], "minimum": w.get("minimum"),
+                        "rule": w.get("rule"), "rules": w.get("rules"), "tradeOff": w.get("tradeOff")},
+            "detail": " · ".join(b for b in bits if b)}
