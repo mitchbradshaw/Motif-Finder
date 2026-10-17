@@ -52,6 +52,7 @@ No UI imports.
 
 import copy
 import datetime as _dt
+import hashlib
 import json
 import math
 import time
@@ -670,12 +671,50 @@ def with_span(recipe, span):
     return out
 
 
+#: a span no recording reaches: a recipe is serialised once over it, and each window's span put in its place
+_SENTINEL = (987654321987, 987654321988)
+
+
+class _SpanHasher:
+    """`short_hash(with_span(recipe, span))` for many spans of one recipe (`window_hasher`)."""
+
+    def __init__(self, recipe):
+        from Working.recipes import canonical_json
+
+        self._recipe = recipe
+        text = canonical_json(with_span(recipe, _SENTINEL))
+        mark = f'"span":[{_SENTINEL[0]},{_SENTINEL[1]}]'
+        self._parts = text.split(mark) if text.count(mark) == 1 else None
+
+    def canonical(self, span):
+        """`canonical_json(with_span(recipe, span))`."""
+        if self._parts is None:
+            from Working.recipes import canonical_json
+            return canonical_json(with_span(self._recipe, span))
+        return f'{self._parts[0]}"span":[{int(span[0])},{int(span[1])}]{self._parts[1]}'
+
+    def __call__(self, span):
+        # `Working.recipes.short_hash`: the first 8 hex characters of the SHA-256 of the canonical JSON
+        return hashlib.sha256(self.canonical(span).encode("utf-8")).hexdigest()[:8]
+
+
+def window_hasher(recipe):
+    """A function of a span: the config hash of ``recipe`` over that span, character for character what
+    `short_hash(with_span(recipe, span))` returns (`tests/test_windowed_detection.py` holds them equal). The recipe
+    is serialised once and each span put in its place: the plan, the export and the import hashed every window's
+    whole recipe and every draw's — 8,651 windows a channel at 10-minute windows over 721 h, most of a minute per
+    plan of 16 channels (the critic's m10). ``.canonical(span)`` is the canonical JSON itself."""
+    return _SpanHasher(recipe)
+
+
 def stitched_recipe(steps, recording_id, section, scope, rule, surrogate):
     """The stitched run's recipe: the chain, the section, and the window scope with its stitch rule — never run as
-    one span (`execute_recipe` refuses a recipe with ``windows``)."""
+    one span (`execute_recipe` refuses a recipe with ``windows``). The scope's ``fit`` is not in it: what fitting did
+    is in ``steps``, so the same chain in the same windows is one run however it was reached (the critic's m5)."""
     from Working.discovery.matching import normalise_rule
 
     s = normalize_scope(scope)
+    s.pop("fit", None)
     return {"recording_id": int(recording_id), "span": [int(section[0]), int(section[1])], "steps": steps,
             "surrogate": bool(surrogate),
             "windows": dict(s, rule=normalise_rule(rule), stitch=STITCH_VERSION)}
@@ -688,6 +727,52 @@ def stitched_draw_params(surrogate_params, j):
     p.setdefault("method", RG.DEFAULT_SURROGATE_PARAMS["method"])
     p["seed"] = int(p.get("seed") or 0) + int(j)
     return p
+
+
+def _draw_base(surrogate_params):
+    from Working import run_groups as RG
+
+    p = dict(surrogate_params or RG.DEFAULT_SURROGATE_PARAMS)
+    p.setdefault("method", RG.DEFAULT_SURROGATE_PARAMS["method"])
+    p["seed"] = int(p.get("seed") or 0)
+    return p
+
+
+def fixed_draw_params(surrogate_params):
+    """The params every window draws its null with when they do not depend on what the windows found; None for a
+    block shuffle with no block length set (its block is the channel's: `channel_draw_params`)."""
+    p = _draw_base(surrogate_params)
+    return None if (p["method"] == "block_shuffle" and not p.get("block_s")) else p
+
+
+#: why a block shuffle drew no null for a channel whose windows found nothing
+NO_BLOCK = ("block shuffle needs a block twice the longest motif under test, and no window of this channel detected "
+            "anything: there is no motif to size the block by, and no null was drawn")
+
+
+def channel_draw_params(conn, window_run_ids, surrogate_params, fs):
+    """``(params, skipped)``: what every window of one channel draws its null with.
+
+    A block shuffle keeps a motif shorter than its block intact, so the block is twice the longest motif under test
+    (`run_groups.surrogate_draw_params`). In a windowed application that is the longest detection any window of the
+    channel found, one block for every window. Sized per window (the first build), a window that found nothing had no
+    block and drew no null, and its draws were stitched as finding nothing there: on pure noise in 1-hour windows
+    that left out 16 % (AR(1)) and 26 % (random walk) of the stitched null, so x null read high (the critic's m3,
+    measured 2026-10-18, RQ4b). No window of the channel found anything: no null, with the reason (as a whole-span
+    run that found nothing). Any other method: ``surrogate_params`` as they are."""
+    p = fixed_draw_params(surrogate_params)
+    if p is not None:
+        return p, None
+    p = _draw_base(surrogate_params)
+    longest = 0
+    for chunk in _chunks([int(i) for i in window_run_ids if i is not None]):
+        row = conn.execute("SELECT MAX(end_idx - start_idx) FROM detections WHERE run_id IN (%s)"
+                           % ",".join("?" * len(chunk)), chunk).fetchone()
+        longest = max(longest, int(row[0] or 0))
+    if longest <= 0:
+        return None, NO_BLOCK
+    p["block_s"] = max(2.0 * longest / float(fs), 2.0 / float(fs))
+    return p, None
 
 
 # ── the plan (fanout.plan's windowed branch) ─────────────────────────────────
@@ -735,52 +820,57 @@ def _completed(conn, recording_id, hashes, spans):
 
 def lookup_windows(conn, base, spans, recording_id, *, draws=0, surrogate_params=None):
     """What already exists for each window of one channel: ``[{real, draws: [id|None], complete, todo_draws,
-    skipped}]`` — the real run and each draw `run_paired_recipe` would reuse, read in bulk with one connection."""
+    skipped, params}]`` — the real run and each draw `run_paired_recipe` would reuse, read in bulk with one
+    connection, every recipe hashed by `window_hasher`. ``params`` are the params the windows' draws are made with
+    (`channel_draw_params`): a block shuffle's block is known once every window of the channel has run, so until
+    then every window's draws are still to make."""
     from Working import run_groups as RG
-    from Working.recipes import short_hash
 
-    recipes = [with_span(base, sp) for sp in spans]
-    real = _completed(conn, recording_id, [short_hash(r) for r in recipes], spans)
-    out = [{"real": (r[0] if r else None), "draws": [], "complete": r is not None, "todo_draws": 0, "skipped": None}
-           for r in real]
     draws = max(0, int(draws or 0))
+    lengths = sorted({int(b) - int(a) for a, b in spans})
+    if not conn.execute("SELECT 1 FROM runs WHERE recording_id = ? AND status = 'completed' AND span_end - span_start "
+                        "IN (%s) LIMIT 1" % ",".join("?" * len(lengths)), [int(recording_id), *lengths]).fetchone():
+        # nothing of this window length has run on the channel: every window is still to make (a scope applied for
+        # the first time is not hashed window by window)
+        return [{"real": None, "draws": [], "complete": False, "todo_draws": draws, "skipped": None, "params": None}
+                for _ in spans]
+    h = window_hasher(base)
+    real = _completed(conn, recording_id, [h(sp) for sp in spans], spans)
+    out = [{"real": (r[0] if r else None), "draws": [], "complete": r is not None, "todo_draws": 0, "skipped": None,
+            "params": None} for r in real]
     if not draws:
         return out
-    params = dict(surrogate_params or RG.DEFAULT_SURROGATE_PARAMS)
-    params.setdefault("method", RG.DEFAULT_SURROGATE_PARAMS["method"])
-    params["seed"] = int(params.get("seed") or 0)
-    fixed = params["method"] != "block_shuffle" or params.get("block_s")
+    params = fixed_draw_params(surrogate_params)
+    if params is None:
+        if any(st["real"] is None for st in out):
+            for st in out:
+                st["todo_draws"], st["complete"] = draws, False
+            return out
+        fs = conn.execute("SELECT fs FROM recordings WHERE id = ?", (int(recording_id),)).fetchone()[0]
+        params, skipped = channel_draw_params(conn, [st["real"] for st in out], surrogate_params, float(fs))
+        if params is None:
+            for st in out:
+                st["skipped"] = skipped
+            return out
+    hashers = [window_hasher(RG.surrogate_recipe(with_span(base, spans[0]), dict(params, seed=params["seed"] + j)))
+               for j in range(draws)]
     want, where = [], []
-    for k, (rec, st) in enumerate(zip(recipes, out)):
-        if fixed:
-            base_k, skipped = params, None
-        elif st["real"] is None:
-            st["todo_draws"] = draws
-            continue
-        else:
-            base_k, skipped = RG.surrogate_draw_params(conn, st["real"], params)
-        if base_k is None:
-            st["skipped"] = skipped
-            continue
-        for j in range(draws):
-            want.append(short_hash(RG.surrogate_recipe(rec, dict(base_k, seed=base_k["seed"] + j))))
-            where.append((k, j))
-    got = _completed(conn, recording_id, want, [spans[k] for k, _ in where])
-    for st in out:
-        if st["skipped"] is None and st["real"] is not None:
-            st["draws"] = [None] * draws
-    for (k, j), hit in zip(where, got):
-        st = out[k]
-        if not st["draws"]:
-            st["draws"] = [None] * draws
-        ok = hit is not None and st["real"] is not None and hit[1] is not None and int(hit[1]) == int(st["real"])
-        st["draws"][j] = hit[0] if ok else None
-    for st in out:
-        if st["skipped"] is not None:
-            continue
+    for k, st in enumerate(out):
+        st["params"] = params
         if st["real"] is None:
             st["todo_draws"] = draws
-            st["complete"] = False
+            continue
+        st["draws"] = [None] * draws
+        for j in range(draws):
+            want.append(hashers[j](spans[k]))
+            where.append((k, j))
+    got = _completed(conn, recording_id, want, [spans[k] for k, _ in where])
+    for (k, j), hit in zip(where, got):
+        st = out[k]
+        ok = hit is not None and hit[1] is not None and int(hit[1]) == int(st["real"])
+        st["draws"][j] = hit[0] if ok else None
+    for st in out:
+        if st["real"] is None:
             continue
         missing = sum(1 for d in st["draws"] if d is None)
         st["todo_draws"] = missing
@@ -846,9 +936,15 @@ def plan_windows(conn, *, steps, targets, refused, span, ceiling, measured_per_w
                            f"that step works on part of what it needs and its output there is distorted")
     elif why:
         return refuse(why)
+    # the critic's m5: an opt-in that changed nothing is not recorded — not in the scope, the label or the recipe
+    if scope["fit"] and not info["fitted"]:
+        scope = dict(scope, fit=False)
+    if scope.get("allow_short") and not why:
+        scope = {k: v for k, v in scope.items() if k != "allow_short"}
+    info["scope"], info["label"] = scope, scope_label(scope)
     n_w = window_samples(scope["window_s"], fs)
     info["window_samples"], info["step_samples"] = n_w, step_samples(n_w, scope["overlap_frac"])
-    out, fan = [], []
+    out, fan, chans, chan_spans = [], [], {}, {}
     for t in targets:
         a, b = int(t["span"][0]), int(t["span"][1])
         spans = window_spans(a, b, n_w, scope["overlap_frac"])
@@ -857,27 +953,29 @@ def plan_windows(conn, *, steps, targets, refused, span, ceiling, measured_per_w
                 f"{t['channel_name']}: its section ({fmt_duration((b - a) / fs)}) is shorter than one window "
                 f"({fmt_duration(scope['window_s'])})")})
             continue
-        info["per_channel_by"][int(t["recording_id"])] = len(spans)
+        rid = int(t["recording_id"])
+        info["per_channel_by"][rid] = len(spans)
+        chans[rid] = list(range(len(out), len(out) + len(spans)))
+        chan_spans[rid] = [[wa, wb] for wa, wb in spans]
+        of, section = len(spans), [a, b]
         for k, ((wa, wb), (lo, hi)) in enumerate(zip(spans, window_cores(spans, a, b))):
             out.append({"recording_id": t["recording_id"], "channel": t["channel"], "channel_name": t["channel_name"],
                         "source_file": t["source_file"], "fs": t["fs"], "n_samples": t["n_samples"],
-                        "span": [wa, wb], "samples": wb - wa, "section": [a, b],
-                        "window": {"index": k, "of": len(spans), "core": [lo, hi]}})
-            fan.append({"recording_id": int(t["recording_id"]), "span": [wa, wb]})
+                        "span": [wa, wb], "samples": wb - wa, "section": section,
+                        "window": {"index": k, "of": of, "core": [lo, hi]}})
+            fan.append({"recording_id": rid, "span": [wa, wb]})
     if not out:
         return refuse("; ".join(r["reason"] for r in refused))
     recipe = make_recipe(out[0]["recording_id"], steps, span=(list(span) if span else None),
                          fan_out={"kind": KIND, "targets": fan})
     recipe["windows"] = dict(scope)
-    chans = _channels(out)
     info["per_channel"] = len(next(iter(chans.values())))
     info["targets"] = len(out)
     costs, runs_real, runs_draws, done = [], 0, 0, 0
     total_s, real_total_s, per_window, uncosted = 0.0, 0.0, None, set()
     for rid, idxs in chans.items():
         base = fanout.target_recipe(recipe, idxs[0], surrogate)
-        status = lookup_windows(conn, base, [out[i]["span"] for i in idxs], rid, draws=draws,
-                                surrogate_params=surrogate_params)
+        status = lookup_windows(conn, base, chan_spans[rid], rid, draws=draws, surrogate_params=surrogate_params)
         todo_real = sum(1 for st in status if st["real"] is None)
         todo_draws = sum(st["todo_draws"] for st in status)
         done += len(idxs) - todo_real
@@ -967,9 +1065,11 @@ def start_windows(plan, *, db_path=None, on_progress=None, on_target_done=None, 
     windows; a channel stopped part-way is not stitched. Returns `fanout.start`'s ``{run_group_id, runs, cancelled,
     run_ids, reused}``: ``runs`` one row per channel (the stitched run, its stitched draws, the window runs it is
     made of), ``run_ids`` the stitched runs."""
+    from Working import run_groups as RG
     from Working.database import runs as R
     from Working.database.schema import init_db
     from Working.discovery import fanout
+    from Working.execution import execute_recipe
     from Working.run_groups import run_paired_recipe
 
     if not plan.get("runnable"):
@@ -983,6 +1083,9 @@ def start_windows(plan, *, db_path=None, on_progress=None, on_target_done=None, 
     try:
         group_id = R.create_run_group(conn)
         rows, cancelled, total = [], False, 0
+        # a block shuffle with no block length set: its block is the channel's (`channel_draw_params`), known once
+        # every window of the channel has run — so the windows run first, then every window draws
+        two_pass = bool(surrogate) and fixed_draw_params(surrogate_params) is None
         for rid, idxs in _channels(targets).items():
             first = targets[idxs[0]]
             _refuse_locked(conn, first)
@@ -1001,6 +1104,16 @@ def start_windows(plan, *, db_path=None, on_progress=None, on_target_done=None, 
                 if st is not None and st["complete"]:
                     real_id, draw_ids, reused, skipped = st["real"], list(st["draws"]), True, st["skipped"]
                     n_det = conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ?", (real_id,)).fetchone()[0]
+                elif two_pass:
+                    # the window's run only; its draws once the channel's block is known
+                    fits = {}
+                    res = execute_recipe(dict(with_span(base, t["span"]), surrogate=True), db_path=db_path,
+                                         force=force, run_kwargs=run_kwargs,
+                                         on_step_result=capture_fits(fits, recipe["steps"]))
+                    real_id, draw_ids, skipped = int(res["run_id"]), None, None
+                    reused, n_det = bool(res["reused"]), res["detections_written"]
+                    if fits:
+                        save_fits(conn, real_id, fits)
                 else:
                     fits = {}
                     res = run_paired_recipe(
@@ -1019,13 +1132,39 @@ def start_windows(plan, *, db_path=None, on_progress=None, on_target_done=None, 
                 if on_target_done is not None:
                     on_target_done(i, n, {"run_id": int(real_id), "channel_name": t["channel_name"],
                                           "detections_written": int(n_det), "reused": reused, "window": j})
+            draw_params = surrogate_params
+            if two_pass and not cancelled:
+                draw_params, why = channel_draw_params(conn, [d["run_id"] for d in done], surrogate_params,
+                                                       float(first["fs"]))
+                for d, i in zip(done, idxs):
+                    if draw_params is None:
+                        d["draw_ids"], d["skipped"] = [], why
+                        continue
+                    if d["draw_ids"] is not None:
+                        continue                    # read with the channel's block already (`lookup_windows`)
+                    if should_cancel is not None and should_cancel():
+                        cancelled = True
+                        break
+                    if on_progress is not None:
+                        on_progress(i, n, f"{first['channel_name']} · the null of window {d['index'] + 1} of "
+                                          f"{len(idxs)}")
+                    null = RG.draw_paired_null(
+                        dict(with_span(base, d["span"]), surrogate=True), d["run_id"], db_path=db_path,
+                        params=draw_params, draws=n_draws, force=force, should_cancel=should_cancel,
+                        run_kwargs=run_kwargs,
+                        on_draw=((lambda a, b, _i=i: on_draw(_i, n, a, b)) if on_draw is not None else None))
+                    d["draw_ids"], d["skipped"] = [int(x) for x in null["run_ids"]], null["skipped"]
+            for d in done:
+                if d["draw_ids"] is None:
+                    d["draw_ids"] = []
             _link_group(conn, group_id, [d["run_id"] for d in done] + [x for d in done for x in d["draw_ids"]])
             total += len(done)
             if cancelled:
                 break
             row = write_stitched(conn, recording_id=rid, section=first["section"], steps=recipe["steps"],
                                  scope=recipe["windows"], rule=plan["windows"]["rule"], surrogate=bool(surrogate),
-                                 surrogate_params=surrogate_params, n_draws=n_draws, windows=done, group_id=group_id)
+                                 surrogate_params=(draw_params if draw_params is not None else surrogate_params),
+                                 n_draws=n_draws, windows=done, group_id=group_id)
             row.update({"recording_id": rid, "channel": first["channel"], "channel_name": first["channel_name"],
                         "windows": len(done), "window_run_ids": [d["run_id"] for d in done],
                         "windows_reused": sum(1 for d in done if d["reused"]),

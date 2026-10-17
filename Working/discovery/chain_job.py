@@ -74,6 +74,12 @@ import time
 import numpy as np
 
 SPEC_VERSION = 1
+#: round A_2, P3 (the critic's m8): a windowed spec (``windows`` on the spec and every target) is version 2. P2's
+#: cluster code reads version 1 only and refuses any other at task start, so a windowed spec never runs there as a
+#: plain target — its first window, called complete. Every plain spec stays version 1, its hash unchanged.
+WINDOWED_SPEC_VERSION = 2
+#: what this code reads
+SPEC_VERSIONS = (SPEC_VERSION, WINDOWED_SPEC_VERSION)
 KIND = "detection_chain"
 RESULT_KIND = "detection_chain_result"
 SPEC_SUFFIX = ".chain.json"
@@ -345,9 +351,29 @@ def build_spec(conn, plan, *, label, null, run_key=None, session_id=None, templa
     if plan.get("windows"):
         # only on a windowed spec, so every other spec keeps the hash it was exported with
         from Working.discovery import windowed as WD
+        spec["version"] = WINDOWED_SPEC_VERSION
         spec["windows"] = {"scope": plan["windows"]["scope"], "rule": plan["windows"]["rule"],
                            "stitch": WD.STITCH_VERSION}
     return spec
+
+
+def spec_refusal(spec):
+    """None when this code reads ``spec``, else why not: its kind, a version this code does not read, or a version
+    that does not say what the spec holds (a windowed spec is version 2 and every one of its targets names its
+    windows; a plain one is version 1 and names none)."""
+    version = int(spec.get("version") or 0)
+    if spec.get("kind") != KIND or version not in SPEC_VERSIONS:
+        return (f"not a chain job spec this code reads (version {spec.get('version')!r}, kind {spec.get('kind')!r}; "
+                f"it reads versions {', '.join(str(v) for v in SPEC_VERSIONS)}, kind {KIND!r})")
+    windowed = bool(spec.get("windows")) or any(t.get("windows") for t in spec.get("targets") or [])
+    if windowed and version != WINDOWED_SPEC_VERSION:
+        return (f"a version {version} spec that names windows: a windowed spec is version {WINDOWED_SPEC_VERSION} "
+                f"(written by code that predates round A_2, P3's fix round — export it again)")
+    if not windowed and version != SPEC_VERSION:
+        return f"a version {version} spec that names no windows: a plain spec is version {SPEC_VERSION}"
+    if windowed and not (spec.get("windows") and all(t.get("windows") for t in spec.get("targets") or [])):
+        return "a windowed spec whose scope or targets name no windows"
+    return None
 
 
 def _window_targets(conn, plan, paired):
@@ -375,6 +401,7 @@ def _window_targets(conn, plan, paired):
         units = recording_units(rec)
         npy = rec["npy_path"]
         spans = [list(plan["targets"][i]["span"]) for i in idxs]
+        hasher = WD.window_hasher(first)
         target = {
             "index": c, "recordingId": int(rec["id"]), "sourceFile": rec["source_file"], "channel": int(rec["channel"]),
             "channelName": t["channel_name"], "fs": float(rec["fs"]), "nSamples": int(rec["n_samples"]),
@@ -384,7 +411,7 @@ def _window_targets(conn, plan, paired):
             "span": list(t["section"]), "recipe": first, "configHash": short_hash(first),
             "prefixHashes": [_recipe_prefix_hash(first, k, units) for k in range(len(first["steps"]))],
             "chunks": [],
-            "windows": {"spans": spans, "configHashes": [short_hash(WD.with_span(first, sp)) for sp in spans]},
+            "windows": {"spans": spans, "configHashes": [hasher(sp) for sp in spans]},
         }
         if _held_out_unlocked(conn, rec["source_file"]):
             target["heldOutUnlocked"] = True
@@ -887,10 +914,12 @@ def _compute_windows(spec, target, db, stop, *, into):
     """Every window of a windowed task (round A_2, P3), then each one's null draws, on the scratch database.
 
     Each window's recipe is asserted against the spec's hash before it runs; a resubmitted task reuses the windows
-    its earlier jobs finished (they are completed runs in the scratch database). Each finished window is appended to
-    ``into`` (the result's ``windows``) as ``{index, span, configHash, detections, stepTimings, fitted, draws:
-    [{configHash, detections, stepTimings}], drawParams, drawsSkipped}``; raises `_Stopped` between windows and
-    draws. Returns the result's ``run`` and ``draws`` summaries (totals over the windows)."""
+    and draws its earlier jobs finished (they are completed runs in the scratch database). Each finished window is
+    appended to ``into`` (the result's ``windows``) as ``{index, span, configHash, detections, stepTimings, fitted,
+    draws: [{configHash, detections, stepTimings}], drawParams, drawsSkipped}``; raises `_Stopped` between windows
+    and draws. A block shuffle with no block length set draws with the channel's block, as the local sweep does
+    (`windowed.channel_draw_params`): every window runs first, then every window draws. Returns the result's ``run``
+    and ``draws`` summaries (totals over the windows)."""
     from Working import run_groups as RG
     from Working.database import runs as R
     from Working.database.schema import init_db
@@ -904,10 +933,28 @@ def _compute_windows(spec, target, db, stop, *, into):
                               f"{len(w['configHashes'])} window hashes")
     null = spec["null"]
     asked = int(null["draws"]) if null["paired"] else 0
+    channel_block = bool(asked) and WD.fixed_draw_params(null["params"]) is None
 
     def timings(run_id, conn):
         row = conn.execute("SELECT step_timings_json FROM runs WHERE id = ?", (int(run_id),)).fetchone()
         return {str(a): float(b) for a, b in json.loads((row[0] if row else None) or "{}").items()}
+
+    def draw_all(conn, entry, recipe, real_id, draw_ids, base_p):
+        for j in range(asked if base_p is not None else 0):
+            dr = RG.surrogate_recipe(recipe, dict(base_p, seed=base_p["seed"] + j))
+            if draw_ids is not None:
+                d_id = draw_ids[j]
+            else:
+                if stop():
+                    raise _Stopped()
+                try:
+                    d = execute_recipe(dr, db_path=db, should_cancel=stop)
+                except RecipeCancelled:
+                    raise _Stopped()
+                d_id = int(d["run_id"])
+                R.update_run(conn, d_id, surrogate_of_run_id=real_id)
+            entry["draws"].append({"configHash": short_hash(dr), "detections": _detections_of(conn, d_id),
+                                   "stepTimings": timings(d_id, conn)})
 
     conn = init_db(db)
     try:
@@ -915,6 +962,7 @@ def _compute_windows(spec, target, db, stop, *, into):
         # wall re-reading thousands of windows through the executor)
         done = WD.lookup_windows(conn, base, w["spans"], int(target["recordingId"]), draws=asked,
                                  surrogate_params=null["params"])
+        pending = []
         for k, (span, h) in enumerate(zip(w["spans"], w["configHashes"])):
             if stop():
                 raise _Stopped()
@@ -941,26 +989,22 @@ def _compute_windows(spec, target, db, stop, *, into):
             entry = {"index": k, "span": [int(span[0]), int(span[1])], "configHash": got,
                      "detections": _detections_of(conn, real_id), "stepTimings": step_timings,
                      "fitted": WD.load_fits(conn, real_id), "draws": [], "drawParams": None, "drawsSkipped": None}
+            if channel_block:
+                pending.append((entry, recipe, real_id, draw_ids))
+                continue
             base_p = None
             if null["paired"]:
                 base_p, entry["drawsSkipped"] = RG.surrogate_draw_params(conn, real_id, null["params"])
                 entry["drawParams"] = base_p
-            for j in range(asked if base_p is not None else 0):
-                dr = RG.surrogate_recipe(recipe, dict(base_p, seed=base_p["seed"] + j))
-                if draw_ids is not None:
-                    d_id = draw_ids[j]
-                else:
-                    if stop():
-                        raise _Stopped()
-                    try:
-                        d = execute_recipe(dr, db_path=db, should_cancel=stop)
-                    except RecipeCancelled:
-                        raise _Stopped()
-                    d_id = int(d["run_id"])
-                    R.update_run(conn, d_id, surrogate_of_run_id=real_id)
-                entry["draws"].append({"configHash": short_hash(dr), "detections": _detections_of(conn, d_id),
-                                       "stepTimings": timings(d_id, conn)})
+            draw_all(conn, entry, recipe, real_id, draw_ids, base_p)
             into.append(entry)
+        if channel_block:
+            base_p, skipped = WD.channel_draw_params(conn, [p[2] for p in pending], null["params"],
+                                                     float(target["fs"]))
+            for entry, recipe, real_id, draw_ids in pending:
+                entry["drawParams"], entry["drawsSkipped"] = base_p, skipped
+                draw_all(conn, entry, recipe, real_id, draw_ids if base_p is not None else None, base_p)
+                into.append(entry)
     finally:
         conn.close()
     drew = [e for e in into if e["drawParams"] is not None]
@@ -968,7 +1012,7 @@ def _compute_windows(spec, target, db, stop, *, into):
            "stepTimings": {}, "reused": False}
     draws = {"asked": asked, "drawn": (min(len(e["draws"]) for e in drew) if drew else 0),
              "skipped": next((e["drawsSkipped"] for e in into if e["drawsSkipped"]), None),
-             # per window (`windows[].drawParams`): a block shuffle sizes its block from each window's own run
+             # per window (`windows[].drawParams`): a block shuffle's block is the channel's
              "params": None, "configHashes": [],
              "detections": [sum(len(e["draws"][j]["detections"]) for e in drew if j < len(e["draws"]))
                             for j in range(asked)]}
@@ -998,14 +1042,15 @@ def run_task(spec, task, out_dir, *, budget_s=None, should_cancel=None, repo_roo
     os.makedirs(ret_dir, exist_ok=True)
     os.makedirs(work_dir, exist_ok=True)
     result_path = os.path.join(ret_dir, RESULT_NAME)
-    result = {"version": SPEC_VERSION, "kind": RESULT_KIND, "specHash": None, "task": int(task),
+    result = {"version": int(spec.get("version") or SPEC_VERSION) if isinstance(spec, dict) else SPEC_VERSION,
+              "kind": RESULT_KIND, "specHash": None, "task": int(task),
               "recordingId": None, "channelName": None, "complete": False, "error": None, "configHash": None,
               "prefixHashes": None, "run": None, "draws": None, "cache": [], "chunked": [], "elapsedS": None,
               "finishedAt": None, "host": None, "versions": None}
     try:
-        if int(spec.get("version") or 0) != SPEC_VERSION or spec.get("kind") != KIND:
-            raise ValueError(f"not a chain job spec this code reads (version {spec.get('version')!r}, kind "
-                             f"{spec.get('kind')!r}; it reads version {SPEC_VERSION}, kind {KIND!r})")
+        why = spec_refusal(spec)
+        if why:
+            raise ValueError(why)
         h = spec_hash(spec)
         target = spec["targets"][int(task)]
         result.update(specHash=h, recordingId=target["recordingId"], channelName=target["channelName"],
@@ -1252,7 +1297,6 @@ def _write_window_rows(conn, task):
     would have written here, so the local sweep reuses every one. A window this machine already holds is left as it
     is. One transaction. Returns ``(written, already)``."""
     from Working.discovery import windowed as WD
-    from Working.recipes import canonical_json, short_hash
 
     from Working import run_groups as RG
 
@@ -1260,12 +1304,16 @@ def _write_window_rows(conn, task):
     rows = task["rows"]
     now = _now()
     configs = {}                                          # config hash -> canonical json, every window and draw
+    real_text = WD.window_hasher(task["recipe"])
+    draw_text = {}
     for r in rows:
-        recipe = WD.with_span(task["recipe"], r["span"])
-        configs[r["configHash"]] = canonical_json(recipe)
+        configs[r["configHash"]] = real_text.canonical(r["span"])
         for j, d in enumerate(r["draws"]):
             p = dict(r["drawParams"], seed=int(r["drawParams"]["seed"]) + j)
-            configs[d["configHash"]] = canonical_json(RG.surrogate_recipe(recipe, p))
+            key = json.dumps(p, sort_keys=True)
+            if key not in draw_text:
+                draw_text[key] = WD.window_hasher(RG.surrogate_recipe(WD.with_span(task["recipe"], r["span"]), p))
+            configs[d["configHash"]] = draw_text[key].canonical(r["span"])
     with conn:
         conn.executemany("INSERT OR IGNORE INTO configs (config_hash, config_json, created_at) VALUES (?, ?, ?)",
                          [(h, js, now) for h, js in configs.items()])
@@ -1320,8 +1368,9 @@ def verify_results(conn, spec, out_dir):
     bytesToCopy, counts, copy, importedAt}``; ``copy`` is the entries to restore,
     ``(prefix hash, step, source dir, bytes)``, and ``bytesToCopy`` their sum
     (the disk the restore needs)."""
-    if int(spec.get("version") or 0) != SPEC_VERSION or spec.get("kind") != KIND:
-        raise ImportRefused(f"not a chain job spec (version {spec.get('version')!r}, kind {spec.get('kind')!r})")
+    why = spec_refusal(spec)
+    if why:
+        raise ImportRefused(why)
     st = collect(spec, out_dir)
     if not st["complete"]:
         missing = [t for t in st["tasks"] if t["state"] != "complete"]
@@ -1380,11 +1429,11 @@ def verify_results(conn, spec, out_dir):
 def _window_results(spec, target, res):
     """A windowed task's result checked window by window (round A_2, P3): every window came back, over the exported
     span, computed from the exported recipe (its hash, and the same recipe rebuilt here), its detections inside its
-    window; its draws at the spec's null (method and seed; a block shuffle's block twice the window's own longest
-    detection) and each draw's recipe rebuilt here. Returns ``(rows, problems)``: the rows the import writes."""
+    window; its draws at the spec's null (method and seed; a block shuffle's block twice the longest
+    detection of its channel's windows) and each draw's recipe rebuilt here. Returns ``(rows, problems)``: the rows
+    the import writes."""
     from Working import run_groups as RG
     from Working.discovery import windowed as WD
-    from Working.recipes import short_hash
 
     who = f"task {target['index']} ({target['channelName']})"
     spans, hashes = target["windows"]["spans"], target["windows"]["configHashes"]
@@ -1399,6 +1448,12 @@ def _window_results(spec, target, res):
     null = spec["null"]
     want = dict(null["params"] or {}) if null["paired"] else {}
     fs = float(target["fs"])
+    real_hash = WD.window_hasher(target["recipe"])
+    draw_hash = {}
+    # a block shuffle with no block length set: one block for the channel, twice the longest detection any of its
+    # windows found (`windowed.channel_draw_params`); none found anything: no window draws
+    longest = max((int(d[1]) - int(d[0]) for x in got for d in (x.get("detections") or [])), default=0)
+    channel_block = (max(2.0 * longest / fs, 2.0 / fs) if longest > 0 else None)
     for k, (w, span, h) in enumerate(zip(got, spans, hashes)):
         where = f"{who} window {k + 1}"
         if [int(x) for x in w.get("span") or ()] != [int(span[0]), int(span[1])]:
@@ -1408,8 +1463,8 @@ def _window_results(spec, target, res):
             problems.append(f"{where}: the cluster computed config {w.get('configHash')}, the spec asked for {h}")
             continue
         recipe = WD.with_span(target["recipe"], span)
-        if short_hash(recipe) != h:
-            problems.append(f"{where}: its recipe hashes {short_hash(recipe)} here, {h} in the spec")
+        if real_hash(span) != h:
+            problems.append(f"{where}: its recipe hashes {real_hash(span)} here, {h} in the spec")
             continue
         dets = w.get("detections") or []
         if any(not (int(span[0]) <= int(d[0]) <= int(d[1]) <= int(span[1])) for d in dets):
@@ -1420,9 +1475,8 @@ def _window_results(spec, target, res):
         if null["paired"]:
             base = w.get("drawParams")
             if base is None:
-                longest_ok = not dets
                 if not (w.get("drawsSkipped") and want.get("method") == "block_shuffle" and not want.get("block_s")
-                        and longest_ok):
+                        and channel_block is None):
                     problems.append(f"{where}: it drew no null ({w.get('drawsSkipped')!r}) and the spec's null is "
                                     f"{want}")
                     continue
@@ -1435,10 +1489,9 @@ def _window_results(spec, target, res):
                         problems.append(f"{where}: its draws' block is {base.get('block_s')}, the spec's {want['block_s']}")
                         continue
                 elif base.get("method") == "block_shuffle":
-                    longest = max((int(d[1]) - int(d[0]) for d in dets), default=0) / fs
-                    if not dets or abs(float(base.get("block_s") or 0) - max(2.0 * longest, 2.0 / fs)) > 1e-9:
-                        problems.append(f"{where}: its draws' block ({base.get('block_s')}) is not twice its longest "
-                                        f"detection")
+                    if channel_block is None or abs(float(base.get("block_s") or 0) - channel_block) > 1e-9:
+                        problems.append(f"{where}: its draws' block ({base.get('block_s')}) is not twice the longest "
+                                        f"detection of its channel's windows ({channel_block})")
                         continue
                 draws = w.get("draws") or []
                 if len(draws) != int(null["draws"]):
@@ -1447,10 +1500,12 @@ def _window_results(spec, target, res):
                 bad = False
                 row["drawParams"] = dict(base)
                 for j, d in enumerate(draws):
-                    dr = RG.surrogate_recipe(recipe, dict(base, seed=int(base["seed"]) + j))
-                    if short_hash(dr) != d.get("configHash"):
-                        problems.append(f"{where}: draw {j} hashes {short_hash(dr)} here, {d.get('configHash')} on "
-                                        f"the cluster")
+                    key = (json.dumps(base, sort_keys=True), j)
+                    if key not in draw_hash:
+                        draw_hash[key] = WD.window_hasher(RG.surrogate_recipe(recipe, dict(base, seed=int(base["seed"]) + j)))
+                    dh = draw_hash[key](span)
+                    if dh != d.get("configHash"):
+                        problems.append(f"{where}: draw {j} hashes {dh} here, {d.get('configHash')} on the cluster")
                         bad = True
                         break
                     if any(not (int(span[0]) <= int(x[0]) <= int(x[1]) <= int(span[1])) for x in d.get("detections") or []):
@@ -1499,7 +1554,6 @@ def _local_windows_plan(conn, spec, *, ceiling_s=None):
     not the exported ones."""
     from Working.discovery import fanout
     from Working.discovery import windowed as WD
-    from Working.recipes import short_hash
 
     null, w = spec["null"], spec["windows"]
     paired = bool(null["paired"])
@@ -1525,7 +1579,8 @@ def _local_windows_plan(conn, spec, *, ceiling_s=None):
         first = fanout.target_recipe(plan["recipe"], idxs[0], paired)
         if first != t["recipe"]:
             raise ImportRefused(f"{who}: the chain is not the exported one")
-        if [short_hash(WD.with_span(first, sp)) for sp in spans] != list(t["windows"]["configHashes"]):
+        hasher = WD.window_hasher(first)
+        if [hasher(sp) for sp in spans] != list(t["windows"]["configHashes"]):
             raise ImportRefused(f"{who}: a window's recipe hashes differently here than at the export")
     plan["channels"] = [plan["targets"][idxs[0]]["channel_name"] for idxs in chans.values()]
     plan["null"] = {"paired": paired, "params": null["params"], "draws": int(null["draws"]) if paired else 0,
