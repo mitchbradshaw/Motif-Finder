@@ -231,10 +231,14 @@ def test_a_block_that_cuts_its_input_into_pieces_needs_one_whole_piece():
 def test_every_preprocessing_and_detection_block_says_whether_it_has_an_internal_window():
     """The bound reads a table, not the parameter names: a new block that reads a stretch of signal around each point
     and is in neither list would let a window shorter than its own through without a word."""
-    from Adapters.registry import list_adapters
+    from Adapters.registry import discover_adapters
 
     W = _w()
-    names = {s.name for s in list_adapters()}
+    # a2 integration: every block the app ships (discover_adapters imports every Adapters module), and only those —
+    # another test file registers probe blocks into the same process-wide registry (test_side_inputs.py's
+    # detection.side_input_probe), which the full suite's workers then listed here as unclassified
+    names = {s.name for s in discover_adapters()
+             if (getattr(getattr(s, "run", None), "__module__", "") or "").startswith("Adapters.")}
     known = set(W.INTERNAL_WINDOWS) | set(W.NO_INTERNAL_WINDOW)
     missing = sorted(n for n in names if n.split(".")[0] in ("preprocessing", "detection") and n not in known)
     assert not missing, f"classify these in Working/discovery/windowed.py (INTERNAL_WINDOWS or NO_INTERNAL_WINDOW): {missing}"
