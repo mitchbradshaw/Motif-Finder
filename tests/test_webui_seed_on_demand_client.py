@@ -235,3 +235,14 @@ def test_reviews_promotion_card_opens_the_family_in_the_grouping_it_was_read_in(
     links = _function(parts, "function PromotedEntryLinks")
     assert "grouping" in links and re.search(r"grouping=|set\('grouping'", links), \
         "the family link carries the grouping its family was read in"
+
+
+def test_the_seed_page_says_when_its_remembered_seed_moved_off_the_held_out_recording():
+    """a2 integration (P1 x P4). Once the lock is back on, the bridge opens the first available seed in place of a
+    remembered one on the held-out recording and says why in `draft.heldOutNote` (a2-p1's m2). The page shows that
+    sentence rather than switching seeds silently: the setup mapping carries it and the page renders it."""
+    api = _src("api", "discovery.ts")
+    assert re.search(r"heldOutNote:\s*p\.draft\.heldOutNote", api), "getSeedSetup drops the bridge's heldOutNote"
+    page = _src("discovery", "SeedPage.tsx")
+    assert 'testid="seed-draft-held-out-note"' in page and "setup.data.heldOutNote" in page, \
+        "the Seed page does not show why its seed moved off the held-out recording"
