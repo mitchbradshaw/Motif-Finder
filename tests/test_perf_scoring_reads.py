@@ -420,3 +420,23 @@ def test_any_change_on_the_channels_redraws_the_corpus_map(scored, change):
     fresh = _without_timing(corpus._coverage(conn, "cache.mat", bins=10))
     assert fresh != before, "the change did not move the map, so this case proves nothing"
     assert _without_timing(corpus.coverage(conn, "cache.mat", bins=10)) == fresh
+
+
+def test_one_read_pass_reads_each_channel_once(scored, monkeypatch):
+    """The picker fingerprints every template's runs; 60 templates over the
+    same 14 channels re-read them 683 times. A pass shares one memo."""
+    conn, runs = scored["conn"], scored["runs"]
+    reads = {"n": 0}
+    real = SB._read_channel_rows
+
+    def counted(*a, **kw):
+        reads["n"] += 1
+        return real(*a, **kw)
+
+    monkeypatch.setattr(SB, "_read_channel_rows", counted)
+    memo = {}
+    for ids in ([runs[0]], [runs[1]], runs, [runs[0]], runs):
+        SB.score_runs_cached(conn, ids, memo=memo)
+    assert reads["n"] == 2                        # two channels, each read once
+    # and the memo changes no answer
+    assert SB.score_runs_cached(conn, runs, memo=memo) == SB.score_runs(conn, runs)

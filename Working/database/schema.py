@@ -611,6 +611,10 @@ def _migrate_annotations_columns(conn):
 
 def _migrate_runs_columns(conn):
     _migrate_columns(conn, "runs", _RUNS_NEW_COLUMNS)
+    # after the column exists: a run's paired null draws, looked up per run by the
+    # scoreboard and its cache (perf, 2026-10-18)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_runs_surrogate_of ON runs(surrogate_of_run_id)")
+    conn.commit()
 
 
 def _migrate_motifs_columns(conn):

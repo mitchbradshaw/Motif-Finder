@@ -560,7 +560,7 @@ def _seed_bind(steps) -> str:
     return core_templates.REBIND if binding.get("mode") == core_templates.REBIND else core_templates.CARRY
 
 
-def _template_payload(conn, row, in_session: set, rank: int):
+def _template_payload(conn, row, in_session: set, rank: int, memo=None):
     steps = row["steps"]
     signature, terminal = _signature(steps)
     is_seed = any(st["algorithm"] == "seed_matches" for st in steps)
@@ -569,7 +569,7 @@ def _template_payload(conn, row, in_session: set, rank: int):
         cell = _step_cell(st, i)
         stages.append({"index": f"{i + 1:02d}", "name": cell["name"], "signature": cell["signature"],
                        "locked": cell["param"], "glyph": cell["glyph"]})
-    score = _last_score(conn, row["name"])
+    score = _last_score(conn, row["name"], memo)
     return {
         "name": row["name"], "kind": "seed" if is_seed else "template", "signature": signature,
         "fits": terminal == "spanset",
@@ -615,7 +615,7 @@ def _complexity(steps):
     return f"{len(steps)} stages" + (f" · {len(heavy)} heavy" if heavy else "")
 
 
-def _last_score(conn, template_name):
+def _last_score(conn, template_name, memo=None):
     """§4.8: a score aggregates onto a template **only with scope attached**.
     Never a bare number on a template card."""
     row = conn.execute(
@@ -624,7 +624,7 @@ def _last_score(conn, template_name):
     ids = _run_ids(conn, row) if row is not None else []
     if not ids:
         return "not yet scored"
-    total = SB.score_runs_cached(conn, ids)["total"]
+    total = SB.score_runs_cached(conn, ids, memo=memo, copy_out=False)["total"]     # read, never changed
     # fixup-X: the containment figure (Q-D2 (a)) — the §4.6 one is 0 by
     # construction on window labels and would put that 0 on the card
     p = (total.get("precisions") or {}).get("containment")
@@ -653,12 +653,13 @@ def warm_last_scores(db_path):
             t0 = time.perf_counter()
             files = corpus.warm_coverage(c, first="M2_aug_concat_fs1.mat")
             log.info("corpus maps warmed (%d files, %.1f s)", len(files), time.perf_counter() - t0)
+            t0, memo = time.perf_counter(), {}
             for row in T.list_all(c):
                 if row.get("kind") in (None, "detection"):
-                    _last_score(c, row["name"])
+                    _last_score(c, row["name"], memo)
+            log.info("template scores warmed (%.1f s)", time.perf_counter() - t0)
         finally:
             c.close()
-        log.info("template scores warmed")
     except Exception:
         log.exception("warming the template scores failed; the picker will score on demand")
 
@@ -672,10 +673,11 @@ def get_templates(request: Request):
         in_session = {r["template_name"] for r in _discovery_runs(c, s["id"]) if r["template_name"]}
         rows = T.list_all(c)
         out = []
+        memo = {}      # one read of each channel's rows for every template's score (SB.inputs_fingerprint)
         for i, row in enumerate(rows):
             if row.get("kind") not in (None, "detection"):
                 continue
-            out.append(_template_payload(c, row, in_session, i))
+            out.append(_template_payload(c, row, in_session, i, memo))
         return out
     finally:
         c.close()

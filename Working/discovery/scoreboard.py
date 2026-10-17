@@ -477,8 +477,14 @@ def _rows(conn, sql, params=()):
     return tuple(tuple(r) for r in conn.execute(sql, params).fetchall())
 
 
-def inputs_fingerprint(conn, run_ids):
+def inputs_fingerprint(conn, run_ids, memo=None):
     """Every row `score_runs(run_ids)` reads, or a digest of it.
+
+    ``memo`` is a dict shared by the fingerprints of **one read pass** (one
+    request, the start-up warm): the channel rows and settings each are read
+    once into it rather than once per template — the picker over 60 templates
+    re-read the same 14 channels 683 times. Never keep it past the pass: it
+    is not invalidated.
 
     **Keep this in step with `channel_score` and
     `divergence.channel_divergence`**: a read added there and not here is a
@@ -491,7 +497,8 @@ def inputs_fingerprint(conn, run_ids):
     range: two index lookups, where counting 42k rows per run per open cost
     more than the rest of the fingerprint together.
     """
-    parts = [_rows(conn, "SELECT page, key, value_json FROM settings ORDER BY page, key")]
+    memo = {} if memo is None else memo
+    parts = [_settings_rows(conn, memo)]
     recordings = set()
     for run_id in sorted({int(r) for r in run_ids}):
         run = _rows(conn, "SELECT * FROM runs WHERE id = ?", (run_id,))
@@ -499,18 +506,33 @@ def inputs_fingerprint(conn, run_ids):
         if not run:
             continue
         recordings.add(conn.execute("SELECT recording_id FROM runs WHERE id = ?", (run_id,)).fetchone()[0])
-        # the paired null draws and their own rows
-        parts.append(_rows(conn, "SELECT * FROM runs WHERE surrogate_of_run_id = ? ORDER BY id", (run_id,)))
-        for rid in [run_id] + [int(r[0]) for r in conn.execute(
-                "SELECT id FROM runs WHERE surrogate_of_run_id = ?", (run_id,))]:
-            parts.append(_rows(conn, "SELECT (SELECT MIN(id) FROM detections WHERE run_id = ?), "
-                                     "(SELECT MAX(id) FROM detections WHERE run_id = ?)", (rid, rid)))
+        # its detection id range, then the paired null draws: their rows and theirs
+        parts.append(_rows(conn, "SELECT (SELECT MIN(id) FROM detections WHERE run_id = ?), "
+                                 "(SELECT MAX(id) FROM detections WHERE run_id = ?)", (run_id, run_id)))
+        parts.append(_rows(conn, "SELECT r.*, (SELECT MIN(d.id) FROM detections d WHERE d.run_id = r.id), "
+                                 "(SELECT MAX(d.id) FROM detections d WHERE d.run_id = r.id) "
+                                 "FROM runs r WHERE r.surrogate_of_run_id = ? ORDER BY r.id", (run_id,)))
     for rec_id in sorted(recordings):
-        parts += _channel_rows(conn, rec_id)
+        parts += _channel_rows(conn, rec_id, memo)
     return hash(tuple(parts))
 
 
-def _channel_rows(conn, rec_id):
+def _settings_rows(conn, memo):
+    if "settings" not in memo:
+        memo["settings"] = _rows(conn, "SELECT page, key, value_json FROM settings ORDER BY page, key")
+    return memo["settings"]
+
+
+def _channel_rows(conn, rec_id, memo=None):
+    if memo is not None:
+        key = ("channel", int(rec_id))
+        if key not in memo:
+            memo[key] = _read_channel_rows(conn, rec_id)
+        return memo[key]
+    return _read_channel_rows(conn, rec_id)
+
+
+def _read_channel_rows(conn, rec_id):
     """The human side of one channel, whole, plus its recording row."""
     return [
         _rows(conn, "SELECT * FROM recordings WHERE id = ?", (rec_id,)),
@@ -530,15 +552,17 @@ def _channel_rows(conn, rec_id):
     ]
 
 
-def channels_fingerprint(conn, recording_ids):
+def channels_fingerprint(conn, recording_ids, memo=None):
     """Every row a read over **whole channels** takes in — the corpus map's
     divergence pools every run on each channel — or a digest of it: the
     channel's human rows as `inputs_fingerprint` reads them, every run on it,
     and each run's detection id range (append-only, see there). Same rule:
-    a read added to such a reader and not here is served stale."""
-    parts = [_rows(conn, "SELECT page, key, value_json FROM settings ORDER BY page, key")]
+    a read added to such a reader and not here is served stale. ``memo``: as
+    `inputs_fingerprint`'s."""
+    memo = {} if memo is None else memo
+    parts = [_settings_rows(conn, memo)]
     for rec_id in sorted({int(r) for r in recording_ids}):
-        parts += _channel_rows(conn, rec_id)
+        parts += _channel_rows(conn, rec_id, memo)
         # each run with its recipe's hash (a method filter reads the recipe) and its detection id range
         parts.append(_rows(conn, "SELECT r.*, (SELECT c.config_hash FROM configs c WHERE c.id = r.config_id), "
                                  "(SELECT MIN(d.id) FROM detections d WHERE d.run_id = r.id), "
@@ -547,16 +571,18 @@ def channels_fingerprint(conn, recording_ids):
     return hash(tuple(parts))
 
 
-def score_runs_cached(conn, run_ids, *, rule=None, span=None):
+def score_runs_cached(conn, run_ids, *, rule=None, span=None, memo=None, copy_out=True):
     """`score_runs`, answered from memory while `inputs_fingerprint` is
-    unchanged. The caller gets its own copy."""
+    unchanged. The caller gets its own copy, unless it passes
+    ``copy_out=False`` because it only reads the result (the picker copied 47
+    scores per open for one string each). ``memo``: see `inputs_fingerprint`."""
     import copy
 
     key = (tuple(int(r) for r in run_ids), repr(rule), repr(span))
-    fp = inputs_fingerprint(conn, run_ids)
+    fp = inputs_fingerprint(conn, run_ids, memo)
     hit = _SCORE_CACHE.get(key)
     if hit is not None and hit[0] == fp:
-        return copy.deepcopy(hit[1])
+        return copy.deepcopy(hit[1]) if copy_out else hit[1]
     out = score_runs(conn, run_ids, rule=rule, span=span)
     if len(_SCORE_CACHE) >= _SCORE_CACHE_MAX:
         _SCORE_CACHE.pop(next(iter(_SCORE_CACHE)))
