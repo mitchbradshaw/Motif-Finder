@@ -399,7 +399,8 @@ def test_every_shipped_adapter_registers_without_modification():
     # + w3-b's interrogation.cycle_shapes (the cycles of a chain, Colominas & Wu 2023's back half)
     # + w3-c's detection.pan_matrix_profile (matrix profile XX: at which window lengths does anything repeat?)
     # + fixup-ao's preprocessing.decompose (baseline, noise and signal as layers, one passed on)
-    assert len(specs) == 58, f"expected the fifty-eight shipped adapters, got {sorted(specs)}"
+    # + w4-a's catalogue.cnn_window_scores (the trained CNNs' P(interesting) per window, any window length)
+    assert len(specs) == 59, f"expected the fifty-nine shipped adapters, got {sorted(specs)}"
     # Ticket 08 remaps detection_matrix_profile (encoding -> scores) and
     # preprocessing_window_matrix (encoding -> windowset) to their correct
     # types, and adds detection_threshold, a typed (input_kind='scores')
