@@ -2,8 +2,9 @@
 
 Thin over `Working.discovery.detection_map`, which counts; this module names
 datasets (`corpus.dataset_name`), orders them as the rest of the app does,
-refuses the held-out file and says which session is open, so the client knows
-which cells the Runs browser can show. Nothing numerical is computed here.
+refuses the held-out file while Settings › Datasets' lock is on (a2-p1: read per
+request) and says which session is open, so the client knows which cells the
+Runs browser can show. Nothing numerical is computed here.
 
 * `GET /api/discovery/map` — level 3: every dataset with a live Discovery
   run, all its channels, one cell per row and channel; `withoutRuns` and
@@ -27,6 +28,12 @@ from .discovery import _conn, _file_for_key, _refuse_held_out, _session, _stem
 from .runtime import HELD_OUT_FILE
 
 router = APIRouter()
+
+
+def _held_out_files(conn) -> list:
+    """The files the map leaves out: the held-out one while the lock is on, none
+    once it is off (a2-p1). Read per request, never at import."""
+    return [HELD_OUT_FILE] if corpus.held_out_locked(conn) else []
 
 
 def _session_bit(conn):
@@ -55,7 +62,7 @@ def _keyed(conn, payload):
 def get_map(request: Request):
     c = _conn(request)
     try:
-        m = _keyed(c, DM.dataset_map(c, exclude_files=[HELD_OUT_FILE]))
+        m = _keyed(c, DM.dataset_map(c, exclude_files=_held_out_files(c)))
         m["session"] = _session_bit(c)
         return m
     finally:
@@ -67,10 +74,10 @@ def get_map_dataset(request: Request, recording: str, chunks: int = 1):
     c = _conn(request)
     try:
         rec = _file_for_key(c, recording)
-        _refuse_held_out(rec["source_file"])
+        _refuse_held_out(c, rec["source_file"])
         if chunks not in DM.CHUNK_OPTIONS:
             raise HTTPException(422, {"message": f"chunks must be one of {list(DM.CHUNK_OPTIONS)}, not {chunks}"})
-        m = DM.channel_map(c, rec["source_file"], chunks=chunks, exclude_files=[HELD_OUT_FILE])
+        m = DM.channel_map(c, rec["source_file"], chunks=chunks, exclude_files=_held_out_files(c))
         m["key"] = _stem(rec["source_file"])
         m["session"] = _session_bit(c)
         return m
@@ -83,11 +90,11 @@ def get_map_channel(request: Request, recording: str, channel: str, binH: float 
     c = _conn(request)
     try:
         rec = _file_for_key(c, recording)
-        _refuse_held_out(rec["source_file"])
+        _refuse_held_out(c, rec["source_file"])
         if not binH > 0:
             raise HTTPException(422, {"message": f"binH must be a positive number of hours, not {binH}"})
         try:
-            m = DM.timeline_map(c, rec["source_file"], channel, bin_h=binH, exclude_files=[HELD_OUT_FILE])
+            m = DM.timeline_map(c, rec["source_file"], channel, bin_h=binH, exclude_files=_held_out_files(c))
         except KeyError as e:
             raise HTTPException(404, {"message": str(e.args[0]) if e.args else "no such channel",
                                       "channels": [ch["name"] for ch in rec["channels"]]})

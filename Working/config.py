@@ -457,6 +457,9 @@ SIMILARITY_WIDTH_RATIO_THRESHOLD = 1.5
 # The evaluation recording is refused by both the viewer and the runner unless
 # explicitly unlocked, so "untouched until the freeze" is true by construction.
 # The lock keys on source file, so every materialised channel of the held-out
-# recording is covered by one config entry.
+# recording is covered by one config entry. The app's switch is Settings ›
+# Datasets (`heldout.on`), read on every request and run through
+# `Working.registration.settings.held_out_locked` (a2-p1); RQ1's exam (iii)
+# keeps its own lock (`Working.training.windows.refuse_held_out`).
 HELD_OUT_RECORDING_FILE = "M4_aug_concat_fs1.mat"
-HELD_OUT_UNLOCK = False  # Set to True to temporarily allow access for evaluation
+HELD_OUT_UNLOCK = False  # A script's override: True unlocks for that process, whatever the setting says

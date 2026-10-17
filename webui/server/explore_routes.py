@@ -20,7 +20,6 @@ from Working.review import queues as queues_mod
 
 from . import corpus
 from .corpus import run_methods          # lives there so the fastapi-free coverage path can use it
-from .runtime import HELD_OUT_FILE
 from .writes import write_human
 
 router = APIRouter()
@@ -39,17 +38,17 @@ def _rec(request: Request, recording_id: int) -> dict:
         c.close()
     if rec is None:
         raise HTTPException(404, f"no recording id {recording_id}")
-    if rec["held_out"]:
-        raise HTTPException(423, f"{HELD_OUT_FILE} is held out; the web UI refuses it")
+    if rec["held_out"]:          # a2-p1: true only while Settings › Datasets' lock is on (corpus.recording_row)
+        raise HTTPException(423, corpus.held_out_refusal("the web UI refuses it"))
     return rec
 
 
 @router.get("/api/corpus/{source_file}/runs")
 def get_runs_for_file(request: Request, source_file: str):
-    if source_file == HELD_OUT_FILE:
-        raise HTTPException(423, f"{HELD_OUT_FILE} is held out")
     c = _conn(request)
     try:
+        if corpus.is_held_out(c, source_file):          # a2-p1: only while the lock is on
+            raise HTTPException(423, corpus.held_out_refusal("its runs are not listed"))
         runs = run_methods(c, source_file)
     finally:
         c.close()

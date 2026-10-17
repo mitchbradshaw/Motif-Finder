@@ -234,11 +234,14 @@ def _params_text(params: dict) -> str:
     return " · ".join(parts)
 
 
-def _refuse_held_out(source_file: str) -> None:
-    if str(source_file or "").endswith(HELD_OUT_FILE) or os.path.basename(str(source_file or "")) == HELD_OUT_FILE:
-        raise HTTPException(status_code=423, detail=(
-            f"{HELD_OUT_FILE} is held out: the bridge refuses every request for it, "
-            "in both runtime modes. No Library route reads it and no import writes it."))
+def _refuse_held_out(conn, source_file: str) -> None:
+    """423 for the held-out file while Settings › Datasets' lock is on, read now (a2-p1). The Library's reads
+    follow the lock through the recording index's `held_out` flag (`corpus.recordings`); its importers keep
+    their own rule (`_is_held_out_path`)."""
+    name = os.path.basename(str(source_file or "").replace("\\", "/"))
+    if name == HELD_OUT_FILE and corpus.held_out_locked(conn):
+        raise HTTPException(status_code=423, detail=corpus.held_out_refusal(
+            "the bridge refuses every request for it, in both runtime modes, and no Library route reads it"))
 
 
 # ── the recording index ─────────────────────────────────────────────────────
@@ -2110,7 +2113,8 @@ def _catalogue_fingerprint(conn) -> tuple:
 
 
 def _distributions_cached(conn, index) -> tuple:
-    finger = _catalogue_fingerprint(conn)
+    # a2-p1: the distributions skip the held-out recording's rows while it is locked, so the lock is in the key
+    finger = (_catalogue_fingerprint(conn), corpus.held_out_locked(conn))
     hit = _DIST_CACHE.get("distributions")
     if hit is not None and hit[0] == finger:
         return hit[1], hit[2]
@@ -3092,8 +3096,8 @@ def import_dry_run(request: Request, body: ImportBody):
         if _is_held_out_path(body.path):
             return _import_bundle_payload(
                 conn, body.path, None, body.kind or "drop_motif_store", held_out=True,
-                blocked=(f"{HELD_OUT_FILE} is held out (spec §0 D6). The bridge refuses it on every route, "
-                         "in both runtime modes, and no import may write a row that describes it."))
+                blocked=(f"{HELD_OUT_FILE} is held out (spec §0 D6). No Library import may write a row that "
+                         "describes it, whatever Settings › Datasets' lock says: imports keep their own rule."))
         kind = body.kind or _bundle_kind(conn, body.path)
         report, blocked = _dry_run(conn, body.path, kind, body.exclude_corpora)
         return _import_bundle_payload(conn, body.path, report, kind, blocked=blocked)
@@ -3107,7 +3111,9 @@ def start_import(request: Request, body: ImportBody):
     rt = _rt(request)
     manager = request.app.state.manager
     if _is_held_out_path(body.path):
-        raise HTTPException(status_code=423, detail=f"{HELD_OUT_FILE} is held out; no import may write it.")
+        raise HTTPException(status_code=423, detail=(f"{HELD_OUT_FILE} is held out; no import may write it, "
+                                                     "whatever Settings › Datasets' lock says (the importers "
+                                                     "keep their own rule)."))
 
     def _work(job):
         conn = corpus.connect(rt.db_path)
@@ -3333,7 +3339,8 @@ def classify_family_cross_channel(request: Request, family_id: str, body: CrossC
         try:
             out = matching_mod.classify_family_across_channels(
                 c, ids, progress=job.progress, cancel=job.cancel_event.is_set,
-                exclude_source_files=(HELD_OUT_FILE,))
+                # a2-p1: read when the job runs, so a lock turned off (or on) since the click counts
+                exclude_source_files=((HELD_OUT_FILE,) if corpus.held_out_locked(c) else ()))
             if job.cancel_event.is_set():
                 return None
             from Working.registration.settings import append_audit
@@ -3723,7 +3730,11 @@ def _view_fingerprint(conn, grouping_id) -> tuple:
             # (which UPDATEs edges in place and upserts co-occurrence rows) must move the fingerprint too
             one("SELECT COUNT(*), COUNT(classification_bin), MAX(json_extract(classification_json, '$.at')) "
                 "FROM motif_edge"),
-            one("SELECT COUNT(*), MAX(created_at) FROM motif_member_cooccurrence"))
+            one("SELECT COUNT(*), MAX(created_at) FROM motif_member_cooccurrence"),
+            # a2-p1: a view built while the held-out recording was locked hides its members; one built while it
+            # was unlocked shows them — so the lock as it stands now is part of the key (a toggle and its undo
+            # inside one second would otherwise leave the settings row's MAX(updated_at) where it was)
+            corpus.held_out_locked(conn))
 
 
 def _view_state(conn, index, grouping_row, view=None) -> dict:

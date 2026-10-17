@@ -177,8 +177,8 @@ def blind_showing(request: Request, qid: int, i: int, px: int = Query(default=12
         rec = corpus.recording_row(c, it["recording_id"])
         if rec is None:
             raise HTTPException(404, f"recording {it['recording_id']} is not in the database")
-        if rec.get("held_out"):
-            raise HTTPException(409, "the held-out recording is never shown")
+        if rec.get("held_out"):          # a2-p1: true only while Settings › Datasets' lock is on
+            raise HTTPException(409, corpus.held_out_refusal("its windows are not shown"))
         ln, fs = int(it["length"]), float(it["fs"])
         ctx = int(round(pad * ln))
         c0 = max(0, it["start_idx"] - ctx)

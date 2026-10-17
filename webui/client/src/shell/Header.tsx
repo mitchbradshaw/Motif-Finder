@@ -1,11 +1,12 @@
 /* Header (frame shell-header): "Explore | Corpus  bird's-eye across every channel" on the left;
-   search pill, "N need you" and "M4 held out" chips on the right. A page that rendered any fixture
-   read passes `demo` and gets the "demo data" chip (brief: fixture pages say so in the header). */
+   search pill, "N need you" and the held-out chip ("M4 held out" grey while the lock is on, "M4 unlocked"
+   amber while it is off — a2-p1) on the right. A page that rendered any fixture read passes `demo` and gets
+   the "demo data" chip (brief: fixture pages say so in the header). */
 import type { ReactNode } from 'react'
 import { useReviewNeedYou } from '../api/needYou'
 import { navigate, useApp } from '../state'
 import { useNotWired } from '../kit/notWired'
-import { useDemoState } from '../kit/store'
+import { useHeldOutLock } from './heldOutLock'
 import { PathStrip } from './PathStrip'
 
 export interface HeaderSpec {
@@ -19,9 +20,10 @@ export interface HeaderSpec {
 export function Header({ workspace, page, subtitle, search = 'Search spans, runs, families', demo = false, extra, onSearch, searchHint = 'Ctrl K' }: HeaderSpec) {
   const { needYou, bridgeDown } = useApp()
   const notWired = useNotWired()
-  // Settings › Datasets mirrors the SAVED held-out lock into this demo-store key (its store.ts
-  // HELD_OUT_KEY_STORE), so the chip tells the truth after the lock is turned off (its request R2).
-  const [heldOut] = useDemoState<{ on: boolean; recording: string }>('settings.heldOut', () => ({ on: true, recording: 'M4_aug' }))
+  // a2-p1: the lock as the bridge enforces it (GET /api/held-out, read when this header mounts and on window
+  // focus), and Settings › Datasets' saved lock the moment it is saved (its store.ts HELD_OUT_KEY_STORE, the same key)
+  const heldOut = useHeldOutLock()
+  const short = heldOut.recording.replace(/_.*/, '')
   // The Review queues' own count, read from the bridge. It used to be the
   // fixture constant 3 while /api/review/counts said 160 — the one number in the
   // chrome that is supposed to tell a researcher there is work waiting, and it
@@ -48,12 +50,14 @@ export function Header({ workspace, page, subtitle, search = 'Search spans, runs
         {bridgeDown && <span className="chip red" title="the FastAPI bridge did not answer the last poll; retrying every 5 s">bridge unreachable</span>}
         <button className={`chip ${total ? 'blue' : 'grey'}`} data-testid="need-you" onClick={() => navigate('jobs?section=review')}
           title={`${review} unjudged across the open review queues · ${needYou} live: runs started from this tab that failed — opens Jobs`}>● {total} need you</button>
-        <button className={`chip ${heldOut.on ? 'grey' : 'amber'}`} data-testid="held-out-chip" onClick={() => navigate('settings/datasets')}
-          title={heldOut.on
-            ? `${heldOut.recording} is held out (D6): every workspace refuses it — opens Settings › Datasets`
-            : 'the held-out lock is OFF in Settings › Datasets — nothing is protected from training or detection'}>
+        <button className={`chip ${heldOut.on ? 'grey' : 'amber'}`} data-testid="held-out-chip" data-locked={heldOut.on ? '1' : '0'}
+          onClick={() => navigate('settings/datasets')}
+          title={(heldOut.on
+            ? `${heldOut.recording} is held out (D6): every workspace refuses it — to use it, ${heldOut.unlock ?? "turn the lock off in Settings › Datasets (type the recording's name)"}`
+            : `${heldOut.recording} is UNLOCKED: every workspace (Explore, Analyse, Discovery, Review, Library) can use it, so evaluation on it is no longer protected. Turn the lock back on in Settings › Datasets. RQ1's exam (iii) in Models keeps its own lock.`)
+            + (heldOut.error ? ` · could not read the lock from the bridge (${heldOut.error}): showing the last state this tab knew` : '')}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="11" width="14" height="10" rx="2" />{heldOut.on ? <path d="M8 11V7a4 4 0 0 1 8 0v4" /> : <path d="M8 11V7a4 4 0 0 1 8 0" />}</svg>
-          {heldOut.on ? `${heldOut.recording.replace(/_.*/, '')} held out` : 'lock off'}
+          {heldOut.on ? `${short} held out` : `${short} unlocked`}
         </button>
       </div>
       <style>{`

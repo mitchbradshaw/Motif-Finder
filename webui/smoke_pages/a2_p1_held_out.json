@@ -1,0 +1,105 @@
+[
+ {
+  "page": "settings.datasets",
+  "state": "a2p1-unlock-by-typing-the-name",
+  "_note": "a2-p1. Idempotent: the unlock modal opens from the URL whatever the lock says, and confirming an unlock of a recording that is already unlocked writes nothing (put_settings changes no row). The walk's later files assume the lock is ON, so the last two states of this file turn it back on.",
+  "hash": "settings/datasets?modal=unlock",
+  "settle_ms": 800,
+  "actions": [
+   {"wait_for": ["[data-testid=\"unlock-input\"]", 15000]},
+   {"fill": ["[data-testid=\"unlock-input\"]", "M4_aug_concat_fs1"]},
+   {"wait": 200},
+   {"click": "[data-testid=\"confirm-unlock\"]"},
+   {"wait_for": ["[data-testid=\"held-out-chip\"][data-locked=\"0\"]", 15000]}
+  ],
+  "expect": [
+   "[data-testid=\"held-out-chip\"][data-locked=\"0\"].amber",
+   "[data-testid=\"held-out-toggle\"][aria-checked=\"false\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"unlock-modal\"]"
+  ]
+ },
+ {
+  "page": "settings.datasets",
+  "state": "a2p1-lock-off-shows-the-amber-chip-from-the-bridge",
+  "_note": "a2-p1. A reload empties the in-memory store, so the chip starts closed and turns amber only when GET /api/held-out answers: it reads the bridge, not the page's own copy.",
+  "hash": "settings/datasets",
+  "settle_ms": 600,
+  "actions": [
+   {"reload": true},
+   {"wait_for": ["[data-testid=\"held-out-chip\"][data-locked=\"0\"]", 15000]}
+  ],
+  "expect": [
+   "[data-testid=\"held-out-chip\"][data-locked=\"0\"].amber",
+   "[data-testid=\"held-out-card\"]",
+   "[data-testid=\"held-out-toggle\"][aria-checked=\"false\"]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "a2p1-explore-lists-M4-unlocked",
+  "hash": "explore/corpus?popover=recordings",
+  "settle_ms": 1200,
+  "actions": [
+   {"wait_for": ["[data-testid=\"recording-row-M4_aug_concat_fs1.mat\"]", 15000]}
+  ],
+  "expect": [
+   "[data-testid=\"recordings-menu\"]",
+   "[data-testid=\"recording-row-M4_aug_concat_fs1.mat\"]",
+   "[data-testid=\"held-out-chip\"][data-locked=\"0\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"recording-row-M4_aug_concat_fs1.mat\"].locked",
+   "[data-testid=\"recording-row-M4_aug_concat_fs1.mat\"][aria-disabled=\"true\"]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "a2p1-explore-opens-M4s-coverage-map",
+  "hash": "explore/corpus?rec=M4_aug_concat_fs1.mat",
+  "settle_ms": 1500,
+  "actions": [
+   {"wait_for": ["[data-testid=\"corpus-heatmap\"]", 20000]}
+  ],
+  "expect": [
+   "[data-testid=\"corpus-heatmap\"]",
+   "[data-testid=\"corpus-rail\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"locked-card\"]"
+  ]
+ },
+ {
+  "page": "settings.datasets",
+  "state": "a2p1-relock-by-the-toggle",
+  "_note": "a2-p1. Turning the lock back on needs no typed name; the chip goes grey at once, and every later state in the walk meets M4 locked again.",
+  "hash": "settings/datasets",
+  "settle_ms": 800,
+  "actions": [
+   {"wait_for": ["[data-testid=\"held-out-toggle\"][aria-checked=\"false\"]", 15000]},
+   {"click": "[data-testid=\"held-out-toggle\"]"},
+   {"wait_for": ["[data-testid=\"held-out-chip\"][data-locked=\"1\"]", 15000]}
+  ],
+  "expect": [
+   "[data-testid=\"held-out-chip\"][data-locked=\"1\"].grey",
+   "[data-testid=\"held-out-toggle\"][aria-checked=\"true\"]"
+  ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "a2p1-explore-M4-locked-again",
+  "hash": "explore/corpus?rec=M4_aug_concat_fs1.mat",
+  "settle_ms": 1200,
+  "actions": [
+   {"wait_for": ["[data-testid=\"locked-card\"]", 15000]}
+  ],
+  "expect": [
+   "[data-testid=\"locked-card\"]",
+   "[data-testid=\"held-out-chip\"][data-locked=\"1\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"corpus-heatmap\"]"
+  ]
+ }
+]

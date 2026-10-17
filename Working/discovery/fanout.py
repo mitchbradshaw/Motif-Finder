@@ -49,7 +49,7 @@ No UI imports; the bridge is the only caller that knows a browser exists.
 import datetime as _dt
 import json
 
-from Working.config import HELD_OUT_RECORDING_FILE, HELD_OUT_UNLOCK
+from Working.config import HELD_OUT_RECORDING_FILE
 from Working.database import queries as _q
 from Working.database import runs as _runs
 from Working.database.schema import init_db
@@ -146,6 +146,7 @@ def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_
     if not ids:
         raise ValueError("a Discovery scope needs at least one channel")
     ceiling = int(ceiling_s) if ceiling_s is not None else _ceiling_from_settings(conn)
+    from Working.registration.settings import HELD_OUT_UNLOCK_HINT, held_out_locked
 
     by_file = {}
     targets, refused = [], []
@@ -155,10 +156,12 @@ def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_
             refused.append({"recording_id": rid, "reason": f"no recording with id {rid}"})
             continue
         source_file = rec["source_file"]
-        if source_file == HELD_OUT_RECORDING_FILE and not HELD_OUT_UNLOCK:
+        # a2-p1: Settings › Datasets' lock, read now (never at import) — off, the held-out file plans like any other
+        if source_file == HELD_OUT_RECORDING_FILE and held_out_locked(conn):
             refused.append({"recording_id": rid, "reason": (
                 f"{HELD_OUT_RECORDING_FILE} is held out (spec §0 D6): locked for the final "
-                f"evaluation, and refused before the fan-out starts rather than partway through it")})
+                f"evaluation, and refused before the fan-out starts rather than partway through it — "
+                f"{HELD_OUT_UNLOCK_HINT}")})
             continue
         n_samples = int(rec["n_samples"])
         if span is not None:

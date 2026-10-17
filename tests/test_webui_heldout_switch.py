@@ -116,7 +116,7 @@ def _lock(client, on):
 
 def _detail_text(r):
     d = r.json().get("detail")
-    return d if isinstance(d, str) else json.dumps(d)
+    return d if isinstance(d, str) else json.dumps(d, ensure_ascii=False)
 
 
 def _assert_423_with_the_way_out(r, what):

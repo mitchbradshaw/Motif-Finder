@@ -99,3 +99,6 @@ train a CNN on window-pool clusters but not yet on Library families.
 ## Log
 
 - 2026-10-17 · set up · file created from the Library audit and the code read; the researcher's decisions recorded.
+- 2026-10-17 · a2-p1 · with Settings › Datasets' lock off, M4_aug opens in Explore, Analyse, Discovery, Review and
+  Library (it stays refused by exam (iii) and by training); once looked at there it is no longer an untouched exam, so
+  the open decision on the held-out exam above now matters before any RQ1b training.

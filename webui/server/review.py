@@ -82,16 +82,19 @@ def _conn(request: Request) -> sqlite3.Connection:
     return corpus.connect(rt.db_path)
 
 
-def _is_held_out(source_file) -> bool:
+def _is_held_out(conn, source_file) -> bool:
+    """The held-out recording, while Settings › Datasets' lock is on (a2-p1: read now; it used to answer by
+    the name alone, whatever the lock said). The name is checked first, so no other file costs a read."""
     text = str(source_file or "").replace("\\", "/")
     base = os.path.basename(text)
-    return HELD_OUT_FILE in text or base.startswith(HELD_OUT_STEM)
+    return (HELD_OUT_FILE in text or base.startswith(HELD_OUT_STEM)) and corpus.held_out_locked(conn)
 
 
 def refusal(label: str) -> str:
-    """The refusal the fixture serves, verbatim (`api/review.ts`)."""
+    """The refusal the fixture serves (`api/review.ts`), and since a2-p1 how to unlock: it is only ever
+    served while the lock is on."""
     return (f"{label} is held out (D6): it is locked for the final evaluation "
-            f"and cannot be reviewed, plotted or queued.")
+            f"and cannot be reviewed, plotted or queued — {corpus.HELD_OUT_UNLOCK_HINT}.")
 
 
 def rec_key(source_file) -> str:
@@ -114,7 +117,7 @@ def _index(conn) -> dict:
                 "recording_id": int(ch["id"]), "source_file": g["source_file"],
                 "label": g["display_name"], "channel": int(ch["channel"]),
                 "name": ch["name"], "fs": float(g["fs"]), "n_samples": int(g["n_samples"]),
-                "held_out": bool(g.get("held_out") or _is_held_out(g["source_file"])),
+                "held_out": bool(g.get("held_out") or _is_held_out(conn, g["source_file"])),
             }
     return out
 
@@ -232,7 +235,7 @@ def _shape_source(conn, row: dict | None, start_idx: int, end_idx: int, px_req):
     prow = corpus.recording_row(conn, int(pid))
     if prow is None:
         return None, f"the registered source recording {pid} no longer exists"
-    if prow.get("held_out") or _is_held_out(prow.get("source_file")):
+    if prow.get("held_out") or _is_held_out(conn, prow.get("source_file")):
         return None, refusal(rec_label(conn, prow["source_file"]))
     dec = int(row.get("decimation") or 0)
     off = int(row.get("parent_offset") or 0)
@@ -515,11 +518,14 @@ def _held_out_ids(conn) -> set:
     """Recording ids the final evaluation has locked (D6).
 
     Computed here and passed DOWN into the core, so the core never has to know
-    what a held-out file is while the counts still agree with the rows.
+    what a held-out file is while the counts still agree with the rows. Empty
+    while Settings › Datasets' lock is off (a2-p1): one settings read, then none.
     """
+    if not corpus.held_out_locked(conn):
+        return set()
     return {int(r["id"]) for r in conn.execute(
         "SELECT id, source_file FROM recordings").fetchall()
-        if _is_held_out(r["source_file"])}
+        if _is_held_out(conn, r["source_file"])}
 
 
 def _refuse_held_out(conn, queue, target_ids):

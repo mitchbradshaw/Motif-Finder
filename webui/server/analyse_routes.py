@@ -171,8 +171,10 @@ def derive_rows(request: Request, body: DeriveBody):
     c = _conn(request)
     try:
         rec = corpus.recording_row(c, body.recording_id)
-        if rec is None or rec["held_out"]:
-            raise HTTPException(404 if rec is None else 423, f"recording {body.recording_id} is not available")
+        if rec is None or rec["held_out"]:          # a2-p1: held_out only while the lock is on
+            raise HTTPException(404 if rec is None else 423,
+                                f"recording {body.recording_id} is not available" if rec is None
+                                else corpus.held_out_refusal(f"recording {body.recording_id} is not available"))
         span = (int(body.span[0]), int(body.span[1])) if body.span else None
         try:
             return readout.block_readout(c, rec, span, _steps(body.steps), body.index)

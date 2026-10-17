@@ -29,8 +29,9 @@ server start and printed loudly (stage-3 wiring plan D4, fog C9):
 
 In both modes ``DATA/`` recordings are only ever read
 (``np.load(..., mmap_mode="r")``), and the held-out recording is refused on
-every route (``HELD_OUT_FILE``) — the refusal is a property of the routes,
-not of the mode.
+every route (``HELD_OUT_FILE``) while Settings › Datasets' lock is on — the
+refusal is a property of the routes and of that setting, read per request
+(a2-p1), not of the mode.
 
 ``restore()`` puts every module attribute back; tests use it, the server
 does not need to.

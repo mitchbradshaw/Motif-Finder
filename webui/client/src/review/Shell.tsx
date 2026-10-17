@@ -3,6 +3,7 @@
  * ?pop=queues|blind|shortcuts, ?modal=unblind. */
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { Header } from '../shell/Header'
+import { useHeldOutLock } from '../shell/heldOutLock'
 import { navigate } from '../state'
 import {
   Button, Checkbox, DisabledReason, EmptyState, Icon, IconButton, InfoTip, Kbd, MiniTrace, Modal, Pager, Popover, ProgressBar, RangeSlider,
@@ -236,6 +237,7 @@ function QueueRailOpen({ data, unit, blind, left, onClose }: { data: QueueData; 
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({})
   const [newQ, setNewQ] = useState(false)
   const newRef = useRef<HTMLButtonElement>(null)
+  const heldOut = useHeldOutLock()          // a2-p1: the held-out line is true only while the lock is on
   const [shake, setShake] = useState<string | null>(null)
   const isDistance = queue.rankKind === 'distance'
   const hasScore = queue.unit === 'detection'
@@ -284,7 +286,7 @@ function QueueRailOpen({ data, unit, blind, left, onClose }: { data: QueueData; 
             <Button variant="link" iconRight="arrow-right" onClick={() => navigate('explore/corpus')}>Explore › Take span for Review</Button>
             <Button variant="link" iconRight="arrow-right" onClick={() => navigate('analyse/training')}>Analyse training › Send unseen windows</Button>
             <Button variant="link" iconRight="arrow-right" onClick={() => navigate('models/registry')}>Models › Registry verification sample</Button>
-            <Button variant="link" icon="lock" disabled disabledReason="M4_aug is held out (D6): locked for the final evaluation, it cannot be queued for Review">M4_aug · held out</Button>
+            {heldOut.on && <Button variant="link" icon="lock" disabled disabledReason="M4_aug is held out (D6): locked for the final evaluation, it cannot be queued for Review while the lock is on — turn the lock off in Settings › Datasets (type the recording's name)">M4_aug · held out</Button>}
           </div>
         </Popover>
       </div>

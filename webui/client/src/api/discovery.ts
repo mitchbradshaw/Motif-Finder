@@ -11,7 +11,7 @@
  *
  * Writes (add run, discard, send to Review, save template, SLURM script) still go to the in-memory demo
  * store from the pages; their live routes are typed in api.ts and are Prompt 05's to call.
- * M4_aug (held out, D6) is refused by the bridge on every route that names it. */
+ * M4_aug (held out, D6) is refused by the bridge on every route that names it while Settings › Datasets' lock is on. */
 import {
   ApiError, getDiscoveryCompare, getDiscoveryCompareStages, getDiscoveryCompareWindow, getDiscoveryDetectionWindow, getDiscoveryDetections,
   getDiscoveryBands, getDiscoveryFires, getDiscoveryHistory, getDiscoveryMap, getDiscoveryMapChannel, getDiscoveryMapDataset, getDiscoveryOverview, getDiscoveryRuns, getDiscoveryScoreboard, getDiscoverySeedProfile,
@@ -21,6 +21,7 @@ import {
 } from '../api'
 import { pollDiscoverySeedResultsBanked, type DiscSeedBank, type DiscSeedHpc } from '../api'
 import { live, type Sourced } from './seam'
+import { heldOutLocked } from '../shell/heldOutLock'
 import type { GlyphKind, Role } from '../fixtures/discovery'
 
 export type { GlyphKind, Role, RunKind, SeedSource } from '../fixtures/discovery'
@@ -93,9 +94,9 @@ export interface HistoryEntry { id: string; label: string; when: string; status:
 let SCOPE: { channels: string[]; section: [number, number] } | null = null
 let RECORDINGS: RecordingOption[] | null = null
 
-/** Held out (spec §0 D6) before the first session read has landed. The bridge refuses this file on every
- *  route; the cache only ever adds to what is refused here, so a cold cache cannot report a held-out
- *  recording as free. */
+/** Held out (spec §0 D6) before the first session read has landed, while the lock this tab last heard of is on.
+ *  Once the session has been read, the bridge's own `heldOut` flag decides: it follows Settings › Datasets' lock
+ *  (a2-p1), so a cold cache refuses the file and a warm one says what the bridge says. */
 const HELD_OUT_FALLBACK = 'M4_aug_concat_fs1.mat'
 const heldOutOptions = () => (RECORDINGS ?? []).filter(r => r.heldOut)
 
@@ -104,10 +105,12 @@ export const heldOutReason = (label = heldOutOptions()[0]?.file ?? HELD_OUT_FALL
   return known?.heldOutReason
     ?? `${label} is held out (D6): locked for the final evaluation — Discovery will not scope, run or plot it`
 }
-export const isHeldOut = (recording: string) =>
-  recording === HELD_OUT_FALLBACK || recording === HELD_OUT_FALLBACK.replace(/\.mat$/, '')
+export const isHeldOut = (recording: string) => {
   /* by identifier only: `label` is what the dataset is CALLED and nothing may key on it (fixup-f) */
-  || heldOutOptions().some(r => r.key === recording || r.file === recording || r.stem === recording)
+  const known = (RECORDINGS ?? []).find(r => r.key === recording || r.file === recording || r.stem === recording)
+  if (known) return known.heldOut
+  return heldOutLocked() && (recording === HELD_OUT_FALLBACK || recording === HELD_OUT_FALLBACK.replace(/\.mat$/, ''))
+}
 
 const toRecording = (r: DiscRecordingOption): RecordingOption => ({ ...r })
 

@@ -97,11 +97,13 @@ def _conn(request: Request):
     return corpus.connect(rt.db_path)
 
 
-def _refuse_held_out(source_file: str):
-    if source_file == HELD_OUT_FILE:
+def _refuse_held_out(conn, source_file: str):
+    """423 for the held-out file while Settings › Datasets' lock is on, read now (a2-p1: it used to refuse the
+    file whatever the lock said). The refusal says how to unlock."""
+    if corpus.is_held_out(conn, source_file):
         raise HTTPException(423, {
-            "message": (f"{HELD_OUT_FILE} is held out (spec §0 D6): locked for the final evaluation — "
-                        f"Discovery will not scope, run, score or plot it"),
+            "message": corpus.held_out_refusal("locked for the final evaluation, Discovery will not scope, "
+                                               "run, score or plot it"),
             "file": HELD_OUT_FILE})
 
 
@@ -139,7 +141,7 @@ def _file_for_key(conn, key: str) -> dict:
 def _channel_map(conn, key: str) -> dict:
     """name -> recording row (with `name`), for one recording file."""
     rec = _file_for_key(conn, key)
-    _refuse_held_out(rec["source_file"])
+    _refuse_held_out(conn, rec["source_file"])
     out = {}
     for c in rec["channels"]:
         row = dict(q.get_recording_by_id(conn, c["id"]))
@@ -329,7 +331,7 @@ def put_session(request: Request, body: SessionBody):
         s = _session(c)
         key = body.recording or _stem(s["source_file"])
         rec = _file_for_key(c, key)
-        _refuse_held_out(rec["source_file"])
+        _refuse_held_out(c, rec["source_file"])
         names = body.channels if body.channels is not None else json.loads(s["channels_json"])
         chans = _ids_for(c, key, names)
         fs = rec["fs"]
@@ -693,7 +695,7 @@ def get_overview(request: Request, recording: str, channels: str = ""):
         # 423, like every other route that would serve this file's samples. It
         # used to answer 200 with a {"refused": ...} body, which reads as a
         # successful request to anything that is not this page's own callout.
-        _refuse_held_out(rec["source_file"])
+        _refuse_held_out(c, rec["source_file"])
         names = _split(channels) or [ch["name"] for ch in rec["channels"][:3]]
         rows = _ids_for(c, recording, names)
         out = {}
@@ -1047,7 +1049,7 @@ def get_detection_window(request: Request, detection_id: int, pad_s: float = 120
             # a paired null's span is not a detection either (fixup-T)
             raise HTTPException(404, {"message": f"no detection {detection_id}"})
         rec = corpus.recording_row(c, int(row["recording_id"]))
-        _refuse_held_out(rec["source_file"])
+        _refuse_held_out(c, rec["source_file"])
         a, b = absolute_bounds(row["start_idx"], row["end_idx"], row["span_start"])
         fs = float(rec["fs"])
         pad = int(round(pad_s * fs))
@@ -1149,7 +1151,7 @@ def _seed_by_id(conn, seed_id: str):
         raise HTTPException(400, {"message": f"unreadable seed id {seed_id!r}; expected source:recording:start:end"})
     if rec is None:
         raise HTTPException(404, {"message": f"no recording {rid} for seed {seed_id!r}"})
-    _refuse_held_out(rec["source_file"])
+    _refuse_held_out(conn, rec["source_file"])
     entry = _entry_for_span(conn, rid, a, b) if source == "library" else None
     seed = seeded_search.seed_from_content(conn, rec["source_file"], int(rec["channel"]), int(a), int(b),
                                            role=source, entry_id=(int(entry["id"]) if entry else 0))
@@ -1228,7 +1230,7 @@ def _recording_ids_for(conn, recording=None, channel=None):
         return None
     out = []
     for rec in corpus.recordings(conn):
-        if rec["source_file"] == HELD_OUT_FILE:
+        if rec["held_out"]:          # a2-p1: true only while the lock is on
             continue
         if recording and _stem(rec["source_file"]) != recording and rec["source_file"] != recording:
             continue
@@ -1251,7 +1253,7 @@ def _library_page(conn, *, kind=None, family=None, recording=None, channel=None,
     channel; `total` is the count under the filters, so the page can say how
     many it is not showing."""
     where, args = [], []
-    held = [int(r["id"]) for r in q.list_recordings(conn, HELD_OUT_FILE)]
+    held = [int(r["id"]) for r in q.list_recordings(conn, HELD_OUT_FILE)] if corpus.held_out_locked(conn) else []
     if held:
         where.append(f"recording_id NOT IN ({','.join('?' * len(held))})")
         args += held
@@ -1340,7 +1342,7 @@ def _seeds_inline(conn, candidates=None):
     for source, rid, a, b, title, family, family_line in (candidates if candidates is not None
                                                            else _seed_candidates(conn)):
         rec = q.get_recording_by_id(conn, rid)
-        if rec is None or rec["source_file"] == HELD_OUT_FILE:
+        if rec is None or corpus.is_held_out(conn, rec["source_file"]):
             continue
         try:
             seed = _seed_by_id(conn, _seed_id(source, rid, a, b))

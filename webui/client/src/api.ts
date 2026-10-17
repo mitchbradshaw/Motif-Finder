@@ -1530,3 +1530,12 @@ export const sendDetectionsToReview = (runKey: string, detectionIds: number[]) =
     already_judged: { id: number; verdict: string | null }[]
     unjudged: number; judged: number; source_kind: 'discovery-run'; writes: string; message: string; note: string
   }>(`/api/discovery/runs/${encodeURIComponent(runKey)}/review`, { detection_ids: detectionIds })
+
+/* ---------------- a2-p1: the held-out lock ---------------- */
+/** GET /api/held-out — the lock every route obeys now: Settings › Datasets' `heldout.on` (or a script's
+ *  HELD_OUT_UNLOCK override). `locked` is the effective state the header chip shows; `on` is the setting alone;
+ *  `unlock` says how to turn it off. Read per request on the bridge; nothing is cached there. */
+export interface HeldOutLockState {
+  locked: boolean; on: boolean; recording: string; name: string; file: string; unlock: string; override: boolean
+}
+export const getHeldOutLock = () => req<HeldOutLockState>('/api/held-out')

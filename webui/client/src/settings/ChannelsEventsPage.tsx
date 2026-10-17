@@ -14,6 +14,7 @@ import { TimeAxis } from '../charts/primitives'
 import { makeX } from '../charts/scale'
 import { useSize } from '../charts/useSize'
 import { useSourced } from '../api/seam'
+import { useHeldOutLock } from '../shell/heldOutLock'
 import {
   EVENT_KINDS_KEY, effectKey, getChannels, eventEffectSentence, eventsAddedKey, eventsRemovedKey, floorKey, gainKey,
   groundKey, removedRefs, spanLabel, type EventEffect, type RemovedRef, type TimedEvent,
@@ -60,8 +61,11 @@ function Body({ rec, data, seg }: { rec: string; data: Data; seg: React.ReactNod
   const [pop, setPop] = useQueryState('pop', '')
   /* a new kind is a DRAFT like every other edit on this page (fix round 2: it used to commit on click) */
   const extraKinds = (s.value(EVENT_KINDS_KEY) as { name: string; colour: string }[] | undefined) ?? []
-  const locked = data.options.find(o => o.value === rec)?.held_out ?? false
-  const lockReason = locked ? 'held out · locked' : undefined
+  /* a2-p1: read-only while Settings › Datasets' lock is on (the registry's `held_out` names the recording; the lock
+     decides), as the dataset's own metadata is on the Datasets page */
+  const lock = useHeldOutLock()
+  const locked = (data.options.find(o => o.value === rec)?.held_out ?? false) && lock.on
+  const lockReason = locked ? "held out · locked — turn the lock off in Settings › Datasets (type the recording's name)" : undefined
   const all = rows === 'all'
   const channels = all ? data.channels : data.channels.slice(0, 8)
   const kinds = [...data.kinds, ...extraKinds]
@@ -140,7 +144,7 @@ function Body({ rec, data, seg }: { rec: string; data: Data; seg: React.ReactNod
 
   return (
     <>
-      {locked && <Callout tone="amber" icon="lock" testid="rec-locked">{data.label} is held out · locked — channels and events are read-only (D6).</Callout>}
+      {locked && <Callout tone="amber" icon="lock" testid="rec-locked">{data.label} is held out · locked — channels and events are read-only while the lock is on (D6). Turn it off in Settings › Datasets (type the recording's name) to edit them.</Callout>}
 
       {/* the picker sits at the START of the header, beside the title: right-aligned, it was the first thing a
           narrow window pushed out of reach (U5) */}

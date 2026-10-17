@@ -426,7 +426,13 @@ def seed_import(request: Request, body: InboxBody):
     if not p:
         raise HTTPException(422, "name the result file the seed job wrote (…result.json)")
     if HELD_OUT_FILE in p:
-        raise HTTPException(423, f"{HELD_OUT_FILE} is held out; the web UI refuses it")
+        c = _conn(request)
+        try:
+            locked = corpus.held_out_locked(c)          # a2-p1: only while Settings › Datasets' lock is on
+        finally:
+            c.close()
+        if locked:
+            raise HTTPException(423, corpus.held_out_refusal("the web UI refuses it"))
     path = _abs(p)
     if not os.path.isfile(path):
         raise HTTPException(404, f"no result file at {path}: bring the seed job's …result.json back first")
