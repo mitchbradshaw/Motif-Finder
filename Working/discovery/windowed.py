@@ -62,7 +62,14 @@ MIN_OVERLAP = 0.0
 MAX_OVERLAP = 0.9
 #: a context window's edges distort about half of it, so 4 x keeps that to a quarter of each window
 CONTEXT_MULTIPLE = 4
-STITCH_VERSION = 1
+#: the stitch rule's version, in every stitched run's recipe: a stitched run made by an older rule is not reused as
+#: this one's (its windows are, so stitching again costs no window run). 2 (fix round, 2026-10-18): the halves of an
+#: event cut at one boundary are joined, a cut view inside a whole one is the same event, one detection from each
+#: window per event, the rescue.
+STITCH_VERSION = 2
+#: the critic's m2, measured on the critic's probe signal (RQ4b, "The stitch at every overlap"): an event whose
+#: owning window found nothing there is kept from a neighbour that saw it whole, away from that neighbour's edges.
+RESCUE = True
 #: Seconds of bookkeeping per run on top of the chain itself — the run row, its config, its detections, a database
 #: opened per run. Measured on this machine (2026-10-18, a2-p3): 0.33 s for a computed noise-threshold window of
 #: 600-3,600 samples. A windowed application is thousands of runs, so this floor, not the blocks' own estimates
@@ -81,10 +88,15 @@ _RULE_TEXT = [
              "start and the last one's ends at the section end. An event counts when one of its detections has its "
              "onset in its own window's core: that window, which sees the stretch most centrally, decides whether "
              "it is there."),
-    ("duplicates", "Detections from different windows are one event when they match under Compare's rule: "
-                   "reciprocal overlap IoU at least {iou:g} and onsets within {onset:g} x the duration. An event is "
-                   "kept once, drawn as the detection that no window edge cut and that sits most centrally in its "
-                   "window."),
+    ("duplicates", "Detections from different windows are one event when they match under Compare's rule "
+                   "(reciprocal overlap IoU at least {iou:g} and onsets within {onset:g} x the duration); when one "
+                   "is a view a window edge cut short lying inside the other, its uncut edge where the other's is "
+                   "(within {onset:g} x the other's duration); or when one is cut at its window's end and the other "
+                   "at the start of the next window and the two overlap or abut (the halves of one event at a "
+                   "boundary: at 0 % overlap they share no sample). An event holds at most one detection from each "
+                   "window, paired best match first as Compare pairs: a window's own detections are never one event. "
+                   "It is kept once, drawn as the detection no window edge cut that sits most centrally in its "
+                   "window; when every view of it is cut, as their union, marked merged."),
     ("provenance", "Every kept span records the window that produced it (its index, span and run), the window whose "
                    "core holds its onset, and every window that also found it."),
     ("refit", "Each window sets its own thresholds (noise level, cutlines, slope floor and depth gates are fitted to "
@@ -95,9 +107,17 @@ _RULE_TEXT = [
               "block that cuts its input into pieces. Fitting the chain to a shorter window scales those windows "
               "down: a different chain, its own row on the Map. Running it as it is in a shorter window is an "
               "explicit choice, and the run says so."),
-    ("null", "Each window draws its own null (Settings › Nulls); draw j of every window is stitched by the same rule "
-             "into the stitched run's draw j."),
+    ("null", "Each window draws its own null (Settings › Nulls), so x null compares like with like within one "
+             "scale, not across scales: a window length's null is not another length's. Draw j of every window is "
+             "stitched by the same rule into the stitched run's draw j. A block shuffle's block is one per channel, "
+             "twice the longest detection any of its windows found, and every window draws: sized per window, the "
+             "windows that found nothing had no block and drew no null, and the null read low."),
 ]
+
+#: the rescue's rule, stated only while `RESCUE` is the rule
+_RESCUE_TEXT = ("rescue", "When the window whose core holds an event's onset found nothing there at all, the event "
+                          "is kept from a neighbouring window that saw it whole, at least half the chain's longest "
+                          "context window inside that window's edges; it is marked rescued.")
 
 
 def rules_for(rule=None):
@@ -105,7 +125,10 @@ def rules_for(rule=None):
     from Working.discovery.matching import normalise_rule
 
     r = normalise_rule(rule)
-    return [{"name": n, "rule": t.format(iou=r["iou"], onset=r["onset"])} for n, t in _RULE_TEXT]
+    text = list(_RULE_TEXT)
+    if RESCUE:
+        text.insert(2, _RESCUE_TEXT)
+    return [{"name": n, "rule": t.format(iou=r["iou"], onset=r["onset"])} for n, t in text]
 
 
 RULES = rules_for()
@@ -416,38 +439,95 @@ def fit_steps(steps, fs, window_s):
 
 # ── stitching ───────────────────────────────────────────────────────────────
 
-def stitch(windows, rule=None):
+def _link(p, r, iou_min, onset):
+    """Why two detections from different windows are one event, as ``(rank, strength)``, or None.
+
+    0: Compare's rule, either way round (reciprocal IoU and the onsets). 1: one is a view a window edge cut short,
+    lying inside the other with its uncut edge where the other's is (within the onset tolerance of the other's
+    duration): window 0 saw the event's start and lost its end at its own edge, window 1 saw all of it — the cut view
+    can cover well under half of the whole one, so IoU alone missed them (the critic's m1). 2: one is cut at its
+    window's end and the other at the start of a later window that overlaps or abuts it, and the two touch: the two
+    halves of one event at a boundary (at 0 % overlap they abut and share no sample, so IoU is 0: the critic's M2)."""
+    s1, e1, s2, e2 = p["start"], p["end"], r["start"], r["end"]
+    inter = min(e1, e2) - max(s1, s2)
+    union = max(e1, e2) - min(s1, s2)
+    iou = (inter / union) if inter > 0 and union > 0 else 0.0
+    if inter > 0 and iou >= iou_min and abs(s1 - s2) <= onset * max(e1 - s1, e2 - s2):
+        return 0, iou
+    for c, o in ((p, r), (r, p)):
+        tol = onset * (o["end"] - o["start"])
+        if c["cut_b"] and not c["cut_a"] and o["end"] >= c["end"] and abs(o["start"] - c["start"]) <= tol:
+            return 1, iou
+        if c["cut_a"] and not c["cut_b"] and o["start"] <= c["start"] and abs(o["end"] - c["end"]) <= tol:
+            return 1, iou
+    for a, b in ((p, r), (r, p)):
+        if a["cut_b"] and b["cut_a"] and a["span"][0] < b["span"][0] and b["start"] <= a["end"] \
+                and a["start"] <= b["end"]:
+            return 2, iou
+    return None
+
+
+def stitch(windows, rule=None, *, rescue=None, edge_margin=0):
     """One result from the windows' detections.
 
     ``windows``: ``[{index, span: (a, b), core: (lo, hi), spans: [(start, end, score), ...]}]`` in order, every
-    index channel-absolute. Returns ``{spans: [{start, end, score, window, owner, members, cut}], found, kept,
-    duplicates, outside, per_window: {index: {found, kept}}, rule}``: ``window`` is the window whose view is kept,
+    index channel-absolute. Detections from different windows are linked into events (`_link`: Compare's rule, a cut
+    view inside a whole one, the halves of an event at a boundary), best link first, and an event holds at most one
+    detection from each window — a window's own detections are never one event, as Compare pairs one to one. An
+    event is kept when one of its detections has its onset in its own window's core; it is drawn as the view no
+    window edge cut that sits most centrally in its window or, when every view is cut, as their union (``merged``).
+    With ``rescue`` (default `RESCUE`), an event no window kept is kept from a view no edge cut and at least
+    ``edge_margin`` samples inside its window's edges, when the window whose core holds its onset found nothing
+    overlapping it at all (``rescued``).
+
+    Returns ``{spans: [{start, end, score, window, owner, members, cut, merged, rescued}], found, kept, duplicates,
+    outside, merged, rescued, per_window: {index: {found, kept}}, rule}``: ``window`` is the window whose view is kept,
     ``owner`` the one whose core holds the onset, ``members`` every window that found the event; ``outside`` counts
     the detections dropped because no window that found the event had its onset in its own core."""
-    from Working.discovery.matching import match_quality, normalise_rule
+    import bisect
+
+    from Working.discovery.matching import normalise_rule
 
     rule = normalise_rule(rule)
+    rescue = RESCUE if rescue is None else bool(rescue)
     windows = list(windows)
     if not windows:
-        return {"spans": [], "found": 0, "kept": 0, "duplicates": 0, "outside": 0, "per_window": {}, "rule": rule}
+        return {"spans": [], "found": 0, "kept": 0, "duplicates": 0, "outside": 0, "merged": 0, "rescued": 0,
+                "per_window": {}, "rule": rule}
     sec_a = min(int(w["span"][0]) for w in windows)
     sec_b = max(int(w["span"][1]) for w in windows)
-    items = []
+    items, by_window = [], {}
     for w in windows:
         k = int(w["index"])
         a, b = int(w["span"][0]), int(w["span"][1])
         lo, hi = int(w["core"][0]), int(w["core"][1])
+        inner_a, inner_b = a > sec_a, b < sec_b
         for sp in w.get("spans") or ():
             s, e = int(sp[0]), int(sp[1])
             score = sp[2] if len(sp) > 2 else None
-            inner_a = a > sec_a
-            inner_b = b < sec_b
-            cut = (inner_b and e >= b) or (inner_a and s <= a)
+            cut_a, cut_b = inner_a and s <= a, inner_b and e >= b
             centrality = min((s - a) if inner_a else math.inf, (b - e) if inner_b else math.inf)
-            items.append({"start": s, "end": e, "score": score, "window": k, "in_core": lo <= s < hi, "cut": cut,
-                          "centrality": centrality})
+            items.append({"start": s, "end": e, "score": score, "window": k, "span": (a, b), "in_core": lo <= s < hi,
+                          "cut_a": cut_a, "cut_b": cut_b, "cut": cut_a or cut_b, "centrality": centrality})
+            by_window.setdefault(k, []).append((s, e))
     order = sorted(range(len(items)), key=lambda i: (items[i]["start"], items[i]["end"], items[i]["window"]))
+    links = []
+    iou_min, onset = rule["iou"], rule["onset"]
+    for x, i in enumerate(order):
+        si = items[i]
+        for y in range(x + 1, len(order)):
+            j = order[y]
+            sj = items[j]
+            if sj["start"] > si["end"]:
+                break
+            if sj["window"] == si["window"]:
+                continue
+            got = _link(si, sj, iou_min, onset)
+            if got is not None:
+                links.append((got[0], -got[1], min(i, j), max(i, j)))
+    links.sort()
     parent = list(range(len(items)))
+    held = [{it["window"]} for it in items]
 
     def find(i):
         while parent[i] != i:
@@ -455,40 +535,71 @@ def stitch(windows, rule=None):
             i = parent[i]
         return i
 
-    for x, i in enumerate(order):
-        si = items[i]
-        for y in range(x + 1, len(order)):
-            j = order[y]
-            sj = items[j]
-            if sj["start"] >= si["end"]:
-                break
-            if sj["window"] == si["window"]:
-                continue
-            a_, b_ = (si["start"], si["end"]), (sj["start"], sj["end"])
-            if match_quality(a_, b_, rule=rule)["ok"] or match_quality(b_, a_, rule=rule)["ok"]:
-                parent[find(j)] = find(i)
+    for _, _, i, j in links:
+        ri, rj = find(i), find(j)
+        if ri == rj or held[ri] & held[rj]:
+            continue                        # one detection from each window: the better link came first
+        parent[rj] = ri
+        held[ri] |= held[rj]
     clusters = {}
     for i in order:
         clusters.setdefault(find(i), []).append(i)
+    core_lo = [int(w["core"][0]) for w in windows]
+    core_win = [int(w["index"]) for w in windows]
+
+    def owner_at(pos):
+        return core_win[max(0, bisect.bisect_right(core_lo, pos) - 1)]
+
+    def best(cands):
+        return min(cands, key=lambda i: (items[i]["cut"], -items[i]["centrality"], items[i]["window"],
+                                         items[i]["start"]))
+
     kept, outside = [], 0
     per_window = {int(w["index"]): {"found": len(w.get("spans") or ()), "kept": 0} for w in windows}
     for members in clusters.values():
         owners = [i for i in members if items[i]["in_core"]]
-        if not owners:
-            outside += len(members)
-            continue
-        rep = min(members, key=lambda i: (items[i]["cut"], -items[i]["centrality"], items[i]["window"],
-                                          items[i]["start"]))
-        owner = rep if items[rep]["in_core"] else min(owners, key=lambda i: items[i]["window"])
+        rescued = merged = False
+        if owners:
+            whole = [i for i in members if not items[i]["cut"]]
+            if whole:
+                rep = best(whole)
+                start, end = items[rep]["start"], items[rep]["end"]
+            else:
+                start = min(items[i]["start"] for i in members)
+                end = max(items[i]["end"] for i in members)
+                same = [i for i in members if (items[i]["start"], items[i]["end"]) == (start, end)]
+                rep = best(same) if same else best(members)
+                merged = not same
+            owner = items[rep]["window"] if items[rep]["in_core"] else min(items[i]["window"] for i in owners)
+        else:
+            cands = [i for i in members if not items[i]["cut"] and items[i]["centrality"] >= edge_margin]
+            rep = best(cands) if (rescue and cands) else None
+            if rep is not None:
+                start, end = items[rep]["start"], items[rep]["end"]
+                owner = owner_at(start)
+                if any(s < end and start < e for s, e in by_window.get(owner, ())):
+                    rep = None              # the owner found something there: it decided
+            if rep is None:
+                outside += len(members)
+                continue
+            rescued = True
         it = items[rep]
         per_window[it["window"]]["kept"] += 1
-        kept.append({"start": it["start"], "end": it["end"], "score": it["score"], "window": it["window"],
-                     "owner": items[owner]["window"], "members": sorted({items[i]["window"] for i in members}),
-                     "cut": bool(it["cut"])})
+        kept.append({"start": start, "end": end, "score": it["score"], "window": it["window"], "owner": owner,
+                     "members": sorted({items[i]["window"] for i in members}),
+                     "cut": bool(merged or it["cut"]), "merged": merged, "rescued": rescued})
     kept.sort(key=lambda s: (s["start"], s["end"]))
     found = len(items)
     return {"spans": kept, "found": found, "kept": len(kept), "duplicates": found - len(kept) - outside,
-            "outside": outside, "per_window": per_window, "rule": rule}
+            "outside": outside, "merged": sum(1 for s in kept if s["merged"]),
+            "rescued": sum(1 for s in kept if s["rescued"]), "per_window": per_window, "rule": rule}
+
+
+def rescue_margin(steps, fs):
+    """Samples: half the chain's longest context window (a rolling mean, a baseline) — how far inside its window's
+    edges a view must lie to be rescued (`stitch`): nearer the edge that block saw only part of what it reads."""
+    ctx = [w["seconds"] for w in internal_windows(steps, fs) if w["kind"] == "context"]
+    return int(math.ceil(0.5 * max(ctx) * float(fs))) if ctx else 0
 
 
 # ── what each window fitted ─────────────────────────────────────────────────
@@ -972,7 +1083,7 @@ def _write_one(conn, recipe, recording_id, section, windows, run_ids, out, surro
         pos = next(p for p, w in enumerate(windows) if int(w["index"]) == k)
         R.insert_detection(conn, run_id, s["start"], s["end"], score=s["score"], commit=False, meta_json=json.dumps({
             "window": k, "windowRunId": run_ids[pos], "windowSpan": list(windows[pos]["span"]), "owner": s["owner"],
-            "members": s["members"], "cut": s["cut"]}))
+            "members": s["members"], "cut": s["cut"], "merged": s["merged"], "rescued": s["rescued"]}))
     conn.executemany(
         "INSERT INTO stitched_windows (run_id, window_index, window_run_id, span_start, span_end, core_start, "
         "core_end, found, kept) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -988,18 +1099,23 @@ def _write_one(conn, recipe, recording_id, section, windows, run_ids, out, surro
 
 
 def write_stitched(conn, *, recording_id, section, steps, scope, rule, surrogate, surrogate_params, n_draws, windows,
-                   group_id=None):
+                   group_id=None, margin=None):
     """The stitched run of one channel and its stitched draws, from its windows (``[{index, span, core, run_id,
-    draw_ids}]``). Returns ``{run_id, reused, surrogate_run_ids, surrogate_run_id, detections_written,
-    surrogate_detections_written, config_hash, run_group_id, stitch}``."""
+    draw_ids}]``). ``surrogate_params`` are the params the windows' draws ran with (a block shuffle's block is the
+    channel's, `channel_draw_params`); ``margin`` the rescue's edge margin in samples (`rescue_margin` of the chain
+    at the recording's rate when None). Returns ``{run_id, reused, surrogate_run_ids, surrogate_run_id,
+    detections_written, surrogate_detections_written, config_hash, run_group_id, stitch}``."""
     from Working import run_groups as RG
     from Working.database import runs as R
     from Working.recipes import short_hash
 
     t0 = time.perf_counter()
+    if margin is None:
+        fs = conn.execute("SELECT fs FROM recordings WHERE id = ?", (int(recording_id),)).fetchone()[0]
+        margin = rescue_margin(steps, float(fs))
     recipe = stitched_recipe(steps, recording_id, section, scope, rule, surrogate)
     real_ids = [w["run_id"] for w in windows]
-    out = stitch(_stitch_input(conn, windows, real_ids), rule=rule)
+    out = stitch(_stitch_input(conn, windows, real_ids), rule=rule, edge_margin=margin)
     real_id, reused = _write_one(conn, recipe, recording_id, section, windows, real_ids, out, None,
                                  time.perf_counter() - t0)
     draw_ids, draw_counts = [], []
@@ -1008,7 +1124,7 @@ def write_stitched(conn, *, recording_id, section, steps, scope, rule, surrogate
         if all(i is None for i in ids_j):
             break
         t1 = time.perf_counter()
-        out_j = stitch(_stitch_input(conn, windows, ids_j), rule=rule)
+        out_j = stitch(_stitch_input(conn, windows, ids_j), rule=rule, edge_margin=margin)
         d_recipe = RG.surrogate_recipe(recipe, stitched_draw_params(surrogate_params, j))
         d_id, _ = _write_one(conn, d_recipe, recording_id, section, windows, ids_j, out_j, real_id,
                              time.perf_counter() - t1)
@@ -1021,7 +1137,7 @@ def write_stitched(conn, *, recording_id, section, steps, scope, rule, surrogate
             "surrogate_run_id": (draw_ids[0] if draw_ids else None), "detections_written": out["kept"],
             "surrogate_detections_written": (draw_counts[0] if draw_counts else None),
             "config_hash": short_hash(recipe), "run_group_id": group,
-            "stitch": {k: out[k] for k in ("found", "kept", "duplicates", "outside")}}
+            "stitch": {k: out[k] for k in ("found", "kept", "duplicates", "outside", "merged", "rescued")}}
 
 
 def window_totals(conn, stitched_run_ids):
