@@ -84,5 +84,21 @@
                                          "[data-testid=\"map-cell\"][data-state=\"covered\"]:not([data-row=\"human\"])"]}},
   "expect": ["[data-testid=\"discovery-map-page\"]"],
   "expect_absent": ["[data-testid=\"discovery-load-failed\"]"]
+ },
+ {
+  "page": "discovery.runs",
+  "state": "a2-p3-the-window-card-plans-with-the-chosen-bands",
+  "hash": "discovery/runs?modal=add-template&tpl=noise_threshold&windows=on&wlen=3600&wov=0.5",
+  "settle_ms": 1500,
+  "_why": "round A_2 P3 fix round (m6): the window card plans with the band scope. Turning the bands on ticks the named bands (Settings > Analysis defaults; Q43's seed starts with 0.001-0.01 Hz, whose bandpass reads a 1,000 s period, so it needs 66.7 min windows): at 1-hour windows the card is refused naming that band and its minimum - before the fix it said runnable and the apply refused it. A sandbox whose band list has no band that slow would read the count instead",
+  "actions": [
+   {"wait_for": ["[data-testid=\"window-scope\"]", 360000]},
+   {"click": "[data-testid=\"band-scope-mode\"] [data-value=\"bands\"]"},
+   {"wait_for": ["[data-testid=\"window-refused\"]", 360000]},
+   {"wait": 300}
+  ],
+  "expect": ["[data-testid=\"band-scope\"]", "[data-testid=\"window-refused\"]:has-text(\"0.001\")",
+             "[data-testid=\"window-refused\"]:has-text(\"66.7 min\")"],
+  "expect_absent": ["[data-testid=\"discovery-load-failed\"]"]
  }
 ]

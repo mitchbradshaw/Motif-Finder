@@ -342,6 +342,68 @@ recordings hold nothing. Weak drops found, per quiet-stretch length:
   `scripts/measure_window_defaults.py --db <sandbox copy> --recording-ids … --scales 1,0.1667 --allow-short` (and
   again with `--fit`).
 
+### The stitch, the null and Explore (P3 fix round, 2026-10-18)
+
+*In plain words.* Four things changed in how a windowed run is joined up and read. An event that a window boundary
+cuts in two is now one event, not two. An event that the deciding window missed, but its neighbour saw whole, is now
+kept. Explore, the run history and the disagreement counts show a windowed application once (its stitched run), not
+once per window. A block-shuffle null is now drawn in every window, with one block length per channel.
+
+- **The rule, as the run states it** (`Working/discovery/windowed.py` `RULES`, shown on the window card and the run):
+  1. *windows*: windows of one length, a new one every length × (1 − overlap), the last moved back to the end.
+  2. *core*: the window whose core holds an event's onset decides whether it is there.
+  3. *rescue* (new): if that window found nothing there at all, the event is kept from a neighbour that saw it whole,
+     at least half the chain's longest context window inside its own edges. It is marked *rescued*.
+  4. *duplicates* (extended): two detections from different windows are one event by Compare's rule; or when one is
+     a view a window edge cut short, lying inside the other with its uncut edge where the other's is; or when they
+     are the two halves of an event cut at one boundary (at 0 % overlap the halves only touch). An event holds at
+     most one detection from each window. It is kept once: as the view no edge cut, or as the union of the pieces
+     (marked *merged*).
+  5. *provenance*, 6. *refit*, 7. *bound*, 8. *null* as before (8 now says what × null compares, below).
+- **What the owner rule lost, and what the rescue gives back.** The critic's probe signal: 24 h at 1 Hz, 66 planted
+  dips and drops, a loud 6 h; noise_threshold (600 s baseline, 4 σ) in 1-hour windows. The same window runs stitched
+  with the rescue off and on:
+
+  | Overlap | Planted events a window saw | Lost by the owner rule | Lost with the rescue | Kept (off → on) | Kept twice |
+  |---|---|---|---|---|---|
+  | 0 % | 50 | 0 | 0 | 50 → 50 | 0 (1 before the fix) |
+  | 25 % | 51 | 3 | 2 | 48 → 49 | 0 |
+  | 50 % | 54 | 4 | 2 | 50 → 52 | 0 |
+  | 75 % | 57 | 7 | 1 | 50 → 56 | 0 |
+  | 90 % | 60 | 9 | 3 | 51 → 57 | 0 |
+
+  Nothing kept lies off the planted events, and no two kept spans overlap, at any overlap. The whole-span run finds
+  48 of the 66. On pure noise (24 h, a sensitive cut, 3 null draws) the run with the rescue finds less than its null:
+  × null 0.56 and 0.55 (AR(1), 1-h and 4-h windows; 0.67 and 0.85 without), 0.45 and 0.62 (random walk; 0.65 and
+  0.67 without). The rescue is the rule (`RESCUE`).
+- **The null compares within one scale, not across scales.** Each window draws its own null, so × null says how a
+  scale's run compares with the same scale's null. A 1-hour application's × null and a 10-minute one's are not on one
+  footing. And each window's null is its own surrogate, so neighbouring windows' nulls do not share their overlap:
+  the rescue keeps more null spans than real ones. That makes × null cautious (it reads low), never generous.
+- **Block shuffle, one block per channel.** A block shuffle's block is twice the longest motif under test. Sized per
+  window, a window that found nothing had no block and drew no null, and the stitched null counted nothing there.
+  Measured on pure noise (scratchpad `block_bias.py`): that left out 16 % of the null (AR(1), 1-h windows, 22 of 47
+  windows empty), 26 % (random walk, 1 h) and 8 % (AR(1), 4 h), so × null read high. Now the block is twice the
+  longest detection any window of the channel found, and every window draws. A channel where no window found
+  anything draws no null, and says so. Phase randomisation (the default) is unchanged.
+- **Explore shows a windowed application once.** Its window runs are parts of its stitched run
+  (`queries.not_window_part`). Explore's spans, ribbons, counts, run list and coverage, the disagreement counts with
+  no run picked, a review queue over a run group, and the run history read the stitched run only. A window run is
+  still read when asked for by its id.
+- **Before the 10-minute sweep: try it on a subset, or in a separate database.** Every window is a run with its
+  detections and its draws. The critic measured about 1.5 KB per window and its draw (31 MB for 20,000). 13
+  templates in 10-minute windows over 16 channels of 721 h are 1.8 million windows: about 3 GB more database. Run
+  one or two channels over a day first, or the sweep in a copy of the database.
+- **Planning is fast enough to stay where it is.** Planning, exporting and re-planning a windowed run hashed every
+  window's whole recipe. Now each channel's chain is hashed once. Warm, 16 channels × 721 h, one null draw: 10-minute
+  windows plan in 3.9 s (was 45.7 s), export in 0.8 s (19.7 s), re-plan on import in 4.1 s (67.2 s); 1-hour windows
+  0.4 s, 0.3 s, 0.8 s (9.1, 2.7, 10.2 s). Applying 13 templates at 10 minutes is still about a minute.
+- **Windowed chain-job specs are version 2.** Plain specs stay version 1, hash for hash. Cluster code from before P3
+  refuses a version-2 spec when the task starts. Update the code on the cluster before sending a windowed run.
+- **Small fixes.** A fitted chain is one run whichever way it was reached. "Fit" or "run as it is" that changes
+  nothing is not recorded. The shortest window is never rounded down: 66.7 min, not "1.1 h". The window card plans
+  with the chosen bands, and a band whose filter needs a longer window is named.
+
 ## How it gets answered
 
 1. For each detector, pick the variant that best matches the human row on M2_aug (hits on accepted spans per false
@@ -358,6 +420,10 @@ recordings hold nothing. Weak drops found, per quiet-stretch length:
   (drop_detection_v1 0 → 40–82 %, v5 0 → 86 %) and add no noise detections; on M2_aug it is not measured yet.
   Recommendation: a choice, beside the whole-span run, until M2_aug's human row agrees.*
 - **The window bound at the sweep's short scales** (refuse, fit, or run as it is): *Decision* above.
+- **The rescue** (P3 fix round, 2026-10-18): it is the stitch rule now (the table in *The stitch, the null and
+  Explore*). *Options:* keep it (recommended: no event kept twice, up to six more planted events at 75–90 % overlap,
+  and × null on noise only reads lower); keep it for the run but not the null (× null would read higher than it
+  should); or drop it (3–9 of about 55 events lost at 25–90 % overlap). *Recommendation: keep it.*
 
 ## Log
 
@@ -392,3 +458,9 @@ recordings hold nothing. Weak drops found, per quiet-stretch length:
   Windowed runs export as one chain-job task per channel; the import writes the window runs. dehshibi_spikes runs in
   1-hour windows. Measured the drop detectors' window length and the short scales (tables above). `init_db` no longer
   rescans every run for legacy rows on every open; thousands of window runs had made that 0.2–1.4 s per open.
+- 2026-10-18 · a2-p3 fix round · the stitch joins the halves of an event cut at a boundary (0 % overlap counted
+  one twice), matches a cut view inside a whole one, pairs one detection per window, and rescues an event its
+  owner missed (measured, adopted). Explore, the divergence, group queues and the run history read a windowed
+  application once. A block-shuffle null uses one block per channel (the per-window block left 8–26 % of the null
+  out). Windowed specs are version 2. Planning 10-minute windows over 16 channels: 46 s → 4 s. The legacy scan's
+  mark is kept per database file.

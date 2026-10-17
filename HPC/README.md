@@ -179,6 +179,13 @@ Every other spec, task and import is unchanged (`tests/test_rq4_overnight_specs.
   already holds is left alone. The ordinary local sweep then reuses every window, computing nothing, and stitches
   each channel into its stitched run. *Import results* is the same button. The row's cluster check compares the
   windows' own counts (before stitching) with the cluster's.
+- **A windowed spec is version 2** (fix round, 2026-10-18). Every plain spec stays version 1, its hash unchanged.
+  Cluster code from before P3 reads version 1 only and refuses a version-2 spec when the task starts, so a windowed
+  run never runs there as a plain target. Update `Working/` on the cluster before sending a windowed run. This code
+  reads both versions and refuses a spec whose version does not say what it holds.
+- **A block-shuffle null uses one block per channel** (fix round). With no block length set in Settings › Nulls, the
+  task runs every window first, then draws every window's null with a block twice the longest detection any window
+  of the channel found. The import checks that block. A channel where no window found anything draws no null.
 
 ## Cluster-specific settings you will need to change
 
