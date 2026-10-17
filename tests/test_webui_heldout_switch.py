@@ -354,3 +354,30 @@ def test_a_seed_result_path_is_refused_by_name_only_while_locked(bridge):
     assert r.status_code == 404, f"unlocked, the path is looked for like any other: {r.status_code} {r.text[:200]}"
     _lock(client, True)
     assert client.post("/api/hpc/seed/import", json=body).status_code == 423
+
+
+# ── no cache: the Library's caches carry the lock in their keys ─────────────
+
+def test_the_library_caches_are_keyed_on_the_lock(bridge):
+    """The Library caches a built view (`_VIEW_CACHE`) and the grouping editor's
+    distributions (`_DIST_CACHE`), both computed from the recording index's
+    held-out flags, so the lock must be part of their keys. A toggle and its undo
+    inside one second leave the settings row's `updated_at` (one-second
+    resolution) where it was; the value is changed here without touching
+    `updated_at`, so only the lock itself in the key can tell the two apart."""
+    from server import corpus as C
+    from server import library as L
+    client, _ = bridge
+    _lock(client, False)
+    conn = C.connect(client.app.state.rt.db_path)
+    try:
+        view_off = L._view_fingerprint(conn, 1)
+        L._distributions_cached(conn, L._recordings_index(conn))
+        dist_off = L._DIST_CACHE["distributions"][0]
+        conn.execute("UPDATE settings SET value_json = 'true' WHERE page = 'datasets' AND key = 'heldout.on'")
+        conn.commit()
+        assert L._view_fingerprint(conn, 1) != view_off, "a view built while unlocked would be served locked"
+        L._distributions_cached(conn, L._recordings_index(conn))
+        assert L._DIST_CACHE["distributions"][0] != dist_off, "the editor's distributions would not be recomputed"
+    finally:
+        conn.close()

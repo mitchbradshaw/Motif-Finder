@@ -101,5 +101,21 @@
   "expect_absent": [
    "[data-testid=\"corpus-heatmap\"]"
   ]
+ },
+ {
+  "page": "explore.corpus",
+  "state": "a2p1-explore-back-on-M2_aug",
+  "_note": "a2-p1. Explore keeps its last recording in sessionStorage; the two states above left it on M4_aug, now locked. Put it back on M2_aug so a later state that opens explore/corpus without ?rec= meets the page it expects.",
+  "hash": "explore/corpus?rec=M2_aug_concat_fs1.mat",
+  "settle_ms": 1500,
+  "actions": [
+   {"wait_for": ["[data-testid=\"corpus-heatmap\"]", 20000]}
+  ],
+  "expect": [
+   "[data-testid=\"corpus-heatmap\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"locked-card\"]"
+  ]
  }
 ]
