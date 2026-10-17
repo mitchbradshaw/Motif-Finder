@@ -530,7 +530,7 @@ def _run_payload(conn, row, index, span, jobs=None):
         # round A_2, P3: a windowed application — its scale, how many windows, what fitting changed, the stitch
         out["windows"] = {k: params["windows"].get(k) for k in
                           ("scope", "label", "per_channel", "targets", "fitted", "minimum", "stitch", "tradeOff",
-                           "warning")}
+                           "warning", "rule", "rules")}
         out["windowed"] = True
     if progress is not None and status == "running":
         out["progress"] = round(progress, 3)
@@ -2509,6 +2509,8 @@ def post_plan(request: Request, body: PlanBody):
                          "bands": [{**p[0]["band"], "estimate_s": p[0]["estimate_s"], "route": p[0]["route"]}
                                    for p in plans],
                          "note": f"{len(bands)} bands × one sweep across {plan['n_channels']} channels"})
+            if body.windows is not None:
+                _windows_bands(plan, plans)
             return _clean(_windows_public(plan))
         plan, *_ = _plan(c, body)
         return _clean(_windows_public(plan))
@@ -2730,9 +2732,11 @@ def _apply_bands(request, c, body: ApplyBody, name: str, bands: list[dict]):
     pb = PlanBody(template=name, channels=body.channels, t0=body.t0, t1=body.t1,
                   exemplar=(body.exemplars or {}).get(name), windows=body.windows)
     plans, total, route, ceiling = _band_plans(c, pb, bands)
-    for plan, *_ in plans:
+    for band, (plan, *_) in zip(bands, plans):
         if not plan["runnable"]:
-            raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"], "template": name})
+            # round A_2, P3: in windows a band's own filter can refuse the scale, so the refusal names the band
+            why = f"band {band['label']}: {plan['reason']}" if body.windows is not None else plan["reason"]
+            raise HTTPException(422, {"message": why, "refused": plan["refused"], "template": name})
     s = plans[0][6]
     set_key = _band_set_key(c, s["id"], name)
     out = []
@@ -4613,6 +4617,22 @@ def import_chain_result_for(request: Request, *, run_key=None, spec_path=None):
 #
 # Appended so the branches working beside this one merge cleanly; called from `post_plan`, `apply_templates`,
 # `_apply_bands` and `post_slurm` above.
+
+def _windows_bands(plan, plans):
+    """A window scope over a band scope (the critic's m6): each band prepends its own filter, and a filter's period
+    can ask for a longer window than the template does (the default 0.001-0.01 Hz band: 66.7 min). The plan is
+    runnable only when every band's is; a band that cannot run says so by name, and its plan's windows stand for the
+    application's, so the card shows the minimum that refused it."""
+    bad = [p[0] for p in plans if not p[0].get("runnable")]
+    if not bad:
+        return plan
+    first = bad[0]
+    why = "; ".join(f"band {p['band']['label']}: {p.get('reason')}" for p in bad)
+    plan.update(runnable=False, reason=why)
+    if first.get("windows"):
+        plan["windows"] = dict(first["windows"], refused=why)
+    return plan
+
 
 def _windows_public(plan):
     """A windowed plan as the page reads it: counts per channel, not one entry per window (thousands at the RQ4

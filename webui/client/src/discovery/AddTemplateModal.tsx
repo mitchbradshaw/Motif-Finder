@@ -321,7 +321,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                     </div>
                   </div>
                 )}
-                <WindowScope template={focus.fits ? focus.name : null} channels={s.channels} section={s.section} state={winState}
+                <WindowScope template={focus.fits ? focus.name : null} channels={s.channels} section={s.section} bands={chosenBands} state={winState}
                   mode={winMode} setMode={setWinMode} length={winLen} setLength={setWinLen} custom={winCustom} setCustom={setWinCustom}
                   overlap={winOverlap} setOverlap={setWinOverlap} fit={winFit === '1'} setFit={v => setWinFit(v ? '1' : null)}
                   allowShort={winAllow === '1'} setAllowShort={v => setWinAllow(v ? '1' : null)} />

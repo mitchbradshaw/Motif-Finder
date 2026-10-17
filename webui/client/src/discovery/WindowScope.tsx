@@ -9,7 +9,7 @@
 import { Checkbox, Dropdown, Icon, InfoTip, Seg, TextField, cx } from '../kit'
 import { useSourced } from '../api/seam'
 import { planRun, fmtMin } from '../api/discovery'
-import type { DiscPlanWindows } from '../api'
+import type { DiscBand, DiscPlanWindows } from '../api'
 import { LoadFailed, Loading } from './chrome'
 
 export const WINDOW_LENGTHS: { value: string; label: string }[] = [
@@ -24,6 +24,9 @@ export const WINDOW_OVERLAPS: { value: string; label: string }[] = [
 export const TRADE_OFF = 'Each window sets its own thresholds: a quiet window finds weaker events than the whole-span run would, and a busy one finds fewer.'
 
 const fmtLen = (s: number) => s < 3600 ? `${+(s / 60).toFixed(1)} min` : `${+(s / 3600).toFixed(1)} h`
+/** A minimum window, never rounded below itself (`windowed.fmt_minimum`): 4,000 s reads 66.7 min, not 1.1 h (3,960 s). */
+const fmtMinimum = (s: number) => s < 60 ? `${Math.ceil(s * 10 - 1e-9) / 10} s`
+  : s < 7200 ? `${Math.ceil(s / 6 - 1e-9) / 10} min` : `${Math.ceil(s / 360 - 1e-9) / 10} h`
 
 export interface WindowScopeState {
   on: boolean; lengthS: number | null; overlap: number; fit: boolean; allowShort: boolean
@@ -32,23 +35,26 @@ export interface WindowScopeState {
 export const windowScopeOf = (w: WindowScopeState) => (w.on && w.lengthS && w.lengthS > 0
   ? { window_s: w.lengthS, overlap_frac: w.overlap, fit: w.fit, ...(w.allowShort && !w.fit ? { allow_short: true } : {}) } : null)
 
-export function WindowScope({ template, channels, section, state, mode, setMode, length, setLength, custom, setCustom, overlap, setOverlap, fit, setFit, allowShort, setAllowShort }: {
+export function WindowScope({ template, channels, section, bands, state, mode, setMode, length, setLength, custom, setCustom, overlap, setOverlap, fit, setFit, allowShort, setAllowShort }: {
   template: string | null; channels: string[]; section: [number, number]; state: WindowScopeState
+  /** the band scope's chosen bands: each prepends its own filter, whose period can ask for a longer window (fix round, m6) */
+  bands?: DiscBand[]
   mode: string; setMode: (v: string) => void; length: string; setLength: (v: string) => void
   custom: string; setCustom: (v: string) => void; overlap: string; setOverlap: (v: string) => void
   fit: boolean; setFit: (v: boolean) => void; allowShort: boolean; setAllowShort: (v: boolean) => void
 }) {
   const scope = windowScopeOf(state)
-  const key = scope ? `${template}|${channels.join(',')}|${section.join('-')}|${scope.window_s}|${scope.overlap_frac}|${scope.fit}|${'allow_short' in scope}` : 'off'
+  const bandKey = (bands ?? []).map(b => b.label).join(',')
+  const key = scope ? `${template}|${channels.join(',')}|${section.join('-')}|${scope.window_s}|${scope.overlap_frac}|${scope.fit}|${'allow_short' in scope}|${bandKey}` : 'off'
   const plan = useSourced(() => (scope && template
-    ? planRun({ template, channels, t0: section[0], t1: section[1], windows: scope })
+    ? planRun({ template, channels, t0: section[0], t1: section[1], windows: scope, ...(bands && bands.length ? { bands } : {}) })
     : Promise.resolve({ data: null, source: 'live' as const })), [key])
   const w = plan.data?.windows ?? null
   return (
     <>
       <div className="dsc-sub-label row" style={{ gap: 6 }} data-testid="window-scope-head">
         Windows
-        <InfoTip title="Window scope">With windows, the template's chain runs over sliding windows of the section instead of all of it at once. Each window is judged on its own scale — the noise level, cutlines and depth gates a detector fits to the span it is given are fitted to the window — and the windows' detections are stitched into one result: where windows overlap, an event counts once, decided by the window that sees it most centrally. Each window is an ordinary run, kept and reused when you apply the same scope again, with its own null. The result is one Discovery run, and its own row on the Map: each window length is its own version of the algorithm.</InfoTip>
+        <InfoTip title="Window scope">With windows, the template's chain runs over sliding windows of the section instead of all of it at once. Each window is judged on its own scale — the noise level, cutlines and depth gates a detector fits to the span it is given are fitted to the window — and the windows' detections are stitched into one result: where windows overlap, an event counts once, decided by the window that sees it most centrally. Each window is an ordinary run, kept and reused when you apply the same scope again, with its own null — so × null compares like with like within one scale, not across scales. The result is one Discovery run, and its own row on the Map: each window length is its own version of the algorithm.</InfoTip>
         <span className="k-spacer" />
         <Seg size="sm" value={mode} onChange={setMode} testid="window-scope-mode"
           options={[{ value: 'off', label: 'off' }, { value: 'on', label: state.on && state.lengthS ? `${fmtLen(state.lengthS)} windows` : 'windows' }]} />
@@ -90,7 +96,7 @@ function WindowPlan({ w, runnable, reason, estimateS, route, ceilingS, channels 
   return (
     <>
       {m && <div className="mono small" data-testid="window-minimum">
-        shortest window this chain allows: <b>{fmtLen(m.minimum_s)}</b> — step {String(m.step + 1).padStart(2, '0')} {m.label} ({m.param}, {fmtLen(m.seconds)}{m.kind === 'context' ? ', × 4' : ', one whole piece'})
+        shortest window this chain allows: <b>{fmtMinimum(m.minimum_s)}</b> — step {String(m.step + 1).padStart(2, '0')} {m.label} ({m.param}, {fmtLen(m.seconds)}{m.kind === 'context' ? ', × 4' : ', one whole piece'})
         <InfoTip title="Why a minimum">{m.kind === 'context'
           ? 'This step reads a stretch of signal around every point (a rolling mean, a baseline). Near a window’s edge it sees only half of it, so a window must be at least four times as long for its edges to distort a quarter of it at most.'
           : 'This step cuts its input into pieces of this length and treats each on its own, so a window must hold one whole piece; the window’s edge is then one more piece boundary.'}</InfoTip>

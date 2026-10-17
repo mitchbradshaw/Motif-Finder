@@ -149,6 +149,17 @@ def fmt_duration(seconds):
     return f"{round(s / 3600.0, 1):g} h"
 
 
+def fmt_minimum(seconds):
+    """A minimum window the way the page says it, never rounded below itself, so a window of the length shown is
+    long enough: 40 s, 66.7 min (not "1.1 h", which is 3,960 s and short of a 4,000 s minimum), 2.5 h."""
+    s = float(seconds)
+    if s < 60:
+        return f"{math.ceil(s * 10.0 - 1e-9) / 10.0:g} s"
+    if s < 2 * 3600:
+        return f"{math.ceil(s / 6.0 - 1e-9) / 10.0:g} min"
+    return f"{math.ceil(s / 360.0 - 1e-9) / 10.0:g} h"
+
+
 # ── the scope ───────────────────────────────────────────────────────────────
 
 def normalize_scope(scope):
@@ -396,7 +407,7 @@ def bound_refusal(steps, fs, window_s):
     if m is None or float(window_s) >= m["minimum_s"] - 1e-9:
         return None
     return (f"a {fmt_duration(window_s)} window is shorter than this chain allows: {_describe(m)} sets the minimum "
-            f"at {fmt_duration(m['minimum_s'])}. Choose {fmt_duration(m['minimum_s'])} or longer, or tick “fit the "
+            f"at {fmt_minimum(m['minimum_s'])}. Choose {fmt_minimum(m['minimum_s'])} or longer, or tick “fit the "
             f"chain's internal windows to this window length” — a different chain, scaled to the window, its own "
             f"row on the Map — or “run it as it is”, its edges distorted and the run saying so")
 
@@ -416,7 +427,7 @@ def fit_steps(steps, fs, window_s):
         if not w["fittable"]:
             raise ValueError(f"{where}: its {w['param']} ({fmt_duration(w['seconds'])}) is part of what the chain "
                              f"looks for and is not fitted to a window; a {fmt_duration(window_s)} window cannot "
-                             f"hold it — choose at least {fmt_duration(w['minimum_s'])}")
+                             f"hold it — choose at least {fmt_minimum(w['minimum_s'])}")
         entry = next(e for e in INTERNAL_WINDOWS[w["name"]] if e["param"] == w["param"])
         to = _to_param(entry, allowed, fs)
         spec = _adapter(w["name"])
@@ -932,7 +943,7 @@ def plan_windows(conn, *, steps, targets, refused, span, ceiling, measured_per_w
     if why and scope.get("allow_short"):
         # the explicit opt-in: the chain kept as it is, the bound said on the plan and on the run
         info["warning"] = (f"run as it is in windows shorter than this chain allows: {_describe(info['minimum'])} "
-                           f"asks for {fmt_duration(info['minimum']['minimum_s'])}, so near every window's edge "
+                           f"asks for {fmt_minimum(info['minimum']['minimum_s'])}, so near every window's edge "
                            f"that step works on part of what it needs and its output there is distorted")
     elif why:
         return refuse(why)

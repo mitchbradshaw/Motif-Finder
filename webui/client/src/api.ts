@@ -1622,11 +1622,17 @@ export interface DiscPlanWindows {
 export interface DiscPlanBody { windows?: DiscWindowScope }
 export interface DiscPlan { windows?: DiscPlanWindows }
 export interface DiscApplyResult { windows?: { label: string; per_channel: number; targets: number; runs: number } }
-export interface DiscWindowStitch { channel: string; windows: number; windowsReused: number; found: number; kept: number; duplicates: number; outside: number }
+export interface DiscWindowStitch {
+  channel: string; windows: number; windowsReused: number; found: number; kept: number; duplicates: number; outside: number
+  /** fix round: events whose halves were joined at a boundary, and events kept from a neighbour the owner missed */
+  merged?: number; rescued?: number
+}
 export interface DiscRun {
   windows?: {
     scope: DiscPlanWindows['scope']; label: string; per_channel: number; targets: number; fitted: DiscWindowFit[]
     minimum: DiscWindowMinimum | null; stitch?: DiscWindowStitch[] | null; tradeOff: string; warning?: string | null
+    /** the stitch rule the run was made by (fix round, m7) */
+    rule?: { iou: number; onset: number } | null; rules?: { name: string; rule: string }[] | null
   }
   windowed?: boolean
 }
