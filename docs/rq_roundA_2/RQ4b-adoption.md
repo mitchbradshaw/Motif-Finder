@@ -74,9 +74,24 @@ over the two channels, threshold 10 none, motifs 30.
 planned "unknown" and would have computed both whole-signal profiles locally. It now requires every matrix-profile
 step to be cached, for the real run and for each draw.
 
-## The real import
+## The real import (2026-10-18, 08:07–09:04)
 
-Planned on 2026-10-18 for all 43 jobs and the three copies, through a project bridge on the main checkout. Expected:
-- the database grows from 67 MB to about 240 MB;
-- 4.29 GB is restored into `DATA/derived/step_cache`, about 10–15 GB once the local sweep has cached its steps;
-- 1.5–2 hours in all.
+Run through a project bridge on the main checkout. The bridge backed the database up first, to
+`DATA/db/backups/20261018-080022.sqlite`. It seeded the 12 CNN templates, and templates 71–74 (the backend copies)
+were created. Then `rq4_overnight.py adopt --apply --allow-project` ran.
+
+- **All 43 jobs imported**, plus the three matrix-profile copies: 46 Discovery runs in session 2
+  (`M2_aug_concat_fs1 screen`), all done, 2.42 M spans in all. Discovery › Map shows 48 algorithm rows on M2_aug.
+- **Agreement with the cluster.** 40 jobs found exactly what the cluster found on every channel. The three
+  `BEADs_invert_detect_v1` jobs differ by 1–3 spans on some channels (for example CH4_A2: 322 here, 323 on the
+  cluster). Their run rows say so (`clusterCheck`). The likely cause is a floating-point difference between the two
+  machines' libraries in BEADs' iterative baseline, but it is not investigated.
+- **The matrix-profile copies:** threshold 6 found 44,258 spans over CH1_A1 and CH2_A1, threshold 10 none, motifs 30;
+  the overnight threshold 8 found none.
+- **Cost.**
+  - The database grew from 67 MB to 251 MB.
+  - The step cache now holds 4.6 GB in all: many cheap steps were already cached from earlier local runs, so it grew
+    less than the sandbox suggested.
+  - 57 min in all, mostly 25–105 s a job.
+- `HPC/Detection/generated/rq4_overnight_upload.tar.gz` went to the Recycle Bin: it carried P2's code to the
+  cluster before P2 merged.
