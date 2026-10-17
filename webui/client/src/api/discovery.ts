@@ -145,6 +145,7 @@ export const getRuns = (): Promise<Sourced<DiscoveryRun[]>> => live(getDiscovery
   reviewedH: r.reviewedH, runGroupId: opt(r.runGroupId), channelsDone: opt(r.channelsDone), found: opt(r.found),
   seedId: opt(r.seedId), cut: r.cut ?? null, entryId: r.entryId ?? null, scales: r.scales ?? null,
   band: r.band ?? null, bandSet: r.bandSet ?? null, bandIndex: r.bandIndex ?? null,
+  hpcImported: r.hpcImported || undefined, hpcRefused: opt(r.hpcRefused), clusterAgrees: r.clusterAgrees, clusterCheck: opt(r.clusterCheck),
 }))))
 
 export const getTemplates = (): Promise<Sourced<DiscoveryTemplate[]>> => live(getDiscoveryTemplates().then(rows => rows.map(t => ({
@@ -523,3 +524,9 @@ export const fmtMin = (min: number) => {
   if (s < 1) return '< 1 s'
   return min < 1 ? `≈ ${Math.round(s)} s` : min < 60 ? `≈ ${Math.round(min)} min` : `≈ ${(min / 60).toFixed(1)} h`
 }
+
+/* ------------------------------------------------------------------ round A_2 · P2: a chain job's way back */
+/** Appended (declaration merging). A template run sent to the cluster carries its chain job in `hpc` (`kind: 'chain'`);
+ *  once imported, `hpcImported`, and whether the sweep here found what the cluster found, channel by channel
+ *  (`clusterAgrees`; `clusterCheck` says where not). `hpcRefused` is the last import refusal, in the bridge's words. */
+export interface DiscoveryRun { hpcImported?: boolean; hpcRefused?: string; clusterAgrees?: boolean; clusterCheck?: string }

@@ -65,16 +65,39 @@ at once.
 - A cell is detections per covered hour. Where runs overlap, the newest run wins, so sections stitch without double
   counting.
 
+### HPC template runs come back (P2, built 2026-10-17; report: the a2-p2 branch's report to the managing session)
+
+- **The loop, built and tested here (not yet run on rangpur).** *Create SLURM script* writes one array job per ticked
+  run (`Working/discovery/chain_job.py`): one task per channel, each running the real chain **and its null draws**
+  (Settings › Nulls, 1 allowed) on a scratch database keyed to this machine's recording ids, resubmitting itself while
+  its result reads incomplete. The run row is marked *on cluster* on the server. *Import results* (on the run's row,
+  or Jobs › Waiting on the cluster) checks the spec, every hash and each recording's content, restores the step cache,
+  and runs the chain here: the matrix profile is read from the cache, so the run lands on Runs, Compare, Review, the
+  Scoreboard and the Map as a local run, in seconds. A missing or incomplete task is refused by name.
+- **No recalculation:** an identical run reuses the imported run; a different threshold on the same profile reads
+  the imported profile from the cache (the plan now counts only uncached steps, real run and draws alike).
+- **Whole span:** the matrix-profile cap (678,125 samples here) is now checked only where the step computes: a
+  cached profile is served at any length, an uncached one over the cap is routed to the cluster (not refused), and
+  the cluster has no cap. A CPU profile too long for one job is computed in blocks (AB-joins, merged by the
+  elementwise minimum; equal to the one-shot within float rounding), checkpointed per block.
+- **Still to verify on rangpur (the researcher):** the `cpu` and `a100` partitions' real wall (only `a100-test`'s
+  20 min is measured; `Working/config.py` `HPC_WALLTIME_MINUTES_BY_PARTITION`), and stump vs gpu_stump on the a100
+  (`scripts/measure_gpu_stump.py`; `backend` stays in the cache key until then).
+- **Not shared with Analyse yet:** Discovery runs hash a template's params as stored (the canonical templates store
+  only the params they set), Analyse fills every default first, so the two do not share cache entries for the same
+  chain unless the template stores every param.
+
 ### What blocks the full design today
 
-1. **Template runs on the HPC never come back.**
+1. ~~**Template runs on the HPC never come back.**~~ Built 2026-10-17 (P2, above); waits for the first real round trip.
    - *Create SLURM script* scripts only the first ticked run, has no null, and is capped at a 20-minute wall with no
      resume.
    - Jobs lists `detection_chain` results as having "no return path".
    - Only seed searches round-trip. → **P2.**
 2. **Matrix-profile and wavelet blocks refuse long spans:**
-   - matrix profile: over 678,125 samples (≈ 188 h at 1 Hz), enforced in `Working/execution.py` even on the cluster;
-   - wavelet transform: over 320,000 samples.
+   - ~~matrix profile: over 678,125 samples (≈ 188 h at 1 Hz), enforced in `Working/execution.py` even on the
+     cluster;~~ no longer refused: routed to the cluster, uncapped there, served from the cache here (P2, 2026-10-17);
+   - wavelet transform: over 320,000 samples — a memory limit, unchanged (P3's windows are the way round it).
    → **P2.**
 3. **Detectors see one span at a time:** no sliding window, and most fit their thresholds to the span they are given.
    → **P3.**
@@ -105,7 +128,8 @@ at once.
 | Step | Owner |
 |---|---|
 | The held-out lock honours Settings › Datasets | P1 |
-| HPC template runs return as real Discovery runs, cached and reusable; matrix profile over the whole span on the cluster | P2 |
+| ~~HPC template runs return as real Discovery runs, cached and reusable; matrix profile over the whole span on the cluster~~ built 2026-10-17 (see *HPC template runs come back*) | P2 |
+| The first real round trip on rangpur (export → copy → sbatch → bring `return/` back → Import results); read the `cpu` / `a100` walls; run `scripts/measure_gpu_stump.py` on the a100 | researcher |
 | Windowed detection: window length + overlap as a run setting, results stitched and de-duplicated | P3 |
 | The CNN window-score block and its 12 templates | W4-A |
 | Declare units for M1, M100, M101_t, MJu26a | researcher |
@@ -129,3 +153,6 @@ at once.
 
 - 2026-10-17 · set up · 27 variant templates created (ids 31–57); null floor 20 → 1; the four infrastructure prompts
   (P1–P4) and W4-A written; measurements recorded.
+- 2026-10-17 · a2-p2 · template runs round-trip to the cluster (chain job, import into the step cache, the local
+  sweep writes the rows); the matrix-profile cap is routing, not a refusal; profile files named by span and key;
+  chunked profiles; walls per partition recorded (only a100-test's measured).

@@ -12,7 +12,8 @@ import { applyDiscoveryTemplates, removeDiscoveryRun, runDiscoverySeedSearchOnce
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
-import { openDiscoveryHistoryRun, postDiscoverySlurm, putDiscoverySession } from '../api'
+import { openDiscoveryHistoryRun, putDiscoverySession } from '../api'
+import { exportDiscoveryChain, importDiscoveryChain, type DiscChainExport } from '../api'
 import { RunGlyph } from './glyphs'
 import { PAGE_SIZE, hasResults, pickable, type Discovery } from './session'
 
@@ -498,9 +499,12 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
   const kindBadge = run.kind === 'reference' ? <span className="k-badge t-grey">reference</span> : run.kind === 'seed' ? <span className="k-badge t-purple">seed</span> : run.kind === 'draft' ? <span className="k-badge t-amber">draft</span> : <span className="k-badge t-blue">template</span>
   let line: ReactNode = null
   switch (status) {
-    case 'done': line = <span>{found ?? '…'} found · {ranOn} ch · done {run.doneAt ?? '—'}{run.nullSource === 'preview' ? <span className="muted"> · null from the preview</span> : run.nullSource === 'hpc' ? <span className="muted"> · null from the cluster</span> : run.nullSource === 'off' ? <span className="muted"> · no null</span> : null}{dx.stale && <span className="amber"> · stale</span>}</span>; break
+    case 'done': line = <span>{found ?? '…'} found · {ranOn} ch · done {run.doneAt ?? '—'}{run.nullSource === 'preview' ? <span className="muted"> · null from the preview</span> : run.nullSource === 'hpc' ? <span className="muted"> · null from the cluster</span> : run.nullSource === 'off' ? <span className="muted"> · no null</span> : null}{run.hpcImported && <span className="muted" data-testid={`run-from-cluster-${run.key}`}> · computed on the cluster{run.clusterAgrees === true ? ', its counts agree' : ''}</span>}{run.clusterCheck && <span className="amber" title={run.clusterCheck}> · differs from the cluster: {run.clusterCheck}</span>}{dx.stale && <span className="amber"> · stale</span>}</span>; break
     case 'on cluster': line = run.hpc
-      ? <span className="blue">on the cluster · import {run.hpc.resultPath.split('/').pop()} on the Seed page when it is back</span>
+      ? (run.hpc.kind === 'chain'
+        /* round A_2 (P2): a template run's chain job — it comes back as this row, through Import results */
+        ? <span className={run.hpcRefused ? 'red' : 'blue'} title={run.hpcRefused ?? undefined} data-testid={`run-on-cluster-${run.key}`}>{run.hpcRefused ? `import refused · ${run.hpcRefused}` : `on the cluster · ${run.hpc.tasks ?? '?'} task${run.hpc.tasks === 1 ? '' : 's'} · bring ${run.hpc.returnPath ?? run.hpc.resultPath} back, then Import results`}</span>
+        : <span className="blue">on the cluster · import {run.hpc.resultPath.split('/').pop()} on the Seed page when it is back</span>)
       : <span className="dsc-run-progress"><ProgressBar value={run.progress ?? 0} size="sm" labelPosition="none" width={96} /><span className="blue">cluster {Math.round((run.progress ?? 0) * 100)} %</span></span>; break
     case 'running': case 'queued': line = <span className="dsc-run-progress"><ProgressBar value={run.progress ?? 0} size="sm" labelPosition="none" width={96} /><span className="blue">{status === 'queued' ? 'queued' : `running · ${run.progressText ?? (run.channelsDone ? `${run.channelsDone} channels` : '…')}`}</span></span>; break
     case 'new': line = <span>new · local</span>; break
@@ -520,6 +524,12 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
         </span>
       </button>
       {status === 'paused' && run.id && <Button variant="link" size="sm" icon="external" className="dsc-run-jobs-link" onClick={() => navigate('jobs')} testid={`open-in-jobs-${run.key}`}>Open in Jobs</Button>}
+      {/* round A_2 (P2): the chain job's results are back — verified, the cache restored, the run written here */}
+      {status === 'on cluster' && run.hpc?.kind === 'chain' && <Button size="sm" icon="download" className="dsc-run-retry" onClick={() => {
+        importDiscoveryChain(run.key)
+          .then(ack => { dx.reload(); toast.push({ text: `${run.label}: ${ack.note}`, action: { label: 'Open Jobs', onClick: () => navigate('jobs') } }) })
+          .catch(e => { dx.reload(); toast.push({ text: `${run.label} was not imported · ${(e instanceof Error ? e.message : String(e)).replace(/^\d{3} /, '')}` }) })
+      }} testid={`chain-import-${run.key}`} title="verify the tasks' results against this machine, restore their step cache, and write the run's channels here">Import results</Button>}
       {/* a real retry: a seed run is started again from its seed and cut, a template run from its template, over the
           scope. It used to mark the row `new` in the page's memory, which the Seed page then took for a pending run of
           this search and greyed *Run seed search* out. */}
@@ -552,48 +562,114 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
 }
 
 /* ------------------------------------------------------------------ SLURM script */
-/* The script is the core's, not the page's. `Working.hpc.job_export` writes a
- * SLURM ARRAY job whose task index selects its own channel from the fan-out
- * target list baked into the recipe, and clamps --time to this account's QOS
- * ceiling. A script assembled in the browser would look right and not run. */
+/* The script is the core's, not the page's (round A_2, P2: `Working.discovery.chain_job`). One array job per run, one
+ * task per channel, each task running the real chain AND its null draws on a scratch database keyed to this machine's
+ * recording ids, resubmitting itself while its result reads incomplete; its results come back as this same run, through
+ * Import results. EVERY ticked run is scripted — the modal used to script `runs[0]` alone and mark the others "on
+ * cluster" in the browser only. Opening the modal is a dry run per run (the script and the job's numbers, nothing
+ * written); Create writes each, and the server marks each run row on cluster. A script assembled in the browser would
+ * look right and not run. */
+type SlurmPreview = { ok: true; job: DiscChainExport } | { ok: false; reason: string }
+const errText = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/^\d{3} /, '')
+
 export function SlurmModal({ open, onClose, dx, runs, onCreated }: { open: boolean; onClose: () => void; dx: Discovery; runs: DiscoveryRun[]; onCreated?: () => void }) {
   const toast = useToast()
-  const [made, setMade] = useState<Record<string, { script: string; script_path: string }>>({})
+  const [previews, setPreviews] = useState<Record<string, SlurmPreview>>({})
+  const [shown, setShown] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [creating, setCreating] = useState(false)
   const [err, setErr] = useState<Error | null>(null)
-  const first = runs[0]
+  const [again, setAgain] = useState(0)
+  const keys = runs.map(r => r.key).join(',')
+  const bodyFor = (r: DiscoveryRun, dryRun: boolean) => ({
+    template: r.template ?? r.key, channels: dx.scope?.channels ?? [], t0: dx.scope?.section[0] ?? 0, t1: dx.scope?.section[1] ?? 0,
+    band: r.band ?? undefined, runKey: r.key, dryRun })
   useEffect(() => {
-    if (!open || !first || !dx.scope || made[first.key]) return
+    if (!open || !dx.scope || !runs.length) return
+    let live = true
     setBusy(true); setErr(null)
-    // a seed run has no template: it is scripted by its seed and its cut. Naming its run key as a template was a
-    // 404 the moment a pending list held one (a failed seed run is pending: it can be run again)
-    postDiscoverySlurm({ ...(first.kind === 'seed' && first.seedId
-      ? { seedId: first.seedId, k: 200, ...(first.cut != null ? { maxDistance: first.cut } : {}) }
-      : { template: first.template ?? first.key }), channels: dx.scope.channels, t0: dx.scope.section[0], t1: dx.scope.section[1], band: first.band ?? undefined })
-      .then(r => setMade(m => ({ ...m, [first.key]: r })))
-      .catch(e => setErr(e instanceof Error ? e : new Error(String(e))))
-      .finally(() => setBusy(false))
+    Promise.all(runs.map(r => r.kind === 'seed'
+      ? Promise.resolve<SlurmPreview>({ ok: false, reason: 'a seed search goes to the cluster from the Seed page, as its own job' })
+      : exportDiscoveryChain(bodyFor(r, true)).then((job): SlurmPreview => ({ ok: true, job }), (e): SlurmPreview => ({ ok: false, reason: errText(e) }))))
+      .then(list => {
+        if (!live) return
+        const next = Object.fromEntries(runs.map((r, i) => [r.key, list[i]])) as Record<string, SlurmPreview>
+        setPreviews(next)
+        setShown(cur => (cur && next[cur] ? cur : runs.find(r => next[r.key]?.ok)?.key ?? runs[0]?.key ?? null))
+      })
+      .catch(e => { if (live) setErr(e instanceof Error ? e : new Error(String(e))) })
+      .finally(() => { if (live) setBusy(false) })
+    return () => { live = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, first?.key, dx.scope?.channels.join(','), dx.scope?.section.join(',')])
+  }, [open, keys, again, dx.scope?.channels.join(','), dx.scope?.section.join(',')])
   if (!dx.scope || !dx.recording) return null
   const s = dx.scope
-  const written = first ? made[first.key] : undefined
-  const script = written?.script ?? ''
-  const create = () => {
-    if (!written) return
-    runs.forEach(r => dx.patchRun(r.key, { status: 'on cluster', progress: 0 }))
-    toast.push({ text: `script written to ${written.script_path} · results return through Jobs › Manifest inbox`, action: { label: 'Open Jobs', onClick: () => navigate('jobs') } })
+  const ready = runs.filter(r => previews[r.key]?.ok)
+  const cur = shown ? previews[shown] : undefined
+  const create = async () => {
+    setCreating(true)
+    const wrote: string[] = [], failed: string[] = []
+    for (const r of ready) {
+      try {
+        const job = await exportDiscoveryChain(bodyFor(r, false))
+        wrote.push(job.sbatch_command)
+      } catch (e) {
+        failed.push(`${r.label}: ${errText(e)}`)
+      }
+    }
+    setCreating(false)
+    await dx.reload()
+    toast.push({
+      text: wrote.length
+        ? `${wrote.length} job${wrote.length === 1 ? '' : 's'} written · copy each run's spec, script and channel arrays to the cluster and sbatch it; when its tasks are complete, bring its …_out/return/ folder back and press Import results on the run (or in Jobs › Waiting on the cluster)${failed.length ? ` · not written: ${failed.join('; ')}` : ''}`
+        : `nothing was written · ${failed.join('; ')}`,
+      action: { label: 'Open Jobs', onClick: () => navigate('jobs') } })
     onCreated?.()
     onClose()
   }
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
   return (
-    <Modal open={open} onClose={onClose} title="Create SLURM script" subtitle={`${runs.length} run${runs.length === 1 ? '' : 's'} × ${s.channels.length} channels · ${fmtMin(dx.estimateMin || runs.reduce((a, r) => a + (r.perChannelMin ?? 0) * s.channels.length, 0))}`}
-      testid="slurm-modal" footerNote={`Creating the script adds ${runs.length} job${runs.length === 1 ? '' : 's'} to Jobs · results return through Jobs › Manifest inbox`}
-      footer={<><Button onClick={onClose}>Cancel</Button><Button variant="cluster" icon="file" onClick={create} disabled={runs.length === 0} disabledReason="no pending run to script" testid="slurm-create">Create</Button></>}>
-      {runs.length === 0 ? <EmptyState size="sm" title="Nothing to script" caption="every run in this session has results or is already on the cluster" />
-        : err ? <LoadFailed what="the SLURM script" error={err} onRetry={() => setMade({})} />
-          : busy || !written ? <Loading height={260} label="writing the script through Working.hpc.job_export" />
-            : <CodeBlock title={written.script_path} code={script} filename={written.script_path.split(/[\\/]/).pop() ?? 'discovery.sh'} lineNumbers testid="slurm-script" />}
+    <Modal open={open} onClose={onClose} title="Create SLURM script" subtitle={`${plural(runs.length, 'run')} × ${s.channels.length} channels · ${fmtMin(dx.estimateMin || runs.reduce((a, r) => a + (r.perChannelMin ?? 0) * s.channels.length, 0))}`}
+      testid="slurm-modal" footerNote={`Create writes ${plural(ready.length, 'job')} (one per run, a task per channel, the null in each task) and marks ${ready.length === 1 ? 'that run' : 'those runs'} on the cluster · the results come back as the same run, through Import results on its row or Jobs › Waiting on the cluster`}
+      footer={<><Button onClick={onClose}>Cancel</Button><Button variant="cluster" icon="file" onClick={create} loading={creating} disabled={ready.length === 0 || busy} disabledReason={busy ? "reading each run's job" : 'no run here can be sent to the cluster'} testid="slurm-create">{ready.length > 1 ? `Create ${ready.length} jobs` : 'Create'}</Button></>}>
+      {runs.length === 0 ? <EmptyState size="sm" title="Nothing to script" caption="every run in this session has results or is already on the cluster" testid="slurm-empty" />
+        : err ? <LoadFailed what="the SLURM scripts" error={err} onRetry={() => setAgain(n => n + 1)} />
+          : busy && !Object.keys(previews).length ? <Loading height={260} label="writing each run's job through Working.discovery.chain_job · a dry run, nothing is saved yet" />
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div data-testid="slurm-run-list" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {runs.map(r => {
+                    const p = previews[r.key]
+                    return (
+                      <button type="button" key={r.key} onClick={() => setShown(r.key)} data-testid={`slurm-run-${r.key}`} data-ready={p?.ok ? '1' : '0'} aria-pressed={shown === r.key}
+                        style={{ textAlign: 'left', padding: '4px 8px', borderRadius: 6, border: `1px solid ${shown === r.key ? 'var(--blue-400, #60a5fa)' : 'var(--border, #e5e7eb)'}`, background: 'transparent', cursor: 'pointer', fontSize: 12 }}>
+                        <b>{r.label}</b>
+                        {!p ? <span className="muted"> · …</span> : p.ok
+                          ? <span className="muted"> · {plural(p.job.tasks, 'task')} on {p.job.profile.partition}{p.job.profile.gpu ? ' (GPU)' : ''} · {p.job.paired ? `${plural(p.job.draws, 'null draw')} in each` : 'no null'} · wall {p.job.wall_minutes} min{p.job.wall_verified ? '' : ' (unverified)'}{p.job.chunked.length ? ' · the profile in blocks' : ''}</span>
+                          : <span className="red" data-testid={`slurm-run-refused-${r.key}`}> · not sent: {p.reason}</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+                {cur?.ok && (
+                  <>
+                    <div className="small muted" data-testid="slurm-steps">
+                      {cur.job.steps}
+                      <InfoTip title="How a chain job comes back">Each task writes its result and its step cache into <code>{cur.job.return_path}</code>. Import results checks the spec, every hash and each recording's content against this machine, restores the cache, then runs the chain here: the heavy steps (a matrix profile) are read from the cache, the cheap ones recomputed, and every row is written exactly as a local run's. A missing or incomplete task is refused by name and nothing is recorded.</InfoTip>
+                    </div>
+                    {!cur.job.wall_verified && (
+                      <Callout tone="amber" icon="alert-triangle" title={`The ${cur.job.profile.partition} partition's wall is not recorded`} testid="slurm-wall-unverified">
+                        The job asks for {cur.job.wall_minutes} minutes, the limit measured on a100-test, stops itself after {Math.round(cur.job.budget_s / 60)} and resubmits.
+                        Read the real limit on rangpur (<code>sacctmgr show qos format=Name,MaxWall</code>) and record it in Working/config.py (HPC_WALLTIME_MINUTES_BY_PARTITION).
+                      </Callout>
+                    )}
+                    {!!cur.job.warnings.length && <Callout tone="amber" icon="alert-triangle" title="Where the files are" testid="slurm-warnings">{cur.job.warnings.join(' · ')}</Callout>}
+                    <CodeBlock title={cur.job.script_path} code={cur.job.script} filename={cur.job.script_path.split(/[\\/]/).pop() ?? 'discovery.sh'} lineNumbers testid="slurm-script" />
+                  </>
+                )}
+                {cur && !cur.ok && <Callout tone="red" icon="alert-triangle" title="This run is not sent to the cluster" testid="slurm-refused">{cur.reason}</Callout>}
+              </div>
+            )}
     </Modal>
   )
 }
