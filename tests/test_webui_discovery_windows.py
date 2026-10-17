@@ -251,3 +251,47 @@ def test_a_windowed_run_comes_back_from_the_cluster_as_one_stitched_run(client):
     raw = sum(sum(len(w["detections"]) for w in res["windows"]) for res in results)
     assert row["found"] <= raw, "the run holds the stitched set, never more than the windows found"
     assert [s["windows"] for s in params["windows"]["stitch"]] == [7, 7]
+
+
+# ── the fix round (critic, 2026-10-18) ──────────────────────────────────────
+
+def test_the_run_history_lists_the_stitched_runs_and_no_window_run(client):
+    """M1: `/api/runs` lists results. A windowed application's window runs are parts of its stitched runs, not
+    results of their own: 14 of them beside 2 stitched runs filled the history with the same events again."""
+    out = _apply(client, TWO_HOURS)
+    ids = set(json.loads(_q(client, "SELECT params_json FROM discovery_runs WHERE run_key = ?",
+                            (out["run_key"],))[0]["params_json"])["run_ids"])
+    parts = {int(r["window_run_id"]) for r in _q(client, "SELECT window_run_id FROM stitched_windows")}
+    assert len(parts) >= 14
+    listed = {int(r["id"]) for r in client.get("/api/runs", params={"limit": 1000}).json()["db_runs"]}
+    assert ids <= listed, "the stitched runs are listed"
+    assert not (listed & parts), "no window run is"
+
+
+def test_the_window_card_plans_with_the_chosen_bands(client):
+    """m6: the card planned the windows without the band scope, so at 1-hour windows it said "runnable" while the
+    apply (with the default 0.001-0.01 Hz band, whose bandpass needs 66.7 min) was refused. Planned with the bands,
+    a band the window cannot hold makes the plan unrunnable, naming the band and the step."""
+    bands = [{"label": "0.01-0.1 Hz", "low_hz": 0.01, "high_hz": 0.1},
+             {"label": "0.001-0.01 Hz", "low_hz": 0.001, "high_hz": 0.01}]
+    body = {"template": "noise_threshold", "channels": CH, "t0": SECTION[0], "t1": SECTION[1], "bands": bands,
+            "windows": {"window_s": H}}
+    plan = client.post("/api/discovery/plan", json=body).json()
+    assert plan["runnable"] is False
+    assert "0.001-0.01 Hz" in plan["reason"] and "step 01" in plan["reason"] and "66.7 min" in plan["reason"]
+    assert "0.01-0.1 Hz" not in plan["reason"], "the band that fits is not blamed"
+    ok = client.post("/api/discovery/plan", json=dict(body, windows={"window_s": 2 * H})).json()
+    assert ok["runnable"] is True, ok["reason"]
+    r = client.post("/api/discovery/templates/apply", json={"templates": ["noise_threshold"], "channels": CH,
+                                                            "t0": SECTION[0], "t1": SECTION[1], "run": False,
+                                                            "bands": bands, "windows": {"window_s": H}})
+    assert r.status_code == 422 and "0.001-0.01 Hz" in r.text, "the plan and the apply say the same"
+
+
+def test_a_windowed_run_carries_its_stitch_rule(client):
+    """m7: the Runs payload carried the scope but not the stitch rule it was made by."""
+    out = _apply(client, TWO_HOURS)
+    row = next(r for r in client.get("/api/discovery/runs").json() if r["key"] == out["run_key"])
+    names = [r["name"] for r in row["windows"]["rules"]]
+    assert {"core", "duplicates", "null"} <= set(names)
+    assert row["windows"]["rule"]["iou"] == 0.5

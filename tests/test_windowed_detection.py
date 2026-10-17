@@ -410,8 +410,10 @@ def test_duplicates_with_different_edges_merge_by_the_matching_rule():
 
 
 def test_a_detection_outside_its_windows_core_that_the_owner_did_not_make_is_dropped():
+    """The core rule as first built: the window whose core holds the onset decides. (The rescue, below, keeps such a
+    view when that window found nothing there at all.)"""
     W = _w()
-    out = W.stitch(_two_windows([(80, 90, 1.0)], []))
+    out = W.stitch(_two_windows([(80, 90, 1.0)], []), rescue=False)
     assert out["spans"] == [] and out["outside"] == 1
 
 
@@ -730,3 +732,362 @@ def test_init_db_does_not_rescan_every_run_for_legacy_rows_on_every_open(world, 
         assert int(row[0]) == 2_468 + 1_000_000
     finally:
         conn.close()
+
+
+# ── the fix round (critic, 2026-10-18): the stitch at every overlap ─────────
+
+def _views(event, spans):
+    """What each window sees of one event: the event clipped to the window, as that window's own detection."""
+    s, e = event
+    return [[(max(s, a), min(e, b), 1.0)] if min(e, b) > max(s, a) else [] for a, b in spans]
+
+
+def _stitch_events(events, n=2000, window=200, overlap=0.0, **kw):
+    W = _w()
+    spans = W.window_spans(0, n, window, overlap)
+    cores = W.window_cores(spans, 0, n)
+    per = [[] for _ in spans]
+    for ev in events:
+        for k, v in enumerate(_views(ev, spans)):
+            per[k] += v
+    wins = [{"index": k, "span": sp, "core": co, "spans": sorted(per[k])}
+            for k, (sp, co) in enumerate(zip(spans, cores))]
+    return W.stitch(wins, **kw)
+
+
+def test_two_halves_cut_at_one_boundary_at_zero_overlap_are_one_event():
+    """M2: at 0 % overlap each core is its whole window, so both halves of an event straddling a boundary start in
+    their own window's core; IoU 0 never matched them, and the event was counted twice."""
+    W = _w()
+    wins = [{"index": 0, "span": (0, 100), "core": (0, 100), "spans": [(80, 100, 1.0)]},
+            {"index": 1, "span": (100, 200), "core": (100, 200), "spans": [(100, 130, 2.0)]}]
+    out = W.stitch(wins)
+    assert [(x["start"], x["end"]) for x in out["spans"]] == [(80, 130)], "one event, the union of its halves"
+    assert out["spans"][0]["cut"] is True and out["spans"][0]["merged"] is True
+    assert out["kept"] == 1 and out["duplicates"] == 1 and out["merged"] == 1
+
+
+@pytest.mark.parametrize("overlap", [0.0, 0.25, 0.5, 0.75, 0.9])
+def test_every_event_is_found_exactly_once_and_whole_at_every_overlap(overlap):
+    """Events of 30-150 samples at seeded places, many across a window boundary, some longer than the overlap; each
+    window reports the event clipped to itself. One kept span per event, its extent the whole event (a window that
+    held it whole, or its pieces joined), and no two kept spans overlapping."""
+    rng = np.random.default_rng(int(overlap * 100) + 1)
+    events, t = [], 10
+    while t < 1850:
+        d = int(rng.integers(30, 150))
+        events.append((t, t + d))
+        t += d + int(rng.integers(5, 60))
+    out = _stitch_events(events, overlap=overlap)
+    kept = [(x["start"], x["end"]) for x in out["spans"]]
+    for ev in events:
+        hits = [k for k in kept if k[0] < ev[1] and ev[0] < k[1]]
+        assert hits == [ev], f"overlap {overlap}: event {ev} kept as {hits}"
+    assert len(kept) == len(events)
+
+
+def test_a_cut_view_inside_a_whole_one_is_the_same_event():
+    """m1: window 0's view is cut at its end and covers less than half of window 1's whole view (IoU 0.375), so IoU
+    alone left the whole view outside its core and kept the cut one. A cut view inside another window's view, its
+    uncut edge where that view's is, is the same event: kept once, as the view no edge cut."""
+    W = _w()
+    out = W.stitch(_two_windows([(70, 100, 1.0)], [(70, 150, 2.0)]))
+    assert [(x["start"], x["end"]) for x in out["spans"]] == [(70, 150)]
+    assert out["spans"][0]["cut"] is False and out["spans"][0]["owner"] == 0 and out["kept"] == 1
+
+
+def test_two_detections_of_one_window_are_never_one_event():
+    """The nit: a window's two near-duplicate detections were merged through a third window's detection that matched
+    both (a transitive cluster), and kept apart without it. An event holds at most one detection from each window,
+    paired best match first, as Compare pairs one to one."""
+    W = _w()
+    alone = W.stitch(_two_windows([(60, 80, 1.0), (62, 82, 1.0)], []))
+    with_third = W.stitch(_two_windows([(60, 80, 1.0), (62, 82, 1.0)], [(61, 81, 1.0)]))
+    assert alone["kept"] == 2
+    assert with_third["kept"] == 2, [(x["start"], x["end"], x["members"]) for x in with_third["spans"]]
+    assert sorted(len(x["members"]) for x in with_third["spans"]) == [1, 2]
+
+
+def _three_windows(spans0, spans1, spans2):
+    return [{"index": 0, "span": (0, 100), "core": (0, 75), "spans": spans0},
+            {"index": 1, "span": (50, 150), "core": (75, 125), "spans": spans1},
+            {"index": 2, "span": (100, 200), "core": (125, 200), "spans": spans2}]
+
+
+def test_an_event_its_owner_missed_is_kept_from_the_neighbour_that_saw_it_whole():
+    """m2, the rescue: window 0's core holds onset 60 and window 0 found nothing there; window 1 saw the event whole,
+    10 samples inside its own edge. Kept once, flagged. Not when that view lies within the edge margin (the chain's
+    context windows distort it there), and not when the owner found something there: it decided."""
+    W = _w()
+    out = W.stitch(_three_windows([], [(60, 70, 1.0)], []), rescue=True, edge_margin=5)
+    assert [(x["start"], x["end"]) for x in out["spans"]] == [(60, 70)]
+    x = out["spans"][0]
+    assert x["rescued"] is True and x["window"] == 1 and x["owner"] == 0
+    assert out["rescued"] == 1 and out["outside"] == 0
+    assert W.stitch(_three_windows([], [(60, 70, 1.0)], []), rescue=True, edge_margin=20)["spans"] == []
+    owner_saw = W.stitch(_three_windows([(40, 66, 1.0)], [(60, 70, 1.0)], []), rescue=True, edge_margin=5)
+    assert [(x["start"], x["end"]) for x in owner_saw["spans"]] == [(40, 66)], "the owner's own detection, once"
+    assert W.stitch(_three_windows([], [(60, 70, 1.0)], []), rescue=False)["spans"] == []
+    cut = W.stitch(_three_windows([], [(50, 70, 1.0)], []), rescue=True, edge_margin=0)
+    assert cut["spans"] == [], "a view a window edge cut is never rescued"
+
+
+def test_the_stitch_rule_states_the_joins_the_rescue_and_the_nulls_scale():
+    W = _w()
+    text = " ".join(r["rule"] for r in W.RULES)
+    assert "within one scale, not across scales" in text, "m3: x null compares like with like within one scale"
+    assert ("found nothing" in text) is bool(W.RESCUE), "the rescue is stated exactly when it is the rule"
+    assert "abut" in text and "one detection from each window" in text
+    assert W.STITCH_VERSION >= 2, "stitched runs made by the first rule are not reused as this one's"
+
+
+# the critic's probe (24 h at 1 Hz): AR(1) noise and a drift, a loud 6 h, 2-min dips and 8-min drops, some weak; at
+# 0 % overlap one drop across a window boundary was kept twice
+def _probe_signal(n=24 * H, seed=7):
+    rng = np.random.default_rng(seed)
+    x = lfilter([1.0], [1.0, -0.97], rng.standard_normal(n) * 0.0005)
+    x += 0.01 * np.sin(np.linspace(0, 4 * np.pi, n))
+    x[10 * H:16 * H] += lfilter([1.0], [1.0, -0.97], rng.standard_normal(6 * H) * 0.002)
+    truth, t = [], 300
+    while t < n - 1200:
+        kind = rng.choice(["dip", "drop"], p=[0.6, 0.4])
+        d = 120 if kind == "dip" else 480
+        depth = float(rng.choice([0.02, 0.04]))
+        x[t:t + d] -= depth * np.hanning(d)
+        truth.append((int(t), int(t + d)))
+        t += int(d + rng.integers(300, 1800))
+    return x, truth
+
+
+@pytest.fixture(scope="module")
+def probe_world(tmp_path_factory):
+    tmp = tmp_path_factory.mktemp("probe")
+    db = str(tmp / "annotations.sqlite")
+    init_db(db).close()
+    x, truth = _probe_signal()
+    npy = tmp / "probe_CH0.npy"
+    np.save(npy, x)
+    conn = init_db(db)
+    try:
+        rid = q.insert_recording(conn, "probe.mat", 0, FS, len(x), 0, str(npy), units="V")
+    finally:
+        conn.close()
+    return {"db": db, "rid": rid, "n": len(x), "truth": truth, "cache": str(tmp / "cache")}
+
+
+@pytest.mark.parametrize("overlap", [0.0, 0.25, 0.5, 0.75, 0.9])
+def test_on_a_real_chain_no_event_is_kept_twice_at_any_overlap(probe_world, overlap, monkeypatch):
+    monkeypatch.setattr(cfg, "STEP_CACHE_ROOT", probe_world["cache"])
+    NT600 = [NT[0], NT[1]]
+    conn = init_db(probe_world["db"])
+    try:
+        plan = fanout.plan(conn, steps=NT600, recording_ids=[probe_world["rid"]], span=(0, probe_world["n"]),
+                           ceiling_s=10 ** 6, windows={"window_s": H, "overlap_frac": overlap})
+    finally:
+        conn.close()
+    out = fanout.start(plan, db_path=probe_world["db"])
+    conn = init_db(probe_world["db"])
+    try:
+        spans = _spans(conn, out["run_ids"][0])
+    finally:
+        conn.close()
+    twice = [ev for ev in probe_world["truth"] if sum(1 for s, e in spans if s < ev[1] and ev[0] < e) > 1]
+    assert twice == [], f"overlap {overlap}: kept twice: {twice}"
+    for i, a in enumerate(spans):
+        for b in spans[i + 1:]:
+            assert not (a[0] < b[1] and b[0] < a[1]), f"overlap {overlap}: {a} and {b} overlap"
+
+
+# ── the fix round: an opt-in that changes nothing is not recorded ───────────
+
+def test_an_opt_in_that_changes_nothing_is_the_same_run(world):
+    """m5: a 4-hour window breaks no bound of a 600 s detrend chain, so "fit" and "run as it is" change nothing. They
+    no longer label the run or hash its stitched run apart: the three are one computation, one stitched run."""
+    rid = world["add"](np.random.default_rng(3).standard_normal(8 * H) * 0.001)
+    plans = [_plan(world, NT, [rid], (0, 8 * H), windows=dict({"window_s": 4 * H}, **extra))
+             for extra in ({}, {"fit": True}, {"allow_short": True})]
+    for p in plans:
+        assert p["windows"]["scope"] == {"kind": "windows", "window_s": 14400.0, "overlap_frac": 0.5, "fit": False}
+        assert p["windows"]["label"] == "4 h windows · 50 %"
+        assert p["windows"]["fitted"] == [] and p["windows"]["warning"] is None
+    outs = [_start(world, p) for p in plans]
+    assert outs[1]["run_ids"] == outs[0]["run_ids"] == outs[2]["run_ids"], "one stitched run, reused"
+    assert outs[1]["reused"] == outs[1]["run_ids"] and outs[2]["reused"] == outs[2]["run_ids"]
+    fitted = _plan(world, NT, [rid], (0, 8 * H), windows={"window_s": 600, "fit": True})
+    assert fitted["windows"]["scope"]["fit"] is True and fitted["windows"]["label"].endswith("· fitted")
+    warned = _plan(world, NT, [rid], (0, 8 * H), windows={"window_s": 600, "allow_short": True})
+    assert warned["windows"]["scope"].get("allow_short") is True
+    assert warned["windows"]["label"].endswith("· as is, warned")
+
+
+def test_a_fitted_chain_stitches_to_the_same_run_however_it_was_reached(world):
+    """m5: the stitched run is the computation — the chain it ran and the windows — not the tick that produced the
+    chain: the 600 s chain fitted to 10-minute windows and the same chain written with a 150 s detrend are one run."""
+    rid = world["add"](np.random.default_rng(4).standard_normal(4 * H) * 0.001)
+    by_fit = _start(world, _plan(world, NT, [rid], (0, 4 * H), windows={"window_s": 600, "fit": True}))
+    by_hand = [dict(NT[0], params=dict(NT[0]["params"], window_s=150.0)), NT[1]]
+    plan = _plan(world, by_hand, [rid], (0, 4 * H), windows={"window_s": 600})
+    assert plan["windows"]["scope"]["fit"] is False
+    again = _start(world, plan)
+    assert again["run_ids"] == by_fit["run_ids"] and again["reused"] == again["run_ids"]
+
+
+# ── the fix round: the windowed plan at the sweep's scale ───────────────────
+
+def test_a_window_hash_reads_the_same_as_the_recipe_hash_over_that_span():
+    """m10: the plan hashed every window's whole recipe (the chain's canonical JSON, per window and per draw); it
+    hashes the chain once and the span per window. The two agree to the last character, real runs and draws."""
+    W = _w()
+    base = dict(make_recipe(7, D1, span=(0, 3600)), surrogate=True)
+    spans = W.window_spans(0, 200000, 3600, 0.5)
+    real = W.window_hasher(base)
+    assert [real(sp) for sp in spans] == [short_hash(W.with_span(base, sp)) for sp in spans]
+    assert [real.canonical(sp) for sp in spans[:20]] == [canonical_json(W.with_span(base, sp)) for sp in spans[:20]]
+    for p in ({"method": "phase_randomize", "seed": 3}, {"method": "block_shuffle", "seed": 0, "block_s": 44.0}):
+        draw = W.window_hasher(RG.surrogate_recipe(W.with_span(base, spans[0]), p))
+        assert [draw(sp) for sp in spans] == [short_hash(RG.surrogate_recipe(W.with_span(base, sp), p))
+                                              for sp in spans]
+
+
+def test_planning_exporting_and_replanning_hash_the_chain_per_channel_not_per_window(world, monkeypatch):
+    """m10: 8,651 windows a channel at 10 minutes over 721 h took the plan most of a minute (16 channels), the export
+    and the import's re-plan as long again — every window's recipe and every draw's serialised and hashed. Now each
+    channel's chain is serialised a handful of times, whatever its number of windows."""
+    import Working.recipes as RC
+    from Working.discovery import chain_job
+
+    n = 900_300                                                     # 3,000 ten-minute windows at 50 %
+    npy = world["tmp"] / "long.npy"
+    np.save(npy, np.zeros(n, dtype=np.float32))
+    conn = init_db(world["db"])
+    try:
+        ids = [q.insert_recording(conn, "long.mat", ch, FS, n, 0, str(npy), units="V") for ch in range(2)]
+    finally:
+        conn.close()
+    calls = {"n": 0}
+    real = RC.canonical_json
+
+    def counted(recipe):
+        calls["n"] += 1
+        return real(recipe)
+
+    monkeypatch.setattr(RC, "canonical_json", counted)
+    conn = init_db(world["db"])
+    try:
+        plan = fanout.plan(conn, steps=NT, recording_ids=ids, span=None, ceiling_s=1200, null_draws=1,
+                           surrogate=True, surrogate_params=NULL, windows={"window_s": 600, "fit": True})
+        assert plan["windows"]["per_channel"] == 3000
+        planned = calls["n"]
+        spec = chain_job.build_spec(conn, plan, label="long", null={"paired": True, "params": NULL, "draws": 1})
+        exported = calls["n"] - planned
+        chain_job.local_plan(conn, spec, ceiling_s=1200)
+        replanned = calls["n"] - planned - exported
+    finally:
+        conn.close()
+    assert planned < 100 and exported < 100 and replanned < 200, (planned, exported, replanned)
+
+
+# ── the fix round: a database put back at the same path ─────────────────────
+
+@pytest.mark.parametrize("restore", ["moved over", "copied over"])
+def test_a_database_restored_over_its_path_is_scanned_for_legacy_rows_again(tmp_path, restore):
+    """m9: the incremental legacy scan remembered a high-water mark per path. A backup put back at that path — moved
+    over it, or copied over it — whose legacy row lies below the mark was never scanned: the mark said the rows up to
+    it were seen. The mark is kept per file and checked against the row it names."""
+    import shutil
+
+    a = str(tmp_path / "a" / "annotations.sqlite")
+    os.makedirs(os.path.dirname(a))
+    conn = init_db(a)
+    try:
+        rec = q.insert_recording(conn, "x.mat", 0, FS, 10 ** 6, 0, "x.npy")
+        cfg_id, _ = R.get_or_create_config(conn, make_recipe(rec, NT, span=(0, 600)))
+        run = R.insert_run(conn, cfg_id, rec, 0, 600, status="completed")
+        for k in range(3):
+            R.insert_detection(conn, run, 10 + k, 20 + k)
+    finally:
+        conn.close()
+    init_db(a).close()                                    # this process has scanned a: its mark is detection 3
+    b = str(tmp_path / "b" / "annotations.sqlite")
+    os.makedirs(os.path.dirname(b))
+    conn = init_db(b)
+    try:
+        rec = q.insert_recording(conn, "x.mat", 0, FS, 10 ** 6, 0, "x.npy")
+        cfg_id, _ = R.get_or_create_config(conn, make_recipe(rec, NT, span=(0, 600)))
+        legacy = R.insert_run(conn, cfg_id, rec, 500_000, 507_200, status="completed")
+        R.insert_detection(conn, legacy, 2_468, 2_540)    # span-relative: a backup from before 2026-09-21
+        plain = R.insert_run(conn, cfg_id, rec, 0, 600, status="completed")
+        for k in range(5):
+            R.insert_detection(conn, plain, 100 + k, 110 + k)
+    finally:
+        conn.close()
+    if restore == "moved over":
+        shutil.copyfile(b, a + ".restore")
+        os.replace(a + ".restore", a)
+    else:
+        shutil.copyfile(b, a)
+    conn = init_db(a)
+    try:
+        row = conn.execute("SELECT start_idx FROM detections WHERE id = 1").fetchone()
+        assert int(row[0]) == 2_468 + 500_000, "the restored database's legacy row was migrated"
+    finally:
+        conn.close()
+
+
+# ── the fix round: a block-shuffle null in windows ──────────────────────────
+
+BLOCK = {"method": "block_shuffle", "seed": 0}
+
+
+def _quiet_with_two_drops(n=8 * H, seed=12):
+    """White noise far under a 4 sigma, 30 s cut, and two deep two-minute drops: at 0:30 and at 7:30. In 2-hour
+    windows at 50 % the first window and the last find a drop; the five between find nothing."""
+    rng = np.random.default_rng(seed)
+    x = rng.standard_normal(n) * 0.0001
+    for a in (1800, 27000):
+        x[a:a + 120] -= 0.01
+    return x
+
+
+def _block_shuffled(world, rid):
+    conn = init_db(world["db"])
+    try:
+        plan = fanout.plan(conn, steps=NT, recording_ids=[rid], span=(0, 8 * H), ceiling_s=10 ** 6, null_draws=1,
+                           surrogate=True, surrogate_params=BLOCK, windows={"window_s": 2 * H})
+    finally:
+        conn.close()
+    return fanout.start(plan, db_path=world["db"], surrogate=True, surrogate_params=BLOCK,
+                        surrogate_draws=1)["runs"][0]
+
+
+def test_a_block_shuffle_null_is_drawn_in_every_window_with_one_block_per_channel(world):
+    """m3: a block shuffle's block is twice the longest motif under test. Sized per window, a window that found
+    nothing had no block and drew no null, and the stitched null counted nothing there: measured on pure noise (1-h
+    windows) that left out 16 % (AR(1)) and 26 % (random walk) of the null, so x null read high. One block per channel
+    — twice the longest detection any of its windows found — and every window draws."""
+    rid = world["add"](_quiet_with_two_drops())
+    row = _block_shuffled(world, rid)
+    conn = init_db(world["db"])
+    try:
+        longest = max(int(conn.execute("SELECT COALESCE(MAX(end_idx - start_idx), 0) FROM detections WHERE run_id = ?",
+                                       (w,)).fetchone()[0]) for w in row["window_run_ids"])
+        found = [conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ?", (w,)).fetchone()[0]
+                 for w in row["window_run_ids"]]
+        assert longest > 0 and 0 in found, "some windows found the drops, some found nothing"
+        block = max(2.0 * longest / FS, 2.0 / FS)
+        for w in row["window_run_ids"]:
+            draws = conn.execute("SELECT c.config_json FROM runs r JOIN configs c ON c.id = r.config_id "
+                                 "WHERE r.surrogate_of_run_id = ? AND r.status = 'completed'", (w,)).fetchall()
+            assert len(draws) == 1, f"window run {w} drew {len(draws)} nulls"
+            assert json.loads(draws[0][0])["steps"][0]["params"]["block_s"] == block
+        stitched_draw = R.get_run(conn, row["surrogate_run_ids"][0])
+        assert R.load_recipe(conn, stitched_draw["config_id"])["steps"][0]["params"]["block_s"] == block
+    finally:
+        conn.close()
+    assert row["surrogate_skipped"] is None
+
+
+def test_a_channel_whose_windows_found_nothing_draws_no_block_shuffle_null(world):
+    rid = world["add"](np.random.default_rng(13).standard_normal(8 * H) * 0.0001)
+    row = _block_shuffled(world, rid)
+    assert row["surrogate_run_ids"] == [] and "no window" in (row["surrogate_skipped"] or "")

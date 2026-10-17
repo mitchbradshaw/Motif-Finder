@@ -290,3 +290,76 @@ def test_a_result_from_cluster_code_that_predates_windows_is_refused_by_name(wor
         assert "predates windowed jobs" in str(e.value)
     finally:
         conn.close()
+
+
+# ── the fix round (critic, 2026-10-18): the spec's version ──────────────────
+
+def _plain_spec(world):
+    conn = init_db(world["db"])
+    try:
+        plan = fanout.plan(conn, steps=NT, recording_ids=world["ids"], span=(0, N), ceiling_s=1200, null_draws=1,
+                           surrogate=True, surrogate_params=NULL["params"])
+        return chain_job.build_spec(conn, plan, label="plain", null=NULL)
+    finally:
+        conn.close()
+
+
+def test_a_windowed_spec_is_version_2_and_a_plain_one_stays_version_1(world):
+    """m8: P2's cluster code reads version 1 and refuses any other at task start ("not a chain job spec this code
+    reads"). A windowed spec at version 1 ran there as a plain target — its first window, called complete. At
+    version 2 it is refused before anything runs; every plain spec keeps version 1 and its hash."""
+    _, spec, _ = _export(world)
+    assert spec["version"] == chain_job.WINDOWED_SPEC_VERSION == 2
+    plain = _plain_spec(world)
+    assert plain["version"] == chain_job.SPEC_VERSION == 1 and "windows" not in plain
+    res = chain_job.run_task(spec, task=0, out_dir=str(world["root"] / "v2_out"))
+    assert res["complete"] is True and res["version"] == 2, res.get("error")
+
+
+def test_a_spec_whose_version_does_not_say_what_it_holds_is_refused(world):
+    _, spec, made = _export(world, ids=world["ids"][:1], label="mislabelled")
+    as_plain = dict(spec, version=1)
+    res = chain_job.run_task(as_plain, task=0, out_dir=str(world["root"] / "v1_out"))
+    assert res["complete"] is False and "version 1" in res["error"] and "windows" in res["error"]
+    plain = _plain_spec(world)
+    res = chain_job.run_task(dict(plain, version=2), task=0, out_dir=str(world["root"] / "p2_out"))
+    assert res["complete"] is False and "version 2" in res["error"]
+    conn = init_db(world["db"])
+    try:
+        with pytest.raises(chain_job.ImportRefused) as e:
+            chain_job.verify_results(conn, as_plain, made["result_dir"])
+        assert "version 1" in str(e.value)
+    finally:
+        conn.close()
+
+
+# ── the fix round: a block-shuffle null on the cluster ──────────────────────
+
+def test_a_block_shuffle_null_comes_back_with_one_block_per_channel(world, monkeypatch):
+    """m3: the cluster sizes the block as the local sweep does — twice the longest detection any window of the
+    channel found — and every window draws; the import checks it, and the local sweep then computes nothing."""
+    block = {"paired": True, "params": {"method": "block_shuffle", "seed": 0}, "draws": 1}
+    conn = init_db(world["db"])
+    try:
+        plan = _plan(conn, world["ids"][:1], null=block)
+        spec = chain_job.build_spec(conn, plan, label="block", null=block)
+    finally:
+        conn.close()
+    made = chain_job.write_job(spec, out_dir=world["hpc"], base_name="block")
+    res = chain_job.run_task(spec, task=0, out_dir=made["result_dir"])
+    assert res["complete"] is True, res.get("error")
+    longest = max(d[1] - d[0] for w in res["windows"] for d in w["detections"])
+    want = max(2.0 * longest / FS, 2.0 / FS)
+    assert all(w["drawParams"]["block_s"] == want and len(w["draws"]) == 1 for w in res["windows"])
+    conn = init_db(world["db"])
+    try:
+        chain_job.import_results(conn, spec, made["result_dir"], cache_root=cfg.STEP_CACHE_ROOT)
+        local = chain_job.local_plan(conn, spec, ceiling_s=1200)
+    finally:
+        conn.close()
+    assert local["estimate_s"] == 0.0, "every window and its draw came back"
+    nt = get_adapter("detection.noise_threshold")
+    monkeypatch.setattr(nt, "run", lambda *a, **k: (_ for _ in ()).throw(AssertionError("computed after import")))
+    out = fanout.start(local, db_path=world["db"], surrogate=True, surrogate_params=block["params"],
+                       surrogate_draws=1)
+    assert out["runs"][0]["surrogate_run_ids"], "the stitched null is there"
