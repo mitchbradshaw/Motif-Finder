@@ -69,7 +69,7 @@ Each prompt was built by its own implementer in its own worktree, reviewed by on
 | P1 held-out lock | `25d0590` | 1 blocker (a training window set saved on M4 with the lock off), 1 major, 3 minor | Sandbox browser: the amber *M4 unlocked* chip, Explore opening M4's map, the toggle re-locking it |
 | P4 seed on demand | `1b9b750` | 1 major (a failed preview was a dead end), 5 minor | Sandbox browser: *Family medoids* on g-05 (149 families); a seed pick starts no job; the backfill's dry run on a copy (10 runs, both dip searches) |
 | P2 HPC round trip | `bdf94d3` | 2 major, 4 minor; the overnight sweep's 43 specs pinned by `tests/test_rq4_overnight_specs.py` | Sandbox rehearsal: export → both tasks run here → *Import results* → Runs ("computed on the cluster, its counts agree"), Jobs, the Map |
-| P3 windowed detection | `7cd0454` | 2 major (window runs counted on Explore; 0 % overlap double count), 10 minor | Sandbox check once `main` holds it (its fast-forward waits on uncommitted RQ4b edits in the main checkout) |
+| P3 windowed detection | `7cd0454` | 2 major (window runs counted on Explore; 0 % overlap double count), 10 minor | Sandbox, noise_threshold over 80–84 h × 2 channels: 1-h windows planned 7 per channel and ran as one stitched run (5 kept, 1 duplicate dropped), its own Map row ("1 h windows · 50 %"); Explore gained the 2 stitched runs, not the 14 window runs; 10-minute windows refused naming step 01 (40 min) |
 
 Integration commits (`a2-int:`), each test-first: the seed-results read refuses M4 once re-locked; the Seed page says
 why its seed moved off M4; P2's held-out checks follow P1's lock; the block-classification test reads only shipped
