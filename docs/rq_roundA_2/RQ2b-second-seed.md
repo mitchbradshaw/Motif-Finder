@@ -56,3 +56,42 @@ say whether the second shape behaves like the first.
 
 - 2026-10-17 · set up · the two dip searches' verdicts counted from the database; second-seed recommendation and base
   rate recorded.
+- 2026-10-17 · hpc-script · SLURM job for the second seed written, not yet submitted:
+  `HPC/Detection/generated/drop30_allch_16ch_0-2595600.{sh,spec.json}` (spec hash `772d402f5d05`). Seed: Library
+  entry 185, `library:2:1553283:1553660`. That is family 30 (Ward grouping 5), CH2_A1 at 431.5 h, 377 s, accepted by
+  the researcher, and 0.002 from the family medoid. The medoid itself (entry 191) was never judged, which is why it was
+  not used. Settings match the dip searches: 16 channels, 721 h, k 200, native length, exclusion m/2, phase
+  randomisation × 200. The spec carries no cut, so the import's run keeps 200 per channel; re-run at the imported
+  recommended cut. Checked locally on CH2_A1 400–460 h: the seed is found at d 0, its siblings at 0.10–0.27, and the
+  null minima are about 3.2.
+- 2026-10-17 · hpc-script · the same search split into 16 one-channel jobs that run side by side
+  (`..._parts/submit_all.sh`, written by `scripts/seed_job_parallel.py split`). The chained script runs one channel
+  per job on one node. `seed_job_parallel.py merge` writes the one result the Seed page imports. On a 2-channel test,
+  split then merge gave candidates and nulls identical to the chained run, with the same spec hash.
+- 2026-10-17 · hpc-script · rangpur runs only 3 jobs at once, so `..._parts/submit_packs.sh` runs the same 16 parts
+  as 3 jobs of 6, 5 and 5 channels, one core per channel (`seed_job_parallel.py pack`). The packs continue the parts'
+  own checkpoints. Tested: a finished part is skipped, a half-done one resumes, and a merge after packing equals the
+  straight run.
+- 2026-10-17 · drop30 results · the 16 parts came back (18:54–19:19) and were merged into
+  `HPC/Detection/generated/drop30_allch_16ch_0-2595600.result.json`. It is complete, 200 draws per channel, spec hash
+  `772d402f5d05`; not yet imported or judged.
+  - Against the null: every channel beats its own (p < 0.01). The page's line (α 0.01, no correction, the strictest
+    channel's cut) is d ≤ 2.208, which keeps 372 matches. Each channel's own cut would keep about 669.
+  - Recall on the seed's channel: on CH2_A1, 60 of the 65 family-30 members (41 of the 46 accepted) are among the
+    matches under the line.
+  - Recall elsewhere: the family's 6 members on CH1_A1, CH7_B2 and CH16_D2 are missed. They are a different length
+    or shape (182–1443 s).
+  - Not a common-mode artefact: 366 of the 372 matches have no match on another channel within 60 s.
+  - Shapes: the matches look like the seed (flat, sharp fall, slow decay). The match is shape-only, so the falls range
+    from under 1 mV to about 100 mV.
+  - Judging: 372 is above the 100–150 cap, so judge a capped sample.
+- 2026-10-17 · hpc-script · a third shape, a spike: `HPC/Detection/generated/spike37_allch_16ch_0-2595600_parts/
+  submit_packs.sh` (spec hash `f6aab3cfb594`), not yet submitted.
+  - Seed: Library entry 289, `library:1:894328:894476`, family 37's medoid. CH1_A1 at 248.4 h, 148 s, accepted. It
+    is a fast rise of about 14 mV with an exponential decay.
+  - Why this seed: the family is one burst on CH1_A1 (248.0–248.5 h), all 13 members accepted and within 0.18 of
+    the medoid. It has the opposite polarity to the dips and the drop, and it is the shape the spike statistics need.
+  - Settings: the same as the others.
+  - Local preview with 10 draws: on CH1_A1 the seed finds all 10 spikes of its own burst (d 0–2.5), and 18 matches
+    beat the null minimum; on CH4_A2, one does. It is far more selective than the drop, and the k = 200 cap does not
+    bind.

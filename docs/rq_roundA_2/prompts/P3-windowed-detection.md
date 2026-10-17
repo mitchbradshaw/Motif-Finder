@@ -77,6 +77,24 @@ recommended.
    quiet window finds weaker events than the whole-span run would". Where a block exposes its fitted σ or cutlines,
    keep them per window in `meta`.
 
+### The researcher's sweep scales (2026-10-17, evening)
+
+- **Every detection template runs at three scales in the RQ4 sweep:** 10-minute windows, 1-hour windows, and the
+  whole signal. Duplicates where windows overlap are handled by the stitch above.
+- **"Treat each scale as a new version of the detection algorithm."** Point 4 already does this: the window scope
+  joins the Map's row key, so each scale is its own row beside the whole-span one. Keep it that way.
+- **The windowed sweep goes to the cluster.** The whole-signal sweep ran there on 2026-10-17 as P2 chain jobs
+  (`scripts/rq4_overnight.py` on branch `rq4/sweep-code`). A windowed application must therefore export through
+  `Working/discovery/chain_job.py` like any other run, each window one target. Check that its spec, cache keys and
+  import hold with windows × channels targets, possibly thousands per run.
+- **The bound in point 1 refuses the researcher's 10-minute scale.** Most of these templates detrend over 600 s, so
+  4 × 600 s is a 40-minute minimum. Do not decide this silently. Put it to the researcher in plain words with the
+  options (refuse and say why; shorten the detrend window for that scale, which makes it a different chain; or allow
+  it with a warning), and recommend one.
+- **`dehshibi_spikes` and its two variants can only run windowed.** `preprocessing.wavelet_transform` refuses spans
+  over 320,000 samples, a memory cap, so they were left out of the whole-signal sweep. 1-hour windows (3,600 samples
+  at 1 Hz) fit.
+
 ### Defaults for the drop detectors
 
 For `drop_detection_v1`, `drop_detection_v5` and `wavelet_encoded`, measure on synthetic data which window length
