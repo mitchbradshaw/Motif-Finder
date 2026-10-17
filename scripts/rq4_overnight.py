@@ -31,12 +31,23 @@ The researcher's plan of 2026-10-17 (docs/rq_roundA_2/RQ4b-detector-sweep.md), a
     (the researcher's instruction). Each reads its own time left from `squeue` for its budget.
   The fourth pack queues until a slot frees.
 * **How it comes back.** P2's import finds a job by the Discovery run waiting for it, and these specs are made
-  here, not by the bridge. When P2 is merged, an adoption step registers one waiting run per spec and imports it
-  (`chain_job.verify_results` / `restore_cache`, then the ordinary local sweep). Until then the results wait in
-  `<spec>_out/return/`.
+  here, not by the bridge. `adopt` (below) registers one waiting run per spec and imports it through P2's import
+  (`chain_job.verify_results` / `restore_cache`, then the ordinary local sweep). The results wait in
+  `<spec>_out/return/` until they are brought back from the cluster.
 
     python scripts/rq4_overnight.py build --db <copy of DATA/db/annotations.sqlite> [--only NAME ...] [--span A B]
     python scripts/rq4_overnight.py pending <tasks file> <failed file>   # used by the pack scripts on the cluster
+    python scripts/rq4_overnight.py report                               # progress per pack, every refusal
+    python scripts/rq4_overnight.py adopt --url <bridge> [--apply [--allow-project]] [--only LABEL ...]
+
+`adopt` (2026-10-18) brings the results back into Discovery through a running bridge, over HTTP only: for every
+job in the manifest it registers the waiting Discovery run (`POST /api/discovery/chain/adopt`), then imports it
+through P2's own import (`POST /api/hpc/chain/import`), one job at a time, and finally runs the `backend: "auto"`
+copies of the other matrix-profile templates over the imported profiles (`POST /api/discovery/chain/local`). Dry by
+default: it prints, per job, the tasks back and any task missing or refused (by name), the bytes the restore copies
+and the disk free where it copies them, and writes nothing. `--apply` against a bridge on the real database is
+refused without `--allow-project`. A job with a task not complete is registered and left waiting (Jobs › Waiting on
+the cluster lists it with the task); it is reported, never skipped silently.
 
 `build` must run with the main checkout as the working directory (it reads `DATA/derived/channels/...` and hashes
 those files), and the database must be a COPY: `init_db()` and the canonical templates are written into it.
@@ -50,6 +61,7 @@ import json
 import os
 import shutil
 import sys
+import time
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
@@ -69,6 +81,13 @@ NOT_FOR_VOLTS = ["signal_threshold__threshold_mV_m2", "signal_threshold__thresho
                  "signal_threshold__threshold_mV_m10"]
 MP_TEMPLATES = ["mp_threshold", "mp_motifs", "mp_threshold__threshold_6", "mp_threshold__threshold_10"]
 MP_CHANNELS = ["CH1_A1", "CH2_A1"]
+#: the overnight matrix-profile job, and the templates that read its profiles once it is imported (their
+#: `backend: "auto"` copies, scripts/create_rq4_variants.py; RQ4b's decision, option 1)
+MP_AUTO = "mp_threshold__backend_auto"
+MP_AUTO_VARIANTS = ["mp_threshold__threshold_6__backend_auto", "mp_threshold__threshold_10__backend_auto",
+                    "mp_motifs__backend_auto"]
+#: seconds between two looks at an import's job
+POLL_S = 5.0
 
 #: rough seconds per task (real run + one draw, one 721-h channel), for balancing the packs only.
 #: - CPU: one whole-signal task each, measured 2026-10-17 on the PC with about 30 processes on 16 cores, halved
@@ -433,6 +452,184 @@ def report(out_rel=OUT_REL):
     return 0
 
 
+def _bridge():
+    """scripts/create_rq4_variants.py, whose HTTP helper (`call`, `BridgeError`) `adopt` talks to the bridge with:
+    one module object under its own name, so whatever answers it there answers it here."""
+    import importlib.util
+
+    name = "create_rq4_variants"
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, os.path.join(REPO, "scripts", name + ".py"))
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[name] = mod
+        spec.loader.exec_module(mod)
+    return sys.modules[name]
+
+
+def _gb(n):
+    return "-" if n is None else f"{n / 1e9:.1f} GB"
+
+
+def _line(text, width=200):
+    """A reason on one line (a refused task's reason carries its exception's whole message)."""
+    one = " ".join(str(text or "").split())
+    return one if len(one) <= width else one[:width - 1] + "…"
+
+
+def _wait(V, url, job_id):
+    """``(status, error message, seconds)`` once the bridge's job ends."""
+    t0 = time.time()
+    while True:
+        snap = V.call(url, "GET", f"/api/jobs/{job_id}")
+        if snap.get("status") in ("completed", "failed", "cancelled"):
+            break
+        time.sleep(POLL_S)
+    err = snap.get("error")
+    return snap.get("status"), (err.get("message") if isinstance(err, dict) else err), time.time() - t0
+
+
+def adopt(url, out_rel=OUT_REL, *, apply=False, allow_project=False, only=None):
+    """Bring the overnight results into Discovery through the bridge at ``url`` (see the module's docstring).
+    Returns 0 when every job of the manifest (or of ``only``) is imported, 1 when any is left or failed, 2 when
+    ``--apply`` is refused."""
+    V = _bridge()
+    out_dir = os.path.join(REPO, out_rel)
+    try:
+        rt = V.call(url, "GET", "/api/runtime")
+    except V.BridgeError as e:
+        print(f"error: {e}")
+        return 1
+    mode = rt.get("mode")
+    print(f"bridge {url}: MODE = {str(mode).upper()}, database {rt.get('db_path')}")
+    if apply and mode != "sandbox" and not allow_project:
+        print(f"refused: --apply against a {mode} bridge writes to that database. Dry-run first, then add "
+              f"--allow-project to write to it on purpose.")
+        return 2
+    with open(os.path.join(out_dir, "manifest.json"), encoding="utf-8") as f:
+        manifest = json.load(f)
+    jobs = [j for j in manifest["jobs"] if not only or j["label"] in only]
+
+    def spec_path(j):
+        return os.path.join(out_dir, os.path.basename(j["spec"]))
+
+    # what each job would do: nothing is written
+    seen, failed = [], []
+    for j in jobs:
+        try:
+            seen.append((j, V.call(url, "POST", "/api/discovery/chain/adopt", {"path": spec_path(j), "dryRun": True})))
+        except V.BridgeError as e:
+            failed.append((j["label"], str(e)))
+    print(f"\n{'job':52s} {'tasks back':>10s} {'to copy':>9s}  state")
+    for j, d in seen:
+        t = d["tasks"]
+        state = ("already imported" if d["imported"] else
+                 f"registered as {d['runKey']} ({d['status']})" if d["registered"] else "not registered")
+        print(f"{j['label']:52s} {t['complete']:>4d} / {t['total']:<3d} {_gb(d['bytesToCopy']):>9s}  {state}"
+              + ("" if d["importable"] else " · NOT importable"))
+    for j, d in seen:
+        if d["importable"]:
+            continue
+        print(f"  ! {j['label']}: {d['tasks']['complete']} of {d['tasks']['total']} tasks complete")
+        for t in d["tasks"]["notComplete"]:
+            print(f"      task {t['index']} ({t['channelName']}): {t['state']} — {_line(t['reason'])}")
+        if not d["tasks"]["notComplete"]:
+            print(f"      {_line(d['refusal'], 600)}")
+    for label, msg in failed:
+        print(f"  ! {label}: refused by the bridge: {msg}")
+    for r in manifest.get("refused") or []:
+        print(f"  ! {r['label']}: not exported (refused before the cluster): {r['reason']}")
+
+    todo = [(j, d) for j, d in seen if d["importable"] and not d["imported"]]
+    need = sum(d["bytesToCopy"] or 0 for _, d in todo)
+    free = min((d["disk"]["freeBytes"] for _, d in seen), default=None)
+    root = seen[0][1]["disk"]["root"] if seen else rt.get("step_cache_root")
+    print(f"\n{len(todo)} job(s) to import: about {_gb(need)} restored into {root}; {_gb(free)} free there")
+
+    mp = next((j for j in manifest["jobs"] if j["label"] == MP_AUTO), None)
+    variants = []
+    if mp is not None and (not only or MP_AUTO in only):
+        for name in MP_AUTO_VARIANTS:
+            try:
+                d = V.call(url, "POST", "/api/discovery/chain/local",
+                           {"template": name, "like": spec_path(mp), "dryRun": True})
+            except V.BridgeError as e:
+                failed.append((name, str(e)))
+                print(f"  ! {name}: {e}")
+                continue
+            variants.append((name, d))
+            print(f"{name:52s} " + (f"already run as {d['runKey']} ({d['status']})" if d["status"] else
+                                    "runs here from the cached profiles" if d["runsHere"] else
+                                    f"after the {MP_AUTO} import (not cached yet)"))
+
+    if not apply:
+        print("\ndry run: nothing written. Add --apply to register every job, import the complete ones and run the "
+              "matrix-profile copies.")
+        return 0
+    if free is not None and need > 0.95 * free:
+        print(f"refused: {_gb(need)} to restore and {_gb(free)} free under {root}: free some disk first")
+        return 1
+
+    imported, waiting = [], []
+    for j, d in seen:
+        label, path = j["label"], spec_path(j)
+        if d["imported"]:
+            print(f"  {label}: already imported")
+            imported.append(label)
+            continue
+        try:
+            reg = V.call(url, "POST", "/api/discovery/chain/adopt", {"path": path, "dryRun": False})
+        except V.BridgeError as e:
+            failed.append((label, str(e)))
+            print(f"  ! {label}: {e}")
+            continue
+        if not d["importable"]:
+            waiting.append(label)
+            print(f"  {label}: registered as {reg['runKey']}, waiting on the cluster: "
+                  + "; ".join(f"task {t['index']} ({t['channelName']}) {t['state']}" for t in d["tasks"]["notComplete"]))
+            continue
+        try:
+            ack = V.call(url, "POST", "/api/hpc/chain/import", {"path": path})
+        except V.BridgeError as e:
+            failed.append((label, str(e)))
+            print(f"  ! {label}: the import refused: {e}")
+            continue
+        print(f"  {label}: importing as {ack['run_key']} (job {ack['job_id']}, {ack['entries']} cache entries, "
+              f"{_gb(ack['bytes'])})", flush=True)
+        status, err, took = _wait(V, url, ack["job_id"])
+        if status == "completed":
+            imported.append(label)
+            print(f"  {label}: imported in {took:.0f} s", flush=True)
+        else:
+            failed.append((label, f"the import's job {status}: {err}"))
+            print(f"  ! {label}: the import's job {status}: {err}", flush=True)
+
+    for name, d in variants:
+        if d["status"]:
+            print(f"  {name}: already run as {d['runKey']} ({d['status']})")
+            continue
+        try:
+            r = V.call(url, "POST", "/api/discovery/chain/local",
+                       {"template": name, "like": spec_path(mp), "dryRun": False})
+        except V.BridgeError as e:
+            failed.append((name, str(e)))
+            print(f"  ! {name}: {e}")
+            continue
+        status, err, took = _wait(V, url, r["jobId"])
+        if status == "completed":
+            print(f"  {name}: run as {r['runKey']} from the cached profiles in {took:.0f} s", flush=True)
+        else:
+            failed.append((name, f"its job {status}: {err}"))
+            print(f"  ! {name}: its job {status}: {err}", flush=True)
+
+    print(f"\n{len(imported)} of {len(jobs)} job(s) imported; {len(waiting)} waiting on the cluster; "
+          f"{len(failed)} failed or refused")
+    for label in waiting:
+        print(f"    waiting: {label}")
+    for label, msg in failed:
+        print(f"    failed: {label}: {msg}")
+    return 0 if len(imported) == len(jobs) and not failed else 1
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="the RQ4 overnight sweep as packed P2 chain jobs")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -447,11 +644,20 @@ def main(argv=None):
     p.add_argument("failed")
     r = sub.add_parser("report", help="progress per pack, and every refusal")
     r.add_argument("--out", default=OUT_REL)
+    a = sub.add_parser("adopt", help="register every job as a waiting Discovery run and import it (a running bridge)")
+    a.add_argument("--url", default="http://127.0.0.1:8765", help="the bridge (default http://127.0.0.1:8765)")
+    a.add_argument("--out", default=OUT_REL, help="the folder holding manifest.json and the jobs")
+    a.add_argument("--apply", action="store_true", help="write (without it: a dry run that writes nothing)")
+    a.add_argument("--allow-project", action="store_true",
+                   help="allow --apply against a bridge in PROJECT mode (the real database)")
+    a.add_argument("--only", nargs="*", default=None, help="only these job labels")
     args = ap.parse_args(argv)
     if args.cmd == "pending":
         return pending(args.tasks, args.failed)
     if args.cmd == "report":
         return report(args.out)
+    if args.cmd == "adopt":
+        return adopt(args.url, args.out, apply=args.apply, allow_project=args.allow_project, only=args.only)
     m = build(args.db, only=args.only, span=tuple(args.span) if args.span else SPAN, out_rel=args.out,
               null_draws=args.draws)
     print(f"{len(m['jobs'])} chain jobs, {sum(p['tasks'] for p in m['packs'])} tasks in {len(m['packs'])} packs:")
