@@ -654,6 +654,15 @@ def test_a_windowed_plan_on_the_held_out_recording_follows_the_lock(world):
     unlocked = _plan(world, NT, [rid], (0, 8 * H), windows={"window_s": 4 * H})
     assert unlocked["runnable"], unlocked["reason"]
     assert unlocked["windows"]["per_channel"] == 3
+    _start(world, unlocked)
+    conn = init_db(world["db"])
+    try:
+        put_settings(conn, HELD_OUT_PAGE, {HELD_OUT_ON_KEY: True}, actor="test", confirm_name=held_out_state(conn)["name"])
+    finally:
+        conn.close()
+    from Working.execution import HeldOutRecordingLocked
+    with pytest.raises(HeldOutRecordingLocked):
+        _start(world, unlocked)              # every window is reused, and still the lock is read
 
 
 def test_dehshibi_runs_in_one_hour_windows_where_the_whole_span_is_refused(world):

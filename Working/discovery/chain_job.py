@@ -1254,19 +1254,30 @@ def _write_window_rows(conn, task):
     from Working.discovery import windowed as WD
     from Working.recipes import canonical_json, short_hash
 
+    from Working import run_groups as RG
+
     rid = int(task["recordingId"])
     rows = task["rows"]
     now = _now()
-    recipes = [r["recipe"] for r in rows] + [d["recipe"] for r in rows for d in r["draws"]]
+    configs = {}                                          # config hash -> canonical json, every window and draw
+    for r in rows:
+        recipe = WD.with_span(task["recipe"], r["span"])
+        configs[r["configHash"]] = canonical_json(recipe)
+        for j, d in enumerate(r["draws"]):
+            p = dict(r["drawParams"], seed=int(r["drawParams"]["seed"]) + j)
+            configs[d["configHash"]] = canonical_json(RG.surrogate_recipe(recipe, p))
     with conn:
         conn.executemany("INSERT OR IGNORE INTO configs (config_hash, config_json, created_at) VALUES (?, ?, ?)",
-                         [(short_hash(r), canonical_json(r), now) for r in recipes])
+                         [(h, js, now) for h, js in configs.items()])
     cfg = {}
-    for chunk in WD._chunks(sorted({short_hash(r) for r in recipes})):
+    for chunk in WD._chunks(sorted(configs)):
         for row in conn.execute("SELECT id, config_hash FROM configs WHERE config_hash IN (%s)"
                                 % ",".join("?" * len(chunk)), chunk):
             cfg[row[1]] = int(row[0])
     have = WD._completed(conn, rid, [r["configHash"] for r in rows], [r["span"] for r in rows])
+    flat = [(k, j) for k, r in enumerate(rows) for j in range(len(r["draws"]))]
+    have_draws = dict(zip(flat, WD._completed(conn, rid, [rows[k]["draws"][j]["configHash"] for k, j in flat],
+                                              [rows[k]["span"] for k, _ in flat])))
     written = present = 0
 
     def insert(config_hash, span, dets, timings, surrogate_of=None):
@@ -1282,7 +1293,7 @@ def _write_window_rows(conn, task):
         return run_id
 
     with conn:
-        for r, hit in zip(rows, have):
+        for k, (r, hit) in enumerate(zip(rows, have)):
             if hit is not None:
                 real_id = hit[0]
                 present += 1
@@ -1291,10 +1302,8 @@ def _write_window_rows(conn, task):
                 written += 1
                 if r.get("fitted"):
                     WD.save_fits(conn, real_id, r["fitted"], commit=False)
-            if not r["draws"]:
-                continue
-            got = WD._completed(conn, rid, [d["configHash"] for d in r["draws"]], [r["span"]] * len(r["draws"]))
-            for d, dh in zip(r["draws"], got):
+            for j, d in enumerate(r["draws"]):
+                dh = have_draws.get((k, j))
                 if dh is not None and dh[1] is not None and int(dh[1]) == int(real_id):
                     present += 1
                     continue
@@ -1334,7 +1343,8 @@ def verify_results(conn, spec, out_dir):
             rows, more = _window_results(spec, t, res)
             keys = set()
             if windows is not None:
-                windows.append({"recordingId": int(t["recordingId"]), "channelName": t["channelName"], "rows": rows})
+                windows.append({"recordingId": int(t["recordingId"]), "channelName": t["channelName"],
+                                "recipe": t["recipe"], "rows": rows})
         else:
             keys, more = _expected_keys(spec, t, res)
         problems += more
@@ -1401,8 +1411,8 @@ def _window_results(spec, target, res):
         if any(not (int(span[0]) <= int(d[0]) < int(d[1]) <= int(span[1])) for d in dets):
             problems.append(f"{where}: a detection lies outside its window {span}")
             continue
-        row = {"index": k, "span": [int(span[0]), int(span[1])], "recipe": recipe, "configHash": h,
-               "detections": dets, "stepTimings": w.get("stepTimings") or {}, "fitted": w.get("fitted"), "draws": []}
+        row = {"index": k, "span": [int(span[0]), int(span[1])], "configHash": h, "detections": dets,
+               "stepTimings": w.get("stepTimings") or {}, "fitted": w.get("fitted"), "draws": [], "drawParams": None}
         if null["paired"]:
             base = w.get("drawParams")
             if base is None:
@@ -1431,6 +1441,7 @@ def _window_results(spec, target, res):
                     problems.append(f"{where}: {len(draws)} of {null['draws']} null draws were made")
                     continue
                 bad = False
+                row["drawParams"] = dict(base)
                 for j, d in enumerate(draws):
                     dr = RG.surrogate_recipe(recipe, dict(base, seed=int(base["seed"]) + j))
                     if short_hash(dr) != d.get("configHash"):
@@ -1442,8 +1453,7 @@ def _window_results(spec, target, res):
                         problems.append(f"{where}: a detection of draw {j} lies outside its window")
                         bad = True
                         break
-                    row["draws"].append({"recipe": dr, "configHash": d["configHash"],
-                                         "detections": d.get("detections") or [],
+                    row["draws"].append({"configHash": d["configHash"], "detections": d.get("detections") or [],
                                          "stepTimings": d.get("stepTimings") or {}})
                 if bad:
                     continue

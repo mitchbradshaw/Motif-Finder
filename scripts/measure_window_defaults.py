@@ -15,11 +15,13 @@ paired null draw, on synthetic recordings at 1 Hz:
 
     python scripts/measure_window_defaults.py --out logs/window_defaults.json            # all of it, ~10-20 min
     python scripts/measure_window_defaults.py --detectors drop_detection_v1 --hours 168  # a quicker look
+    python scripts/measure_window_defaults.py --short-scales     # 1 h and 10 min, fitted and as they are (RQ4b)
 
 On a sandbox copy of the real database (never the live one: the script refuses `Working.config.DB_PATH`), the same
 table against the human verdicts (interesting / seed as the truth, recall within 10 min, detections per hour):
 
     python scripts/measure_window_defaults.py --db webui/runtime/<stamp>/annotations.sqlite --recording-ids 3,4
+    python scripts/measure_window_defaults.py --db ... --recording-ids 3 --scales 1,0.1667 --allow-short   # the sweep's scales
 
 The chains are the canonical / overnight-sweep ones (webui/server/templates.py; HPC/Detection/generated/rq4_overnight).
 Writes nothing outside a temporary folder (synthetic mode) or the sandbox database it is given.
@@ -122,6 +124,10 @@ def _match(spans, onsets, tol=600):
     return found, len(spans) - len(used)
 
 
+#: how a window shorter than the chain's bound is treated (`--fit`, `--allow-short`): refused unless one is given
+SHORT = {}
+
+
 def _run(db, rid, steps, n, scale_h, draws=1):
     """One application through the real path; returns (spans, null spans per draw, seconds, windows)."""
     from Working.database import runs as R
@@ -132,7 +138,8 @@ def _run(db, rid, steps, n, scale_h, draws=1):
     try:
         plan = fanout.plan(conn, steps=steps, recording_ids=[rid], span=(0, n), ceiling_s=10 ** 9, null_draws=draws,
                            surrogate=draws > 0, surrogate_params=NULL,
-                           windows=(None if scale_h is None else {"window_s": scale_h * H, "overlap_frac": 0.5}))
+                           windows=(None if scale_h is None else dict({"window_s": scale_h * H, "overlap_frac": 0.5},
+                                                                      **SHORT)))
     finally:
         conn.close()
     if not plan["runnable"]:
@@ -207,6 +214,95 @@ def synthetic(args):
             "rows": rows}
 
 
+NT = [{"stage": "preprocessing", "algorithm": "detrend", "params": {"mode": "rolling_mean", "window_s": 600.0}},
+      {"stage": "detection", "algorithm": "noise_threshold",
+       "params": {"k_sigma": 4.0, "direction": "below", "min_duration_s": 30.0, "merge_gap_s": 60.0}}]
+
+
+def dips_and_drops(hours=48, seed=21, sd=0.0001):
+    """AR(1) noise with, every 30 minutes in turn, a 60-s dip and a drop that recovers over ~30 min, both 6 sigma deep."""
+    rng = np.random.default_rng(seed)
+    n = int(hours * H)
+    x = _ar1(n, 0.97, sd, rng)
+    level = sd / np.sqrt(1 - 0.97 ** 2)
+    fast, slow = [], []
+    for k, a in enumerate(range(900, n - 3600, 1800)):
+        if k % 2 == 0:
+            x[a:a + 60] -= 6 * level
+            fast.append(a)
+        else:
+            d = np.concatenate([-6 * level * np.arange(20) / 20, -6 * level * np.exp(-np.arange(1800) / 300.0)])
+            x[a:a + len(d)] += d
+            slow.append(a)
+    return x, {"60-s dips": fast, "30-min drops": slow}
+
+
+def drops_loud_beside_quiet(hours=48, seed=3):
+    """tests/test_windowed_detection.py's: hours 0-28 five times the noise and a deep drop (0.2) an hour; hours 28-48
+    a weak drop (0.02) an hour."""
+    rng = np.random.default_rng(seed)
+    n = int(hours * H)
+    x = _ar1(n, 0.97, 0.00005, rng)
+    x[:28 * H] += _ar1(28 * H, 0.97, 0.00025, rng)
+    deep = list(range(1 * H, 27 * H, H))
+    for a in deep:
+        d = np.concatenate([-0.2 * np.arange(20) / 20, -0.2 * np.exp(-np.arange(1800) / 300.0)])
+        x[a:a + len(d)] += d
+    weak = list(range(29 * H, 47 * H, H))
+    for a in weak:
+        d = np.concatenate([-0.02 * np.arange(20) / 20, -0.02 * np.exp(-np.arange(1800) / 300.0)])
+        x[a:a + len(d)] += d
+    return x, {"weak drops": weak, "deep drops": deep}
+
+
+def short_scales(args):
+    """The sweep's short scales against the bound (the 10-minute decision, RQ4b): whole span, 6 h, 1 h and 10 min,
+    each fitted and as it is, no null. The stitch is the real one; 'as it is' bypasses the bound only by asking."""
+    import Working.config as cfg
+    from Working.database import queries as q
+    from Working.database.schema import init_db
+
+    tmp = tempfile.mkdtemp(prefix="p3_short_scales_")
+    cfg.STEP_CACHE_ROOT = os.path.join(tmp, "cache")
+    db = os.path.join(tmp, "annotations.sqlite")
+    init_db(db).close()
+    recs = {"dips_and_drops": dips_and_drops(), "drops_loud_beside_quiet": drops_loud_beside_quiet(),
+            "ar1": (noise("ar1", hours=48, seed=9), {})}
+    ids = {}
+    conn = init_db(db)
+    try:
+        for name, (sig, _) in recs.items():
+            npy = os.path.join(tmp, f"{name}.npy")
+            np.save(npy, sig)
+            ids[name] = q.insert_recording(conn, f"{name}.mat", 0, 1.0, len(sig), 0, npy, units="V")
+    finally:
+        conn.close()
+    chains = {"noise_threshold": NT, **CHAINS}
+    plan_of = {"noise_threshold": ("dips_and_drops", "ar1")}
+    rows = []
+    for det in ["noise_threshold"] + list(args.detectors):
+        for name in plan_of.get(det, ("drops_loud_beside_quiet", "ar1")):
+            sig, events = recs[name]
+            for label, scale_h, short in (("whole span", None, {}), ("6 h", 6, {}), ("1 h, fitted", 1, {"fit": True}),
+                                          ("1 h, as it is", 1, {"allow_short": True}),
+                                          ("10 min, fitted", 1 / 6.0, {"fit": True}),
+                                          ("10 min, as it is", 1 / 6.0, {"allow_short": True})):
+                SHORT.clear()
+                SHORT.update(short)
+                spans, _, el, nw, refused = _run(db, ids[name], chains[det], len(sig), scale_h, draws=0)
+                row = {"detector": det, "recording": name, "scale": label}
+                if refused:
+                    row["refused"] = refused
+                else:
+                    row.update(per_h=round(len(spans) / (len(sig) / float(H)), 3), windows=nw, seconds=round(el, 1))
+                    for kind, onsets in events.items():
+                        row[kind] = round(float(np.mean(_match(spans, onsets, tol=600)[0])), 3)
+                rows.append(row)
+                print(json.dumps(row), flush=True)
+    SHORT.clear()
+    return {"mode": "short-scales", "rows": rows}
+
+
 def real(args):
     from Working.config import DB_PATH
     from Working.database import queries as q
@@ -244,7 +340,7 @@ def real(args):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[1])
     ap.add_argument("--detectors", default=",".join(CHAINS), help="comma-separated, of " + ", ".join(CHAINS))
     ap.add_argument("--scales", default=",".join(str(s) for s in SCALES_H), help="window lengths in hours")
     ap.add_argument("--hours", type=float, default=336.0, help="synthetic recordings' length")
@@ -254,11 +350,20 @@ def main(argv=None):
                          "10 %% depth gate against a deep drop in the same span, 0.04 above it")
     ap.add_argument("--db", help="a SANDBOX copy of the database: measure on its recordings against human verdicts")
     ap.add_argument("--recording-ids", default="", help="with --db: the channels to measure")
+    ap.add_argument("--fit", action="store_true", help="fit the chain to windows shorter than its bound")
+    ap.add_argument("--allow-short", action="store_true",
+                    help="run the chain as it is in windows shorter than its bound (warned)")
+    ap.add_argument("--short-scales", action="store_true",
+                    help="the sweep's 1-hour and 10-minute scales, fitted and as they are, on 48-h synthetic recordings")
     ap.add_argument("--out", help="write the result as JSON here")
     args = ap.parse_args(argv)
+    if args.fit:
+        SHORT["fit"] = True
+    elif args.allow_short:
+        SHORT["allow_short"] = True
     args.detectors = [d.strip() for d in args.detectors.split(",") if d.strip()]
     args.scales = tuple(float(s) for s in args.scales.split(",") if s.strip())
-    out = real(args) if args.db else synthetic(args)
+    out = real(args) if args.db else short_scales(args) if args.short_scales else synthetic(args)
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as f:

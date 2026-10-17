@@ -834,6 +834,18 @@ def _link_group(conn, group_id, run_ids):
     conn.commit()
 
 
+def _refuse_locked(conn, target):
+    """`execute_recipe`'s held-out guard, for the windows read rather than run: the lock is read now (a2-p1), so a
+    switch turned on between the plan and the sweep refuses the channel, reused windows and all."""
+    from Working.config import HELD_OUT_RECORDING_FILE
+    from Working.execution import HeldOutRecordingLocked
+    from Working.registration.settings import HELD_OUT_UNLOCK_HINT, held_out_locked
+
+    if target["source_file"] == HELD_OUT_RECORDING_FILE and held_out_locked(conn):
+        raise HeldOutRecordingLocked(f"Access to held-out recording '{HELD_OUT_RECORDING_FILE}' is locked: "
+                                     f"{HELD_OUT_UNLOCK_HINT}.")
+
+
 def start_windows(plan, *, db_path=None, on_progress=None, on_target_done=None, should_cancel=None, surrogate=False,
                   surrogate_params=None, force=False, run_kwargs=None, surrogate_draws=None, on_draw=None):
     """Run every window of a windowed plan, then stitch each channel's windows into its stitched run.
@@ -861,6 +873,7 @@ def start_windows(plan, *, db_path=None, on_progress=None, on_target_done=None, 
         rows, cancelled, total = [], False, 0
         for rid, idxs in _channels(targets).items():
             first = targets[idxs[0]]
+            _refuse_locked(conn, first)
             base = fanout.target_recipe(recipe, idxs[0], surrogate)
             status = None if force else lookup_windows(conn, base, [targets[i]["span"] for i in idxs], rid,
                                                        draws=n_draws, surrogate_params=surrogate_params)
