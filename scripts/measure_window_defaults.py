@@ -17,8 +17,9 @@ paired null draw, on synthetic recordings at 1 Hz:
     python scripts/measure_window_defaults.py --detectors drop_detection_v1 --hours 168  # a quicker look
     python scripts/measure_window_defaults.py --short-scales     # 1 h and 10 min, fitted and as they are (RQ4b)
 
-On a sandbox copy of the real database (never the live one: the script refuses `Working.config.DB_PATH`), the same
-table against the human verdicts (interesting / seed as the truth, recall within 10 min, detections per hour):
+On a sandbox copy of the real database (never the real one: the script refuses the main checkout's
+DATA/db/annotations.sqlite by any name, as scripts/backfill_seed_entry_ids.py does), the same table against the human
+verdicts (interesting / seed as the truth, recall within 10 min, detections per hour):
 
     python scripts/measure_window_defaults.py --db webui/runtime/<stamp>/annotations.sqlite --recording-ids 3,4
     python scripts/measure_window_defaults.py --db ... --recording-ids 3 --scales 1,0.1667 --allow-short   # the sweep's scales
@@ -30,6 +31,7 @@ Writes nothing outside a temporary folder (synthetic mode) or the sandbox databa
 import argparse
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import time
@@ -40,6 +42,49 @@ from scipy.signal import lfilter
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
+
+#: the Win32 long-path prefix (two backslashes, "?", one backslash), which names the same file
+LONG_PREFIX = chr(92) * 2 + "?" + chr(92)
+
+
+def main_checkout(root=ROOT):
+    """The main checkout this script belongs to (`scripts/backfill_seed_entry_ids.py`'s rule): a worktree's own tree
+    is not where the real database lives; `git rev-parse --git-common-dir` names the shared `.git`, whose parent is
+    the main checkout. The script's own checkout when git cannot be asked."""
+    try:
+        out = subprocess.run(["git", "-C", root, "rev-parse", "--git-common-dir"], capture_output=True, text=True,
+                             timeout=30)
+        common = out.stdout.strip() if out.returncode == 0 else ""
+    except (OSError, subprocess.SubprocessError):
+        common = ""
+    if common:
+        common = os.path.normpath(common if os.path.isabs(common) else os.path.join(root, common))
+        if os.path.basename(common).lower() == ".git":
+            return os.path.dirname(common)
+    return root
+
+
+#: `Working.database.schema.DB_PATH` (relative to the repository) resolved against the main checkout
+REAL_DB = os.path.join(main_checkout(), "DATA", "db", "annotations.sqlite")
+
+
+def _canonical(path):
+    """A path as one spelling: absolute, links and junctions resolved, the long-path prefix dropped, case folded."""
+    p = os.path.realpath(os.path.abspath(path))
+    if p.startswith(LONG_PREFIX):
+        p = p[len(LONG_PREFIX):]
+    return os.path.normcase(os.path.normpath(p))
+
+
+def is_the_real_database(path, real=REAL_DB):
+    """True when ``path`` names the real database by any name: the spellings compared once resolved, then the files
+    themselves (`os.path.samefile`, which also catches a hard link)."""
+    if _canonical(path) == _canonical(real):
+        return True
+    try:
+        return os.path.samefile(path, real)
+    except OSError:
+        return False
 
 H = 3600
 SCALES_H = (12, 24, 72, 168)
@@ -303,13 +348,11 @@ def short_scales(args):
     return {"mode": "short-scales", "rows": rows}
 
 
-def real(args):
-    from Working.config import DB_PATH
+def measure_real(args):
+    """The table on a sandbox copy's recordings against its human verdicts (`main` has refused the real database)."""
     from Working.database import queries as q
     from Working.database.schema import init_db
 
-    if os.path.abspath(args.db) == os.path.abspath(DB_PATH):
-        raise SystemExit("refusing the live database: point --db at a sandbox copy (webui/runtime/<stamp>/...)")
     rows = []
     for rid in [int(r) for r in args.recording_ids.split(",") if r.strip()]:
         conn = init_db(args.db)
@@ -339,7 +382,9 @@ def real(args):
     return {"mode": "real", "db": args.db, "rows": rows}
 
 
-def main(argv=None):
+def main(argv=None, real=None):
+    """``real``: the real database's path (the main checkout's by default); a test hands in a stand-in."""
+    real = real or REAL_DB
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[1])
     ap.add_argument("--detectors", default=",".join(CHAINS), help="comma-separated, of " + ", ".join(CHAINS))
     ap.add_argument("--scales", default=",".join(str(s) for s in SCALES_H), help="window lengths in hours")
@@ -357,13 +402,16 @@ def main(argv=None):
                     help="the sweep's 1-hour and 10-minute scales, fitted and as they are, on 48-h synthetic recordings")
     ap.add_argument("--out", help="write the result as JSON here")
     args = ap.parse_args(argv)
+    if args.db and is_the_real_database(args.db, real):
+        ap.error(f"{args.db} is the real database ({real}); measure on a sandbox copy "
+                 f"(webui/runtime/<stamp>/annotations.sqlite)")
     if args.fit:
         SHORT["fit"] = True
     elif args.allow_short:
         SHORT["allow_short"] = True
     args.detectors = [d.strip() for d in args.detectors.split(",") if d.strip()]
     args.scales = tuple(float(s) for s in args.scales.split(",") if s.strip())
-    out = real(args) if args.db else short_scales(args) if args.short_scales else synthetic(args)
+    out = measure_real(args) if args.db else short_scales(args) if args.short_scales else synthetic(args)
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
         with open(args.out, "w", encoding="utf-8") as f:
