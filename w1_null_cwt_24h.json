@@ -1,0 +1,47 @@
+[
+ {
+  "template": "cwt_events",
+  "target": "rec 1 \u00b7 M2_aug CH0 \u00b7 440\u2013464 h",
+  "statistic": "spans detected",
+  "real": 24.0,
+  "null_mean": 0.2,
+  "null_p95": 1.0500000000000007,
+  "null_max": 2.0,
+  "draws": 20,
+  "p": 0.047619047619047616,
+  "x_null": 120.0,
+  "beats": true,
+  "skipped": null,
+  "seconds": 35.3
+ },
+ {
+  "template": "cwt_events",
+  "target": "rec 3 \u00b7 M2_aug CH2 \u00b7 440\u2013464 h",
+  "statistic": "spans detected",
+  "real": 38.0,
+  "null_mean": 0.3,
+  "null_p95": 1.0,
+  "null_max": 1.0,
+  "draws": 20,
+  "p": 0.047619047619047616,
+  "x_null": 126.66666666666667,
+  "beats": true,
+  "skipped": null,
+  "seconds": 35.6
+ },
+ {
+  "template": "cwt_events",
+  "target": "rec 601 \u00b7 S. commune ch1 \u00b7 0\u201324 h",
+  "statistic": "spans detected",
+  "real": 6.0,
+  "null_mean": 0.3,
+  "null_p95": 1.0500000000000007,
+  "null_max": 2.0,
+  "draws": 20,
+  "p": 0.047619047619047616,
+  "x_null": 20.0,
+  "beats": true,
+  "skipped": null,
+  "seconds": 34.4
+ }
+]

@@ -1,0 +1,47 @@
+[
+ {
+  "template": "deconvolved_troughs",
+  "target": "rec 385 \u00b7 Mushroom_260720 CH14 \u00b7 4 h",
+  "statistic": "spans detected",
+  "real": 16.0,
+  "null_mean": 0.0,
+  "null_p95": 0.0,
+  "null_max": 0.0,
+  "draws": 20,
+  "p": 0.047619047619047616,
+  "x_null": null,
+  "beats": true,
+  "skipped": null,
+  "seconds": 15.4
+ },
+ {
+  "template": "deconvolved_troughs",
+  "target": "rec 1 \u00b7 M2_aug CH0 \u00b7 452\u2013456 h",
+  "statistic": "spans detected",
+  "real": 3.0,
+  "null_mean": 0.95,
+  "null_p95": 3.0500000000000007,
+  "null_max": 4.0,
+  "draws": 20,
+  "p": 0.19047619047619047,
+  "x_null": 3.1578947368421053,
+  "beats": false,
+  "skipped": null,
+  "seconds": 33.6
+ },
+ {
+  "template": "deconvolved_troughs",
+  "target": "rec 601 \u00b7 S. commune ch1 \u00b7 10\u201316 h",
+  "statistic": "spans detected",
+  "real": 0.0,
+  "null_mean": 0.75,
+  "null_p95": 2.0500000000000007,
+  "null_max": 3.0,
+  "draws": 20,
+  "p": 1.0,
+  "x_null": 0.0,
+  "beats": false,
+  "skipped": null,
+  "seconds": 22.5
+ }
+]

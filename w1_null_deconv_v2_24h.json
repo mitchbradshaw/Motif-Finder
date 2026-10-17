@@ -1,0 +1,47 @@
+[
+ {
+  "template": "deconvolved_troughs",
+  "target": "rec 1 \u00b7 M2_aug CH0 \u00b7 440\u2013464 h",
+  "statistic": "spans detected",
+  "real": 155.0,
+  "null_mean": 3.85,
+  "null_p95": 7.050000000000001,
+  "null_max": 8.0,
+  "draws": 20,
+  "p": 0.047619047619047616,
+  "x_null": 40.25974025974026,
+  "beats": true,
+  "skipped": null,
+  "seconds": 22.7
+ },
+ {
+  "template": "deconvolved_troughs",
+  "target": "rec 3 \u00b7 M2_aug CH2 \u00b7 440\u2013464 h",
+  "statistic": "spans detected",
+  "real": 551.0,
+  "null_mean": 3.1,
+  "null_p95": 6.050000000000001,
+  "null_max": 7.0,
+  "draws": 20,
+  "p": 0.047619047619047616,
+  "x_null": 177.74193548387098,
+  "beats": true,
+  "skipped": null,
+  "seconds": 18.3
+ },
+ {
+  "template": "deconvolved_troughs",
+  "target": "rec 601 \u00b7 S. commune ch1 \u00b7 0\u201324 h",
+  "statistic": "spans detected",
+  "real": 117.0,
+  "null_mean": 2.75,
+  "null_p95": 5.050000000000001,
+  "null_max": 6.0,
+  "draws": 20,
+  "p": 0.047619047619047616,
+  "x_null": 42.54545454545455,
+  "beats": true,
+  "skipped": null,
+  "seconds": 18.3
+ }
+]
