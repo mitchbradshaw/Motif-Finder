@@ -457,7 +457,8 @@ def stitch(windows, rule=None):
 
     for x, i in enumerate(order):
         si = items[i]
-        for j in order[x + 1:]:
+        for y in range(x + 1, len(order)):
+            j = order[y]
             sj = items[j]
             if sj["start"] >= si["end"]:
                 break

@@ -1390,6 +1390,10 @@ def _window_results(spec, target, res):
     spans, hashes = target["windows"]["spans"], target["windows"]["configHashes"]
     got = res.get("windows") or []
     problems, rows = [], []
+    if "windows" not in res:
+        return [], [f"{who}: its result names no windows — the cluster's Working/discovery/chain_job.py predates "
+                    f"windowed jobs (round A_2, P3), so it ran the first window only: update the code on the cluster "
+                    f"and run the job again"]
     if len(got) != len(spans):
         return [], [f"{who}: {len(got)} of its {len(spans)} windows came back"]
     null = spec["null"]
@@ -1408,7 +1412,7 @@ def _window_results(spec, target, res):
             problems.append(f"{where}: its recipe hashes {short_hash(recipe)} here, {h} in the spec")
             continue
         dets = w.get("detections") or []
-        if any(not (int(span[0]) <= int(d[0]) < int(d[1]) <= int(span[1])) for d in dets):
+        if any(not (int(span[0]) <= int(d[0]) <= int(d[1]) <= int(span[1])) for d in dets):
             problems.append(f"{where}: a detection lies outside its window {span}")
             continue
         row = {"index": k, "span": [int(span[0]), int(span[1])], "configHash": h, "detections": dets,
@@ -1449,7 +1453,7 @@ def _window_results(spec, target, res):
                                         f"the cluster")
                         bad = True
                         break
-                    if any(not (int(span[0]) <= int(x[0]) < int(x[1]) <= int(span[1])) for x in d.get("detections") or []):
+                    if any(not (int(span[0]) <= int(x[0]) <= int(x[1]) <= int(span[1])) for x in d.get("detections") or []):
                         problems.append(f"{where}: a detection of draw {j} lies outside its window")
                         bad = True
                         break

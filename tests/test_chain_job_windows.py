@@ -270,3 +270,23 @@ def test_the_import_refuses_when_the_local_windows_moved(world):
         assert "window" in str(e.value)
     finally:
         conn.close()
+
+
+def test_a_result_from_cluster_code_that_predates_windows_is_refused_by_name(world):
+    """A cluster still on P2's chain_job runs a windowed spec's first window only and calls the task complete: the
+    import says so instead of importing one window as the whole channel."""
+    _, spec, made = _export(world, ids=world["ids"][:1], label="old_code")
+    _run_all(spec, made)
+    path = os.path.join(made["result_dir"], "return", "task0", "result.json")
+    with open(path, encoding="utf-8") as f:
+        res = json.load(f)
+    res.pop("windows")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(res, f)
+    conn = init_db(world["db"])
+    try:
+        with pytest.raises(chain_job.ImportRefused) as e:
+            chain_job.verify_results(conn, spec, made["result_dir"])
+        assert "predates windowed jobs" in str(e.value)
+    finally:
+        conn.close()
