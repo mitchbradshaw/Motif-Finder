@@ -157,7 +157,8 @@ at once.
 | Declare units for M1, M100, M101_t, MJu26a | researcher |
 | The sweep: null draws 1, apply every variant per dataset (M2_aug, M2, Schizophyllum and L_LM first) | researcher |
 | The read-out: Map level 3 → 2 → 1 on M2_aug against the human row; Compare best variants against drop_detection_v1 and against verdicts; one variant per template re-run with 20 null draws | researcher |
-| Decide how the overnight matrix profiles serve the other MP templates (below) | researcher |
+| ~~Decide how the overnight matrix profiles serve the other MP templates (below)~~ option 1 built 2026-10-18 (rq4-adopt) | ~~researcher~~ |
+| Bring every `*_out/return/` folder back from rangpur, then `python scripts/rq4_overnight.py adopt` (dry run, then `--apply` on a sandbox bridge, then the real one): the overnight jobs become Discovery runs on the Map | researcher |
 
 ### Decision: the overnight matrix profiles and the other matrix-profile templates (P2 fix round, 2026-10-18)
 
@@ -195,7 +196,15 @@ key would refuse the overnight results. `tests/test_rq4_overnight_specs.py` now 
 **Recommendation.** Take (1) now. It costs no code and keeps every hash. The three readings come from the overnight
 profiles within seconds of the import, and the Map's own rows say how they were computed. Consider (2) only once the
 A100 measurement shows the backends agree, and only if the `stump` templates' history should join up. Until then a
-profile served across backends would be a claim nobody has checked. Neither is built.
+profile served across backends would be a claim nobody has checked.
+
+**Built (2026-10-18): option 1.** `scripts/create_rq4_variants.py` writes `mp_threshold__backend_auto` (the overnight
+job's own template, which was not a row) and `mp_threshold__threshold_6__backend_auto`,
+`mp_threshold__threshold_10__backend_auto` and `mp_motifs__backend_auto`, all marked `[rq4-sweep]`.
+`tests/test_create_rq4_variants.py` checks against the tracked overnight spec that their detrend → profile keys are
+the overnight job's, for the real run and its draw. `rq4_overnight.py adopt` runs them over CH1_A1 and CH2_A1, the
+whole signal and the job's null, through `POST /api/discovery/chain/local`, only once `local_plan` reads the
+profiles as cached. Option 2 is not built.
 
 ## How it gets answered
 
@@ -237,3 +246,12 @@ profile served across backends would be a claim nobody has checked. Neither is b
     a result saying why; a restore that fails part-way reads failed with its reason; the restore can be cancelled
     between entries.
   - Analyse no longer writes the old one-way SLURM job for an over-cap profile; it points to Discovery's chain job.
+- 2026-10-18 · rq4-adopt · the overnight jobs can come back as Discovery runs.
+  - What was built: `POST /api/discovery/chain/adopt` registers the waiting run P2's import needs, and
+    `rq4_overnight.py adopt` registers and imports every job, then runs the three `backend: "auto"` copies (option 1
+    above).
+  - Read-only pre-check against the real database: all 43 specs plan here (`local_plan`), and every channel file
+    still has its exported sha1.
+  - Templates: 30 are rows whose chain is the job's. The 12 CNN templates become rows at the next bridge start on
+    current code (`seed_canonical`). `mp_threshold__backend_auto` is created by `create_rq4_variants.py`.
+  - Not yet: no `return/` folder is back from the cluster, so nothing has been imported.

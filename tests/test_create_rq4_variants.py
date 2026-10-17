@@ -126,7 +126,9 @@ def test_apply_creates_them_marked_differing_only_in_the_backend_and_remove_undo
         for s in want:
             if s["algorithm"] == "matrix_profile":
                 s.setdefault("params", {})["backend"] = "auto"
-        assert t["steps"] == want, f"{name} differs from {base} in more than the backend"
+        # a saved template stores every step's side inputs, `{}` when it has none (the builtin rows omit the key)
+        stored = [dict(s, side_inputs=s.get("side_inputs") or {}) for s in want]
+        assert t["steps"] == stored, f"{name} differs from {base} in more than the backend"
         assert have[base]["steps"][1]["params"]["backend"] == "stump"
     # idempotent: a second run creates nothing more
     n = len(_templates(client))

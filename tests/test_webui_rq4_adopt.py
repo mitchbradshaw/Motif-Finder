@@ -439,7 +439,7 @@ def test_the_adopt_command_applies_imports_the_complete_jobs_and_runs_the_mp_var
     assert runs[by_hash[MP_AUTO]["run_key"]]["status"] == "done"
     assert runs[by_hash["signal_threshold"]["run_key"]]["status"] == "on cluster", "registered, waiting"
     for name in MP_AUTO_VARIANTS:
-        mine = [r for r in runs.values() if r["template"] == name]
+        mine = [r for r in runs.values() if r.get("template") == name]
         assert len(mine) == 1 and mine[0]["status"] == "done", (name, mine)
     n_rows = _q(client, "SELECT COUNT(*) AS n FROM discovery_runs")[0]["n"]
     rq4.main(["adopt", "--url", "http://bridge", "--out", str(folder), "--apply"])

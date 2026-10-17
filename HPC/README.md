@@ -123,6 +123,31 @@ Waiting on the cluster. It starts from one `discovery_runs` row per spec, and re
   their signatures and return keys (`restore_cache` gained an optional `should_cancel`). The import function runs the
   whole sequence and writes the run, so an adoption step needs only the row, then the import.
 
+### Adopting the overnight packs (2026-10-18)
+
+`POST /api/discovery/chain/adopt` `{path, dryRun}` writes that row for one spec: a template run in the newest
+Discovery session on the spec's recording, labelled with the spec's label and template, *on cluster*, its
+`params.hpc` written by the same helper as *Create SLURM script* (`discovery._chain_hpc`), its null the spec's own.
+It refuses a template that is not a row, or whose chain is not the job's, by name. Adopting twice is one row. A dry
+run (the default) writes nothing and answers with every task's state, `verify_results`' refusal in its own words, the
+bytes the restore copies and the disk free under `STEP_CACHE_ROOT`.
+
+`python scripts/rq4_overnight.py adopt --url <bridge>` does the round for the whole manifest over HTTP:
+
+1. a dry run per job, printing tasks back, missing or refused tasks by name, and the disk needed and free;
+2. with `--apply` (refused on a project bridge without `--allow-project`), it registers every job and imports the
+   complete ones through Jobs' import (`POST /api/hpc/chain/import`), one at a time, waiting for each sweep;
+3. it then runs the `backend: "auto"` matrix-profile copies over the imported profiles (`POST
+   /api/discovery/chain/local`, below).
+
+A job with a task not complete stays registered and waiting: Jobs › Waiting on the cluster names the task. Once the
+task is re-run and back, run `adopt --apply` again. It is idempotent: imported jobs and runs already made are
+skipped.
+
+`POST /api/discovery/chain/local` `{template, like, dryRun}` runs a template here over a chain job's own channels,
+span and null, planned by `chain_job.local_plan`. It runs only when nothing over a cap is left to compute, so a
+`stump` template that would compute its whole-signal profile here is refused, naming the step.
+
 ### What the import expects
 
 - **All or nothing, per job.** `verify_results` refuses the whole job, and records nothing, while any task is not

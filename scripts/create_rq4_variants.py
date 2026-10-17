@@ -60,6 +60,15 @@ SWEEP = [
     ("deconvolved_troughs", "recovery_half_s", ("deconvolve",), [60, 120, 240], None),
     ("OASIS_Deconvolution", "threshold", ("impulse_events",), [3, 3.848, 5], None),
     ("BEADs_invert_detect_v1", "delta_mv", ("spike_v1",), [5, 15, 25], None),
+    # The matrix profile's backend (2026-10-18, RQ4b's decision, option 1). The overnight sweep computed the profile
+    # once, as mp_threshold with backend "auto", on CH1_A1 and CH2_A1; the backend is in the step cache's key, so a
+    # "stump" template cannot read it. These copies share its detrend -> profile prefix and read it from the cache.
+    # mp_threshold__backend_auto is the overnight job's own template; the threshold copies are of the variants
+    # above, created earlier in the same run when they are not yet rows.
+    ("mp_threshold", "backend", ("matrix_profile",), ["auto"], None),
+    ("mp_threshold__threshold_6", "backend", ("matrix_profile",), ["auto"], None),
+    ("mp_threshold__threshold_10", "backend", ("matrix_profile",), ["auto"], None),
+    ("mp_motifs", "backend", ("matrix_profile",), ["auto"], None),
 ]
 
 
@@ -82,8 +91,14 @@ def call(base_url, method, path, body=None):
 
 
 def fmt(value):
-    """A value as a name fragment: 0.58 -> 0p58, -0.002 -> m0p002, 12.0 -> 12."""
-    return ("%g" % value).replace("-", "m").replace(".", "p")
+    """A value as a name fragment: 0.58 -> 0p58, -0.002 -> m0p002, 12.0 -> 12, "auto" -> auto."""
+    text = value if isinstance(value, str) else "%g" % value
+    return text.replace("-", "m").replace(".", "p")
+
+
+def shown(value):
+    """A value as the table prints it."""
+    return value if isinstance(value, str) else "%g" % value
 
 
 def variant_name(base, label, value):
@@ -109,11 +124,18 @@ def by_name(templates):
 
 
 def plan(url, templates):
-    """Every variant the sweep asks for, each checked by its blocks; nothing written."""
+    """Every variant the sweep asks for, each checked by its blocks; nothing written.
+
+    A base may be a variant planned earlier in the same plan (the backend copy of mp_threshold__threshold_6):
+    its row stands in for the base, ``id`` None until it is created."""
     have, dupes = by_name(templates)
     rows, problems = [], []
     for base_name, param, algorithms, values, label in SWEEP:
         base = have.get(base_name)
+        if base is None:
+            earlier = next((r for r in rows if r["name"] == base_name and not r["is_base"]), None)
+            if earlier is not None:
+                base = {"id": None, "name": base_name, "steps": earlier["steps"], "kind": earlier["base"].get("kind")}
         if base is None:
             problems.append(f"base template {base_name!r} is not in this database")
             continue
@@ -150,8 +172,11 @@ UNIT_NOTE = {"threshold_V": " (in volts: for recordings stored in V, e.g. M2, M2
              "threshold_mV": " (in millivolts: for recordings stored in mV, e.g. L_LM, Schizophyllum, Dwij)"}
 
 
-def describe(row):
-    return (f"{MARK} RQ4 sweep variant of {row['base']['name']} (template {row['base']['id']}): "
+def describe(row, created=None):
+    """The variant's description; ``created`` names the ids of variants written earlier in this run (a base
+    that was not yet a row when the plan was made)."""
+    base_id = row["base"]["id"] if row["base"]["id"] is not None else (created or {}).get(row["base"]["name"])
+    return (f"{MARK} RQ4 sweep variant of {row['base']['name']} (template {base_id}): "
             f"{row['param']} = {row['value']} on {' and '.join(row['targets'])}{UNIT_NOTE.get(row['label'], '')}; "
             f"the base has {row['base_value']}. Written by scripts/create_rq4_variants.py.")
 
@@ -203,23 +228,24 @@ def main(argv=None):
             status = f"skip: already present (id {r['existing']['id']})"
         else:
             status = "create" if args.apply else "would create"
-        print(f"{r['name']:52s} {r['value']:>9g}  {str(r['base_value']):>9s}  {status}")
+        print(f"{r['name']:52s} {shown(r['value']):>9s}  {str(r['base_value']):>9s}  {status}")
     print(f"\n{len(todo)} to create, {sum(r['is_base'] for r in rows)} are the base, "
           f"{sum(bool(r['existing']) for r in rows)} already present, {len(problems)} note(s)")
     if not args.apply:
         print("dry run: nothing written. Add --apply to write.")
         return 1 if any(not p.startswith("note:") for p in problems) else 0
 
-    made = 0
+    made, created = 0, {}
     for r in todo:
         try:
             out = call(args.url, "POST", "/api/templates",
                        {"name": r["name"], "steps": r["steps"], "kind": r["base"].get("kind"),
-                        "description": describe(r)})
+                        "description": describe(r, created)})
         except BridgeError as e:
             print(f"  ! {r['name']}: {e}")
             continue
         made += 1
+        created[r["name"]] = out["id"]
         print(f"  created  {out['id']:5d}  {r['name']}")
     print(f"{made} of {len(todo)} created")
     return 0 if made == len(todo) else 1

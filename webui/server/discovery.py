@@ -3217,6 +3217,27 @@ class SlurmBody(PlanBody):
     dryRun: bool = False
 
 
+def _chunked(spec):
+    """The profile steps a chain job computes in blocks, in words (the modal and Jobs print them)."""
+    return sorted({f"step {c_['step'] + 1:02d} in blocks of {c_['blockSamples']:,}"
+                   for t in spec["targets"] for c_ in t["chunks"]})
+
+
+def _chain_hpc(spec, made, h, *, estimate_s, created_at):
+    """A run row's ``params.hpc`` for a chain job: what the import (`import_chain_result_for`) and Jobs read.
+    One writer for *Create SLURM script* and for adopting a job written outside the bridge, so the two records
+    cannot drift apart. ``made`` is `chain_job.write_job`'s answer for the job's files."""
+    null = spec["null"]
+    return {"kind": "chain", "specPath": made["spec_path"], "scriptPath": made["script_path"],
+            "resultDir": made["result_dir"], "resultPath": made["result_repo_path"],
+            "returnPath": made["return_repo_path"], "specHash": h, "sbatch": made["sbatch_command"],
+            "createdAt": created_at, "tasks": spec["tasks"], "draws": null["draws"],
+            "paired": null["paired"], "estimateS": estimate_s,
+            "dependencies": made["dependencies"], "copyOut": made["copy_out"],
+            "wallMinutes": made["wall_minutes"], "wallVerified": made["wall_verified"],
+            "partition": made["profile"]["partition"], "chunked": _chunked(spec)}
+
+
 @router.post("/api/discovery/slurm")
 def post_slurm(request: Request, body: SlurmBody):
     """§7.5: above the ceiling the primary action is *Create SLURM script* —
@@ -3265,8 +3286,7 @@ def post_slurm(request: Request, body: SlurmBody):
         base = f"{_slug(label)}_{plan['n_channels']}ch_{int(span[0])}-{int(span[1])}_{h[:6]}"
         made = chain_job.write_job(spec, out_dir=_hpc_out_dir(request), base_name=base, dry_run=body.dryRun)
         null = spec["null"]
-        chunked = sorted({f"step {c_['step'] + 1:02d} in blocks of {c_['blockSamples']:,}"
-                          for t in spec["targets"] for c_ in t["chunks"]})
+        chunked = _chunked(spec)
         steps_on = (f"copy {made['spec_repo_path']}, {made['script_repo_path']} and the {spec['tasks']} channel "
                     f"array(s) listed to the same paths under the cluster's repo; `{made['sbatch_command']}`; when "
                     f"every task reads complete, bring {made['return_repo_path']} back to the same place here and "
@@ -3298,14 +3318,7 @@ def post_slurm(request: Request, body: SlurmBody):
         params.pop("error", None)
         params["route"] = "cluster"
         params["null"] = dict(plan["null"])
-        params["hpc"] = {"kind": "chain", "specPath": made["spec_path"], "scriptPath": made["script_path"],
-                         "resultDir": made["result_dir"], "resultPath": made["result_repo_path"],
-                         "returnPath": made["return_repo_path"], "specHash": h, "sbatch": made["sbatch_command"],
-                         "createdAt": _now(), "tasks": spec["tasks"], "draws": null["draws"],
-                         "paired": null["paired"], "estimateS": plan["estimate_s"],
-                         "dependencies": made["dependencies"], "copyOut": made["copy_out"],
-                         "wallMinutes": made["wall_minutes"], "wallVerified": made["wall_verified"],
-                         "partition": made["profile"]["partition"], "chunked": chunked}
+        params["hpc"] = _chain_hpc(spec, made, h, estimate_s=plan["estimate_s"], created_at=_now())
         c.execute("UPDATE discovery_runs SET params_json = ?, status = 'on cluster', job_id = NULL, updated_at = ? "
                   "WHERE id = ?", (json.dumps(params), _now(), int(row["id"])))
         c.commit()
@@ -4407,6 +4420,22 @@ def _repo_abs(path):
     return os.path.abspath(p if os.path.isabs(p) else os.path.join(REPO_ROOT, p))
 
 
+def _read_spec(spec_path):
+    """A chain job's spec file, read; a 404 or 422 in words when it is not one."""
+    from Working.discovery import chain_job
+
+    if not os.path.isfile(spec_path):
+        raise HTTPException(404, {"message": f"no chain job spec at {spec_path}"})
+    try:
+        with open(spec_path, encoding="utf-8") as f:
+            spec = json.load(f)
+    except (OSError, ValueError) as e:
+        raise HTTPException(422, {"message": f"{spec_path} is not a chain job spec: {type(e).__name__}: {e}"})
+    if not isinstance(spec, dict) or spec.get("kind") != chain_job.KIND:
+        raise HTTPException(422, {"message": f"{spec_path} is not a chain job spec"})
+    return spec
+
+
 @router.post("/api/discovery/chain/import")
 def import_chain_result(request: Request, body: ChainImportBody):
     """A template run's chain job, brought back (round A_2, P2): the tasks'
@@ -4441,15 +4470,7 @@ def import_chain_result_for(request: Request, *, run_key=None, spec_path=None):
             spec_path, row, hpc = _repo_abs(spec_path), None, None
         else:
             raise HTTPException(422, {"message": "name the run (runKey) or the job's spec file (path)"})
-        if not os.path.isfile(spec_path):
-            raise HTTPException(404, {"message": f"no chain job spec at {spec_path}"})
-        try:
-            with open(spec_path, encoding="utf-8") as f:
-                spec = json.load(f)
-        except (OSError, ValueError) as e:
-            raise HTTPException(422, {"message": f"{spec_path} is not a chain job spec: {type(e).__name__}: {e}"})
-        if not isinstance(spec, dict) or spec.get("kind") != chain_job.KIND:
-            raise HTTPException(422, {"message": f"{spec_path} is not a chain job spec"})
+        spec = _read_spec(spec_path)
         h = chain_job.spec_hash(spec)
         if row is None:
             row = c.execute("SELECT * FROM discovery_runs WHERE json_extract(params_json, '$.hpc.specHash') = ? "
@@ -4557,5 +4578,250 @@ def import_chain_result_for(request: Request, *, run_key=None, spec_path=None):
                 "note": (f"every task checked; {checked['entries']} cache entr{'y' if checked['entries'] == 1 else 'ies'} "
                          f"({mb:.0f} MB) are restored from the cluster, then the run's channels are written here — "
                          f"the heavy steps read from the cache, the cheap ones recomputed")}
+    finally:
+        c.close()
+
+
+# ── 2026-10-18: a chain job written outside the bridge comes back ───────────
+# The RQ4 overnight sweep's jobs were written by `scripts/rq4_overnight.py`, not by *Create SLURM script*, so no run
+# row waits for them and the import above has nothing to finish. Adopting a job writes that row (HPC/README.md, "The
+# adoption contract"); importing it is then the import above, unchanged.
+
+class ChainAdoptBody(BaseModel):
+    #: the job's spec file (…chain.json), absolute or repo-relative
+    path: str
+    #: what would be registered and imported, and nothing written
+    dryRun: bool = True
+
+
+class ChainLocalBody(BaseModel):
+    #: the template to run here
+    template: str
+    #: the chain job (…chain.json) whose channels, span and null the run takes
+    like: str
+    #: the plan, and nothing written or started
+    dryRun: bool = True
+
+
+def _spec_at(conn, path):
+    """``(absolute path, spec, spec hash)`` for a chain job named by its spec file. The held-out recording is
+    refused only while Settings › Datasets' lock is on, as the import refuses it."""
+    from Working.discovery import chain_job
+
+    p = _repo_abs(path)
+    if HELD_OUT_FILE in p and corpus.held_out_locked(conn):
+        raise HTTPException(423, {"message": corpus.held_out_refusal("the web UI refuses it")})
+    spec = _read_spec(p)
+    return p, spec, chain_job.spec_hash(spec)
+
+
+def _session_for(conn, source_file):
+    """The newest Discovery session on ``source_file``: where a job's run row goes (Discovery's own session when
+    it is open on that recording, as it is for the RQ4 sweep)."""
+    row = conn.execute("SELECT * FROM discovery_sessions WHERE source_file = ? ORDER BY id DESC LIMIT 1",
+                       (source_file,)).fetchone()
+    if row is None:
+        raise HTTPException(404, {"message": f"no Discovery session is on {source_file}: open that recording in "
+                                             f"Discovery › Scope first, then adopt the job"})
+    return row
+
+
+def _template_named(conn, name):
+    """The template row Discovery applies under ``name`` (the first, as `_steps_for` finds it), or None."""
+    from . import templates as T
+    return next((t for t in T.list_all(conn) if t["name"] == name), None)
+
+
+def _template_of(conn, spec):
+    """The template a job's run row names: it must be a row, and its chain must be the one the job ran — the row
+    would otherwise claim a chain that did not run (a Map row is keyed by the executed steps)."""
+    from Working.recipes import make_recipe
+
+    name = spec.get("template")
+    row = _template_named(conn, name)
+    if row is None:
+        raise HTTPException(422, {"message": f"the job's template {name!r} is not a template in this database: "
+                                             f"create it first (scripts/create_rq4_variants.py writes the RQ4 sweep's "
+                                             f"variant templates; the canonical ones, the CNN templates among them, "
+                                             f"are seeded when the bridge starts)", "template": name})
+    ids = [int(t["recordingId"]) for t in spec["targets"]]
+    mine = make_recipe(ids[0], row["steps"], span=spec["span"], fan_out={"kind": "channels", "targets": ids})["steps"]
+    if mine != spec["steps"]:
+        where = next((f"step {i + 1:02d} differs" for i, (a, b) in enumerate(zip(mine, spec["steps"])) if a != b),
+                     f"{len(mine)} steps here, {len(spec['steps'])} in the job")
+        raise HTTPException(422, {"message": f"template {name!r}'s chain is not the one this job ran ({where}): its "
+                                             f"run row would claim a chain that did not run", "template": name})
+    return row
+
+
+def _free_bytes(path):
+    import shutil
+
+    p = os.path.abspath(path)
+    while not os.path.isdir(p) and os.path.dirname(p) != p:
+        p = os.path.dirname(p)
+    return int(shutil.disk_usage(p).free)
+
+
+def _mtime_iso(path):
+    return _dt.datetime.fromtimestamp(os.path.getmtime(path), _dt.timezone.utc).isoformat(timespec="seconds")
+
+
+def _template_params(template, steps, null, estimate_s, route):
+    """A template run row's params as `apply_templates` and `post_slurm` write them: stage count, version, null,
+    detail, glyph, route and estimate."""
+    return {"stage_count": len(steps), "version": template.get("version"), "null": dict(null),
+            "detail": f"v{template.get('version') or 1} · {len(steps)} stages",
+            "glyph": D.glyph_for(f"{steps[-1]['stage']}.{steps[-1]['algorithm']}"),
+            "route": route, "estimate_s": estimate_s}
+
+
+@router.post("/api/discovery/chain/adopt")
+def adopt_chain_job(request: Request, body: ChainAdoptBody):
+    """Register the Discovery run a chain job written outside the bridge comes back to (2026-10-18).
+
+    One template run per spec, in the newest Discovery session on the spec's recording, labelled with the spec's
+    label and template, *on cluster*, its ``params.hpc`` exactly as *Create SLURM script* writes it
+    (`_chain_hpc`). The null is the spec's own (`chain_job.local_plan`), never Settings'. The template must be a
+    row whose chain is the job's. A job already registered (a row with the spec's hash) is not registered again.
+
+    The import is then P2's, unchanged: Jobs › Waiting on the cluster, or ``POST /api/hpc/chain/import`` with the
+    spec's path. The answer says whether it would go through: every task's state, a refusal in
+    `verify_results`' own words, the bytes the restore copies and the disk free where it copies them. ``dryRun``
+    (the default) writes nothing."""
+    import Working.config as cfg
+    from Working.discovery import chain_job
+
+    c = _conn(request)
+    try:
+        p, spec, h = _spec_at(c, body.path)
+        template = _template_of(c, spec)
+        s = _session_for(c, spec["sourceFile"])
+        out_dir = p[:-len(chain_job.SPEC_SUFFIX)] + chain_job.OUT_SUFFIX
+        try:
+            plan = chain_job.local_plan(c, spec, ceiling_s=fanout.ceiling_s(c))
+        except chain_job.ImportRefused as e:
+            raise HTTPException(422, {"message": str(e)})
+        st = chain_job.collect(spec, out_dir)
+        try:
+            checked, refusal = chain_job.verify_results(c, spec, out_dir), None
+        except chain_job.ImportRefused as e:
+            checked, refusal = None, str(e)
+        row = c.execute("SELECT * FROM discovery_runs WHERE json_extract(params_json, '$.hpc.specHash') = ? "
+                        "ORDER BY id DESC LIMIT 1", (h,)).fetchone()
+        if row is None:
+            made = chain_job.write_job(spec, out_dir=os.path.dirname(p),
+                                       base_name=os.path.basename(p)[:-len(chain_job.SPEC_SUFFIX)], dry_run=True)
+            hpc = _chain_hpc(spec, made, h, estimate_s=plan["estimate_s"], created_at=_mtime_iso(p))
+            if not body.dryRun:
+                params = _template_params(template, spec["steps"], plan["null"], plan["estimate_s"], "cluster")
+                params["hpc"] = hpc
+                params["adopted"] = {"at": _now(), "why": "a chain job written outside the bridge "
+                                                          "(scripts/rq4_overnight.py), adopted to be imported"}
+                row = _insert_run(c, s["id"], run_key=_next_key(c, s["id"], _slug(spec["label"])), kind="template",
+                                  label=spec["label"], template_name=template["name"], template_id=template["id"],
+                                  params=params)
+                c.execute("UPDATE discovery_runs SET status = 'on cluster', updated_at = ? WHERE id = ?",
+                          (_now(), int(row["id"])))
+                c.commit()
+                row = c.execute("SELECT * FROM discovery_runs WHERE id = ?", (int(row["id"]),)).fetchone()
+        if row is not None:
+            hpc = json.loads(row["params_json"] or "{}").get("hpc") or {}
+        return _clean({
+            "dryRun": bool(body.dryRun), "specPath": p, "specHash": h, "label": spec["label"],
+            "template": template["name"], "templateId": template["id"],
+            "session": {"id": int(s["id"]), "name": s["name"], "recording": _stem(s["source_file"])},
+            "registered": row is not None,
+            "runKey": row["run_key"] if row is not None else _next_key(c, s["id"], _slug(spec["label"])),
+            "status": row["status"] if row is not None else None, "imported": bool(hpc.get("importedAt")),
+            "tasks": {"total": st["total"], "complete": st["done"],
+                      "notComplete": [{"index": t["index"], "channelName": t["channelName"], "state": t["state"],
+                                       "reason": t["reason"]} for t in st["tasks"] if t["state"] != "complete"]},
+            "importable": checked is not None, "refusal": refusal,
+            "entries": checked["entries"] if checked else None,
+            "bytesToCopy": checked["bytesToCopy"] if checked else None,
+            "disk": {"root": cfg.STEP_CACHE_ROOT, "freeBytes": _free_bytes(cfg.STEP_CACHE_ROOT)},
+            "hpc": hpc,
+        })
+    finally:
+        c.close()
+
+
+@router.post("/api/discovery/chain/local")
+def run_like_chain_job(request: Request, body: ChainLocalBody):
+    """A template run HERE over a chain job's own channels, span and null — only when nothing over a cap is left
+    to compute (2026-10-18; RQ4b's decision, option 1).
+
+    The overnight sweep brought back the matrix profiles of ``mp_threshold__backend_auto``. A template with the
+    same detrend → profile prefix (the ``backend: "auto"`` copies of the other matrix-profile templates) reads them
+    from the step cache, but only over the same recording, span and null: every one of those is in the key. So the
+    run is planned from the job: the template's chain as a spec over the job's targets (`chain_job.build_spec`,
+    nothing written) and P2's `local_plan`, the plan an import runs. Over a cap with nothing cached (a ``stump``
+    template's profile, keyed apart) it is refused, naming the step, rather than computed here for hours.
+    ``dryRun`` (the default) answers with the plan: per channel the steps the cache holds, and whether it runs
+    here. A template already run like this job (not failed or cancelled) is not run again."""
+    from Working.discovery import chain_job
+
+    c = _conn(request)
+    try:
+        p, like, h = _spec_at(c, body.like)
+        template = _template_named(c, body.template)
+        if template is None:
+            raise HTTPException(404, {"message": f"no template {body.template!r}"})
+        s = _session_for(c, like["sourceFile"])
+        null, ceiling = like["null"], fanout.ceiling_s(c)
+        plan = fanout.plan(c, steps=template["steps"], recording_ids=[int(t["recordingId"]) for t in like["targets"]],
+                           span=like["span"], ceiling_s=ceiling,
+                           null_draws=(int(null["draws"]) if null["paired"] else 0), surrogate=bool(null["paired"]),
+                           surrogate_params=null["params"])
+        if not plan["runnable"]:
+            raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"]})
+        try:
+            spec = chain_job.build_spec(c, plan, label=body.template, null=null, template=body.template)
+            lp = chain_job.local_plan(c, spec, ceiling_s=ceiling)
+        except (chain_job.ExportRefused, chain_job.ImportRefused) as e:
+            raise HTTPException(422, {"message": str(e)})
+        steps = lp["recipe"]["steps"]
+        runs_here = not lp["capped"] and lp["route"] != "cluster"
+        reason = None
+        if not runs_here:
+            left = "; ".join(f"{x['channel_name']} step {x['step'] + 1:02d} ({x['name']}, {x['where']})"
+                             for x in lp["capped"])
+            reason = (f"{body.template} would compute " + (left or f"about {(lp['estimate_s'] or 0) / 60:.0f} min")
+                      + " here, over this machine's limit: the step cache holds no result for it under this "
+                        "template's keys (the backend is in the key)")
+        existing = None
+        for r in _discovery_runs(c, s["id"]):
+            rp = json.loads(r["params_json"] or "{}")
+            if r["template_name"] == body.template and (rp.get("like") or {}).get("specHash") == h \
+                    and r["status"] not in ("failed", "cancelled"):
+                existing = r
+        out = {"dryRun": bool(body.dryRun), "template": body.template, "templateId": template["id"],
+               "like": {"specPath": p, "specHash": h, "label": like["label"]},
+               "session": {"id": int(s["id"]), "name": s["name"], "recording": _stem(s["source_file"])},
+               "route": lp["route"], "estimate_s": lp["estimate_s"], "ceiling_s": ceiling, "capped": lp["capped"],
+               "runsHere": runs_here, "reason": reason,
+               "targets": [{"channelName": t["channel_name"], "recordingId": t["recording_id"],
+                            "cached": [f"{steps[i]['stage']}.{steps[i]['algorithm']}" for i in cost["cached"]],
+                            "drawsCached": cost["draws_cached"], "draws": lp["null"]["draws"]}
+                           for t, cost in zip(lp["targets"], lp["costs"])],
+               "runKey": existing["run_key"] if existing is not None else _next_key(c, s["id"], _slug(body.template)),
+               "status": existing["status"] if existing is not None else None, "jobId": None}
+        if body.dryRun or existing is not None:
+            return _clean(out)
+        if not runs_here:
+            raise HTTPException(422, {"message": reason, "capped": lp["capped"]})
+        key = out["runKey"]
+        params = _template_params(template, steps, dict(lp["null"], source="like"), lp["estimate_s"], lp["route"])
+        params["like"] = dict(out["like"])
+        _insert_run(c, s["id"], run_key=key, kind="template", label=body.template, template_name=body.template,
+                    template_id=template["id"], params=params)
+        job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=lp, label=body.template,
+                           surrogate=lp["null"]["paired"], surrogate_params=lp["null"]["params"])
+        c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? "
+                  "WHERE session_id = ? AND run_key = ?", (job.id, _now(), int(s["id"]), key))
+        c.commit()
+        out.update(status="running", jobId=job.id)
+        return _clean(out)
     finally:
         c.close()
