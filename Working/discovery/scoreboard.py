@@ -506,22 +506,44 @@ def inputs_fingerprint(conn, run_ids):
             parts.append(_rows(conn, "SELECT (SELECT MIN(id) FROM detections WHERE run_id = ?), "
                                      "(SELECT MAX(id) FROM detections WHERE run_id = ?)", (rid, rid)))
     for rec_id in sorted(recordings):
-        parts += [
-            _rows(conn, "SELECT * FROM recordings WHERE id = ?", (rec_id,)),
-            _rows(conn, "SELECT COUNT(*) FROM recordings WHERE source_file = "
-                        "(SELECT source_file FROM recordings WHERE id = ?)", (rec_id,)),
-            _rows(conn, "SELECT id, start_idx, end_idx, verdict, source, created_at, deleted_at "
-                        "FROM annotations WHERE recording_id = ? ORDER BY id", (rec_id,)),
-            _rows(conn, "SELECT id, start_idx, end_idx FROM reviewed_spans WHERE recording_id = ? ORDER BY id",
-                  (rec_id,)),
-            # this run's adjudications and every earlier run's on the channel (`_prior_adjudicated`);
-            # CROSS JOIN keeps SQLite starting from the few adjudications rather than walking every
-            # detection on the channel to find them
-            _rows(conn, "SELECT a.id, a.detection_id, a.verdict, a.created_at, d.run_id, d.start_idx, d.end_idx, "
-                        "r.span_start, r.surrogate_of_run_id FROM adjudications a "
-                        "CROSS JOIN detections d ON d.id = a.detection_id CROSS JOIN runs r ON r.id = d.run_id "
-                        "WHERE r.recording_id = ? ORDER BY a.id", (rec_id,)),
-        ]
+        parts += _channel_rows(conn, rec_id)
+    return hash(tuple(parts))
+
+
+def _channel_rows(conn, rec_id):
+    """The human side of one channel, whole, plus its recording row."""
+    return [
+        _rows(conn, "SELECT * FROM recordings WHERE id = ?", (rec_id,)),
+        _rows(conn, "SELECT COUNT(*) FROM recordings WHERE source_file = "
+                    "(SELECT source_file FROM recordings WHERE id = ?)", (rec_id,)),
+        _rows(conn, "SELECT id, start_idx, end_idx, verdict, source, created_at, deleted_at "
+                    "FROM annotations WHERE recording_id = ? ORDER BY id", (rec_id,)),
+        _rows(conn, "SELECT id, start_idx, end_idx FROM reviewed_spans WHERE recording_id = ? ORDER BY id",
+              (rec_id,)),
+        # this run's adjudications and every earlier run's on the channel (`_prior_adjudicated`);
+        # CROSS JOIN keeps SQLite starting from the few adjudications rather than walking every
+        # detection on the channel to find them
+        _rows(conn, "SELECT a.id, a.detection_id, a.verdict, a.created_at, d.run_id, d.start_idx, d.end_idx, "
+                    "r.span_start, r.surrogate_of_run_id FROM adjudications a "
+                    "CROSS JOIN detections d ON d.id = a.detection_id CROSS JOIN runs r ON r.id = d.run_id "
+                    "WHERE r.recording_id = ? ORDER BY a.id", (rec_id,)),
+    ]
+
+
+def channels_fingerprint(conn, recording_ids):
+    """Every row a read over **whole channels** takes in — the corpus map's
+    divergence pools every run on each channel — or a digest of it: the
+    channel's human rows as `inputs_fingerprint` reads them, every run on it,
+    and each run's detection id range (append-only, see there). Same rule:
+    a read added to such a reader and not here is served stale."""
+    parts = [_rows(conn, "SELECT page, key, value_json FROM settings ORDER BY page, key")]
+    for rec_id in sorted({int(r) for r in recording_ids}):
+        parts += _channel_rows(conn, rec_id)
+        # each run with its recipe's hash (a method filter reads the recipe) and its detection id range
+        parts.append(_rows(conn, "SELECT r.*, (SELECT c.config_hash FROM configs c WHERE c.id = r.config_id), "
+                                 "(SELECT MIN(d.id) FROM detections d WHERE d.run_id = r.id), "
+                                 "(SELECT MAX(d.id) FROM detections d WHERE d.run_id = r.id) "
+                                 "FROM runs r WHERE r.recording_id = ? ORDER BY r.id", (rec_id,)))
     return hash(tuple(parts))
 
 

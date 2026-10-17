@@ -356,3 +356,67 @@ def test_a_registered_block_is_looked_up_without_walking_the_package_again(monke
     with pytest.raises(KeyError):
         registry.get_or_discover("detection.no_such_block")
     assert walks["n"] == 2
+
+
+# ── the corpus map: the same rule over whole channels ──────────────────────
+#
+# `GET /api/corpus/<rec>/coverage` pools every run on every channel through the
+# divergence; on M2_aug (16 channels, 472 runs on one of them) it took ~10 s on
+# every Corpus open and every home-page load, and was the request that kept
+# the home page from reaching network-idle in the smoke walk.
+
+def _corpus():
+    from webui.server import corpus
+    corpus._COVERAGE_CACHE.clear()
+    return corpus
+
+
+def _without_timing(cov):
+    return {k: v for k, v in cov.items() if k != "compute_ms"}
+
+
+def test_an_unchanged_corpus_map_is_not_recomputed(scored, monkeypatch):
+    corpus = _corpus()
+    conn = scored["conn"]
+    first = corpus.coverage(conn, "cache.mat", bins=10)
+    calls = {"n": 0}
+    real = corpus._coverage
+
+    def counted(*a, **kw):
+        calls["n"] += 1
+        return real(*a, **kw)
+
+    monkeypatch.setattr(corpus, "_coverage", counted)
+    again = corpus.coverage(conn, "cache.mat", bins=10)
+    assert calls["n"] == 0
+    assert _without_timing(again) == _without_timing(first)
+    # a different question is a different entry
+    corpus.coverage(conn, "cache.mat", bins=10, verdicts=("interesting",))
+    corpus.coverage(conn, "cache.mat", bins=10, run_ids=[scored["runs"][0]])
+    assert calls["n"] == 2
+
+
+def _second_channel_verdict(s):
+    other = s["conn"].execute("SELECT recording_id FROM runs WHERE id = ?", (s["runs"][1],)).fetchone()[0]
+    s["conn"].execute("UPDATE annotations SET verdict = 'not_interesting' WHERE recording_id = ? AND start_idx = 4000",
+                      (other,))
+
+
+def _new_run_on_the_channel(s):
+    run = run_db.insert_run(s["conn"], s["config"], s["rec"], 0, 20_000, status="completed", started_at=_AFTER)
+    run_db.insert_detection(s["conn"], run, 12_100, 12_300, score=0.5)
+
+
+@pytest.mark.parametrize("change", [
+    _verdict_in_place, _soft_delete, _new_annotation, _adjudicated, _rule_changed,
+    _detection_added, _second_channel_verdict, _new_run_on_the_channel,
+], ids=lambda f: f.__name__.strip("_"))
+def test_any_change_on_the_channels_redraws_the_corpus_map(scored, change):
+    corpus = _corpus()
+    conn = scored["conn"]
+    before = _without_timing(corpus.coverage(conn, "cache.mat", bins=10))
+    change(scored)
+    conn.commit()
+    fresh = _without_timing(corpus._coverage(conn, "cache.mat", bins=10))
+    assert fresh != before, "the change did not move the map, so this case proves nothing"
+    assert _without_timing(corpus.coverage(conn, "cache.mat", bins=10)) == fresh

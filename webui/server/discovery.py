@@ -635,12 +635,14 @@ def _last_score(conn, template_name):
 
 
 def warm_last_scores(db_path):
-    """Score every detection template's last run once, so the picker's first
-    open after a start answers from `SB.score_runs_cached` instead of
-    rescoring (~6 s on the real database under load; 0.1 s warm). Started in
-    the background by `run_server.py`, never by `create_app`, so a test's app
-    never has a thread reading its database behind it. A failure is logged
-    and costs only the warm start: the picker scores on demand as before."""
+    """The two reads a fresh bridge is first asked for, computed once into
+    their caches: the home page's corpus map (`corpus.warm_coverage`, the
+    M2_aug map first, ~10 s cold under load) and every detection template's
+    last score, so the picker's first open answers from
+    `SB.score_runs_cached` instead of rescoring (~6 s cold; 0.1 s warm).
+    Started in the background by `run_server.py`, never by `create_app`, so a
+    test's app never has a thread reading its database behind it. A failure
+    is logged and costs only the warm start: both read on demand as before."""
     from Working.database.schema import init_db
     from . import templates as T
     log = logging.getLogger("webui.discovery")
@@ -648,6 +650,9 @@ def warm_last_scores(db_path):
         init_db(db_path).close()
         c = corpus.connect(db_path)
         try:
+            t0 = time.perf_counter()
+            files = corpus.warm_coverage(c, first="M2_aug_concat_fs1.mat")
+            log.info("corpus maps warmed (%d files, %.1f s)", len(files), time.perf_counter() - t0)
             for row in T.list_all(c):
                 if row.get("kind") in (None, "detection"):
                     _last_score(c, row["name"])

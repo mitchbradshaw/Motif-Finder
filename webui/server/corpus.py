@@ -27,6 +27,7 @@ from .runtime import HELD_OUT_FILE
 # Discovery's scope, fan-out and scoreboard call a channel what Explore calls
 # it. A second copy here drifted from it within an hour of being written.
 from Working.discovery import divergence as DIV
+from Working.discovery import scoreboard as SB
 from Working.discovery.channels import M2_STYLE_NAMES, channel_name as _core_channel_name
 
 # VERDICTS is imported from Working.database.schema above — the one vocabulary,
@@ -225,6 +226,11 @@ def _runs_matching(conn, source_file: str, run_ids, method) -> list | None:
     return keep
 
 
+#: (source_file, bins, verdicts, run_ids, method) -> (channels fingerprint, payload)
+_COVERAGE_CACHE: dict = {}
+_COVERAGE_CACHE_MAX = 64
+
+
 def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = None,
              run_ids: list | None = None, method: str | None = None) -> dict:
     """channels × bins counts of annotation spans, detection spans, their SUM
@@ -248,7 +254,56 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
     both are present — the map colours by total activity and that is what the
     number is for. It was named and documented as an intersection until
     fixup-a item 16; the name is kept (it is the payload contract the client
-    reads) and every label that shows it now says what it is."""
+    reads) and every label that shows it now says what it is.
+
+    Answered from memory while nothing on the recording's channels has changed
+    (`scoreboard.channels_fingerprint`): the divergence pools every run on every
+    channel, ~10 s for M2_aug's 16 channels under load, on every Corpus open and
+    every home-page load, which kept the page from ever reaching network-idle
+    (perf, 2026-10-18). `compute_ms` is this call's own time; `_coverage` is the
+    computation."""
+    import copy
+
+    t0 = time.perf_counter()
+    rec_ids = [int(x["id"]) for x in q.list_recordings(conn, source_file)]
+    if not rec_ids:
+        raise KeyError(source_file)
+    key = (source_file, int(bins), tuple(verdicts) if verdicts else None,
+           tuple(int(i) for i in run_ids) if run_ids is not None else None, method)
+    fp = SB.channels_fingerprint(conn, rec_ids)
+    hit = _COVERAGE_CACHE.get(key)
+    if hit is not None and hit[0] == fp:
+        out = copy.deepcopy(hit[1])
+    else:
+        out = _coverage(conn, source_file, bins=bins, verdicts=verdicts, run_ids=run_ids, method=method)
+        if len(_COVERAGE_CACHE) >= _COVERAGE_CACHE_MAX:
+            _COVERAGE_CACHE.pop(next(iter(_COVERAGE_CACHE)))
+        _COVERAGE_CACHE[key] = (fp, copy.deepcopy(out))
+    out["compute_ms"] = (time.perf_counter() - t0) * 1e3
+    return out
+
+
+#: what the Corpus page — the home page — asks first (`CorpusPage.tsx`'s default bins and verdicts)
+HOME_COVERAGE = {"bins": 57, "verdicts": ("seed", "interesting")}
+
+
+def warm_coverage(conn, first: str | None = None) -> list:
+    """Compute the home page's first coverage request for every recording file
+    (`first` before the rest), so a bridge's first page load answers from
+    memory. Returns the files warmed."""
+    files = [sf for sf in dict.fromkeys(row["source_file"] for row in q.list_recordings(conn))
+             if sf != HELD_OUT_FILE]
+    if first in files:
+        files.remove(first)
+        files.insert(0, first)
+    for sf in files:
+        coverage(conn, sf, **HOME_COVERAGE)
+    return files
+
+
+def _coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = None,
+              run_ids: list | None = None, method: str | None = None) -> dict:
+    """The corpus map, computed: see `coverage` for what each layer is."""
     t0 = time.perf_counter()
     recs = [dict(x) for x in q.list_recordings(conn, source_file)]
     if not recs:
