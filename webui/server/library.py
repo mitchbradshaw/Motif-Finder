@@ -3495,8 +3495,8 @@ def _matches_summary(conn, row, params, include_unjudged=False) -> dict:
     if row["kind"] != "seed":
         return dict(base, reason="only a seed search has matches to add to a Library entry")
     if not entry_id:
-        return dict(base, reason=("this run's seed is not a Library entry (an Explore selection or a family "
-                                  "medoid), so there is no E-xxxx to add its matches to"))
+        return dict(base, reason=("this run's seed is not a Library entry (an Explore selection, or a catalogue "
+                                  "span that is no entry's span), so there is no E-xxxx to add its matches to"))
     if conn.execute("SELECT 1 FROM motif_entry WHERE id = ?", (int(entry_id),)).fetchone() is None:
         return dict(base, reason=f"entry {entry_id} is no longer in the Library")
     if not run_ids:

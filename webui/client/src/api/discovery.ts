@@ -308,7 +308,9 @@ export const saveSeedDraft = (seedId: string, params: SeedParams) =>
 const POLL_MS = PEEK_POLL_MS
 /** A running job is watched as long as it runs (a 500 h search is hours). */
 const GIVE_UP_RUNNING_MS = PEEK_GIVE_UP_MS
-export interface SeedProgress { done: number; total: number; message: string; elapsedS: number | null; etaS: number | null; jobId: number | null }
+export interface SeedProgress { done: number; total: number; message: string; elapsedS: number | null; etaS: number | null; jobId: number | null
+  /** fix round (F5): the seed run drawing this preview first, when the job is that run's — stopped from the run */
+  drawnBy?: { runKey: string; label: string } | null }
 const sleep = (ms: number) => new Promise(r => window.setTimeout(r, ms))
 
 /** a2-p4: the page's read of the preview PEEKS and never starts it (`api/seedPeek.ts`): the result in hand, a
@@ -328,8 +330,12 @@ async function seedResults(q: DiscSeedQuery, onProgress?: (p: SeedProgress) => v
 export async function getSeedResults(seedId: string, channels: string[], bank?: { scales: number[]; overlap?: string } | null, exclusion?: number | null, section?: [number, number] | null, onProgress?: (p: SeedProgress) => void, alive?: () => boolean): Promise<Sourced<SeedResults>> {
   const peek = await seedResults(await seedQueryFor(seedId, channels, bank, exclusion, section), onProgress, alive)
   if (peek.status !== 'ready') {
+    // fix round (F1): a failed preview is loud — on the page, with its traceback, and here in the console — and the
+    // page still offers *Run preview* beside it
+    if (peek.status === 'failed') console.error(`the preview of ${seedId} failed (job ${peek.jobId}): ${peek.error.message}`)
     // nothing is kept for this query: the page says so and offers *Run preview*, with its estimate
-    return { source: 'live', data: { ...NO_PREVIEW, status: peek.status, note: peek.note, cancelledJob: peek.status === 'cancelled' ? peek.jobId : null } }
+    return { source: 'live', data: { ...NO_PREVIEW, status: peek.status, note: peek.note, cancelledJob: peek.status === 'cancelled' ? peek.jobId : null,
+      failedJob: peek.status === 'failed' ? peek.jobId : null, error: peek.status === 'failed' ? peek.error : null } }
   }
   const r = peek.result
   return {
@@ -515,7 +521,9 @@ export const fmtMin = (min: number) => {
 
 /** Where a peek left the page: a result, nothing kept for this query yet, or the newest preview cancelled (and
  *  nothing from it kept). The client's own `noResults` (no seed) carries no status. */
-export interface SeedResults { status?: 'ready' | 'not-run' | 'cancelled'; note?: string | null; cancelledJob?: number | null }
+export interface SeedResults { status?: 'ready' | 'not-run' | 'cancelled' | 'failed'; note?: string | null; cancelledJob?: number | null
+  /** fix round (F1): the newest preview of the query failed — the job, and its own message and traceback */
+  failedJob?: number | null; error?: { message: string; traceback: string | null } | null }
 const NO_PREVIEW: SeedResults = { candidates: [], nullDistances: [], recommendedCut: null, cutRule: null, nullDraws: 0, nullMethod: null, nullSupported: true, nullReason: null }
 
 /** The query the Seed page reads and *Run preview* starts: the section on screen (the one *Run seed search* sends —

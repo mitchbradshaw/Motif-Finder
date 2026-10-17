@@ -1538,7 +1538,11 @@ export const sendDetectionsToReview = (runKey: string, detectionIds: number[]) =
  * shape-distance single-motif grouping, `isDefault`); `source=family` lists every family of it by its medoid, each a
  * Library entry (`library:` id); `source=medoid` is the drop-motif store's sixteen catalogue spans, which are not
  * Library families. */
-export interface DiscSeedPending { cancelled?: boolean | null; cancelledJob?: number | null }
+export interface DiscSeedPending { cancelled?: boolean | null; cancelledJob?: number | null
+  /** fix round (F1): the newest job for the query failed — its own message and traceback, as a state of the query */
+  failed?: boolean | null; failedJob?: number | null; error?: { message?: string | null; traceback?: string | null } | null
+  /** fix round (F5): the running job is a seed run drawing this preview first; the POST joins it */
+  drawnBy?: { runKey: string; label: string } | null }
 /** a run asked for the preview's null before a preview was in draws that preview first, inside the run's job */
 export interface DiscSeedRunAck { drawsPreviewFirst?: boolean }
 export type DiscSeedPickerSource = 'library' | 'family' | 'explore' | 'medoid'

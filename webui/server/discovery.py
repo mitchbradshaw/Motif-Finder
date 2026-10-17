@@ -1209,6 +1209,13 @@ def _seed_info(conn, seed, *, title=None, family=None, family_line=None, familie
     kind = seed.get("source_kind")
     if title is None and entry_id:
         title = f"entry {entry_id}"
+    if family_line is None and seed["source"] == "medoid":
+        # fix round (F6): a catalogue span says whether it is a Library entry — "Library entry E-0001 · family F-01
+        # in g-05" — and only one that is not says so; it read "family F-01" beside "not a Library family"
+        where = f" in {_gid(grouping)}" if grouping is not None else ""
+        family_line = ((f"Library entry E-{entry_id:04d} · "
+                        + (f"family {family}{where}" if family else f"no family{where or ' yet'}"))
+                       if entry_id else "not a Library entry")
     if family_line is None and entry_id:
         # a2-p4: the family is one grouping's, so the line names which
         where = f" in {_gid(grouping)}" if grouping is not None else ""
@@ -1288,13 +1295,16 @@ def _library_page(conn, *, kind=None, family=None, recording=None, channel=None,
         where.append(f"recording_id IN ({','.join('?' * len(rids))})")
         args += rids
     if family:
-        # a2-p4: the family is one grouping's — `grouping`, else the picker's default (newest shape-distance)
-        families = _families_by_entry(conn, grouping)
-        ids = [e for e, f in families.items() if f == family]
-        if not ids:
+        # a2-p4: the family is one grouping's — `grouping`, else the picker's default (newest shape-distance).
+        # Fix round (F2): an entry is in a family when one of its members is (an omitted member is in none); the
+        # family of its closest member alone hid a family whose members' entries all sat closer elsewhere
+        g = grouping if grouping is not None else _seed_grouping(conn)
+        if g is None:
             return [], 0
-        where.append(f"id IN ({','.join('?' * len(ids))})")
-        args += ids
+        where.append("EXISTS (SELECT 1 FROM grouping_assignments ga JOIN motif_member mm ON mm.id = ga.member_ref "
+                     "WHERE ga.grouping_id = ? AND ga.unit = 'single_motifs' AND ga.family_label = ? "
+                     "AND (ga.family_id IS NOT NULL OR ga.omit_reason IS NULL) AND mm.entry_id = motif_entry.id)")
+        args += [int(g["id"]), family]
     if entries is not None:
         # a2-p4: only these entries (a grouping's family medoids), under the same held-out rule and filters
         if not entries:
@@ -1345,9 +1355,13 @@ def _medoid_candidates(events):
         depths = sorted(float(m["drop_depth_mv"]) for m in members)
         median = depths[len(depths) // 2]
         medoid = min(members, key=lambda m: abs(float(m["drop_depth_mv"]) - median))
+        # fix round (F6): the line is `_seed_info`'s, which knows whether the span is a Library entry ("Library
+        # entry E-0001 · family F-01 in g-05", else "not a Library entry"); the count is said in words
+        n = len(members)
         out.append(("medoid", int(medoid["recording_id"]), int(medoid["snippet_start_idx"]),
-                    int(medoid["snippet_end_idx"]), f"catalogue span {key} · medoid of {len(members)} events",
-                    None, f"{medoid.get('morphology')} · the drop-motif store's span {key} · not a Library family"))
+                    int(medoid["snippet_end_idx"]),
+                    f"catalogue span {key} · {medoid.get('morphology')} · medoid of {n} event{'' if n == 1 else 's'}",
+                    None, None))
     return out
 
 
@@ -1410,15 +1424,20 @@ def get_seeds(request: Request, source: str | None = None, kind: str | None = No
                                   "deleted_at IS NULL GROUP BY recording_id, start_idx, end_idx)").fetchone()[0]
         kinds = {(r[0] or "event_store"): r[1] for r in
                  c.execute("SELECT source_kind, COUNT(*) FROM motif_entry GROUP BY source_kind")}
-        families = sorted(set(_families_by_entry(c, g).values()), key=_natural)
+        # fix round (F2): the families are the grouping's own — every family with a member, as the Family medoids
+        # list reads them — not "each entry's closest family", which hid a family whose members' entries all sat
+        # closer elsewhere from this list, the count and the filter
+        fams = _family_medoids(c, g) if g is not None else []
+        families = sorted({label for label, _, _ in fams}, key=_natural)
         if source == "library":
             rows, total = _library_page(c, kind=kind, family=family, recording=recording, channel=channel,
                                         entry=entry, offset=offset, limit=limit, grouping=g)
+            # filtered by a family, a card names that family (its entry may sit closer in another)
             seeds = _seeds_inline(c, [("library", int(e["recording_id"]), int(e["start_idx"]), int(e["end_idx"]),
-                                       None, None, None) for e in rows], grouping=g)
+                                       None, family or None, None) for e in rows], grouping=g)
         elif source == "family":
             picked, total = _family_medoid_page(c, g, family=family, recording=recording, channel=channel,
-                                                offset=offset, limit=limit)
+                                                offset=offset, limit=limit, fams=fams)
             seeds = _seeds_inline(c, picked, grouping=g)
         elif source == "explore":
             seeds = _seeds_inline(c, _explore_candidates(c, offset=offset, limit=limit), grouping=g)
@@ -1988,10 +2007,13 @@ def _null_expects(by_channel, cut, names):
 def _live_seed_jobs(request, key, finished=False):
     """The preview jobs for one result key, newest first — the ones still
     running (or, with ``finished``, any the manager remembers). Read off the
-    manager's own jobs, not a 25-row listing a busy Jobs page pushes them out of."""
+    manager's own jobs, not a 25-row listing a busy Jobs page pushes them out of.
+    Fix round (F5): a seed run that draws the preview first is one of them — its
+    job's meta carries the preview's key as `previewKey` (`_start_sweep`)."""
     out = []
     for j in list(request.app.state.manager.jobs.values()):
-        if getattr(j, "kind", None) != "sweep" or (getattr(j, "meta", None) or {}).get("key") != key:
+        meta = getattr(j, "meta", None) or {}
+        if getattr(j, "kind", None) != "sweep" or key not in (meta.get("key"), meta.get("previewKey")):
             continue
         if not finished and j.status not in ("running", "queued"):
             continue
@@ -2022,8 +2044,9 @@ def start_seed_results(request: Request, body: SeedBody):
         # each at a twentieth of the speed — "6 h left" for a minute's work
         live = _live_seed_jobs(request, key)
         if live:
+            # fix round (F5): a seed run drawing this preview first is joined too, never computed a second time
             return {"ready": False, "job_id": live[0]["job_id"], "key": key, "joined": True,
-                    "progress": live[0].get("progress")}
+                    "progress": live[0].get("progress"), "drawnBy": _drawn_by(live[0])}
         span = (int(round(body.t0 * 3600 * fs)), int(round(body.t1 * 3600 * fs)))
         if span[1] <= span[0]:
             span = (int(s["span_start"]), int(s["span_end"]))
@@ -2082,13 +2105,22 @@ def get_seed_results(request: Request, seedId: str, channels: str = "", t0: floa
         if live:
             j = live[0]
             if j["status"] == "failed":
+                # fix round (F1): the failure is this query's state — loud, with the job's own message and
+                # traceback — not a 500 for the read: the page's Retry only read again, so the query could
+                # never be run again from the page. A POST of the same query starts a new job.
                 err = j.get("error") or {}
-                raise HTTPException(500, {"message": f"the seeded search failed: {err.get('message')}",
-                                          "traceback": err.get("traceback")})
+                return {"ready": False, "job_id": None, "key": key, "cancelled": False, "failed": True,
+                        "failedJob": j["job_id"], "drawnBy": _drawn_by(j),
+                        "error": {"message": f"the seeded search failed: {err.get('message')}",
+                                  "traceback": err.get("traceback")},
+                        "note": "the newest preview of this query failed and nothing from it was kept — "
+                                "Run preview runs it again"}
             if j["status"] in ("cancelled", "completed"):
                 # a2-p4: nothing runs and nothing is kept for this query. A cancelled preview is never stored;
-                # a finished one that is not in hand (not expected) is said too, rather than waited on forever
-                cancelled = j["status"] == "cancelled"
+                # a finished one that is not in hand (not expected) is said too, rather than waited on forever.
+                # Fix round (F5): a seed run's job cancelled while it drew the preview ends `completed`, its
+                # result saying `cancelled`
+                cancelled = j["status"] == "cancelled" or bool((j.get("result") or {}).get("cancelled"))
                 return {"ready": False, "job_id": None, "key": key, "cancelled": cancelled,
                         "cancelledJob": (j["job_id"] if cancelled else None),
                         "note": ("the preview was cancelled and nothing from it was kept — Run preview starts it "
@@ -2100,7 +2132,9 @@ def get_seed_results(request: Request, seedId: str, channels: str = "", t0: floa
             eta = (elapsed * (total - done) / done) if elapsed and done > 0 and total >= done else None
             return {"ready": False, "job_id": j["job_id"], "progress": prog, "key": key,
                     "elapsedS": (round(float(elapsed), 1) if elapsed is not None else None),
-                    "etaS": (round(float(eta), 1) if eta is not None else None)}
+                    "etaS": (round(float(eta), 1) if eta is not None else None),
+                    # fix round (F5): the run drawing this preview first, if the job is a run's
+                    "drawnBy": _drawn_by(j)}
         return {"ready": False, "job_id": None, "key": key, "cancelled": False,
                 "note": "no preview for this query yet — Run preview (POST the same query) starts it; reading never does"}
     finally:
@@ -2581,7 +2615,9 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
     job = request.app.state.manager.start_job("sweep", run, meta={
         "what": label, "run_key": run_key, "channels": plan["channels"],
         "span": plan["span"], "route": plan["route"],
-        "null": (f"{plan.get('null_draws') or 1} paired surrogate runs per channel" if surrogate else "off")})
+        "null": (f"{plan.get('null_draws') or 1} paired surrogate runs per channel" if surrogate else "off"),
+        # a2-p4 fix round (F5): a seed run that draws the preview first IS that query's preview while it does
+        "previewKey": getattr(prelude, "preview_key", None)})
     return job
 
 
@@ -2845,6 +2881,9 @@ def _preview_prelude(request, conn, s, body, seed, names, span, null):
                 "draws": int(result["null"]["draws"]), "drawn": int(result["null"]["draws"]),
                 "method": result["null"].get("method"),
                 "expectsByChannel": _null_expects(result.get("nullByChannel") or {}, cut, names)}
+    # fix round (F5): the run's job is tagged with this key (`_start_sweep`), so the page's GET of this query finds
+    # the run drawing it and a POST of it joins the run rather than computing it a second time
+    prelude.preview_key = key
     return prelude, draws, seconds
 
 
@@ -4217,14 +4256,15 @@ def _family_medoids(conn, grouping):
     return out
 
 
-def _family_medoid_page(conn, grouping, *, family=None, recording=None, channel=None, offset=0, limit=SEED_LIMIT):
+def _family_medoid_page(conn, grouping, *, family=None, recording=None, channel=None, offset=0, limit=SEED_LIMIT,
+                        fams=None):
     """`source=family`: one page of a grouping's families, each by its medoid as a Library seed (`library:` id at
     its entry's span, so the run made from it carries the entry and can add its matches to the Library), and the
     count under the filters. The held-out rule and the recording / channel filters are `_library_page`'s, applied
-    to the medoids' entries, so they live in one place."""
+    to the medoids' entries, so they live in one place. `fams`: `_family_medoids` already read."""
     if grouping is None:
         return [], 0
-    fams = _family_medoids(conn, grouping)
+    fams = list(fams) if fams is not None else _family_medoids(conn, grouping)
     if family:
         fams = [f for f in fams if f[0] == family]
     ids = sorted({int(f[2]["entry_id"]) for f in fams})
@@ -4243,3 +4283,13 @@ def _family_medoid_page(conn, grouping, *, family=None, recording=None, channel=
                     f"{label} medoid" if m["is_medoid"] else f"{label} · E-{int(m['entry_id']):04d}", label,
                     f"family {label} · {size} member{'' if size == 1 else 's'} in {gid} · {how}"))
     return out, len(fams)
+
+
+def _drawn_by(snap):
+    """Fix round (F5): `{runKey, label}` when a job snapshot is a seed run drawing a preview first (its meta
+    carries `previewKey`), else None — the page watches such a preview and stops it from the run, never with the
+    preview's own Cancel, which would cancel the run."""
+    meta = (snap or {}).get("meta") or {}
+    if not meta.get("previewKey") or not meta.get("run_key"):
+        return None
+    return {"runKey": meta["run_key"], "label": meta.get("what") or meta["run_key"]}

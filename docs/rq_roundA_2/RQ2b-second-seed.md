@@ -38,6 +38,9 @@ clearly different shape, and compare how often you agree with how often you call
   `scripts/backfill_seed_entry_ids.py --real` lists what it would change (dry run), `--real --apply` links every
   catalogue-span seed run with no entry to the entry at its seed's span, audited (Settings › Audit, kind `library`),
   idempotent, changing nothing else. Then *Add N matches* works for them.
+  - 2026-10-17 · a2-p4 fix round: the dry run opens the database read-only and runs no migration. The manager's dry
+    run on a read-only snapshot of the real database would link **10 runs**: 4–7 and 9–12 to entry 113, 13 to entry
+    125 and 19 (`trough_search`) to entry 148; none unmatched. Not applied.
 
 ## Decisions already made
 
@@ -73,3 +76,6 @@ say whether the second shape behaves like the first.
   cancelled one is never kept; every family of a grouping is a seed (*Family medoids*), the store's sixteen spans are
   *Catalogue spans*; the backfill that lets the two dip searches add their matches is written, not yet run on the real
   database.
+- 2026-10-17 · a2-p4 fix round · a failed preview shows its error and traceback beside *Run preview again*; a run that
+  draws the preview first is that query's preview (the page watches it, a second *Run preview* joins it); every family
+  of the grouping is in the family filter; the backfill's dry run is read-only (would link 10 runs on the snapshot).

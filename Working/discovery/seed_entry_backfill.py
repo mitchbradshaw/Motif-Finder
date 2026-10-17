@@ -73,7 +73,13 @@ def plan(conn):
     """Every catalogue-span seed run, with what the backfill does to it: `link` (its entry), `already` (it names
     an entry), `unmatched` (no entry at its span) or `unreadable` (its seed id is not a span). Reads only."""
     out = []
-    rows = conn.execute("SELECT id, session_id, run_key, label, kind, params_json, removed_at FROM discovery_runs "
+    # a dry run reads a database as it is, without `init_db`'s migrations (fix round, F4): an older one may lack
+    # the table or its `removed_at` column
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(discovery_runs)")}
+    if not cols:
+        return out
+    removed = "removed_at" if "removed_at" in cols else "NULL AS removed_at"
+    rows = conn.execute(f"SELECT id, session_id, run_key, label, kind, params_json, {removed} FROM discovery_runs "
                         "WHERE kind = 'seed' ORDER BY id").fetchall()
     for rid_, session_id, run_key, label, _kind, params_json, removed_at in (tuple(r) for r in rows):
         try:

@@ -244,15 +244,16 @@ export function SeedPage() {
                     </div>
                     {/* while a new seed's search runs, the previous seed's (or the empty) result is still in
                         hand — reading "No matches" off it said the search found nothing before it had run.
-                        a2-p4: a job running for this query is watched (and can be cancelled); with none, and
-                        nothing kept, the page says so and offers *Run preview* with its estimate */}
+                        a2-p4: a job running for this query is watched (and can be cancelled — unless it is a seed
+                        run drawing the preview first, which is stopped from the run); with none, and nothing kept,
+                        the page says so — not run, cancelled, or failed with its traceback — and offers *Run
+                        preview* with its estimate */}
                     {!seed ? null : results.error ? <LoadFailed what="seed matches" error={results.error} onRetry={results.reload} />
-                      : progress ? <SearchProgress progress={progress} estimate={estimate.data} onCancel={cancelPreview} cancelling={previewCancelling} />
+                      : progress ? <SearchProgress progress={progress} estimate={estimate.data} onCancel={progress.drawnBy ? undefined : cancelPreview} cancelling={previewCancelling} />
                       : !results.data || results.loading ? <Loading height={220} label="looking for a preview of this query" testid="seed-peeking" />
-                      : !ready ? <NotPreviewed cancelled={results.data.status === 'cancelled'} estimate={estimate.data} channels={channels.length}
-                          hours={dx.scope ? dx.scope.section[1] - dx.scope.section[0] : null} starting={previewStarting} onRun={runPreview}
-                          blocked={lastRun?.drawsPreviewFirst && live && (live.status === 'running' || live.status === 'queued')
-                            ? `${lastRun.label} is running and draws this preview first; it appears here when the run finishes` : null} />
+                      : !ready ? <NotPreviewed cancelled={results.data.status === 'cancelled'} failed={results.data.status === 'failed' ? results.data.error ?? null : null}
+                          estimate={estimate.data} channels={channels.length}
+                          hours={dx.scope ? dx.scope.section[1] - dx.scope.section[0] : null} starting={previewStarting} onRun={runPreview} />
                       : (
                       <>
                         {ready.candidates.length === 0
@@ -272,7 +273,11 @@ export function SeedPage() {
                     <ApplyBar dx={dx} draft={draft} kept={threshold == null ? null : kept.length} cut={threshold} finished={finished} seed={seed} sim={sim} bank={bankQ}
                       estimate={estimate.data} live={live} startedAt={startedAt} exclusion={exclusionQ} nullMode={nullMode} onNullMode={m => setNullQ(m)} previewDraws={ready && !results.loading ? ready.nullDraws : null}
                       previewIn={!!ready}
-                      onStarted={r => { setLastRun(r); setStartedAt(Date.now()) }} onSave={() => setModal('save-template')}
+                      onStarted={r => {
+                        setLastRun(r); setStartedAt(Date.now())
+                        // fix round (F5): a run that draws this query's preview first is that query's preview now — read it
+                        if (r.drawsPreviewFirst) results.reload()
+                      }} onSave={() => setModal('save-template')}
                       onSlurm={() => setModal('slurm')} onImported={() => { results.reload(); dx.reload() }} />
                   </div>
                 </div>
@@ -819,6 +824,8 @@ function SearchProgress({ progress, estimate, onCancel, cancelling = false }: { 
         {progress?.elapsedS != null ? `${fmtSeconds(progress.elapsedS)} so far` : ''}
         {eta != null ? `${progress?.elapsedS != null ? ' · ' : ''}about ${fmtSeconds(eta)} ${progress ? 'left' : 'expected'}${!progress && estimate && !estimate.preview.measured ? ' (assumed rate)' : ''}` : ''}
       </span>
+      {/* fix round (F5): a seed run drawing this preview first is that run's job; it is stopped from the run */}
+      {progress?.drawnBy && <span className="small" data-testid="seed-preview-drawn-by">drawn by the run {progress.drawnBy.label}, which draws this preview first — stop it from that run (Discovery › Runs)</span>}
       {/* a2-p4: the preview can be stopped from here; the job stops at its next draw and keeps nothing */}
       {onCancel && <Button size="sm" icon="stop" onClick={onCancel} loading={cancelling} disabled={cancelling || progress?.jobId == null}
         disabledReason={cancelling ? 'cancelling — the job stops at its next draw and keeps nothing' : 'no job to cancel'} testid="seed-preview-cancel">{cancelling ? 'Cancelling' : 'Cancel preview'}</Button>}
@@ -826,25 +833,33 @@ function SearchProgress({ progress, estimate, onCancel, cancelling = false }: { 
   )
 }
 
-/** a2-p4: no preview is kept for this query — it has not run, or its newest run was cancelled (a cancelled preview is
- *  never kept). Nothing runs until the researcher asks: *Run preview* starts it, and says first what it will cost. */
-function NotPreviewed({ cancelled, estimate, channels, hours, starting, onRun, blocked = null }: {
+/** a2-p4: no preview is kept for this query — it has not run, its newest run was cancelled (a cancelled preview is
+ *  never kept), or it failed (fix round, F1: shown loud with the job's own message and traceback). Nothing runs until
+ *  the researcher asks: *Run preview* starts it, and says first what it will cost. */
+function NotPreviewed({ cancelled, failed = null, estimate, channels, hours, starting, onRun }: {
   cancelled: boolean; estimate: DiscSeedEstimate | null; channels: number; hours: number | null; starting: boolean; onRun: () => void
-  /** why the button is held: a run started here is drawing this very preview first */
-  blocked?: string | null
+  /** the newest preview of this query failed: its message and traceback */
+  failed?: { message: string; traceback: string | null } | null
 }) {
   const e = estimate?.preview ?? null
   const cost = e
     ? `≈ ${fmtSeconds(e.seconds)} · ${channels} ch${hours != null ? ` × ${hours.toFixed(1)} h` : ''} × ${e.draws} null draw${e.draws === 1 ? '' : 's'} · ${e.measured ? 'measured rate' : 'assumed rate (no preview has finished on this machine yet)'}`
     : 'estimating what it will cost'
   return (
-    <section className="k-card dsc-not-previewed" data-testid={cancelled ? 'seed-preview-cancelled' : 'seed-not-previewed'} aria-label="Preview" style={{ padding: 14 }}>
-      <EmptyState size="sm" icon={cancelled ? 'stop' : 'flask'} title={cancelled ? 'Preview cancelled · nothing from it was kept' : 'Not previewed yet'}
-        caption={cancelled
-          ? 'run it again when you want it — a cancelled preview is never reused by a run'
-          : 'nothing runs until you ask. The preview matches the seed on every channel in scope and draws the null that recommends where to cut.'} />
+    <section className="k-card dsc-not-previewed" data-testid={failed ? 'seed-preview-failed' : cancelled ? 'seed-preview-cancelled' : 'seed-not-previewed'} aria-label="Preview" style={{ padding: 14 }}>
+      {failed
+        ? <Callout tone="red" icon="alert-triangle" title="The last preview of this query failed · nothing from it was kept">
+          <span className="mono small" data-testid="seed-preview-error">{failed.message}</span>
+          {failed.traceback
+            ? <details style={{ marginTop: 6 }}><summary className="small">traceback</summary><pre className="mono small" style={{ whiteSpace: 'pre-wrap', margin: 0 }} data-testid="seed-preview-traceback">{failed.traceback}</pre></details>
+            : <span className="small muted"> · the job left no traceback</span>}
+        </Callout>
+        : <EmptyState size="sm" icon={cancelled ? 'stop' : 'flask'} title={cancelled ? 'Preview cancelled · nothing from it was kept' : 'Not previewed yet'}
+          caption={cancelled
+            ? 'run it again when you want it — a cancelled preview is never reused by a run'
+            : 'nothing runs until you ask. The preview matches the seed on every channel in scope and draws the null that recommends where to cut.'} />}
       <div className="row" style={{ gap: 10, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
-        <Button variant="primary" icon="play" onClick={onRun} loading={starting} disabled={!!blocked} disabledReason={blocked ?? undefined} testid="run-preview">Run preview</Button>
+        <Button variant="primary" icon="play" onClick={onRun} loading={starting} testid="run-preview">{failed ? 'Run preview again' : 'Run preview'}</Button>
         <span className="mono small muted" data-testid="preview-estimate">{cost}</span>
         <InfoTip title="Run preview">The preview is the full search over the scope — every position of every channel — with the null drawn from noise copies of each channel (the draw count shrinks over a long scope; the run can draw the full count). Its time is work over a rate: the rate measured here once a preview has finished, a default until then. Choosing a seed, a channel, the section, the scale bank or the exclusion zone changes the query and runs nothing.</InfoTip>
       </div>
