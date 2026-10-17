@@ -682,3 +682,42 @@ def test_dehshibi_one_hour_windows_run_and_stitch(world):
         assert all(R.get_run(conn, w)["status"] == "completed" for w in out["runs"][0]["window_run_ids"])
     finally:
         conn.close()
+
+
+# ── what thousands of window runs cost every database open ───────────────────
+
+def test_init_db_does_not_rescan_every_run_for_legacy_rows_on_every_open(world, monkeypatch):
+    """A windowed application writes thousands of runs, and `init_db` scanned every spanned run's detections for
+    legacy (span-relative) rows on every open — once per window run. After the first scan in a process only the rows
+    written since are looked at, and a legacy row written since is still migrated."""
+    from Working.database import schema as S
+
+    db = world["db"]
+    rid = world["add"](np.zeros(10 * H))
+    conn = init_db(db)
+    try:
+        cfg_id, _ = R.get_or_create_config(conn, make_recipe(rid, NT, span=(0, 600)))
+        for k in range(200):
+            run = R.insert_run(conn, cfg_id, rid, 1800 * (k + 1), 1800 * (k + 1) + 3600, status="completed")
+            R.insert_detection(conn, run, 1800 * (k + 1) + 10, 1800 * (k + 1) + 20)
+    finally:
+        conn.close()
+    calls = []
+    real = S.migrate_legacy_detections
+    monkeypatch.setattr(S, "migrate_legacy_detections", lambda c: calls.append(1) or real(c))
+    init_db(db).close()
+    init_db(db).close()
+    assert calls == [], "rows written since the last scan are absolute: nothing for the migration to do"
+    conn = init_db(db)
+    try:
+        legacy = R.insert_run(conn, cfg_id, rid, 1_000_000, 1_007_200, status="completed")
+        det = R.insert_detection(conn, legacy, 2_468, 2_540)
+    finally:
+        conn.close()
+    conn = init_db(db)
+    try:
+        assert calls == [1], "a row below its run's span_start is a legacy row: the full migration runs"
+        row = conn.execute("SELECT start_idx FROM detections WHERE id = ?", (det,)).fetchone()
+        assert int(row[0]) == 2_468 + 1_000_000
+    finally:
+        conn.close()

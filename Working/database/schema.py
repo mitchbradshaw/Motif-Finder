@@ -1564,8 +1564,36 @@ def migrate_legacy_detections(conn):
     return dict(plan, rewritten=rewritten)
 
 
+#: round A_2, P3: the highest `detections.id` the full legacy scan has seen, per database file, in this process.
+#: `plan_legacy_detections` reads every spanned run's detections, and `init_db` runs it on every open —
+#: `execute_recipe` opens one per run. Measured (2026-10-18): 13 ms on an empty database, 0.2 s once it holds one
+#: 1-hour windowed application over 16 channels of M2_aug (46,000 runs), 1.4 s once it holds a 10-minute one
+#: (277,000). After the first full scan of a file in a process, only the rows written since are checked: a legacy
+#: (span-relative) row is one below its run's span_start, so when no new row is, the migration has nothing new to do
+#: and is not run again. A run written since that is merely ambiguous (span_length > span_start, its rows absolute:
+#: every window but the first of a windowed application) is no longer warned about on every open.
+_LEGACY_SCANNED: dict = {}
+
+
+def _database_file(conn):
+    row = conn.execute("PRAGMA database_list").fetchone()
+    return (row[2] if row is not None else "") or ""
+
+
 def _migrate_legacy_detections(conn):
+    path = _database_file(conn)
+    top = int(conn.execute("SELECT COALESCE(MAX(id), 0) FROM detections").fetchone()[0])
+    seen = _LEGACY_SCANNED.get(path) if path else None
+    if seen is not None and top >= seen:
+        fresh = conn.execute(
+            "SELECT 1 FROM detections d JOIN runs r ON r.id = d.run_id "
+            "WHERE d.id > ? AND r.span_start > 0 AND d.start_idx < r.span_start LIMIT 1", (seen,)).fetchone()
+        if fresh is None:
+            _LEGACY_SCANNED[path] = top
+            return
     migrate_legacy_detections(conn)
+    if path:
+        _LEGACY_SCANNED[path] = top
 
 
 # ── fixup-AD: `review_queues` learns the suspected-artifact kind ─────────────
