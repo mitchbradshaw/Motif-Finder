@@ -198,17 +198,17 @@ def store_reading_steps(steps):
 
 
 def _held_out_unlocked(conn, source_file):
-    """True when ``source_file`` is the held-out recording and Settings › Datasets
-    has its lock OFF at export (fix round, F1). The cluster's scratch database is
-    built by `init_db()` and has no settings row — which the lock reads as ON — so
-    such a target carries ``heldOutUnlocked`` and its scratch database is written
-    unlocked (`_unlock_held_out`). Read with `held_out_state`, the settings page's
-    own reader."""
-    from Working.registration.settings import held_out_state
+    """True when ``source_file`` is the held-out recording and it is unlocked at
+    export (fix round, F1). The cluster's scratch database is built by `init_db()`
+    and has no settings row — which the lock reads as ON — so such a target
+    carries ``heldOutUnlocked`` and its scratch database is written unlocked
+    (`_unlock_held_out`). Unlocked is P1's one predicate, `held_out_locked`
+    (Settings › Datasets' switch, or the HELD_OUT_UNLOCK override a script may
+    set), against the file the runner's own guard names (a2 integration)."""
+    from Working.config import HELD_OUT_RECORDING_FILE
+    from Working.registration.settings import held_out_locked
 
-    st = held_out_state(conn)
-    stem = os.path.splitext(str(source_file))[0]
-    return (not st["on"]) and (str(source_file) == st["file"] or stem == st["recording"])
+    return str(source_file) == HELD_OUT_RECORDING_FILE and not held_out_locked(conn)
 
 
 def _unlock_held_out(conn):

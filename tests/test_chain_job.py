@@ -593,9 +593,8 @@ def test_an_m4_target_exported_with_the_lock_off_runs_on_its_scratch_database(wo
     m4 = q.insert_recording(conn, S.HELD_OUT_FILE, 0, FS, N, 0, str(npy))
     S.put_settings(conn, S.HELD_OUT_PAGE, {S.HELD_OUT_ON_KEY: False}, confirm_name=S.held_out_state(conn)["name"])
     conn.close()
-    # this branch's plan and executor read the lock from Working.config; P1's predicate reads the settings row
-    monkeypatch.setattr(fanout, "HELD_OUT_UNLOCK", True, raising=False)
-    monkeypatch.setattr(cfg, "HELD_OUT_UNLOCK", True, raising=False)
+    # a2 integration: with P1 merged the plan and the runner read the settings row (`held_out_locked`), so the
+    # stand-in override this branch set on Working.config is gone
     off = {"paired": False, "params": None, "draws": 0}
     _, spec, made = _export(world, CHEAP, [m4, world["ids"][0]], label="m4_unlocked", null=off)
     t_m4, t_v = spec["targets"]
@@ -608,18 +607,15 @@ def test_an_m4_target_exported_with_the_lock_off_runs_on_its_scratch_database(wo
         assert S.held_out_state(sconn)["on"] is False, "the scratch database reads the lock as the export did"
     finally:
         sconn.close()
-    # exported with the lock on, the same target carries no key and its scratch database reads locked
+    # with the lock on, P1's plan refuses the held-out target, so no spec can carry it at all
     conn = init_db(world["db"])
-    S.put_settings(conn, S.HELD_OUT_PAGE, {S.HELD_OUT_ON_KEY: True})
-    conn.close()
-    _, spec2, made2 = _export(world, CHEAP, [m4], label="m4_locked", null=off)
-    assert "heldOutUnlocked" not in spec2["targets"][0]
-    chain_job.run_task(spec2, task=0, out_dir=made2["result_dir"])
-    sconn = init_db(os.path.join(made2["result_dir"], "work", "task0", "scratch.sqlite"))
     try:
-        assert S.held_out_state(sconn)["on"] is True
+        S.put_settings(conn, S.HELD_OUT_PAGE, {S.HELD_OUT_ON_KEY: True})
+        plan = _plan(conn, CHEAP, [m4], null=off)
     finally:
-        sconn.close()
+        conn.close()
+    assert plan["targets"] == [] and plan["runnable"] is False
+    assert S.HELD_OUT_FILE in plan["reason"]
 
 
 def test_auto_and_stump_key_a_profile_apart(world):

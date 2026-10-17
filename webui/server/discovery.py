@@ -4435,8 +4435,9 @@ def import_chain_result_for(request: Request, *, run_key=None, spec_path=None):
                                                      f"there is nothing to import for it"})
             spec_path = _repo_abs(hpc["specPath"])
         elif spec_path:
-            if HELD_OUT_FILE in str(spec_path):
-                raise HTTPException(423, {"message": f"{HELD_OUT_FILE} is held out; the web UI refuses it"})
+            # a2 integration (P1 x P2): a path naming the held-out recording is refused only while the lock is on
+            if HELD_OUT_FILE in str(spec_path) and corpus.held_out_locked(c):
+                raise HTTPException(423, {"message": corpus.held_out_refusal("the web UI refuses it")})
             spec_path, row, hpc = _repo_abs(spec_path), None, None
         else:
             raise HTTPException(422, {"message": "name the run (runKey) or the job's spec file (path)"})

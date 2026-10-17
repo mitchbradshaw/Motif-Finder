@@ -554,5 +554,11 @@ def chain_import(request: Request, body: InboxBody):
     if not p:
         raise HTTPException(422, "name the chain job's spec file (…chain.json)")
     if HELD_OUT_FILE in p:
-        raise HTTPException(423, f"{HELD_OUT_FILE} is held out; the web UI refuses it")
+        c = _conn(request)
+        try:
+            locked = corpus.held_out_locked(c)          # a2 integration: only while Settings › Datasets' lock is on
+        finally:
+            c.close()
+        if locked:
+            raise HTTPException(423, corpus.held_out_refusal("the web UI refuses it"))
     return discovery.import_chain_result_for(request, spec_path=_abs(p))
