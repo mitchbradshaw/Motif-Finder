@@ -79,8 +79,10 @@ def _blocking_null(entered: threading.Event):
     return fake
 
 
-def _wait_entered(client, entered: threading.Event, job_id, timeout=120):
-    """Until the job is inside its null draws — or say how it ended without getting there."""
+def _wait_entered(client, entered: threading.Event, job_id, timeout=900):
+    """Until the job is inside its null draws — or say how it ended without getting there. The first MASS in a test
+    process compiles stumpy's numba kernels; on the shared machine under `-n 6` that took over two minutes (the
+    progress still read "CH1 · matching"), so the limit is generous: the loop leaves the moment the job gets there."""
     t0 = time.time()
     while not entered.wait(0.25):
         snap = client.get(f"/api/jobs/{job_id}").json()
