@@ -158,7 +158,8 @@ at once.
 | The sweep: null draws 1, apply every variant per dataset (M2_aug, M2, Schizophyllum and L_LM first) | researcher |
 | The read-out: Map level 3 → 2 → 1 on M2_aug against the human row; Compare best variants against drop_detection_v1 and against verdicts; one variant per template re-run with 20 null draws | researcher |
 | ~~Decide how the overnight matrix profiles serve the other MP templates (below)~~ option 1 built 2026-10-18 (rq4-adopt) | ~~researcher~~ |
-| Bring every `*_out/return/` folder back from rangpur, then `python scripts/rq4_overnight.py adopt` (dry run, then `--apply` on a sandbox bridge, then the real one): the overnight jobs become Discovery runs on the Map | researcher |
+| ~~Bring every `*_out/return/` folder back from rangpur~~ (back 2026-10-18); `python scripts/rq4_overnight.py adopt --apply --allow-project` on the real bridge (sandboxed on six jobs 2026-10-18): the overnight jobs become Discovery runs on the Map | researcher |
+| Install pyarrow into the cluster's CPU conda env, re-run the 47 refused `deconvolved_troughs` tasks (`rq4_overnight.py report` lists them), bring them back, `adopt --apply` again | researcher |
 
 ### Decision: the overnight matrix profiles and the other matrix-profile templates (P2 fix round, 2026-10-18)
 
@@ -254,4 +255,24 @@ profiles as cached. Option 2 is not built.
     still has its exported sha1.
   - Templates: 30 are rows whose chain is the job's. The 12 CNN templates become rows at the next bridge start on
     current code (`seed_canonical`). `mp_threshold__backend_auto` is created by `create_rq4_variants.py`.
-  - Not yet: no `return/` folder is back from the cluster, so nothing has been imported.
+  - The results are back. 627 of 674 tasks are complete. The 47 refused are all `deconvolved_troughs` (its three
+    jobs): the cluster's conda env has no pyarrow, and the chain's `event_shape` step writes a parquet table.
+  - The 40 complete jobs restore 4.13 GB (1,015 cache entries) and write 1,252 runs, about 1.27 M real-run
+    detections and 2.10 M null-draw detections.
+  - The overnight `mp_threshold__backend_auto` finds 0 spans on CH1_A1 and CH2_A1, real and draw. The profile is
+    sound: values 0–7.88, median 3.04, against a possible ≈ 15.5 for a 1-minute window. Threshold 8 lies above
+    every value on the whole signal. The A100 took 780 s per profile.
+  - Sandbox import of six jobs: `drop_detection_v1`, `Wavelet_detection_prototype`, `noise_threshold`,
+    `cnn_gasf_10min` and `mp_threshold__backend_auto` were imported; on every channel the run here found exactly
+    what the cluster found. `deconvolved_troughs` was registered and left waiting, its 16 tasks named.
+  - The three `backend: "auto"` copies ran from the cached profiles in 10–45 s each: threshold 6 found 44,258
+    spans over the two channels, threshold 10 none, motifs 30.
+  - The sandbox showed what an import costs:
+    - about 39 bytes of database per detection, so the full import takes the real database from 67 MB to about
+      200 MB;
+    - the step cache grows about 2.7 times what is restored, because the local sweep caches the steps it
+      recomputes;
+    - CPU jobs take 3–5 min each, CNN and matrix-profile jobs under a minute.
+  - Found and fixed: on an uncalibrated machine the matrix profile has no cap and no estimate. The like-route now
+    requires the profile to be cached rather than trusting the cap.
+  - The real import has not run.
