@@ -165,11 +165,16 @@ class EEG_CNN(nn.Module):
     EfficientNet-B0 is small (~5M params), converges fast, and outperforms
     a hand-rolled conv stack on small datasets. The pretrained ImageNet
     weights give a strong starting point even for gramian images.
+
+    `pretrained=False` builds the same network with no ImageNet weights (and
+    so no download): what loading a trained state dict wants, since every
+    weight is overwritten (W4-A, `apply_cnn.load_model`). Training keeps the
+    default.
     """
 
-    def __init__(self, num_classes: int):
+    def __init__(self, num_classes: int, pretrained: bool = True):
         super().__init__()
-        self.backbone = efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT)
+        self.backbone = efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT if pretrained else None)
         in_features = self.backbone.classifier[1].in_features
         self.backbone.classifier = nn.Sequential(
             nn.Dropout(p=0.3),

@@ -134,17 +134,6 @@ CANONICAL: list[dict] = [
         ],
     },
     {
-        "name": "cnn_detection", "kind": "detection", "version": 1,
-        "description": "Sliding windows (blocked split) → window images (fusion) → CNN score → threshold to spans: "
-                       "detecting with a trained model (D2; the image stack + window set → Scores form of spec §6.8's model stage).",
-        "steps": [
-            _step("preprocessing", "sliding_windows", {"window_s": 600.0}),
-            _step("catalogue", "window_images", {"image_type": "fusion", "img_size": 224}),
-            _step("catalogue", "cnn_score", {}, side_inputs={"windows": {"source_kind": "earlier_step", "step_index": 0}}),
-            _step("detection", "threshold", {"threshold": 0.5}),
-        ],
-    },
-    {
         "name": "gramian_gasf", "kind": "encoding", "version": 1,
         "description": "Baseline → Gramian GASF image (needs a span ≤ 5000 samples).",
         "steps": [
@@ -420,6 +409,60 @@ EXPERIMENTAL += [
 ]
 
 
+# W4-A (2026-10-17): the researcher's four trained CNNs × three window lengths, each Sliding windows → CNN window
+# scores → Threshold. Every window is resampled to the 600 points the models were trained on; threshold 0.5 is a
+# placeholder the RQ4 sweep tunes. Tested end to end in tests/test_template_cnn_window_scores.py.
+_CNN_MODELS = {
+    "fusion3": ("fusion", "MODELS/fusion_cnn_3.pth",
+                "a fusion picture: GASF, GADF and the recurrence plot as one colour image"),
+    "gadf": ("GADF", "MODELS/GADF_cnn.pth", "a Gramian angular difference field (GADF) picture"),
+    "gasf": ("GASF", "MODELS/GASF_cnn.pth", "a Gramian angular summation field (GASF) picture"),
+    "recurrence": ("recurrence", "MODELS/recurrence_cnn.pth", "a recurrence-plot picture"),
+}
+_CNN_SCALES = {"1min": 60.0, "10min": 600.0, "60min": 3600.0}
+_CNN_SCALE_WORDS = {
+    "1min": "1-minute windows are outside that scale: each is stretched to 600 points, so the model sees ten "
+            "times slower shapes than it learned on; read the scores as exploratory.",
+    "10min": "10-minute windows are the training scale.",
+    "60min": "1-hour windows are outside that scale: each is squeezed to 600 points (block means), so the model "
+             "sees six times faster shapes than it learned on; read the scores as exploratory.",
+}
+
+
+def _cnn_template(model: str, scale: str) -> dict:
+    image_type, path, picture = _CNN_MODELS[model]
+    window_s = _CNN_SCALES[scale]
+    return {
+        "name": f"cnn_{model}_{scale}", "kind": "detection", "version": 1,
+        "description": (
+            f"The researcher's trained CNN '{path.rsplit('/', 1)[-1]}' slid along the recording in "
+            f"{window_s / 60:g}-minute windows, marking the windows it is confident are interesting. It was "
+            f"trained on 600-sample, 10-minute windows of M2_aug at 1 Hz, each turned into {picture}; every "
+            f"window here is resampled to 600 points first. {_CNN_SCALE_WORDS[scale]} On M2_aug itself the scores "
+            "are not out-of-sample (the model saw those recordings). Tune threshold first: 0.5 is a "
+            "placeholder, not a calibrated cut; touching windows above it merge into one detection. A Discovery "
+            "null of 20 surrogate draws re-runs the CNN 20 more times per channel, so it costs about 21 times "
+            "one run."),
+        "steps": [_step("preprocessing", "sliding_windows", {"window_s": window_s, "gap_s": 0.0}),
+                  _step("catalogue", "cnn_window_scores", {"image_type": image_type, "model_path": path,
+                                                           "resample_to": 600}),
+                  _step("detection", "threshold", {"threshold": 0.5})],
+    }
+
+
+CANONICAL += [_cnn_template(m, s) for m in _CNN_MODELS for s in _CNN_SCALES]
+
+
+# Builtin templates taken out of the app: `seed_canonical` deletes a BUILTIN row of each name from a database seeded
+# before (a saved copy is the researcher's and is never touched). name -> why.
+RETIRED: dict[str, str] = {
+    "cnn_detection": "W4-A (2026-10-17): its default checkpoint, MODELS/fusion_cnn.pth, has one output class, so it "
+                     "scored every window 1.0, and catalogue.cnn_score now refuses it; window_images also refused "
+                     "any whole channel (over 2,000 windows). Replaced by the twelve cnn_<model>_<scale> templates "
+                     "(catalogue.cnn_window_scores). Its blocks stay registered for a hand-built chain.",
+}
+
+
 def experimental(name: str) -> dict:
     """A deep copy of one experimental (not seeded) template by name."""
     for t in EXPERIMENTAL:
@@ -522,11 +565,17 @@ def seed_canonical(conn) -> int:
     """Insert every canonical template whose name is not yet in the table, and
     bring a BUILTIN row up to the code's version when the code's is newer (a
     builtin row cannot be edited, so nothing of the researcher's is lost; a
-    saved copy is never touched). Returns how many rows were written (0 on
-    every start once the table is current)."""
+    saved copy is never touched). A builtin row named in `RETIRED` is deleted.
+    Returns how many rows were written or deleted (0 on every start once the
+    table is current)."""
+    n = 0
+    for name in RETIRED:
+        cur = conn.execute("DELETE FROM templates WHERE name = ? AND builtin = 1", (name,))
+        n += cur.rowcount
+    if n:
+        conn.commit()
     have = {r[0]: (int(r[1]), int(r[2]), int(r[3]))
             for r in conn.execute("SELECT name, id, version, builtin FROM templates")}
-    n = 0
     for t in CANONICAL:
         version = int(t.get("version", 1))
         if t["name"] not in have:

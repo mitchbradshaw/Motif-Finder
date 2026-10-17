@@ -58,6 +58,8 @@ COSTED = (
     "catalogue.multiscale_entropy",
     "interrogation.cycle_shapes",
     "detection.pan_matrix_profile",
+    # wave 4
+    "catalogue.cnn_window_scores",
 )
 
 
@@ -181,13 +183,15 @@ def test_there_are_seven_type_views_one_per_interchange_type():
     assert set(_views().VIEWS) == SEVEN
 
 
-def test_there_are_fourteen_modifiers_and_each_names_two_interchange_types():
+def test_there_are_fifteen_modifiers_and_each_names_two_interchange_types():
     # fixup-ag: the thirteenth is `windowset->windowset` (Trace shape: the windows before and after - what was
     # kept, what was left out and why, and the measure each window now carries)
     # w2-a: the fourteenth is `spanset->windowset` (Event windows: each window on the trace around its event,
     # the anchor marked inside it)
+    # w4-a: the fifteenth is `windowset->scores` (CNN window scores: the windows on the trace, each shaded by
+    # its score, the curve below on the same x)
     mods = _views().MODIFIERS
-    assert len(mods) == 14, sorted(mods)
+    assert len(mods) == 15, sorted(mods)
     for key in mods:
         a, b = key.split("->")
         assert a in SEVEN and b in SEVEN, key

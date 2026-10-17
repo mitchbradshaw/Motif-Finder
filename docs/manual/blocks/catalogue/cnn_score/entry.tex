@@ -28,7 +28,9 @@ alphabetically (\code{interesting} before \code{notinteresting}).
 \entryfield{Assumptions}
 \begin{itemize}
 \item \emph{The checkpoint.} Two classes, class 0 interesting, trained on the image type the
-  stack holds. Nothing checks any of the three. \code{docs/prompts/fixup/reports/AH-blind-test-labelling.md}
+  stack holds. Since 2026-10-17 (W4-A) the class count is checked: a checkpoint with other than two
+  classes is refused, naming the file and the count; the image type and the class order are still
+  not checked. \code{docs/prompts/fixup/reports/AH-blind-test-labelling.md}
   records, for the checkpoints in \code{MODELS/}: \code{fusion_cnn.pth} has \emph{one}
   output class, so its softmax is 1.0 for every window; \code{fusion_cnn_2.pth} and
   \code{fusion_cnn_3.pth} have two, with class 0 interesting (AUC 0.979 and 0.970 on 120
@@ -61,17 +63,16 @@ the CPU partition. The block itself runs locally too, on the CPU when there is n
 
 \entryfield{Failure modes}
 \begin{itemize}
-\item \emph{The default checkpoint scores everything 1.0.} \code{model_path} defaults to
-  \code{MODELS/fusion_cnn.pth}, the one-class network. The block raises no error; every
-  sample covered by a window reads 1.0, and a threshold downstream marks the whole span.
-\item \emph{A checkpoint with other classes} (14 for \code{fusion_prediction_cnn.pth}) is
-  accepted, and column 0 is reported as ``interesting'' whatever class 0 is.
+\item \emph{The default checkpoint is refused.} \code{model_path} defaults to
+  \code{MODELS/fusion_cnn.pth}, the one-class network, which would score every window 1.0. Since
+  2026-10-17 the block raises a ValueError naming the file and its one class (the default was
+  left unchanged so no recipe hash moved); pick \code{fusion_cnn_3.pth}. The same check refuses
+  \code{fusion_prediction_cnn.pth} (14 classes).
 \item \emph{Image type mismatch.} A GASF network fed fusion pictures, or the reverse, scores
   without complaint.
-\item \emph{Missing pretrained weights.} \code{EEG_CNN} asks torchvision for the
-  ImageNet EfficientNet-B0 weights before loading the checkpoint over them; torchvision
-  downloads them into its cache the first time, so an offline machine without that cache
-  cannot build the model. The tests skip for this reason.
+\item \emph{Pretrained weights} are no longer fetched when a checkpoint is loaded:
+  \code{apply_cnn.load_model} builds \code{EEG_CNN(pretrained=False)} since 2026-10-17, so an
+  offline machine scores; training still starts from ImageNet weights.
 \item \emph{Training augmentations.} Single-axis flips of a Gramian or recurrence image are
   not images of any signal (\code{docs/prompts/fixup/reports/AI-cnn-arm-slurm.md}); the
   networks were trained with them.
@@ -83,9 +84,11 @@ the CPU partition. The block itself runs locally too, on the CPU when there is n
 
 \entryfield{Validation}
 \code{tests/test_adapter_cnn_score.py} checks the plumbing: the declared types, the
-refusals, and, when a checkpoint and the cached EfficientNet weights are present, that each
-window's samples carry one value in $[0,1]$. It uses \code{fusion_cnn.pth}, the one-class
-checkpoint, so it passes with every value equal to 1.0; it does not check the answer. The
+refusals, and that each window's samples carry one value in $[0,1]$, with a random-weight
+two-class checkpoint written to a temporary directory; it does not check the answer.
+\code{tests/test_cnn_window_scores.py} checks that this block and
+\blockref{catalogue.cnn_window_scores} give the same score on the same checkpoint, and
+\code{tests/test_adapter_cnn_window_scores.py} that a one-class checkpoint is refused. The
 AUCs above come from a separate check recorded in the AH report, not from a test.
 
 \entryfield{References}

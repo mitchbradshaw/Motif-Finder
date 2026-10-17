@@ -1,0 +1,63 @@
+% !TEX root = ../../../main.tex
+% Appendix entry: catalogue.cnn_window_scores -- "CNN window scores" (Appendix A).
+% Generated above this text: registry name, code path, category, input and
+% output types, flags, side inputs, the registry's description and every
+% parameter. Write the rest; cite code by path and function name.
+% Guide: docs/manual/AUTHORING.md
+\entryfield{Algorithm}
+\code{Working/Catalogue/cnn/window_scores.py}, \code{score_windows}. For each window of $L$
+samples: (1) resample to $R$ = \emph{resample\_to} points (\code{resample_window}): block
+means when $L$ is a whole multiple of $R$, otherwise \code{scipy.signal.resample_poly} with the
+ends extended along a straight line; linear interpolation when $L < R$; unchanged when $L = R$
+or $R = 0$. (2) Encode with \code{apply_cnn._window_to_pil} (fusion RGB, or GASF / GADF /
+recurrence as grey copied to RGB), resize to \emph{img\_size} with PIL bilinear, and apply the
+training's evaluation transform \code{cnn_rangapur.get_transforms(img_size, is_train=False,
+is_rgb=(image_type == "fusion"))}. (3) Score a batch of at most \emph{batch\_size} pictures:
+$p = \mathrm{softmax}(\text{logits})_{\text{positive\_class}}$. The adapter
+(\code{Adapters/catalogue_cnn_window_scores.py}) subtracts the span offset
+$\mathrm{round}(t_0 f_s)$ from the channel-absolute window starts and fills each window's samples
+with its $p$; the later window wins where windows overlap.
+
+\entryfield{Assumptions}
+Unit-free: every picture is min--max normalised per window, so the stored unit does not
+matter. Trained on 600-sample, 10-minute windows of M2\_aug at 1~Hz; other lengths are outside
+that scale and flagged in \code{meta["warnings"]}. A window holding NaN, or flat ($\max = \min$),
+is not scored (NaN) and is counted in \code{meta["skipped"]}. With $R = 0$ a window must be
+16--2048 samples.
+
+\entryfield{Outputs}
+A Scores with one value per sample of the span; NaN where no window reaches. \code{meta}
+carries \code{model\_path}, \code{n\_classes}, \code{positive\_class}, \code{image\_type},
+\code{resample\_to}, \code{resample\_factor}, \code{window\_length}, \code{window\_s},
+\code{n\_windows}, \code{n\_scored}, \code{skipped}, \code{window\_scores} and \code{starts}
+(first 4096), \code{p\_range}, \code{p\_quantiles} (5, 50, 95\,\%), \code{seconds\_per\_window},
+\code{training\_scale}, \code{rules}, \code{summary} and \code{warnings}. Nothing is persisted.
+
+\entryfield{Cost}
+Linear in the number of windows; memory holds at most \emph{batch\_size} pictures. Measured on
+the project's CPU (no GPU), 2026-10-17: about 49~ms a window for fusion and 22~ms for GASF,
+GADF or recurrence, independent of window length. One 721-hour channel at 1~Hz: fusion 36.5,
+3.5 and 0.6 minutes at 1-, 10- and 60-minute windows. \code{estimate} cannot see the window
+length and assumes one 600-sample fusion window per 600 samples (3.3 minutes for that channel
+at every scale). Cancel and progress are checked between batches.
+
+\entryfield{Failure modes}
+Refused with the file named: a missing checkpoint; a file name naming another image type than
+\emph{image\_type}; a checkpoint with other than two classes (\code{fusion_cnn.pth} has one,
+\code{fusion_prediction_cnn.pth} fourteen); \emph{positive\_class} out of range; a window that
+runs past the span. An empty window set gives all-NaN Scores and a note saying why.
+
+\entryfield{Validation}
+For a 600-sample window the picture equals \blockref{catalogue.window_images}' picture and the
+score equals \blockref{catalogue.cnn_score}'s on the same checkpoint. A slow drop and recovery
+resampled from 60 to 36,001 samples correlates above 0.99 with its analytic 600-point version;
+a ripple faster than the new grid is removed. Real-data accuracy against the researcher's blind
+labels has not been measured yet.
+
+\entryfield{References}
+The networks: \code{Working/Catalogue/cnn/cnn_rangapur.py} (EfficientNet-B0, trained per image
+type). The encodings: \code{Working/Catalogue/gramian/gramian_calc.py}.
+
+\entryfield{Tests}
+\code{tests/test_cnn_window_scores.py}, \code{tests/test_adapter_cnn_window_scores.py},
+\code{tests/test_template_cnn_window_scores.py}.
