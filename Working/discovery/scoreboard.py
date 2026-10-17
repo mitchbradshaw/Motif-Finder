@@ -457,6 +457,91 @@ def score_runs(conn, run_ids, *, rule=None, span=None):
     return {"channels": rows, "total": run_total(conn, [r["run_id"] for r in rows], rule=rule, rows=rows)}
 
 
+# ── the same score, remembered while its inputs stand (perf, 2026-10-17) ─────
+#
+# Discovery's template picker shows every template's last score on every open.
+# Scoring is linear now, but deconvolved_troughs' two runs (60k detections)
+# still take ~2 s, and the picker read held the database for all of it. A score
+# is a function of the rows `channel_score` reads, so it is kept against a
+# fingerprint of those rows and recomputed the moment one of them differs.
+
+_SCORE_CACHE: dict = {}
+_SCORE_CACHE_MAX = 256
+
+
+def clear_score_cache():
+    _SCORE_CACHE.clear()
+
+
+def _rows(conn, sql, params=()):
+    return tuple(tuple(r) for r in conn.execute(sql, params).fetchall())
+
+
+def inputs_fingerprint(conn, run_ids):
+    """Every row `score_runs(run_ids)` reads, or a digest of it.
+
+    **Keep this in step with `channel_score` and
+    `divergence.channel_divergence`**: a read added there and not here is a
+    score served stale (`tests/test_perf_scoring_reads.py` changes each input
+    in place and expects a rescore). The human rows — labels, reviewed spans,
+    adjudications, settings — are read whole, because verdicts are edited in
+    place and carry no timestamp of the edit. Detections are machine rows,
+    append-only (no code path deletes or edits one; the one-off legacy-offset
+    migration runs in `init_db` before any read), so a run's set is its id
+    range: two index lookups, where counting 42k rows per run per open cost
+    more than the rest of the fingerprint together.
+    """
+    parts = [_rows(conn, "SELECT page, key, value_json FROM settings ORDER BY page, key")]
+    recordings = set()
+    for run_id in sorted({int(r) for r in run_ids}):
+        run = _rows(conn, "SELECT * FROM runs WHERE id = ?", (run_id,))
+        parts.append(run)
+        if not run:
+            continue
+        recordings.add(conn.execute("SELECT recording_id FROM runs WHERE id = ?", (run_id,)).fetchone()[0])
+        # the paired null draws and their own rows
+        parts.append(_rows(conn, "SELECT * FROM runs WHERE surrogate_of_run_id = ? ORDER BY id", (run_id,)))
+        for rid in [run_id] + [int(r[0]) for r in conn.execute(
+                "SELECT id FROM runs WHERE surrogate_of_run_id = ?", (run_id,))]:
+            parts.append(_rows(conn, "SELECT (SELECT MIN(id) FROM detections WHERE run_id = ?), "
+                                     "(SELECT MAX(id) FROM detections WHERE run_id = ?)", (rid, rid)))
+    for rec_id in sorted(recordings):
+        parts += [
+            _rows(conn, "SELECT * FROM recordings WHERE id = ?", (rec_id,)),
+            _rows(conn, "SELECT COUNT(*) FROM recordings WHERE source_file = "
+                        "(SELECT source_file FROM recordings WHERE id = ?)", (rec_id,)),
+            _rows(conn, "SELECT id, start_idx, end_idx, verdict, source, created_at, deleted_at "
+                        "FROM annotations WHERE recording_id = ? ORDER BY id", (rec_id,)),
+            _rows(conn, "SELECT id, start_idx, end_idx FROM reviewed_spans WHERE recording_id = ? ORDER BY id",
+                  (rec_id,)),
+            # this run's adjudications and every earlier run's on the channel (`_prior_adjudicated`);
+            # CROSS JOIN keeps SQLite starting from the few adjudications rather than walking every
+            # detection on the channel to find them
+            _rows(conn, "SELECT a.id, a.detection_id, a.verdict, a.created_at, d.run_id, d.start_idx, d.end_idx, "
+                        "r.span_start, r.surrogate_of_run_id FROM adjudications a "
+                        "CROSS JOIN detections d ON d.id = a.detection_id CROSS JOIN runs r ON r.id = d.run_id "
+                        "WHERE r.recording_id = ? ORDER BY a.id", (rec_id,)),
+        ]
+    return hash(tuple(parts))
+
+
+def score_runs_cached(conn, run_ids, *, rule=None, span=None):
+    """`score_runs`, answered from memory while `inputs_fingerprint` is
+    unchanged. The caller gets its own copy."""
+    import copy
+
+    key = (tuple(int(r) for r in run_ids), repr(rule), repr(span))
+    fp = inputs_fingerprint(conn, run_ids)
+    hit = _SCORE_CACHE.get(key)
+    if hit is not None and hit[0] == fp:
+        return copy.deepcopy(hit[1])
+    out = score_runs(conn, run_ids, rule=rule, span=span)
+    if len(_SCORE_CACHE) >= _SCORE_CACHE_MAX:
+        _SCORE_CACHE.pop(next(iter(_SCORE_CACHE)))
+    _SCORE_CACHE[key] = (fp, copy.deepcopy(out))
+    return out
+
+
 def group_score(conn, run_group_id, *, rule=None, span=None):
     """§7.1's "each template becomes one run across all channels in scope",
     scored: one channel row per member run, the surrogate members folded into

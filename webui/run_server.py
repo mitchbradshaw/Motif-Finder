@@ -101,6 +101,10 @@ def main():
     from server.app import create_app
     import uvicorn
     app = create_app(rt)
+    # the template picker's scores, computed once in the background (perf, 2026-10-17)
+    import threading
+    from server.discovery import warm_last_scores
+    threading.Thread(target=warm_last_scores, args=(rt.db_path,), name="warm-template-scores", daemon=True).start()
     log.info("serving on http://%s:%d  (API docs at /api/docs, mode at /api/runtime)", args.host, args.port)
     uvicorn.run(app, host=args.host, port=args.port, log_config=None, access_log=False)
 

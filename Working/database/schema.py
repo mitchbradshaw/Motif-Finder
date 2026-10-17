@@ -155,6 +155,8 @@ CREATE TABLE IF NOT EXISTS detections (
     meta_json     TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_detections_run ON detections(run_id);
+-- a run's detections by onset: the "label with no detection" read walks a window of these per label (perf, 2026-10-17)
+CREATE INDEX IF NOT EXISTS idx_detections_run_start ON detections(run_id, start_idx);
 
 CREATE TABLE IF NOT EXISTS encodings (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,

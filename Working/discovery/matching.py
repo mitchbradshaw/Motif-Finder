@@ -33,6 +33,8 @@ index space the caller uses — both sides must be in the same one (for
 ``detections`` that is channel-absolute since 2026-09-21).
 """
 
+from bisect import bisect_left, bisect_right
+
 from Working.database.similarity import interval_iou
 
 #: The one supported criterion, recorded alongside every figure computed
@@ -160,9 +162,23 @@ def match_span_sets(candidates, references, *, iou_threshold=None, onset_fractio
     if onset_fraction is not None:
         base[ONSET_KEY] = _check(ONSET_KEY, onset_fraction, 0.0, 10.0)
 
+    # Only a reference whose onset is within the candidate's onset tolerance can
+    # match it (the rule's second half), so each candidate is checked against
+    # that slice of the references sorted by onset, not against all of them —
+    # trying every pair cost 15.9 M checks for one 17k-detection run (perf,
+    # 2026-10-17). The slice is widened by a sample each side so float rounding
+    # of the tolerance can only add pairs to check, never drop one; the check
+    # itself is still `match_quality`, so the pairing is unchanged.
+    refs = [(int(r[0]), j, r) for j, r in enumerate(references)]
+    refs.sort(key=lambda t: (t[0], t[1]))
+    onsets = [t[0] for t in refs]
     scored = []
     for i, c in enumerate(candidates):
-        for j, r in enumerate(references):
+        c_start = int(c[0])
+        tolerance = base[ONSET_KEY] * max(0, int(c[1]) - c_start)
+        lo = bisect_left(onsets, c_start - tolerance - 1)
+        hi = bisect_right(onsets, c_start + tolerance + 1)
+        for _, j, r in refs[lo:hi]:
             q = match_quality(c, r, rule=base)
             if q["ok"]:
                 scored.append((-q["iou"], i, j, q))

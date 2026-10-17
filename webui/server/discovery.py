@@ -32,6 +32,7 @@ from __future__ import annotations
 import datetime as _dt
 import copy
 import json
+import logging
 import os
 import re
 import threading
@@ -625,7 +626,7 @@ def _last_score(conn, template_name):
     ids = _run_ids(conn, row) if row is not None else []
     if not ids:
         return "not yet scored"
-    total = SB.score_runs(conn, ids)["total"]
+    total = SB.score_runs_cached(conn, ids)["total"]
     # fixup-X: the containment figure (Q-D2 (a)) — the §4.6 one is 0 by
     # construction on window labels and would put that 0 on the card
     p = (total.get("precisions") or {}).get("containment")
@@ -633,6 +634,30 @@ def _last_score(conn, template_name):
         return (p or {}).get("note") or total.get("recall_note") or "not yet scored"
     return (f"precision · containment {p['value'] * 100:.0f} % over {p['judged']} judged detections "
             f"· {total['n_channels']} ch · {total['reviewed_h']:.1f} h")
+
+
+def warm_last_scores(db_path):
+    """Score every detection template's last run once, so the picker's first
+    open after a start answers from `SB.score_runs_cached` instead of
+    rescoring (~6 s on the real database under load; 0.1 s warm). Started in
+    the background by `run_server.py`, never by `create_app`, so a test's app
+    never has a thread reading its database behind it. A failure is logged
+    and costs only the warm start: the picker scores on demand as before."""
+    from Working.database.schema import init_db
+    from . import templates as T
+    log = logging.getLogger("webui.discovery")
+    try:
+        init_db(db_path).close()
+        c = corpus.connect(db_path)
+        try:
+            for row in T.list_all(c):
+                if row.get("kind") in (None, "detection"):
+                    _last_score(c, row["name"])
+        finally:
+            c.close()
+        log.info("template scores warmed")
+    except Exception:
+        log.exception("warming the template scores failed; the picker will score on demand")
 
 
 @router.get("/api/discovery/templates")
@@ -948,7 +973,7 @@ def get_scoreboard(request: Request, runs: str = "", channels: str = "", t0: flo
             ids = _run_ids(c, dr)
             if not ids:
                 continue
-            scored = SB.score_runs(c, ids, rule=rule, span=span)
+            scored = SB.score_runs_cached(c, ids, rule=rule, span=span)
             wanted = {ch["id"] for ch in chans}
             rows = [r for r in scored["channels"] if r["recording_id"] in wanted]
             # a run whose null came from the preview or the cluster has no paired surrogate
@@ -3444,7 +3469,7 @@ def _side(conn, session_id, run_key, chans, span, scope_label):
     found = 0
     ids = _run_ids(conn, row)
     if ids:
-        total = SB.score_runs(conn, ids, span=span)["total"]
+        total = SB.score_runs_cached(conn, ids, span=span)["total"]
         # fixup-X: the side's precision is Q-D2's containment figure, both beside it
         cont = (total.get("precisions") or {}).get("containment") or {}
         precision, reviewed, x_null = cont.get("value"), cont.get("judged"), total["x_null"]
@@ -3640,7 +3665,7 @@ def _per_band(c, session_id, set_key, other_key, chans, span, rule, per, set_is_
                     if r["bands"] == [band.get("label")])
         # the band's own null on the same scope: its paired surrogate runs, as
         # the scoreboard counts them (the draw count is the count drawn)
-        tot = SB.score_runs(c, ids, span=span)["total"] if ids else {}
+        tot = SB.score_runs_cached(c, ids, span=span)["total"] if ids else {}
         rows.append({"run": m["run_key"], "label": m["label"], "band": band, "found": found,
                      "both": matched, "only": found - matched, "alone": alone, "colour": m["colour"],
                      "nullExpects": tot.get("null_expects"), "nullDraws": tot.get("null_draws")})

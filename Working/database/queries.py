@@ -497,6 +497,13 @@ def divergence_annotations_without_detection(conn, recording_id=None, *, run_ids
     """
     ids = _run_id_list(run_ids) if run_ids is not None else None
     in_runs = (" AND d.run_id IN ({})".format(_verdict_placeholders(ids) or "NULL")) if ids is not None else ""
+    # `d.start_idx > a.start_idx - <widest detection>` is implied by the overlap
+    # test (a detection ending after the label starts began less than one
+    # widest-width before it), so it changes no answer; it is there so the
+    # (run_id, start_idx) index bounds the walk on both sides. Without it each
+    # label walked every earlier detection of the run (perf, 2026-10-17).
+    widest = ("(SELECT MAX(w.end_idx - w.start_idx) FROM detections w"
+              + (" WHERE w.run_id IN ({}))".format(_verdict_placeholders(ids) or "NULL") if ids is not None else ")"))
     query = """
         SELECT a.*
         FROM annotations a
@@ -506,9 +513,10 @@ def divergence_annotations_without_detection(conn, recording_id=None, *, run_ids
               JOIN runs r ON r.id = d.run_id
               WHERE r.recording_id = a.recording_id AND __REAL__ __IN_RUNS__
                 AND a.start_idx < d.end_idx AND d.start_idx < a.end_idx
+                AND d.start_idx > a.start_idx - __WIDEST__
           )
-    """.replace("__REAL__", not_surrogate("r")).replace("__IN_RUNS__", in_runs)
-    params = list(ids) if ids is not None else []
+    """.replace("__REAL__", not_surrogate("r")).replace("__IN_RUNS__", in_runs).replace("__WIDEST__", widest)
+    params = (list(ids) + list(ids)) if ids is not None else []
     if ids is not None:
         query += """
           AND EXISTS (

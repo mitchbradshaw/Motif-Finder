@@ -167,4 +167,163 @@ def test_labels_without_a_detection_do_not_walk_every_detection_per_label():
             assert len(rows) == 100            # the gap labels, and only those
         finally:
             conn.close()
-    assert steps[1] < 2 * steps[0], f"VM steps {steps[0]} -> {steps[1]} for 4x the detections"
+    # walking every detection per label costs ~5 steps x 200 labels for each
+    # added detection (~1000; 1052 before the fix); one pass over them, ~10
+    per_detection = (steps[1] - steps[0]) / 6000.0
+    assert per_detection < 50, (f"VM steps {steps[0]} -> {steps[1]} for 4x the detections: "
+                                f"{per_detection:.0f} per added detection, so it grows per label")
+
+
+# ── the template picker's last score, remembered while its inputs stand ─────
+#
+# Even linear, scoring deconvolved_troughs' 60k detections takes ~2 s, and the
+# picker scores every template on every open. `score_runs_cached` answers from
+# memory while nothing the score reads has changed, and rescores the moment
+# anything has: the cases below each change one input in place (no new row id
+# to give it away) and expect the fresh figure.
+
+from Working.database import adjudications as adj_db
+from Working.discovery import scoreboard as SB
+from Working.registration.settings import put_settings
+
+_STEPS = {"steps": [{"stage": "detection", "algorithm": "threshold", "params": {}}]}
+_BEFORE = "2026-09-01T00:00:00"
+_AFTER = "2026-09-20T00:00:00"
+
+
+@pytest.fixture
+def scored():
+    conn = init_db(":memory:")
+    rec = q.insert_recording(conn, "cache.mat", 0, 1.0, 100_000, 0, "cache_CH0.npy")
+    other = q.insert_recording(conn, "cache.mat", 1, 1.0, 100_000, 0, "cache_CH1.npy")
+    config_id, _ = run_db.get_or_create_config(conn, _STEPS)
+    runs = [run_db.insert_run(conn, config_id, r, 0, 20_000, status="completed", started_at=_AFTER)
+            for r in (rec, other)]
+    dets = {}
+    anns = {}
+    for r, run in zip((rec, other), runs):
+        for k in range(20):
+            a = k * 1000
+            q.insert_annotation(conn, r, a, a + 600, "interesting" if k % 3 else "not_interesting",
+                                q.SOURCE_IMPORTED_10MIN, created_at=_BEFORE)
+            q.insert_reviewed_span(conn, r, a, a + 600, q.SOURCE_IMPORTED_10MIN, reviewed_at=_BEFORE)
+            dets[(r, k)] = run_db.insert_detection(conn, run, a + 100, a + 300, score=0.5)
+        anns[r] = q.insert_annotation(conn, r, 15_000, 15_200, "interesting", "excel_catalog", created_at=_BEFORE)
+    old = run_db.insert_run(conn, config_id, rec, 0, 20_000, status="completed", started_at=_BEFORE)
+    old_det = run_db.insert_detection(conn, old, 5100, 5300, score=0.5)
+    SB.clear_score_cache()
+    yield {"conn": conn, "rec": rec, "runs": runs, "dets": dets, "anns": anns, "config": config_id,
+           "old_det": old_det}
+    conn.close()
+
+
+def _count_scores(monkeypatch):
+    calls = {"n": 0}
+    real = SB.channel_score
+
+    def counted(*a, **kw):
+        calls["n"] += 1
+        return real(*a, **kw)
+
+    monkeypatch.setattr(SB, "channel_score", counted)
+    return calls
+
+
+def test_an_unchanged_score_is_not_recomputed(scored, monkeypatch):
+    conn, runs = scored["conn"], scored["runs"]
+    first = SB.score_runs_cached(conn, runs)
+    assert first == SB.score_runs(conn, runs)
+    calls = _count_scores(monkeypatch)
+    assert SB.score_runs_cached(conn, runs) == first
+    assert calls["n"] == 0
+
+
+def test_a_cached_score_is_a_copy_the_caller_cannot_spoil(scored):
+    conn, runs = scored["conn"], scored["runs"]
+    SB.score_runs_cached(conn, runs)["total"]["found"] = -1
+    assert SB.score_runs_cached(conn, runs)["total"]["found"] == SB.score_runs(conn, runs)["total"]["found"]
+
+
+def _verdict_in_place(s):
+    aid = s["conn"].execute("SELECT id FROM annotations WHERE recording_id = ? AND start_idx = 3000",
+                            (s["rec"],)).fetchone()[0]
+    s["conn"].execute("UPDATE annotations SET verdict = 'interesting' WHERE id = ?", (aid,))
+
+
+def _soft_delete(s):
+    s["conn"].execute("UPDATE annotations SET deleted_at = ? WHERE recording_id = ? AND start_idx = 1000",
+                      (_AFTER, s["rec"]))
+
+
+def _new_annotation(s):
+    q.insert_annotation(s["conn"], s["rec"], 19_000, 19_600, "interesting", q.SOURCE_IMPORTED_10MIN,
+                        created_at=_BEFORE)
+
+
+def _span_moved(s):
+    s["conn"].execute("UPDATE annotations SET start_idx = 2250 WHERE recording_id = ? AND start_idx = 2000",
+                      (s["rec"],))
+
+
+def _adjudicated(s):
+    adj_db.insert_adjudication(s["conn"], s["dets"][(s["rec"], 4)], "not_interesting")
+
+
+def _adjudication_changed(s):
+    adj_db.insert_adjudication(s["conn"], s["dets"][(s["rec"], 4)], "not_interesting")
+    SB.score_runs_cached(s["conn"], s["runs"])
+    s["conn"].execute("UPDATE adjudications SET verdict = 'interesting' WHERE detection_id = ?",
+                      (s["dets"][(s["rec"], 4)],))
+
+
+def _prior_run_adjudicated(s):
+    adj_db.insert_adjudication(s["conn"], s["old_det"], "interesting")
+    # given before the scored run started, so its detection there was already judged
+    s["conn"].execute("UPDATE adjudications SET created_at = ? WHERE detection_id = ?", (_BEFORE, s["old_det"]))
+
+
+def _reviewed(s):
+    s["conn"].execute("UPDATE reviewed_spans SET end_idx = 900 WHERE recording_id = ? AND start_idx = 0",
+                      (s["rec"],))
+
+
+def _rule_changed(s):
+    put_settings(s["conn"], "analysis-defaults", {"containment": "whole"})
+
+
+def _detection_added(s):
+    run_db.insert_detection(s["conn"], s["runs"][0], 9100, 9200, score=0.5)
+
+
+def _detection_removed(s):
+    # detections are append-only, so the id range is the set; dropping the newest moves it
+    s["conn"].execute("DELETE FROM detections WHERE id = ?", (s["dets"][(s["rec"], 19)],))
+
+
+def _run_status(s):
+    s["conn"].execute("UPDATE runs SET status = 'running' WHERE id = ?", (s["runs"][0],))
+
+
+def _null_drawn(s):
+    null = run_db.insert_run(s["conn"], s["config"], s["rec"], 0, 20_000, status="completed", started_at=_AFTER)
+    run_db.insert_detection(s["conn"], null, 100, 200, score=0.5)
+    run_db.update_run(s["conn"], null, surrogate_of_run_id=s["runs"][0])
+
+
+def _fs_changed(s):
+    s["conn"].execute("UPDATE recordings SET fs = 2.0 WHERE id = ?", (s["rec"],))
+
+
+@pytest.mark.parametrize("change", [
+    _verdict_in_place, _soft_delete, _new_annotation, _span_moved, _adjudicated, _adjudication_changed,
+    _prior_run_adjudicated, _reviewed, _rule_changed, _detection_added, _detection_removed, _run_status,
+    _null_drawn, _fs_changed,
+], ids=lambda f: f.__name__.strip("_"))
+def test_any_change_to_what_the_score_reads_rescores(scored, change):
+    conn, runs = scored["conn"], scored["runs"]
+    before = SB.score_runs_cached(conn, runs)
+    change(scored)
+    conn.commit()
+    fresh = SB.score_runs(conn, runs)
+    assert fresh != before, "the change did not move the score, so this case proves nothing"
+    assert SB.score_runs_cached(conn, runs) == fresh
