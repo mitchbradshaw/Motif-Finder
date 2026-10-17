@@ -118,3 +118,17 @@ say whether the second shape behaves like the first.
 - 2026-10-17 · a2-p4 fix round · a failed preview shows its error and traceback beside *Run preview again*; a run that
   draws the preview first is that query's preview (the page watches it, a second *Run preview* joins it); every family
   of the grouping is in the family filter; the backfill's dry run is read-only (would link 10 runs on the snapshot).
+- 2026-10-18 · spike37 results · the 16 parts came back and were merged into
+  `HPC/Detection/generated/spike37_allch_16ch_0-2595600.result.json`. It is complete, 200 draws per channel, spec
+  hash `f6aab3cfb594`; not yet imported or judged.
+  - Against the null: 8 of 16 channels beat their own null (p < 0.01). On the other 8 the closest match is no
+    better than chance.
+  - The page's line (α 0.01, the strictest passing channel's cut) is d ≤ 2.52, set by CH1_A1, the seed's own
+    channel. It keeps **16 matches, all on CH1_A1**, 8 of which overlap the burst's 13 family-37 members (the
+    members include duplicate copies).
+  - Each channel's own cut would keep 34: the 16, plus 18 on CH2_A1, CH4_A2, CH9_C1, CH10_C1, CH12_C2, CH15_D2 and
+    CH16_D2.
+  - No match coincides with one on another channel within 60 s.
+  - Reading it: the spike seed is far more selective than the drop (372 under the line). Under one line it
+    effectively searches its own channel, so judge the 34 per-channel matches if the cross-channel question
+    matters.
