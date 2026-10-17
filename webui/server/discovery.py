@@ -2117,6 +2117,9 @@ def get_seed_results(request: Request, seedId: str, channels: str = "", t0: floa
     c = _conn(request)
     try:
         s = _session(c)
+        # a2 integration (P1 x P4, critic m1): a stored result is the session recording's matches, so once the
+        # held-out lock is back on, the read refuses it as every other read of that recording does
+        _refuse_held_out(c, s["source_file"])
         null = _seed_null(c, s)
         names = _split(channels) or json.loads(s["channels_json"])
         bank = _bank(scales or None)
