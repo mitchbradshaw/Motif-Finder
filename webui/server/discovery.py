@@ -4747,17 +4747,50 @@ def adopt_chain_job(request: Request, body: ChainAdoptBody):
         c.close()
 
 
+def _uncached_time_capped(conn, plan):
+    """Every time-capped step (the matrix-profile family, `routing.TIME_CAPPED_BLOCKS`) the plan's real runs and
+    draws would compute, the step cache not holding it — whatever this machine's calibration says. An
+    uncalibrated machine has no cap and no estimate for the profile, so its plan reads "unknown" rather than
+    "capped"; the whole-signal profile would still take hours here. ``[{channel_name, step, name, where}]``, a
+    draw's step counted past its prepended surrogate step. Draws whose params are not known yet (a block shuffle
+    before its real run) count as uncached (``where: "draws"``)."""
+    from Working.discovery import routing
+
+    null = plan["null"]
+    out = []
+    for i, t in enumerate(plan["targets"]):
+        recipe = fanout.target_recipe(plan["recipe"], i, bool(null["paired"]))
+        runs = [("real", recipe, 0)]
+        if null["paired"] and int(null["draws"] or 0):
+            drs, _why = routing.draw_recipes(conn, recipe, draws=int(null["draws"]), surrogate_params=null["params"])
+            if drs is None:
+                # the draws cannot be keyed before the real run exists: each computes the real chain from scratch
+                out += [{"channel_name": t["channel_name"], "step": k, "name": f"{st['stage']}.{st['algorithm']}",
+                         "where": "draws"} for k, st in enumerate(recipe["steps"])
+                        if f"{st['stage']}.{st['algorithm']}" in routing.TIME_CAPPED_BLOCKS]
+            else:
+                runs += [(f"draw {j}", dr, 1) for j, dr in enumerate(drs)]
+        for where, r, skip in runs:
+            for st in routing.step_status(conn, r, samples=t["samples"], fs=t["fs"], skip=skip):
+                if st["name"] in routing.TIME_CAPPED_BLOCKS and not st["cached"]:
+                    out.append({"channel_name": t["channel_name"], "step": st["index"] - skip, "name": st["name"],
+                                "where": where})
+    return out
+
+
 @router.post("/api/discovery/chain/local")
 def run_like_chain_job(request: Request, body: ChainLocalBody):
-    """A template run HERE over a chain job's own channels, span and null — only when nothing over a cap is left
-    to compute (2026-10-18; RQ4b's decision, option 1).
+    """A template run HERE over a chain job's own channels, span and null — only when the step cache holds every
+    matrix-profile step, for the real run and each draw, and nothing else is over a cap (2026-10-18; RQ4b's
+    decision, option 1).
 
     The overnight sweep brought back the matrix profiles of ``mp_threshold__backend_auto``. A template with the
     same detrend → profile prefix (the ``backend: "auto"`` copies of the other matrix-profile templates) reads them
     from the step cache, but only over the same recording, span and null: every one of those is in the key. So the
     run is planned from the job: the template's chain as a spec over the job's targets (`chain_job.build_spec`,
-    nothing written) and P2's `local_plan`, the plan an import runs. Over a cap with nothing cached (a ``stump``
-    template's profile, keyed apart) it is refused, naming the step, rather than computed here for hours.
+    nothing written) and P2's `local_plan`, the plan an import runs. A profile the cache does not hold (a ``stump``
+    template's, keyed apart) is refused by step, rather than computed here for hours — read from the cache, not
+    from the cap, which an uncalibrated machine does not have (`_uncached_time_capped`).
     ``dryRun`` (the default) answers with the plan: per channel the steps the cache holds, and whether it runs
     here. A template already run like this job (not failed or cancelled) is not run again."""
     from Working.discovery import chain_job
@@ -4782,14 +4815,18 @@ def run_like_chain_job(request: Request, body: ChainLocalBody):
         except (chain_job.ExportRefused, chain_job.ImportRefused) as e:
             raise HTTPException(422, {"message": str(e)})
         steps = lp["recipe"]["steps"]
-        runs_here = not lp["capped"] and lp["route"] != "cluster"
+        uncached = _uncached_time_capped(c, lp)
+        runs_here = not uncached and not lp["capped"] and lp["route"] != "cluster"
         reason = None
         if not runs_here:
+            seen = set()
             left = "; ".join(f"{x['channel_name']} step {x['step'] + 1:02d} ({x['name']}, {x['where']})"
-                             for x in lp["capped"])
+                             for x in uncached + lp["capped"]
+                             if (x["channel_name"], x["step"], x["where"]) not in seen
+                             and not seen.add((x["channel_name"], x["step"], x["where"])))
             reason = (f"{body.template} would compute " + (left or f"about {(lp['estimate_s'] or 0) / 60:.0f} min")
-                      + " here, over this machine's limit: the step cache holds no result for it under this "
-                        "template's keys (the backend is in the key)")
+                      + " here: the step cache holds no result for it under this template's keys (the backend is "
+                        "in the key), and a matrix profile is the cluster's to compute")
         existing = None
         for r in _discovery_runs(c, s["id"]):
             rp = json.loads(r["params_json"] or "{}")
@@ -4800,7 +4837,7 @@ def run_like_chain_job(request: Request, body: ChainLocalBody):
                "like": {"specPath": p, "specHash": h, "label": like["label"]},
                "session": {"id": int(s["id"]), "name": s["name"], "recording": _stem(s["source_file"])},
                "route": lp["route"], "estimate_s": lp["estimate_s"], "ceiling_s": ceiling, "capped": lp["capped"],
-               "runsHere": runs_here, "reason": reason,
+               "uncached": uncached, "runsHere": runs_here, "reason": reason,
                "targets": [{"channelName": t["channel_name"], "recordingId": t["recording_id"],
                             "cached": [f"{steps[i]['stage']}.{steps[i]['algorithm']}" for i in cost["cached"]],
                             "drawsCached": cost["draws_cached"], "draws": lp["null"]["draws"]}

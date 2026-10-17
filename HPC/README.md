@@ -145,8 +145,10 @@ task is re-run and back, run `adopt --apply` again. It is idempotent: imported j
 skipped.
 
 `POST /api/discovery/chain/local` `{template, like, dryRun}` runs a template here over a chain job's own channels,
-span and null, planned by `chain_job.local_plan`. It runs only when nothing over a cap is left to compute, so a
-`stump` template that would compute its whole-signal profile here is refused, naming the step.
+span and null, planned by `chain_job.local_plan`. It runs only when the step cache holds every matrix-profile step,
+for the real run and each draw, and nothing else is over a cap. This is read from the cache, not the calibrated cap:
+an uncalibrated machine (a fresh sandbox) has no cap and would otherwise compute a whole-signal profile. A `stump`
+template, whose profile is keyed apart, is refused, naming the step.
 
 ### What the import expects
 

@@ -470,6 +470,12 @@ def _gb(n):
     return "-" if n is None else f"{n / 1e9:.1f} GB"
 
 
+def _line(text, width=200):
+    """A reason on one line (a refused task's reason carries its exception's whole message)."""
+    one = " ".join(str(text or "").split())
+    return one if len(one) <= width else one[:width - 1] + "…"
+
+
 def _wait(V, url, job_id):
     """``(status, error message, seconds)`` once the bridge's job ends."""
     t0 = time.time()
@@ -525,9 +531,9 @@ def adopt(url, out_rel=OUT_REL, *, apply=False, allow_project=False, only=None):
             continue
         print(f"  ! {j['label']}: {d['tasks']['complete']} of {d['tasks']['total']} tasks complete")
         for t in d["tasks"]["notComplete"]:
-            print(f"      task {t['index']} ({t['channelName']}): {t['state']} — {t['reason']}")
+            print(f"      task {t['index']} ({t['channelName']}): {t['state']} — {_line(t['reason'])}")
         if not d["tasks"]["notComplete"]:
-            print(f"      {d['refusal']}")
+            print(f"      {_line(d['refusal'], 600)}")
     for label, msg in failed:
         print(f"  ! {label}: refused by the bridge: {msg}")
     for r in manifest.get("refused") or []:
