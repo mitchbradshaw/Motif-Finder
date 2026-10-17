@@ -1601,3 +1601,39 @@ export const exportDiscoveryChain = (body: DiscPlanBody & { runKey?: string; dry
 export interface DiscChainImportAck { run_key: string; job_id: number; label: string; tasks: number; entries: number; bytes: number; note: string }
 /** The tasks' return/ folder is back: verify it, restore the cache, run the sweep here. A refusal is a 422 with what is missing. */
 export const importDiscoveryChain = (runKey: string) => post<DiscChainImportAck>('/api/discovery/chain/import', { runKey })
+
+/* ---------------- round A_2 · P3: the window scope (server/discovery.py `PlanBody.windows`, `ApplyBody.windows`) ----
+ * Appended. A detection run over sliding windows with overlap: each window judged on its own scale, the windows'
+ * detections stitched into one result (`Working/discovery/windowed.py`). The plan answers counts — windows per
+ * channel, the runs that makes with the null, the run-overhead floor — the chain's minimum window and the step that
+ * sets it, and what fitting the chain to a shorter window changed. The interfaces widen by declaration merging. */
+export interface DiscWindowScope { window_s: number; overlap_frac?: number; fit?: boolean }
+export interface DiscWindowMinimum {
+  step: number; name: string; label: string; param: string; seconds: number; kind: 'context' | 'piece'; minimum_s: number
+  fittable: boolean
+}
+export interface DiscWindowFit { step: number; name: string; param: string; from: number; to: number }
+export interface DiscPlanWindows {
+  scope: { kind: 'windows'; window_s: number; overlap_frac: number; fit: boolean }; label: string
+  recommendedOverlap: number; tradeOff: string; minimum: DiscWindowMinimum | null; fitted: DiscWindowFit[]
+  refused: string | null; per_channel: number; targets: number; runs: number; done: number
+  per_window_s: number | null; overhead_s: number; run_overhead_s: number; rules: { name: string; rule: string }[]
+}
+export interface DiscPlanBody { windows?: DiscWindowScope }
+export interface DiscPlan { windows?: DiscPlanWindows }
+export interface DiscApplyResult { windows?: { label: string; per_channel: number; targets: number; runs: number } }
+export interface DiscWindowStitch { channel: string; windows: number; windowsReused: number; found: number; kept: number; duplicates: number; outside: number }
+export interface DiscRun {
+  windows?: {
+    scope: DiscPlanWindows['scope']; label: string; per_channel: number; targets: number; fitted: DiscWindowFit[]
+    minimum: DiscWindowMinimum | null; stitch?: DiscWindowStitch[] | null; tradeOff: string
+  }
+}
+/** *Apply template* with a window scope (and, optionally, a band scope): each template becomes ONE Discovery run,
+ *  its runs the stitched windows, one per channel. */
+export const applyDiscoveryTemplatesWindowed = (templates: string[], channels: string[], t0: number, t1: number, run: boolean,
+  windows: DiscWindowScope, bands?: DiscBand[], exemplars?: Record<string, string>) =>
+  post<DiscApplyResult[]>('/api/discovery/templates/apply',
+    { templates, channels, t0, t1, run, windows, bands: bands && bands.length ? bands : undefined, exemplars })
+/** A Map row of a windowed application (`detection_map._row_meta`): its scope and its scale in words. */
+export interface DiscMapRow { windows?: { scope: DiscPlanWindows['scope']; label: string } | null }
