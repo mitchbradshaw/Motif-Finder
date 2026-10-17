@@ -329,9 +329,65 @@ def test_analyse_serves_an_over_cap_profile_the_cache_holds(client, monkeypatch)
     assert _wait_job(client, again.json()["job_id"])["status"] == "completed"
 
 
-def test_analyse_routes_an_uncached_over_cap_profile_to_slurm(client, monkeypatch):
+def test_analyse_refuses_an_uncached_over_cap_profile_and_points_to_discovery(client, monkeypatch):
+    """F5 (fix round): Analyse used to answer an uncached over-cap profile with the old one-way SLURM script
+    (`job_export.export_job`: no return path, no resume). It refuses, as at base, and names the way that comes
+    back: Discovery › Runs › Create SLURM script, whose chain job leaves the profile in the cache — after which this
+    chain runs here (a cached profile is not over anything)."""
+    import glob
+
     monkeypatch.setattr(get_adapter("detection.matrix_profile"), "max_span_samples", 500)
     r = client.post("/api/runs", json={"recording_id": 2, "span": [0, N], "steps": MP_STEPS})
     assert r.status_code == 422, r.text
-    body = r.json()["detail"]
-    assert body["route"] == "cluster" and body["slurm"]["sbatch_command"].startswith("sbatch "), body
+    detail = r.json()["detail"]
+    msg = detail["message"] if isinstance(detail, dict) else str(detail)
+    assert "Discovery" in msg and "Create SLURM script" in msg, msg
+    assert not (isinstance(detail, dict) and detail.get("slurm")), "no one-way script is written"
+    assert not glob.glob(os.path.join(client.app.state.rt.dir, "hpc", "analyse_*.sh"))
+
+
+# ── fix round: a restore that fails part-way ───────────────────────────────
+
+def test_a_restore_that_fails_half_way_reads_failed_with_its_reason_and_imports_again(client, monkeypatch):
+    """F3 (fix round): `importedAt` was stamped before the job ran and a restore failure skipped `fail()`, so a
+    restore that broke part-way read as imported, with no reason on the row. Now the start is `importStartedAt`,
+    `importedAt` is stamped once the sweep has written the run, and the failure's own words are on the row and
+    in Jobs; importing again recovers."""
+    import shutil
+
+    key = _add(client, "noise_threshold")["run_key"]
+    made = _export(client, key, "noise_threshold")
+    spec = _spec(made)
+    for i in range(2):
+        chain_job.run_task(spec, task=i, out_dir=made["result_dir"])
+    real, calls = shutil.copytree, {"n": 0}
+
+    def flaky(src, dst, *a, **k):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            os.makedirs(dst, exist_ok=True)
+            with open(os.path.join(dst, "partial.bin"), "wb") as f:
+                f.write(b"x")
+            raise OSError("disk full (simulated)")
+        return real(src, dst, *a, **k)
+
+    monkeypatch.setattr(chain_job.shutil, "copytree", flaky)
+    r = client.post("/api/discovery/chain/import", json={"runKey": key})
+    assert r.status_code == 200, r.text
+    assert _wait_job(client, r.json()["job_id"])["status"] == "failed"
+    run = _runs(client)[key]
+    assert run["status"] == "failed" and "disk full" in (run.get("error") or ""), run
+    assert not run.get("hpcImported")
+    hpc = _params(client, key)["hpc"]
+    assert hpc.get("importStartedAt") and "importedAt" not in hpc
+    row = _chain_row(client, key)
+    assert row["state"] == "failed" and "disk full" in (row["reason"] or ""), row
+    monkeypatch.setattr(chain_job.shutil, "copytree", real)
+    r = client.post("/api/discovery/chain/import", json={"runKey": key})
+    assert r.status_code == 200, r.text
+    assert _wait_job(client, r.json()["job_id"])["status"] == "completed"
+    run = _runs(client)[key]
+    assert run["status"] == "done" and run["hpcImported"] is True and not run.get("error")
+    hpc = _params(client, key)["hpc"]
+    assert hpc["importedAt"] >= hpc["importStartedAt"]
+    assert _chain_row(client, key)["state"] == "imported"

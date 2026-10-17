@@ -558,3 +558,170 @@ def test_the_command_line_computes_a_task_from_the_spec_file_and_reports_the_job
     assert res["complete"] is True and res["specHash"] == chain_job.spec_hash(spec)
     assert all(not e["path"].startswith("/") and "\\" not in e["path"] for e in res["cache"]), \
         "cache paths are relative to the task folder, with forward slashes, so the folder can move"
+
+
+# ── fix round (2026-10-18): the critic's findings ───────────────────────────
+
+def test_a_task_that_raises_anything_writes_a_result_that_says_why(world, monkeypatch):
+    """F1 (a): an exception the task let through left no result.json, so Jobs read the task as missing with no
+    reason. Here the executor's held-out guard (`HeldOutRecordingLocked`, a RuntimeError raised before any step)."""
+    _, spec, made = _export(world, CHEAP, world["ids"][:1], label="raises")
+    monkeypatch.setattr(cfg, "HELD_OUT_RECORDING_FILE", "syn.mat")      # the scratch recording now reads held out
+    res = chain_job.run_task(spec, task=0, out_dir=made["result_dir"])
+    assert res["complete"] is False
+    assert res["error"].startswith("HeldOutRecordingLocked:"), res["error"]
+    assert "Traceback" in res["traceback"]
+    with open(os.path.join(made["result_dir"], "return", "task0", "result.json"), encoding="utf-8") as f:
+        assert json.load(f)["error"] == res["error"]
+    st = chain_job.task_status(made["result_dir"], 0, spec)
+    assert st["state"] == "refused" and "HeldOutRecordingLocked" in st["reason"]
+    assert chain_job.main(["--status", "--out", made["result_dir"], "--task", "0"]) == 3
+    # a spec the code cannot read is a result too, not a crash
+    res = chain_job.run_task(dict(spec, version=99), task=0, out_dir=made["result_dir"])
+    assert res["complete"] is False and "version" in res["error"]
+
+
+def test_an_m4_target_exported_with_the_lock_off_runs_on_its_scratch_database(world, monkeypatch):
+    """F1 (b): the scratch database is built by `init_db()` and has no settings row, which the held-out lock reads
+    as locked. A held-out target exported while the lock is off carries `heldOutUnlocked` (only such a target: every
+    other spec keeps its hash), and its scratch database is written with the lock off."""
+    from Working.registration import settings as S
+
+    conn = init_db(world["db"])
+    npy = world["root"] / "m4_CH0.npy"
+    np.save(npy, _coloured(11))
+    m4 = q.insert_recording(conn, S.HELD_OUT_FILE, 0, FS, N, 0, str(npy))
+    S.put_settings(conn, S.HELD_OUT_PAGE, {S.HELD_OUT_ON_KEY: False}, confirm_name=S.held_out_state(conn)["name"])
+    conn.close()
+    # this branch's plan and executor read the lock from Working.config; P1's predicate reads the settings row
+    monkeypatch.setattr(fanout, "HELD_OUT_UNLOCK", True, raising=False)
+    monkeypatch.setattr(cfg, "HELD_OUT_UNLOCK", True, raising=False)
+    off = {"paired": False, "params": None, "draws": 0}
+    _, spec, made = _export(world, CHEAP, [m4, world["ids"][0]], label="m4_unlocked", null=off)
+    t_m4, t_v = spec["targets"]
+    assert t_m4.get("heldOutUnlocked") is True
+    assert "heldOutUnlocked" not in t_v, "the key rides only on a held-out target exported with the lock off"
+    res = chain_job.run_task(spec, task=0, out_dir=made["result_dir"])
+    assert res["complete"] is True, res.get("error")
+    sconn = init_db(os.path.join(made["result_dir"], "work", "task0", "scratch.sqlite"))
+    try:
+        assert S.held_out_state(sconn)["on"] is False, "the scratch database reads the lock as the export did"
+    finally:
+        sconn.close()
+    # exported with the lock on, the same target carries no key and its scratch database reads locked
+    conn = init_db(world["db"])
+    S.put_settings(conn, S.HELD_OUT_PAGE, {S.HELD_OUT_ON_KEY: True})
+    conn.close()
+    _, spec2, made2 = _export(world, CHEAP, [m4], label="m4_locked", null=off)
+    assert "heldOutUnlocked" not in spec2["targets"][0]
+    chain_job.run_task(spec2, task=0, out_dir=made2["result_dir"])
+    sconn = init_db(os.path.join(made2["result_dir"], "work", "task0", "scratch.sqlite"))
+    try:
+        assert S.held_out_state(sconn)["on"] is True
+    finally:
+        sconn.close()
+
+
+def test_auto_and_stump_key_a_profile_apart(world):
+    """F2: `backend` stays in the step-cache key — every overnight matrix-profile spec's prefix hashes include it,
+    and removing it would refuse their import. So the overnight GPU profiles (`backend: auto`) are not the
+    profiles `mp_threshold` and its variants (`backend: stump`) look up; the shared detrend is."""
+    auto_steps = [MP[0], {**MP[1], "params": {"window_min": 1.0, "backend": "auto"}}, MP[2]]
+    conn = init_db(world["db"])
+    try:
+        auto = fanout.target_recipe(_plan(conn, auto_steps, world["ids"][:1])["recipe"], 0, True)
+        stump = fanout.target_recipe(_plan(conn, MP, world["ids"][:1])["recipe"], 0, True)
+    finally:
+        conn.close()
+    assert _recipe_prefix_hash(auto, 0, "V") == _recipe_prefix_hash(stump, 0, "V")
+    assert _recipe_prefix_hash(auto, MP_STEP, "V") != _recipe_prefix_hash(stump, MP_STEP, "V")
+
+
+def _restorable(world, label, n=2):
+    _, spec, made = _export(world, CHEAP, world["ids"][:n], label=label)
+    _run_all(spec, made)
+    return spec, made
+
+
+def _rows(conn):
+    return [(r["recipe_prefix_hash"], int(r["step_index"]), r["path"])
+            for r in conn.execute("SELECT * FROM step_artifacts ORDER BY id")]
+
+
+def test_a_restore_that_fails_half_way_serves_no_half_entry_and_the_next_one_completes(world, monkeypatch):
+    """F3 (the core's part): the second entry's copy fails part-way (a full disk). The entries already restored
+    stay (each a whole, valid cache entry); the half-copied one is neither registered nor sitting where the cache
+    reads it; a second restore completes, with no debris in the entry."""
+    spec, made = _restorable(world, "half_way")
+    conn = init_db(world["db"])
+    try:
+        checked = chain_job.verify_results(conn, spec, made["result_dir"])
+        real, calls = shutil.copytree, {"n": 0}
+
+        def flaky(src, dst, *a, **k):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                os.makedirs(dst, exist_ok=True)
+                with open(os.path.join(dst, "partial.bin"), "wb") as f:
+                    f.write(b"x")
+                raise OSError("disk full (simulated)")
+            return real(src, dst, *a, **k)
+
+        monkeypatch.setattr(chain_job.shutil, "copytree", flaky)
+        with pytest.raises(OSError, match="disk full"):
+            chain_job.restore_cache(conn, checked, cache_root=cfg.STEP_CACHE_ROOT)
+        assert len(_rows(conn)) == 1
+        h, k = checked["copy"][1][0], checked["copy"][1][1]
+        assert R.get_step_artifact(conn, h, k) is None
+        assert not os.path.exists(os.path.join(cfg.STEP_CACHE_ROOT, h, str(k))), "no half entry where it is read"
+        monkeypatch.setattr(chain_job.shutil, "copytree", real)
+        got = chain_job.restore_cache(conn, checked, cache_root=cfg.STEP_CACHE_ROOT)
+        assert got["already"] == 1 and got["copied"] == len(checked["copy"]) - 1
+        assert not os.path.exists(os.path.join(cfg.STEP_CACHE_ROOT, h, str(k), "partial.bin"))
+    finally:
+        conn.close()
+
+
+def test_a_cancel_during_restore_stops_between_entries_and_serves_no_half_entry(world):
+    """F4: the restore checks a cancel between entries: it stops, keeps the whole entries it restored, leaves
+    none half-copied, and says it was cancelled (`RestoreCancelled`) rather than returning as if done."""
+    spec, made = _restorable(world, "cancel_restore")
+    conn = init_db(world["db"])
+    try:
+        checked = chain_job.verify_results(conn, spec, made["result_dir"])
+        assert len(checked["copy"]) >= 3
+        calls = {"n": 0}
+
+        def stop():
+            calls["n"] += 1
+            return calls["n"] > 1                     # the first entry is restored, then the cancel lands
+
+        with pytest.raises(chain_job.RestoreCancelled):
+            chain_job.restore_cache(conn, checked, cache_root=cfg.STEP_CACHE_ROOT, should_cancel=stop)
+        rows = _rows(conn)
+        assert len(rows) == 1 and os.path.isdir(rows[0][2])
+        for h, k, _src, _n in checked["copy"][1:]:
+            dst = os.path.join(cfg.STEP_CACHE_ROOT, h, str(k))
+            assert not os.path.exists(dst) and not os.path.exists(dst + ".part")
+        got = chain_job.restore_cache(conn, checked, cache_root=cfg.STEP_CACHE_ROOT)
+        assert got["already"] == 1 and got["copied"] == len(checked["copy"]) - 1
+    finally:
+        conn.close()
+
+
+def test_collect_hashes_the_spec_once_per_job(world, monkeypatch):
+    """F6: Jobs reads every chain job's state on every refresh; the spec's hash was recomputed once per task
+    (0.30 s for the overnight sweep's 674 tasks)."""
+    off = {"paired": False, "params": None, "draws": 0}
+    _, spec, made = _export(world, CHEAP, world["ids"][:3], label="once", null=off)
+    _run_all(spec, made)                              # a result on disk is what each task's state is read from
+    real, calls = chain_job.spec_hash, {"n": 0}
+
+    def counting(s):
+        calls["n"] += 1
+        return real(s)
+
+    monkeypatch.setattr(chain_job, "spec_hash", counting)
+    st = chain_job.collect(spec, made["result_dir"])
+    assert st["total"] == 3 and [t["state"] for t in st["tasks"]] == ["complete"] * 3
+    assert calls["n"] == 1
