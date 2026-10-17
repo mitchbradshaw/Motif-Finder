@@ -4,9 +4,9 @@ shape* → *Shape clustering* (ticket `docs/prompts/fixup/AG-…`).
 * ``GET /api/windowsets/library`` — what the *Window pool* block's page lists: the
   library of EVERY saved window set (unlabelled sets, pools, the baseline's
   labelled set), each with its kind, recording(s), scale and counts, from
-  ``Working.training.pool.list_sets`` — nothing assumes six. A set on the
-  held-out recording is not listed while Settings › Datasets' lock is on
-  (a2-p1: read per request).
+  ``Working.training.pool.list_sets`` — nothing assumes six. The held-out
+  recording is never listed: these are training sets, and training keeps its
+  own lock (exam iii) whatever Settings › Datasets says (a2-p1 fix round).
 
 The core does the work (``Working.training.pool``, ``Working.training.shape``);
 these routes hand it a connection and hand its answers back.
@@ -49,9 +49,8 @@ def windowset_library(request: Request):
     c = _conn(request)
     try:
         out = []
-        locked = corpus.held_out_locked(c)          # a2-p1: the lock as it stands now
         for s in tpool.list_sets(c):
-            if locked and HELD_OUT_FILE in (s.get("source_files") or []):
+            if HELD_OUT_FILE in (s.get("source_files") or []):
                 continue
             row = c.execute("SELECT * FROM window_sets WHERE id = ?", (s["id"],)).fetchone()
             try:

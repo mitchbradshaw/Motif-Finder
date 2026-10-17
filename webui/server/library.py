@@ -236,12 +236,13 @@ def _params_text(params: dict) -> str:
 
 def _refuse_held_out(conn, source_file: str) -> None:
     """423 for the held-out file while Settings › Datasets' lock is on, read now (a2-p1). The Library's reads
-    follow the lock through the recording index's `held_out` flag (`corpus.recordings`); its importers keep
-    their own rule (`_is_held_out_path`)."""
+    follow the lock through the recording index's `held_out` flag (`corpus.recordings`); *Add N matches* asks
+    this for a seed run's recordings (`_seed_run_for`); its importers keep their own rule (`_is_held_out_path`)."""
     name = os.path.basename(str(source_file or "").replace("\\", "/"))
     if name == HELD_OUT_FILE and corpus.held_out_locked(conn):
         raise HTTPException(status_code=423, detail=corpus.held_out_refusal(
-            "the bridge refuses every request for it, in both runtime modes, and no Library route reads it"))
+            "the bridge refuses every request for it, in both runtime modes, and no Library route reads or "
+            "writes it"))
 
 
 # ── the recording index ─────────────────────────────────────────────────────
@@ -3479,13 +3480,26 @@ class AddMatchesBody(BaseModel):
 
 
 def _seed_run_for(conn, run_key: str):
-    """The current Discovery session's seed run `run_key`, with its params."""
+    """The current Discovery session's seed run `run_key`, with its params.
+
+    a2-p1 fix round (M1): *Add N matches* reads the run's matches and writes Library members and edges on the
+    run's own recordings, so a run on the held-out recording answers 423 while the lock is on — both the summary
+    (GET) and the write (POST), which share this read. A search made while it was unlocked leaves no door that
+    writes its matches once the lock is back on."""
     row = conn.execute(
         "SELECT dr.* FROM discovery_runs dr JOIN discovery_sessions s ON s.id = dr.session_id "
         "WHERE dr.run_key = ? ORDER BY s.id DESC, dr.id DESC LIMIT 1", (run_key,)).fetchone()
     if row is None:
         raise HTTPException(404, {"message": f"no Discovery run {run_key!r}"})
-    return row, json.loads(row["params_json"] or "{}")
+    params = json.loads(row["params_json"] or "{}")
+    run_ids = [int(i) for i in params.get("run_ids") or []]
+    if run_ids:
+        marks = ",".join("?" * len(run_ids))
+        for r in conn.execute(
+                f"SELECT DISTINCT rec.source_file FROM runs u JOIN recordings rec ON rec.id = u.recording_id "
+                f"WHERE u.id IN ({marks})", run_ids).fetchall():
+            _refuse_held_out(conn, r[0])
+    return row, params
 
 
 def _matches_summary(conn, row, params, include_unjudged=False) -> dict:

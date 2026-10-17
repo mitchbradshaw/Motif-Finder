@@ -528,9 +528,24 @@ class Smoke:
 
     def m4(self, page):
         print("[held-out]")
+        # a2-p1: the lock is Settings › Datasets' switch, read per request, and a sandbox copied from the real
+        # database carries whatever it says — so ask the bridge first (an older bridge has no route: locked)
+        st = self._api("/api/held-out")
+        locked = not isinstance(st, dict) or "__error__" in st or bool(st.get("locked", True))
         self.goto(page, "explore/signal/52", 1200)
-        txt = page.locator("body").inner_text()
-        self.check("held out" in txt.lower(), "M4 channel shows a held-out / locked state")
+        if locked:
+            txt = page.locator("body").inner_text()
+            self.check("held out" in txt.lower(), "M4 channel shows a held-out / locked state")
+        else:
+            try:
+                page.wait_for_selector('[data-testid="signal-overview"]', timeout=20000)
+            except Exception:
+                pass                     # the check below says what is missing
+            self.check(page.locator('[data-testid="locked-card"]').count() == 0
+                       and page.locator('[data-testid="signal-overview"]').count() == 1
+                       and page.locator('[data-testid="held-out-chip"][data-locked="0"]').count() == 1,
+                       "the held-out lock is off (Settings › Datasets): the M4 channel opens with no locked card, "
+                       "and the header says it is unlocked")
         self.shot(page, "explore-m4-held-out")
 
     def analyse(self, page):

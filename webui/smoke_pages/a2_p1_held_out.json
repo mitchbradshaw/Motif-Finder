@@ -71,6 +71,23 @@
   ]
  },
  {
+  "page": "settings.analysis-defaults",
+  "state": "a2p1-no-locked-M4-context-while-unlocked",
+  "_note": "a2-p1 fix round (m3): the example-context picker offers M4 as 'held out · locked' only while the lock is on.",
+  "hash": "settings/analysis-defaults",
+  "settle_ms": 600,
+  "actions": [
+   {"wait_for": ["[data-testid=\"rules-table\"]", 15000]}
+  ],
+  "expect": [
+   "[data-testid=\"rule-context\"]",
+   "[data-testid=\"held-out-chip\"][data-locked=\"0\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"rule-context\"] option[value=\"M4_aug CH1_A1\"]"
+  ]
+ },
+ {
   "page": "settings.datasets",
   "state": "a2p1-relock-by-the-toggle",
   "_note": "a2-p1. Turning the lock back on needs no typed name; the chip goes grey at once, and every later state in the walk meets M4 locked again.",
@@ -100,6 +117,20 @@
   ],
   "expect_absent": [
    "[data-testid=\"corpus-heatmap\"]"
+  ]
+ },
+ {
+  "page": "settings.analysis-defaults",
+  "state": "a2p1-locked-M4-context-once-relocked",
+  "_note": "a2-p1 fix round (m3): re-locked, the picker offers M4 again, disabled.",
+  "hash": "settings/analysis-defaults",
+  "settle_ms": 600,
+  "actions": [
+   {"wait_for": ["[data-testid=\"rules-table\"]", 15000]}
+  ],
+  "expect": [
+   "[data-testid=\"rule-context\"] option[value=\"M4_aug CH1_A1\"][disabled]",
+   "[data-testid=\"held-out-chip\"][data-locked=\"1\"]"
   ]
  },
  {

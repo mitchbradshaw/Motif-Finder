@@ -1424,7 +1424,29 @@ def _draft(conn, session, seed_id=None):
         if first is None:
             return None
         draft["seedId"] = _seed_id(first[0], first[1], first[2], first[3])
-    seed = _seed_by_id(conn, draft["seedId"])
+    held_out_note = None
+    try:
+        seed = _seed_by_id(conn, draft["seedId"])
+    except HTTPException as e:
+        # a2-p1 fix round (m2): a draft left on the held-out recording, locked again since it was drafted, would
+        # strand the Seed page on a 423 whose only control is a Retry that repeats it. A seed asked for by link
+        # (`seed_id`) still refuses; the remembered one falls back to the first seed available and says why. The
+        # stored draft is not rewritten, so it comes back when the lock is turned off again.
+        if seed_id or e.status_code != 423:
+            raise
+        seed = None
+        for cand in _seed_candidates(conn):
+            try:
+                seed = _seed_by_id(conn, _seed_id(cand[0], cand[1], cand[2], cand[3]))
+                break
+            except (ValueError, PermissionError, HTTPException):
+                continue
+        if seed is None:
+            raise e
+        draft = {"seedId": seed["id"], "bind": draft.get("bind")}
+        held_out_note = (f"The seed this page remembered is on the held-out recording ({HELD_OUT_FILE}), which is "
+                         f"locked again, so the first seed available is shown instead. To search with that seed, "
+                         f"{corpus.HELD_OUT_UNLOCK_HINT}.")
     recommended = seeded_search.recommended_params(seed)
     # fixup-v: the scale bank the page offers is Settings' one key, in words
     bank = seeded_search.scale_bank_from_settings(conn)
@@ -1451,6 +1473,7 @@ def _draft(conn, session, seed_id=None):
         "params": params, "applied": draft.get("applied"),
         "estimateS": draft.get("estimateS"),
         "recommended": recommended, "seed": _seed_info(conn, seed),
+        "heldOutNote": held_out_note,
     }
 
 
