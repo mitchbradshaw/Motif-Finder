@@ -194,3 +194,44 @@ def test_smoke_asserts_a_state_started_no_job():
     smoke = _read(SMOKE_PY)
     assert re.search(r"def jobs_unchanged\(self", smoke), "the check is a Smoke method, like no_overlap"
     assert "/api/health" in smoke and 'e.get("jobs_unchanged")' in smoke
+
+
+# ── fix round (critic of 2026-10-17) ───────────────────────────────────────
+
+def test_a_failed_preview_is_a_state_that_offers_the_run_again():
+    """F1: the GET's 500 for a failed newest job made the page's read fail, and its Retry only read again — the
+    query could never be run again from the page. The failure is now a state of the query, with its message and
+    traceback, and the page offers Run preview beside it."""
+    err = {"message": "the seeded search failed: RuntimeError: a draw broke", "traceback": "Traceback (most recent ...)"}
+    got = _peek([{"ready": False, "job_id": None, "failed": True, "failedJob": 9, "error": err, "note": "failed"}])
+    assert got["out"]["status"] == "failed"
+    assert got["out"]["jobId"] == 9 and got["out"]["error"] == err
+    assert got["calls"] == 1
+    page = _src("discovery", "SeedPage.tsx")
+    shown = _function(page, "function NotPreviewed")
+    assert "seed-preview-failed" in shown and "traceback" in shown, "the failure is shown loud, traceback included"
+    assert 'testid="run-preview"' in shown, "beside Run preview"
+
+
+def test_a_preview_a_run_is_drawing_is_watched_without_a_preview_cancel():
+    """F5: the GET reports a preview being drawn by a run (`drawnBy`); the page watches it, and offers no
+    *Cancel preview* for it — cancelling that job would cancel the run."""
+    pending = {"ready": False, "job_id": 12, "progress": {"done": 1, "total": 3, "message": "CH1 · null 1/2"},
+               "drawnBy": {"runKey": "seed_abc", "label": "seed abc"}}
+    got = _peek([pending, {"ready": True, "key": "k", "candidates": []}])
+    assert got["out"]["status"] == "ready"
+    assert got["progress"][0]["drawnBy"] == {"runKey": "seed_abc", "label": "seed abc"}
+    page = _src("discovery", "SeedPage.tsx")
+    assert re.search(r"onCancel=\{progress\.drawnBy \? undefined : cancelPreview\}", page), \
+        "no preview Cancel for a preview a run is drawing"
+    assert "draws this preview first; it appears here when the run finishes" not in page, \
+        "the page-memory hold is gone: the server says which run draws which query"
+
+
+def test_reviews_promotion_card_opens_the_family_in_the_grouping_it_was_read_in():
+    """F3: *Open in Library* navigated to `library/family/<F>` without its grouping, so the Library opened the newest
+    grouping of any basis and said the family was not in it."""
+    parts = _src("review", "parts.tsx")
+    links = _function(parts, "function PromotedEntryLinks")
+    assert "grouping" in links and re.search(r"grouping=|set\('grouping'", links), \
+        "the family link carries the grouping its family was read in"

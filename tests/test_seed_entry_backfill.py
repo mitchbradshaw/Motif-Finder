@@ -20,12 +20,19 @@ What it pins, on a fresh `init_db()` database:
 * **It is audited:** one `audit_log` row per backfill that changed something,
   naming each run and its entry before and after.
 * **It is idempotent:** a second run links nothing and writes no audit row.
-* **The script refuses the real database** unless `--real` is given.
+* **The script refuses the real database** unless `--real` is given — by any name: another case, the other
+  slash, a `..`, the Win32 long-path prefix, a hard link, a junction — and refuses `--db` with `--real`. The tests never
+  name the real file: the script is handed a stand-in "real" database in a temp directory.
+* **A dry run opens the database read-only** and runs no migration; `--apply` runs `init_db` and sums up its
+  migration chatter in one line instead of printing it (fix round, 2026-10-17).
 """
 
+import importlib.util
 import json
+import logging
 import os
 import sqlite3
+import stat
 import subprocess
 import sys
 
@@ -39,6 +46,8 @@ from Working.database.schema import init_db  # noqa: E402
 
 SCRIPT = os.path.join(PROJECT_ROOT, "scripts", "backfill_seed_entry_ids.py")
 OLD = "2026-10-06T10:00:00+00:00"
+#: the Win32 long-path prefix: two backslashes, "?", one backslash
+LONG_PREFIX = chr(92) * 2 + "?" + chr(92)
 
 
 def _backfill():
@@ -170,23 +179,44 @@ def test_a_second_backfill_changes_nothing(tmp_path):
         conn.close()
 
 
-def test_the_script_dry_runs_by_default_and_applies_on_request(tmp_path):
+def _script():
+    """The script as a module, so a test can hand it a stand-in "real" database (`main(argv, real=...)`) and never
+    name the real one."""
+    spec = importlib.util.spec_from_file_location("backfill_seed_entry_ids_script", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _fake_real(tmp_path):
+    """A stand-in for the real database, in a temp directory: what the refusal must recognise by any name."""
+    real_dir = tmp_path / "main" / "DATA" / "db"
+    real_dir.mkdir(parents=True)
+    real = real_dir / "annotations.sqlite"
+    init_db(str(real)).close()
+    return real
+
+
+def _path(conn):
+    return conn.execute("PRAGMA database_list").fetchone()[2]
+
+
+def test_the_script_dry_runs_by_default_and_applies_on_request(tmp_path, capsys):
+    S = _script()
     conn, ids, rows = _db(tmp_path)
-    db = conn.execute("PRAGMA database_list").fetchone()[2]
+    db = _path(conn)
     conn.close()
-    env = dict(os.environ, PYTHONIOENCODING="utf-8")
-    dry = subprocess.run([sys.executable, SCRIPT, "--db", db], capture_output=True, text=True, env=env, timeout=300)
-    assert dry.returncode == 0, dry.stderr
-    assert "dip_search" in dry.stdout and "dry run" in dry.stdout.lower()
+    real = str(_fake_real(tmp_path))
+    assert S.main(["--db", db], real=real) == 0
+    out = capsys.readouterr().out
+    assert "dip_search" in out and "dry run" in out.lower()
     c = sqlite3.connect(db)
     try:
         assert json.loads(c.execute("SELECT params_json FROM discovery_runs WHERE id = ?",
                                     (rows["dip_search"],)).fetchone()[0])["entryId"] is None
     finally:
         c.close()
-    done = subprocess.run([sys.executable, SCRIPT, "--db", db, "--apply"], capture_output=True, text=True, env=env,
-                          timeout=300)
-    assert done.returncode == 0, done.stderr
+    assert S.main(["--db", db, "--apply"], real=real) == 0
     c = sqlite3.connect(db)
     try:
         assert json.loads(c.execute("SELECT params_json FROM discovery_runs WHERE id = ?",
@@ -195,11 +225,93 @@ def test_the_script_dry_runs_by_default_and_applies_on_request(tmp_path):
         c.close()
 
 
-def test_the_script_refuses_the_real_database_without_real(tmp_path):
-    real = os.path.join(PROJECT_ROOT, "DATA", "db", "annotations.sqlite")
-    existed = os.path.exists(real)
-    r = subprocess.run([sys.executable, SCRIPT, "--db", real, "--apply"], capture_output=True, text=True,
-                       env=dict(os.environ, PYTHONIOENCODING="utf-8"), timeout=300)
-    assert r.returncode != 0
-    assert "--real" in (r.stderr + r.stdout)
-    assert os.path.exists(real) == existed, "the refusal must not create the file"
+def test_the_script_refuses_the_real_database_by_any_name(tmp_path, capsys):
+    """F4: the refusal compared two strings, so another case, the other slash, a `..`, the Win32 long-path prefix, a
+    hard link or a junction walked past it. Every alias here names the stand-in real database."""
+    S = _script()
+    real = _fake_real(tmp_path)
+    (real.parent / "sub").mkdir()
+    hard = tmp_path / "hard_link.sqlite"
+    os.link(real, hard)
+    aliases = [str(real), str(real).replace("\\", "/"), os.path.join(str(real.parent), "sub", "..", real.name),
+               str(hard)]
+    if os.name == "nt":
+        aliases += [str(real).upper(), LONG_PREFIX + os.path.abspath(str(real))]
+    junction = None
+    if os.name == "nt":
+        # a junction to the stand-in's directory, inside the temp directory; removed below (the link, not its target)
+        junction = tmp_path / "junction"
+        made = subprocess.run(["cmd", "/c", "mklink", "/J", str(junction), str(real.parent)], capture_output=True)
+        if made.returncode == 0:
+            aliases.append(str(junction / real.name))
+        else:
+            junction = None
+    before = real.read_bytes()
+    try:
+        for alias in aliases:
+            for extra in ([], ["--apply"]):
+                with pytest.raises(SystemExit) as e:
+                    S.main(["--db", alias] + extra, real=str(real))
+                assert e.value.code == 2, f"{alias!r} {extra} was not refused"
+                assert "--real" in capsys.readouterr().err
+    finally:
+        if junction is not None:
+            os.rmdir(junction)
+    assert real.read_bytes() == before, "the stand-in real database was touched"
+    if os.name == "nt":
+        assert any(a.startswith(LONG_PREFIX) for a in aliases) and any("junction" in a for a in aliases)
+
+
+def test_db_and_real_together_are_refused(tmp_path, capsys):
+    """F4: `--db X --real` used to drop `--db` silently and write the real database."""
+    S = _script()
+    conn, ids, rows = _db(tmp_path)
+    db = _path(conn)
+    conn.close()
+    with pytest.raises(SystemExit) as e:
+        S.main(["--db", db, "--real", "--apply"], real=str(_fake_real(tmp_path)))
+    assert e.value.code == 2
+    assert "not both" in capsys.readouterr().err
+
+
+def test_a_dry_run_opens_the_database_read_only_and_runs_no_migration(tmp_path, monkeypatch, capsys):
+    """F4: the dry run called `init_db` on its target, which runs every migration — on a read-only snapshot of the
+    real database that printed ~300 lines of a legacy-detections migration over the report."""
+    S = _script()
+    conn, ids, rows = _db(tmp_path)
+    db = _path(conn)
+    conn.close()
+
+    def no_migrations(*a, **k):
+        raise AssertionError("a dry run ran init_db (every migration) on its target")
+
+    monkeypatch.setattr(S, "init_db", no_migrations)
+    os.chmod(db, stat.S_IREAD)
+    try:
+        assert S.main(["--db", db], real=str(_fake_real(tmp_path))) == 0
+    finally:
+        os.chmod(db, stat.S_IREAD | stat.S_IWRITE)
+    out = capsys.readouterr().out
+    assert "DRY RUN" in out and "dip_search" in out
+
+
+def test_apply_sums_up_the_migration_chatter_in_one_line(tmp_path, monkeypatch, capsys):
+    """F4: `--apply` keeps `init_db`, but its migration warnings are counted and summed up, not printed one by one."""
+    S = _script()
+    conn, ids, rows = _db(tmp_path)
+    db = _path(conn)
+    conn.close()
+    real_init = S.init_db
+
+    def chatty(path):
+        log = logging.getLogger("Working.database.schema")
+        for i in range(300):
+            log.warning("legacy detections: refusing run %d (ambiguous): span [0, 10) n=1 n_legacy=1", i)
+        return real_init(path)
+
+    monkeypatch.setattr(S, "init_db", chatty)
+    assert S.main(["--db", db, "--apply"], real=str(_fake_real(tmp_path))) == 0
+    cap = capsys.readouterr()
+    text = cap.out + cap.err
+    assert text.count("legacy detections: refusing run") <= 1, "the chatter was printed line by line"
+    assert "300 migration message" in text, "the chatter is summed up in one line"

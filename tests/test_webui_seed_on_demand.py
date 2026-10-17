@@ -342,6 +342,8 @@ def test_the_backfill_links_an_old_catalogue_span_run_and_add_matches_opens(clie
     _x(client, "UPDATE discovery_runs SET params_json = ? WHERE run_key = ?", (json.dumps(params), run["run_key"]))
     before = client.get(f"/api/library/runs/{run['run_key']}/matches").json()
     assert before["entryId"] is None and "not a Library entry" in (before["reason"] or "")
+    # fix round: the refusal names the seed as the picker now does — a catalogue span, not a "family medoid"
+    assert "catalogue span" in before["reason"] and "family medoid" not in before["reason"], before["reason"]
 
     conn = sqlite3.connect(client.app.state.rt.db_path)
     try:
@@ -359,3 +361,116 @@ def test_the_backfill_links_an_old_catalogue_span_run_and_add_matches_opens(clie
     added = client.post(f"/api/library/runs/{run['run_key']}/matches", json={})
     assert added.status_code == 200, added.text
     assert added.json()["membersNew"] + added.json()["membersResolved"] == 2
+
+
+# ── fix round (critic of 2026-10-17) ───────────────────────────────────────
+
+def test_a_failed_preview_is_reported_with_its_traceback_and_can_run_again(client, monkeypatch):
+    """F1: the GET answered 500 while the newest job for the query was a failed one, and the page's Retry only
+    re-read it, so Run preview was unreachable. The failure is now reported as the query's state — loud, with the
+    job's own message and traceback — and a POST of the same query starts a new job."""
+    sid = _seed_id("library", _review_entry(client))
+    body = {"seedId": sid, "channels": [CH[0]], "t0": 0.0, "t1": T1, "k": 36}
+    query = dict(body, channels=CH[0])
+    real = seeded_search.null_distances
+
+    def broken(*a, **kw):
+        raise RuntimeError("a draw broke on purpose")
+
+    monkeypatch.setattr(seeded_search, "null_distances", broken)
+    started = client.post("/api/discovery/seed/results", json=body).json()
+    assert _wait_job(client, started["job_id"])["status"] == "failed"
+    r = client.get("/api/discovery/seed/results", params=query)
+    assert r.status_code == 200, "a failed preview is the query's state, not a dead-end 500"
+    got = r.json()
+    assert got["ready"] is False and got["job_id"] is None
+    assert got["failed"] is True and got["failedJob"] == started["job_id"]
+    assert "a draw broke on purpose" in got["error"]["message"]
+    assert "RuntimeError" in (got["error"]["traceback"] or ""), "the traceback travels with the failure"
+
+    monkeypatch.setattr(seeded_search, "null_distances", real)
+    again = client.post("/api/discovery/seed/results", json=body).json()
+    assert again["ready"] is False and again["job_id"] not in (None, started["job_id"]), "Run preview again is a new job"
+    assert _wait_job(client, again["job_id"])["status"] == "completed"
+    assert client.get("/api/discovery/seed/results", params=query).json()["ready"] is True
+
+
+def test_a_family_whose_entries_sit_closer_elsewhere_is_still_listed_and_filtered(client):
+    """F2, the critic's probe: E1's own span is F-01's medoid, and a second member of E1 at another span is F-02's
+    only member. Reading families off "each entry's closest family" lost F-02 from the family list, the count and
+    the Library tab's filter, while the Family medoids list showed it."""
+    ent = _entries(client)
+    machine = [i for i, e in ent.items() if e["source_kind"] == "event_store"]
+    e1 = ent[machine[0]]
+    m_own = _member(client, machine[0])
+    m_far = _x(client, "INSERT INTO motif_member (entry_id, recording_id, start_idx, end_idx) VALUES (?, ?, ?, ?)",
+               (e1["id"], e1["recording_id"], e1["start_idx"] + 1000, e1["end_idx"] + 1000))
+    gid = _x(client, "INSERT INTO groupings (name, unit, basis, method, params_json, n_families, created_at) "
+                     "VALUES ('probe', 'single_motifs', 'shape-distance', 'ward', '{}', 2, ?)", (OLD,))
+    for mid, fid, label, d in ((m_own, 1, "F-01", 0.0), (m_far, 2, "F-02", 0.3)):
+        _x(client, "INSERT INTO grouping_assignments (grouping_id, unit, member_ref, family_id, family_label, distance, "
+                   "is_medoid) VALUES (?, 'single_motifs', ?, ?, ?, ?, 1)", (gid, mid, fid, label, d))
+    page = _seeds(client, source="library", limit=200)
+    assert page["families"] == ["F-01", "F-02"]
+    assert page["counts"]["family"] == 2
+    f02 = _seeds(client, source="library", family="F-02", limit=200)
+    assert f02["total"] == 1 and f02["seeds"][0]["entryId"] == e1["id"]
+    assert f02["seeds"][0]["family"] == "F-02", "filtered by a family, the card names that family"
+    medoids = _seeds(client, source="family", limit=200)
+    assert {s["family"] for s in medoids["seeds"]} == {"F-01", "F-02"}
+    assert medoids["total"] == page["counts"]["family"]
+
+
+def test_a_run_drawing_the_preview_is_that_querys_preview_and_a_post_joins_it(client, monkeypatch):
+    """F5: a run asked for the preview's null before the page had one draws that preview first, inside its own
+    job. The page held Run preview in memory only, so after a reload (or in another tab) the GET said "not run"
+    while the run was drawing that very preview, and a POST started it a second time. The run's job now carries
+    the preview's key: the GET reports it as drawn by that run, a POST of the same query joins it, and a
+    different query is not held."""
+    sid = _seed_id("library", _review_entry(client))
+    entered = threading.Event()
+    monkeypatch.setattr(seeded_search, "null_distances", _blocking_null(entered))
+    run = client.post("/api/discovery/seed/run", json={
+        "seedId": sid, "channels": [CH[0]], "t0": 0.0, "t1": T1, "k": 37, "nullMode": "preview",
+        "label": "draws its preview"}).json()
+    assert run["drawsPreviewFirst"] is True
+    _wait_entered(client, entered, run["job_id"])
+    jobs0 = _jobs(client)
+    query = {"seedId": sid, "channels": CH[0], "t0": 0.0, "t1": T1, "k": 37}
+    peek = client.get("/api/discovery/seed/results", params=query).json()
+    assert peek["ready"] is False and peek["job_id"] == run["job_id"], "the GET finds the run drawing the preview"
+    assert (peek.get("drawnBy") or {}).get("runKey") == run["run_key"]
+    joined = client.post("/api/discovery/seed/results", json=dict(query, channels=[CH[0]])).json()
+    assert joined["job_id"] == run["job_id"] and joined.get("joined") is True
+    assert (joined.get("drawnBy") or {}).get("runKey") == run["run_key"]
+    assert _jobs(client) == jobs0, "Run preview on that query must not compute it a second time"
+    other = client.get("/api/discovery/seed/results", params=dict(query, k=38)).json()
+    assert other["job_id"] is None and not other.get("drawnBy"), "another query is not held by the run"
+    client.post(f"/api/jobs/{run['job_id']}/cancel")
+    _wait_job(client, run["job_id"])
+    after = client.get("/api/discovery/seed/results", params=query).json()
+    assert after["ready"] is False and after["job_id"] is None and after.get("cancelled") is True
+
+
+def test_a_catalogue_span_says_whether_it_is_a_library_entry(client):
+    """F6: a catalogue span that is a Library entry read "family F-01" and "not a Library family" on one card."""
+    ent, machine, review, shape, amp = _two_groupings(client)
+    review_row = _review_entry(client)
+    seed = client.get("/api/discovery/seed/setup", params={"seed": _seed_id("medoid", review_row)}).json()["draft"]["seed"]
+    assert seed["familyLine"].startswith(f"Library entry E-{review_row['id']:04d}"), seed["familyLine"]
+    assert f"family F-03 in g-{shape:02d}" in seed["familyLine"]
+    assert "not a Library" not in seed["familyLine"]
+    loose = f"medoid:{review_row['recording_id']}:{review_row['start_idx'] + 50}:{review_row['end_idx'] + 50}"
+    seed2 = client.get("/api/discovery/seed/setup", params={"seed": loose}).json()["draft"]["seed"]
+    assert seed2["familyLine"] == "not a Library entry"
+
+
+def test_a_catalogue_span_title_counts_its_events_in_words():
+    """F6: "medoid of 1 event", not "1 events"."""
+    from server import discovery as DS
+    ev = {"recording_id": 1, "snippet_start_idx": 10, "snippet_end_idx": 70, "drop_depth_mv": 5.0,
+          "morphology": "drop", "span_key": "id001"}
+    one = DS._medoid_candidates([ev])
+    two = DS._medoid_candidates([dict(ev, span_key="id002"), dict(ev, span_key="id002", drop_depth_mv=6.0)])
+    assert one[0][4].endswith("medoid of 1 event"), one[0][4]
+    assert two[0][4].endswith("medoid of 2 events"), two[0][4]
