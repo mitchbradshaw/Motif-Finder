@@ -531,11 +531,10 @@ def get_runs(request: Request):
 # ── templates ───────────────────────────────────────────────────────────────
 
 def _signature(steps):
-    from Adapters.registry import discover_adapters, get_adapter
-    discover_adapters()
+    from Adapters.registry import get_or_discover
     kinds = []
     for st in steps:
-        spec = get_adapter(f"{st['stage']}.{st['algorithm']}")
+        spec = get_or_discover(f"{st['stage']}.{st['algorithm']}")
         if not kinds:
             kinds.append(spec.input_kind)
         kinds.append(spec.output_kind)
@@ -591,10 +590,9 @@ def _step_cell(step, index):
     """One stage of a template, as the picker's glyph strip draws it. The
     parameter line is the template's own locked values (§7.5: "a template's
     parameters come from the template; *Open in Analyse* to change them")."""
-    from Adapters.registry import discover_adapters, get_adapter
-    discover_adapters()
+    from Adapters.registry import get_or_discover
     name = f"{step['stage']}.{step['algorithm']}"
-    spec = get_adapter(name)
+    spec = get_or_discover(name)
     label = {"signal": "Signal", "scores": "Scores", "spanset": "SpanSet", "encoding": "Encoding",
              "windowset": "WindowSet", "grouping": "Grouping", "model": "Model"}
     return {

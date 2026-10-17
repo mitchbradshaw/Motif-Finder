@@ -327,3 +327,32 @@ def test_any_change_to_what_the_score_reads_rescores(scored, change):
     fresh = SB.score_runs(conn, runs)
     assert fresh != before, "the change did not move the score, so this case proves nothing"
     assert SB.score_runs_cached(conn, runs) == fresh
+
+
+# ── the picker's glyph strips: one package walk, not one per stage ──────────
+
+def test_a_registered_block_is_looked_up_without_walking_the_package_again(monkeypatch):
+    """`discover_adapters()` lists the package directory every call; the picker
+    called it for every stage of every template (267 walks, ~1 s, per open)."""
+    from Adapters import registry
+    from Working.discovery import compare
+
+    registry.discover_adapters()
+    walks = {"n": 0}
+    real = registry.discover_adapters
+
+    def counted():
+        walks["n"] += 1
+        return real()
+
+    monkeypatch.setattr(registry, "discover_adapters", counted)
+    name = registry.list_adapters()[0].name
+    for _ in range(5):
+        assert compare._spec_for(name) is registry.get_adapter(name)
+        assert registry.get_or_discover(name) is registry.get_adapter(name)
+    assert walks["n"] == 0
+    # an unknown name still walks once, and still answers None / KeyError as before
+    assert compare._spec_for("detection.no_such_block") is None
+    with pytest.raises(KeyError):
+        registry.get_or_discover("detection.no_such_block")
+    assert walks["n"] == 2

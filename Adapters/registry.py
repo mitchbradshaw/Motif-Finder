@@ -31,6 +31,16 @@ def get_adapter(name):
     return _REGISTRY[name]
 
 
+def get_or_discover(name):
+    """`get_adapter`, running `discover_adapters()` only when `name` is not
+    registered yet. Discovery walks the package directory on every call, and
+    a reader that discovered per chain step paid it 267 times for one open of
+    Discovery's template picker (perf, 2026-10-17)."""
+    if name not in _REGISTRY:
+        discover_adapters()
+    return get_adapter(name)
+
+
 def list_adapters(stage=None):
     """All registered adapters, optionally filtered to one stage, sorted
     by name for a stable UI listing order."""

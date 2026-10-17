@@ -127,11 +127,10 @@ def _spec_for(algorithm):
     """The registered `AdapterSpec`, or None for an algorithm this build does
     not have (an old recipe, or a block whose dependency failed to import).
     Compare must still render such a chain rather than raise."""
-    from Adapters.registry import discover_adapters, get_adapter
+    from Adapters.registry import get_or_discover
 
-    discover_adapters()
     try:
-        return get_adapter(algorithm)
+        return get_or_discover(algorithm)
     except KeyError:
         return None
 
