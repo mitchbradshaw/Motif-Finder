@@ -534,3 +534,33 @@ def test_a_seed_draft_left_on_the_held_out_recording_falls_back_once_relocked(br
     r = client.get("/api/discovery/seed/setup")
     assert r.status_code == 200, r.text
     assert r.json()["draft"]["seedId"] == m4_seed and not r.json()["draft"].get("heldOutNote")
+
+
+def test_a_stored_seed_result_on_the_held_out_recording_is_not_served_once_relocked(bridge):
+    """a2 integration (P1 x P4, the critic's m1). GET /api/discovery/seed/results
+    serves the session recording's stored matches. A preview made on M4 while it
+    was unlocked was still served once the lock was back on (the page hid it behind
+    the scope callout; the bridge did not): the read now refuses it like every
+    other read of the held-out recording, and serves it again once unlocked."""
+    client, info = bridge
+    _lock(client, False)
+    opt = [r for r in client.get("/api/discovery/session").json()["recordings"] if r["file"] == HELD_OUT_FILE][0]
+    chans = opt["channels"][:1]
+    r = client.put("/api/discovery/session", json={"recording": HELD_STEM, "channels": chans, "section": [0.0, N / 3600.0]})
+    assert r.status_code == 200, r.text
+    # k = 47: the result cache is process-wide and keyed by the query (other files use 20, 21 and 31)
+    body = {"seedId": f"explore:{info['held'][0]}:600:660", "channels": chans, "t0": 0.0, "t1": N / 3600.0, "k": 47}
+    query = dict(body, channels=",".join(chans))
+    started = client.post("/api/discovery/seed/results", json=body)
+    assert started.status_code == 200, started.text
+    assert _wait_job(client, started.json()["job_id"])["status"] == "completed"
+    served = client.get("/api/discovery/seed/results", params=query)
+    assert served.status_code == 200 and served.json()["ready"] is True, served.text[:300]
+
+    _lock(client, True)
+    _assert_423_with_the_way_out(client.get("/api/discovery/seed/results", params=query),
+                                 "GET seed results of a preview on M4 (re-locked)")
+
+    _lock(client, False)
+    again = client.get("/api/discovery/seed/results", params=query)
+    assert again.status_code == 200 and again.json()["ready"] is True, "unlocked again, the stored preview is back"
