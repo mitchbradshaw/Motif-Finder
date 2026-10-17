@@ -117,3 +117,12 @@ for k-Shape. That is `W3-G`, in round 2, reusing W3-B's sampler. Not chosen for 
 - re-tuning snippets' chooser;
 - re-testing `event_families` on fresh spans;
 - MiniRocket in Models › Launch.
+
+## Wave 4 — CNN detection (prompt written 2026-10-17, not yet run)
+
+One prompt, run alone; there is no manager prompt. Whoever merges it moves its `TEMPLATES` into `CANONICAL`, runs the
+full gate in the main checkout, and runs the real-data checks its report asks for.
+
+| Prompt | Block(s) | Types | Source |
+|---|---|---|---|
+| `W4-A-cnn-window-scores.md` | `catalogue.cnn_window_scores` (+ the `windowset->scores` view row and the twelve `cnn_<model>_<scale>` templates) | WindowSet → Scores | the researcher's CNNs in `MODELS/` (fusion_cnn_3, GADF, GASF, recurrence) |
