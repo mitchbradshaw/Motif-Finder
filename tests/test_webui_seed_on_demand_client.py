@@ -139,7 +139,7 @@ def test_the_pages_read_peeks_and_only_run_preview_posts():
 def test_the_seed_page_has_run_preview_cancel_and_says_what_a_run_without_a_cut_keeps():
     page = _src("discovery", "SeedPage.tsx")
     for testid in ("seed-not-previewed", "seed-preview-cancelled", "preview-estimate", "apply-no-cut"):
-        assert f'data-testid="{testid}"' in page, f"{testid} is not on the page"
+        assert re.search(rf"""['"]{testid}['"]""", page), f"{testid} is not on the page"
     for testid in ("run-preview", "seed-preview-cancel"):
         assert f'testid="{testid}"' in page, f"no {testid} control"
     assert "runSeedPreview(" in page and "cancelJob(" in page
@@ -151,7 +151,9 @@ def test_the_picker_reaches_every_family_and_names_the_catalogue_spans():
     assert "'Family medoids'" in page and "'Catalogue spans'" in page
     assert "'Family medoid'" not in page, "the store's sixteen spans are not Library families"
     assert "seed-filter-grouping" in page
-    assert "grouping" in _function(_src("api", "discovery.ts"), "export const getSeedPicker")
+    picker = _function(page, "function SeedPicker")
+    assert "getSeedPicker(" in picker and re.search(r"\bgrouping:", picker), "the picker sends the grouping it reads"
+    assert re.search(r"interface DiscSeedPickerQuery\b[^}]*\bgrouping\?:", _read(os.path.join(CLIENT_SRC, "api.ts")), re.S)
 
 
 # ── the smoke walk ──────────────────────────────────────────────────────────
@@ -164,8 +166,13 @@ def _states(path):
 def test_the_smoke_walk_checks_the_seed_page_runs_nothing_on_its_own():
     files = glob.glob(os.path.join(SMOKE_DIR, "*a2_p4_seed.json"))
     assert len(files) == 1, "one a2-p4 seed manifest"
-    # it changes the session's draft seed, so it walks after every state that reads the draft
-    assert os.path.basename(files[0]) > "zzzzzzzzzzz_w3_cancel.json"
+    # it changes the session (the draft seed, its zone, the section) and puts them back at its end, so it walks after
+    # every other manifest that opens a Discovery page, and before the w3 cancel state, which must stay last
+    mine = os.path.basename(files[0])
+    for fn in os.listdir(SMOKE_DIR):
+        if fn.endswith(".json") and fn != mine and "discovery/" in _read(os.path.join(SMOKE_DIR, fn)):
+            assert fn < mine, f"{fn} opens a Discovery page and walks after {mine}"
+    assert mine < "zzzzzzzzzzz_w3_cancel.json"
     states = _states(files[0])
     blob = json.dumps(states)
     not_run = [s for s in states if s.get("jobs_unchanged")]

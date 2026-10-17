@@ -22,6 +22,8 @@ import {
 import { pollDiscoverySeedResultsBanked, type DiscSeedBank, type DiscSeedHpc } from '../api'
 import { live, type Sourced } from './seam'
 import type { GlyphKind, Role } from '../fixtures/discovery'
+import { getDiscoverySeedPicker, type DiscSeedGrouping, type DiscSeedPickerQuery } from '../api'
+import { PEEK_GIVE_UP_MS, PEEK_POLL_MS, peekPreview } from './seedPeek'
 
 export type { GlyphKind, Role, RunKind, SeedSource } from '../fixtures/discovery'
 export { ROLES, EXTRA_RUN_COLOURS } from '../fixtures/discovery'
@@ -303,54 +305,37 @@ export const getSeedPage = (q: DiscSeedPageQuery): Promise<Sourced<SeedPage>> =>
 export const saveSeedDraft = (seedId: string, params: SeedParams) =>
   putDiscoverySeedDraft({ seedId, params: { ...params, exclusion_note: params.exclusionNote } as Record<string, unknown> })
 
-const POLL_MS = 1500
-/** With no job to wait for, four minutes; with a running job, as long as it runs (a 500 h search is hours). */
-const GIVE_UP_MS = 4 * 60 * 1000
-const GIVE_UP_RUNNING_MS = 12 * 60 * 60 * 1000
+const POLL_MS = PEEK_POLL_MS
+/** A running job is watched as long as it runs (a 500 h search is hours). */
+const GIVE_UP_RUNNING_MS = PEEK_GIVE_UP_MS
 export interface SeedProgress { done: number; total: number; message: string; elapsedS: number | null; etaS: number | null; jobId: number | null }
 const sleep = (ms: number) => new Promise(r => window.setTimeout(r, ms))
 
-/** A seeded search over a section is a job (§7.6): POST starts it, the GET form of the same query
- *  answers once it is done. The polling lives here so the page still awaits one promise. A 500 on
- *  either call throws ApiError with the server's message and traceback — never an empty result. */
-async function seedResults(q: DiscSeedQuery, onProgress?: (p: SeedProgress) => void, alive?: () => boolean): Promise<DiscSeedResults> {
-  const first = await startDiscoverySeedResults(q)
-  if (first.ready) return first
-  const startedAt = Date.now()
-  for (;;) {
-    await sleep(POLL_MS)
-    /* the page moved on (another seed, scope or zone): this loop's query is nobody's now. It used to keep
-     * polling and reporting its own job's progress beside the new loader's — the bar read 27 %, 32 %, 22 % */
-    if (alive && !alive()) throw new ApiError(499, 'superseded by a newer search on the page', { key: first.key })
-    let r = await (q.scales?.length ? pollDiscoverySeedResultsBanked(q) : pollDiscoverySeedResults(q))
-    if (r.ready) return r
-    if (r.job_id == null) {
-      /* no job behind this query any more — the server restarted under it. Ask for it again: the POST starts
-       * the search, or joins one already running (it never adds a second copy). Polling the GET for four
-       * minutes, as before, just waited on nothing. */
-      r = await startDiscoverySeedResults(q)
-      if (r.ready) return r
-    }
-    // the job's own progress, in units of work (the search plus every draw, per channel)
-    onProgress?.({ done: r.progress?.done ?? 0, total: r.progress?.total ?? 0, message: r.progress?.message ?? '',
-      elapsedS: r.elapsedS ?? null, etaS: r.etaS ?? null, jobId: r.job_id })
-    const giveUpAt = startedAt + (r.job_id ? GIVE_UP_RUNNING_MS : GIVE_UP_MS)
-    if (Date.now() > giveUpAt) {
-      throw new ApiError(504, r.note ?? `the seeded search for ${q.seedId} is still running after ${GIVE_UP_MS / 60000} minutes`, r)
-    }
-  }
+/** a2-p4: the page's read of the preview PEEKS and never starts it (`api/seedPeek.ts`): the result in hand, a
+ *  running job joined and watched to its end, or why there is none — not run yet, or cancelled. It used to POST
+ *  first, so choosing a seed, a channel, a section, a bank or each exclusion step started a heavy search, and it
+ *  POSTed again when its job had vanished. Starting is *Run preview*'s alone (`runSeedPreview`). A 500 throws
+ *  ApiError with the server's message and traceback — never an empty result. */
+async function seedResults(q: DiscSeedQuery, onProgress?: (p: SeedProgress) => void, alive?: () => boolean) {
+  return peekPreview<DiscSeedResults>(() => (q.scales?.length ? pollDiscoverySeedResultsBanked(q) : pollDiscoverySeedResults(q)), {
+    sleep, pollMs: POLL_MS, giveUpMs: GIVE_UP_RUNNING_MS, onProgress, alive,
+    /* the page moved on (another seed, scope or zone): this read's query is nobody's now */
+    superseded: () => new ApiError(499, 'superseded by a newer search on the page', { seedId: q.seedId }),
+    timedOut: r => new ApiError(504, r.note ?? `the seeded search for ${q.seedId} is still running after ${GIVE_UP_RUNNING_MS / 3600000} hours`, r),
+  })
 }
 
 export async function getSeedResults(seedId: string, channels: string[], bank?: { scales: number[]; overlap?: string } | null, exclusion?: number | null, section?: [number, number] | null, onProgress?: (p: SeedProgress) => void, alive?: () => boolean): Promise<Sourced<SeedResults>> {
-  const s = await scope()
-  // the section on screen, which is the one *Run seed search* sends: the preview and the run are one search
-  const sec = section ?? s.section
-  const r = await seedResults({ seedId, channels: channels.length ? channels : s.channels, t0: sec[0], t1: sec[1],
-    ...(bank?.scales.length ? { scales: bank.scales, overlap: bank.overlap ?? 'lowest' } : {}),
-    ...(exclusion != null ? { exclusion } : {}) }, onProgress, alive)
+  const peek = await seedResults(await seedQueryFor(seedId, channels, bank, exclusion, section), onProgress, alive)
+  if (peek.status !== 'ready') {
+    // nothing is kept for this query: the page says so and offers *Run preview*, with its estimate
+    return { source: 'live', data: { ...NO_PREVIEW, status: peek.status, note: peek.note, cancelledJob: peek.status === 'cancelled' ? peek.jobId : null } }
+  }
+  const r = peek.result
   return {
     source: 'live',
     data: {
+      status: 'ready',
       candidates: r.candidates.map(c => ({ id: c.id, d: c.d, channel: c.channel, atH: c.atH, judged: c.judged, verdict: c.verdict, trace: nums(c.trace), scale: c.scale, length: c.length })),
       nullDistances: r.nullDistances ?? [],
       recommendedCut: r.recommendedCut, cutRule: r.cutRule ?? null,
@@ -523,3 +508,37 @@ export const fmtMin = (min: number) => {
   if (s < 1) return '< 1 s'
   return min < 1 ? `≈ ${Math.round(s)} s` : min < 60 ? `≈ ${Math.round(min)} min` : `≈ ${(min / 60).toFixed(1)} h`
 }
+
+/* ------------------------------------------------------------------ a2-p4: the seed search on demand
+ * Appended. The page's read only peeks (`seedResults` above); *Run preview* is the one thing that starts the preview,
+ * with the very query the read peeks at, so the job it starts is the one the read then finds and watches. */
+
+/** Where a peek left the page: a result, nothing kept for this query yet, or the newest preview cancelled (and
+ *  nothing from it kept). The client's own `noResults` (no seed) carries no status. */
+export interface SeedResults { status?: 'ready' | 'not-run' | 'cancelled'; note?: string | null; cancelledJob?: number | null }
+const NO_PREVIEW: SeedResults = { candidates: [], nullDistances: [], recommendedCut: null, cutRule: null, nullDraws: 0, nullMethod: null, nullSupported: true, nullReason: null }
+
+/** The query the Seed page reads and *Run preview* starts: the section on screen (the one *Run seed search* sends —
+ *  the preview and the run are one search), the channels in scope, the bank and the exclusion zone. */
+async function seedQueryFor(seedId: string, channels: string[], bank?: { scales: number[]; overlap?: string } | null, exclusion?: number | null, section?: [number, number] | null): Promise<DiscSeedQuery> {
+  const s = await scope()
+  const sec = section ?? s.section
+  return { seedId, channels: channels.length ? channels : s.channels, t0: sec[0], t1: sec[1],
+    ...(bank?.scales.length ? { scales: bank.scales, overlap: bank.overlap ?? 'lowest' } : {}),
+    ...(exclusion != null ? { exclusion } : {}) }
+}
+
+/** *Run preview*: start the preview for this query (or join the one already running — the bridge never runs two
+ *  copies of one query). The page then reads it as it reads any preview, and can cancel it. */
+export const runSeedPreview = async (seedId: string, channels: string[], bank?: { scales: number[]; overlap?: string } | null, exclusion?: number | null, section?: [number, number] | null) =>
+  startDiscoverySeedResults(await seedQueryFor(seedId, channels, bank, exclusion, section))
+
+/** The picker's four sources. `family` is every family of a grouping by its medoid, each a Library entry; `medoid`
+ *  is the drop-motif store's sixteen catalogue spans (the id prefix stays `medoid:`, so runs made from them resolve). */
+export type SeedPickerSource = 'library' | 'family' | 'explore' | 'medoid'
+export type SeedGrouping = DiscSeedGrouping
+export interface SeedPage { grouping?: SeedGrouping | null; groupings?: SeedGrouping[] }
+/** One page of one source, filtered, with the total under the filters; the Library and Family tabs read their
+ *  families in `grouping` (the server's default when it is not given, said in `grouping`). */
+export const getSeedPicker = (q: DiscSeedPickerQuery): Promise<Sourced<SeedPage>> =>
+  live(getDiscoverySeedPicker(q).then(p => ({ ...p, seeds: p.seeds.map(toSeed) })))

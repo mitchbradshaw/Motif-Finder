@@ -1530,3 +1530,25 @@ export const sendDetectionsToReview = (runKey: string, detectionIds: number[]) =
     already_judged: { id: number; verdict: string | null }[]
     unjudged: number; judged: number; source_kind: 'discovery-run'; writes: string; message: string; note: string
   }>(`/api/discovery/runs/${encodeURIComponent(runKey)}/review`, { detection_ids: detectionIds })
+
+/* ---------------- a2-p4: the seed search on demand; every family as a seed (server/discovery.py) ----------------
+ * Appended; existing interfaces extended by declaration merging. The GET of a seed result never computes: with no
+ * result and nothing running it answers `job_id: null`, and `cancelled` (with the job) when the newest job for the
+ * query was cancelled — a cancelled preview is never kept. The seed picker takes a `grouping` (by default the newest
+ * shape-distance single-motif grouping, `isDefault`); `source=family` lists every family of it by its medoid, each a
+ * Library entry (`library:` id); `source=medoid` is the drop-motif store's sixteen catalogue spans, which are not
+ * Library families. */
+export interface DiscSeedPending { cancelled?: boolean | null; cancelledJob?: number | null }
+/** a run asked for the preview's null before a preview was in draws that preview first, inside the run's job */
+export interface DiscSeedRunAck { drawsPreviewFirst?: boolean }
+export type DiscSeedPickerSource = 'library' | 'family' | 'explore' | 'medoid'
+export interface DiscSeedGrouping {
+  id: string; name: string; basis: string; basisLabel: string; method: string; families: number; createdAt: string | null
+  isDefault: boolean
+}
+export interface DiscSeedPickerQuery {
+  source: DiscSeedPickerSource; grouping?: string; kind?: string; family?: string; recording?: string; channel?: string
+  entry?: number; offset?: number; limit?: number
+}
+export interface DiscSeedPage { grouping?: DiscSeedGrouping | null; groupings?: DiscSeedGrouping[] }
+export const getDiscoverySeedPicker = (q: DiscSeedPickerQuery) => req<DiscSeedPage>(`/api/discovery/seeds${dq({ ...q })}`)

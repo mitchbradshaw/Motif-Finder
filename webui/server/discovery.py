@@ -1103,7 +1103,7 @@ def _param_line(spec, params):
     return " · ".join(bits[:3]) or "defaults"
 
 
-# ── the seeds (§7.6: Library exemplar · Explore selection · Family medoid) ──
+# ── the seeds (§7.6: Library exemplar · Family medoids · Explore selection · Catalogue spans) ──
 
 def _seed_store():
     """The drop-motif seed store, read through the core's own reader. The
@@ -1151,6 +1151,10 @@ def _seed_by_id(conn, seed_id: str):
         raise HTTPException(404, {"message": f"no recording {rid} for seed {seed_id!r}"})
     _refuse_held_out(rec["source_file"])
     entry = _entry_for_span(conn, rid, a, b) if source == "library" else None
+    if entry is None and source == "medoid":
+        # a2-p4: a catalogue span (the drop-motif store's) whose span IS a Library entry's is that entry, so a run
+        # made from it can add its matches to the Library — both judged dip searches were started from such seeds
+        entry = _entry_for_span(conn, rid, a, b)
     seed = seeded_search.seed_from_content(conn, rec["source_file"], int(rec["channel"]), int(a), int(b),
                                            role=source, entry_id=(int(entry["id"]) if entry else 0))
     seed["id"] = seed_id
@@ -1170,12 +1174,17 @@ SOURCE_KIND_LABEL = {"review": "promoted in Review", "annotation": "from a human
                      "event_store": "machine-extracted"}
 
 
-def _families_by_entry(conn):
-    """`entry_id -> family label` in the current grouping — the newest
-    single-motif grouping, which is what the Library's pages open on
-    (`library._default_grouping`). An entry with members in two families takes
-    the family of its closest member."""
-    g = conn.execute("SELECT id FROM groupings WHERE unit = 'single_motifs' ORDER BY id DESC LIMIT 1").fetchone()
+def _families_by_entry(conn, grouping=None):
+    """`entry_id -> family label` in one grouping: `grouping` (a `groupings`
+    row), else the seed picker's default (`_seed_grouping`: the newest
+    shape-distance single-motif grouping). a2-p4: this read the newest
+    single-motif grouping of any basis — on 2026-10-17 grouping 9's amplitude
+    bins, where 3,562 of 3,627 entries had no family and grouping 5's 149
+    shape families could not be reached. A member the grouping omitted is in no
+    family, though its row names the family it failed to reach (`family_id` is
+    what says it joined). An entry with members in two families takes the
+    family of its closest member."""
+    g = grouping if grouping is not None else _seed_grouping(conn)
     if g is None:
         return {}
     out = {}
@@ -1183,29 +1192,37 @@ def _families_by_entry(conn):
             "SELECT mm.entry_id AS entry_id, ga.family_label AS family FROM grouping_assignments ga "
             "JOIN motif_member mm ON mm.id = ga.member_ref "
             "WHERE ga.grouping_id = ? AND ga.unit = 'single_motifs' AND ga.family_label IS NOT NULL "
+            "AND (ga.family_id IS NOT NULL OR ga.omit_reason IS NULL) "
             "ORDER BY ga.distance DESC", (int(g["id"]),)):
         out[int(r["entry_id"])] = r["family"]
     return out
 
 
-def _seed_info(conn, seed, *, title=None, family=None, family_line=None, families=None):
+def _seed_info(conn, seed, *, title=None, family=None, family_line=None, families=None, grouping=None):
     rec = q.get_recording_by_id(conn, seed["recording_id"])
     entry_id = int(seed.get("entry_id") or 0) or None
     if entry_id and family is None:
-        family = (families if families is not None else _families_by_entry(conn)).get(entry_id)
+        if families is None:
+            grouping = grouping if grouping is not None else _seed_grouping(conn)
+            families = _families_by_entry(conn, grouping)
+        family = families.get(entry_id)
     kind = seed.get("source_kind")
     if title is None and entry_id:
         title = f"entry {entry_id}"
     if family_line is None and entry_id:
+        # a2-p4: the family is one grouping's, so the line names which
+        where = f" in {_gid(grouping)}" if grouping is not None else ""
         family_line = " · ".join(x for x in (SOURCE_KIND_LABEL.get(kind, kind or "no source recorded"),
-                                             f"family {family}" if family else "no family yet") if x)
+                                             f"family {family}{where}" if family else f"no family{where or ' yet'}")
+                                 if x)
     if seed.get("annotation_id") and seed["source"] == "explore":
         title = title or f"span {seed['annotation_id']}"
         family_line = family_line or "taken for Review in Explore"
     return {
         "id": seed["id"],
+        # a2-p4: the drop-motif store's sixteen spans are not Library families
         "role": {"library": "Library exemplar", "explore": "Explore selection",
-                 "medoid": "Family medoid"}.get(seed["source"], seed["source"]),
+                 "medoid": "Catalogue span"}.get(seed["source"], seed["source"]),
         "source": seed["source"],
         "title": title or f"{corpus.dataset_name(conn, rec['source_file'])} · {seed['start_h']:.1f} h",
         "family": family, "familyLine": family_line,
@@ -1240,7 +1257,7 @@ def _recording_ids_for(conn, recording=None, channel=None):
 
 
 def _library_page(conn, *, kind=None, family=None, recording=None, channel=None, entry=None, offset=0,
-                  limit=SEED_LIMIT):
+                  limit=SEED_LIMIT, grouping=None, entries=None):
     """§7.6's *Library exemplar*, over the WHOLE library (fixup-y).
 
     It was `motif_entry ORDER BY id LIMIT 24`: the first 24 of 3,603 rows, all
@@ -1270,13 +1287,20 @@ def _library_page(conn, *, kind=None, family=None, recording=None, channel=None,
             return [], 0
         where.append(f"recording_id IN ({','.join('?' * len(rids))})")
         args += rids
-    families = _families_by_entry(conn)
     if family:
+        # a2-p4: the family is one grouping's — `grouping`, else the picker's default (newest shape-distance)
+        families = _families_by_entry(conn, grouping)
         ids = [e for e, f in families.items() if f == family]
         if not ids:
             return [], 0
         where.append(f"id IN ({','.join('?' * len(ids))})")
         args += ids
+    if entries is not None:
+        # a2-p4: only these entries (a grouping's family medoids), under the same held-out rule and filters
+        if not entries:
+            return [], 0
+        where.append(f"id IN ({','.join('?' * len(entries))})")
+        args += [int(e) for e in entries]
     sql_where = (" WHERE " + " AND ".join(where)) if where else ""
     total = conn.execute(f"SELECT COUNT(*) FROM motif_entry{sql_where}", args).fetchone()[0]
     rank = "CASE source_kind WHEN 'review' THEN 0 WHEN 'annotation' THEN 1 ELSE 2 END"
@@ -1309,6 +1333,10 @@ def _seed_candidates(conn):
 
 
 def _medoid_candidates(events):
+    """The drop-motif store's sixteen catalogue spans, each by its median-depth event (`medoid:` ids). a2-p4: they
+    were offered as "Family medoid", but they are catalogue spans of the store, not Library families — the
+    Library's families are `source=family` (`_family_medoid_page`). The id prefix stays `medoid:`, so every run
+    and draft made from one still resolves, and one whose span is an entry's is that entry (`_seed_by_id`)."""
     by_family = {}
     for e in events:
         by_family.setdefault(e.get("span_key") or f"r{e['recording_id']}", []).append(e)
@@ -1318,8 +1346,8 @@ def _medoid_candidates(events):
         median = depths[len(depths) // 2]
         medoid = min(members, key=lambda m: abs(float(m["drop_depth_mv"]) - median))
         out.append(("medoid", int(medoid["recording_id"]), int(medoid["snippet_start_idx"]),
-                    int(medoid["snippet_end_idx"]), f"{key} medoid · {len(members)} members",
-                    key, f"{len(members)} members · {medoid.get('morphology')}"))
+                    int(medoid["snippet_end_idx"]), f"catalogue span {key} · medoid of {len(members)} events",
+                    None, f"{medoid.get('morphology')} · the drop-motif store's span {key} · not a Library family"))
     return out
 
 
@@ -1334,9 +1362,10 @@ def _explore_candidates(conn, *, offset=0, limit=SEED_LIMIT):
              f"span {a['id']}", None, "taken for Review in Explore") for a in rows]
 
 
-def _seeds_inline(conn, candidates=None):
+def _seeds_inline(conn, candidates=None, grouping=None):
     out = []
-    families = _families_by_entry(conn)
+    grouping = grouping if grouping is not None else _seed_grouping(conn)
+    families = _families_by_entry(conn, grouping)
     for source, rid, a, b, title, family, family_line in (candidates if candidates is not None
                                                            else _seed_candidates(conn)):
         rec = q.get_recording_by_id(conn, rid)
@@ -1347,47 +1376,62 @@ def _seeds_inline(conn, candidates=None):
         except (ValueError, PermissionError, HTTPException):
             continue
         out.append(_seed_info(conn, seed, title=title, family=family, family_line=family_line,
-                              families=families))
+                              families=families, grouping=grouping))
     return out
 
 
 @router.get("/api/discovery/seeds")
 def get_seeds(request: Request, source: str | None = None, kind: str | None = None, family: str | None = None,
               recording: str | None = None, channel: str | None = None, entry: int | None = None,
-              offset: int = 0, limit: int = SEED_LIMIT):
-    """The seed picker (§7.6). With no `source`, the first page of each of the
-    three sources. `source=library` pages and filters the whole Library
-    (`kind`, `family`, `recording`, `channel`, `offset`, `limit`) and says
-    `total`; `source=explore` pages the spans taken in Explore. `entry=N`
-    answers for one Library entry — what Review's promotion card reads to
-    say which family, if any, holds the entry it just wrote."""
+              offset: int = 0, limit: int = SEED_LIMIT, grouping: str | None = None):
+    """The seed picker (§7.6). With no `source`, the first page of the
+    Library, the catalogue spans and the Explore selections. `source=library`
+    pages and filters the whole Library (`kind`, `family`, `recording`,
+    `channel`, `offset`, `limit`) and says `total`; `source=explore` pages the
+    spans taken in Explore. `entry=N` answers for one Library entry — what
+    Review's promotion card reads to say which family, if any, holds the entry
+    it just wrote.
+
+    a2-p4: a family is one grouping's. `grouping` names it (`g-05` or `5`; the
+    Library's own resolver); without it the picker reads the newest
+    shape-distance single-motif grouping, and `grouping` / `groupings` in the
+    answer say which and what else there is. `source=family` lists every
+    family of that grouping by its medoid, each a Library entry (`library:`
+    id), largest first, paged and filtered by `family`, `recording` and
+    `channel`. `source=medoid` is the drop-motif store's sixteen catalogue
+    spans, which are not Library families."""
     c = _conn(request)
     try:
         limit = max(1, min(int(limit), 200))
         offset = max(0, int(offset))
+        g = _seed_grouping(c, grouping)
         lib_total = c.execute("SELECT COUNT(*) FROM motif_entry").fetchone()[0]
         explore_total = c.execute("SELECT COUNT(*) FROM (SELECT 1 FROM annotations WHERE verdict = 'seed' AND "
                                   "deleted_at IS NULL GROUP BY recording_id, start_idx, end_idx)").fetchone()[0]
         kinds = {(r[0] or "event_store"): r[1] for r in
                  c.execute("SELECT source_kind, COUNT(*) FROM motif_entry GROUP BY source_kind")}
-        families = sorted(set(_families_by_entry(c).values()))
+        families = sorted(set(_families_by_entry(c, g).values()), key=_natural)
         if source == "library":
             rows, total = _library_page(c, kind=kind, family=family, recording=recording, channel=channel,
-                                        entry=entry, offset=offset, limit=limit)
+                                        entry=entry, offset=offset, limit=limit, grouping=g)
             seeds = _seeds_inline(c, [("library", int(e["recording_id"]), int(e["start_idx"]), int(e["end_idx"]),
-                                       None, None, None) for e in rows])
+                                       None, None, None) for e in rows], grouping=g)
+        elif source == "family":
+            picked, total = _family_medoid_page(c, g, family=family, recording=recording, channel=channel,
+                                                offset=offset, limit=limit)
+            seeds = _seeds_inline(c, picked, grouping=g)
         elif source == "explore":
-            seeds = _seeds_inline(c, _explore_candidates(c, offset=offset, limit=limit))
+            seeds = _seeds_inline(c, _explore_candidates(c, offset=offset, limit=limit), grouping=g)
             total = explore_total
         elif source == "medoid":
-            seeds = _seeds_inline(c, _medoid_candidates(_seed_store()))
+            seeds = _seeds_inline(c, _medoid_candidates(_seed_store()), grouping=g)
             total = len(seeds)
         elif source:
-            raise HTTPException(400, {"message": f"unknown seed source {source!r}: library, explore or medoid"})
+            raise HTTPException(400, {"message": f"unknown seed source {source!r}: library, family, explore or medoid"})
         else:
-            seeds = _seeds_inline(c)
+            seeds = _seeds_inline(c, grouping=g)
             total = len(seeds)
-        counts = {"library": lib_total, "explore": explore_total}
+        counts = {"library": lib_total, "explore": explore_total, "family": len(families)}
         for s in seeds:
             if s["source"] == "medoid":
                 counts["medoid"] = counts.get("medoid", 0) + 1
@@ -1395,8 +1439,12 @@ def get_seeds(request: Request, source: str | None = None, kind: str | None = No
         if not lib_total:
             note = ("the motif library is empty, so a Library exemplar here is a span of the drop-motif seed "
                     "store (DATA/library_seed/drop_motifs5/motifs, 410 extracted events)")
+        default = _seed_grouping(c) if grouping not in (None, "", "undefined", "null") else g
         return {"seeds": seeds, "total": total, "offset": offset, "limit": limit, "counts": counts,
-                "kinds": kinds, "families": families, "note": note}
+                "kinds": kinds, "families": families, "note": note,
+                "grouping": _grouping_wire(c, g, default) if g is not None else None,
+                "groupings": [_grouping_wire(c, r, default) for r in c.execute(
+                    "SELECT * FROM groupings WHERE unit = 'single_motifs' ORDER BY id DESC")]}
     finally:
         c.close()
 
@@ -1700,6 +1748,9 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
     The candidates are the block's own `match_exemplar`; the null is N
     surrogate draws of the same channel put through the same function, so the
     two distributions are comparable by construction rather than by assertion.
+
+    None when `job` was cancelled (a2-p4): the search stops at the next channel
+    — the draws stop at the next draw — and a caller keeps nothing of it.
     """
     exemplar = np.asarray(seeded_search.exemplar_signal(conn, seed).x, dtype=float)
     computed, capped = [], []
@@ -1711,6 +1762,8 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
     per = 1 + (_preview_draws(span[1] - span[0], int(null["n"])) if null_on else 0)
     total = n * per
     for i, ch in enumerate(chans):
+        if job is not None and job.cancel_event.is_set():
+            return None
         if job is not None:
             job.progress(i * per, total, f"{ch['name']} · matching")
         # the core matches stored samples against a stored-unit exemplar
@@ -1742,6 +1795,8 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
                             "byScale": nulls.get("by_scale"), "blockS": nulls["block_s"]}
         computed.append({"ch": ch, "found": found, "null": channel_null})
 
+    if job is not None and job.cancel_event.is_set():
+        return None
     if job is not None:
         job.progress(total, total, "scoring the cut")
     return _assemble_seed_result(conn, seed, chans, span, computed, null, scales=scales, capped=capped)
@@ -1984,6 +2039,10 @@ def start_seed_results(request: Request, body: SeedBody):
                 result = _seed_search(conn2, seed2, chans2, span, k=body.k,
                                       max_distance=body.maxDistance, null=null, job=job,
                                       scales=bank, overlap=body.overlap, exclusion=body.exclusion)
+                # a2-p4: a cancelled preview is never kept — its null is short, and a run would reuse it.
+                # Returning None makes the job `cancelled`, which the GET then reports.
+                if job.cancel_event.is_set() or result is None:
+                    return None
                 _store_result(conn2, session_id, key, result)
                 # what this search cost, so the next estimate is measured
                 _record_seed_rate(conn2, session_id, "preview",
@@ -2026,6 +2085,15 @@ def get_seed_results(request: Request, seedId: str, channels: str = "", t0: floa
                 err = j.get("error") or {}
                 raise HTTPException(500, {"message": f"the seeded search failed: {err.get('message')}",
                                           "traceback": err.get("traceback")})
+            if j["status"] in ("cancelled", "completed"):
+                # a2-p4: nothing runs and nothing is kept for this query. A cancelled preview is never stored;
+                # a finished one that is not in hand (not expected) is said too, rather than waited on forever
+                cancelled = j["status"] == "cancelled"
+                return {"ready": False, "job_id": None, "key": key, "cancelled": cancelled,
+                        "cancelledJob": (j["job_id"] if cancelled else None),
+                        "note": ("the preview was cancelled and nothing from it was kept — Run preview starts it "
+                                 "again" if cancelled else
+                                 f"job {j['job_id']} finished but its result is not held here — run the preview again")}
             prog = j.get("progress") or {}
             elapsed = j.get("elapsed_s")
             done, total = prog.get("done") or 0, prog.get("total") or 0
@@ -2033,8 +2101,8 @@ def get_seed_results(request: Request, seedId: str, channels: str = "", t0: floa
             return {"ready": False, "job_id": j["job_id"], "progress": prog, "key": key,
                     "elapsedS": (round(float(elapsed), 1) if elapsed is not None else None),
                     "etaS": (round(float(eta), 1) if eta is not None else None)}
-        return {"ready": False, "job_id": None, "key": key,
-                "note": "no result for this query yet — POST the same query to start the search"}
+        return {"ready": False, "job_id": None, "key": key, "cancelled": False,
+                "note": "no preview for this query yet — Run preview (POST the same query) starts it; reading never does"}
     finally:
         c.close()
 
@@ -2764,6 +2832,12 @@ def _preview_prelude(request, conn, s, body, seed, names, span, null):
         t_start = time.time()
         result = _seed_search(conn2, seed2, chans2, span, k=k, max_distance=0.0, null=null, job=job,
                               scales=bank, overlap=overlap, exclusion=exclusion)
+        if job.cancel_event.is_set() or result is None:
+            # a2-p4: cancelled while drawing the preview: nothing is kept for the page (a short null a later run
+            # would reuse), and the row says no null was drawn; the sweep after this stops at once on the cancel
+            return {"paired": False, "imported": False, "source": "preview", "cancelled": True, "key": key,
+                    "draws": 0, "drawn": 0, "method": null.get("method"),
+                    "reason": "the run was cancelled while it drew the preview's null; nothing was kept"}
         _store_result(conn2, session_id, key, result)
         _record_seed_rate(conn2, session_id, "preview", _seed_work(n_samples, len(names), result["null"]["draws"]),
                           time.time() - t_start)
@@ -4060,3 +4134,112 @@ def get_compare_stages(request: Request, a: str, b: str, channel: str, atH: floa
         }
     finally:
         c.close()
+
+
+# ── a2-p4: every Library family as a seed (round A_2, 2026-10-17) ────────────
+#
+# The picker's families are one grouping's. Its "Family medoid" tab was the drop-motif store's sixteen catalogue
+# spans, not the Library's families, and its family filter read the newest single-motif grouping of any basis (the
+# amplitude bins), so grouping 5's 149 shape families could not be reached. These helpers sit at the end of the file
+# so the branches working beside this one merge cleanly; they are called from the seed routes above.
+
+#: The basis the seed picker reads its families in by default (`Working.library.grouping.bases.BASES`).
+SEED_GROUPING_BASIS = "shape-distance"
+
+
+def _gid(row) -> str:
+    """A grouping's id as the Library spells it (`g-05`)."""
+    from . import library as L
+    return L.gid_str(row["id"])
+
+
+def _natural(label):
+    """`F-2` before `F-10`: digit runs compare as numbers."""
+    return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", str(label))]
+
+
+def _seed_grouping(conn, grouping=None):
+    """The grouping the seed picker reads its families in. Named (`g-05`, `5`): that grouping, through the
+    Library's own resolver (`library._resolve_grouping`) — a 404 naming it when there is none, a 422 when it does
+    not group single motifs. Not named: the newest shape-distance single-motif grouping, else the newest
+    single-motif grouping of any basis (the one the Library opens on), else None (no grouping yet)."""
+    from . import library as L
+    if grouping not in (None, "", "undefined", "null"):
+        row = L._resolve_grouping(conn, grouping)
+        if row is None:
+            raise HTTPException(404, {"message": f"no grouping {grouping!r}: Library › Grouping lists the groupings "
+                                                 f"there are"})
+        if row["unit"] != "single_motifs":
+            raise HTTPException(422, {"message": (f"grouping {_gid(row)} groups {row['unit']}, not single motifs: a "
+                                                  f"seed is one motif, so its families are a single-motif grouping's")})
+        return row
+    row = conn.execute("SELECT * FROM groupings WHERE unit = 'single_motifs' AND basis = ? ORDER BY id DESC LIMIT 1",
+                       (SEED_GROUPING_BASIS,)).fetchone()
+    return row if row is not None else L._resolve_grouping(conn, None)
+
+
+def _grouping_wire(conn, row, default=None):
+    """One grouping as the picker's grouping control lists it."""
+    from Working.library.grouping import bases as bases_mod
+    n = row["n_families"]
+    if n is None:
+        n = conn.execute("SELECT COUNT(DISTINCT family_label) FROM grouping_assignments WHERE grouping_id = ? AND "
+                         "family_id IS NOT NULL", (int(row["id"]),)).fetchone()[0]
+    return {"id": _gid(row), "name": row["name"], "basis": row["basis"],
+            "basisLabel": bases_mod.BASES.get(row["basis"], (None, row["basis"], ""))[1],
+            "method": row["method"], "families": int(n or 0), "createdAt": row["created_at"],
+            "isDefault": default is not None and int(row["id"]) == int(default["id"])}
+
+
+def _family_medoids(conn, grouping):
+    """`[(label, size, row)]` for every family of `grouping`, largest first: the member the grouping recorded as
+    the family's medoid (`is_medoid = 1`), else its closest member, else its first — a feature-bin grouping
+    records neither a medoid nor a distance, and its families are reachable all the same. `row` carries the
+    member's span and its entry's (`rid`, `a`, `b`). The count is the grouping's own assignments: the Library's
+    view filter and hand edits are not applied here. A member the grouping omitted is in no family."""
+    rows = conn.execute(
+        "SELECT ga.id AS aid, ga.family_label AS family, ga.is_medoid AS is_medoid, ga.distance AS distance, "
+        "mm.entry_id AS entry_id, mm.recording_id AS m_rid, mm.start_idx AS m_a, mm.end_idx AS m_b, "
+        "me.recording_id AS rid, me.start_idx AS a, me.end_idx AS b "
+        "FROM grouping_assignments ga JOIN motif_member mm ON mm.id = ga.member_ref "
+        "JOIN motif_entry me ON me.id = mm.entry_id "
+        "WHERE ga.grouping_id = ? AND ga.unit = 'single_motifs' AND ga.family_label IS NOT NULL "
+        "AND (ga.family_id IS NOT NULL OR ga.omit_reason IS NULL)", (int(grouping["id"]),)).fetchall()
+    by_family = {}
+    for r in rows:
+        by_family.setdefault(r["family"], []).append(r)
+    out = []
+    for label, members in by_family.items():
+        best = min(members, key=lambda r: (0 if r["is_medoid"] else 1, r["distance"] is None,
+                                           r["distance"] if r["distance"] is not None else 0.0, r["aid"]))
+        out.append((label, len(members), best))
+    out.sort(key=lambda t: (-t[1], _natural(t[0])))
+    return out
+
+
+def _family_medoid_page(conn, grouping, *, family=None, recording=None, channel=None, offset=0, limit=SEED_LIMIT):
+    """`source=family`: one page of a grouping's families, each by its medoid as a Library seed (`library:` id at
+    its entry's span, so the run made from it carries the entry and can add its matches to the Library), and the
+    count under the filters. The held-out rule and the recording / channel filters are `_library_page`'s, applied
+    to the medoids' entries, so they live in one place."""
+    if grouping is None:
+        return [], 0
+    fams = _family_medoids(conn, grouping)
+    if family:
+        fams = [f for f in fams if f[0] == family]
+    ids = sorted({int(f[2]["entry_id"]) for f in fams})
+    rows, _ = _library_page(conn, recording=recording, channel=channel, entries=ids, limit=max(1, len(ids)))
+    allowed = {int(r["id"]) for r in rows}
+    fams = [f for f in fams if int(f[2]["entry_id"]) in allowed]
+    gid = _gid(grouping)
+    out = []
+    for label, size, m in fams[offset:offset + limit]:
+        how = ("its medoid" if m["is_medoid"] else
+               "its closest member (no medoid recorded)" if m["distance"] is not None else
+               "its first member (this grouping records no medoid)")
+        if (m["m_rid"], m["m_a"], m["m_b"]) != (m["rid"], m["a"], m["b"]):
+            how += f" · searched at its entry E-{int(m['entry_id']):04d}'s span"
+        out.append(("library", int(m["rid"]), int(m["a"]), int(m["b"]),
+                    f"{label} medoid" if m["is_medoid"] else f"{label} · E-{int(m['entry_id']):04d}", label,
+                    f"family {label} · {size} member{'' if size == 1 else 's'} in {gid} · {how}"))
+    return out, len(fams)
