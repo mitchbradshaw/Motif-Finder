@@ -1,0 +1,31 @@
+% !TEX root = ../../../main.tex
+% Block card: catalogue.cnn_window_scores -- "CNN window scores" (Part I, the blocks chapter).
+\cardfield{What it does}
+Shows every window to one of the trained image networks and writes down how sure the network
+is that the window is ``interesting'', laid back onto the recording's time line.
+
+\cardfield{When to use it}
+After \blockref{preprocessing.sliding_windows}, to let a trained network flag candidates
+along a whole recording at any window length. Feed its scores to \blockref{detection.threshold}
+to turn ``sure enough'' into marked stretches. The twelve \code{cnn_<model>_<scale>} templates
+are this chain, ready made: four networks at 1, 10 and 60 minutes.
+
+\cardfield{What goes in, what comes out}
+In go the windows. Each is stretched or squeezed to 600 points (the length the networks
+learned on), drawn as the network's kind of picture, and scored from 0 to 1. Out comes a
+score for every sample: the score of the window that covers it, and blank where no window
+does.
+
+\cardfield{Settings that matter}
+\emph{model\_path} and \emph{image\_type} go together: a network only reads the kind of
+picture it was trained on, and the block refuses a pairing whose file name says otherwise.
+\emph{resample\_to} is 600, the training geometry; leave it. \emph{batch\_size} only trades
+memory for speed. The knob to tune is \blockref{detection.threshold}'s cut, after this block.
+
+\cardfield{Watch out for}
+The networks learned on 10-minute windows of M2\_aug at 1~Hz; at 1 minute or 1 hour the
+shapes reach them stretched or squeezed, so read those scores as exploratory. Scores on
+M2\_aug itself are not out-of-sample. Windows holding a gap or a flat line are left out and
+counted, not scored. One whole 721-hour channel takes about 3.5 minutes at 10-minute windows
+with the fusion network, but about 37 minutes at 1-minute windows, and the time estimate does
+not see the window length (it assumes 10 minutes).

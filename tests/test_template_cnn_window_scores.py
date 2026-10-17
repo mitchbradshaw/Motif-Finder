@@ -13,6 +13,10 @@ directory (`MODELS/` is gitignored). Random weights detect nothing in
 particular, so the assertion is on the plumbing: each run ends in a SpanSet,
 writes it to `detections`, and every span is a union of whole windows.
 
+Merged 2026-10-17: the twelve now live in `webui/server/templates.py::CANONICAL`
+(built by `_cnn_template` there) and are read from it here, so the code the app
+seeds is the code this test runs; `cnn_detection` is retired (`RETIRED`).
+
 Runnable standalone:  python tests/test_template_cnn_window_scores.py
 """
 
@@ -29,7 +33,7 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 while not os.path.isdir(os.path.join(PROJECT_ROOT, "Working")) \
         and os.path.dirname(PROJECT_ROOT) != PROJECT_ROOT:
     PROJECT_ROOT = os.path.dirname(PROJECT_ROOT)
-for p in (PROJECT_ROOT, os.path.join(PROJECT_ROOT, "tests")):
+for p in (PROJECT_ROOT, os.path.join(PROJECT_ROOT, "tests"), os.path.join(PROJECT_ROOT, "webui")):
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -42,71 +46,21 @@ from Working.database.runs import list_detections  # noqa: E402
 from Working.database.schema import init_db  # noqa: E402
 from Working.execution import execute_recipe  # noqa: E402
 from Working.templates import apply_template  # noqa: E402
+from server.templates import CANONICAL, RETIRED, canonical  # noqa: E402
 
 discover_adapters()
 FS = 1.0
 
-#: model key -> (image_type, checkpoint, what it was trained on, in plain words)
-_MODELS = {
-    "fusion3": ("fusion", os.path.join("MODELS", "fusion_cnn_3.pth"),
-                "a fusion picture: GASF, GADF and the recurrence plot as one colour image"),
-    "gadf": ("GADF", os.path.join("MODELS", "GADF_cnn.pth"),
-             "a Gramian angular difference field (GADF) picture"),
-    "gasf": ("GASF", os.path.join("MODELS", "GASF_cnn.pth"),
-             "a Gramian angular summation field (GASF) picture"),
-    "recurrence": ("recurrence", os.path.join("MODELS", "recurrence_cnn.pth"),
-                   "a recurrence-plot picture"),
-}
-#: scale name -> window length (s)
-_SCALES = {"1min": 60.0, "10min": 600.0, "60min": 3600.0}
-
-_SCALE_WORDS = {
-    "1min": "1-minute windows are outside that scale: each is stretched to 600 points, so the model sees ten "
-            "times slower shapes than it learned on; read the scores as exploratory.",
-    "10min": "10-minute windows are the training scale.",
-    "60min": "1-hour windows are outside that scale: each is squeezed to 600 points (block means), so the model "
-             "sees six times faster shapes than it learned on; read the scores as exploratory.",
-}
-
-
-def _template(model, scale):
-    image_type, path, picture = _MODELS[model]
-    window_s = _SCALES[scale]
-    return {
-        "name": f"cnn_{model}_{scale}",
-        "kind": "detection",
-        "version": 1,
-        "description": (
-            f"The researcher's trained CNN '{os.path.basename(path)}' slid along the recording in "
-            f"{window_s / 60:g}-minute windows, marking the windows it is confident are interesting. It was "
-            f"trained on 600-sample, 10-minute windows of M2_aug at 1 Hz, each turned into {picture}; every "
-            f"window here is resampled to 600 points first. {_SCALE_WORDS[scale]} On M2_aug itself the scores "
-            "are not out-of-sample (the model saw those recordings). Tune threshold first: 0.5 is a "
-            "placeholder, not a calibrated cut; touching windows above it merge into one detection. A Discovery "
-            "null of 20 surrogate draws re-runs the CNN 20 more times per channel, so it costs about 21 times "
-            "one run."
-        ),
-        "steps": [
-            {"stage": "preprocessing", "algorithm": "sliding_windows",
-             "params": {"window_s": window_s, "gap_s": 0.0}},
-            {"stage": "catalogue", "algorithm": "cnn_window_scores",
-             "params": {"image_type": image_type, "model_path": path, "resample_to": 600}},
-            {"stage": "detection", "algorithm": "threshold",
-             "params": {"threshold": 0.5}},
-        ],
-    }
-
-
-TEMPLATES = [_template(m, s) for m in _MODELS for s in _SCALES]
+NAMES = [f"cnn_{m}_{s}" for m in ("fusion3", "gadf", "gasf", "recurrence") for s in ("1min", "10min", "60min")]
+TEMPLATES = [canonical(n) for n in NAMES]
 
 
 # ── the definitions ─────────────────────────────────────────────────────────
 
-def test_there_are_twelve_named_cnn_model_scale():
-    names = [t["name"] for t in TEMPLATES]
-    assert len(names) == 12 and len(set(names)) == 12
-    assert set(names) == {f"cnn_{m}_{s}" for m in ("fusion3", "gadf", "gasf", "recurrence")
-                          for s in ("1min", "10min", "60min")}
+def test_there_are_twelve_canonical_cnn_model_scale_and_cnn_detection_is_retired():
+    names = [t["name"] for t in CANONICAL if t["name"].startswith("cnn_")]
+    assert sorted(names) == sorted(NAMES) and len(set(names)) == 12
+    assert "cnn_detection" in RETIRED and "cnn_detection" not in {t["name"] for t in CANONICAL}
 
 
 @pytest.mark.parametrize("tpl", TEMPLATES, ids=lambda t: t["name"])

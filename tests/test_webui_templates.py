@@ -100,6 +100,24 @@ def test_a_builtin_row_older_than_the_code_is_brought_up_to_date(db):
     assert T.seed_canonical(db) == 0
 
 
+def test_a_retired_builtin_row_is_deleted_and_a_saved_copy_is_kept(db):
+    """W4-A retired `cnn_detection` (one-class default checkpoint): a database seeded before holds it as a builtin
+    row nobody can delete; seeding removes it, once, and leaves the researcher's saved copy of it alone."""
+    T.seed_canonical(db)
+    steps = T.canonical("mp_threshold")["steps"]
+    T.save(db, "cnn_detection", steps, builtin=True)
+    T.save(db, "my cnn_detection", steps)
+    assert T.seed_canonical(db) == 1
+    names = {r["name"] for r in T.list_all(db)}
+    assert "cnn_detection" not in names and "my cnn_detection" in names
+    assert T.seed_canonical(db) == 0
+
+
+def test_no_retired_name_is_canonical():
+    assert set(T.RETIRED).isdisjoint({t["name"] for t in T.CANONICAL})
+    assert all(why.strip() for why in T.RETIRED.values())
+
+
 def test_saving_a_copy_is_an_editable_non_builtin_row(db):
     T.seed_canonical(db)
     src = T.canonical("mp_threshold")
