@@ -79,6 +79,82 @@ the same recipe and span — without it a resuming job would "reuse" the partial
 matrix instead of continuing it. The resume path is baked into the recipe from
 the first export, deliberately, so every job in the chain shares one config hash.
 
+## Discovery chain jobs: adopting and importing them (round A_2, P2)
+
+A Discovery template run sent to the cluster is a **chain job** (`Working/discovery/chain_job.py`). *Create SLURM
+script* on Discovery › Runs writes three things:
+
+- `<base>.chain.json`, the spec: the exact per-channel recipes, this database's recording ids, each channel file's
+  sha1, and the config and step-cache hashes the cluster must reproduce;
+- `<base>.sh`, the array script (one task per channel);
+- `<base>_out/`, holding `job.json`. On the cluster each task adds `return/task<i>/`, with its `result.json` and
+  `step_cache/`.
+
+`scripts/rq4_overnight.py` writes the same kind of spec, but no Discovery row waits for its jobs, because the bridge
+did not make them. **Adopting** a job means registering that row.
+
+### The adoption contract
+
+The import is `webui/server/discovery.py::import_chain_result_for`, behind Discovery's *Import results* and Jobs ›
+Waiting on the cluster. It starts from one `discovery_runs` row per spec, and reads exactly this:
+
+| Column or key | Value | What reads it |
+|---|---|---|
+| `session_id` | an existing `discovery_sessions.id` | Jobs' list (it joins the session); the import's sweep writes the run there |
+| `run_key` | unique within the session | the sweep writes the run back by `(session_id, run_key)` |
+| `kind`, `label`, `created_at`, `updated_at` | `"template"`, a name, ISO times | NOT NULL columns; `label` is shown |
+| `status` | `"on cluster"` | Discovery offers *Import results* only then; Jobs imports from any status but `running` / `queued` |
+| `params_json.hpc.kind` | `"chain"` | both imports, and Jobs' list |
+| `params_json.hpc.specPath` | the spec's path, absolute or repo-relative | Discovery's button (by run key); Jobs' row reads the spec from it |
+| `params_json.hpc.resultDir` (or `resultPath`) | the `<base>_out` folder, absolute or repo-relative (`resultDir` wins) | both: the tasks' results are read under its `return/` |
+| `params_json.hpc.specHash` | `chain_job.spec_hash(spec)` | Jobs finds the row by it (the newest row with that hash); both refuse a row whose hash is not the spec file's |
+
+- Discovery's button finds the row only in the session Discovery has open (`_session`) and not removed. Jobs
+  imports by the spec's path, from any session.
+- Optional, shown in Jobs only: `hpc.scriptPath`, `returnPath`, `createdAt`, `sbatch`, `tasks`, `draws`,
+  `estimateS`, `copyOut`; and `template_name` on the row.
+- Do not pre-set what the import writes itself: `hpc.importStartedAt`, `hpc.importedAt`, `hpc.counts`,
+  `hpc.imported`, `hpc.refused`, `params.null`, `params.error`, `params.run_ids`.
+- Nothing else on the row is read. The plan comes from the spec (`chain_job.local_plan`: its chain, channels, span
+  and null), never from the session's current scope or Settings.
+- On this machine: each `targets[].recordingId` must be this database's id for that channel, and its `.npy` must have
+  the spec's sha1. The `return/` folder must be back at `<base>_out/return/`.
+- `chain_job.verify_results(conn, spec, out_dir)` and `chain_job.restore_cache(conn, checked, cache_root=…)` keep
+  their signatures and return keys (`restore_cache` gained an optional `should_cancel`). The import function runs the
+  whole sequence and writes the run, so an adoption step needs only the row, then the import.
+
+### What the import expects
+
+- **All or nothing, per job.** `verify_results` refuses the whole job, and records nothing, while any task is not
+  complete or any hash or channel check fails. So one refused task (Jobs shows it *failed*, with its reason) blocks
+  all 16 channels of its job. Fix the cause, then re-run that task alone on the cluster:
+  - a job written by *Create SLURM script*: `sbatch --array=<task> <script>`;
+  - the overnight packs: `python scripts/rq4_overnight.py report` lists every refused and crashed task with its
+    reason, and `python -m Working.discovery.chain_job --spec <spec> --out <out> --task <i>`, inside an allocation,
+    runs one again. The packs' `pending` command skips refused tasks and tasks that crashed twice.
+- **The re-cost after the restore.** Once the entries are restored, `local_plan` costs the steps still uncached
+  (those the cluster did not cache: under `STEP_CACHE_WRITE_THRESHOLD_S`, 1 s there) against Discovery's ceiling,
+  over every channel and draw. The ceiling is Settings › Compute & HPC, `limit.Discovery` (20 min by default). A
+  pessimistic estimate there refuses the import with "… would still compute … here, over this machine's limit:
+  nothing was run". The restored entries stay. Either raise `limit.Discovery` for the import and put it back, or
+  first look at what is left: `chain_job.local_plan(conn, spec, ceiling_s=…)` gives `estimate_s` and `capped`.
+- **Disk.** The restore copies every entry into the step cache and leaves the return folder where it is, so the
+  import needs that much free disk again. Sum the `cache[].bytes` of the tasks' `result.json` first;
+  `chain_job.verify_results(...)["bytesToCopy"]` is the same sum and writes nothing. The overnight sweep is about
+  20 GB back in all.
+- **Parquet from the cluster's pyarrow.** SpanSet and WindowSet entries keep their feature tables as
+  `features.parquet`, written by the cluster's pyarrow. An entry this machine cannot read is not reported: the
+  executor quietly recomputes that step. Test-read one before the bulk import:
+
+  ```
+  python -c "import glob, pandas as pd; p = glob.glob(r'<base>_out/return/task*/step_cache/**/features.parquet', recursive=True); print(len(p), 'files'); print(pd.read_parquet(p[0]).shape if p else 'none')"
+  ```
+
+- **A failed or cancelled import.** A restore that fails part-way (a full disk, say) leaves the run *failed*, with
+  the reason on Discovery's row and in Jobs. Entries are copied whole and then moved into place, so none is left
+  half-copied. A cancel stops between entries and the run reads cancelled. Either way, importing again copies only
+  the rest. The run reads *imported* only once its sweep here has written it.
+
 ## Cluster-specific settings you will need to change
 
 These are hardcoded to one account and cluster and are **not** portable:

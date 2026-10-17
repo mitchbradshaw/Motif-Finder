@@ -1,0 +1,83 @@
+[
+ {
+  "page": "discovery.runs",
+  "state": "a2-p2-the-slurm-modal-scripts-every-ticked-run",
+  "hash": "discovery/runs?modal=slurm",
+  "settle_ms": 1200,
+  "_why": "round A_2 P2: Create SLURM script writes Working.discovery.chain_job's array job for EVERY pending run (it scripted runs[0] alone). Opening the modal is a dry run per run - nothing is written and no row is marked - so this state leaves the store as it found it: each pending template run is listed with its tasks, partition, null draws and wall, a seed run says it goes from the Seed page, and the first ready run's script is shown with how it comes back",
+  "actions": [
+   {"wait_for": ["[data-testid=\"slurm-run-list\"], [data-testid=\"slurm-empty\"]", 120000]},
+   {"wait": 500}
+  ],
+  "branch_on": {"api": "/api/discovery/runs", "items": "", "where": {"status": "new", "kind": "template"},
+                "empty": {"expect": ["[data-testid=\"slurm-modal\"]"]},
+                "populated": {"expect": ["[data-testid=\"slurm-run-list\"]", "[data-testid^=\"slurm-run-\"][data-ready=\"1\"]",
+                                         "[data-testid=\"slurm-script\"]", "[data-testid=\"slurm-steps\"]"]}},
+  "expect": ["[data-testid=\"slurm-modal\"]", "[data-testid=\"slurm-create\"]"],
+  "expect_absent": ["[data-testid=\"discovery-load-failed\"]"]
+ },
+ {
+  "page": "discovery.runs",
+  "state": "a2-p2-a-run-on-the-cluster-says-where-its-results-come-back",
+  "hash": "discovery/runs",
+  "settle_ms": 1500,
+  "_why": "round A_2 P2: a template run sent to the cluster is marked on cluster SERVER-side (it was browser state only, gone on reload); its row names the tasks and the folder to bring back, and offers Import results. Populated once a template run has been exported (Create in the modal); the empty arm is the runs list itself",
+  "actions": [
+   {"wait_for": ["[data-testid=\"runs-card\"]", 60000]}
+  ],
+  "branch_on": {"api": "/api/discovery/runs", "items": "", "where": {"status": "on cluster", "kind": "template"},
+                "empty": {"expect": ["[data-testid=\"runs-list\"]"]},
+                "populated": {"expect": ["[data-testid^=\"run-row-\"][data-status=\"on cluster\"]",
+                                         "[data-testid^=\"run-on-cluster-\"]", "[data-testid^=\"chain-import-\"]"]}},
+  "expect": ["[data-testid=\"discovery-runs-page\"]", "[data-testid=\"runs-card\"]"],
+  "expect_absent": ["[data-testid=\"discovery-load-failed\"]"]
+ },
+ {
+  "page": "jobs.all",
+  "state": "a2-p2-jobs-lists-a-chain-job-with-its-state",
+  "hash": "jobs",
+  "settle_ms": 1500,
+  "_why": "round A_2 P2: Jobs > Waiting on the cluster lists a template run's chain job from its run row (it listed the old script as 'no return path'): written / partial (tasks back) / returned / importing / imported, read off the task result files, with what to copy (spec, script, channel arrays) and Import results through Discovery's own import",
+  "actions": [
+   {"wait_for": ["[data-testid=\"exported-table\"], [data-testid=\"exported-empty\"]", 60000]},
+   {"click_if": "[data-testid^=\"exported-row-\"][data-source=\"chain\"]"},
+   {"wait": 400}
+  ],
+  "branch_on": {"api": "/api/hpc/cluster", "items": "jobs", "where": {"source": "chain"},
+                "empty": {"expect": ["[data-testid=\"exported-jobs\"]"]},
+                "populated": {"expect": ["[data-testid^=\"exported-row-\"][data-source=\"chain\"]",
+                                         "[data-testid^=\"exported-chain-\"]", "[data-testid^=\"exported-copy-\"]"]}},
+  "expect": ["[data-testid=\"exported-jobs\"]"],
+  "expect_absent": ["[data-testid=\"jobs-load-failed\"]"]
+ },
+ {
+  "page": "discovery.runs",
+  "state": "a2-p2-an-imported-chain-run-is-a-run-with-results",
+  "hash": "discovery/runs",
+  "settle_ms": 1500,
+  "_why": "round A_2 P2: an imported chain run is a Discovery run like any other - done, its spans counted, in where each run fires and the scoreboard - and its row says it was computed on the cluster and whether the counts the sweep here wrote agree with the cluster's. Populated once a chain job's return/ folder has been imported",
+  "actions": [
+   {"wait_for": ["[data-testid=\"runs-card\"]", 60000]}
+  ],
+  "branch_on": {"api": "/api/discovery/runs", "items": "", "where": {"hpcImported": true, "status": "done"},
+                "empty": {"expect": ["[data-testid=\"runs-list\"]"]},
+                "populated": {"expect": ["[data-testid^=\"run-from-cluster-\"]", "[data-testid=\"where-fires\"]"]}},
+  "expect": ["[data-testid=\"discovery-runs-page\"]"],
+  "expect_absent": ["[data-testid=\"discovery-load-failed\"]"]
+ },
+ {
+  "page": "discovery.map",
+  "state": "a2-p2-an-imported-chain-run-is-on-the-map",
+  "hash": "discovery/map",
+  "settle_ms": 1500,
+  "_why": "round A_2 P2: an imported chain run reaches the detection map as a local run does (its row is the chain it executed; a cell is detections per covered hour). Populated once a chain job has been imported; the map does not mark where a run computed, by design",
+  "actions": [
+   {"wait_for": ["[data-testid=\"map-card\"]", 60000]}
+  ],
+  "branch_on": {"api": "/api/discovery/runs", "items": "", "where": {"hpcImported": true, "status": "done"},
+                "empty": {"expect": ["[data-testid=\"map-card\"]"]},
+                "populated": {"expect": ["[data-testid=\"map-cell\"][data-state=\"covered\"]:not([data-row=\"human\"])"]}},
+  "expect": ["[data-testid=\"discovery-map-page\"]"],
+  "expect_absent": ["[data-testid=\"discovery-load-failed\"]"]
+ }
+]

@@ -170,14 +170,20 @@ def compute_chains(x, t, m, backend="auto"):
 
 # ── Save (v2 format, MATRIX_PROFILE_UI_PROMPT.md §2.2) ─────────────────────
 def build_mp_artifact_path(source_file, channel, window_min,
-                            out_dir="Results/Detection/matrix_profile"):
+                            out_dir="Results/Detection/matrix_profile", span=None, key=None):
     """`mp_v2_{source_stem}_CH{ch}_WIN{scale_min:g}min.npz` — see
     MATRIX_PROFILE_UI_PROMPT.md §2.2. `:g` formatting keeps an off-ladder
     float window (e.g. 4.704) readable without trailing zeros, while an
-    integer-valued window (e.g. 10.0) prints as "10", not "10.0"."""
+    integer-valued window (e.g. 10.0) prints as "10", not "10.0".
+
+    `span` and `key` (round A_2, P2, as the window matrix's fixup-aa) add
+    `_span<a>-<b>_<key8>`: without them a run, its own null draws and any other
+    span of the channel were one file, each write replacing the last."""
     stem = os.path.splitext(source_file)[0]
-    filename = f"mp_v2_{stem}_CH{int(channel)}_WIN{window_min:g}min.npz"
-    return os.path.join(out_dir, filename)
+    filename = f"mp_v2_{stem}_CH{int(channel)}_WIN{window_min:g}min"
+    if span is not None and key:
+        filename += f"_span{int(span[0])}-{int(span[1])}_{key}"
+    return os.path.join(out_dir, filename + ".npz")
 
 
 def save_matrix_profile(mp, mpi, left_i, right_i, m, fs, window_min, *,
@@ -185,7 +191,7 @@ def save_matrix_profile(mp, mpi, left_i, right_i, m, fs, window_min, *,
                          backend, recording_id=None, config_hash=None,
                          approx=False, approx_percentage=1.0,
                          elapsed_s=None, has_chain_indices=True,
-                         out_dir="Results/Detection/matrix_profile"):
+                         out_dir="Results/Detection/matrix_profile", span=None, key=None):
     """Save one matrix-profile artifact in the v2 format.
 
     Fixes MATRIX_PROFILE_UI_PROMPT.md §7 item 3: `m` is now a required
@@ -193,10 +199,12 @@ def save_matrix_profile(mp, mpi, left_i, right_i, m, fs, window_min, *,
     happened to work under `if __name__ == "__main__":` where `m` was a
     module global — calling this from anywhere else raised `NameError`).
 
+    `span` and `key` name the file by what produced it (`build_mp_artifact_path`).
+
     Returns the path written to.
     """
     os.makedirs(out_dir, exist_ok=True)
-    out_path = build_mp_artifact_path(source_file, channel, window_min, out_dir)
+    out_path = build_mp_artifact_path(source_file, channel, window_min, out_dir, span=span, key=key)
     np.savez_compressed(
         out_path,
         mp=np.asarray(mp, dtype=np.float32),

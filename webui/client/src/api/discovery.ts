@@ -150,6 +150,7 @@ export const getRuns = (): Promise<Sourced<DiscoveryRun[]>> => live(getDiscovery
   reviewedH: r.reviewedH, runGroupId: opt(r.runGroupId), channelsDone: opt(r.channelsDone), found: opt(r.found),
   seedId: opt(r.seedId), cut: r.cut ?? null, entryId: r.entryId ?? null, scales: r.scales ?? null,
   band: r.band ?? null, bandSet: r.bandSet ?? null, bandIndex: r.bandIndex ?? null,
+  hpcImported: r.hpcImported || undefined, hpcRefused: opt(r.hpcRefused), clusterAgrees: r.clusterAgrees, clusterCheck: opt(r.clusterCheck),
 }))))
 
 export const getTemplates = (): Promise<Sourced<DiscoveryTemplate[]>> => live(getDiscoveryTemplates().then(rows => rows.map(t => ({
@@ -556,3 +557,9 @@ export interface SeedPage { grouping?: SeedGrouping | null; groupings?: SeedGrou
  *  families in `grouping` (the server's default when it is not given, said in `grouping`). */
 export const getSeedPicker = (q: DiscSeedPickerQuery): Promise<Sourced<SeedPage>> =>
   live(getDiscoverySeedPicker(q).then(p => ({ ...p, seeds: p.seeds.map(toSeed) })))
+
+/* ------------------------------------------------------------------ round A_2 · P2: a chain job's way back */
+/** Appended (declaration merging). A template run sent to the cluster carries its chain job in `hpc` (`kind: 'chain'`);
+ *  once imported, `hpcImported`, and whether the sweep here found what the cluster found, channel by channel
+ *  (`clusterAgrees`; `clusterCheck` says where not). `hpcRefused` is the last import refusal, in the bridge's words. */
+export interface DiscoveryRun { hpcImported?: boolean; hpcRefused?: string; clusterAgrees?: boolean; clusterCheck?: string }

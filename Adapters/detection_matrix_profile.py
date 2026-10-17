@@ -100,12 +100,22 @@ def _estimate(x, t, fs, window_min=10.0, backend="auto", scrump_percentage=1.0):
     return mp_estimate(len(x), backend)
 
 
-def _persist(conn, run_id, config_hash, recording, span_start, span_end, params, result):
+def _persist(conn, run_id, config_hash, recording, span_start, span_end, params, result, recipe_prefix=None):
+    """The profile's file is named by what produced it (round A_2, P2), as the
+    window matrix's is (fixup-aa): its span and the key of the recipe prefix
+    through this step (`window_matrix_store.matrix_key`: recording, span, every
+    upstream step — a null draw's surrogate step included — and this step's
+    params). The bare `mp_v2_<stem>_CH<n>_WIN<w>min.npz` named a run, its own
+    null draws and every other span of the channel the same file, so each write
+    replaced the last."""
     from Working.database.matrix_profile_store import compute_data_sha1
+    from Working.database.window_matrix_store import matrix_key
     import os
 
     meta = result.meta
     sha1 = compute_data_sha1(recording["npy_path"]) if os.path.isfile(recording["npy_path"]) else ""
+    key = (matrix_key(recipe_prefix, step_index=len(recipe_prefix["steps"]) - 1)
+           if recipe_prefix is not None else None)
     return save_matrix_profile(
         meta["mp"], meta["mpi"], meta["left_i"], meta["right_i"],
         meta["m"], recording["fs"], params["window_min"],
@@ -116,6 +126,7 @@ def _persist(conn, run_id, config_hash, recording, span_start, span_end, params,
         backend=meta["backend"], recording_id=recording["id"], config_hash=config_hash,
         approx=meta["approx"], approx_percentage=meta["approx_percentage"],
         elapsed_s=meta["elapsed_s"], out_dir=RESULTS_DIR,
+        span=((int(span_start), int(span_end)) if key else None), key=key,
     )
 
 

@@ -51,9 +51,10 @@ SCRIPT_KINDS = {
     "paired_training": ("Paired training · forests, clustering and null", "Models",
                         "not imported through the site: on the cluster `python -m Working.training run` writes the "
                         "run under DATA/derived/training; bring that tree and the database rows back by hand"),
-    "detection_chain": ("Discovery chain over channels", "Discovery",
-                        "not imported through the site: the chain writes its runs into the cluster's copy of the "
-                        "database; there is no return path for them here yet"),
+    "detection_chain": ("Discovery chain over channels (written before 2026-10-17)", "Discovery",
+                        "not imported through the site: this older script runs the chain against the cluster's copy "
+                        "of the database, so its runs stay there. Export the run again from Discovery › Runs "
+                        "(Create SLURM script): the new job comes back through Import results"),
     "recipe": ("Recipe", "Analyse", "not imported through the site: no return path is defined for this recipe"),
 }
 #: every state a cluster row can be in, in the order the page's chips count them
@@ -358,7 +359,9 @@ def cluster(request: Request):
                                import_how="inbox", import_path=r["job_dir"]))
     seeds = _seed_rows(request)
     rows += seeds
-    rows += _script_rows(request, skip={s["name"] for s in seeds})
+    chains = _chain_rows(request)
+    rows += chains
+    rows += _script_rows(request, skip={s["name"] for s in seeds} | {ch["name"] for ch in chains})
     rows.sort(key=lambda r: (r.get("written_at") or ""), reverse=True)
     counts = {s: 0 for s in STATES}
     for r in rows:
@@ -443,3 +446,113 @@ def seed_import(request: Request, body: InboxBody):
     if not isinstance(result, dict):
         raise HTTPException(422, f"{path} is not a seed job result (not a JSON object)")
     return discovery.import_seed_result_dict(request, result)
+
+
+# ── round A_2, P2: Discovery template runs sent to the cluster as chain jobs ──
+#: a template run's chain job (`Working.discovery.chain_job`)
+CHAIN_LABEL = "Discovery template run · the chain and its null on the cluster, one task per channel"
+
+
+def _chain_rows(request: Request) -> list[dict]:
+    """Discovery's template runs sent to the cluster (`/api/discovery/slurm`): one row per run row whose
+    `params.hpc` is a chain job. The state is read from the tasks' result files (`chain_job.collect`):
+    *written* (none back), *partial* (some tasks back, or stopped at their budget), *returned* (every task
+    complete — importable), then from the row once an import has started: *importing* while its restore and
+    sweep run here, *imported* once the sweep has written the run, *failed* with the row's error (a restore
+    that failed part-way among them; importable again). A task that refused on the cluster (its channel file
+    was not the exported one, or it stopped making progress) reads *failed* with its reason; an import
+    refused or cancelled here keeps the files' state and says why."""
+    from Working.discovery import chain_job
+    from Working.hpc.job_export import repo_relative
+    c = _conn(request)
+    try:
+        rs = c.execute(
+            "SELECT r.*, s.name AS session_name FROM discovery_runs r JOIN discovery_sessions s ON s.id = r.session_id "
+            "WHERE json_extract(r.params_json, '$.hpc.kind') = 'chain' ORDER BY r.id DESC").fetchall()
+    finally:
+        c.close()
+    out = []
+    for r in rs:
+        p = json.loads(r["params_json"] or "{}")
+        hpc = p.get("hpc") or {}
+        script, spec_p = _abs(hpc.get("scriptPath")), _abs(hpc.get("specPath"))
+        res_dir = _abs(hpc.get("resultDir") or hpc.get("resultPath"))
+        name = os.path.basename(script)[:-3] if script and script.endswith(".sh") else str(r["run_key"])
+        row = _blank_row(
+            source="chain", name=name, kind=chain_job.KIND, kind_label=CHAIN_LABEL, workspace="Discovery",
+            label=r["label"], run_key=r["run_key"], session=r["session_name"], recipe_hash=hpc.get("specHash"),
+            written_at=hpc.get("createdAt") or (_iso_mtime(script) if script else None) or r["created_at"],
+            scripts=([{"name": os.path.basename(script), "path": script, "repo": repo_relative(script)}]
+                     if script else []),
+            sbatch_command=hpc.get("sbatch"), import_how="chain", import_path=spec_p, result_path=res_dir,
+            run_status=r["status"], estimate_s=hpc.get("estimateS"), draws=hpc.get("draws"),
+            progress={"tasks_done": 0, "tasks": hpc.get("tasks")})
+        copy = []
+        for x in hpc.get("copyOut") or []:
+            item = {"what": x.get("what"), "path": x.get("path"), "bytes": int(x.get("bytes") or _bytes(x.get("path")))}
+            if x.get("note"):
+                item["note"] = x["note"]
+            copy.append(item)
+        row["copy"], row["total_bytes"] = copy, int(sum(x["bytes"] for x in copy))
+        row["import_note"] = (f"bring {hpc.get('returnPath') or res_dir} back to the same place here, then import: the "
+                              f"cache entries are restored and the run's channels are written here")
+        spec = None
+        try:
+            spec = _read_json(spec_p) if spec_p and os.path.isfile(spec_p) else None
+        except Exception as e:                           # loud: the row says what is wrong with the file
+            row["state"], row["error"] = "unreadable", f"{type(e).__name__}: {e}"
+        if spec is None and row["state"] != "unreadable":
+            row["state"], row["error"] = "unreadable", f"the job's spec is not at {spec_p}"
+        if spec is not None:
+            st = chain_job.collect(spec, res_dir)
+            row["progress"] = {"tasks_done": st["done"], "tasks": st["total"]}
+            failed = [t for t in st["tasks"] if t["state"] in ("refused", "unreadable", "other")]
+            back = [t for t in st["tasks"] if t["state"] != "missing"]
+            if failed:
+                row["state"] = "failed"
+                row["reason"] = "; ".join(f"task {t['index']} ({t['channelName']}): {t['reason']}" for t in failed)
+            elif st["complete"]:
+                done_at = max((t["result"].get("finishedAt") or "" for t in st["tasks"] if t["result"]), default="")
+                row["state"] = "returned"
+                row["returned"] = {"status": "complete", "recipe_hash": st["specHash"], "finished_at": done_at or None}
+            elif back:
+                row["state"] = "partial"
+                row["returned"] = {"status": "partial", "recipe_hash": st["specHash"], "finished_at": None}
+        # fix round (F3): an import is *started* at `importStartedAt` and *done* at `importedAt`, stamped once the
+        # sweep here has written the run (151ace3's rows stamped `importedAt` at the start: read as the start too).
+        # Every import start drops `refused`, so a refusal on the row is the latest word unless the run was imported
+        started = hpc.get("importStartedAt") or hpc.get("importedAt")
+        if hpc.get("refused") and not hpc.get("importedAt"):
+            row["reason"] = hpc["refused"].get("message")
+            if row["state"] == "returned":
+                row["state"] = "refused"
+        elif started:
+            if r["status"] in ("running", "queued"):
+                row["state"] = "importing"
+            elif r["status"] == "done" and hpc.get("importedAt"):
+                row["state"] = "imported"
+                row["imported"] = {"run_id": None, "name": r["label"], "at": hpc["importedAt"]}
+                row["open"] = {"label": "Open in Discovery", "route": f"discovery/runs?run={r['run_key']}"}
+            elif r["status"] == "failed":
+                row["state"] = "failed"
+                row["reason"] = p.get("error") or "the run's sweep here failed after the import: its error is in Jobs"
+            elif r["status"] == "cancelled":
+                # the files' state stands (returned: importable again); the entries restored before the cancel are
+                # whole and kept, so the next import copies only the rest
+                row["reason"] = ("the import was cancelled here before the run was written: import again to finish "
+                                 "it")
+        out.append(row)
+    return out
+
+
+@router.post("/api/hpc/chain/import")
+def chain_import(request: Request, body: InboxBody):
+    """A template run's chain job, imported by its spec's path from Jobs through Discovery's own import (one
+    implementation, two callers): the file is named here; everything it means is decided there."""
+    from . import discovery                              # looked up at call time: Discovery's function
+    p = (body.path or "").strip().strip('"').strip("'")
+    if not p:
+        raise HTTPException(422, "name the chain job's spec file (…chain.json)")
+    if HELD_OUT_FILE in p:
+        raise HTTPException(423, f"{HELD_OUT_FILE} is held out; the web UI refuses it")
+    return discovery.import_chain_result_for(request, spec_path=_abs(p))

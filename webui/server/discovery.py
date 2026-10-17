@@ -497,14 +497,30 @@ def _run_payload(conn, row, index, span, jobs=None):
         out["entryId"] = params.get("entryId")
         # fixup-v: the scale bank the run searched (None: the native length only)
         out["scales"] = params.get("scales")
-        if params.get("hpc"):
-            # the SLURM job this run is, and where its result is expected
-            out["hpc"] = params["hpc"]
         if (params.get("null") or {}).get("imported"):
             out["nullImported"] = True
             out["nullSource"] = (params.get("null") or {}).get("source")
         elif (params.get("null") or {}).get("source") == "off":
             out["nullSource"] = "off"
+    hpc = params.get("hpc")
+    if hpc:
+        # the SLURM job this run is and where its result is expected: a seed search's, or (round A_2, P2) a
+        # template run's chain job — which comes back as this same row, its runs written here from the
+        # imported cache
+        out["hpc"] = hpc
+        if hpc.get("kind") == "chain":
+            out["hpcImported"] = bool(hpc.get("importedAt"))
+            if hpc.get("refused") and not hpc.get("importedAt"):
+                out["hpcRefused"] = hpc["refused"].get("message")
+            if ids and hpc.get("counts") and status == "done":
+                # what the cluster found against what the sweep here wrote, per channel: the same code on the
+                # same cached profile finds the same spans, and a difference is said, never smoothed over
+                here = {int(c["recording_id"]): int(c["detections"]) for c in st["channels"]}
+                diff = [f"{c['channelName']}: {here.get(int(c['recordingId']))} here, {c['detections']} on the cluster"
+                        for c in hpc["counts"] if here.get(int(c["recordingId"])) != int(c["detections"])]
+                out["clusterAgrees"] = not diff
+                if diff:
+                    out["clusterCheck"] = "; ".join(diff)
     if progress is not None and status == "running":
         out["progress"] = round(progress, 3)
     if progress_text:
@@ -2414,29 +2430,17 @@ def _plan(conn, body: PlanBody):
         if chans:
             steps = _banded_steps(conn, steps, band, chans[0]["id"], span)
 
-    def reuse(c2, recording_id, target_span):
-        """A matrix profile already on disk for this exact question. Only the
-        matrix-profile blocks can consume one; `detection.seed_matches` runs
-        `stumpy.match` directly and has nothing to reuse (seeded_search
-        .WHY_NO_PROFILE), so a seeded search never claims a reuse it did not
-        make."""
-        mp_steps = [st for st in steps if st["algorithm"] == "matrix_profile"]
-        if not mp_steps:
-            return None
-        rec_row = q.get_recording_by_id(c2, recording_id)
-        window_min = float((mp_steps[0].get("params") or {}).get("window_min") or 0)
-        if window_min <= 0:
-            return None
-        mm = int(round(window_min * 60 * float(rec_row["fs"])))
-        return seeded_search.find_reusable_profile(c2, recording_id, mm, span=target_span)
-
     # the paired null is N more sweeps (Q35), so it is in the estimate and in the
-    # route: "null draws count toward local limits" (§9.4)
+    # route: "null draws count toward local limits" (§9.4). The plan reads every
+    # step of the run and of each draw against the step cache (round A_2, P2), so
+    # it needs the null's flag and params — they are in every cache key. (The
+    # `reuse` lookup that sat here filled a field nothing read; the step cache
+    # keys the exact question, and is what a cluster run's import restores.)
     on, sp, why, draws = _surrogate_for(
         conn, seeded_search.NULL_KIND if seed else seeded_search.DETECTION_KIND, s)
     plan = fanout.plan(conn, steps=steps, recording_ids=[ch["id"] for ch in chans], span=span,
-                       ceiling_s=ceiling, measured_per_channel_s=measured_s, reuse_lookup=reuse,
-                       null_draws=(draws if on else 0))
+                       ceiling_s=ceiling, measured_per_channel_s=measured_s,
+                       null_draws=(draws if on else 0), surrogate=on, surrogate_params=sp)
     plan["null"] = {"paired": on, "params": sp, "reason": why, "draws": (draws if on else 0)}
     plan["template"] = template["name"] if template else None
     plan["seedId"] = seed["id"] if seed else None
@@ -2464,6 +2468,8 @@ def _band_plans(conn, body: PlanBody, bands):
     total = None if any(e is None for e in ests) else float(sum(ests))
     ceiling = plans[0][0]["ceiling_s"] if plans else fanout.ceiling_s(conn)
     route = "unknown" if total is None else ("cluster" if total > ceiling else "local")
+    if any(p[0].get("capped") for p in plans):
+        route = "cluster"      # round A_2 (P2): a band's profile must compute over this machine's cap
     return plans, total, route, ceiling
 
 
@@ -2557,10 +2563,12 @@ def _surrogate_for(conn, kind=seeded_search.DETECTION_KIND, s=None):
 
 
 def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
-                 surrogate_params=None, prelude=None):
+                 surrogate_params=None, prelude=None, on_done=None):
     """One fan-out, one `sweep` job, per-channel progress. The job writes the
     run group id back onto the `discovery_runs` row as soon as it has one, so a
-    page that reloads mid-sweep still finds the runs."""
+    page that reloads mid-sweep still finds the runs. ``on_done(conn, out)`` runs
+    once the row reads its final status (round A_2, P2: a chain import stamps
+    ``hpc.importedAt`` there, not before the sweep has written the run)."""
     db_path = request.app.state.rt.db_path
 
     def run(job):
@@ -2629,6 +2637,8 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
                            "cancelled" if out["cancelled"] else "done", _now(),
                            int(session_id), run_key))
             conn2.commit()
+            if on_done is not None:
+                on_done(conn2, out)
             return {"run_group_id": out["run_group_id"], "runs": len(out["runs"]),
                     "cancelled": out["cancelled"],
                     "detections": sum(r["detections_written"] or 0 for r in out["runs"])}
@@ -3199,46 +3209,107 @@ def save_seed_template(request: Request, body: SeedTemplateBody):
         c.close()
 
 
+class SlurmBody(PlanBody):
+    #: round A_2 (P2): the Discovery run the script is for — that row is marked *on cluster* and is what the
+    #: import finishes. Without one, a new template row is added for the export.
+    runKey: str | None = None
+    #: the modal's preview: the script and the job's numbers; nothing is written and no row is marked
+    dryRun: bool = False
+
+
 @router.post("/api/discovery/slurm")
-def post_slurm(request: Request, body: PlanBody):
-    """§7.5: above the ceiling the primary action is *Create SLURM script*.
-    The script is `Working.hpc.job_export`'s, fan-out aware — one array job
-    whose task index selects its own channel."""
-    from Working.hpc.job_export import export_job
+def post_slurm(request: Request, body: SlurmBody):
+    """§7.5: above the ceiling the primary action is *Create SLURM script* —
+    and the run comes back (round A_2, P2).
+
+    The script is `Working.discovery.chain_job`'s: an array job, one task per
+    channel, each running the real chain AND its paired null draws (Settings ›
+    Nulls, down to 1) on a scratch database keyed to this machine's recording
+    ids, resubmitting itself while its result reads incomplete. The run row
+    stands *on cluster* with its ``params.hpc`` (paths, spec hash, tasks) —
+    marked here, server-side, as the seed export marks its own. When the tasks'
+    ``return/`` folder is back, Discovery's *Import results* or Jobs › Waiting on
+    the cluster imports it (`import_chain_result_for`). A step that reads the
+    database (a Library exemplar, human verdicts, a saved pool) is refused by
+    name; a seed search goes to the cluster from the Seed page."""
+    from Working.discovery import chain_job
 
     c = _conn(request)
     try:
+        row = None
+        if body.runKey:
+            row = _dr_by_key(c, _session(c)["id"], body.runKey)
+            if row["kind"] == "seed":
+                raise HTTPException(422, {"message": f"{row['label']} is a seed search: it goes to the cluster from "
+                                                     f"the Seed page, as its own job (candidates and null draws)"})
+            if row["status"] in ("running", "queued", "done"):
+                raise HTTPException(409, {"message": f"{row['label']} is {row['status']}: there is nothing to send "
+                                                     f"to the cluster"})
+            rp = json.loads(row["params_json"] or "{}")
+            body = body.model_copy(update={"template": row["template_name"] or body.template,
+                                           "band": rp.get("band") or body.band, "seedId": None})
         plan, steps, template, seed, span, chans, s = _plan(c, body)
+        if seed is not None:
+            raise HTTPException(422, {"message": "a seed search goes to the cluster from the Seed page, as its own job "
+                                                 "(candidates and null draws)"})
         if not plan["runnable"]:
             raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"]})
-        name = body.label or plan["template"] or (f"seed_{seed['hash'][:6]}" if seed else "discovery")
-        out_dir = os.path.join(request.app.state.rt.dir, "hpc") if request.app.state.rt.mode == "sandbox" \
-            else os.path.join(REPO_ROOT, "HPC", "Detection", "generated")
-        os.makedirs(out_dir, exist_ok=True)
-        base = f"{name}_{plan['n_channels']}ch_{int(span[0])}-{int(span[1])}"
-        # The array job runs the REAL chain per channel and nothing else: `job_export` has no
-        # paired-null task. So the wall time it asks for is the real sweep's, not the
-        # (1 + draws) figure that routed the run here, and the response says the null is
-        # not in the script rather than letting the page imply it is (fixup-T; left open).
-        real_s = plan.get("estimate_real_s") if plan.get("estimate_real_s") is not None else plan["estimate_s"]
-        data_files = ["DATA/db/annotations.sqlite"]
-        for t in plan["targets"]:
-            rec_row = q.get_recording_by_id(c, int(t["recording_id"]))
-            if rec_row is not None and rec_row["npy_path"]:
-                data_files.append(rec_row["npy_path"])
-        res = export_job(plan["recipe"], out_dir=out_dir, base_name=base, job_name=base,
-                         est_seconds=real_s, data_files=data_files)
-        draws = (plan.get("null") or {}).get("draws") or 0
-        null_note = (f"this script runs the real chain only — the {draws} paired null draws per channel that "
-                     f"routed the run past the local ceiling are not in it" if draws else None)
-        script = ""
-        if os.path.isfile(res["script_path"]):
-            with open(res["script_path"], encoding="utf-8") as f:
-                script = f.read()
-        return {**res, "script": script, "route": plan["route"], "estimate_s": plan["estimate_s"],
-                "estimate_real_s": real_s, "nullNote": null_note,
-                "ceiling_s": plan["ceiling_s"], "channels": plan["channels"],
-                "note": request.app.state.rt.banner() + (f" · {null_note}" if null_note else "")}
+        label = (row["label"] if row is not None else None) or body.label or plan["template"] or "discovery"
+        try:
+            spec = chain_job.build_spec(c, plan, label=label, null=plan["null"],
+                                        run_key=(row["run_key"] if row is not None else None),
+                                        session_id=int(s["id"]), template=plan["template"], band=plan.get("band"))
+        except chain_job.ExportRefused as e:
+            raise HTTPException(422, {"message": str(e), "steps": e.steps})
+        h = chain_job.spec_hash(spec)
+        base = f"{_slug(label)}_{plan['n_channels']}ch_{int(span[0])}-{int(span[1])}_{h[:6]}"
+        made = chain_job.write_job(spec, out_dir=_hpc_out_dir(request), base_name=base, dry_run=body.dryRun)
+        null = spec["null"]
+        chunked = sorted({f"step {c_['step'] + 1:02d} in blocks of {c_['blockSamples']:,}"
+                          for t in spec["targets"] for c_ in t["chunks"]})
+        steps_on = (f"copy {made['spec_repo_path']}, {made['script_repo_path']} and the {spec['tasks']} channel "
+                    f"array(s) listed to the same paths under the cluster's repo; `{made['sbatch_command']}`; when "
+                    f"every task reads complete, bring {made['return_repo_path']} back to the same place here and "
+                    f"press Import results on the run (or in Jobs › Waiting on the cluster)")
+        out = {"run_key": (row["run_key"] if row is not None else None), "label": label, "dryRun": bool(body.dryRun),
+               "script": made["script"], "script_path": made["script_path"], "spec_path": made["spec_path"],
+               "result_dir": made["result_dir"], "result_path": made["result_repo_path"],
+               "return_path": made["return_repo_path"], "sbatch_command": made["sbatch_command"],
+               "slurm_time": made["slurm_time"], "wall_minutes": made["wall_minutes"],
+               "wall_verified": made["wall_verified"], "budget_s": made["budget_s"], "max_chain": made["max_chain"],
+               "profile": made["profile"], "tasks": spec["tasks"], "draws": null["draws"], "paired": null["paired"],
+               "specHash": h, "copy_out": made["copy_out"], "warnings": made["warnings"], "chunked": chunked,
+               "route": plan["route"], "estimate_s": plan["estimate_s"], "ceiling_s": plan["ceiling_s"],
+               "channels": plan["channels"], "capped": plan["capped"], "steps": steps_on,
+               "note": request.app.state.rt.banner() + " · " + steps_on}
+        if body.dryRun:
+            return _clean(out)
+        if row is None:
+            key = _next_key(c, s["id"], _slug(label))
+            row = _insert_run(c, s["id"], run_key=key, kind="template", label=label, template_name=plan["template"],
+                              template_id=(template or {}).get("id"), params={
+                                  "stage_count": len(steps), "version": (template or {}).get("version"),
+                                  "null": dict(plan["null"]), "detail": f"v{(template or {}).get('version') or 1} · "
+                                                                        f"{len(steps)} stages",
+                                  "glyph": D.glyph_for(f"{steps[-1]['stage']}.{steps[-1]['algorithm']}"),
+                                  "estimate_s": plan["estimate_s"]})
+            out["run_key"] = key
+        params = json.loads(row["params_json"] or "{}")
+        params.pop("error", None)
+        params["route"] = "cluster"
+        params["null"] = dict(plan["null"])
+        params["hpc"] = {"kind": "chain", "specPath": made["spec_path"], "scriptPath": made["script_path"],
+                         "resultDir": made["result_dir"], "resultPath": made["result_repo_path"],
+                         "returnPath": made["return_repo_path"], "specHash": h, "sbatch": made["sbatch_command"],
+                         "createdAt": _now(), "tasks": spec["tasks"], "draws": null["draws"],
+                         "paired": null["paired"], "estimateS": plan["estimate_s"],
+                         "dependencies": made["dependencies"], "copyOut": made["copy_out"],
+                         "wallMinutes": made["wall_minutes"], "wallVerified": made["wall_verified"],
+                         "partition": made["profile"]["partition"], "chunked": chunked}
+        c.execute("UPDATE discovery_runs SET params_json = ?, status = 'on cluster', job_id = NULL, updated_at = ? "
+                  "WHERE id = ?", (json.dumps(params), _now(), int(row["id"])))
+        c.commit()
+        return _clean(out)
     finally:
         c.close()
 
@@ -4321,3 +4392,169 @@ def _drawn_by(snap):
     if not meta.get("previewKey") or not meta.get("run_key"):
         return None
     return {"runKey": meta["run_key"], "label": meta.get("what") or meta["run_key"]}
+
+# ── round A_2, P2: a template run's chain job comes back ─────────────────────
+
+class ChainImportBody(BaseModel):
+    #: the run sent to the cluster (Discovery's *Import results*)
+    runKey: str | None = None
+    #: or the job's spec file (Jobs › Waiting on the cluster)
+    path: str | None = None
+
+
+def _repo_abs(path):
+    p = str(path)
+    return os.path.abspath(p if os.path.isabs(p) else os.path.join(REPO_ROOT, p))
+
+
+@router.post("/api/discovery/chain/import")
+def import_chain_result(request: Request, body: ChainImportBody):
+    """A template run's chain job, brought back (round A_2, P2): the tasks'
+    ``return/`` folder is verified against the spec and this machine, its step
+    cache entries restored, and the ordinary local sweep then runs over the
+    exported plan — heavy steps are cache hits, every row is written by
+    `_start_sweep`, so the run reads on Runs, Compare, Review, the Scoreboard and
+    the Map as a local one. A missing or incomplete task, or any mismatch, is a
+    422 naming it, and nothing is recorded."""
+    return import_chain_result_for(request, run_key=body.runKey, spec_path=body.path)
+
+
+def import_chain_result_for(request: Request, *, run_key=None, spec_path=None):
+    """The import behind Discovery's button (by run key) and Jobs' row (by the
+    spec's path): one implementation, two callers."""
+    import Working.config as cfg
+    from Working.discovery import chain_job
+
+    c = _conn(request)
+    try:
+        if run_key:
+            row = _dr_by_key(c, _session(c)["id"], run_key)
+            hpc = json.loads(row["params_json"] or "{}").get("hpc") or {}
+            if hpc.get("kind") != "chain":
+                raise HTTPException(422, {"message": f"{row['label']} was not sent to the cluster as a chain job: "
+                                                     f"there is nothing to import for it"})
+            spec_path = _repo_abs(hpc["specPath"])
+        elif spec_path:
+            if HELD_OUT_FILE in str(spec_path):
+                raise HTTPException(423, {"message": f"{HELD_OUT_FILE} is held out; the web UI refuses it"})
+            spec_path, row, hpc = _repo_abs(spec_path), None, None
+        else:
+            raise HTTPException(422, {"message": "name the run (runKey) or the job's spec file (path)"})
+        if not os.path.isfile(spec_path):
+            raise HTTPException(404, {"message": f"no chain job spec at {spec_path}"})
+        try:
+            with open(spec_path, encoding="utf-8") as f:
+                spec = json.load(f)
+        except (OSError, ValueError) as e:
+            raise HTTPException(422, {"message": f"{spec_path} is not a chain job spec: {type(e).__name__}: {e}"})
+        if not isinstance(spec, dict) or spec.get("kind") != chain_job.KIND:
+            raise HTTPException(422, {"message": f"{spec_path} is not a chain job spec"})
+        h = chain_job.spec_hash(spec)
+        if row is None:
+            row = c.execute("SELECT * FROM discovery_runs WHERE json_extract(params_json, '$.hpc.specHash') = ? "
+                            "ORDER BY id DESC LIMIT 1", (h,)).fetchone()
+            if row is None:
+                raise HTTPException(404, {"message": f"no Discovery run waits for this job (spec {h}): export it "
+                                                     f"again from Discovery › Runs"})
+            hpc = json.loads(row["params_json"] or "{}").get("hpc") or {}
+        if hpc.get("specHash") != h:
+            raise HTTPException(422, {"message": f"{spec_path} is spec {h}; {row['label']} was exported as spec "
+                                                 f"{hpc.get('specHash')} — the job was written again since"})
+        if row["status"] in ("running", "queued"):
+            raise HTTPException(409, {"message": f"{row['label']} is {row['status']} here right now; let it finish"})
+        out_dir = _repo_abs(hpc.get("resultDir") or hpc["resultPath"])
+
+        def refuse(message, status=422):
+            p = json.loads(row["params_json"] or "{}")
+            p["hpc"] = dict(p.get("hpc") or {}, refused={"at": _now(), "message": message})
+            c.execute("UPDATE discovery_runs SET params_json = ?, updated_at = ? WHERE id = ?",
+                      (json.dumps(p), _now(), int(row["id"])))
+            c.commit()
+            raise HTTPException(status, {"message": message, "run_key": row["run_key"]})
+
+        try:
+            plan = chain_job.local_plan(c, spec, ceiling_s=fanout.ceiling_s(c))   # targets and chain still the exported
+            checked = chain_job.verify_results(c, spec, out_dir)                 # everything checked, nothing written
+        except chain_job.ImportRefused as e:
+            refuse(str(e))
+        params = json.loads(row["params_json"] or "{}")
+        params.pop("error", None)
+        params["null"] = dict(plan["null"])
+        # fix round (F3): the START of the import. `importedAt` is stamped once the sweep has written the run
+        # (`stamp_imported`, below) — a restore that fails part-way never reads as imported
+        params["hpc"] = dict(params.get("hpc") or {}, importStartedAt=_now(), counts=checked["counts"],
+                             imported={"tasks": checked["tasks"], "entries": checked["entries"],
+                                       "bytes": checked["bytesToCopy"]})
+        params["hpc"].pop("refused", None)
+        params["hpc"].pop("importedAt", None)
+        c.execute("UPDATE discovery_runs SET params_json = ?, updated_at = ? WHERE id = ?",
+                  (json.dumps(params), _now(), int(row["id"])))
+        c.commit()
+        cache_root, null_rec, run_id = cfg.STEP_CACHE_ROOT, dict(plan["null"]), int(row["id"])
+
+        def hpc_update(conn2, **fields):
+            p = json.loads(conn2.execute("SELECT params_json FROM discovery_runs WHERE id = ?",
+                                         (run_id,)).fetchone()[0] or "{}")
+            p["hpc"] = dict(p.get("hpc") or {}, **fields)
+            conn2.execute("UPDATE discovery_runs SET params_json = ? WHERE id = ?", (json.dumps(p), run_id))
+            conn2.commit()
+            return p
+
+        def restore(job, conn2):
+            """The import's long part, as the job's first act: copy the verified cache entries in, then make sure
+            nothing heavy is left to compute here before the sweep starts."""
+            def fail(message):
+                p = json.loads(conn2.execute("SELECT params_json FROM discovery_runs WHERE id = ?",
+                                             (run_id,)).fetchone()[0] or "{}")
+                p["error"] = message
+                conn2.execute("UPDATE discovery_runs SET params_json = ? WHERE id = ?", (json.dumps(p), run_id))
+                conn2.commit()
+                raise RuntimeError(message)
+
+            job.progress(0, 1, f"restoring {checked['entries']} cache entries from the cluster")
+            try:
+                got = chain_job.restore_cache(conn2, checked, cache_root=cache_root,
+                                              should_cancel=job.cancel_event.is_set)
+            except chain_job.RestoreCancelled as e:
+                # F4: stopped between entries; the sweep reads the same cancel and stops before its first channel,
+                # so the row reads cancelled and nothing claims to be imported (import again to finish the copy)
+                p = json.loads(conn2.execute("SELECT params_json FROM discovery_runs WHERE id = ?",
+                                             (run_id,)).fetchone()[0] or "{}")
+                hpc_update(conn2, imported=dict((p.get("hpc") or {}).get("imported") or {}, copied=e.copied,
+                                                already=e.already, bytes=e.bytes, cancelled=True))
+                return null_rec
+            except Exception as e:
+                # F3: a copy that failed part-way is the row's error, in its own words (and Jobs reads it there)
+                fail(f"restoring the cluster's cache failed part-way: {type(e).__name__}: {e}. The entries restored "
+                     f"before it are whole and kept, the half-copied one is not used; import again (Jobs › Waiting "
+                     f"on the cluster) once that is fixed")
+            after = chain_job.local_plan(conn2, spec, ceiling_s=fanout.ceiling_s(conn2))
+            if after["capped"] or after["route"] == "cluster":
+                left = "; ".join(f"{x['channel_name']} step {x['step'] + 1:02d} ({x['name']})" for x in after["capped"])
+                fail("the cluster's cache entries were restored, but this run would still compute "
+                     + (left or f"about {(after['estimate_s'] or 0) / 60:.0f} min") + " here, over this machine's "
+                     "limit: nothing was run")
+            p = json.loads(conn2.execute("SELECT params_json FROM discovery_runs WHERE id = ?",
+                                         (run_id,)).fetchone()[0] or "{}")
+            hpc_update(conn2, imported=dict((p.get("hpc") or {}).get("imported") or {}, **got))
+            return null_rec
+
+        def stamp_imported(conn2, out):
+            """F3: the import is done when the sweep has written the run, not when it was asked for."""
+            if not out["cancelled"]:
+                hpc_update(conn2, importedAt=_now())
+
+        job = _start_sweep(request, session_id=int(row["session_id"]), run_key=row["run_key"], plan=plan,
+                           label=row["label"], surrogate=plan["null"]["paired"],
+                           surrogate_params=plan["null"]["params"], prelude=restore, on_done=stamp_imported)
+        c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? WHERE id = ?",
+                  (job.id, _now(), run_id))
+        c.commit()
+        mb = checked["bytesToCopy"] / 1e6
+        return {"run_key": row["run_key"], "job_id": job.id, "label": row["label"], "tasks": checked["tasks"],
+                "entries": checked["entries"], "bytes": checked["bytesToCopy"],
+                "note": (f"every task checked; {checked['entries']} cache entr{'y' if checked['entries'] == 1 else 'ies'} "
+                         f"({mb:.0f} MB) are restored from the cluster, then the run's channels are written here — "
+                         f"the heavy steps read from the cache, the cheap ones recomputed")}
+    finally:
+        c.close()

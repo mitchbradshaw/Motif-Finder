@@ -1572,3 +1572,32 @@ export interface DiscSeedDraft {
    *  the first available seed instead; this sentence says why and how to unlock. Absent otherwise. */
   heldOutNote?: string | null
 }
+
+/* ---------------- round A_2 · P2: a template run's chain job (server/discovery.py `post_slurm`, `/api/discovery/chain/import`) ----
+ * Appended. *Create SLURM script* writes `Working.discovery.chain_job`'s array job (one task per channel, the real chain
+ * and its null draws on a scratch database) and marks the run row *on cluster* with its `hpc`; `dryRun` is the modal's
+ * preview (nothing written). The import restores the step cache and runs the ordinary sweep here, so the run reads on
+ * Runs, Compare, Review and the Map as a local one. The run row's `hpc` widens by declaration merging. */
+export interface DiscSeedHpc {
+  kind?: 'chain'; tasks?: number; returnPath?: string; resultDir?: string; paired?: boolean; partition?: string
+  wallMinutes?: number; wallVerified?: boolean; chunked?: string[]; refused?: { at: string; message: string }
+  counts?: { recordingId: number; channelName: string; detections: number; draws: number[] }[]
+}
+export interface DiscRun { hpcImported?: boolean; hpcRefused?: string | null; clusterAgrees?: boolean; clusterCheck?: string | null }
+export interface DiscChainCopy { what: string; path: string; bytes: number | null; note?: string }
+export interface DiscChainExport {
+  run_key: string | null; label: string; dryRun: boolean; script: string; script_path: string; spec_path: string
+  result_dir: string; result_path: string; return_path: string; sbatch_command: string; slurm_time: string
+  wall_minutes: number; wall_verified: boolean; budget_s: number; max_chain: number
+  profile: { gpu: boolean; partition: string; cpus: number; condaEnv: string; wallMinutes: number; wallVerified: boolean }
+  tasks: number; draws: number; paired: boolean; specHash: string; copy_out: DiscChainCopy[]; warnings: string[]
+  chunked: string[]; route: string; estimate_s: number | null; ceiling_s: number; channels: string[]
+  capped: { recording_id: number; channel_name: string; step: number; name: string; cap: number | null; samples: number | null; where: string }[]
+  steps: string; note: string
+}
+/** Write (or, with `dryRun`, preview) the chain job for one Discovery run; the row is marked *on cluster* server-side. */
+export const exportDiscoveryChain = (body: DiscPlanBody & { runKey?: string; dryRun?: boolean }) =>
+  post<DiscChainExport>('/api/discovery/slurm', body)
+export interface DiscChainImportAck { run_key: string; job_id: number; label: string; tasks: number; entries: number; bytes: number; note: string }
+/** The tasks' return/ folder is back: verify it, restore the cache, run the sweep here. A refusal is a 422 with what is missing. */
+export const importDiscoveryChain = (runKey: string) => post<DiscChainImportAck>('/api/discovery/chain/import', { runKey })

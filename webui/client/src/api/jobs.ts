@@ -102,8 +102,8 @@ export const getLocalJobs = (limit = 60): Promise<Sourced<LiveJob[]>> => live(li
 /* ------------------------------------------------------------------ the cluster */
 export interface CopyItem { what: string; path: string; bytes: number; note?: string }
 export type ClusterState = 'written' | 'partial' | 'returned' | 'importing' | 'imported' | 'refused' | 'failed' | 'unreadable'
-export type ClusterSource = 'job_dir' | 'seed' | 'script'
-export type ImportHow = 'inbox' | 'seed' | null
+export type ClusterSource = 'job_dir' | 'seed' | 'script' | 'chain'
+export type ImportHow = 'inbox' | 'seed' | 'chain' | null
 export interface ImportAttempt {
   job_id: number; job_dir: string | null; recipe_hash: string | null; outcome: 'imported' | 'refused' | 'failed' | 'importing' | string
   status: string; message: string; error_type: string | null; traceback: string | null; started_at: number | string | null; finished_at: number | string | null
@@ -122,7 +122,8 @@ export interface ClusterJob {
   open: { label: string; route: string; note?: string } | null
   /** how its results come back: the Manifest inbox (a job directory), the seed import (a result file), or not through the site */
   import_how: ImportHow; import_path: string | null; import_note: string | null; result_path: string | null
-  progress: { channels_done: number; channels: number | null } | null; estimate_s: number | null; draws: number | null
+  /** a seed job: channels in its checkpoint; a chain job (round A_2, P2): tasks whose result is back */
+  progress: { channels_done?: number; channels?: number | null; tasks_done?: number; tasks?: number | null } | null; estimate_s: number | null; draws: number | null
 }
 export interface ClusterCounts { written: number; partial: number; returned: number; importing: number; imported: number; refused: number; failed: number; unreadable: number; to_import: number; waiting: number; total: number }
 export interface ClusterList { jobs: ClusterJob[]; roots: string[]; mode: string; counts: ClusterCounts; note: string }
@@ -145,3 +146,10 @@ export const importSeedResult = (path: string) =>
   req<SeedImportAck>('/api/hpc/seed/import', { method: 'POST', body: JSON.stringify({ path }) })
 
 export const wsOf = (w: string | null | undefined): Workspace => (w && w in WORKSPACE_ICON ? (w as Workspace) : 'Analyse')
+
+/** Round A_2 (P2): a Discovery template run's chain job, imported by its spec's path through Discovery's own import (one
+ *  implementation, two callers). The tasks' results are verified, the step cache restored and the run's channels written
+ *  here by a sweep job (`job_id`); a refusal is the thrown error's message, and nothing is recorded. */
+export interface ChainImportAck { run_key: string; job_id: number; label: string; tasks: number; entries: number; bytes: number; note: string }
+export const importChainResult = (path: string) =>
+  req<ChainImportAck>('/api/hpc/chain/import', { method: 'POST', body: JSON.stringify({ path }) })
