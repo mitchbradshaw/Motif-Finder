@@ -232,6 +232,9 @@ export function SeedPage() {
                 ? <><b>≈ {fmtSeconds(estimate.data.run.seconds)}</b> a run{estimate.data.run.measured ? '' : ' · assumed'}</>
                 : <><b>≈ ?</b> <span className="muted">estimating</span></>}
                 detail={estimate.data ? `a run · ${channels.length} ch × ${(dx.scope.section[1] - dx.scope.section[0]).toFixed(1)} h × ${estimate.data.run.draws} draws${estimate.data.run.measured ? ' · measured rate' : ' · assumed rate (not measured yet)'}` : undefined} /><HistoryButton dx={dx} /></>} />
+              {/* a2 integration (P1 x P4): the remembered seed is on the held-out recording and the lock is back on,
+                  so the bridge opened the first available seed instead (a2-p1's m2) — say so, never switch silently */}
+              {setup.data?.heldOutNote && <Callout tone="amber" testid="seed-draft-held-out-note">{setup.data.heldOutNote}</Callout>}
               <ScopeCard dx={dx} />
               {!dx.recording?.heldOut && (
                 <div className="dsc-cols">

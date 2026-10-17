@@ -263,8 +263,10 @@ export interface SeedDraft {
   key: string; label: string; seedId: string; source: string; bind: 'carry' | 'rebind'
   params: SeedParams; applied: SeedParams | null; estimateS: number | null
 }
-/** `seed` is the draft's own seed, which need not be on any page of the picker (fixup-y). */
-export interface SeedSetup { draft: SeedDraft; seed: SeedInfo; seeds: SeedInfo[]; recommended: SeedParams }
+/** `seed` is the draft's own seed, which need not be on any page of the picker (fixup-y). `heldOutNote`
+ *  (a2 integration, P1 x P4): the remembered seed is on the held-out recording and the lock is on, so the
+ *  bridge opened the first available seed instead; the sentence says why and how to unlock. */
+export interface SeedSetup { draft: SeedDraft; seed: SeedInfo; seeds: SeedInfo[]; recommended: SeedParams; heldOutNote?: string | null }
 export interface SeedMatch { id: string; d: number; channel: string; atH: number; judged: boolean; verdict?: string | null; trace: number[]
   /** fixup-v: the factor of the seed's length this match was found at, and its length in samples */
   scale?: number; length?: number }
@@ -297,6 +299,7 @@ export const getSeedSetup = (o: { seed?: string; entry?: number } = {}): Promise
   seed: toSeed(p.draft.seed),
   seeds: p.seeds.map(toSeed),
   recommended: toParams(p.recommended),
+  heldOutNote: p.draft.heldOutNote ?? null,
 })))
 
 /** The seed picker: one page of one source, filtered, with the total under the filters (fixup-y). */

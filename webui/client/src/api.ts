@@ -1565,3 +1565,10 @@ export interface HeldOutLockState {
   locked: boolean; on: boolean; recording: string; name: string; file: string; unlock: string; override: boolean
 }
 export const getHeldOutLock = () => req<HeldOutLockState>('/api/held-out')
+
+/* ---------------- a2 integration (P1 x P4): a seed draft moved off the held-out recording ---------------- */
+export interface DiscSeedDraft {
+  /** a2-p1 (m2): the remembered draft's seed is on the held-out recording and the lock is on, so the bridge opened
+   *  the first available seed instead; this sentence says why and how to unlock. Absent otherwise. */
+  heldOutNote?: string | null
+}
