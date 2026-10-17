@@ -369,6 +369,28 @@ def test_the_backend_auto_variants_run_here_from_the_imported_profiles_and_stump
     monkeypatch.setattr(mp, "run", real_run)
 
 
+def test_an_uncached_profile_is_never_free_even_where_the_machine_is_uncalibrated(client, bridge, tmp_path,
+                                                                                  monkeypatch):
+    """Found on the sandbox bridge (2026-10-18): a machine without a cost calibration has no matrix-profile cap
+    and no estimate, so the plan reads "unknown", not "capped" — and the run would have computed both whole-signal
+    profiles here, for hours. A time-capped step (the matrix-profile family) must be in the cache, for the real run
+    and for every draw, whatever the calibration says."""
+    mp = get_adapter("detection.matrix_profile")
+    monkeypatch.setattr(mp, "max_span_samples", None)         # uncalibrated: no cap
+    monkeypatch.setattr(mp, "estimate", None)                 # ...and no estimate
+    bridge.main(["--url", "http://bridge", "--apply"])
+    spec, made, _ = _overnight_job(client, tmp_path / "overnight", MP_AUTO, tasks=())
+    dry = _local(client, MP_AUTO_VARIANTS[0], made["spec_path"], dry=True)
+    assert dry.status_code == 200, dry.text
+    d = dry.json()
+    assert d["runsHere"] is False, d
+    assert "detection.matrix_profile" in d["reason"] and "CH1" in d["reason"], d["reason"]
+    assert {(x["channel_name"], x["where"]) for x in d["uncached"]} == {("CH1", "real"), ("CH1", "draw 0"),
+                                                                        ("CH2", "real"), ("CH2", "draw 0")}
+    r = _local(client, MP_AUTO_VARIANTS[0], made["spec_path"])
+    assert r.status_code == 422 and "detection.matrix_profile" in r.text, r.text
+
+
 # ── the driver: scripts/rq4_overnight.py adopt ─────────────────────────────
 
 def _manifest(folder, jobs, refused=()):
