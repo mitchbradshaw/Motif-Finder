@@ -451,10 +451,11 @@ def _chain_rows(request: Request) -> list[dict]:
     """Discovery's template runs sent to the cluster (`/api/discovery/slurm`): one row per run row whose
     `params.hpc` is a chain job. The state is read from the tasks' result files (`chain_job.collect`):
     *written* (none back), *partial* (some tasks back, or stopped at their budget), *returned* (every task
-    complete — importable), then from the row once imported: *importing* while its sweep runs here,
-    *imported*, *failed*. A task that refused on the cluster (its channel file was not the exported one, or
-    it stopped making progress) reads *failed* with its reason; an import refused here keeps the files'
-    state and says why."""
+    complete — importable), then from the row once an import has started: *importing* while its restore and
+    sweep run here, *imported* once the sweep has written the run, *failed* with the row's error (a restore
+    that failed part-way among them; importable again). A task that refused on the cluster (its channel file
+    was not the exported one, or it stopped making progress) reads *failed* with its reason; an import
+    refused or cancelled here keeps the files' state and says why."""
     from Working.discovery import chain_job
     from Working.hpc.job_export import repo_relative
     c = _conn(request)
@@ -511,20 +512,29 @@ def _chain_rows(request: Request) -> list[dict]:
             elif back:
                 row["state"] = "partial"
                 row["returned"] = {"status": "partial", "recipe_hash": st["specHash"], "finished_at": None}
+        # fix round (F3): an import is *started* at `importStartedAt` and *done* at `importedAt`, stamped once the
+        # sweep here has written the run (151ace3's rows stamped `importedAt` at the start: read as the start too).
+        # Every import start drops `refused`, so a refusal on the row is the latest word unless the run was imported
+        started = hpc.get("importStartedAt") or hpc.get("importedAt")
         if hpc.get("refused") and not hpc.get("importedAt"):
             row["reason"] = hpc["refused"].get("message")
             if row["state"] == "returned":
                 row["state"] = "refused"
-        if hpc.get("importedAt"):
+        elif started:
             if r["status"] in ("running", "queued"):
                 row["state"] = "importing"
-            elif r["status"] == "done":
+            elif r["status"] == "done" and hpc.get("importedAt"):
                 row["state"] = "imported"
                 row["imported"] = {"run_id": None, "name": r["label"], "at": hpc["importedAt"]}
                 row["open"] = {"label": "Open in Discovery", "route": f"discovery/runs?run={r['run_key']}"}
             elif r["status"] == "failed":
                 row["state"] = "failed"
                 row["reason"] = p.get("error") or "the run's sweep here failed after the import: its error is in Jobs"
+            elif r["status"] == "cancelled":
+                # the files' state stands (returned: importable again); the entries restored before the cancel are
+                # whole and kept, so the next import copies only the rest
+                row["reason"] = ("the import was cancelled here before the run was written: import again to finish "
+                                 "it")
         out.append(row)
     return out
 

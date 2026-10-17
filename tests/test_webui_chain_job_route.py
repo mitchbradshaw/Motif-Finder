@@ -346,6 +346,32 @@ def test_analyse_refuses_an_uncached_over_cap_profile_and_points_to_discovery(cl
     assert not glob.glob(os.path.join(client.app.state.rt.dir, "hpc", "analyse_*.sh"))
 
 
+def test_analyse_refuses_a_null_draw_that_would_compute_an_over_cap_profile(client, monkeypatch):
+    """F5 (fix round), the null's side: the real chain's profile is cached, but a draw's is not, so the draw would
+    compute it over the cap here. That routed to the same one-way script; it is refused the same way (the null off,
+    or Discovery's chain job), naming the draw and the chain's own step."""
+    import glob
+
+    mp = get_adapter("detection.matrix_profile")
+    monkeypatch.setattr(mp, "max_span_samples", None)
+    body = {"recording_id": 2, "span": [0, N], "steps": MP_STEPS, "surrogate": True}
+    first = client.post("/api/runs", json=body)              # the real profile and draw 1's: computed, cached
+    assert first.status_code == 200, first.text
+    assert _wait_job(client, first.json()["job_id"])["status"] == "completed"
+    r = client.put("/api/settings/nulls", json={"values": {"null.detection.draws": 2}})
+    assert r.status_code == 200, r.text
+    monkeypatch.setattr(mp, "max_span_samples", 500)
+    again = client.post("/api/runs", json=body)              # draw 2's profile is not in the cache
+    assert again.status_code == 422, again.text
+    detail = again.json()["detail"]
+    assert isinstance(detail, dict) and not detail.get("slurm"), "no one-way script is written"
+    msg = detail["message"]
+    assert "stage 02 (detection.matrix_profile) in null draw 2" in msg and "Create SLURM script" in msg, msg
+    assert "null off" in msg
+    assert [(x["index"], x["where"]) for x in detail["over_ceiling"]] == [(1, "draw 1")]
+    assert not glob.glob(os.path.join(client.app.state.rt.dir, "hpc", "analyse_*.sh"))
+
+
 # ── fix round: a restore that fails part-way ───────────────────────────────
 
 def test_a_restore_that_fails_half_way_reads_failed_with_its_reason_and_imports_again(client, monkeypatch):
@@ -391,3 +417,44 @@ def test_a_restore_that_fails_half_way_reads_failed_with_its_reason_and_imports_
     hpc = _params(client, key)["hpc"]
     assert hpc["importedAt"] >= hpc["importStartedAt"]
     assert _chain_row(client, key)["state"] == "imported"
+
+
+def test_a_cancel_during_the_restore_reads_cancelled_and_imports_again(client, monkeypatch):
+    """F4 (fix round), through the bridge: an import cancelled while its restore copies stops between entries. The
+    run reads cancelled (not imported, not failed), Jobs offers the import again and says why, and the next import
+    copies only the rest and writes the run."""
+    import shutil
+
+    key = _add(client, "noise_threshold")["run_key"]
+    made = _export(client, key, "noise_threshold")
+    spec = _spec(made)
+    for i in range(2):
+        chain_job.run_task(spec, task=i, out_dir=made["result_dir"])
+    real, manager = shutil.copytree, client.app.state.manager
+
+    def copy_then_cancel(src, dst, *a, **k):
+        out = real(src, dst, *a, **k)
+        for job in list(manager.jobs.values()):
+            if getattr(job, "kind", None) == "sweep" and job.status == "running":
+                manager.cancel(job)
+        return out
+
+    monkeypatch.setattr(chain_job.shutil, "copytree", copy_then_cancel)
+    r = client.post("/api/discovery/chain/import", json={"runKey": key})
+    assert r.status_code == 200, r.text
+    entries = r.json()["entries"]
+    assert entries >= 2, "the cancel lands between two entries"
+    _wait_job(client, r.json()["job_id"])
+    run = _runs(client)[key]
+    assert run["status"] == "cancelled" and not run.get("hpcImported"), run
+    hpc = _params(client, key)["hpc"]
+    assert "importedAt" not in hpc and hpc["imported"]["cancelled"] is True and hpc["imported"]["copied"] == 1, hpc
+    row = _chain_row(client, key)
+    assert row["state"] == "returned" and "cancelled" in (row["reason"] or ""), row
+    monkeypatch.setattr(chain_job.shutil, "copytree", real)
+    r = client.post("/api/discovery/chain/import", json={"runKey": key})
+    assert r.status_code == 200, r.text
+    assert _wait_job(client, r.json()["job_id"])["status"] == "completed"
+    hpc = _params(client, key)["hpc"]
+    assert (hpc["imported"]["already"], hpc["imported"]["copied"]) == (1, entries - 1), hpc
+    assert _runs(client)[key]["status"] == "done" and _chain_row(client, key)["state"] == "imported"

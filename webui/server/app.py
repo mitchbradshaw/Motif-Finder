@@ -270,10 +270,10 @@ def create_app(rt: Runtime) -> FastAPI:
             raise HTTPException(422, str(e))
         n = (span[1] - span[0]) if span else rec["n_samples"]
         # round A_2 (P2): the span cap guards a COMPUTATION. A step the step cache holds (a whole-span matrix
-        # profile imported from the cluster) is served whatever its span; a step over a TIME cap (the matrix
-        # profile's, this machine's budget) is routed with the estimate below — written as a SLURM job — not
-        # refused here; a memory cap still refuses
-        from Working.discovery import routing as _routing
+        # profile imported from the cluster) is served whatever its span. An uncached step over its cap is refused
+        # here, as before P2 — fix round (F5): a TIME-capped one was written as the old one-way SLURM job
+        # (`_slurm_refusal`: no return path, no resume); the refusal now names the way that comes back
+        # (`_over_cap_message`)
         c = conn()
         try:
             cached = {s_["index"] for s_ in chain_mod.cache_status(dict(recipe, surrogate=True) if body.surrogate
@@ -282,12 +282,11 @@ def create_app(rt: Runtime) -> FastAPI:
             c.close()
         over = [{"index": i, "name": f"{s['stage']}.{s['algorithm']}", "max_span_samples": chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}").max_span_samples}
                 for i, s in enumerate(recipe["steps"])
-                if i not in cached and _routing.cap_kind(f"{s['stage']}.{s['algorithm']}") != "time"
+                if i not in cached
                 and chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}").max_span_samples is not None
                 and n > chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}").max_span_samples]
         if over:
-            raise HTTPException(422, {"message": f"stage {over[0]['index'] + 1:02d} ({over[0]['name']}) exceeds its local ceiling of {over[0]['max_span_samples']:,} samples (span is {n:,}); shorten the span or route it to HPC (out of slice scope)",
-                                      "over_ceiling": over})
+            raise HTTPException(422, {"message": _over_cap_message(over, n), "over_ceiling": over})
         null = None
         if body.surrogate:
             # the detection-chain null of Settings › Nulls: method, draws, and a fixed block if one is set
@@ -307,20 +306,33 @@ def create_app(rt: Runtime) -> FastAPI:
         # A run that cannot finish here is refused BEFORE it starts — a job in progress cannot be stopped inside a
         # step (cancel is checked between steps), so a days-long FLUSS once left the bridge to be killed by hand
         # (2026-10-14). Over the Analyse limit the chain is written as a SLURM job instead.
+        from Working.discovery import routing as _routing
         c = conn()
         try:
             routed = chain_mod.route_local(recipe, n, rec["fs"], ceiling_s=chain_mod.analyse_ceiling_s(c),
                                            draws=(null or {}).get("draws", 0))
-            # round A_2 (P2): what the step cache holds costs nothing, in the real run and in each null draw, and a
-            # step that must compute over a time cap goes to SLURM — the rule Discovery's plan uses
+            # round A_2 (P2): what the step cache holds costs nothing, in the real run and in each null draw — the
+            # rule Discovery's plan uses
             cost = _routing.target_cost(c, recipe, samples=n, fs=rec["fs"], draws=(null or {}).get("draws", 0),
                                         surrogate_params=(null or {}).get("params"))
         finally:
             c.close()
-        if cost["cached"] or cost["draws_cached"] or cost["capped"]:
-            routed = dict(routed, route=_routing.route(cost["seconds"], routed["ceiling_s"], capped=cost["capped"]),
+        if cost["capped"]:
+            # fix round (F5): the real chain is cached or under its caps, but a null draw would compute a step over
+            # a time cap (its own profile is not cached): refused as above, never the one-way SLURM job
+            # a draw's steps are its surrogate step and then the chain's: the chain's own index is one less
+            caps = [{"index": (st["index"] - 1 if str(st.get("where")).startswith("draw ") else st["index"]),
+                     "name": st["name"], "max_span_samples": st["cap"], "where": st.get("where")}
+                    for st in cost["capped"]]
+            w = str(caps[0]["where"] or "")
+            say = (f" in null draw {int(w.split()[-1]) + 1}" if w.startswith("draw ")
+                   else " in the null's draws" if w == "draws" else "")
+            raise HTTPException(422, {"message": _over_cap_message(caps, n, where=say, null_off=True),
+                                      "over_ceiling": caps})
+        if cost["cached"] or cost["draws_cached"]:
+            routed = dict(routed, route=_routing.route(cost["seconds"], routed["ceiling_s"]),
                           estimate_s=(cost["seconds"] if cost["seconds"] is not None else routed["estimate_s"]),
-                          estimate_real_s=cost["real_s"], cached=cost["cached"], capped=cost["capped"])
+                          estimate_real_s=cost["real_s"], cached=cost["cached"])
         if routed["route"] == "cluster":
             raise HTTPException(422, _slurm_refusal(recipe, rec, routed))
         if routed.get("calibrating"):
@@ -333,6 +345,25 @@ def create_app(rt: Runtime) -> FastAPI:
                                      f"written as a SLURM job instead of starting here)")
         job = manager.start(recipe, rec, px=body.px, null=null)
         return job.snapshot()
+
+    def _over_cap_message(over: list, n: int, *, where: str = "", null_off: bool = False) -> str:
+        """The 422 message for a chain with an uncached step over its span cap (fix round, F5). A MEMORY cap is a
+        limit wherever the step runs: shorten the span (the message before P2). A TIME cap is this machine's budget:
+        the cluster computes the step, through Discovery's chain job — which comes back as a Discovery run and
+        leaves the profile in the step cache, where this chain then finds it (a cached step is not over anything).
+        Analyse no longer writes the old one-way SLURM job for it (`_slurm_refusal`: no return path, no resume)."""
+        from Working.discovery import routing as _routing
+        mem = [x for x in over if _routing.cap_kind(x["name"]) != "time"]
+        x = (mem or over)[0]
+        head = (f"stage {x['index'] + 1:02d} ({x['name']}){where} exceeds its local ceiling of "
+                f"{x['max_span_samples']:,} samples (span is {n:,})")
+        if mem:
+            return head + "; shorten the span or route it to HPC (out of slice scope)"
+        return (head + ": this machine does not compute it. Shorten the span"
+                + (", turn the null off" if null_off else "")
+                + ", or send it to the cluster from Discovery › Runs › Create SLURM script: that chain job (the null "
+                  "in the same task) comes back as a Discovery run and leaves the profile in the step cache, and the "
+                  "same chain over the same span then runs here")
 
     def _slurm_refusal(recipe: dict, rec, routed: dict) -> dict:
         """The 422 body for a run over the local limit, after writing its SLURM job (`Working.hpc.job_export`,

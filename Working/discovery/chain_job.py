@@ -197,6 +197,31 @@ def store_reading_steps(steps):
     return out
 
 
+def _held_out_unlocked(conn, source_file):
+    """True when ``source_file`` is the held-out recording and Settings › Datasets
+    has its lock OFF at export (fix round, F1). The cluster's scratch database is
+    built by `init_db()` and has no settings row — which the lock reads as ON — so
+    such a target carries ``heldOutUnlocked`` and its scratch database is written
+    unlocked (`_unlock_held_out`). Read with `held_out_state`, the settings page's
+    own reader."""
+    from Working.registration.settings import held_out_state
+
+    st = held_out_state(conn)
+    stem = os.path.splitext(str(source_file))[0]
+    return (not st["on"]) and (str(source_file) == st["file"] or stem == st["recording"])
+
+
+def _unlock_held_out(conn):
+    """The scratch database's Settings › Datasets lock, OFF — as it was where the
+    spec was exported (`heldOutUnlocked`)."""
+    from Working.registration.settings import HELD_OUT_ON_KEY, HELD_OUT_PAGE, held_out_state, put_settings
+
+    st = held_out_state(conn)
+    if st["on"]:
+        put_settings(conn, HELD_OUT_PAGE, {HELD_OUT_ON_KEY: False}, actor="chain_job (exported with the lock off)",
+                     confirm_name=st["name"])
+
+
 def _profile(steps):
     """Where the job runs: the a100 for a matrix profile on the GPU (or a CNN), the
     CPU partition otherwise; the wall recorded for that partition."""
@@ -293,7 +318,7 @@ def build_spec(conn, plan, *, label, null, run_key=None, session_id=None, templa
         per = fanout.target_recipe(recipe, i, paired)
         units = recording_units(rec)
         npy = rec["npy_path"]
-        targets.append({
+        target = {
             "index": i, "recordingId": int(rec["id"]), "sourceFile": rec["source_file"], "channel": int(rec["channel"]),
             "channelName": t["channel_name"], "fs": float(rec["fs"]), "nSamples": int(rec["n_samples"]),
             "globalOffset": int(rec["global_offset"]), "units": units,
@@ -302,7 +327,11 @@ def build_spec(conn, plan, *, label, null, run_key=None, session_id=None, templa
             "span": list(t["span"]), "recipe": per, "configHash": short_hash(per),
             "prefixHashes": [_recipe_prefix_hash(per, k, units) for k in range(len(per["steps"]))],
             "chunks": _chunks_for(per, t["samples"], rec["fs"], chunk, profile),
-        })
+        }
+        if _held_out_unlocked(conn, rec["source_file"]):
+            # only on such a target: every other spec (the overnight sweep's) keeps the hash it was exported with
+            target["heldOutUnlocked"] = True
+        targets.append(target)
     return {
         "version": SPEC_VERSION, "kind": KIND, "label": label, "runKey": run_key, "sessionId": session_id,
         "template": template, "band": band, "steps": steps, "span": recipe["span"],
@@ -535,7 +564,9 @@ def _resolve_npy(npy, repo_root=None):
 
 def _scratch(db, target, repo_root=None):
     """The per-task scratch database: `init_db()` and the recording row under its
-    LOCAL id, its file verified against the spec's sha1, its unit as exported."""
+    LOCAL id, its file verified against the spec's sha1, its unit as exported, and
+    — for a held-out target exported with the lock off (``heldOutUnlocked``) — the
+    held-out lock off, as it was there."""
     from Working.database import queries as q
     from Working.database.matrix_profile_store import compute_data_sha1
     from Working.database.schema import init_db
@@ -562,6 +593,8 @@ def _scratch(db, target, repo_root=None):
         elif row["npy_path"] != npy:
             conn.execute("UPDATE recordings SET npy_path = ? WHERE id = ?", (npy, int(row["id"])))
             conn.commit()
+        if target.get("heldOutUnlocked"):
+            _unlock_held_out(conn)
     finally:
         conn.close()
     conn = init_db(db)             # the schema's backfills run again here: the unit must survive them
@@ -802,37 +835,49 @@ def run_task(spec, task, out_dir, *, budget_s=None, should_cancel=None, repo_roo
     between steps, draws and profile blocks once that long has passed (``complete``
     False, no error: the next job continues it). A refusal — the channel file or
     the hashes are not the exported ones, or the task made no progress twice — is
-    the result's ``error``."""
-    if int(spec.get("version") or 0) != SPEC_VERSION or spec.get("kind") != KIND:
-        raise ValueError(f"not a chain job spec (version {spec.get('version')!r}, kind {spec.get('kind')!r})")
+    the result's ``error``.
+
+    So is anything else that goes wrong (fix round, F1): a step that raises, a lock
+    the scratch database reads, a spec this code cannot read — the result carries
+    the exception's words in ``error`` and its ``traceback``, so a task never ends
+    without a result that says why (Jobs read such a task as *missing*, no reason
+    given). Only an interruption (SystemExit, KeyboardInterrupt: SLURM ending the
+    job) leaves no result, and the next job continues the task from its cache."""
+    import traceback as _traceback
+
     t0 = time.time()
-    h = spec_hash(spec)
-    target = spec["targets"][int(task)]
     ret_dir, work_dir = _task_dirs(out_dir, task)
     os.makedirs(ret_dir, exist_ok=True)
     os.makedirs(work_dir, exist_ok=True)
-    _job_json(out_dir, spec)
     result_path = os.path.join(ret_dir, RESULT_NAME)
-    if os.path.isfile(result_path):
+    result = {"version": SPEC_VERSION, "kind": RESULT_KIND, "specHash": None, "task": int(task),
+              "recordingId": None, "channelName": None, "complete": False, "error": None, "configHash": None,
+              "prefixHashes": None, "run": None, "draws": None, "cache": [], "chunked": [], "elapsedS": None,
+              "finishedAt": None, "host": None, "versions": None}
+    try:
+        if int(spec.get("version") or 0) != SPEC_VERSION or spec.get("kind") != KIND:
+            raise ValueError(f"not a chain job spec this code reads (version {spec.get('version')!r}, kind "
+                             f"{spec.get('kind')!r}; it reads version {SPEC_VERSION}, kind {KIND!r})")
+        h = spec_hash(spec)
+        target = spec["targets"][int(task)]
+        result.update(specHash=h, recordingId=target["recordingId"], channelName=target["channelName"],
+                      configHash=target["configHash"])
+        _job_json(out_dir, spec)
+        if os.path.isfile(result_path):
+            try:
+                prior = _read_json(result_path)
+            except (OSError, ValueError):
+                prior = None
+            if prior and prior.get("specHash") == h and prior.get("complete"):
+                return prior
+        result["versions"] = _versions()
         try:
-            prior = _read_json(result_path)
-        except (OSError, ValueError):
-            prior = None
-        if prior and prior.get("specHash") == h and prior.get("complete"):
-            return prior
-    result = {"version": SPEC_VERSION, "kind": RESULT_KIND, "specHash": h, "task": int(task),
-              "recordingId": target["recordingId"], "channelName": target["channelName"], "complete": False,
-              "error": None, "configHash": target["configHash"], "prefixHashes": None, "run": None, "draws": None,
-              "cache": [], "chunked": [], "elapsedS": None, "finishedAt": None, "host": None,
-              "versions": _versions()}
-    try:
-        import platform
-        result["host"] = platform.node()
-    except Exception:
-        pass
-    cache_root = os.path.join(ret_dir, CACHE_DIR)
-    db = os.path.join(work_dir, "scratch.sqlite")
-    try:
+            import platform
+            result["host"] = platform.node()
+        except Exception:
+            pass
+        cache_root = os.path.join(ret_dir, CACHE_DIR)
+        db = os.path.join(work_dir, "scratch.sqlite")
         with _cluster_environment(cache_root):
             _scratch(db, target, repo_root)
             result["prefixHashes"] = _assert_hashes(db, target)
@@ -851,20 +896,19 @@ def run_task(spec, task, out_dir, *, budget_s=None, should_cancel=None, repo_roo
             result["cache"] = _cache_entries(db, cache_root)
     except ChainJobRefused as e:
         result["error"] = str(e)
-    except Exception as e:                 # a step that fails: written down, and the chain stops (status 3)
-        from Working.execution import RecipeExecutionError
-        if not isinstance(e, (RecipeExecutionError, ValueError)):
-            raise
+    except Exception as e:                 # anything else: written down, and the task's chain stops (status 3)
         result["error"] = f"{type(e).__name__}: {e}"
+        result["traceback"] = _traceback.format_exc()
     result["elapsedS"] = round(time.time() - t0, 1)
     _write_json(result_path, result)
     return result
 
 
-def task_status(out_dir, task, spec=None):
+def task_status(out_dir, task, spec=None, *, expected_hash=None):
     """``{state, reason, result}`` of one task from its result file: missing,
     partial, complete, refused (an error in it), other (another spec's) or
-    unreadable."""
+    unreadable. ``expected_hash`` is ``spec_hash(spec)`` when the caller has it
+    already (`collect` hashes the spec once per job, not once per task)."""
     path = os.path.join(_task_dirs(out_dir, task)[0], RESULT_NAME)
     if not os.path.isfile(path):
         return {"state": "missing", "reason": "no result.json yet", "result": None}
@@ -872,9 +916,10 @@ def task_status(out_dir, task, spec=None):
         res = _read_json(path)
     except (OSError, ValueError) as e:
         return {"state": "unreadable", "reason": f"{type(e).__name__}: {e}", "result": None}
-    if spec is not None and res.get("specHash") != spec_hash(spec):
+    want = expected_hash if expected_hash is not None else (spec_hash(spec) if spec is not None else None)
+    if want is not None and res.get("specHash") != want:
         return {"state": "other", "result": res,
-                "reason": f"its result was computed from spec {res.get('specHash')}, not this spec {spec_hash(spec)}"}
+                "reason": f"its result was computed from spec {res.get('specHash')}, not this spec {want}"}
     if res.get("error"):
         return {"state": "refused", "reason": res["error"], "result": res}
     if res.get("complete"):
@@ -886,12 +931,13 @@ def task_status(out_dir, task, spec=None):
 def collect(spec, out_dir):
     """Every task's state: ``{specHash, tasks: [{index, channelName, recordingId,
     state, reason, result}], done, total, complete}``."""
+    h = spec_hash(spec)
     tasks = []
     for i, t in enumerate(spec["targets"]):
-        st = task_status(out_dir, i, spec)
+        st = task_status(out_dir, i, spec, expected_hash=h)
         tasks.append({"index": i, "channelName": t["channelName"], "recordingId": t["recordingId"], **st})
     done = sum(1 for t in tasks if t["state"] == "complete")
-    return {"specHash": spec_hash(spec), "tasks": tasks, "done": done, "total": len(tasks),
+    return {"specHash": h, "tasks": tasks, "done": done, "total": len(tasks),
             "complete": done == len(tasks) and bool(tasks)}
 
 
@@ -984,22 +1030,46 @@ def import_results(conn, spec, out_dir, *, cache_root):
     return dict(checked, **restore_cache(conn, checked, cache_root=cache_root))
 
 
-def restore_cache(conn, checked, *, cache_root):
+class RestoreCancelled(RuntimeError):
+    """`restore_cache` stopped at a cancel, between entries: the entries already
+    restored are whole and registered, none is half-copied."""
+
+    def __init__(self, message, copied=0, already=0, size=0):
+        super().__init__(message)
+        self.copied, self.already, self.bytes = copied, already, size
+
+
+def restore_cache(conn, checked, *, cache_root, should_cancel=None):
     """Copy the verified cache entries (`verify_results`) into ``cache_root`` and
     register them in `step_artifacts` — the executor's own layout
     (``<root>/<prefix hash>/<step>``). An entry this machine already holds is
     left as it is. The copy is the import's long part (gigabytes for twenty draws
-    of whole channels), so the bridge runs it inside the sweep job."""
+    of whole channels), so the bridge runs it inside the sweep job.
+
+    Each entry is copied beside its place (``<entry>.part``) and renamed in, then
+    registered (fix round, F3/F4): a copy that fails part-way leaves no half entry
+    where the cache reads and no row; the next restore clears the debris and
+    copies it whole. ``should_cancel()`` is asked between entries; a cancel raises
+    `RestoreCancelled` with the counts so far, the restored entries kept."""
     from Working.database.runs import get_step_artifact, insert_step_artifact
 
     copied = already = size = 0
     for h, k, src, nbytes in checked["copy"]:
+        if should_cancel is not None and should_cancel():
+            raise RestoreCancelled(f"the restore was cancelled after {copied + already} of {len(checked['copy'])} "
+                                   f"cache entries; the ones restored are kept, whole", copied, already, size)
         row = get_step_artifact(conn, h, k)
         if row is not None and os.path.isdir(row["path"]):
             already += 1
             continue
         dst = os.path.join(cache_root, h, str(k))
-        shutil.copytree(src, dst, dirs_exist_ok=True)
+        part = dst + ".part"
+        for debris in (part, dst):                    # a half copy (or an unregistered entry) from before
+            if os.path.isdir(debris):
+                shutil.rmtree(debris)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copytree(src, part)
+        os.replace(part, dst)
         insert_step_artifact(conn, h, k, dst)
         copied += 1
         size += nbytes
@@ -1010,9 +1080,10 @@ def verify_results(conn, spec, out_dir):
     """Everything an import checks, and nothing written: the spec, every task
     complete and computed from this spec, the recordings' content against each
     local id, every hash, every cache entry one this run will look up and on disk.
-    Raises `ImportRefused` naming what is wrong. Returns ``{tasks, entries, bytes,
-    counts, copy}``; ``copy`` is the entries to restore, ``(prefix hash, step,
-    source dir, bytes)``."""
+    Raises `ImportRefused` naming what is wrong. Returns ``{tasks, entries,
+    bytesToCopy, counts, copy, importedAt}``; ``copy`` is the entries to restore,
+    ``(prefix hash, step, source dir, bytes)``, and ``bytesToCopy`` their sum
+    (the disk the restore needs)."""
     if int(spec.get("version") or 0) != SPEC_VERSION or spec.get("kind") != KIND:
         raise ImportRefused(f"not a chain job spec (version {spec.get('version')!r}, kind {spec.get('kind')!r})")
     st = collect(spec, out_dir)

@@ -2433,10 +2433,12 @@ def _surrogate_for(conn, kind=seeded_search.DETECTION_KIND, s=None):
 
 
 def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
-                 surrogate_params=None, prelude=None):
+                 surrogate_params=None, prelude=None, on_done=None):
     """One fan-out, one `sweep` job, per-channel progress. The job writes the
     run group id back onto the `discovery_runs` row as soon as it has one, so a
-    page that reloads mid-sweep still finds the runs."""
+    page that reloads mid-sweep still finds the runs. ``on_done(conn, out)`` runs
+    once the row reads its final status (round A_2, P2: a chain import stamps
+    ``hpc.importedAt`` there, not before the sweep has written the run)."""
     db_path = request.app.state.rt.db_path
 
     def run(job):
@@ -2505,6 +2507,8 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
                            "cancelled" if out["cancelled"] else "done", _now(),
                            int(session_id), run_key))
             conn2.commit()
+            if on_done is not None:
+                on_done(conn2, out)
             return {"run_group_id": out["run_group_id"], "runs": len(out["runs"]),
                     "cancelled": out["cancelled"],
                     "detections": sum(r["detections_written"] or 0 for r in out["runs"])}
@@ -4216,14 +4220,25 @@ def import_chain_result_for(request: Request, *, run_key=None, spec_path=None):
         params = json.loads(row["params_json"] or "{}")
         params.pop("error", None)
         params["null"] = dict(plan["null"])
-        params["hpc"] = dict(params.get("hpc") or {}, importedAt=_now(), counts=checked["counts"],
+        # fix round (F3): the START of the import. `importedAt` is stamped once the sweep has written the run
+        # (`stamp_imported`, below) — a restore that fails part-way never reads as imported
+        params["hpc"] = dict(params.get("hpc") or {}, importStartedAt=_now(), counts=checked["counts"],
                              imported={"tasks": checked["tasks"], "entries": checked["entries"],
                                        "bytes": checked["bytesToCopy"]})
         params["hpc"].pop("refused", None)
+        params["hpc"].pop("importedAt", None)
         c.execute("UPDATE discovery_runs SET params_json = ?, updated_at = ? WHERE id = ?",
                   (json.dumps(params), _now(), int(row["id"])))
         c.commit()
         cache_root, null_rec, run_id = cfg.STEP_CACHE_ROOT, dict(plan["null"]), int(row["id"])
+
+        def hpc_update(conn2, **fields):
+            p = json.loads(conn2.execute("SELECT params_json FROM discovery_runs WHERE id = ?",
+                                         (run_id,)).fetchone()[0] or "{}")
+            p["hpc"] = dict(p.get("hpc") or {}, **fields)
+            conn2.execute("UPDATE discovery_runs SET params_json = ? WHERE id = ?", (json.dumps(p), run_id))
+            conn2.commit()
+            return p
 
         def restore(job, conn2):
             """The import's long part, as the job's first act: copy the verified cache entries in, then make sure
@@ -4237,7 +4252,22 @@ def import_chain_result_for(request: Request, *, run_key=None, spec_path=None):
                 raise RuntimeError(message)
 
             job.progress(0, 1, f"restoring {checked['entries']} cache entries from the cluster")
-            got = chain_job.restore_cache(conn2, checked, cache_root=cache_root)
+            try:
+                got = chain_job.restore_cache(conn2, checked, cache_root=cache_root,
+                                              should_cancel=job.cancel_event.is_set)
+            except chain_job.RestoreCancelled as e:
+                # F4: stopped between entries; the sweep reads the same cancel and stops before its first channel,
+                # so the row reads cancelled and nothing claims to be imported (import again to finish the copy)
+                p = json.loads(conn2.execute("SELECT params_json FROM discovery_runs WHERE id = ?",
+                                             (run_id,)).fetchone()[0] or "{}")
+                hpc_update(conn2, imported=dict((p.get("hpc") or {}).get("imported") or {}, copied=e.copied,
+                                                already=e.already, bytes=e.bytes, cancelled=True))
+                return null_rec
+            except Exception as e:
+                # F3: a copy that failed part-way is the row's error, in its own words (and Jobs reads it there)
+                fail(f"restoring the cluster's cache failed part-way: {type(e).__name__}: {e}. The entries restored "
+                     f"before it are whole and kept, the half-copied one is not used; import again (Jobs › Waiting "
+                     f"on the cluster) once that is fixed")
             after = chain_job.local_plan(conn2, spec, ceiling_s=fanout.ceiling_s(conn2))
             if after["capped"] or after["route"] == "cluster":
                 left = "; ".join(f"{x['channel_name']} step {x['step'] + 1:02d} ({x['name']})" for x in after["capped"])
@@ -4246,15 +4276,17 @@ def import_chain_result_for(request: Request, *, run_key=None, spec_path=None):
                      "limit: nothing was run")
             p = json.loads(conn2.execute("SELECT params_json FROM discovery_runs WHERE id = ?",
                                          (run_id,)).fetchone()[0] or "{}")
-            p["hpc"] = dict(p.get("hpc") or {})
-            p["hpc"]["imported"] = dict(p["hpc"].get("imported") or {}, **got)
-            conn2.execute("UPDATE discovery_runs SET params_json = ? WHERE id = ?", (json.dumps(p), run_id))
-            conn2.commit()
+            hpc_update(conn2, imported=dict((p.get("hpc") or {}).get("imported") or {}, **got))
             return null_rec
+
+        def stamp_imported(conn2, out):
+            """F3: the import is done when the sweep has written the run, not when it was asked for."""
+            if not out["cancelled"]:
+                hpc_update(conn2, importedAt=_now())
 
         job = _start_sweep(request, session_id=int(row["session_id"]), run_key=row["run_key"], plan=plan,
                            label=row["label"], surrogate=plan["null"]["paired"],
-                           surrogate_params=plan["null"]["params"], prelude=restore)
+                           surrogate_params=plan["null"]["params"], prelude=restore, on_done=stamp_imported)
         c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? WHERE id = ?",
                   (job.id, _now(), run_id))
         c.commit()
