@@ -26,19 +26,20 @@ export const TRADE_OFF = 'Each window sets its own thresholds: a quiet window fi
 const fmtLen = (s: number) => s < 3600 ? `${+(s / 60).toFixed(1)} min` : `${+(s / 3600).toFixed(1)} h`
 
 export interface WindowScopeState {
-  on: boolean; lengthS: number | null; overlap: number; fit: boolean
+  on: boolean; lengthS: number | null; overlap: number; fit: boolean; allowShort: boolean
 }
 /** The scope the apply and preview routes take, or null when off (or the length is not a number yet). */
-export const windowScopeOf = (w: WindowScopeState) => (w.on && w.lengthS && w.lengthS > 0 ? { window_s: w.lengthS, overlap_frac: w.overlap, fit: w.fit } : null)
+export const windowScopeOf = (w: WindowScopeState) => (w.on && w.lengthS && w.lengthS > 0
+  ? { window_s: w.lengthS, overlap_frac: w.overlap, fit: w.fit, ...(w.allowShort && !w.fit ? { allow_short: true } : {}) } : null)
 
-export function WindowScope({ template, channels, section, state, mode, setMode, length, setLength, custom, setCustom, overlap, setOverlap, fit, setFit }: {
+export function WindowScope({ template, channels, section, state, mode, setMode, length, setLength, custom, setCustom, overlap, setOverlap, fit, setFit, allowShort, setAllowShort }: {
   template: string | null; channels: string[]; section: [number, number]; state: WindowScopeState
   mode: string; setMode: (v: string) => void; length: string; setLength: (v: string) => void
   custom: string; setCustom: (v: string) => void; overlap: string; setOverlap: (v: string) => void
-  fit: boolean; setFit: (v: boolean) => void
+  fit: boolean; setFit: (v: boolean) => void; allowShort: boolean; setAllowShort: (v: boolean) => void
 }) {
   const scope = windowScopeOf(state)
-  const key = scope ? `${template}|${channels.join(',')}|${section.join('-')}|${scope.window_s}|${scope.overlap_frac}|${scope.fit}` : 'off'
+  const key = scope ? `${template}|${channels.join(',')}|${section.join('-')}|${scope.window_s}|${scope.overlap_frac}|${scope.fit}|${'allow_short' in scope}` : 'off'
   const plan = useSourced(() => (scope && template
     ? planRun({ template, channels, t0: section[0], t1: section[1], windows: scope })
     : Promise.resolve({ data: null, source: 'live' as const })), [key])
@@ -62,6 +63,8 @@ export function WindowScope({ template, channels, section, state, mode, setMode,
           </div>
           <Checkbox checked={fit} onChange={setFit} testid="window-fit"
             label={<span className="small">fit the chain's internal windows to this window length <span className="muted">(a different chain: its own row on the Map)</span></span>} />
+          <Checkbox checked={allowShort && !fit} onChange={setAllowShort} disabled={fit} disabledReason="fitting already makes the chain fit the window" testid="window-allow-short"
+            label={<span className="small">or run it as it is in a shorter window <span className="muted">(its own windows overrun the edges; the run says so)</span></span>} />
           <div className="dsc-preview-card" data-testid="window-plan">
             {!template ? <div className="mono small muted">pick a template to see its windows</div>
               : !scope ? <div className="dsc-err">give the window a length in hours</div>
@@ -102,6 +105,7 @@ function WindowPlan({ w, runnable, reason, estimateS, route, ceilingS, channels 
             {estimateS != null ? `estimate ${fmtMin(estimateS / 60)}` : 'the blocks declare no estimate'} · at least {fmtMin(w.overhead_s / 60)} of run bookkeeping ({w.run_overhead_s} s a run)
             {' · '}{route === 'cluster' ? `over the ${Math.round(ceilingS / 60)} min local limit → create a SLURM script` : route === 'local' ? 'runs here' : 'cost unknown — runs here; Preview on a sample to measure one window'}
           </div>
+          {w.warning && <div className="mono small amber" data-testid="window-warning"><Icon name="flag" size={11} /> {w.warning}</div>}
           {w.fitted.length > 0 && <div className="mono small" data-testid="window-fitted">
             <Icon name="info" size={11} /> fitted: {w.fitted.map(f => `step ${String(f.step + 1).padStart(2, '0')} ${f.param} ${f.from} → ${f.to}`).join(' · ')}
           </div>}

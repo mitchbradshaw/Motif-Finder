@@ -1607,16 +1607,16 @@ export const importDiscoveryChain = (runKey: string) => post<DiscChainImportAck>
  * detections stitched into one result (`Working/discovery/windowed.py`). The plan answers counts — windows per
  * channel, the runs that makes with the null, the run-overhead floor — the chain's minimum window and the step that
  * sets it, and what fitting the chain to a shorter window changed. The interfaces widen by declaration merging. */
-export interface DiscWindowScope { window_s: number; overlap_frac?: number; fit?: boolean }
+export interface DiscWindowScope { window_s: number; overlap_frac?: number; fit?: boolean; allow_short?: boolean }
 export interface DiscWindowMinimum {
   step: number; name: string; label: string; param: string; seconds: number; kind: 'context' | 'piece'; minimum_s: number
   fittable: boolean
 }
 export interface DiscWindowFit { step: number; name: string; param: string; from: number; to: number }
 export interface DiscPlanWindows {
-  scope: { kind: 'windows'; window_s: number; overlap_frac: number; fit: boolean }; label: string
+  scope: { kind: 'windows'; window_s: number; overlap_frac: number; fit: boolean; allow_short?: boolean }; label: string
   recommendedOverlap: number; tradeOff: string; minimum: DiscWindowMinimum | null; fitted: DiscWindowFit[]
-  refused: string | null; per_channel: number; targets: number; runs: number; done: number
+  refused: string | null; warning: string | null; per_channel: number; targets: number; runs: number; done: number
   per_window_s: number | null; overhead_s: number; run_overhead_s: number; rules: { name: string; rule: string }[]
 }
 export interface DiscPlanBody { windows?: DiscWindowScope }
@@ -1626,8 +1626,9 @@ export interface DiscWindowStitch { channel: string; windows: number; windowsReu
 export interface DiscRun {
   windows?: {
     scope: DiscPlanWindows['scope']; label: string; per_channel: number; targets: number; fitted: DiscWindowFit[]
-    minimum: DiscWindowMinimum | null; stitch?: DiscWindowStitch[] | null; tradeOff: string
+    minimum: DiscWindowMinimum | null; stitch?: DiscWindowStitch[] | null; tradeOff: string; warning?: string | null
   }
+  windowed?: boolean
 }
 /** *Apply template* with a window scope (and, optionally, a band scope): each template becomes ONE Discovery run,
  *  its runs the stitched windows, one per channel. */

@@ -272,6 +272,24 @@ def test_the_plan_refuses_a_short_window_and_fits_it_when_asked(world):
     assert fitted["recipe"]["steps"][0]["params"]["window_s"] == 150.0, "the scaled chain is the one recorded"
 
 
+def test_running_a_short_window_as_it_is_is_an_explicit_choice_the_run_says(world):
+    """The third answer to the bound (the researcher's decision, RQ4b): keep the chain as it is in a window shorter
+    than it allows. Only when asked; the plan and the run carry the bound's warning, naming the step."""
+    W = _w()
+    assert W.normalize_scope({"window_s": 600, "allow_short": True})["allow_short"] is True
+    assert "allow_short" not in W.normalize_scope({"window_s": 600}), "never a default"
+    assert "allow_short" not in W.normalize_scope({"window_s": 600, "allow_short": True, "fit": True}), "fit wins"
+    rid = world["add"](np.zeros(8 * H))
+    plan = _plan(world, NT, [rid], (0, 8 * H), windows={"window_s": 600, "allow_short": True})
+    assert plan["runnable"], plan["reason"]
+    w = plan["windows"]
+    assert w["warning"] and "step 01" in w["warning"] and "distorted" in w["warning"]
+    assert plan["recipe"]["steps"] == make_recipe(rid, NT)["steps"], "the chain as it is, not fitted"
+    assert plan["recipe"]["windows"]["allow_short"] is True, "and the choice is in the run's recipe"
+    assert w["fitted"] == [] and w["label"].endswith("as is, warned")
+    assert "run it as it is" in W.bound_refusal(NT, FS, 600.0), "the refusal names all three ways on"
+
+
 def test_a_section_shorter_than_one_window_is_refused(world):
     rid = world["add"](np.zeros(3 * H))
     plan = _plan(world, NT, [rid], (0, 3 * H), windows={"window_s": 4 * H})

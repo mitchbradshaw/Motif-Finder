@@ -155,6 +155,31 @@ Waiting on the cluster. It starts from one `discovery_runs` row per spec, and re
   half-copied. A cancel stops between entries and the run reads cancelled. Either way, importing again copies only
   the rest. The run reads *imported* only once its sweep here has written it.
 
+### Windowed chain jobs (round A_2, P3)
+
+A Discovery run applied with a **window scope** (*Apply template* › Windows: a length, an overlap; see
+`Working/discovery/windowed.py`) goes to the cluster through the same *Create SLURM script*, with three differences.
+Every other spec, task and import is unchanged (`tests/test_rq4_overnight_specs.py` guards the overnight sweep's).
+
+- **One task per channel, not per window.** The RQ4 sweep's scales are 1,441 (1-hour) to 8,651 (10-minute) windows
+  per channel over M2_aug's 721 h. One task per window would be that many array tasks per channel, a spec of tens to
+  hundreds of megabytes and a scratch database per window. So the spec has one target per channel, as for a
+  whole-span run, plus `windows`: every window's span and config hash. The top-level `windows` holds the scope and
+  the stitch rule, so the import stitches by the exported rule, not by today's Settings. Measured: 16 channels of
+  M2_aug in 1-hour windows are a 2 MB spec of 16 tasks (23,056 windows); in 10-minute windows, 12 MB (138,416).
+- **The task runs every window and each window's null draws**, in order, on its scratch database. It asserts each
+  window's recipe hash before it runs it. The budget stops it between windows, and the next job reads the windows
+  already finished without running them again. Its `result.json` carries `windows`: each window's detections, each
+  draw's, and what each window fitted. No step cache comes back: a window's steps are too quick to be cached, so the
+  windows themselves are what returns. Expect a 10-minute task over 721 h to take a few jobs of the 20-minute CPU
+  wall (about 17,000 runs at roughly 0.3 s each).
+- **The import checks every window and writes the window runs.** It checks each window's span, its config hash
+  against the spec and against the recipe rebuilt here, that its detections lie in its window, and its draws against
+  the spec's null. It then writes each window's run and draws, one transaction per channel; a window this machine
+  already holds is left alone. The ordinary local sweep then reuses every window, computing nothing, and stitches
+  each channel into its stitched run. *Import results* is the same button. The row's cluster check compares the
+  windows' own counts (before stitching) with the cluster's.
+
 ## Cluster-specific settings you will need to change
 
 These are hardcoded to one account and cluster and are **not** portable:

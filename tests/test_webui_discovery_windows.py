@@ -204,3 +204,50 @@ def test_a_windowed_run_exports_one_task_per_channel(client):
         spec = json.load(f)
     assert spec["windows"]["scope"]["window_s"] == 7200.0
     assert [len(t["windows"]["spans"]) for t in spec["targets"]] == [7, 7]
+
+
+def test_the_preview_measures_one_window_and_costs_every_window_with_its_draws(client):
+    r = client.post("/api/discovery/preview", json={"template": "noise_threshold", "channels": CH, "t0": SECTION[0],
+                                                    "t1": SECTION[1], "sampleHours": 4, "windows": TWO_HOURS})
+    assert r.status_code == 200, r.text
+    p = r.json()
+    assert p["sample_samples"] == 2 * H, "the sample is one window"
+    assert p["runs"] == 28 and p["windows"] == 14
+    assert p["estimate_s"] == pytest.approx(p["per_window_s"] * 28)
+
+
+def test_running_a_short_window_as_it_is_is_asked_for_and_said(client):
+    plan = _plan(client, {"window_s": 600, "allow_short": True}).json()
+    assert plan["runnable"], plan["reason"]
+    assert "step 01" in plan["windows"]["warning"]
+    out = _apply(client, {"window_s": 600, "allow_short": True}, run=False)
+    rows = client.get("/api/discovery/runs").json()
+    row = next(r for r in rows if r["key"] == out["run_key"])
+    assert "as is, warned" in row["label"] and "step 01" in row["windows"]["warning"]
+
+
+def test_a_windowed_run_comes_back_from_the_cluster_as_one_stitched_run(client):
+    from Working.discovery import chain_job
+
+    out = _apply(client, TWO_HOURS, run=False)
+    key = out["run_key"]
+    r = client.post("/api/discovery/slurm", json={"template": "noise_threshold", "channels": CH, "t0": SECTION[0],
+                                                  "t1": SECTION[1], "runKey": key})
+    assert r.status_code == 200, r.text
+    made = r.json()
+    with open(made["spec_path"], encoding="utf-8") as f:
+        spec = json.load(f)
+    results = [chain_job.run_task(spec, task=i, out_dir=made["result_dir"]) for i in range(spec["tasks"])]
+    assert all(res["complete"] for res in results), [res.get("error") for res in results]
+    r = client.post("/api/discovery/chain/import", json={"runKey": key})
+    assert r.status_code == 200, r.text
+    assert _wait_job(client, r.json()["job_id"])["status"] == "completed"
+    rows = client.get("/api/discovery/runs").json()
+    row = next(x for x in rows if x["key"] == key)
+    assert row["status"] == "done" and row["hpcImported"] is True
+    assert row["clusterAgrees"] is True, row.get("clusterCheck")
+    params = json.loads(_q(client, "SELECT params_json FROM discovery_runs WHERE run_key = ?", (key,))[0]["params_json"])
+    assert len(params["run_ids"]) == 2 and params["hpc"]["imported"]["windowRuns"] == 2 * 7 * 2
+    raw = sum(sum(len(w["detections"]) for w in res["windows"]) for res in results)
+    assert row["found"] <= raw, "the run holds the stitched set, never more than the windows found"
+    assert [s["windows"] for s in params["windows"]["stitch"]] == [7, 7]

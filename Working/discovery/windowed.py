@@ -93,7 +93,8 @@ _RULE_TEXT = [
     ("bound", "A window is at least 4 x the chain's longest context window (a rolling mean, a baseline, a "
               "subsequence, a filter's period: near an edge the block sees half of it) or one whole piece of a "
               "block that cuts its input into pieces. Fitting the chain to a shorter window scales those windows "
-              "down: a different chain, its own row on the Map."),
+              "down: a different chain, its own row on the Map. Running it as it is in a shorter window is an "
+              "explicit choice, and the run says so."),
     ("null", "Each window draws its own null (Settings › Nulls); draw j of every window is stitched by the same rule "
              "into the stitched run's draw j."),
 ]
@@ -128,7 +129,11 @@ def fmt_duration(seconds):
 
 def normalize_scope(scope):
     """``{"kind": "windows", "window_s", "overlap_frac", "fit"}``, checked: a positive length, an overlap in
-    [0, 0.9] (0.5 when not given: recommended), ``fit`` the opt-in that scales the chain to the window."""
+    [0, 0.9] (0.5 when not given: recommended), ``fit`` the opt-in that scales the chain to the window.
+
+    ``allow_short`` (present only when True, and never beside ``fit``) is the other opt-in: keep the chain as it is
+    in a window shorter than its bound, the run carrying the bound's warning — what the edges distort is the
+    researcher's to judge (round A_2, P3: the 10-minute decision, RQ4b)."""
     if not isinstance(scope, dict):
         raise ValueError(f"a window scope is a dict with window_s and overlap_frac, got {scope!r}")
     kind = scope.get("kind", KIND)
@@ -148,14 +153,17 @@ def normalize_scope(scope):
     if not (MIN_OVERLAP <= overlap <= MAX_OVERLAP):
         raise ValueError(f"overlap_frac must lie between {MIN_OVERLAP:g} and {MAX_OVERLAP:g} (0.5 is recommended), "
                          f"got {overlap:g}")
-    return {"kind": KIND, "window_s": window_s, "overlap_frac": overlap, "fit": bool(scope.get("fit", False))}
+    out = {"kind": KIND, "window_s": window_s, "overlap_frac": overlap, "fit": bool(scope.get("fit", False))}
+    if scope.get("allow_short") and not out["fit"]:
+        out["allow_short"] = True
+    return out
 
 
 def scope_label(scope):
     """``1 h windows · 50 %`` (``· fitted`` when the chain was fitted to it)."""
     s = normalize_scope(scope)
     out = f"{fmt_duration(s['window_s'])} windows · {round(s['overlap_frac'] * 100):g} %"
-    return out + (" · fitted" if s["fit"] else "")
+    return out + (" · fitted" if s["fit"] else " · as is, warned" if s.get("allow_short") else "")
 
 
 # ── the windows ─────────────────────────────────────────────────────────────
@@ -366,7 +374,7 @@ def bound_refusal(steps, fs, window_s):
     return (f"a {fmt_duration(window_s)} window is shorter than this chain allows: {_describe(m)} sets the minimum "
             f"at {fmt_duration(m['minimum_s'])}. Choose {fmt_duration(m['minimum_s'])} or longer, or tick “fit the "
             f"chain's internal windows to this window length” — a different chain, scaled to the window, its own "
-            f"row on the Map")
+            f"row on the Map — or “run it as it is”, its edges distorted and the run saying so")
 
 
 def fit_steps(steps, fs, window_s):
@@ -687,7 +695,8 @@ def plan_windows(conn, *, steps, targets, refused, span, ceiling, measured_per_w
     draws = null_draws if surrogate else 0
     refused = list(refused)
     info = {"scope": scope, "label": scope_label(scope), "recommendedOverlap": DEFAULT_OVERLAP, "tradeOff": TRADE_OFF,
-            "rule": rule, "rules": rules_for(rule), "minimum": None, "fitted": [], "refused": None, "per_channel": 0,
+            "rule": rule, "rules": rules_for(rule), "minimum": None, "fitted": [], "refused": None, "warning": None,
+            "per_channel": 0,
             "per_channel_by": {}, "targets": 0, "runs": 0, "done": 0, "per_window_s": None, "overhead_s": 0.0,
             "run_overhead_s": RUN_OVERHEAD_S, "window_samples": None, "step_samples": None}
     plan = {"targets": [], "refused": refused, "runnable": False, "reason": None,
@@ -718,7 +727,12 @@ def plan_windows(conn, *, steps, targets, refused, span, ceiling, measured_per_w
             return refuse(str(e))
     info["minimum"] = minimum_window(steps, fs)
     why = bound_refusal(steps, fs, scope["window_s"])
-    if why:
+    if why and scope.get("allow_short"):
+        # the explicit opt-in: the chain kept as it is, the bound said on the plan and on the run
+        info["warning"] = (f"run as it is in windows shorter than this chain allows: {_describe(info['minimum'])} "
+                           f"asks for {fmt_duration(info['minimum']['minimum_s'])}, so near every window's edge "
+                           f"that step works on part of what it needs and its output there is distorted")
+    elif why:
         return refuse(why)
     n_w = window_samples(scope["window_s"], fs)
     info["window_samples"], info["step_samples"] = n_w, step_samples(n_w, scope["overlap_frac"])

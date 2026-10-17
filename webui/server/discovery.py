@@ -529,7 +529,9 @@ def _run_payload(conn, row, index, span, jobs=None):
     if params.get("windows"):
         # round A_2, P3: a windowed application — its scale, how many windows, what fitting changed, the stitch
         out["windows"] = {k: params["windows"].get(k) for k in
-                          ("scope", "label", "per_channel", "targets", "fitted", "minimum", "stitch", "tradeOff")}
+                          ("scope", "label", "per_channel", "targets", "fitted", "minimum", "stitch", "tradeOff",
+                           "warning")}
+        out["windowed"] = True
     if progress is not None and status == "running":
         out["progress"] = round(progress, 3)
     if progress_text:
@@ -4628,10 +4630,13 @@ def _windows_params(plan, detail):
     (`_start_sweep`)."""
     w = plan["windows"]
     bits = [detail, w["label"], f"{w['per_channel']} windows per channel"]
+    if w.get("warning"):
+        bits.append("run as it is in windows shorter than the chain allows")
     if w.get("fitted"):
         bits.append("fitted: " + ", ".join(f"step {f['step'] + 1:02d} {f['param']} {f['from']:g} → {f['to']:g}"
                                            for f in w["fitted"]))
     return {"windows": {"scope": w["scope"], "label": w["label"], "per_channel": w["per_channel"],
                         "targets": w["targets"], "fitted": w.get("fitted") or [], "minimum": w.get("minimum"),
-                        "rule": w.get("rule"), "rules": w.get("rules"), "tradeOff": w.get("tradeOff")},
+                        "rule": w.get("rule"), "rules": w.get("rules"), "tradeOff": w.get("tradeOff"),
+                        "warning": w.get("warning")},
             "detail": " · ".join(b for b in bits if b)}

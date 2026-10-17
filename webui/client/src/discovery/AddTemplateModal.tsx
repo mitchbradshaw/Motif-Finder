@@ -65,7 +65,8 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   const [winCustom, setWinCustom] = useState('')
   const [winOverlap, setWinOverlap] = useQueryState('wov', '0.5')
   const [winFit, setWinFit] = useQueryState('wfit', '')
-  const winState = { on: winMode === 'on', overlap: Number(winOverlap), fit: winFit === '1',
+  const [winAllow, setWinAllow] = useQueryState('wallow', '')
+  const winState = { on: winMode === 'on', overlap: Number(winOverlap), fit: winFit === '1', allowShort: winAllow === '1',
     lengthS: winLen === 'custom' ? (parseFloat(winCustom) > 0 ? parseFloat(winCustom) * 3600 : null) : Number(winLen) }
   const winScope = windowScopeOf(winState)
   const setMode = (v: string) => {
@@ -322,7 +323,8 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                 )}
                 <WindowScope template={focus.fits ? focus.name : null} channels={s.channels} section={s.section} state={winState}
                   mode={winMode} setMode={setWinMode} length={winLen} setLength={setWinLen} custom={winCustom} setCustom={setWinCustom}
-                  overlap={winOverlap} setOverlap={setWinOverlap} fit={winFit === '1'} setFit={v => setWinFit(v ? '1' : null)} />
+                  overlap={winOverlap} setOverlap={setWinOverlap} fit={winFit === '1'} setFit={v => setWinFit(v ? '1' : null)}
+                  allowShort={winAllow === '1'} setAllowShort={v => setWinAllow(v ? '1' : null)} />
                 <div className="dsc-tiles">
                   <StatTile label="compute" value={!focus.fits ? '—' : focusCost != null ? fmtMin(focusCost) : 'not measured'}
                     caption={!focus.fits ? (focus.fitsReason ?? 'does not fit the scope') : focusCost != null ? focus.complexity : noCost(focus)}
