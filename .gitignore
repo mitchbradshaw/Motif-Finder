@@ -247,3 +247,11 @@ Thumbs.db
 HPC/Training/generated/*/cache/
 HPC/Training/generated/*/out/
 HPC/Training/generated/smoke/
+# round A_2 (P2): a cluster chain job's returned step cache and the cluster's working copies (GBs of bulk arrays and
+# scratch databases, rule 4) -- Import results copies what it keeps into the step cache; each task's result.json
+# stays tracked as the record of what the cluster found
+HPC/Detection/generated/**/*_out/return/*/step_cache/
+HPC/Detection/generated/**/*_out/work/
+# test leftovers: tests/test_job_export_paths.py's temp dirs, and the synthetic profile a webui test's sweep persists
+webui/ab_slurm_*/
+Results/Detection/matrix_profile/mp_v2_syn_*
