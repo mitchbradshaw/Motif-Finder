@@ -1388,6 +1388,8 @@ class Smoke:
                 branch_msg += base_msg
                 if e.get("grouping"):
                     branch_msg = f" [grouping {', '.join(e['grouping'].values())}]" + branch_msg
+                # a2-p4: a state flagged `jobs_unchanged` reads the bridge's job count before it opens its page
+                jobs_before = self._jobs_count() if e.get("jobs_unchanged") else None
                 page.goto(f"{self.url}/#/{e['hash'].lstrip('#/')}", wait_until="networkidle")
                 # fixup-grouping-url: a state flagged `cold` opens its hash the way a pasted or audit-trail link
                 # does: in a document that has just loaded, with an empty in-memory store. A hash `goto` in the
@@ -1457,6 +1459,10 @@ class Smoke:
                 if e.get("no_overlap"):
                     no_ok, no_msg = self.no_overlap(page, e, name)
                     in_box, box_msg = in_box and no_ok, box_msg + no_msg
+                # a2-p4: a state may also assert that walking it started no job (the Seed page computes only on a button)
+                if e.get("jobs_unchanged"):
+                    jb_ok, jb_msg = self.jobs_unchanged(jobs_before, name)
+                    in_box, box_msg = in_box and jb_ok, box_msg + jb_msg
                 # A state may declare console errors it provokes on purpose (a read that rejects renders a
                 # loud error card — the brief's failure state). Declared ones are dropped from the run's
                 # error list so they neither fail this state nor the whole run; anything else still fails.
@@ -1536,6 +1542,24 @@ class Smoke:
             json.dump(out, f, indent=2)
         print(f"\n{len(self.shots)} screenshots, {len(self.failures)} failures")
         return 0 if not self.failures else 1
+
+    # ------------------------------------------------ a2-p4: nothing runs on its own --
+    def _jobs_count(self):
+        """The bridge's job count (`/api/health` `jobs`: every job this bridge process has started, finished or
+        not). A state that starts a job raises it by one; reading a page must not."""
+        h = self._api("/api/health")
+        if not isinstance(h, dict) or h.get("__error__") or "jobs" not in h:
+            raise RuntimeError(f"/api/health did not answer with a job count: {h}")
+        return int(h["jobs"])
+
+    def jobs_unchanged(self, before, where: str):
+        """a2-p4: the Seed page computes only when *Run preview* or *Run seed search* is pressed. A state flagged
+        `jobs_unchanged` reads the job count before it opens its page and again after its actions; any job the
+        page started on its own (a preview on a seed pick, on a slider step) shows as a difference."""
+        after = self._jobs_count()
+        if before is None or after != before:
+            return False, f" — the bridge started {after - (before or 0)} job(s) while {where} was walked"
+        return True, f" · no job started ({after} on the bridge before and after)"
 
 
 if __name__ == "__main__":
