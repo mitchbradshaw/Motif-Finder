@@ -564,3 +564,19 @@ def test_a_stored_seed_result_on_the_held_out_recording_is_not_served_once_reloc
     _lock(client, False)
     again = client.get("/api/discovery/seed/results", params=query)
     assert again.status_code == 200 and again.json()["ready"] is True, "unlocked again, the stored preview is back"
+
+
+def test_a_chain_job_named_for_the_held_out_recording_is_refused_only_while_locked(bridge):
+    """a2 integration (P1 x P2). Importing a cluster chain job by its spec's path
+    (Jobs › Waiting on the cluster, and Discovery's import by path) refuses a path
+    that names the held-out recording only while the lock is on, and says how to
+    unlock; unlocked, the path goes on to the import's own checks (here: there is
+    no such spec, a 404)."""
+    client, _ = bridge
+    path = f"HPC/Detection/generated/{HELD_OUT_FILE}_probe.chain.json"
+    for route in ("/api/hpc/chain/import", "/api/discovery/chain/import"):
+        _assert_423_with_the_way_out(client.post(route, json={"path": path}), f"POST {route} (locked)")
+    _lock(client, False)
+    for route in ("/api/hpc/chain/import", "/api/discovery/chain/import"):
+        r = client.post(route, json={"path": path})
+        assert r.status_code == 404, f"POST {route} (unlocked): {r.status_code} {r.text[:200]}"

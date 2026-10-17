@@ -286,3 +286,27 @@ def test_exam_iii_stays_locked_with_the_switch_off(db):
     assert _locked(db) is False
     with pytest.raises(HeldOutRefused):
         refuse_held_out(HELD_OUT_RECORDING_FILE)
+
+
+def test_a_chain_job_marks_a_held_out_target_unlocked_exactly_when_the_lock_says_so(db, monkeypatch):
+    """a2 integration (P1 x P2). A cluster chain job exported for the held-out
+    recording carries `heldOutUnlocked`, so its scratch database reads unlocked
+    there. Whether to mark it is P1's one predicate, not a second reader of the
+    setting: the switch, and the HELD_OUT_UNLOCK override a script may set."""
+    from Working.discovery import chain_job
+
+    def unlocked(name):
+        conn = init_db(db)
+        try:
+            return chain_job._held_out_unlocked(conn, name)
+        finally:
+            conn.close()
+
+    assert unlocked(HELD_OUT_RECORDING_FILE) is False, "locked by default"
+    _set_lock(db, False)
+    assert unlocked(HELD_OUT_RECORDING_FILE) is True
+    assert unlocked("other.mat") is False, "only the held-out recording is ever marked"
+    _set_lock(db, True)
+    assert unlocked(HELD_OUT_RECORDING_FILE) is False
+    monkeypatch.setattr(config, "HELD_OUT_UNLOCK", True)
+    assert unlocked(HELD_OUT_RECORDING_FILE) is True, "a script's override unlocks it for the export too"
