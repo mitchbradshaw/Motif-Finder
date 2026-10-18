@@ -152,7 +152,8 @@ def resolve_items(conn, q):
         items.append({
             "target_id": mid, "unit": q["unit"], "member_id": mid,
             "recording_id": key[0], "channel": int(m["channel"]),
-            "start_idx": key[1], "end_idx": key[2],
+            # drawn at the current revision (edit-span); `key` — the member's own span — stays the verdict's
+            "start_idx": int(m["shown_start_idx"]), "end_idx": int(m["shown_end_idx"]),
             "judged": verdict is not None, "verdict": verdict, "judged_by": by,
             "family": family, "tags": [],
         })

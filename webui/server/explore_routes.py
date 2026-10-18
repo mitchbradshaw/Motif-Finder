@@ -459,3 +459,256 @@ def mark_artifact(request: Request, body: ArtifactBody):
             "start_s": min(a / float(rec["fs"]) for rec, a, _b in plan),
             "end_s": max(b / float(rec["fs"]) for rec, _a, b in plan), "verdict": "artifact", "source": source,
             "message": f"artifact marked on {len(ids)} channel{'' if len(ids) == 1 else 's'} ({', '.join(names)})"}
+
+
+# ── edit-span (2026-10-18): Review's "Edit span in Explore" ─────────────────
+#
+# One contiguous block, two routes. The item is named by a detection id (the
+# Review item of a detection queue) or by a member ref ``m-<id>`` (a Library
+# family queue, and the Family page's "Redraw in Explore").
+#
+# The save rule (rule 5 — detections are machine-only, annotations human-only):
+#   * a Library MEMBER  -> a human `annotations` row with the corrected span,
+#     then `revisions.add_revision(origin='human', annotation_id=...)`, which
+#     makes it the member's current revision (rev 1, the matcher's, is kept);
+#   * a plain DETECTION -> a human `annotations` row with the corrected span
+#     and the item's verdict (``seed`` when it has none).
+#   A member's annotation carries its verdict, ``unsure`` when it has none: it
+#   backs the revision and is not itself a judgement (critic round).
+# The `detections` row is never written, on either path.
+#
+# Its imports live here, with the block, so a sibling prompt appending routes
+# to this file merges without touching the header (2026-10-18 wave).
+import os  # noqa: E402
+
+from Working.library import revisions as revisions_mod  # noqa: E402
+from Working.review import family_queue  # noqa: E402
+
+from . import decimate  # noqa: E402
+
+SPAN_EDIT_SOURCE = "review-span-edit"
+SPAN_EDIT_PX = 900
+
+
+class SpanEditBody(BaseModel):
+    start_idx: int
+    end_idx: int
+    note: str | None = None
+
+
+def _span_edit_target(c, ref: str) -> dict:
+    """Resolve ``ref`` (a detection id, or ``m-<member id>``) to
+    `{recording_id, detection_id, det: (s, e) | None, member_id}`; 404 when it names nothing."""
+    text = str(ref).strip()
+    if text.lower().startswith("m-"):
+        try:
+            mid = int(text[2:])
+        except ValueError:
+            raise HTTPException(404, f"{ref!r} is not a member ref (m-<id>)") from None
+        row = c.execute("SELECT id, recording_id, start_idx, end_idx FROM motif_member WHERE id = ?",
+                        (mid,)).fetchone()
+        if row is None:
+            raise HTTPException(404, f"no Library member {text}")
+        # the member's own detection, when one stands behind it: the latest machine revision's, else its entry's
+        # — but the entry's only when this member IS that detection (same channel, overlapping): the entry's
+        # detection is where the ENTRY came from, and another member of it, elsewhere, must not borrow its span,
+        # its verdict, or write it as its rev 1's provenance (critic round, 2026-10-18)
+        det = c.execute("SELECT detection_id FROM motif_member_revision WHERE member_id = ? AND detection_id "
+                        "IS NOT NULL ORDER BY revision DESC LIMIT 1", (mid,)).fetchone()
+        did = int(det[0]) if det is not None else None
+        bounds = _detection_bounds(c, did) if did is not None else None
+        if did is None:
+            ent = c.execute("SELECT me.detection_id FROM motif_member mm JOIN motif_entry me ON me.id = mm.entry_id "
+                            "WHERE mm.id = ? AND me.detection_id IS NOT NULL", (mid,)).fetchone()
+            cand = _detection_bounds(c, int(ent[0])) if ent is not None else None
+            if cand is not None and cand[0] == int(row["recording_id"])                     and cand[1] < int(row["end_idx"]) and cand[2] > int(row["start_idx"]):
+                did, bounds = int(ent[0]), cand
+        return {"recording_id": int(row["recording_id"]), "detection_id": did,
+                "det": bounds[1:] if bounds else None, "member_id": mid}
+    try:
+        did = int(text)
+    except ValueError:
+        raise HTTPException(404, f"{ref!r} is neither a detection id nor a member ref (m-<id>)") from None
+    bounds = _detection_bounds(c, did)
+    if bounds is None:
+        raise HTTPException(404, f"no detection {did}")
+    rid, s, e = bounds
+    return {"recording_id": rid, "detection_id": did, "det": (s, e),
+            "member_id": _member_of_detection(c, did, rid, s, e)}
+
+
+def _detection_bounds(c, did: int):
+    """`(recording_id, start_idx, end_idx)` channel-absolute (a legacy span-relative row is shifted), or None."""
+    row = c.execute("SELECT d.start_idx, d.end_idx, r.recording_id, r.span_start FROM detections d "
+                    "JOIN runs r ON r.id = d.run_id WHERE d.id = ?", (int(did),)).fetchone()
+    if row is None:
+        return None
+    s, e = corpus._absolute(row["start_idx"], row["end_idx"], row["span_start"])
+    return int(row["recording_id"]), int(s), int(e)
+
+
+def _member_of_detection(c, did: int, rid: int, s: int, e: int):
+    """The Library member a detection IS, or None. A revision naming the detection is the precise link (the
+    newest member wins); otherwise a member of an entry exemplified by this detection, on the same channel and
+    overlapping it (the importer's link, `motif_entry.detection_id`)."""
+    row = c.execute("SELECT member_id FROM motif_member_revision WHERE detection_id = ? "
+                    "ORDER BY member_id DESC LIMIT 1", (int(did),)).fetchone()
+    if row is not None:
+        return int(row[0])
+    row = c.execute("SELECT mm.id FROM motif_member mm JOIN motif_entry me ON me.id = mm.entry_id "
+                    "WHERE me.detection_id = ? AND mm.recording_id = ? AND mm.start_idx < ? AND mm.end_idx > ? "
+                    "ORDER BY mm.id LIMIT 1", (int(did), int(rid), int(e), int(s))).fetchone()
+    return int(row[0]) if row is not None else None
+
+
+def _member_current(c, mid: int) -> dict:
+    """`{start_idx, end_idx, revision_no}` of the member's current revision; a member with no revision rows
+    (written before revisions existed) answers its own span as revision 0."""
+    cur = revisions_mod.current_revision(c, mid)
+    if cur is not None:
+        return {"start_idx": int(cur["start_idx"]), "end_idx": int(cur["end_idx"]),
+                "revision_no": int(cur["revision"])}
+    m = c.execute("SELECT start_idx, end_idx FROM motif_member WHERE id = ?", (int(mid),)).fetchone()
+    return {"start_idx": int(m["start_idx"]), "end_idx": int(m["end_idx"]), "revision_no": 0}
+
+
+def _span_edit_verdict(c, t: dict):
+    """The item's verdict, or None: a member's Review verdict (Library family queue) first, then the
+    adjudication on its detection."""
+    if t["member_id"] is not None:
+        v = family_queue.member_verdicts(c, [t["member_id"]]).get(int(t["member_id"]))
+        if v:
+            return v
+    if t["detection_id"] is not None:
+        row = c.execute("SELECT verdict FROM adjudications WHERE detection_id = ?",
+                        (int(t["detection_id"]),)).fetchone()
+        if row is not None:
+            return row["verdict"]
+    return None
+
+
+def _span_edit_context(rec: dict, s: int, e: int, px: int) -> dict:
+    """The channel over ±2 span lengths, as a time-axis envelope (the shape Review's context card gets:
+    `t` in absolute seconds beside `v` in mV, `t0_s`/`t1_s` the window's edges). Empty, with a reason, when the
+    channel file is missing or declares no unit — never a synthesised shape. Near-sibling:
+    `review._trace_env`, not imported because the AR pass is rewriting `review.py`."""
+    fs = float(rec["fs"] or 1.0)
+    n = int(rec["n_samples"])
+    length = max(1, int(e) - int(s))
+    c0, c1 = max(0, int(s) - 2 * length), min(n, int(e) + 2 * length)
+    empty = {"t": [], "v": [], "t0_s": c0 / fs, "t1_s": c1 / fs, "fs": fs, "n_source": 0, "n_points": 0,
+             "decimated": False, "unit": None}
+    path = rec.get("npy_path")
+    if not path or not os.path.isfile(path):
+        return {**empty, "reason": "the channel file is missing"}
+    x = corpus.display_channel(rec)
+    if x.unit is None:
+        return {**empty, "reason": "the recording declares no unit; nothing is drawn as mV"}
+    c1 = min(c1, int(len(x)))
+    env = decimate.envelope(x, fs, c0, c1, max(8, min(4000, int(px))))
+    return {"t": [round(float(a), 4) for a in env["t"]],
+            "v": [None if a is None else round(float(a), 4) for a in env["v"]],
+            "t0_s": round(c0 / fs, 4), "t1_s": round(c1 / fs, 4), "fs": fs,
+            "n_source": int(env["n_source"]), "n_points": int(env["n_points"]),
+            "decimated": bool(env["decimated"]), "unit": x.unit, "reason": None}
+
+
+def _span_edit_payload(c, rec: dict, t: dict, px: int) -> dict:
+    member = None
+    if t["member_id"] is not None:
+        member = {"ref": f"m-{t['member_id']}", "current": _member_current(c, t["member_id"])}
+    shown = (member["current"]["start_idx"], member["current"]["end_idx"]) if member else t["det"]
+    det = {"start_idx": t["det"][0], "end_idx": t["det"][1]} if t["det"] else None
+    return {
+        "recording_id": int(rec["id"]), "channel": rec.get("name") or f"CH{int(rec['channel']) + 1}",
+        "source_file": rec["source_file"], "fs": float(rec["fs"]), "n_samples": int(rec["n_samples"]),
+        "unit": corpus.display_unit(rec),
+        "detection_id": t["detection_id"], "detection": det, "member": member,
+        "verdict": _span_edit_verdict(c, t),
+        "context_trace": _span_edit_context(rec, shown[0], shown[1], px),
+    }
+
+
+@router.get("/api/explore/span-edit/{ref}")
+def get_span_edit(request: Request, ref: str, px: int = SPAN_EDIT_PX):
+    """The span a Review item names, for the live editor: the detection's span, the Library member it is (with
+    its current revision) or null, the item's verdict, and the channel around it (±2 lengths)."""
+    c = _conn(request)
+    try:
+        t = _span_edit_target(c, ref)
+    finally:
+        c.close()
+    rec = _rec(request, t["recording_id"])        # 404, or 423 on the held-out recording, as every Explore read
+    c = _conn(request)
+    try:
+        return _span_edit_payload(c, rec, t, px)
+    finally:
+        c.close()
+
+
+@router.post("/api/explore/span-edit/{ref}")
+def post_span_edit(request: Request, ref: str, body: SpanEditBody):
+    """Save a corrected span. A member gets a new human revision (backed by an annotation); a plain detection
+    gets a human annotation with the item's verdict (``seed`` when it has none). Never the detections row."""
+    c = _conn(request)
+    try:
+        t = _span_edit_target(c, ref)
+    finally:
+        c.close()
+    rec = _rec(request, t["recording_id"])        # 423 on the held-out recording, before anything is written
+    s, e, n = int(body.start_idx), int(body.end_idx), int(rec["n_samples"])
+    if e - s < 2:
+        raise HTTPException(422, f"span [{s}, {e}) is shorter than two samples: a span needs at least two")
+    if s < 0 or e > n:
+        raise HTTPException(422, f"span [{s}, {e}) is outside the channel (0 – {n} samples)")
+    now = _dt.datetime.now().isoformat(timespec="seconds")
+    c = _conn(request)
+    try:
+        verdict = _span_edit_verdict(c, t)
+        # a plain detection: the item's verdict, `seed` when it has none (the prompt's rule). A member: its
+        # verdict, `unsure` when it has none — the annotation there only backs the revision, a redrawn extent is
+        # not a verdict, and `seed` is not a member's question (family_queue): it would count the member judged
+        # "yes" by extent in Review and the Library, and put it in the Explore spans queue (critic round)
+        fallback = "seed" if t["member_id"] is None else "unsure"
+        word = verdict if verdict in q.VERDICTS else fallback
+        note = body.note
+        if verdict and word != verdict:
+            note = f"{note + ' · ' if note else ''}item verdict {verdict!r} is not an annotation verdict"
+        elif not verdict and t["member_id"] is not None:
+            note = f"{note + ' · ' if note else ''}span correction only: no verdict given"
+        if t["member_id"] is None:
+            aid = q.insert_annotation(c, t["recording_id"], s, e, word, SPAN_EDIT_SOURCE, note=note,
+                                      created_at=now, commit=False)
+            c.commit()
+            return {"kind": "annotation", "member": None,
+                    "annotation": {"id": int(aid), "verdict": word, "source": SPAN_EDIT_SOURCE,
+                                   "start_idx": s, "end_idx": e, "detection_id": t["detection_id"]}}
+        mid = int(t["member_id"])
+        try:
+            # a member written before revisions existed: its own span becomes the machine rev 1 first, so the
+            # matcher keeps comparing against what the machine found, never against this human edit
+            seeded_rev1 = revisions_mod.current_revision(c, mid) is None
+            if seeded_rev1:
+                m = c.execute("SELECT start_idx, end_idx FROM motif_member WHERE id = ?", (mid,)).fetchone()
+                revisions_mod.add_revision(c, mid, origin="machine", start_idx=int(m["start_idx"]),
+                                           end_idx=int(m["end_idx"]), detection_id=t["detection_id"],
+                                           created_at=now, commit=False)
+            aid = q.insert_annotation(c, t["recording_id"], s, e, word, SPAN_EDIT_SOURCE, note=note,
+                                      created_at=now, commit=False)
+            rid = revisions_mod.add_revision(c, mid, origin="human", start_idx=s, end_idx=e,
+                                             annotation_id=aid, created_at=now, commit=False)
+        except ValueError as err:          # e.g. a span that does not overlap rev 1: a different motif
+            c.rollback()
+            raise HTTPException(422, str(err)) from None
+        stale = revisions_mod.stale_edges(c, mid)
+        c.commit()
+        row = c.execute("SELECT revision FROM motif_member_revision WHERE id = ?", (rid,)).fetchone()
+        return {"kind": "revision", "member": f"m-{mid}",
+                "revision": {"id": int(rid), "revision_no": int(row["revision"]), "start_idx": s, "end_idx": e,
+                             "annotation_id": int(aid)},
+                "annotation": {"id": int(aid), "verdict": word, "source": SPAN_EDIT_SOURCE},
+                # revisions.py: whoever writes the extent-edit route owns this list — the family's distances to
+                # this member were computed on the old extent and are stale until recomputed
+                "stale_edges": stale, "seeded_rev1": seeded_rev1}
+    finally:
+        c.close()

@@ -11,6 +11,6 @@ export function ExplorePage() {
   const { route } = useApp()
   if (route.page === 'signal') return <SignalPage key={route.params.id ?? ''} channelId={Number(route.params.id)} />
   if (route.page === 'cross-channel') return <CrossChannelPage key={route.params.id ?? ''} channelId={Number(route.params.id ?? 4)} />
-  if (route.page === 'span-edit') return <SpanEditPage key={route.params.id ?? ''} memberId={route.params.id ?? 'm-1846'} />
+  if (route.page === 'span-edit') return <SpanEditPage key={route.params.id ?? ''} memberId={route.params.id ?? ''} />
   return <CorpusPage />
 }

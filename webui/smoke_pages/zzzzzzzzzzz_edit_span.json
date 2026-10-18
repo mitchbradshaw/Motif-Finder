@@ -1,0 +1,61 @@
+[
+ {
+  "page": "explore.span-edit",
+  "state": "edit-span: E on a Review item opens the live editor",
+  "hash": "review/queue/2/101",
+  "settle_ms": 1500,
+  "actions": [
+   {"wait_for": ["[data-testid=\"edit-span-button\"]", 30000]},
+   {"press": "e"},
+   {"wait_for": ["[data-testid=\"span-edit-page\"]", 30000]}
+  ],
+  "expect": [
+   "[data-testid=\"span-edit-trace\"]",
+   "[data-testid=\"original-extent\"]",
+   "[data-testid=\"your-extent\"]",
+   "[data-testid=\"grip-start\"]",
+   "[data-testid=\"grip-end\"]",
+   "[data-testid=\"start-field\"]",
+   "[data-testid=\"end-field\"]",
+   "[data-testid=\"saving-writes-text\"]",
+   "[data-testid=\"save-and-return\"][disabled]"
+  ],
+  "expect_hash": ["explore/span-edit/", "from=review", "queue=2", "item=101"],
+  "expect_absent": ["[data-testid=\"span-unknown\"]", "[data-testid=\"save-failed\"]"]
+ },
+ {
+  "page": "explore.span-edit",
+  "state": "edit-span: cancel returns to the same item without writing",
+  "hash": "review/queue/2/101",
+  "settle_ms": 1500,
+  "actions": [
+   {"wait_for": ["[data-testid=\"edit-span-button\"]", 30000]},
+   {"click": "[data-testid=\"edit-span-button\"]"},
+   {"wait_for": ["[data-testid=\"end-field\"]", 30000]},
+   {"click": "[data-testid=\"end-field-up\"]"},
+   {"click": "[data-testid=\"return-without-saving\"]"},
+   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"101\"]", 30000]}
+  ],
+  "expect": ["[data-testid=\"inspector\"][data-item=\"101\"]"],
+  "expect_hash": ["review/queue/2/101"]
+ },
+ {
+  "page": "explore.span-edit",
+  "state": "edit-span: change the end field, save, land back on the same item",
+  "hash": "review/queue/2/101",
+  "settle_ms": 1500,
+  "actions": [
+   {"wait_for": ["[data-testid=\"edit-span-button\"]", 30000]},
+   {"press": "e"},
+   {"wait_for": ["[data-testid=\"end-field\"]", 30000]},
+   {"click": "[data-testid=\"end-field-up\"]"},
+   {"click": "[data-testid=\"end-field-up\"]"},
+   {"click": "[data-testid=\"end-field-up\"]"},
+   {"wait_for": ["[data-testid=\"save-and-return\"]:not([disabled])", 5000]},
+   {"click": "[data-testid=\"save-and-return\"]"},
+   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"101\"]", 30000]}
+  ],
+  "expect": ["[data-testid=\"inspector\"][data-item=\"101\"]"],
+  "expect_hash": ["review/queue/2/101"]
+ }
+]
