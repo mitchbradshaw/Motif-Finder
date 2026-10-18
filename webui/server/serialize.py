@@ -256,6 +256,8 @@ def _spanset(value, meta, ctx):
         out.update(_event_families(value, meta, ctx, fs, ss))
     if isinstance((meta or {}).get("cycle_stack"), dict):
         out.update(_cycle_shapes(value, meta, ctx, fs, ss))
+    if "train_size_distribution" in (meta or {}) and "n_trains" in (meta or {}):
+        out["trains"] = _trains(meta)
     if feats is not None and "units" in ctx:
         out["features_unit_note"] = _features_unit_note(feats, ctx)
     return out
@@ -277,6 +279,33 @@ def _features_unit_note(feats: dict, ctx: dict) -> str | None:
 
 
 _SPANSET_META_VIEWS = ("rules", "rose", "interval_stats")
+
+
+def _trains(meta):
+    """ig-pages: an `interrogation.trains` SpanSet's three figures, read off its meta (no number computed here):
+    `{n_trains, sizes, log_isi: {edges, density, cut} | None, log_isi_note, lz, rule}`. `edges` are the
+    log10-seconds points the adapter evaluated its log-gap density on, `cut` the cut in seconds (None = no valley).
+    `sizes` is the adapter's `train_sizes` (time order); a run cached before that key existed expands its size
+    distribution instead (ascending - the histogram does not need the order). Trains found per group have one
+    density per group (the adapter's `groups`), so `log_isi` is None and `log_isi_note` says why."""
+    sizes = meta.get("train_sizes")
+    if sizes is None:
+        sizes = [int(k) for k, c in sorted((meta.get("train_size_distribution") or {}).items(),
+                                           key=lambda kv: int(kv[0])) for _ in range(int(c))]
+    dens = meta.get("density") if isinstance(meta.get("density"), dict) else None
+    log_isi, note = None, None
+    if dens and dens.get("log10_gap_s"):
+        log_isi = {"edges": _clean(dens["log10_gap_s"]), "density": _clean(dens["density"]),
+                   "cut": _clean(meta.get("cut_s"))}
+    elif int(meta.get("n_groups") or 1) > 1:
+        note = ("trains were found per group, each with its own log-interval density and cut; "
+                "no single density to draw")
+    elif meta.get("rule") not in (None, "logisi"):
+        note = f"the {meta.get('rule')} rule cuts at fixed gaps, not at a valley of the log-interval density"
+    else:
+        note = meta.get("refused") or meta.get("no_trains_reason") or "the block printed no log-interval density"
+    return {"n_trains": int(meta.get("n_trains") or 0), "sizes": [int(s) for s in sizes], "log_isi": log_isi,
+            "log_isi_note": note, "lz": _clean(meta.get("lz_complexity")), "rule": _clean(meta.get("rule"))}
 
 CYCLE_EXEMPLAR_FORM = '{"<group key without suffix>": <event index into the SpanSet>}'
 
