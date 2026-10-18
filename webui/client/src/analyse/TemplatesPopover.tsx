@@ -35,6 +35,13 @@ export function TemplatesPopover({ onPick, onClose }: { onPick: (t: Template) =>
     return keys.map(k => ({ kind: k, label: KIND_LABEL[k] ?? k, rows: by.get(k)! }))
   }, [items, q])
   const shown = groups.reduce((n, g) => n + g.rows.length, 0)
+  /* ux-1018: one group open at a time (the researcher, 2026-10-18: "keep each list under accordion dropdowns, only one
+   * open at a time, still so long"). The first group is open until a header is clicked; clicking the open header
+   * closes it; a search opens every group that has a match, so a hit is never behind a closed header. */
+  const [openKind, setOpenKind] = useState<string | null>(null)
+  const searching = q.trim().length > 0
+  const open = openKind ?? groups[0]?.kind ?? null
+  const isOpen = (kind: string) => searching || open === kind
   return (
     <div className="an-pop" style={{ width: 460 }} data-testid="templates-popover">
       <h4>Templates <span>{items ? `${items.length} · builtin and saved` : ''}</span><button className="btn sm" style={{ marginLeft: 'auto' }} onClick={onClose}>Close</button></h4>
@@ -45,9 +52,13 @@ export function TemplatesPopover({ onPick, onClose }: { onPick: (t: Template) =>
       {!items && !err && <div className="an-pop-note">loading…</div>}
       {items && q && shown === 0 && <div className="an-pop-note" data-testid="templates-none">no template matches "{q}"</div>}
       {groups.map(g => (
-        <div key={g.kind} data-testid={`template-group-${g.kind}`}>
-          <div className="mono muted" style={{ fontSize: 10.5, margin: '8px 0 2px', letterSpacing: '0.02em' }}>{g.label} · {g.rows.length}</div>
-          {g.rows.map(t => (
+        <div key={g.kind} data-testid={`template-group-${g.kind}`} data-open={isOpen(g.kind) ? '1' : '0'}>
+          <button type="button" className="an-pop-group" aria-expanded={isOpen(g.kind)} disabled={searching}
+            onClick={() => setOpenKind(open === g.kind ? '' : g.kind)} data-testid={`template-group-toggle-${g.kind}`}
+            title={searching ? 'every group with a match is open while you search' : isOpen(g.kind) ? `close ${g.label}` : `open ${g.label}`}>
+            <span aria-hidden className="an-pop-caret">{isOpen(g.kind) ? '▾' : '▸'}</span>{g.label} · {g.rows.length}
+          </button>
+          {isOpen(g.kind) && g.rows.map(t => (
             <div key={String(t.id)} className="an-pop-item btnlike" onClick={() => onPick(t)} data-testid={`template-${shortName(t)}`}>
               <span className={`chip ${t.builtin ? 'grey' : 'green'}`} style={{ height: 20, fontSize: 10 }}>{t.builtin ? 'builtin' : 'saved'}</span>
               <div className="grow" style={{ minWidth: 0 }}>

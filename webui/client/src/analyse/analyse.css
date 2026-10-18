@@ -23,6 +23,11 @@
 .an-pop-item:hover { background: var(--grey-100); }
 .an-pop-item.btnlike { cursor: pointer; }
 .an-pop-note { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); padding: 6px 8px 2px; }
+/* ux-1018: the templates popover's group headers are accordion toggles, one group open at a time */
+.an-pop-group { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; border-top: 1px solid var(--border); background: transparent; margin-top: 4px; padding: 7px 8px 4px; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.02em; color: var(--muted); text-align: left; cursor: pointer; }
+.an-pop-group:hover:not(:disabled), .an-pop-group[aria-expanded=true] { color: var(--text); }
+.an-pop-group:disabled { cursor: default; }
+.an-pop-caret { display: inline-block; width: 10px; color: var(--blue-muted, var(--blue)); }
 
 /* ---------- history ---------- */
 .hist { width: 880px; }
