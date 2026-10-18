@@ -378,8 +378,9 @@ def send_span_to_review(request: Request, body: SpanReviewBody):
         # judged (`prior_verdict`), read from the resolver Review itself uses — as Discovery's picked send does
         not_asked: list[int] = []
         if added:
-            prior = {int(it["target_id"]) for it in queues_mod.queue_items(
-                c, qid, include_judged=True, include_prior_judged=True) if it.get("prior_verdict") is not None}
+            # review-carry: an item is an overlap set, so every member of a prior-judged item is not asked
+            prior = {int(m) for it in queues_mod.queue_items(c, qid, include_judged=True, include_prior_judged=True)
+                     if it.get("prior_verdict") is not None for m in (it.get("members") or [it["target_id"]])}
             not_asked = [i for i in added if i in prior]
         skip = set(not_asked)
         fresh = [i for i in added if i not in skip]

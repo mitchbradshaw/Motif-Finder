@@ -3698,8 +3698,11 @@ def _picked_states(conn, session_id):
     if qid is None:
         return {}
     ids = [int(i) for i in queues_mod.get_queue(conn, qid)["filters"].get("detection_ids", [])]
-    items = {int(it["target_id"]): it for it in queues_mod.queue_items(
-        conn, qid, include_judged=True, include_prior_judged=True)}
+    items = {}
+    for it in queues_mod.queue_items(conn, qid, include_judged=True, include_prior_judged=True):
+        # review-carry: an item is an overlap set; every member of it is that item, not "not asked"
+        for m in (it.get("members") or [it["target_id"]]):
+            items.setdefault(int(m), it)
     out = {}
     for i in ids:
         it = items.get(i)
