@@ -120,11 +120,17 @@ def _load_templates(conn):
             for r in rows}
 
 
-def sweep_entries(templates):
-    """[(label, template name, steps, channel names or None for all, null, pack kind)]: what tonight runs."""
+def sweep_entries(templates, *, volts=True, mp_channels=MP_CHANNELS):
+    """[(label, template name, steps, channel names or None for all, null, pack kind)]: what tonight runs.
+
+    ``volts``: the recording's stored unit is volts (or undeclared, read as volts), so `signal_threshold` runs as the
+    base template and its V copies; a millivolt recording runs the three mV copies instead. ``mp_channels``: the
+    channels the matrix-profile job runs on; empty leaves it out."""
     variants = [n for n, t in templates.items() if (t["description"] or "").startswith("[rq4-sweep]")]
+    skip = NOT_FOR_VOLTS if volts else ["signal_threshold"] + [n for n in variants
+                                                               if n.startswith("signal_threshold__threshold_V_")]
     cpu = [n for n in BASE + variants
-           if n not in WAIT_FOR_WINDOWS + NOT_FOR_VOLTS + MP_TEMPLATES and not n.startswith("mp_")]
+           if n not in WAIT_FOR_WINDOWS + skip + MP_TEMPLATES and not n.startswith("mp_")]
     missing = [n for n in BASE if n not in templates]
     if missing:
         raise SystemExit(f"templates not in the database: {missing}")
@@ -134,41 +140,37 @@ def sweep_entries(templates):
     if len(cnn) != 12:
         raise SystemExit(f"expected the twelve W4-A CNN templates, found {cnn}")
     out += [(n, n, templates[n]["steps"], None, NULL, "gpu") for n in cnn]
-    mp = [dict(s) for s in templates["mp_threshold"]["steps"]]
-    for s in mp:
-        if (s.get("algorithm") or "") == "matrix_profile":
-            s["params"] = dict(s.get("params") or {}, backend="auto")
-    out.append(("mp_threshold__backend_auto", "mp_threshold__backend_auto", mp, MP_CHANNELS, NULL, "gpu"))
+    if mp_channels:
+        mp = [dict(s) for s in templates["mp_threshold"]["steps"]]
+        for s in mp:
+            if (s.get("algorithm") or "") == "matrix_profile":
+                s["params"] = dict(s.get("params") or {}, backend="auto")
+        out.append((MP_AUTO, MP_AUTO, mp, list(mp_channels), NULL, "gpu"))
     return out
 
 
-def _recordings(conn, names=None):
+def _recordings(conn, names=None, source=SOURCE):
     from Working.discovery.channels import channel_name
     rows = conn.execute("SELECT id, channel FROM recordings WHERE source_file = ? AND active = 1 ORDER BY channel",
-                        (SOURCE,)).fetchall()
-    chans = [(int(r[0]), channel_name(SOURCE, int(r[1]), len(rows))) for r in rows]
+                        (source,)).fetchall()
+    chans = [(int(r[0]), channel_name(source, int(r[1]), len(rows))) for r in rows]
     if names:
         chans = [c for c in chans if c[1] in names]
     return chans
 
 
-def build(db, *, only=None, span=SPAN, out_rel=OUT_REL, null_draws=None):
-    """Write one P2 chain job per sweep entry and the four packs. Returns the manifest."""
-    from Working.database.schema import init_db
+def _build_source(conn, templates, *, source, out_dir, entries, span, null_draws, scale=None, tag=None):
+    """One recording's chain jobs into ``out_dir``: ``(manifest, {"cpu": tasks, "gpu": tasks})``. ``scale`` maps a
+    pack kind to a factor on the balancing estimate; ``tag`` prefixes each task's label (a batch over several
+    recordings)."""
     from Working.discovery import chain_job, fanout
 
-    conn = init_db(db)
-    templates = _load_templates(conn)
-    entries = sweep_entries(templates)
-    if only:
-        entries = [e for e in entries if e[0] in only]
-    out_dir = os.path.join(REPO, out_rel)
     os.makedirs(out_dir, exist_ok=True)
-    manifest = {"source": SOURCE, "span": list(span), "jobs": [], "refused": []}
+    manifest = {"source": source, "span": list(span), "jobs": [], "refused": []}
     tasks = {"cpu": [], "gpu": []}
     for label, template, steps, names, null, kind in entries:
         null = dict(null, draws=null_draws) if (null_draws is not None and null["paired"]) else null
-        chans = _recordings(conn, names)
+        chans = _recordings(conn, names, source)
         plan = fanout.plan(conn, steps=steps, recording_ids=[c[0] for c in chans], span=tuple(span),
                            ceiling_s=fanout.ceiling_s(conn), null_draws=null["draws"], surrogate=null["paired"],
                            surrogate_params=null["params"])
@@ -189,15 +191,139 @@ def build(db, *, only=None, span=SPAN, out_rel=OUT_REL, null_draws=None):
                                  "spec": made["spec_repo_path"], "out": made["result_repo_path"],
                                  "channels": [c[1] for c in chans], "draws": null["draws"],
                                  "profile": spec["profile"]})
+        factor = (scale or {}).get("mp" if label == MP_AUTO else kind, 1.0)
         for t in spec["targets"]:
-            tasks[kind].append((_est(label), made["spec_repo_path"], made["result_repo_path"], t["index"],
-                                f"{label}/{t['channelName']}"))
-    packs = _write_packs(out_dir, out_rel, tasks)
-    manifest["packs"] = packs
+            tasks[kind].append((_est(label) * factor, made["spec_repo_path"], made["result_repo_path"], t["index"],
+                                f"{tag + '/' if tag else ''}{label}/{t['channelName']}"))
+    with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2)
+    return manifest, tasks
+
+
+def build(db, *, only=None, span=SPAN, out_rel=OUT_REL, null_draws=None):
+    """Write one P2 chain job per sweep entry and the four packs (M2_aug, 2026-10-17). Returns the manifest."""
+    from Working.database.schema import init_db
+
+    conn = init_db(db)
+    templates = _load_templates(conn)
+    entries = sweep_entries(templates)
+    if only:
+        entries = [e for e in entries if e[0] in only]
+    out_dir = os.path.join(REPO, out_rel)
+    manifest, tasks = _build_source(conn, templates, source=SOURCE, out_dir=out_dir, entries=entries, span=span,
+                                    null_draws=null_draws)
+    manifest["packs"] = _write_packs(out_dir, out_rel, tasks)
     with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
     conn.close()
     return manifest
+
+
+#: M2_aug's samples per channel, the yardstick the balancing estimates were measured on
+M2_AUG_SAMPLES = 2_595_600
+#: a whole-channel profile on the A100, measured 2026-10-18 on M2_aug (docs: "a whole channel in 12.3 min"); it grows
+#: with the square of the length
+MP_A100_S_AT_M2_AUG = 12.3 * 60
+#: the matrix-profile job is left out of a recording whose profile would take longer than this on the A100
+MP_MAX_PROFILE_S = 60 * 60
+#: `detection.dehshibi_spikes` holds a 99-scale wavelet array over the whole span (measured 2026-10-18 on L_LM:
+#: "Unable to allocate 16.9 GiB for an array with shape (99, 22892769)"); a template with that step is left out of a
+#: recording where the array alone would pass this size, and waits for windowed runs
+DEHSHIBI_SCALES = 99
+MAX_ARRAY_GB = 4.0
+#: a recording this long (samples per channel) gets its CPU tasks in their own pack, few at a time: on L_LM
+#: (22.9 M) one deconvolved_troughs task peaked at 3.75 GB and a wavelet one passed 7.4 GB, against about 1 GB on
+#: M2_aug, and the jobs ask for no memory (HPC/README.md: explicit amounts were refused)
+HEAVY_SAMPLES = 8_000_000
+HEAVY_PARALLEL = 3
+
+
+def build_batch(db, sources, *, out_rel, prefix, units=None, only=None, null_draws=None):
+    """Several recordings at once (2026-10-18: M2_concat, M4_aug, MJu26a): one sub-folder and manifest per
+    recording (what `adopt --out` reads), and ONE set of packs over all of them, so the three-job limit is shared.
+
+    ``units``: ``{source_file: unit}`` written into the database COPY before planning: the unit is in every spec
+    and in the cache key of any block that reads it, so the import later refuses until the real database agrees.
+    The matrix-profile job runs on each recording's first two channels unless its profile would take over
+    `MP_MAX_PROFILE_S` on the A100, and the reason it was left out is written in that recording's manifest."""
+    from Working.database.schema import init_db
+    from Working.registration.settings import held_out_locked
+    from Working.config import HELD_OUT_RECORDING_FILE
+    from Working.units import VOLTS, read_as_mv
+
+    conn = init_db(db)
+    for source, unit in (units or {}).items():
+        n = conn.execute("UPDATE recordings SET units = ?, units_note = ? WHERE source_file = ?",
+                         (unit, f"set to {unit} for the RQ4 batch build (scripts/rq4_overnight.py); the real "
+                                f"database must say the same before import", source)).rowcount
+        if not n:
+            raise SystemExit(f"--units: no recordings for {source!r}")
+    conn.commit()
+    if HELD_OUT_RECORDING_FILE in sources and held_out_locked(conn):
+        raise SystemExit(f"{HELD_OUT_RECORDING_FILE} is held out and the lock is ON in this database: turn it off in "
+                         f"Settings › Datasets (or use a copy taken after it was turned off)")
+    templates = _load_templates(conn)
+    out_dir = os.path.join(REPO, out_rel)
+    batch = {"prefix": prefix, "datasets": [], "inputs": []}
+    tasks = {"cpu": [], "gpu": []}
+    light_cpu, heavy_cpu = [], []
+    for source in sources:
+        rows = conn.execute("SELECT channel, n_samples, fs, units, npy_path FROM recordings WHERE source_file = ? "
+                            "AND active = 1 ORDER BY channel", (source,)).fetchall()
+        if not rows:
+            raise SystemExit(f"no active recordings for {source!r}")
+        n, fs, unit = int(rows[0][1]), float(rows[0][2]), rows[0][3]
+        volts = read_as_mv(unit)[0] == read_as_mv(VOLTS)[0]      # declared V, or undeclared (read as volts)
+        names = [c[1] for c in _recordings(conn, None, source)]
+        profile_s = MP_A100_S_AT_M2_AUG * (n / M2_AUG_SAMPLES) ** 2
+        mp_channels = names[:2] if profile_s <= MP_MAX_PROFILE_S else []
+        entries = sweep_entries(templates, volts=volts, mp_channels=mp_channels)
+        if only:
+            entries = [e for e in entries if e[0] in only]
+        dehshibi_gb = DEHSHIBI_SCALES * n * 8 / 2 ** 30
+        left_out = []
+        if dehshibi_gb > MAX_ARRAY_GB:
+            keep = []
+            for e in entries:
+                if any((s.get("algorithm") or "") == "dehshibi_spikes" for s in e[2]):
+                    left_out.append({"label": e[0], "reason": (
+                        f"detection.dehshibi_spikes holds a {DEHSHIBI_SCALES}-scale array over the whole span: "
+                        f"{dehshibi_gb:.1f} GB here, over {MAX_ARRAY_GB:g} GB; it waits for windowed runs")})
+                else:
+                    keep.append(e)
+            entries = keep
+        heavy = n > HEAVY_SAMPLES
+        stem = os.path.splitext(os.path.basename(source))[0]
+        sub_rel = os.path.join(out_rel, stem)
+        scale = {"cpu": n / M2_AUG_SAMPLES, "gpu": (n / fs) / (M2_AUG_SAMPLES / 1.0),
+                 "mp": (n / M2_AUG_SAMPLES) ** 2}
+        manifest, t = _build_source(conn, templates, source=source, out_dir=os.path.join(REPO, sub_rel),
+                                    entries=entries, span=(0, n), null_draws=null_draws, scale=scale, tag=stem)
+        manifest.update({"unit": unit or "undeclared (read as volts)", "volts": volts, "fs": fs, "samples": n,
+                         "mpChannels": mp_channels, "leftOut": left_out, "heavy": heavy,
+                         "mpLeftOut": (None if mp_channels else
+                                       f"a whole-channel profile here is about {profile_s / 3600:.1f} h on the A100 "
+                                       f"({n:,} samples: the cost grows with the square of the length), over the "
+                                       f"{MP_MAX_PROFILE_S / 3600:.0f} h limit for this batch")})
+        with open(os.path.join(REPO, sub_rel, "manifest.json"), "w", encoding="utf-8") as f:
+            json.dump(manifest, f, indent=2)
+        tasks["gpu"] += t["gpu"]
+        heavy_cpu.extend(t["cpu"]) if heavy else light_cpu.extend(t["cpu"])
+        batch["datasets"].append({"source": source, "folder": sub_rel.replace(os.sep, "/"), "jobs": len(manifest["jobs"]),
+                                  "tasks": len(t["cpu"]) + len(t["gpu"]), "refused": manifest["refused"],
+                                  "leftOut": left_out, "heavy": heavy,
+                                  "unit": manifest["unit"], "mpChannels": mp_channels, "mpLeftOut": manifest["mpLeftOut"]})
+        batch["inputs"] += [r[4] for r in rows]
+    batch["inputs"] += sorted({s.get("params", {}).get("model_path") for t_ in templates.values() if t_["name"].startswith("cnn_")
+                               for s in t_["steps"] if (s.get("params") or {}).get("model_path")} - {None})
+    # a long recording's CPU tasks get a pack of their own, few at a time (memory); otherwise the two are balanced
+    cpu_groups = ([(light_cpu, 8), (heavy_cpu, HEAVY_PARALLEL)] if heavy_cpu and light_cpu else None)
+    tasks["cpu"] = light_cpu + heavy_cpu
+    batch["packs"] = _write_packs(out_dir, out_rel, tasks, prefix=prefix, inputs=batch["inputs"], cpu_groups=cpu_groups)
+    with open(os.path.join(out_dir, "batch.json"), "w", encoding="utf-8") as f:
+        json.dump(batch, f, indent=2)
+    conn.close()
+    return batch
 
 
 def _balance(tasks, n):
@@ -345,17 +471,29 @@ if [ -z "$LIMIT" ]; then
 fi"""
 
 
-def _write_packs(out_dir, out_rel, tasks):
+def _write_packs(out_dir, out_rel, tasks, prefix="rq4", inputs=None, cpu_groups=None):
+    """Two CPU and two A100 packs over ``tasks`` and the script that submits them. ``inputs``: repo-relative files
+    every task reads (channel arrays, models): the submit script refuses, naming them, while any is missing.
+    ``cpu_groups``: ``[(tasks, parallel), (tasks, parallel)]`` to give the two CPU packs fixed contents and their
+    own concurrency (a long recording's tasks apart, few at a time) instead of balancing ``tasks["cpu"]``."""
     from Working.config import HPC_CONDA_ENV_CPU, HPC_CONDA_ENV_GPU, HPC_CPU_PARTITION, HPC_GPU_PARTITION, \
         HPC_REMOTE_REPO_ROOT
 
+    os.makedirs(out_dir, exist_ok=True)
     rel = out_rel.replace(os.sep, "/")
     plans = []
-    cpu_bins, cpu_load = _balance(tasks["cpu"], 2)
+    if cpu_groups:
+        cpu_bins = [sorted(g, key=lambda t: -t[0]) for g, _p in cpu_groups]
+        cpu_load = [sum(t[0] for t in g) for g, _p in cpu_groups]
+        cpu_par = [p for _g, p in cpu_groups]
+    else:
+        cpu_bins, cpu_load = _balance(tasks["cpu"], 2)
+        cpu_par = [8, 8]
     gpu_bins, gpu_load = _balance(tasks["gpu"], 2)
     for kind, bins, loads in (("cpu", cpu_bins, cpu_load), ("gpu", gpu_bins, gpu_load)):
         for i, (b, load) in enumerate(zip(bins, loads)):
-            name = f"rq4_{kind}{(i + 1) if kind == 'cpu' else 'AB'[i]}"
+            parallel = cpu_par[i] if kind == "cpu" else 8
+            name = f"{prefix}_{kind}{(i + 1) if kind == 'cpu' else 'AB'[i]}"
             tasks_file = f"{rel}/tasks_{name}.txt"
             with open(os.path.join(out_dir, f"tasks_{name}.txt"), "w", newline="\n", encoding="utf-8") as f:
                 for _est_s, spec, out, task, label in b:
@@ -363,7 +501,7 @@ def _write_packs(out_dir, out_rel, tasks):
             gpu = kind == "gpu"
             script_rel = f"{rel}/{name}.sh"
             text = _PACK.format(
-                name=name, remote_root=HPC_REMOTE_REPO_ROOT, n_tasks=len(b), parallel=8, cpus=8,
+                name=name, remote_root=HPC_REMOTE_REPO_ROOT, n_tasks=len(b), parallel=parallel, cpus=8,
                 tasks_file=tasks_file, failed_file=f"{rel}/state/{name}.failed", max_chain=60,
                 min_launch=(600 if gpu else 240), script=script_rel,
                 time_line=("" if gpu else "#SBATCH --time=00:20:00\n"),
@@ -378,19 +516,34 @@ def _write_packs(out_dir, out_rel, tasks):
                 limit_block=(_TIME_LEFT.format(fallback_s=4 * 3600 + 30 * 60) if gpu else "LIMIT=1200"))
             with open(os.path.join(out_dir, f"{name}.sh"), "w", newline="\n", encoding="utf-8") as f:
                 f.write(text)
-            plans.append({"name": name, "script": script_rel, "tasks": len(b), "estimateCoreS": round(load)})
+            plans.append({"name": name, "script": script_rel, "tasks": len(b), "parallel": parallel,
+                          "estimateCoreS": round(load)})
     lines = ["#!/bin/bash",
              "# The RQ4 overnight sweep (scripts/rq4_overnight.py): four packs. The account runs three jobs at once, "
              "so the",
              "# fourth waits in the queue until one finishes. Run from the repo root on the cluster "
              f"({HPC_REMOTE_REPO_ROOT}).",
              "#",
-             "# Cancel the sweep:  squeue -u $USER -h -o \"%i %j\" | awk '$2 ~ /^rq4_/ {print $1}' | xargs -r scancel",
-             "# Progress:          python scripts/rq4_overnight.py report",
-             f"# Bring back:        every {rel}/*_out/return/ folder (keep the paths)",
+             f"# Cancel the sweep:  squeue -u $USER -h -o \"%i %j\" | awk '$2 ~ /^{prefix}_/ {{print $1}}' | xargs -r scancel",
+             f"# Progress:          python scripts/rq4_overnight.py report --out {rel}",
+             f"# Bring back:        every {rel}/**/*_out/return/ folder (keep the paths)",
              "set -euo pipefail",
-             ""] + [f"sbatch {p['script']}" for p in plans] + [""]
-    with open(os.path.join(out_dir, "submit_rq4_overnight.sh"), "w", newline="\n", encoding="utf-8") as f:
+             ""]
+    if inputs:
+        lines += ["# every channel array and model the tasks read must be here first: refuse, naming them, if not",
+                  "MISSING=0",
+                  "for F in " + " ".join(sorted(set(inputs))) + "; do",
+                  "    [ -f \"$F\" ] || { echo \"missing: $F\"; MISSING=$((MISSING + 1)); }",
+                  "done",
+                  "if [ \"$MISSING\" -gt 0 ]; then",
+                  "    echo \">>> $MISSING input file(s) are not on the cluster: copy them to the same paths, then run "
+                  "this again\"",
+                  "    exit 1",
+                  "fi",
+                  ""]
+    lines += [f"sbatch {p['script']}" for p in plans] + [""]
+    submit = "submit_rq4_overnight.sh" if prefix == "rq4" else f"submit_{prefix}.sh"
+    with open(os.path.join(out_dir, submit), "w", newline="\n", encoding="utf-8") as f:
         f.write("\n".join(lines))
     return plans
 
@@ -423,8 +576,21 @@ def report(out_rel=OUT_REL):
     """Per pack: tasks complete / partial / missing / refused / crashed, and every refusal's reason."""
     from Working.discovery import chain_job
     out_dir = os.path.join(REPO, out_rel)
-    with open(os.path.join(out_dir, "manifest.json"), encoding="utf-8") as f:
-        manifest = json.load(f)
+    if os.path.isfile(os.path.join(out_dir, "batch.json")):
+        # a batch over several recordings: its packs here, each recording's refusals in its own manifest
+        with open(os.path.join(out_dir, "batch.json"), encoding="utf-8") as f:
+            batch = json.load(f)
+        manifest = {"packs": batch["packs"],
+                    "refused": [dict(r, label=f"{d['source']}: {r['label']}") for d in batch["datasets"]
+                                for r in d["refused"]]}
+        for d in batch["datasets"]:
+            if d.get("mpLeftOut"):
+                print(f"{d['source']}: matrix-profile job left out ({d['mpLeftOut']})")
+            for x in d.get("leftOut") or []:
+                print(f"{d['source']}: {x['label']} left out ({x['reason']})")
+    else:
+        with open(os.path.join(out_dir, "manifest.json"), encoding="utf-8") as f:
+            manifest = json.load(f)
     for p in manifest["packs"]:
         counts, notes = {}, []
         failed_path = os.path.join(out_dir, "state", f"{p['name']}.failed")
@@ -651,9 +817,34 @@ def main(argv=None):
     a.add_argument("--allow-project", action="store_true",
                    help="allow --apply against a bridge in PROJECT mode (the real database)")
     a.add_argument("--only", nargs="*", default=None, help="only these job labels")
+    bb = sub.add_parser("build-batch", help="several recordings, one set of packs (a folder per recording)")
+    bb.add_argument("--db", required=True, help="a COPY of DATA/db/annotations.sqlite (it is written to)")
+    bb.add_argument("--source", action="append", required=True, help="a source file; give one per recording")
+    bb.add_argument("--out", required=True, help="repo-relative batch folder")
+    bb.add_argument("--prefix", required=True, help="the packs' job-name prefix, e.g. rq4b")
+    bb.add_argument("--units", action="append", default=[], metavar="SOURCE=UNIT",
+                    help="the unit to build a recording with, written into the copy (e.g. MJu26a.mat=V)")
+    bb.add_argument("--only", nargs="*", default=None, help="only these sweep labels (tests)")
+    bb.add_argument("--draws", type=int, default=None, help="null draws for the paired runs (default 1)")
     args = ap.parse_args(argv)
     if args.cmd == "pending":
         return pending(args.tasks, args.failed)
+    if args.cmd == "build-batch":
+        units = dict(u.split("=", 1) for u in args.units)
+        b_ = build_batch(args.db, args.source, out_rel=args.out, prefix=args.prefix, units=units, only=args.only,
+                         null_draws=args.draws)
+        for d in b_["datasets"]:
+            print(f"{d['source']}: {d['jobs']} chain jobs, {d['tasks']} tasks, unit {d['unit']}, matrix profile on "
+                  f"{d['mpChannels'] or 'no channels'}" + (f" ({d['mpLeftOut']})" if d["mpLeftOut"] else ""))
+            for x in d.get("leftOut") or []:
+                print(f"    left out: {x['label']}: {x['reason']}")
+            for r in d["refused"]:
+                print(f"    refused: {r['label']}: {str(r['reason'])[:160]}")
+        for p in b_["packs"]:
+            print(f"    {p['name']}: {p['tasks']} tasks, {p['parallel']} at a time, about "
+                  f"{p['estimateCoreS'] / 3600:.1f} core-hours (estimate; last night ran at about 0.3x)")
+        print(f"    inputs the cluster needs: {len(set(b_['inputs']))} files")
+        return 0
     if args.cmd == "report":
         return report(args.out)
     if args.cmd == "adopt":

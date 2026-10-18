@@ -1,0 +1,25 @@
+{
+  "kind": "detection_chain",
+  "specHash": "b3cd7c6a2bc3",
+  "tasks": 16,
+  "label": "Wavelet_detection_prototype__epsilon_factor_0p1",
+  "spec": "HPC/Detection/generated/rq4_batch2/M2_concat_fs1/Wavelet_detection_prototype__epsilon_factor_0p1_16ch_0-1016952_b3cd7c.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7",
+    "CH8",
+    "CH9",
+    "CH10",
+    "CH11",
+    "CH12",
+    "CH13",
+    "CH14",
+    "CH15",
+    "CH16"
+  ]
+}

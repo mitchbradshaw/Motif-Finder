@@ -1,0 +1,25 @@
+{
+  "kind": "detection_chain",
+  "specHash": "19bb3adcad85",
+  "tasks": 16,
+  "label": "wavelet_encoded__level_3",
+  "spec": "HPC/Detection/generated/rq4_batch2/M2_concat_fs1/wavelet_encoded__level_3_16ch_0-1016952_19bb3a.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7",
+    "CH8",
+    "CH9",
+    "CH10",
+    "CH11",
+    "CH12",
+    "CH13",
+    "CH14",
+    "CH15",
+    "CH16"
+  ]
+}
