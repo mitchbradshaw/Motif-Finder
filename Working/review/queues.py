@@ -104,6 +104,12 @@ _DEFAULTS = {
 _DETECTION_KINDS = ("discovery-run", "seed-search")
 _WINDOW_KINDS = ("training-windows", "model-verification")
 
+#: a2-rq1b: the orders a detection queue can be served in besides detection id (the default, the paging contract of
+#: `queries.queue_candidates`). "listed" serves an exact detection set in the order its ids are listed: RQ1b's
+#: stratified sample (`Working.discovery.candidate_events`) is shuffled so that a reviewer's drift over a session
+#: falls evenly on every detector, where id order would group the sample by detector and channel.
+QUEUE_ORDERS = ("listed",)
+
 
 def _now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -153,6 +159,17 @@ def create_queue(conn, *, name, source_kind, source_ref=None, unit=None,
             "{!r}, which writes {!r}. A queue may not declare a write target "
             "its source kind does not have.".format(
                 writes_to, source_kind, d_writes))
+    order = (filters or {}).get("order")
+    if order is not None:
+        # refused here, where the queue is described, not at its first read: an order nobody serves would be a
+        # promise the resolver silently breaks
+        if order not in QUEUE_ORDERS:
+            raise ValueError("order {!r}: a queue is served by detection id, or in one of {}".format(
+                order, ", ".join(repr(o) for o in QUEUE_ORDERS)))
+        if source_kind not in _DETECTION_KINDS or not (filters or {}).get("detection_ids"):
+            raise ValueError("order 'listed' serves an exact detection set in the order it is listed: it needs a "
+                             "detection queue ({}) whose filters name `detection_ids`".format(
+                                 ", ".join(_DETECTION_KINDS)))
     cur = conn.execute(
         """INSERT INTO review_queues
                (name, source_kind, source_ref, unit, writes_to, blind, cap,
@@ -542,6 +559,8 @@ def _superseded_run_ids(conn):
 
 def _resolve_detections(conn, q):
     filters = dict(q["filters"])
+    # the serving order is the resolver's, not a candidate filter (`QUEUE_ORDERS`)
+    listed = filters.pop("order", None) == "listed"
     if q["source_ref"] is not None and "run_group_id" not in filters:
         filters["run_group_id"] = int(q["source_ref"])
     # The same object Discovery's queue descriptor names, with the status
@@ -558,6 +577,11 @@ def _resolve_detections(conn, q):
     judged_tags = _adjudication_tag_values(conn)
     blind = bool(q["blind"])
     live = [c for c in queue.candidates if c["run_id"] not in superseded]
+    if listed:
+        pos = {}
+        for i, d in enumerate(filters.get("detection_ids") or ()):
+            pos.setdefault(int(d), i)
+        live.sort(key=lambda c: pos.get(int(c["id"]), len(pos)))
     priors = _prior_verdicts(conn, live)
     # The coordinates the item carries OUT are channel-absolute (fixup-g). A
     # `detections` row written by a spanned run before 2026-09-21 is
