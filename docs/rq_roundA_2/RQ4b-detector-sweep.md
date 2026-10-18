@@ -285,6 +285,39 @@ profiles within seconds of the import, and the Map's own rows say how they were 
 A100 measurement shows the backends agree, and only if the `stump` templates' history should join up. Until then a
 profile served across backends would be a claim nobody has checked. Neither is built.
 
+**Measured on the A100, 2026-10-18** (the researcher ran `HPC/Detection/measure_gpu_stump.sh`; the files are in
+`findings/gpu-stump-2026-10-18/`).
+
+- **The backends agree.** Job 671107 on a100-1 (stumpy 1.14.1, 8 CPUs) compared `stump` with `gpu_stump` on coloured
+  synthetic series:
+
+  | n | m | largest relative difference | nearest neighbours the same | samples changing side at 6 / 8 / 10 |
+  |---|---|---|---|---|
+  | 50,000 | 60 | 6.5e-11 | 100 % | 0 / 0 / 0 (spans 145 = 145) |
+  | 50,000 | 600 | 7.1e-12 | 100 % | 0 / 0 / 0 (spans 8, 23, 67 on both) |
+  | 200,000 | 60 | 2.3e-10 | 100 % | 0 / 0 / 0 (spans 269 = 269) |
+  | 200,000 | 600 | 3.3e-11 | 100 % | 0 / 0 / 0 (spans 16, 135, 252 on both) |
+
+  That is float rounding: no cut reads a different span. Option 2 is no longer an unchecked claim.
+- **A whole channel fits one a100 job.** Job 671109 timed `gpu_stump` alone on 2,596,000 samples (one 721-h
+  channel) at m = 60: **736 s, 12.3 min.** (It was then stopped by the 20-minute `--time` it was given, during the
+  m = 600 run.) On this PC's 16 CPUs the same profile is about 3.7 h, so the A100 is about 18 times faster.
+  - The `a100` partition runs 5 hours: the 20-minute limit met before was `a100-test`'s own. This is recorded in
+    `Working/config.py` (`HPC_WALLTIME_MINUTES_BY_PARTITION`).
+  - So a whole-channel profile is one a100 task, with room for about 20 draws of the null at 12 minutes each.
+  - Computing in blocks is only needed on the CPU.
+  - At 50,000–200,000 samples the GPU was slower than the CPU (8 against 1 s, 32 against 17 s), because it is
+    starting up; the A100 pays off only on long spans.
+
+**Recommendation, updated.** The measurement makes (2) safe. (2) is the better answer:
+- Your existing `stump` templates, with their history and their own Map rows, read the overnight profiles.
+- No new templates are needed.
+- Provenance says the profile was served from `auto`, with this measurement as the reason.
+- It is code (the step cache's lookup and the plan's cache status), so it is built test-first and gated like the round's
+  prompts.
+
+(1) is still the zero-code route if the profiles are needed before that lands.
+
 ### Decision: the window bound at the sweep's short scales (P3, 2026-10-18)
 
 **In plain words.** Most detectors first look at a stretch of signal around every point: a rolling average that takes
@@ -513,3 +546,6 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
   code changed.
 - 2026-10-18 · the researcher · the short scales as recommended (drop detectors at 1 h as they are; 10 min only for
   the 600 s threshold family, as it is); the stitch's rescue kept.
+- 2026-10-18 · the researcher · the A100 check: `stump` and `gpu_stump` agree within float rounding (≤ 2.3e-10, no
+  sample changing side at 6, 8 or 10); one whole channel's profile takes 12.3 min on the A100; the `a100` partition
+  runs 5 h (recorded in `Working/config.py`). The matrix-profile decision now recommends the cross-backend alias.

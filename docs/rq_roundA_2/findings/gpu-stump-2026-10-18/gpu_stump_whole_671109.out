@@ -1,0 +1,6 @@
+/home/Student/s4699158/miniconda3/envs/torch_env/lib/python3.11/site-packages/numba/cuda/dispatcher.py:536: NumbaPerformanceWarning: Grid size 39 will likely result in GPU under-utilization due to low occupancy.
+  warn(NumbaPerformanceWarning(msg))
+{"n": 2596000, "m": 60, "gpu_s": 736.0}
+/home/Student/s4699158/miniconda3/envs/torch_env/lib/python3.11/site-packages/numba/cuda/dispatcher.py:536: NumbaPerformanceWarning: Grid size 38 will likely result in GPU under-utilization due to low occupancy.
+  warn(NumbaPerformanceWarning(msg))
+[2026-10-18T10:15:52.013] error: *** JOB 671109 ON a100-5 CANCELLED AT 2026-10-18T10:15:52 DUE TO TIME LIMIT ***

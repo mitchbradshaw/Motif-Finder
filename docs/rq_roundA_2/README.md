@@ -83,7 +83,8 @@ on it time out. The states were checked by hand instead.
    is, warned.~~ Decided 2026-10-18: as recommended (RQ4b, *Decisions already made*).
 2. **The overnight `auto` profiles** (RQ4b): `mp_threshold`'s variants and `mp_motifs` use `backend: stump`, so they do
    not read the overnight profiles; `auto` variants, or an alias once `scripts/measure_gpu_stump.py` has run on the
-   A100.
+   A100. *Measured 2026-10-18: the backends agree within float rounding (no sample changes side), so the alias is
+   now the recommendation (RQ4b).*
 3. ~~**The windowed null and the rescue** (RQ4b, "The stitch, the null and Explore").~~ Decided 2026-10-18: the
    rescue is kept.
 4. **The backfill** for the dip searches' *Add N matches*:

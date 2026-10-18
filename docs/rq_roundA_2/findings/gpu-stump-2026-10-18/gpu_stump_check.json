@@ -1,0 +1,120 @@
+{
+  "stumpy": "1.14.1",
+  "numpy": "2.4.3",
+  "node": "a100-1",
+  "cpus": "8",
+  "runs": [
+    {
+      "n": 50000,
+      "m": 60,
+      "cpu_s": 1.04,
+      "gpu_s": 8.14,
+      "max_abs_diff": 2.8892799264212954e-10,
+      "max_rel_diff": 6.483846543313753e-11,
+      "p999_rel_diff": 4.1085245811046634e-11,
+      "same_finite": true,
+      "index_agreement": 1.0,
+      "cuts": {
+        "6": {
+          "samples_changing_side": 0,
+          "spans_cpu": 145,
+          "spans_gpu": 145
+        },
+        "8": {
+          "samples_changing_side": 0,
+          "spans_cpu": 0,
+          "spans_gpu": 0
+        },
+        "10": {
+          "samples_changing_side": 0,
+          "spans_cpu": 0,
+          "spans_gpu": 0
+        }
+      }
+    },
+    {
+      "n": 50000,
+      "m": 600,
+      "cpu_s": 1.4,
+      "gpu_s": 8.2,
+      "max_abs_diff": 1.2070344723724702e-10,
+      "max_rel_diff": 7.116593510626431e-12,
+      "p999_rel_diff": 5.327501697366702e-12,
+      "same_finite": true,
+      "index_agreement": 1.0,
+      "cuts": {
+        "6": {
+          "samples_changing_side": 0,
+          "spans_cpu": 8,
+          "spans_gpu": 8
+        },
+        "8": {
+          "samples_changing_side": 0,
+          "spans_cpu": 23,
+          "spans_gpu": 23
+        },
+        "10": {
+          "samples_changing_side": 0,
+          "spans_cpu": 67,
+          "spans_gpu": 67
+        }
+      }
+    },
+    {
+      "n": 200000,
+      "m": 60,
+      "cpu_s": 15.95,
+      "gpu_s": 32.46,
+      "max_abs_diff": 9.740759310261637e-10,
+      "max_rel_diff": 2.3250452509788258e-10,
+      "p999_rel_diff": 1.3806341169152537e-10,
+      "same_finite": true,
+      "index_agreement": 1.0,
+      "cuts": {
+        "6": {
+          "samples_changing_side": 0,
+          "spans_cpu": 269,
+          "spans_gpu": 269
+        },
+        "8": {
+          "samples_changing_side": 0,
+          "spans_cpu": 0,
+          "spans_gpu": 0
+        },
+        "10": {
+          "samples_changing_side": 0,
+          "spans_cpu": 0,
+          "spans_gpu": 0
+        }
+      }
+    },
+    {
+      "n": 200000,
+      "m": 600,
+      "cpu_s": 17.61,
+      "gpu_s": 32.51,
+      "max_abs_diff": 6.634301996655267e-10,
+      "max_rel_diff": 3.311176210414026e-11,
+      "p999_rel_diff": 2.285483924531357e-11,
+      "same_finite": true,
+      "index_agreement": 1.0,
+      "cuts": {
+        "6": {
+          "samples_changing_side": 0,
+          "spans_cpu": 16,
+          "spans_gpu": 16
+        },
+        "8": {
+          "samples_changing_side": 0,
+          "spans_cpu": 135,
+          "spans_gpu": 135
+        },
+        "10": {
+          "samples_changing_side": 0,
+          "spans_cpu": 252,
+          "spans_gpu": 252
+        }
+      }
+    }
+  ]
+}
