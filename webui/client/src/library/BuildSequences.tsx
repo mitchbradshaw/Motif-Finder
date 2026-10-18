@@ -34,6 +34,8 @@ export function BuildSequences({ onKept }: { onKept: (r: LibSeqKeep) => void }) 
   const [preview, setPreview] = useState<LibSeqPreview | null>(null)
   const [busy, setBusy] = useState<'preview' | 'keep' | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  // the last keep, so its first family opens straight from here (under the grouping that keep saved)
+  const [lastKept, setLastKept] = useState<LibSeqKeep | null>(null)
 
   // the picker: channels holding two or more labelled members, busiest first (the bridge's list)
   useEffect(() => {
@@ -57,6 +59,7 @@ export function BuildSequences({ onKept }: { onKept: (r: LibSeqKeep) => void }) 
       push({ text: r.created ? `Kept ${fmtInt(r.created)} sequence${r.created === 1 ? '' : 's'}${r.already ? ` (${fmtInt(r.already)} already kept)` : ''} · grouping ${r.grouping} · ${fmtInt(r.families)} families`
         : `All ${fmtInt(r.already)} were already kept — nothing written` })
       setPreview(await previewLibrarySequences({ ...body(), recording_id: preview.recordingId }))
+      setLastKept(r)
       onKept(r)
     } catch (e) { setErr((e as Error).message) } finally { setBusy(null) }
   }
@@ -101,6 +104,16 @@ export function BuildSequences({ onKept }: { onKept: (r: LibSeqKeep) => void }) 
         <Button variant="primary" size="sm" icon="check" testid="build-sequences-keep" loading={busy === 'keep'} onClick={keep}
           disabled={!!keepReason || !!busy} disabledReason={keepReason || 'working…'}>Keep {fresh ? fmtInt(fresh) : ''} these</Button>
       </div>
+      {lastKept?.grouping && lastKept.kept.length > 0 && (() => {
+        const first = lastKept.kept.find(k => k.created) ?? lastKept.kept[0]
+        return (
+          <div className="lib-cap" style={{ marginTop: 8 }} data-testid="build-sequences-kept">
+            kept into grouping {lastKept.grouping} · {fmtInt(lastKept.families)} label-chain families{' · '}
+            <Button variant="link" size="sm" testid="build-sequences-open-kept"
+              onClick={() => navigate(`library/family/${first.key}?unit=sequences&grouping=${lastKept.grouping}`)}>open family {first.key.split('.').join(' → ')}</Button>
+          </div>
+        )
+      })()}
       {err && <div className="lib-cap" role="alert" style={{ color: 'var(--red)', marginTop: 8 }} data-testid="build-sequences-error">{err}</div>}
       {preview && (
         <div className="stack" style={{ gap: 8, marginTop: 12 }} data-testid="build-sequences-preview-result">
