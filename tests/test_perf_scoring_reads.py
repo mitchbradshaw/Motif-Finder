@@ -546,6 +546,43 @@ def test_concurrent_reads_of_a_stale_map_schedule_one_recompute(scored_file):
     assert corpus.coverage_status()["computed"] == done + 1, "six readers of one stale map recomputed it more than once"
 
 
+def test_a_poll_while_the_recompute_is_queued_does_not_fingerprint_again(scored_file, monkeypatch):
+    """The page re-reads every 3 s while the map is stale; on 5 M detections each fingerprint holds the interpreter
+    ~0.3-0.5 s. While the recompute of a key is queued or running a read answers the last map, still marked stale,
+    without fingerprinting; the read after the worker finishes fingerprints again and is fresh."""
+    import threading
+    corpus = _corpus()
+    conn, path = scored_file["conn"], scored_file["path"]
+    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+    corpus.coverage(conn, "cache.mat", bins=10, db_path=path)
+    assert corpus.wait_coverage_idle(120)
+    before = _without_timing(corpus.coverage(conn, "cache.mat", bins=10, db_path=path))
+    gate = threading.Event()
+    real = corpus._coverage
+    monkeypatch.setattr(corpus, "_coverage", lambda *a, **kw: gate.wait(60) and real(*a, **kw))
+    _new_annotation(scored_file)
+    conn.commit()
+    try:
+        assert corpus.coverage(conn, "cache.mat", bins=10, db_path=path)["stale"] is True    # this one schedules
+        calls = {"n": 0}
+        real_fp = corpus.SB.channels_fingerprint
+
+        def counted(*a, **kw):
+            calls["n"] += 1
+            return real_fp(*a, **kw)
+        monkeypatch.setattr(corpus.SB, "channels_fingerprint", counted)
+        for _ in range(3):
+            polled = _without_timing(corpus.coverage(conn, "cache.mat", bins=10, db_path=path))
+            assert polled["stale"] is True and polled["stale_since"]
+            assert {k: v for k, v in polled.items() if k not in ("stale", "stale_since")} == before
+        assert calls["n"] == 0, "a poll of a queued recompute fingerprinted the channels again"
+    finally:
+        gate.set()
+    assert corpus.wait_coverage_idle(120)
+    after = _without_timing(corpus.coverage(conn, "cache.mat", bins=10, db_path=path))
+    assert "stale" not in after and after != before and calls["n"] >= 1
+
+
 def test_the_start_up_warm_goes_through_the_worker(scored_file, monkeypatch):
     """`warm_coverage` schedules every file's home map on the same queue; the parent computes none of them."""
     corpus = _corpus()

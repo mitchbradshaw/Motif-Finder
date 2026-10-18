@@ -305,12 +305,20 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
            bool(is_held_out(conn, source_file)))
     # AR: only the settings the map reads (COVERAGE_SETTINGS). Memory compares the in-process digest (cheap); a miss
     # there computes the digest stable across restarts, which keys the copy kept on disk
-    fp = SB.channels_fingerprint(conn, rec_ids, settings_keys=COVERAGE_SETTINGS)
+    if db_path:
+        behind = _while_queued(conn, key)
+        if behind is not None:
+            behind["compute_ms"] = (time.perf_counter() - t0) * 1e3
+            return behind
+    # corpus-map-off-the-request: one memo for both digests of this read, so the stable one (a miss in memory)
+    # reuses the rows the in-process one already read instead of reading every channel's runs a second time
+    memo = {}
+    fp = SB.channels_fingerprint(conn, rec_ids, memo, settings_keys=COVERAGE_SETTINGS)
     hit = _COVERAGE_CACHE.get(key)
     if hit is not None and hit[0] == fp:
         out = copy.deepcopy(hit[1])
     elif db_path:
-        out = _read_behind(conn, key, fp, rec_ids, db_path)
+        out = _read_behind(conn, key, fp, rec_ids, db_path, memo)
     else:
         # ux-1018: one flight per key. The startup warm and a page's request for the same map used to compute it
         # side by side (two ~10 s divergences over M2_aug's 16 channels, competing for the GIL and SQLite); the
@@ -320,7 +328,7 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
             if hit is not None and hit[0] == fp:
                 out = copy.deepcopy(hit[1])
             else:
-                disk_fp = SB.channels_fingerprint(conn, rec_ids, settings_keys=COVERAGE_SETTINGS, stable=True)
+                disk_fp = SB.channels_fingerprint(conn, rec_ids, memo, settings_keys=COVERAGE_SETTINGS, stable=True)
                 out = _disk_read(key, disk_fp)
                 if out is None:
                     out = _coverage(conn, source_file, bins=bins, verdicts=verdicts, run_ids=run_ids, method=method)
@@ -337,12 +345,12 @@ def _remember(key, fp, out):
     _COVERAGE_CACHE[key] = (fp, copy.deepcopy(out))
 
 
-def _read_behind(conn, key, fp, rec_ids, db_path) -> dict:
+def _read_behind(conn, key, fp, rec_ids, db_path, memo=None) -> dict:
     """The read that never computes (see `coverage`): fresh from disk, else the last map marked stale, else the
     empty shape marked pending — and the recompute scheduled."""
     import copy
 
-    disk_fp = SB.channels_fingerprint(conn, rec_ids, settings_keys=COVERAGE_SETTINGS, stable=True)
+    disk_fp = SB.channels_fingerprint(conn, rec_ids, memo, settings_keys=COVERAGE_SETTINGS, stable=True)
     held = _disk_read_any(key)
     if held is not None and held[0] == disk_fp:
         _remember(key, fp, held[1])
@@ -364,6 +372,33 @@ def _read_behind(conn, key, fp, rec_ids, db_path) -> dict:
         return out
     out = _CM.empty(conn, source_file, bins=bins, held_out=held_out)
     out["pending"] = True
+    return out
+
+
+def _while_queued(conn, key):
+    """While a recompute of `key` is queued or running, the answer a poll gets without fingerprinting again: the
+    last map marked stale, or the empty shape marked pending. Each fingerprint holds the interpreter ~0.3 s on a
+    5 M-detection database and the page polls every 3 s for as long as the recompute takes; the read after the
+    worker finishes fingerprints as usual, so a change made meanwhile is still noticed (and recomputed).
+    None when nothing for `key` is queued."""
+    import copy
+
+    with _WORK_LOCK:
+        cur = _WORK["in_flight"]
+        queued = _WORK["pending"].get(key) or (cur if cur is not None and cur["key"] == key else None)
+        seen = _FIRST_SEEN.get(key)
+    if queued is None:
+        return None
+    hit = _COVERAGE_CACHE.get(key)
+    held = None if hit is not None else _disk_read_any(key)
+    last = hit[1] if hit is not None else (held[1] if held is not None else None)
+    if last is None:
+        out = _CM.empty(conn, key[0], bins=key[1], held_out=key[5])
+        out["pending"] = True
+        return out
+    out = copy.deepcopy(last)
+    out["stale"] = True
+    out["stale_since"] = seen[1] if seen is not None else time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     return out
 
 
