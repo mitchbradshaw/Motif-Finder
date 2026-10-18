@@ -1,0 +1,528 @@
+[
+ {
+  "page": "analyse.interrogation.slope",
+  "state": "ig-pages-slope-leads-anatomy-rose-strip-rest-folded",
+  "hash": "analyse/interrogation/block/1",
+  "settle_ms": 1500,
+  "_why": "ig-pages: the slope page leads with the anatomy plot, the rose (the overlay for a large family) and the ten-thumbnail strip; the readout, the rules and the per-event table are folded under one 'more (3)' toggle, folded by default",
+  "actions": [
+   {
+    "click_if": "[data-testid=\"headline-toggle\"][aria-expanded=\"true\"]"
+   },
+   {
+    "wait": 300
+   }
+  ],
+  "expect": [
+   "[data-testid=\"headline\"]",
+   "[data-testid=\"anatomy-plot\"]",
+   "[data-testid=\"rose-card\"]",
+   "[data-testid=\"event-strip\"]",
+   "[data-testid=\"headline-more\"][data-open=\"0\"]",
+   "[data-testid=\"headline-toggle\"]:has-text(\"more (3)\")"
+  ],
+  "expect_absent": [
+   "[data-testid=\"per-event-table\"]",
+   "[data-testid=\"event-readout\"]",
+   "[data-testid=\"rules-card\"]",
+   "[data-testid=\"headline-folded\"]",
+   "[data-testid=\"render-error\"]",
+   "[data-testid=\"generic-process\"]"
+  ]
+ },
+ {
+  "page": "analyse.interrogation.slope",
+  "state": "ig-pages-slope-more-reveals-the-table-readout-rules",
+  "hash": "analyse/interrogation/block/1",
+  "settle_ms": 1500,
+  "_why": "ig-pages: opening 'more' reveals the readout, the rules and the per-event table, and the page remembers it is open (localStorage ub-headline:interrogation-slope)",
+  "actions": [
+   {
+    "click_if": "[data-testid=\"headline-toggle\"][aria-expanded=\"false\"]"
+   },
+   {
+    "wait": 400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"headline-more\"][data-open=\"1\"]",
+   "[data-testid=\"per-event-table\"]",
+   "[data-testid=\"events-table\"]",
+   "[data-testid=\"event-readout\"]",
+   "[data-testid=\"rules-card\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"render-error\"]",
+   "[data-testid=\"generic-process\"]"
+  ]
+ },
+ {
+  "page": "analyse.interrogation.aggregate",
+  "state": "ig-pages-aggregate-leads-histograms-timeline-scaling",
+  "hash": "analyse/interrogation/block/2",
+  "settle_ms": 1500,
+  "_why": "ig-pages: the aggregate page leads with the three histograms (one row), the event timeline, then the scaling scatter, the stat tiles a thin strip of four beneath; parameters, rules and the feature wiring are folded",
+  "actions": [
+   {
+    "click_if": "[data-testid=\"headline-toggle\"][aria-expanded=\"true\"]"
+   },
+   {
+    "wait": 300
+   }
+  ],
+  "expect": [
+   "[data-testid=\"headline\"]",
+   "[data-testid=\"hist-first\"]",
+   "[data-testid=\"timeline-card\"]",
+   "[data-testid=\"scaling-card\"]",
+   "[data-testid=\"aggregate-tiles\"]",
+   "[data-testid=\"tile-events\"]",
+   "[data-testid=\"headline-more\"][data-open=\"0\"]",
+   "[data-testid=\"headline-toggle\"]:has-text(\"more (3)\")"
+  ],
+  "expect_absent": [
+   "[data-testid=\"parameters-card\"]",
+   "[data-testid=\"measure-rules\"]",
+   "[data-testid=\"generic-note\"]",
+   "[data-testid=\"render-error\"]",
+   "[data-testid=\"generic-process\"]"
+  ]
+ },
+ {
+  "page": "analyse.interrogation.aggregate",
+  "state": "ig-pages-aggregate-more-reveals-parameters-rules-wiring",
+  "hash": "analyse/interrogation/block/2",
+  "settle_ms": 1500,
+  "_why": "ig-pages: opening 'more' reveals the parameters card, the measure rules and the feature-wiring note",
+  "actions": [
+   {
+    "click_if": "[data-testid=\"headline-toggle\"][aria-expanded=\"false\"]"
+   },
+   {
+    "wait": 400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"headline-more\"][data-open=\"1\"]",
+   "[data-testid=\"parameters-card\"]",
+   "[data-testid=\"measure-rules\"]",
+   "[data-testid=\"open-wiring\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"render-error\"]",
+   "[data-testid=\"generic-process\"]"
+  ]
+ },
+ {
+  "page": "analyse.chain",
+  "state": "ig-pages-event-trains-chain-runs",
+  "hash": "analyse/chain",
+  "settle_ms": 900,
+  "_why": "ig-pages: Import event_trains (the drop detector -> Event shape -> Trains (logISI, write_group) -> Intervals) on the example span and run it; the three feature rows draw",
+  "actions": [
+   {
+    "press": "Escape"
+   },
+   {
+    "wait": 300
+   },
+   {
+    "click": "[data-testid=\"import-button\"]"
+   },
+   {
+    "wait": 400
+   },
+   {
+    "click": "[data-testid=\"template-event_trains\"]"
+   },
+   {
+    "wait": 600
+   },
+   {
+    "click_if": "[data-testid=\"use-example\"]"
+   },
+   {
+    "wait": 900
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"run-button\"]:not([disabled])",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"run-button\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"row-plot-6\"] svg[data-render=\"spanset\"]",
+     300000
+    ]
+   },
+   {
+    "wait": 800
+   }
+  ],
+  "expect": [
+   "[data-testid=\"row-plot-4\"] svg[data-render=\"spanset\"]",
+   "[data-testid=\"row-plot-5\"] svg[data-render=\"spanset\"]",
+   "[data-testid=\"row-plot-6\"] svg[data-render=\"spanset\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"render-error\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "ig-pages-trains-leads-density-sizes-timeline",
+  "hash": "analyse/block/4",
+  "settle_ms": 2500,
+  "_why": "ig-pages: the Trains page leads with the log-interval density WITH its cut line (amber marker), the train-size histogram and the timeline with each train as a bar; everything else (measures, table, rules, spans strip, slideshow, durations) is under one folded 'more'. If the walk's span has one hump the density draws with data-has-cut=0 and says 'no valley' - check the run before calling it a fault",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"headline\"]",
+     60000
+    ]
+   },
+   {
+    "click_if": "[data-testid=\"headline-toggle\"][aria-expanded=\"true\"]"
+   },
+   {
+    "wait": 300
+   }
+  ],
+  "expect": [
+   "[data-testid=\"headline\"]",
+   "[data-testid=\"trains-density\"][data-has-cut=\"1\"] [data-testid=\"trains-density-plot\"] svg",
+   "[data-testid=\"trains-sizes\"]",
+   "[data-testid=\"trains-timeline\"] svg",
+   "[data-testid=\"headline-more\"][data-open=\"0\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"headline-folded\"]",
+   "[data-testid=\"feature-table\"]",
+   "[data-testid=\"trains-density-note\"]",
+   "[data-testid=\"render-error\"]",
+   "[data-testid=\"generic-process\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "ig-pages-trains-more-reveals-the-per-event-table",
+  "hash": "analyse/block/4",
+  "settle_ms": 2500,
+  "_why": "ig-pages: opening 'more' on the Trains page reveals the per-event table and the folded spans strip, slideshow and durations",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"headline\"]",
+     60000
+    ]
+   },
+   {
+    "click_if": "[data-testid=\"headline-toggle\"][aria-expanded=\"false\"]"
+   },
+   {
+    "wait": 400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"headline-more\"][data-open=\"1\"]",
+   "[data-testid=\"headline-folded\"] [data-testid=\"feature-table\"]",
+   "[data-fold=\"spans\"]",
+   "[data-fold=\"slideshow\"]",
+   "[data-fold=\"durations\"]",
+   "[data-fold=\"rules\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"render-error\"]",
+   "[data-testid=\"generic-process\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "ig-pages-event-shape-leads-rose-and-histograms",
+  "hash": "analyse/block/3",
+  "settle_ms": 2500,
+  "_why": "ig-pages: the Event shape page leads with the rose and the feature histograms; the table, rules and spans are folded",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"headline\"]",
+     60000
+    ]
+   },
+   {
+    "click_if": "[data-testid=\"headline-toggle\"][aria-expanded=\"true\"]"
+   },
+   {
+    "wait": 300
+   }
+  ],
+  "expect": [
+   "[data-testid=\"rose-fan\"] [data-render=\"rose\"]",
+   "[data-testid=\"feature-histograms\"] svg",
+   "[data-testid=\"headline-more\"][data-open=\"0\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"feature-table\"]",
+   "[data-testid=\"headline-folded\"]",
+   "[data-testid=\"render-error\"]",
+   "[data-testid=\"generic-process\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "ig-pages-event-shape-more-reveals-the-table",
+  "hash": "analyse/block/3",
+  "settle_ms": 2500,
+  "_why": "ig-pages: opening 'more' on the Event shape page reveals the per-event table and the rules",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"headline\"]",
+     60000
+    ]
+   },
+   {
+    "click_if": "[data-testid=\"headline-toggle\"][aria-expanded=\"false\"]"
+   },
+   {
+    "wait": 400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"headline-more\"][data-open=\"1\"]",
+   "[data-testid=\"headline-folded\"] [data-testid=\"feature-table\"]",
+   "[data-testid=\"measure-rules\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"render-error\"]",
+   "[data-testid=\"generic-process\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "ig-pages-intervals-timeline-gap-labels-and-legend",
+  "hash": "analyse/block/5",
+  "settle_ms": 2500,
+  "_why": "ig-pages: the Intervals page leads with the timeline (events as ticks coloured by depth thirds, the distance written on each gap that fits), the legend naming the rule, the interval statistics table and the interval histogram; the rest folded",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"interval-timeline\"]",
+     60000
+    ]
+   },
+   {
+    "click_if": "[data-testid=\"headline-toggle\"][aria-expanded=\"true\"]"
+   },
+   {
+    "wait": 300
+   }
+  ],
+  "expect": [
+   "[data-testid=\"interval-timeline\"][data-rule=\"depth\"][data-within=\"all\"]",
+   "[data-testid=\"interval-gap-label\"]",
+   "[data-testid=\"interval-legend-rule\"]",
+   "[data-testid=\"interval-legend\"] i",
+   "[data-testid=\"interval-stats\"]",
+   "[data-testid=\"interval-histogram\"]",
+   "[data-testid=\"headline-more\"][data-open=\"0\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"feature-table\"]",
+   "[data-testid=\"headline-folded\"]",
+   "[data-testid=\"render-error\"]",
+   "[data-testid=\"generic-process\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "ig-pages-intervals-within-one-class",
+  "hash": "analyse/block/5",
+  "settle_ms": 2500,
+  "_why": "ig-pages: 'intervals within' the first colour class: the written distances are between events of that class only (the others dimmed), and the statistics table beneath is that class's, from the bridge",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"interval-within\"]",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"interval-within\"] button:nth-child(2)"
+   },
+   {
+    "wait": 400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"interval-timeline\"]:not([data-within=\"all\"])",
+   "[data-testid=\"interval-stats-within\"], [data-testid=\"interval-stats-empty\"]",
+   "[data-testid=\"interval-within\"] button.on:nth-child(2)"
+  ],
+  "expect_absent": [
+   "[data-testid=\"render-error\"]",
+   "[data-testid=\"generic-process\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "ig-pages-intervals-more-reveals-the-table",
+  "hash": "analyse/block/5",
+  "settle_ms": 2500,
+  "_why": "ig-pages: opening 'more' on the Intervals page reveals the per-event table, the measures and the rules",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"headline\"]",
+     60000
+    ]
+   },
+   {
+    "click_if": "[data-testid=\"headline-toggle\"][aria-expanded=\"false\"]"
+   },
+   {
+    "wait": 400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"headline-more\"][data-open=\"1\"]",
+   "[data-testid=\"headline-folded\"] [data-testid=\"feature-table\"]",
+   "[data-fold=\"measures\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"render-error\"]",
+   "[data-testid=\"generic-process\"]"
+  ]
+ },
+ {
+  "page": "analyse.chain",
+  "state": "ig-pages-cycle-shapes-chain-runs",
+  "hash": "analyse/chain",
+  "settle_ms": 900,
+  "_why": "ig-pages: noise_threshold with Cycle shapes inserted at 3 (as w3-cycle-shapes-thumbnails), run on the example span",
+  "actions": [
+   {
+    "press": "Escape"
+   },
+   {
+    "wait": 300
+   },
+   {
+    "click": "[data-testid=\"import-button\"]"
+   },
+   {
+    "wait": 400
+   },
+   {
+    "click": "[data-testid=\"template-noise_threshold\"]"
+   },
+   {
+    "wait": 600
+   },
+   {
+    "click_if": "[data-testid=\"use-example\"]"
+   },
+   {
+    "wait": 900
+   },
+   {
+    "click": "[data-testid=\"insert-2\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"modal-card-interrogation.cycle_shapes\"]:not([disabled])",
+     20000
+    ]
+   },
+   {
+    "click": "[data-testid=\"modal-card-interrogation.cycle_shapes\"]:not([disabled])"
+   },
+   {
+    "wait": 300
+   },
+   {
+    "click": "[data-testid=\"modal-insert\"]"
+   },
+   {
+    "wait": 700
+   },
+   {
+    "hash": "analyse/chain"
+   },
+   {
+    "wait": 900
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"run-button\"]:not([disabled])",
+     60000
+    ]
+   },
+   {
+    "click": "[data-testid=\"run-button\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"row-plot-3\"] svg[data-render=\"spanset\"]",
+     180000
+    ]
+   },
+   {
+    "wait": 800
+   }
+  ],
+  "expect": [
+   "[data-testid=\"row-plot-3\"] svg[data-render=\"spanset\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"render-error\"]",
+   "[data-testid=\"run-refused-slurm\"]"
+  ]
+ },
+ {
+  "page": "analyse.block",
+  "state": "ig-pages-cycle-shapes-leads-the-stack",
+  "hash": "analyse/block/2",
+  "settle_ms": 2500,
+  "_why": "ig-pages: the Cycle shapes page leads with the stacked-cycle heatmap; the measures, table, rules and spans are folded; opening 'more' reveals the per-event table",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"cycle-stack\"]",
+     60000
+    ]
+   },
+   {
+    "click_if": "[data-testid=\"headline-toggle\"][aria-expanded=\"true\"]"
+   },
+   {
+    "wait": 300
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"headline-more\"][data-open=\"0\"]",
+     5000
+    ]
+   },
+   {
+    "click_if": "[data-testid=\"headline-toggle\"][aria-expanded=\"false\"]"
+   },
+   {
+    "wait": 400
+   }
+  ],
+  "expect": [
+   "[data-testid=\"cycle-stack\"]",
+   "[data-testid=\"headline-more\"][data-open=\"1\"]",
+   "[data-testid=\"headline-folded\"] [data-testid=\"feature-table\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"render-error\"]",
+   "[data-testid=\"generic-process\"]"
+  ]
+ }
+]

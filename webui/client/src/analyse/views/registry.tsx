@@ -20,7 +20,9 @@ import { EnvelopePath, SpanBands } from '../../charts/primitives'
 import { clamp, makeX, makeY, polylinePath, type XScale } from '../../charts/scale'
 import { useSize } from '../../charts/useSize'
 import { axisUnit } from '../../charts/units'
-import { Button, EmptyState, Histogram, InfoTip, Rose } from '../../kit'
+import { Button, EmptyState, Headline, Histogram, InfoTip, Rose, type HeadlineFold } from '../../kit'
+import { IntervalTimelinePanel } from './IntervalTimeline'
+import { TrainsFigures } from './TrainsView'
 import { fmtHours, navigate } from '../../state'
 import { DetectorFunnel, funnelOf } from '../DetectorFunnel'
 import { MseCurves, curvesOf } from '../MseCurves'
@@ -178,7 +180,11 @@ function useSendToReview(q: ProcessProps, n: number) {
   return <Button variant="primary" icon="arrow-right" onClick={send} disabled={!!reason || busy} disabledReason={reason} loading={busy} testid="send-to-review">Send {n} to Review</Button>
 }
 
-function SpanSetProcess({ q, lead, featuresFirst }: { q: ProcessProps; lead?: ReactNode; featuresFirst?: boolean }) {
+/** ig-pages: a page that leads with some figures and folds the rest (`Headline`): the spans strip, the funnel, the
+ *  slideshow and the durations join `extra` behind the one "more" toggle. */
+interface SpanFold { page: string; leads: ReactNode; extra: (HeadlineFold | null | false)[] }
+
+function SpanSetProcess({ q, lead, featuresFirst, fold }: { q: ProcessProps; lead?: ReactNode; featuresFirst?: boolean; fold?: SpanFold }) {
   const p = as<SpansetPayload>(q.payload, 'spanset')
   const [selected, setSelected] = useState<number | null>(null)
   const action = useSendToReview(q, p?.n ?? 0)
@@ -221,6 +227,15 @@ function SpanSetProcess({ q, lead, featuresFirst }: { q: ProcessProps; lead?: Re
         {p.marks && <span>overlapping windows are shared context, not double-counting</span>}
       </div>
     </>
+  )
+  if (fold) return (
+    <Headline page={fold.page} leads={fold.leads} folded={[
+      ...fold.extra,
+      { key: 'spans', node: <div><div className="bp-card-title" style={{ marginTop: 2 }}><h3 style={{ fontSize: 13 }}>The spans that were measured</h3><span className="sg">passed through unchanged from the stage before</span></div>{spans}</div> },
+      funnel && { key: 'funnel', node: <DetectorFunnel funnel={funnel} /> },
+      { key: 'slideshow', node: <SpanSlideshow p={p} t0={q.ctx.t0} t1={q.ctx.t1} load={load} selected={selected} onSelect={setSelected} action={action} unit={q.sourceUnit || 'as stored'} /> },
+      { key: 'durations', node: <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Span durations</h3><span className="sg">{p.n} span{p.n === 1 ? '' : 's'}</span></div><DurationHistogram p={p} /></div> },
+    ]} />
   )
   return (
     <>
@@ -431,24 +446,34 @@ function SpansToSpans(q: ProcessProps) {
       <FamilyTable families={p.families} summary={p.family_summary} unit="events" />
     </div>
   ) : null
-  const lead = !p.features ? <div className="muted mono small" style={{ marginBottom: 8 }}>this block returned its spans with no measures attached</div> : (
-    <div className="stack" style={{ gap: 12, marginBottom: 14 }} data-testid="event-features">
-      {p.features_unit_note && <div className="callout warn small" data-testid="features-unit-note" style={{ padding: '6px 10px', background: '#fff7e6', borderRadius: 6 }}>{p.features_unit_note}</div>}
-      <div>
-        <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>What was measured</h3><span className="sg">{p.n} events · one distribution per measure · the rule behind each is under its ⓘ</span></div>
-        <FeatureHistograms p={p} />
-      </div>
-      {p.rose && <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Steepest slope, each event as one angle</h3></div><Rose rose={p.rose} testid="rose-fan" /></div>}
-      {p.interval_stats && <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Inter-event intervals</h3><span className="sg">per group, never pooled</span></div><IntervalStatsTable stats={p.interval_stats} /></div>}
-      <details data-testid="feature-table-fold">
-        <summary className="muted" style={{ cursor: 'pointer', fontSize: 11.5 }}>the per-event table · {p.features.n_columns} columns × {p.n} rows</summary>
-        <FeatureTable table={p.features} />
-      </details>
-      {p.rules && <RulesList rules={p.rules} />}
-      <div className="bp-card-title" style={{ marginTop: 2 }}><h3 style={{ fontSize: 13 }}>The spans that were measured</h3><span className="sg">passed through unchanged from the stage before</span></div>
+  // ig-pages (decided with the researcher, 2026-10-18): each kind of feature page leads with its own figures and
+  // folds everything else under one "more" toggle. Chosen by what the payload carries, never by the block's name:
+  // a cycle stack (Cycle shapes), trains (Trains), interval statistics (Intervals), a rose (Event shape), else the
+  // measures' histograms.
+  const kind = cycleStackOf(p) ? 'cycles' : p.trains ? 'trains' : p.interval_stats ? 'intervals' : p.rose ? 'shape' : 'measures'
+  const unitNote = p.features_unit_note ? <div className="callout warn small" data-testid="features-unit-note" style={{ padding: '6px 10px', background: '#fff7e6', borderRadius: 6 }}>{p.features_unit_note}</div> : null
+  const measures = p.features ? (
+    <div data-testid="event-features">
+      <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>What was measured</h3><span className="sg">{p.n} events · one distribution per measure · the rule behind each is under its ⓘ</span></div>
+      <FeatureHistograms p={p} />
     </div>
-  )
-  return <SpanSetProcess q={q} lead={<>{cycles}{families}{lead}</>} featuresFirst />
+  ) : <div className="muted mono small" data-testid="event-features-none">this block returned its spans with no measures attached</div>
+  const rose = p.rose ? <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Steepest slope, each event as one angle</h3></div><Rose rose={p.rose} testid="rose-fan" /></div> : null
+  const intervals = !p.interval_stats ? null : p.interval_classes
+    ? <IntervalTimelinePanel ic={p.interval_classes} t0={q.ctx.t0} t1={q.ctx.t1} stats={p.interval_stats} />
+    : <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Inter-event intervals</h3><span className="sg">per group, never pooled</span></div><IntervalStatsTable stats={p.interval_stats} /></div>
+  const leadOf: Record<typeof kind, ReactNode> = {
+    cycles, trains: <TrainsFigures p={p} t0={q.ctx.t0} t1={q.ctx.t1} />, intervals, shape: <>{rose}{measures}</>, measures,
+  }
+  const leads = <>{families}{unitNote}{leadOf[kind]}</>
+  const extra: (HeadlineFold | null | false)[] = [
+    kind !== 'shape' && kind !== 'measures' && { key: 'measures', node: measures },
+    kind !== 'shape' && !!rose && { key: 'rose', node: rose },
+    kind !== 'intervals' && !!intervals && { key: 'intervals', node: intervals },
+    !!p.features && { key: 'table', node: <div data-testid="feature-table-fold"><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>The per-event table</h3><span className="sg">{p.features.n_columns} columns × {p.n} rows</span></div><FeatureTable table={p.features} /></div> },
+    !!p.rules && { key: 'rules', node: <RulesList rules={p.rules} /> },
+  ]
+  return <SpanSetProcess q={q} featuresFirst fold={{ page: `analyse-block:${q.step.stage}.${q.step.algorithm}`, leads, extra }} />
 }
 
 /* ---------------- Encoding ---------------- */

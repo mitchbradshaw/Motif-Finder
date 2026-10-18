@@ -25,3 +25,4 @@ export { useDemoState, recordDemoWrite, useDemoWrites, getDemo, setDemo, type De
 export { useSim, startSim, cancelSim, resetSim, forceSim, getSim, type SimStatus, type SimOptions, type SimState } from './sim'
 export { useNotWired } from './notWired'
 export { KitGallery } from './Gallery'
+export { Headline, type HeadlineFold, type HeadlineProps } from './Headline'

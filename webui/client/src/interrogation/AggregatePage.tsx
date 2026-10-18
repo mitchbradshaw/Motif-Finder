@@ -23,7 +23,7 @@
  * null, once, on its face. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Badge, Button, Callout, Chip, ColourDot, Dropdown, EmptyState, Icon, InfoTip, Legend, LineChart,
+  Badge, Button, Callout, Chip, ColourDot, Dropdown, EmptyState, Headline, Icon, InfoTip, Legend, LineChart,
   Page, Popover, SectionCard, Seg, StatRow, StatTile, binValues, fmtInt, recordDemoWrite, useNotWired,
   useQueryState, useSim, type BadgeStatus, type HistBin,
 } from '../kit'
@@ -412,6 +412,10 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
             <InfoTip title="Why there is no null">The null this page was designed around is specified (windows drawn from the same channel at matched positions, and onsets shuffled in time) and has not been built. What used to be drawn in grey here was not that: it was the data itself with noise added, and a bell curve centred on the observed range. Both are removed rather than relabelled.</InfoTip>
           </div>
 
+          {/* ig-pages (decided with the researcher, 2026-10-18): the histogram row (one figure), the event timeline
+              and the scaling scatter lead, the stat tiles stay as a thin strip; the parameters, the rules and the
+              feature wiring fold under one "more" toggle */}
+          <Headline page="interrogation-aggregate" testid="headline" leads={<>
           {/* ------------------------------------------------ three distributions ------------------------------------------------ */}
           <div className="ig-grid3">
             {hists.map((h, i) => (
@@ -442,8 +446,8 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
             ))}
           </div>
 
-          {/* ------------------------------------------------ scaling + timeline ------------------------------------------------ */}
-          <div className="ig-cols">
+          {/* ------------------------------------------------ timeline, then scaling ------------------------------------------------ */}
+          <div className="ig-stack">
             <SectionCard testid="scaling-card" title="Scaling"
               info="A power-law fit on log axes: ordinary least squares on log10 x and log10 y over the points drawn. β is the exponent with its 95 % CI. It is not compared with a null — none is built — so it describes these events and is not a test of a relationship. Fewer than 12 points is not a fit and is not shown as one."
               actions={<Dropdown testid="axes" prefix="axes" value={axesQ} onChange={setAxes} options={block.params.axes} disabled={sim.busy} disabledReason={BUSY} />}>
@@ -505,7 +509,7 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
               </div>
             </SectionCard>
 
-            <SectionCard testid="timeline-card" title="When events happened"
+            <SectionCard testid="timeline-card" title="When events happened" style={{ order: -1 }}
               info="One lane per recording, on that recording's own hours-since-start axis (§0). Tick height is the plotted measure, so a recording drifting deeper over time is visible. An event the core did not measure for that height is a hollow stub, not a zero."
               subtitle={<span className="mono">height = {timelineLabel} · {timelineUnit}</span>}>
               <EventTimeline members={events} heightBy={timelineLabel} valueOf={m => featureOf(m, timelineKey, upstream)} unit={timelineUnit}
@@ -514,8 +518,30 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
             </SectionCard>
           </div>
 
-          {/* ------------------------------------------------ parameters + summary ------------------------------------------------ */}
-          <div className="ig-cols">
+          {/* ------------------------------------------------ the stat tiles: a thin strip ------------------------------------------------ */}
+          <div className="ig-stack" data-testid="aggregate-tiles">
+              <StatRow columns={4}>
+                <StatTile label="events" value={String(events.length)} testid="tile-events" />
+                <StatTile label={`β ${pair.label.replace(/ ~ /, '~')}`} value={fit ? fit.beta.toFixed(2) : 'not fitted'} tone={fit ? 'blue' : undefined} testid="tile-beta" />
+                <StatTile label={`interval CV · ${INTERVAL_ENDS[intervalQ]?.label ?? intervalQ}`} value={intervalCv == null ? 'too few' : intervalCv.toFixed(2)} tone={intervalCv == null ? undefined : 'blue'} testid="tile-interval-CV" />
+                <StatTile label={purityQ === 'none' ? 'purity' : up.purity} value={purityQ === 'none' ? 'not checked' : purityPct == null ? '—' : `${purityPct} %`}
+                  tone={purityQ === 'none' || purityPct == null ? undefined : purityPct === 100 ? 'green' : 'blue'} testid="tile-purity" />
+              </StatRow>
+              <div className="ig-row">
+                <Button icon="download" onClick={() => notWired(`export ${events.length} rows and the fitted exponents as CSV`)} testid="aggregate-csv">CSV</Button>
+                <Button icon="file" onClick={() => notWired('export the four figures as PDF with their parameters')} testid="aggregate-figures">Figures</Button>
+                <Button variant="primary" icon="checklist" onClick={sendOutlier} testid="stage-outlier">Stage 1 outlier for Review</Button>
+              </div>
+              <div className="ig-foot"><Icon name="info" size={11} />figures export with parameters and recipe hash beneath</div>
+              {tooFewForStats && (
+                <Callout tone="amber" icon="alert-triangle" testid="too-few-callout">
+                  {fam.id} {fam.name} has {events.length} events in scope · below {MIN_FIT_N} no exponent is fitted
+                </Callout>
+              )}
+              {stale && <Callout tone="amber" icon="alert-triangle" testid="aggregate-stale">01 changed · these views are drawn from the last run</Callout>}
+          </div>
+          </>} folded={[
+            { key: 'parameters', node: (
             <SectionCard testid="parameters-card" title="Parameters"
               info="Nothing on this block is stored with the run: Aggregate holds views. Changing a parameter here re-draws, it does not make 01 stale."
               subtitle={<span className="ig-foot"><Icon name="eye" size={11} /> views only · nothing here is stored</span>}>
@@ -547,35 +573,9 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
                 {hists.map(h => `${h.title.toLowerCase()} ${h.nBins} bins`).join(' · ')} · {outlierNote} · {purityQ === 'none' ? 'purity not checked' : up.purity}
               </div>
             </SectionCard>
-
-            <div className="ig-stack">
-              <StatRow columns={2}>
-                <StatTile label="events" value={String(events.length)} testid="tile-events" />
-                <StatTile label={`β ${pair.label.replace(/ ~ /, '~')}`} value={fit ? fit.beta.toFixed(2) : 'not fitted'} tone={fit ? 'blue' : undefined} testid="tile-beta" />
-                <StatTile label={`interval CV · ${INTERVAL_ENDS[intervalQ]?.label ?? intervalQ}`} value={intervalCv == null ? 'too few' : intervalCv.toFixed(2)} tone={intervalCv == null ? undefined : 'blue'} testid="tile-interval-CV" />
-                <StatTile label={purityQ === 'none' ? 'purity' : up.purity} value={purityQ === 'none' ? 'not checked' : purityPct == null ? '—' : `${purityPct} %`}
-                  tone={purityQ === 'none' || purityPct == null ? undefined : purityPct === 100 ? 'green' : 'blue'} testid="tile-purity" />
-              </StatRow>
-              <div className="ig-row">
-                <Button icon="download" onClick={() => notWired(`export ${events.length} rows and the fitted exponents as CSV`)} testid="aggregate-csv">CSV</Button>
-                <Button icon="file" onClick={() => notWired('export the four figures as PDF with their parameters')} testid="aggregate-figures">Figures</Button>
-                <Button variant="primary" icon="checklist" onClick={sendOutlier} testid="stage-outlier">Stage 1 outlier for Review</Button>
-              </div>
-              <div className="ig-foot"><Icon name="info" size={11} />figures export with parameters and recipe hash beneath</div>
-              {tooFewForStats && (
-                <Callout tone="amber" icon="alert-triangle" testid="too-few-callout">
-                  {fam.id} {fam.name} has {events.length} events in scope · below {MIN_FIT_N} no exponent is fitted
-                </Callout>
-              )}
-              {stale && <Callout tone="amber" icon="alert-triangle" testid="aggregate-stale">01 changed · these views are drawn from the last run</Callout>}
-              <Callout tone="blue" icon="info" testid="generic-note" outlined>
-                <Badge tone="purple">generic</Badge> one block per analysis type (P7) — Aggregate holds no algorithm, it draws whatever {up.block} declares.
-                <Button size="sm" variant="link" onClick={() => setPopover('wiring')} testid="open-wiring">Feature wiring →</Button>
-              </Callout>
-            </div>
-          </div>
-
-          {/* ------------------------------------------------ the rules behind the numbers ------------------------------------------------ */}
+            ) },
+            /* ------------------------------------------------ the rules behind the numbers ------------------------------------------------ */
+            { key: 'rules', node: (
           <SectionCard testid="measure-rules" title="How each measure is defined"
             info="A measure whose rule is unstated cannot be argued with. These are the rules the core measured with, verbatim from the bridge — the same list the Event shape block page prints."
             subtitle={<span className="mono">interrogation.event_shape · recovery {shape.recovery.frac} × amplitude within {shape.recovery.max_mult} widths · rise time {Math.round(shape.riseTimeFrac * 100)}–{Math.round((1 - shape.riseTimeFrac) * 100)} % · {shape.counts.n_stored} of {shape.counts.n} read from motif_features, {shape.counts.n_measured_here} measured on the store snippet for this view</span>}>
@@ -587,6 +587,14 @@ function AggregateBody({ block, upstream }: { block: AggregateBlock; upstream: U
               <div className="ig-foot" style={{ marginTop: 6 }}>{shape.measuredOn}</div>
             </details>
           </SectionCard>
+            ) },
+            { key: 'wiring', node: (
+              <Callout tone="blue" icon="info" testid="generic-note" outlined>
+                <Badge tone="purple">generic</Badge> one block per analysis type (P7) — Aggregate holds no algorithm, it draws whatever {up.block} declares.
+                <Button size="sm" variant="link" onClick={() => setPopover('wiring')} testid="open-wiring">Feature wiring →</Button>
+              </Callout>
+            ) },
+          ]} />
         </>
       )}
 

@@ -1648,3 +1648,24 @@ export const applyDiscoveryTemplatesWindowed = (templates: string[], channels: s
     { templates, channels, t0, t1, run, windows, bands: bands && bands.length ? bands : undefined, exemplars })
 /** A Map row of a windowed application (`detection_map._row_meta`): its scope and its scale in words. */
 export interface DiscMapRow { windows?: { scope: DiscPlanWindows['scope']; label: string } | null }
+
+/* ------------------------------------------------------------------ ig-pages: trains and interval classes
+ * (declaration merging; serialize.py `_trains`, `_interval_classes`). Payload conventions, never a block's name. */
+/** An `interrogation.trains` SpanSet's three figures: the log-interval density (`edges` = log10 seconds) and its cut
+ *  (seconds; null = no valley), the train sizes (time order), the LZ complexity. `log_isi` is null for per-group
+ *  trains or a non-valley rule, and `log_isi_note` says why. */
+export interface TrainsPayload {
+  n_trains: number; sizes: number[]; lz: number | null; rule: string | null
+  log_isi: { edges: number[]; density: number[]; cut: number | null } | null; log_isi_note: string | null
+}
+/** The intervals timeline's colour classes and every number it writes (the bridge's, never the browser's):
+ *  per event (capped as the spans) its class, time (s, absolute), group, gap to the previous event in its group and
+ *  to the previous event of its class; `stats[class][group]` = the core's interval statistics within the class. */
+export interface IntervalClasses {
+  rule: 'family' | 'depth' | 'none'; rule_words: string; column: string | null; edges: number[] | null
+  classes: { key: string; label: string; n: number }[]
+  event_class: string[]; event_t_s: number[]; event_group: string[] | null
+  gap_s: (number | null)[]; within_gap_s: (number | null)[]
+  stats: Record<string, Record<string, IntervalStats>>
+}
+export interface SpansetPayload { trains?: TrainsPayload; interval_classes?: IntervalClasses }
