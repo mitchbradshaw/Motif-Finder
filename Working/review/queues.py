@@ -819,6 +819,29 @@ def _resolve_detections(conn, q):
     return [_detection_item(q, s, judged_verdicts, judged_tags) for s in structure]
 
 
+def item_views(conn, queue_id, target_ids, *, exclude_recording_ids=None):
+    """`item_view` for several targets from ONE read of the structure and the verdicts (the queue rail's paged
+    thumbnails ask for ten at a time): ``{target_id (str): item or None}``."""
+    q = get_queue(conn, queue_id)
+    if q is None:
+        raise ValueError("no such queue: {!r}".format(queue_id))
+    if q["source_kind"] not in _DETECTION_KINDS:
+        snap = queue_snapshot(conn, queue_id, exclude_recording_ids=exclude_recording_ids)
+        deep = {str(it.get("target_id", it.get("id"))): it for it in snap["deep"]}
+        return {str(t): deep.get(str(t)) for t in target_ids}
+    structure = _cached_structure(conn, q)
+    views = _structure_views(q, structure, exclude_recording_ids)
+    judged_verdicts, judged_tags = _judged_overlay(conn)
+    out = {}
+    for t in target_ids:
+        try:
+            at = views["deep_at"].get(int(str(t)))
+        except ValueError:
+            at = None
+        out[str(t)] = None if at is None else _detection_item(q, structure[at], judged_verdicts, judged_tags)
+    return out
+
+
 def item_view(conn, queue_id, target_id, *, exclude_recording_ids=None):
     """What one item read needs, without building every item (AR, the speed pass):
     ``{"queue", "item", "rank", "counts"}``.

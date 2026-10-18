@@ -798,8 +798,12 @@ def get_thumbs(request: Request, qid: str, ids: str = Query(default="")):
         index = _index(conn)
         held = _held_out_ids(conn)
         out, memo = {}, {}
+        found = queues_mod.item_views(conn, int(queue["id"]), want, exclude_recording_ids=held)
+        missing = [t for t in want if found.get(t) is None]
+        if missing:
+            raise HTTPException(status_code=404, detail=f"no item {missing[0]!r} in queue {queue['id']}")
         for tid in want:
-            item = _item_or_404(conn, queue, tid, held)["item"]
+            item = found[tid]
             rid = item.get("recording_id")
             rec = index.get(int(rid)) if rid is not None else None
             out[tid] = _thumb(conn, item, rec, queue.get("unit") or item.get("unit") or "detection", memo)

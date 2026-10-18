@@ -230,6 +230,9 @@ def test_item_view_agrees_with_the_snapshot_for_every_item(tmp_path):
                 deep = next((it for it in snap["deep"] if str(it["target_id"]) == tid), None)
                 rank = next((i + 1 for i, it in enumerate(snap["items"]) if str(it["target_id"]) == tid), None)
                 assert (v["item"], v["rank"], v["counts"]) == (deep, rank, snap["counts"]), (qid, held, tid)
+            many = [str(d) for d in info["dets"][::7]] + ["nonsense"]
+            assert Q.item_views(conn, qid, many, exclude_recording_ids=held) == {
+                t: Q.item_view(conn, qid, t, exclude_recording_ids=held)["item"] for t in many}
 
 
 def test_the_reads_an_item_step_makes_use_indexes(tmp_path):
