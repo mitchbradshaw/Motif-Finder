@@ -96,6 +96,12 @@ DETRENDS = ("off", "linear")
 DEFAULT_ALIGN = "centre"     # the researcher chose centring (2026-10-05); measured: every pile an event shape (report part 2)
 DEFAULT_ANCHOR_FRAC = 0.5    # the middle: AG's centring, bit for bit (and the shape key does not change at it)
 DEFAULT_DETREND = "linear"  # with the straight line removed, the drift is no longer the shape
+#: ux-1019 (the researcher, 2026-10-18; BACKLOG §1 "AM"): for DROP work the bottom of the drop, a third of the way
+#: in, so the recovery fits inside the window. A pool chain carries nothing that says it is drop work (no detector
+#: can precede a Window pool), so this is the recommended setting Launch and the block name, not a silent default:
+#: DEFAULT_ALIGN / DEFAULT_ANCHOR_FRAC stay the block's defaults and every cached shape key is unchanged.
+DROP_ALIGN = "trough"
+DROP_ANCHOR_FRAC = 0.333
 SWING_RULE = ("the largest swing: the window's straight-line (least-squares) trend is removed, a running median of k "
               "samples is taken (k odd, at least 5, about a sixtieth of the window: 5 at 1 min, 11 at 10 min, 31 at "
               "30 min, so a glitch of a sample or two cannot be it), and the swing is the sample where that departs "

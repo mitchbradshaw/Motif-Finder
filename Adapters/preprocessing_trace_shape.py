@@ -93,8 +93,9 @@ SPEC = register(AdapterSpec(
                   "(counted).", choices=list(_default("ALIGNS"))),
         ParamSpec("anchor_frac", float, _default("DEFAULT_ANCHOR_FRAC"),
                   "Where in the re-cut window the aligned sample lands, as a fraction of its length: 0.5 = the middle "
-                  "(the default); 0.33 = a third in, so the recovery after a drop fits inside the window. Ignored on "
-                  "grid.", min=0.0, max=1.0),
+                  "(the default); 0.33 = a third in, so the recovery after a drop fits inside the window. For drop "
+                  "work set align trough with anchor 0.333 (the researcher's setting, 2026-10-18). Ignored on grid.",
+                  min=0.0, max=1.0),
         ParamSpec("detrend", str, _default("DEFAULT_DETREND"),
                   "off: the trace as it is. linear: the window's straight line removed before the resample and "
                   "normalise, so a slow drift is not the shape.", choices=["off", "linear"]),
