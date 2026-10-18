@@ -50,6 +50,7 @@ import { familyName } from './AtlasPage'
 import { EmptyMotifsPage } from './EmptyLibrary'
 import { EdgeList, MatchedMembers, ScaleReadout, memberEdges, type EdgeDetailExtras, type EdgeFamilyExtras } from './Edges'
 import { CrossChannelCard } from './CrossChannel'
+import { SequenceFamilyPage } from './SequenceFamilyPage'
 import { deleteLibraryHandEdit, postLibraryHandEdit, sendFamilyUnjudged, type LibCrossChannel, type LibFamilyCoherence, type LibFamilyFlags, type LibFamilyView, type LibFitSummary, type LibHandEditBody, type LibMember, type LibUnjudgedQueue, type LibViewReport } from '../api'
 
 /** fixup-ae: a member as the bridge sends it now — its hand edits (with their ids, so one can be undone), the rule
@@ -143,7 +144,7 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
         {fam.error && <LoadFailed what={`family ${id}`} error={fam.error} onRetry={fam.reload} />}
         {!groupings.error && (fam.loading || !unitReady || (!named && firstFamily.loading)) && <Loading height={640} testid="family-loading" />}
         {d?.kind === 'missing' && <EmptyState icon="alert-triangle" title={`No family ${id} in grouping ${gid || 'the current grouping'}`} caption="the id is not in this grouping" action={<Button onClick={() => navigate('library/atlas')}>‹ back to atlas</Button>} bordered testid="family-missing" />}
-        {d?.kind === 'sequence' && <SequenceFamilyPlaceholder f={d.family} />}
+        {d?.kind === 'sequence' && <SequenceFamilyPage f={d.family} grouping={seqGid || undefined} />}
         {d?.kind === 'motif' && <MotifFamilyView key={d.detail.family.id} detail={d.detail} grouping={unitGid || undefined} onReload={fam.reload}
           flags={familyFlagsOf(grouping as (typeof grouping & { fitSummary?: LibFitSummary | null }), d.detail.family.id)}
           noiseMethod={(grouping as (typeof grouping & { method?: string | null }))?.method ?? null} />}
@@ -154,17 +155,6 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
 function ExportEntryBtn({ id }: { id: string }) {
   const { push } = useToast()
   return <Button icon="upload" testid="export-entry" disabled={!id} disabledReason="no family open" onClick={() => push({ text: `not wired yet: export library entry ${id} (exemplar, medoid, members CSV, provenance)` })}>Export entry</Button>
-}
-
-function SequenceFamilyPlaceholder({ f }: { f: SequenceFamily }) {
-  return (
-    <div className="k-card" style={{ padding: 20 }} data-testid="sequence-family-placeholder">
-      <EmptyState icon="layers" title={`${f.id}${familyName(f.id, f.name) ? ` ${f.name}` : ''} · ${f.sequences} sequences · ${f.motifs} motifs`} caption="the sequence family page is not drawn yet — open the atlas for the composition and aligned members"
-        action={<Button onClick={() => navigate(`library/atlas?unit=sequences&family=${f.id}`)}>‹ back to atlas</Button>} />
-      {/* the member ids used to be fabricated here (`sq-02NN`); this read does not carry them, so it says so */}
-      <div className="lib-cap" style={{ marginTop: 12 }}>composition {f.compositionLabel} · {f.recordings} recordings · the member sequences are not carried by this read</div>
-    </div>
-  )
 }
 
 /* ================================================================ motif family ================================================================ */

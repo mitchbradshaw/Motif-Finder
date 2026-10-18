@@ -1648,3 +1648,50 @@ export const applyDiscoveryTemplatesWindowed = (templates: string[], channels: s
     { templates, channels, t0, t1, run, windows, bands: bands && bands.length ? bands : undefined, exemplars })
 /** A Map row of a windowed application (`detection_map._row_meta`): its scope and its scale in words. */
 export interface DiscMapRow { windows?: { scope: DiscPlanWindows['scope']; label: string } | null }
+
+/* ---------------- library · Build sequences (prompt `sequences`, 2026-10-18) ---------------- */
+/** One element of a sequence: a Library member with its family label; times in seconds from the sequence's start. */
+export interface LibSeqElement { memberId: number; label: string; colour: string; startS: number; endS: number; verdict?: string }
+/** One sequence as a strip: its elements in order, gaps (end to start, seconds) between them. */
+export interface LibSeqStrip {
+  key: string; name: string; labels: string[]; memberIds: number[]
+  recording: string; recordingKey: string | null; channel: string
+  startS: number; endS: number; startH: number; durationS: number; gapsS: number[]; elements: LibSeqElement[]
+  /** preview only: already kept */
+  kept?: boolean
+  /** family page only */
+  id?: string; sequenceId?: number; contentHash?: string
+}
+export interface LibSeqCandidate { recordingId: number; recording: string; recordingKey: string; channel: string; members: number }
+export type LibSeqRule = 'fixed' | 'adamatzky' | 'logisi'
+export interface LibSeqJoinBody { recording_id?: number | null; rule: LibSeqRule; gap_s: number; tol_frac: number; min_len?: number; grouping?: string | null; candidates_only?: boolean }
+export interface LibSeqPreview {
+  recordingId: number | null; recording: string | null; recordingKey: string | null; channel: string | null; fs: number | null
+  rule: LibSeqRule; gapS: number; tolFrac: number; minLen: number; ruleWords: string; rules: LibSeqRule[]
+  motifGrouping: string | null; nMembers: number; sequences: LibSeqStrip[]
+  families: { key: string; name: string; count: number }[]; colours: Record<string, string>
+  candidates: LibSeqCandidate[]; note: string | null
+}
+export interface LibSeqKeep {
+  kept: { id: string; sequenceId: number; sequenceKey: string; key: string; created: boolean }[]
+  created: number; already: number; grouping: string | null; families: number
+}
+export interface LibSeqBin { x0: number; x1: number; count: number }
+export interface LibSeqFamily {
+  id: string; name: string; labels: string[]; grouping: string; groupingMethod: string; motifGrouping: string | null
+  colours: Record<string, string>; sequences: LibSeqStrip[]
+  removed: { sequenceId: number; id: string; editId: number }[]
+  medoids: { position: number; label: string; colour: string; n: number; trace: number[]; memberId: number | null; drawnFrom?: number }[]
+  examples: { sequenceId: number; durationS: number; trace: number[]; bands: LibSeqElement[] }[]
+  gaps: number[]; gapBins: LibSeqBin[]; lengths: number[]; lengthBins: LibSeqBin[]
+  nearest: { id: string; name: string; distance: number } | null
+  judged: number; judgedOf: number; byVerdict: Record<string, number>; recordings: number
+  unit: string | null; unitNote: string | null
+}
+export const previewLibrarySequences = (body: LibSeqJoinBody) => post<LibSeqPreview>('/api/library/sequences/preview', body)
+export const keepLibrarySequences = (body: LibSeqJoinBody) => post<LibSeqKeep>('/api/library/sequences/keep', body)
+export const getLibrarySequenceFamily = (id: string, grouping?: string) =>
+  req<LibSeqFamily>(`/api/library/sequences/${encodeURIComponent(id)}${dq({ grouping })}`)
+export const sendSequenceFamilyReview = (id: string, grouping?: string) =>
+  post<{ queueId: number; name: string; sent: number; total: number; judged: number; remaining: number }>(
+    `/api/library/sequences/${encodeURIComponent(id)}/review${dq({ grouping })}`, {})
