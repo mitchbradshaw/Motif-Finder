@@ -292,3 +292,66 @@ The whole pytest suite was not run, and neither was the smoke walk, as instructe
 55c0978 review-carry: failing tests - one item per overlap set, carried verdicts, class label
 ```
 (plus this report as the last commit)
+
+## Critic round (2026-10-19)
+
+**In plain words.** Two things were wrong, both now fixed. First, a detector that slides a window along the
+recording (one window every few minutes, each overlapping the last) made a chain of overlaps that never broke, so
+one Review card could stand for hours of recording and dozens of separate events; one key press then wrote — and
+carried — a verdict over all of it. A card is now never longer than twice its longest detection. Second, every
+verdict that carried anything threw away every queue's remembered layout, so the page's next re-count rebuilt them
+all (the slow read the speed pass removed). The layout never depended on verdicts, so verdicts no longer touch it.
+
+**Fixed.**
+- *Should-fix — a sliding-window run collapses into hour-long items* (`Working/review/overlap.py` `overlap_sets`).
+  A synthetic 600 h, 1 Hz channel with 16 runs: six sliding-window runs (600 s windows, hop 150 s, ~13 k
+  detections each) closed into sets of 137-146 detections spanning 3.2-4.3 h; four top-k runs (3 000 random
+  600 s windows) into sets of 11-16 spanning ~1 h; six drop-like runs (non-overlapping) into singletons. One verdict
+  on the largest set wrote 138 members and carried 828 rows. A set now closes where the next detection would stretch
+  it beyond `MAX_SET_EXTENT` (2) × its longest detection; every set within that bound is exactly the transitive
+  closure decided with the researcher (the a1~a2~a3 chain is unchanged). After: largest set 0.33 h on every
+  windowed run; drop runs unchanged. "At least half the shorter span" (the obvious guard) was rejected: consecutive
+  windows at hop < window/2 overlap by more than half, so it would not have cut the chain.
+  Pinned: `test_a_sliding_window_chain_is_cut_into_event_sized_sets`.
+- *Should-fix — a carrying verdict rebuilt every open queue's structure* (`Working/review/queues.py`
+  `_structure_fingerprint`). The claim that the structure reads no adjudication holds (`ReviewQueue(...,
+  adjudication_status=None)`, `_prior_verdicts` reads annotations only, overlap sets read spans only), so
+  fingerprinting carried rows bought nothing and cost a full rebuild after every verdict that carried — on a channel
+  with several runs, nearly every verdict. Synthetic: re-counting 16 queues took 0.025 s warm and 0.745 s after one
+  carrying verdict; AR measured ~22 s for 20 cold structures on the scale fixture. The carried-row part is gone (the
+  index stays: `uncarry` reads by it). After: 0.025 s. Pinned:
+  `test_a_verdict_plain_or_carried_rebuilds_no_structure_and_every_queue_reads_right` (no rebuild after a plain or a
+  carried verdict; every queue's items, served items, counts and item-view counts equal a fresh resolve) and, in the
+  bridge, `test_a_carried_row_is_seen_without_rebuilding_the_structure` (renamed from
+  `test_the_structure_cache_sees_a_carried_row`, whose behaviour this deliberately reverses).
+- Added pin: `test_a_near_miss_by_the_rule_is_not_carried_and_a_near_hit_is` — onset gap exactly at 0.25 × duration
+  is carried; one sample more is not; onset exact with IoU 100/201 is not.
+
+**Checked and left.**
+- `seed` → `interesting`: P21 says seed implies interesting (`Working/discovery/divergence.py:56`,
+  `scoreboard.py:27`). Writing `seed` on rows nobody promoted would claim Library exemplars that do not exist; the
+  mapping is the defensible one.
+- Carrying in `verdicts.py`, not the bridge: every writer of `adjudications` was listed — `verdicts.py` (Review's
+  verdict, batch, cluster batch and the promotion, which calls `write_verdict`), `overlap.py` itself, and
+  `queue_state.ReviewQueue.adjudicate_current` (no live caller; does not carry). Blind tests write `annotations`; no
+  importer or script writes `adjudications`. Nothing bypasses the carry, nothing carries that should not.
+- "Rewrite": a re-judgement of A updates the rows *A itself* carried before; every UPDATE/DELETE on carried rows is
+  gated on `carried_from = <source>`, and a human write clears `carried_from`, so no path changes a human row.
+- The `test_webui_ar_speed.py` assertion change is still a pin: the expected count is computed from the rows read
+  before the verdict and the ack's ids, and the ack's counts must still equal `/counts`.
+
+**Not fixed (noted).**
+- A set re-judgement overwrites every member, including a member that holds its OWN earlier human verdict (given
+  when overlapping detections were separate items, before this change). It is recorded in the audit `prior` and
+  undone exactly, but the item shows only its first judged member's verdict, so a disagreement inside a set is not
+  visible. Worth one read-only query on the real database (below).
+- The smoke unit sorts after `zzzzzzzzzzz_ar_speed` but before `zzzzzzzzzzz_ux_ak_spike` and
+  `zzzzzzzzzzz_w3_cancel`; neither reads queue 2 or CH14 verdicts.
+
+**Gate after the critic's fixes** (each file alone). Conda: `test_review_carry_core` 18, `test_review_queues` 48,
+`test_review_verdicts` 45, `test_review_promotion` 11, `test_review_schema` 15, `test_ar_speed_core` 9,
+`test_perf_scoring_reads` 69, `test_import_boundaries` 4 — all passed. Venv: `test_webui_review_carry` 5,
+`test_webui_review` 32, `test_webui_ar_speed` 12 — all passed. `tsc -b` clean; `vite build` built.
+
+**Left for the manager.** `webui/server/discovery.py` `_picked_states` must map every member of an item, not only
+its `target_id` (a picked non-first member otherwise reads "not asked"); not edited here (seed-search owns the file).
