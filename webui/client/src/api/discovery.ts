@@ -274,7 +274,9 @@ export interface SeedDraft {
 export interface SeedSetup { draft: SeedDraft; seed: SeedInfo; seeds: SeedInfo[]; recommended: SeedParams; heldOutNote?: string | null }
 export interface SeedMatch { id: string; d: number; channel: string; atH: number; judged: boolean; verdict?: string | null; trace: number[]
   /** fixup-v: the factor of the seed's length this match was found at, and its length in samples */
-  scale?: number; length?: number }
+  scale?: number; length?: number
+  /** seed-search: the block's own distance, unrounded (`d` is it to 4 places) — what a keep cuts by */
+  distance?: number }
 export interface SeedResults {
   candidates: SeedMatch[]; nullDistances: number[]
   recommendedCut: number | null; cutRule: CutRule | null
@@ -353,7 +355,7 @@ export async function getSeedResults(seedId: string, channels: string[], bank?: 
     source: 'live',
     data: {
       status: 'ready',
-      candidates: r.candidates.map(c => ({ id: c.id, d: c.d, channel: c.channel, atH: c.atH, judged: c.judged, verdict: c.verdict, trace: nums(c.trace), scale: c.scale, length: c.length })),
+      candidates: r.candidates.map(c => ({ id: c.id, d: c.d, channel: c.channel, atH: c.atH, judged: c.judged, verdict: c.verdict, trace: nums(c.trace), scale: c.scale, length: c.length, distance: c.distance })),
       nullDistances: r.nullDistances ?? [],
       recommendedCut: r.recommendedCut, cutRule: r.cutRule ?? null,
       nullDraws: r.null?.draws ?? 0, nullMethod: r.null?.method ?? null,

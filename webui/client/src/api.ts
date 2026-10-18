@@ -1687,3 +1687,5 @@ export interface DiscSeedKeepAck {
 }
 export const keepDiscoverySeedMatches = (body: DiscSeedQuery & { cut?: number | null; label?: string }) =>
   post<DiscSeedKeepAck>('/api/discovery/seed/keep', body)
+/** seed-search critic round: the block's own distance, unrounded (`d` is it to 4 places) — what a keep cuts by. */
+export interface DiscSeedMatch { distance?: number }

@@ -137,7 +137,7 @@ export function SeedPage() {
   const chosen = draft?.params.threshold ?? null
   const threshold = chosen ?? recommendedCut
   const cutIsRecommended = chosen == null && recommendedCut != null
-  const kept = useMemo(() => threshold == null ? [] : (ready?.candidates ?? []).filter(c => c.d <= threshold), [ready, threshold])
+  const kept = useMemo(() => threshold == null ? [] : (ready?.candidates ?? []).filter(c => (c.distance ?? c.d) <= threshold), [ready, threshold])
   /* §7.6: "You see how many matches chance alone would give at the moment you
    * choose where to cut." `nullDistances` is POOLED over every draw of every
    * channel, while `kept` is one realisation over every channel — so the count

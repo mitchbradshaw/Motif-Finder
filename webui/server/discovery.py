@@ -37,6 +37,7 @@ import os
 import re
 import threading
 import time
+import uuid
 
 import numpy as np
 from fastapi import APIRouter, Body, HTTPException, Request
@@ -394,6 +395,7 @@ def _fail_lost_runs(request, conn, session_id):
     hand the dead run back as the same run. A job this process does not hold
     cannot be running, so the row says what happened."""
     live = request.app.state.manager.jobs
+    lost_keep = False
     for row in conn.execute("SELECT id, job_id, params_json FROM discovery_runs WHERE session_id = ? "
                             "AND status = 'running' AND job_id IS NOT NULL", (int(session_id),)).fetchall():
         if int(row["job_id"]) in live:
@@ -404,7 +406,12 @@ def _fail_lost_runs(request, conn, session_id):
         params["error"] = LOST_RUN
         conn.execute("UPDATE discovery_runs SET status = 'failed', params_json = ?, updated_at = ? WHERE id = ?",
                      (json.dumps(params), _now(), int(row["id"])))
+        if (params.get("null") or {}).get("kept"):
+            lost_keep = True
     conn.commit()
+    if lost_keep:
+        # seed-search critic round: a keep lost in a restart left the preview's matches in the step cache
+        _take_back_lost_keeps(conn)
 
 
 def _reviewed_h(conn, chans, span):
@@ -3244,6 +3251,16 @@ KEEP_WAIT_S = 60.0
 STORED_CANDIDATES = 5000
 
 
+#: Where a keep lays its entries in the step cache: a directory of its own under the cache root, one sub-directory per
+#: keep (`<root>/_kept_preview/<token>/<prefix>/0`), so an entry a block computed is never one of them and a keep's
+#: leftovers can be told apart and taken back after a server stopped mid-sweep (critic round)
+KEPT_CACHE_DIR = "_kept_preview"
+#: the tokens of the keeps this process is running; an entry under `KEPT_CACHE_DIR` whose token is not here is a
+#: leftover of a keep that never took it back (a restart empties the set)
+_kept_live = set()
+_kept_live_lock = threading.Lock()
+
+
 def _keep_refusal(message):
     return HTTPException(409, {"message": message, "needsPreview": True})
 
@@ -3256,7 +3273,7 @@ def _kept_candidates(res, cut):
     return [c_ for c_ in res["candidates"] if cut is None or dist(c_) <= float(cut)]
 
 
-def _lay_preview_steps(conn, plan, chans, span, kept, cache_root, *, banked=False):
+def _lay_preview_steps(conn, plan, chans, span, kept, cache_root, *, banked=False, token=None):
     """Lay each target's one step — `detection.seed_matches` — in the step cache as the preview found it, so the
     sweep after this writes its rows through `fanout.start` → `execute_recipe` (the same runs, run group, config
     hash and detections a run of this recipe writes) WITHOUT matching the seed again. The SpanSet is the block's
@@ -3283,25 +3300,64 @@ def _lay_preview_steps(conn, plan, chans, span, kept, cache_root, *, banked=Fals
             labels=tuple((f"match{j}@{float(c_.get('scale') or 1.0):g}x" if banked else f"match{j}")
                          for j in range(len(mine))),
             scores=tuple(float(c_.get("distance", c_["d"])) for c_ in mine))
-        where = os.path.join(cache_root, prefix, "0")
+        where = os.path.join(cache_root, KEPT_CACHE_DIR, token or uuid.uuid4().hex, prefix, "0")
         value.to_path(where)
         R.insert_step_artifact(conn, prefix, 0, where)
         laid.append((prefix, where))
     return laid
 
 
-def _take_back(conn, laid):
-    """Remove the step-cache entries a keep laid (rows and directories); a failure to remove a directory is
+def _take_back(conn, laid, cache_root=None, token=None):
+    """Remove the step-cache entries a keep laid (rows and its directory); a failure to remove a directory is
     logged, never raised — the run's rows are already written."""
     import shutil
     for prefix, where in laid:
         conn.execute("DELETE FROM step_artifacts WHERE recipe_prefix_hash = ? AND step_index = 0 AND path = ?",
                      (prefix, where))
-        try:
-            shutil.rmtree(os.path.dirname(where), ignore_errors=False)
-        except OSError as e:
-            logging.getLogger("webui.discovery").warning("the keep's step-cache entry %s was not removed: %s", where, e)
     conn.commit()
+    if cache_root and token:
+        mine = os.path.join(cache_root, KEPT_CACHE_DIR, token)
+        try:
+            shutil.rmtree(mine, ignore_errors=False)
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            logging.getLogger("webui.discovery").warning("the keep's step-cache entries %s were not removed: %s", mine, e)
+    with _kept_live_lock:
+        _kept_live.discard(token)
+
+
+def _take_back_lost_keeps(conn):
+    """Take back every step-cache entry a keep laid and never removed — its server stopped mid-sweep, so `on_exit`
+    never ran. Such an entry holds the preview's matches, not a block's computation, and would otherwise be served
+    to any later run whose recipe prefix is the same. An entry of a keep running in this process is left alone."""
+    import shutil
+    rows = conn.execute("SELECT recipe_prefix_hash, step_index, path FROM step_artifacts WHERE instr(path, ?) > 0",
+                        (KEPT_CACHE_DIR,)).fetchall()
+    if not rows:
+        return 0
+    with _kept_live_lock:
+        live = set(_kept_live)
+    gone, dirs = 0, set()
+    for r in rows:
+        parts = os.path.normpath(r["path"]).split(os.sep)
+        if KEPT_CACHE_DIR not in parts:
+            continue
+        i = parts.index(KEPT_CACHE_DIR)
+        token = parts[i + 1] if i + 1 < len(parts) else None
+        if token in live:
+            continue
+        conn.execute("DELETE FROM step_artifacts WHERE recipe_prefix_hash = ? AND step_index = ? AND path = ?",
+                     (r["recipe_prefix_hash"], r["step_index"], r["path"]))
+        gone += 1
+        if token:
+            dirs.add(os.sep.join(parts[:i + 2]))
+    conn.commit()
+    for d in dirs:
+        shutil.rmtree(d, ignore_errors=True)
+    if gone:
+        logging.getLogger("webui.discovery").warning("took back %d step-cache entries a lost keep had laid", gone)
+    return gone
 
 
 def _seed_row_existing(conn, s, body):
@@ -3404,15 +3460,25 @@ def keep_seed_matches(request: Request, body: SeedBody):
         c.execute("UPDATE discovery_runs SET params_json = ? WHERE id = ?", (json.dumps(params), int(row["id"])))
         c.commit()
         from Working import config as cfg
-        cache_root, laid = cfg.STEP_CACHE_ROOT, []
+        cache_root, laid, token = cfg.STEP_CACHE_ROOT, [], uuid.uuid4().hex
         lay_chans, lay_span = list(chans), (int(span[0]), int(span[1]))
+        _take_back_lost_keeps(c)            # a keep lost in a restart never took its entries back: do it first
+        with _kept_live_lock:
+            _kept_live.add(token)
 
         def prelude(job, conn2):
-            laid.extend(_lay_preview_steps(conn2, plan, lay_chans, lay_span, kept, cache_root, banked=bool(bank)))
+            laid.extend(_lay_preview_steps(conn2, plan, lay_chans, lay_span, kept, cache_root, banked=bool(bank),
+                                           token=token))
             return dict(plan["null"])
 
-        job = _start_sweep(request, session_id=int(s["id"]), run_key=run_key, plan=plan, label=label,
-                           surrogate=False, prelude=prelude, on_exit=lambda conn2: _take_back(conn2, laid))
+        try:
+            job = _start_sweep(request, session_id=int(s["id"]), run_key=run_key, plan=plan, label=label,
+                               surrogate=False, prelude=prelude,
+                               on_exit=lambda conn2: _take_back(conn2, laid, cache_root, token))
+        except BaseException:
+            with _kept_live_lock:
+                _kept_live.discard(token)
+            raise
         c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? "
                   "WHERE session_id = ? AND run_key = ?", (job.id, _now(), int(s["id"]), run_key))
         c.commit()

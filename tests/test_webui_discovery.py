@@ -1584,3 +1584,42 @@ def test_the_null_mode_off_is_gone_and_an_old_page_asking_for_it_reads_preview(c
                                                           "seedId": s["id"], "k": 20, "nullMode": "off"})
     assert e.status_code == 200, e.text
     assert e.json()["run"]["nullMode"] == "preview"
+
+
+# ── seed-search critic round: what a keep leaves behind, and a channel the cut empties ──────────────
+
+def test_a_keep_whose_take_back_never_ran_is_cleaned_up_by_the_next_keep(client, monkeypatch):
+    # a keep lays the preview's matches in the step cache for its own sweep; a server stopped mid-sweep never runs
+    # the take-back, and the entry would then be served to any later run of that recipe as if a block computed it
+    q, res = _seed_preview(client)
+    before = _counts(client, "step_artifacts")
+    real_take_back = _disc._take_back
+    monkeypatch.setattr(_disc, "_take_back", lambda *a, **k: None)
+    _kept_done(client, _keep(client, q, _cut_between(res, 2)))
+    assert _counts(client, "step_artifacts") > before, "the lost keep's entries are still there"
+    monkeypatch.setattr(_disc, "_take_back", real_take_back)
+    _disc._kept_live.clear()                                    # the restart: no keep of this process is running
+    _kept_done(client, _keep(client, q, _cut_between(res, 5)))
+    assert _counts(client, "step_artifacts") == before, "the next keep takes back what a lost keep laid"
+
+
+def test_a_cut_that_keeps_nothing_on_a_channel_still_writes_that_channels_run(client):
+    q, res = _seed_preview(client)
+    lowest = {}
+    for c in res["candidates"]:
+        lowest[c["channel"]] = min(lowest.get(c["channel"], 1e9), c["distance"])
+    (a, da), (b, db) = sorted(lowest.items(), key=lambda kv: kv[1])
+    assert db > da, "the two channels' closest matches differ"
+    above = min(c["distance"] for c in res["candidates"] if c["distance"] > da)
+    cut = (da + min(above, db)) / 2.0
+    out = _kept_done(client, _keep(client, q, cut))
+    row = _db_rows(client, "SELECT params_json FROM discovery_runs WHERE run_key = ?", (out["run_key"],))[0]
+    import json
+    ids = json.loads(row["params_json"])["run_ids"]
+    assert len(ids) == 2, "a channel the cut empties is still a run, as a real run would be"
+    per = {r["run_id"]: r["n"] for r in _db_rows(
+        client, f"SELECT run_id, COUNT(*) AS n FROM detections WHERE run_id IN ({','.join('?' * len(ids))}) "
+                "GROUP BY run_id", ids)}
+    assert sorted(per.get(i, 0) for i in ids)[0] == 0
+    runs = _db_rows(client, f"SELECT status FROM runs WHERE id IN ({','.join('?' * len(ids))})", ids)
+    assert all(r["status"] == "completed" for r in runs)

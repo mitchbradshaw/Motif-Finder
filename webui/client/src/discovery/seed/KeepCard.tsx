@@ -117,7 +117,7 @@ export function KeepCard({ dx, seed, label, cut, kept, previewDraws, bank, exclu
       <div className="dsc-keep-ways">
         {(!keptRun || keptRun.status === 'failed') && (
           <div className="dsc-keep-way" data-testid="keep-preview-way">
-            <Button variant="primary" icon="check" onClick={keep} loading={keeping} disabled={!!noCut || keeping} disabledReason={noCut ?? 'keeping…'} testid="seed-keep">Use these as detections</Button>
+            <Button variant="next" icon="check" onClick={keep} loading={keeping} disabled={!!noCut || keeping} disabledReason={noCut ?? 'keeping…'} testid="seed-keep">Use these as detections</Button>
             <span className="small mono" data-testid="seed-keep-line">{keepLine ?? noCut}</span>
           </div>
         )}
@@ -132,14 +132,14 @@ export function KeepCard({ dx, seed, label, cut, kept, previewDraws, bank, exclu
           </div>
         ) : (
           <div className="dsc-keep-way" data-testid="keep-rigorous-way">
-            <Button icon="play" onClick={runRigorous} loading={starting} disabled={starting} disabledReason="starting…" testid="run-seed-search">Run with the rigorous null</Button>
+            <Button variant="primary" icon="play" onClick={runRigorous} loading={starting} disabled={starting} disabledReason="starting…" testid="run-seed-search">Run with the rigorous null</Button>
             <span className="small mono muted" data-testid="run-estimate">{rigorousLine}</span>
           </div>
         ))}
       </div>
 
       <div className="dsc-keep-save">
-        <Button size="sm" className="dsc-btn-quiet-blue" icon="save" onClick={onSave} testid="save-as-template">Save as template</Button>
+        <Button size="sm" variant="primary" icon="save" onClick={onSave} testid="save-as-template">Save as template</Button>
         <span className="small muted" data-testid="save-as-template-line">saves the recipe — this exemplar, d ≤ {cut ?? 'no cut'}, the scale bank and the exclusion zone — never the matches</span>
       </div>
     </section>
