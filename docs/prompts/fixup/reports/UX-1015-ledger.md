@@ -200,3 +200,15 @@ trees-says-so`. The `fixup-h` block/chain states in that diff are the accordion 
 run finishes and the heatmap does not paint until it is done — serve the last map, recompute behind it; (b) the
 300 s read timeout turns that into `requestfailed` console errors charged to unrelated pages. **Smoke debt:** the
 held-out states must set the lock they assume (a `PUT` in their actions) instead of assuming the database's state.
+
+**Baseline walk with the jobs-idle prelude (07:35–08:31): 728 screenshots, 65 failures, 35 not in the 18 Oct
+baseline** (`base_main_0419c.txt`). The idle wait was 0.1 s — the flows' jobs were already done, so job-manager jobs
+are not the interference. What distinguishes the full walk (fails) from the quiet unit runs (pass) is the corpus map:
+the flows write runs, the next corpus read recomputes the map for ~100 s and holds the interpreter, and the states
+visited in that window (interrogation aggregate/slope defaults, Explore signal and cross-channel, Library family,
+Models launch clicks) time out. **First item of the speed second pass:** the corpus map must not recompute inside a
+request — serve the last map (memory or disk, stale flagged), recompute behind it, and move the compute off the
+interpreter (a worker process, or make `channel_divergence` incremental per run). Until then the full walk's baseline
+on this database is ~65 failures and its comparison must be by SET against `base_main_0419c.txt`, not the 18 Oct 42.
+Five of the 35 are held-out-lock drift; `discovery.seed--source-explore`, `library.templates--model-stage`, the two
+a2_p2 states and `settings.datasets--discovery-scope-names…` are data/state drift to re-check by hand.
