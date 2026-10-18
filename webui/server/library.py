@@ -57,6 +57,7 @@ from Working.distances import DISTANCE_NATIVE_LENGTH, DISTANCE_SCALE_INVARIANT, 
 from Working.library import hand_edits as hand_edits_mod
 from Working.library import matching as matching_mod
 from Working.library import rose_reference as rose_mod
+from Working.library import sequences as seq_mod
 from Working.library import verdicts as verdicts_mod
 from Working.library import view_filter as vf_mod
 from Working.library.grouping import bases as bases_mod
@@ -2456,6 +2457,434 @@ def get_sequences(request: Request, needs_extraction: int = Query(default=0)):
                 "createdAt": r["created_at"],
             })
         return out
+    finally:
+        conn.close()
+
+
+# ── Build sequences (prompt `sequences`, 2026-10-18) ────────────────────────
+#
+# A sequence is one channel's ordered run of Library MEMBERS joined while the
+# gap between them is under a limit (`Working.library.sequences`, the core —
+# the join is never reimplemented here). Preview writes nothing; Keep writes
+# `sequences` rows through the core (the importers' insert) and saves a
+# label-chain sequence grouping over every kept sequence, so the atlas at
+# `unit=sequences` lists the families: same labels in the same order.
+
+#: The colour of an element whose member has no family in the motif grouping.
+NO_FAMILY_COLOUR = "#9AA0A6"
+#: Elements per position the medoid is chosen among (each costs one memmap slice).
+MEDOID_CAP = 60
+#: Sequences drawn as example traces with element bands.
+EXAMPLES = 3
+#: Bins of the inter-element gap histogram.
+GAP_BINS = 12
+
+
+class SequenceJoinBody(BaseModel):
+    recording_id: int | None = None
+    rule: str = seq_mod.DEFAULT_RULE
+    gap_s: float = seq_mod.DEFAULT_GAP_S
+    tol_frac: float = seq_mod.DEFAULT_TOL_FRAC
+    min_len: int = seq_mod.MIN_LEN
+    #: the motif grouping whose labels name the members; the newest when omitted
+    grouping: str | None = None
+    #: only the recording picker's candidates, no join
+    candidates_only: bool = False
+
+
+def _label_colours(conn, motif_gid) -> dict:
+    """`label -> colour`: a family's place among the motif grouping's families,
+    sorted, through the palette — the order the motif atlas colours them in."""
+    if motif_gid is None:
+        return {}
+    labels = sorted({str(r[0]) for r in conn.execute(
+        "SELECT DISTINCT family_label FROM grouping_assignments WHERE grouping_id = ? AND unit = 'single_motifs' "
+        "AND family_id IS NOT NULL AND family_label IS NOT NULL", (int(motif_gid),))})
+    return {label: family_colour(i) for i, label in enumerate(labels)}
+
+
+def _seq_rule_words(rule, gap_s, tol_frac) -> str:
+    if rule == "fixed":
+        return (f"neighbours join when the gap from one member's end to the next one's start is at most "
+                f"{gap_s:g} s + {100 * tol_frac:g} % of the shorter member's length")
+    return (f"neighbours join when their onsets fall in one train under the {rule} rule "
+            "(Working.interrogation.trains.find_trains), which sets its own gap limit from the data")
+
+
+def _seq_recording(conn, index, recording_id):
+    """`(recording_id, meta)` — 404 for an unknown id, 423 for the held-out file."""
+    row = conn.execute("SELECT id, source_file FROM recordings WHERE id = ?", (int(recording_id),)).fetchone()
+    if row is None:
+        raise HTTPException(404, f"no recording {recording_id}")
+    _refuse_held_out(conn, row["source_file"])
+    meta = index["by_id"].get(int(recording_id))
+    if meta is None or meta.get("held_out"):
+        raise HTTPException(423, f"recording {recording_id} is not offered by the Library (held out)")
+    return int(recording_id), meta
+
+
+def _seq_candidates(conn, index, motif_gid) -> list:
+    counts = seq_mod.member_counts(conn, motif_gid)
+    out = []
+    for rid, n in counts.items():
+        meta = index["by_id"].get(rid)
+        if meta is None or meta.get("held_out") or n < 2:
+            continue
+        out.append({"recordingId": rid, "recording": meta["label"], "recordingKey": meta["key"],
+                    "channel": meta["name"], "members": n})
+    return sorted(out, key=lambda c: (-c["members"], c["recordingId"]))
+
+
+def _element_payload(e, t0_idx, fs, colours, verdict=None) -> dict:
+    out = {"memberId": int(e.member_id), "label": e.label, "colour": colours.get(e.label, NO_FAMILY_COLOUR),
+           "startS": round((e.start_idx - t0_idx) / fs, 3), "endS": round((e.end_idx - t0_idx) / fs, 3)}
+    if verdict is not None:
+        out["verdict"] = verdict
+    return out
+
+
+def _seq_payload(s, meta, colours, verdicts=None) -> dict:
+    fs = s.fs or 1.0
+    t0 = s.start_idx
+    verdicts = verdicts or {}
+    return {
+        "key": seq_mod.label_key(s), "name": seq_mod.family_name(seq_mod.label_key(s)),
+        "labels": list(s.labels), "memberIds": [int(m) for m in s.member_ids],
+        "recording": meta["label"] if meta else "—", "recordingKey": meta["key"] if meta else None,
+        "channel": meta["name"] if meta else "—",
+        "startS": round(t0 / fs, 3), "endS": round(s.end_idx / fs, 3),
+        "startH": round(t0 / fs / 3600.0, 4), "durationS": round((s.end_idx - t0) / fs, 3),
+        "gapsS": [round(g, 3) for g in s.gaps_s],
+        "elements": [_element_payload(e, t0, fs, colours, (verdicts.get(int(e.member_id)) or {}).get("verdict")
+                                      if verdicts else None) for e in s.elements],
+    }
+
+
+def _seq_join(conn, index, body):
+    """`(recording_id, meta, motif_gid, seqs, candidates)` for a preview or a keep."""
+    motif_g = _resolve_grouping(conn, body.grouping, "single_motifs")
+    if body.grouping not in (None, "", "undefined", "null") and (motif_g is None or motif_g["unit"] != "single_motifs"):
+        raise HTTPException(404, f"no motif grouping {body.grouping!r} to read the members' labels from")
+    motif_gid = int(motif_g["id"]) if motif_g is not None else None
+    candidates = _seq_candidates(conn, index, motif_gid)
+    rid = body.recording_id
+    if rid is None:
+        if body.candidates_only or not candidates:
+            return None, None, motif_gid, [], candidates
+        rid = candidates[0]["recordingId"]
+    rid, meta = _seq_recording(conn, index, rid)
+    if body.candidates_only:
+        return rid, meta, motif_gid, [], candidates
+    try:
+        seqs = seq_mod.join_members(conn, rid, body.rule, body.gap_s, body.tol_frac, body.min_len,
+                                    grouping_id=motif_gid)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    return rid, meta, motif_gid, seqs, candidates
+
+
+@router.post("/sequences/preview")
+def preview_sequences(request: Request, body: SequenceJoinBody):
+    """The sequences a join WOULD make on one recording, as strips. Writes
+    nothing. With no `recording_id`, the channel with the most labelled members
+    is joined; `candidates` is the recording picker (channels with two or more
+    members, busiest first)."""
+    conn = _conn(request)
+    try:
+        index = _recordings_index(conn)
+        rid, meta, motif_gid, seqs, candidates = _seq_join(conn, index, body)
+        colours = _label_colours(conn, motif_gid)
+        kept = set()
+        if seqs:
+            idents = [s.identity for s in seqs]
+            marks = ",".join("?" * len(idents))
+            kept = {str(r[0]) for r in conn.execute(
+                f"SELECT sequence_key FROM sequences WHERE origin = ? AND sequence_key IN ({marks})",
+                [seq_mod.ORIGIN] + idents)}
+        rows = []
+        for s in seqs:
+            p = _seq_payload(s, meta, colours)
+            p["kept"] = s.identity in kept
+            rows.append(p)
+        fams = {}
+        for p in rows:
+            fams[p["key"]] = fams.get(p["key"], 0) + 1
+        n_members = len(seq_mod.labelled_members(conn, rid, motif_gid)) if rid is not None else 0
+        note = None
+        if motif_gid is None:
+            note = "no motif grouping has been saved, so no motif carries a family label yet — group the motifs first"
+        elif rid is None:
+            note = "no channel has two or more Library members with a family label"
+        elif not rows and not body.candidates_only:
+            note = (f"{n_members} labelled members on this channel; none sits close enough to the next one under "
+                    "this rule — widen the gap or the tolerance, or try an adaptive rule")
+        return {
+            "recordingId": rid, "recording": meta["label"] if meta else None,
+            "recordingKey": meta["key"] if meta else None, "channel": meta["name"] if meta else None,
+            "fs": meta["fs"] if meta else None,
+            "rule": body.rule, "gapS": body.gap_s, "tolFrac": body.tol_frac, "minLen": body.min_len,
+            "ruleWords": _seq_rule_words(body.rule, body.gap_s, body.tol_frac),
+            "rules": list(seq_mod.RULES),
+            "motifGrouping": gid_str(motif_gid) if motif_gid is not None else None,
+            "nMembers": n_members, "sequences": rows,
+            "families": [{"key": k, "name": seq_mod.family_name(k), "count": n} for k, n in sorted(fams.items())],
+            "colours": colours, "candidates": candidates, "note": note,
+        }
+    finally:
+        conn.close()
+
+
+def _label_chain_grouping(conn):
+    return conn.execute(
+        "SELECT * FROM groupings WHERE unit = 'sequences' AND method = ? ORDER BY id DESC LIMIT 1",
+        (seq_mod.LABEL_CHAIN_METHOD,)).fetchone()
+
+
+@router.post("/sequences/keep")
+def keep_sequences(request: Request, body: SequenceJoinBody):
+    """Store the sequences the same join makes (re-run here, never taken from
+    the client), then save a label-chain sequence grouping over every kept
+    sequence so the atlas lists the families. Keeping a sequence twice is a
+    no-op; a keep that adds nothing saves no grouping."""
+    conn = _conn(request)
+    try:
+        index = _recordings_index(conn)
+        if body.recording_id is None:
+            raise HTTPException(400, "keep needs the recording_id the preview was made on")
+        rid, meta, motif_gid, seqs, _cands = _seq_join(conn, index, body)
+        if not seqs:
+            raise HTTPException(400, "this join makes no sequence on that recording — nothing to keep")
+        prov = {"rule": body.rule, "gap_s": body.gap_s, "tol_frac": body.tol_frac, "min_len": body.min_len,
+                "motif_grouping": gid_str(motif_gid) if motif_gid is not None else None, "recording_id": rid,
+                "by": "Library › Build sequences"}
+        rows = seq_mod.keep_sequences(conn, seqs, prov)
+        created = sum(1 for r in rows if r["created"])
+        g = _label_chain_grouping(conn)
+        if created:
+            assigns = seq_mod.label_chain_assignments(conn)
+            params = {"rule": "same family labels in the same order"}
+            gid = writes.write_human(conn, "groupings", {
+                "name": "sequences · label chain", "unit": "sequences",
+                "basis": seq_mod.LABEL_CHAIN_BASIS, "method": seq_mod.LABEL_CHAIN_METHOD,
+                "params_json": json.dumps(params, sort_keys=True), "cut": None,
+                "n_families": len({a["family_label"] for a in assigns}),
+                "n_assigned": len(assigns), "n_omitted": 0,
+                "recipe_hash": engine_mod.recipe_hash({"unit": "sequences", "basis": seq_mod.LABEL_CHAIN_BASIS,
+                                                       "method": seq_mod.LABEL_CHAIN_METHOD, "params": params}),
+                "created_at": _dt.datetime.now().isoformat(timespec="seconds"), "actor": "this installation",
+            })
+            for a in assigns:
+                writes.write_human(conn, "grouping_assignments", {
+                    "grouping_id": gid, "unit": "sequences", "member_ref": a["sequence_id"],
+                    "content_hash": a["content_hash"], "family_id": a["family_id"],
+                    "family_label": a["family_label"], "distance": 0.0, "is_medoid": a["is_medoid"],
+                    "omit_reason": None,
+                })
+            conn.commit()
+            g = conn.execute("SELECT * FROM groupings WHERE id = ?", (gid,)).fetchone()
+        return {
+            "kept": [{"id": f"sq-{r['id']}", "sequenceId": r["id"], "sequenceKey": r["sequence_key"],
+                      "key": r["key"], "created": r["created"]} for r in rows],
+            "created": created, "already": len(rows) - created,
+            "grouping": gid_str(g["id"]) if g is not None else None,
+            "families": int(g["n_families"] or 0) if g is not None else 0,
+        }
+    finally:
+        conn.close()
+
+
+def _seq_family_ids(conn, g, family_id) -> list:
+    return [int(r[0]) for r in conn.execute(
+        "SELECT member_ref FROM grouping_assignments WHERE grouping_id = ? AND unit = 'sequences' "
+        "AND family_id IS NOT NULL AND family_label = ? ORDER BY is_medoid DESC, distance, member_ref",
+        (int(g["id"]), family_id))]
+
+
+def _seq_removed(conn, sequence_keys, family_id) -> dict:
+    """`sequence_key -> hand edit id` for every active *remove from family* on a
+    sequence of this family. A sequence's hand edit is keyed `seq:<sequence_key>`
+    (its identity), through the ordinary hand-edits door."""
+    out = {}
+    for e in hand_edits_mod.active_edits(conn, None):
+        h = str(e["content_hash"] or "")
+        if e["kind"] == "remove_member" and h.startswith("seq:") and h[4:] in sequence_keys \
+                and (e["family_label"] in (None, family_id)):
+            out[h[4:]] = int(e["id"])
+    return out
+
+
+def _bins(values, n_bins) -> list:
+    a = np.asarray([v for v in values if math.isfinite(v)], dtype=float)
+    if a.size == 0:
+        return []
+    lo, hi = float(a.min()), float(a.max())
+    if hi <= lo:
+        lo, hi = lo - 0.5, hi + 0.5
+    edges = np.linspace(lo, hi, int(n_bins) + 1)
+    counts = np.histogram(a, bins=edges)[0]
+    return [{"x0": round(float(edges[i]), 4), "x1": round(float(edges[i + 1]), 4), "count": int(c)}
+            for i, c in enumerate(counts)]
+
+
+def _medoid(traces) -> int:
+    """Index of the trace with the least summed distance to the rest, each
+    resampled to one length and centred on its median first."""
+    n = 120
+    rows = []
+    for t in traces:
+        a = np.asarray(t, dtype=float)
+        a = np.interp(np.linspace(0, a.size - 1, n), np.arange(a.size), a)
+        rows.append(a - np.median(a))
+    m = np.vstack(rows)
+    d = np.sqrt(((m[:, None, :] - m[None, :, :]) ** 2).sum(-1)).sum(1)
+    return int(np.argmin(d))
+
+
+@router.get("/sequences/{family_id}")
+def get_sequence_family(request: Request, family_id: str, grouping: str | None = Query(default=None)):
+    """The sequence family page: every sequence as a strip (elements in order,
+    gaps to scale), the medoid shape per element position, the inter-element
+    gap and sequence-length distributions, three example traces with element
+    bands, the nearest other sequence family by edit distance over labels, and
+    the rail's numbers. 404 for a family the grouping does not hold."""
+    conn = _conn(request)
+    try:
+        index = _recordings_index(conn)
+        g = _resolve_grouping(conn, grouping, "sequences")
+        if g is None or str(g["unit"]) != "sequences":
+            raise HTTPException(404, f"no sequence grouping {grouping or '(none saved)'}")
+        ids = _seq_family_ids(conn, g, family_id)
+        if not ids:
+            raise HTTPException(404, f"no sequence family {family_id} in grouping {gid_str(g['id'])}")
+        motif_g = _default_grouping(conn, "single_motifs")
+        motif_gid = int(motif_g["id"]) if motif_g is not None else None
+        colours = _label_colours(conn, motif_gid)
+        keys = {int(r[0]): str(r[1]) for r in conn.execute(
+            f"SELECT id, sequence_key FROM sequences WHERE id IN ({','.join('?' * len(ids))})", ids)}
+        removed_by_key = _seq_removed(conn, set(keys.values()), family_id)
+        every = seq_mod.read_sequences(conn, ids, grouping_id=motif_gid)
+        # a sequence on the held-out recording is left out, as every Library read leaves it out
+        shown = [s for s in every if keys.get(s.sequence_id) not in removed_by_key
+                 and not (index["by_id"].get(int(s.recording_id)) or {}).get("held_out")]
+
+        members = [{"member_id": e.member_id, "recording_id": s.recording_id, "start_idx": e.start_idx,
+                    "end_idx": e.end_idx} for s in shown for e in s.elements if e.member_id]
+        verdicts = verdicts_mod.member_verdicts(conn, members) if members else {}
+        judged = sum(1 for v in verdicts.values() if v["judged"])
+        by_verdict = {}
+        for v in verdicts.values():
+            by_verdict[v["verdict"]] = by_verdict.get(v["verdict"], 0) + 1
+
+        seq_rows = []
+        for s in shown:
+            meta = index["by_id"].get(int(s.recording_id))
+            p = _seq_payload(s, meta, colours, verdicts)
+            p.update({"id": f"sq-{s.sequence_id}", "sequenceId": s.sequence_id,
+                      "contentHash": f"seq:{keys[s.sequence_id]}"})
+            seq_rows.append(p)
+
+        # the medoid per element position, over the sequences that reach that position
+        medoids = []
+        for pos in range(max((len(s) for s in shown), default=0)):
+            cands = []
+            for s in shown:
+                if pos < len(s) and len(cands) < MEDOID_CAP:
+                    e = s.elements[pos]
+                    t = _trace(index, s.recording_id, e.start_idx, e.end_idx, px=MOTIF_TRACE_PX)
+                    if len(t) > 1:
+                        cands.append((e, t))
+            labels_here = [s.elements[pos].label for s in shown if pos < len(s)]
+            label = max(sorted(set(labels_here)), key=labels_here.count) if labels_here else "?"
+            row = {"position": pos, "label": label, "colour": colours.get(label, NO_FAMILY_COLOUR),
+                   "n": len(labels_here), "trace": [], "memberId": None}
+            if cands:
+                k = _medoid([t for _e, t in cands])
+                row.update({"trace": cands[k][1], "memberId": int(cands[k][0].member_id), "drawnFrom": len(cands)})
+            medoids.append(row)
+
+        examples = []
+        for s in shown[:EXAMPLES]:
+            fs = s.fs or 1.0
+            examples.append({
+                "sequenceId": s.sequence_id, "durationS": round((s.end_idx - s.start_idx) / fs, 3),
+                "trace": _trace(index, s.recording_id, s.start_idx, s.end_idx, px=SEQUENCE_TRACE_PX * 2),
+                "bands": [_element_payload(e, s.start_idx, fs, colours) for e in s.elements],
+            })
+
+        gaps = [round(g_, 3) for s in shown for g_ in s.gaps_s]
+        lengths = [len(s) for s in shown]
+        length_bins = ([{"x0": L - 0.5, "x1": L + 0.5, "count": lengths.count(L)}
+                        for L in range(min(lengths), max(lengths) + 1)] if lengths else [])
+
+        # this family's chain and the nearest other family's, by edit distance over labels
+        chain = list((shown or every)[0].labels) if (shown or every) else seq_mod.key_labels(family_id)
+        firsts = {}
+        for r in conn.execute(
+                "SELECT family_label, member_ref FROM grouping_assignments WHERE grouping_id = ? AND unit = 'sequences' "
+                "AND family_id IS NOT NULL ORDER BY is_medoid DESC, distance, member_ref", (int(g["id"]),)):
+            firsts.setdefault(str(r["family_label"]), int(r["member_ref"]))
+        others = {s.sequence_id: s for s in seq_mod.read_sequences(
+            conn, [sid for lab, sid in firsts.items() if lab != family_id], grouping_id=motif_gid)}
+        nearest = None
+        for lab in sorted(firsts):
+            s = others.get(firsts[lab])
+            if lab == family_id or s is None:
+                continue
+            d = seq_mod.edit_distance(chain, s.labels)
+            if nearest is None or d < nearest["distance"]:
+                nearest = {"id": lab, "name": seq_mod.family_name(seq_mod.label_key(s)), "distance": d}
+
+        return {
+            "id": family_id, "name": seq_mod.family_name(seq_mod.label_key(chain)),
+            "labels": chain, "grouping": gid_str(g["id"]), "groupingMethod": g["method"],
+            "motifGrouping": gid_str(motif_gid) if motif_gid is not None else None,
+            "colours": colours, "sequences": seq_rows,
+            "removed": [{"sequenceId": sid, "id": f"sq-{sid}", "editId": removed_by_key[k]}
+                        for sid, k in sorted(keys.items()) if k in removed_by_key],
+            "medoids": medoids, "examples": examples,
+            "gaps": gaps, "gapBins": _bins(gaps, GAP_BINS), "lengths": lengths, "lengthBins": length_bins,
+            "nearest": nearest,
+            "judged": judged, "judgedOf": len(verdicts), "byVerdict": by_verdict,
+            "recordings": len({s.recording_id for s in shown}),
+            "unit": "mV" if any(m["trace"] for m in medoids) else None,
+            "unitNote": _unit_note(index, sorted({s.recording_id for s in shown})),
+        }
+    finally:
+        conn.close()
+
+
+@router.post("/sequences/{family_id}/review")
+def send_sequence_family_review(request: Request, family_id: str, grouping: str | None = Query(default=None)):
+    """*Send to Review*: the unjudged ELEMENTS of this sequence family's shown
+    sequences, as the family's Review queue (`Working.review.family_queue`, the
+    motif family page's door). 409 when every element is already judged."""
+    from Working.review import family_queue as fq
+    from Working.review import queues as rq
+    conn = _conn(request)
+    try:
+        index = _recordings_index(conn)
+        g = _resolve_grouping(conn, grouping, "sequences")
+        if g is None or str(g["unit"]) != "sequences":
+            raise HTTPException(404, f"no sequence grouping {grouping or '(none saved)'}")
+        ids = _seq_family_ids(conn, g, family_id)
+        if not ids:
+            raise HTTPException(404, f"no sequence family {family_id} in grouping {gid_str(g['id'])}")
+        keys = {int(r[0]): str(r[1]) for r in conn.execute(
+            f"SELECT id, sequence_key FROM sequences WHERE id IN ({','.join('?' * len(ids))})", ids)}
+        removed = _seq_removed(conn, set(keys.values()), family_id)
+        shown = [s for s in seq_mod.read_sequences(conn, ids)
+                 if keys.get(s.sequence_id) not in removed
+                 and not (index["by_id"].get(int(s.recording_id)) or {}).get("held_out")]
+        members = [{"member_id": e.member_id, "recording_id": s.recording_id, "start_idx": e.start_idx,
+                    "end_idx": e.end_idx} for s in shown for e in s.elements if e.member_id]
+        verdicts = verdicts_mod.member_verdicts(conn, members) if members else {}
+        unjudged = sorted({m for m, v in verdicts.items() if not v["judged"]})
+        if not unjudged:
+            raise HTTPException(409, f"every element of {family_id} is already judged "
+                                     f"({len(verdicts)} of {len(verdicts)}) — nothing to send")
+        qid = fq.create_family_queue(conn, family=family_id, member_ids=unjudged, grouping=gid_str(g["id"]))
+        return {"queueId": int(qid), "name": fq.queue_name(family_id), "sent": len(unjudged),
+                **rq.queue_counts(conn, qid)}
     finally:
         conn.close()
 
