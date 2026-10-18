@@ -192,6 +192,26 @@ def test_finding_prior_adjudications_does_not_walk_the_channels_detections():
     assert per < 1, f"VM steps {steps[0]} -> {steps[1]}: {per:.1f} per detection of another run on the channel"
 
 
+def test_scoring_one_run_does_not_read_every_run_on_the_channel():
+    """A windowed application writes one run per window (1,442 per channel for
+    1-hour windows at 50 % over M2_aug), and the overnight import alone left
+    ~90 runs on each M2_aug channel. A score asked about one run read every
+    run on its channel and kept that one (`divergence.real_runs`)."""
+    fetched = []
+    for n in (20, 220):
+        conn, rec, run = _channel(50)
+        cfg = conn.execute("SELECT config_id FROM runs WHERE id = ?", (run,)).fetchone()[0]
+        for _ in range(n):
+            run_db.insert_run(conn, cfg, rec, 0, N, status="completed", started_at=_RUN_AT)
+        try:
+            counting = _Counting(conn)
+            SB.channel_score(counting, run, span=SECTION)
+            fetched.append(counting.rows)
+        finally:
+            conn.close()
+    assert fetched[0] == fetched[1], f"{fetched[0]} -> {fetched[1]} rows fetched for 200 more runs on the channel"
+
+
 # ── the section read is the whole read, restricted ──────────────────────────
 #
 # The reference reads every detection of the run, as the scoreboard and the
@@ -333,6 +353,60 @@ def test_the_section_score_is_the_whole_read_restricted(seed, rule, monkeypatch)
             assert got == DIV.channel_divergence(conn, rec, [r], rule=rule, span=s), f"divergence run {r} span {s}"
         for s, got in fast_pooled.items():
             assert got == DIV.channel_divergence(conn, rec, None, rule=rule, span=s), f"pooled divergence span {s}"
+    finally:
+        conn.close()
+
+
+_S0, _S1 = SECTION
+#: One case a section read could get wrong per channel, placed by hand at the
+#: edges of SECTION — on the random channels a wrong bound can hide behind a
+#: detection inside the section that overlaps the same labels. Each is
+#: (labels, detections); a label is (start, end, verdict, source).
+_EDGES = {
+    # a window label ending past the section, overlapped only by a detection
+    # that starts after it ends: the read is widened on by the longest label
+    "label past the end": ([(_S1 - 100, _S1 + 500, "interesting", q.SOURCE_IMPORTED_10MIN)],
+                           [(_S1 + 100, _S1 + 200), (_S0 + 900, _S0 + 950)]),
+    # an event row inside, overlapped only by a detection that starts well
+    # before the section: widened back by the longest detection
+    "long detection from before": ([(_S0 + 200, _S0 + 260, "interesting", "excel_catalog")],
+                                   [(_S0 - 5000, _S0 + 300)]),
+    # under the loose rule an event before the section is claimed by a
+    # detection further back (an earlier index at the same IoU, 0) over one
+    # inside the section: the pairing is one-to-one over every detection
+    "pairing across the start": ([(_S0 - 4000, _S0 - 3900, "interesting", "excel_catalog")],
+                                 [(_S0 - 6000, _S0 - 5000), (_S0 + 3000, _S0 + 6600)]),
+    # a matchable pair far outside the section, which must change nothing
+    "far pair": ([(_S1 + 20_000, _S1 + 20_100, "not_interesting", "excel_catalog")],
+                 [(_S1 + 20_000, _S1 + 20_090), (_S0 + 900, _S0 + 950)]),
+}
+
+
+def _edge_channel(case):
+    labels, dets = _EDGES[case]
+    conn = init_db(":memory:")
+    rec = q.insert_recording(conn, "edge.mat", 0, 1.0, N, 0, "edge_CH0.npy")
+    cfg, _ = run_db.get_or_create_config(conn, _STEPS)
+    run = run_db.insert_run(conn, cfg, rec, 0, N, status="completed", started_at=_RUN_AT)
+    for a, b, verdict, source in labels:
+        q.insert_annotation(conn, rec, a, b, verdict, source, created_at=_BEFORE, commit=False)
+        q.insert_reviewed_span(conn, rec, a, b, source, reviewed_at=_BEFORE, commit=False)
+    conn.executemany("INSERT INTO detections (run_id, start_idx, end_idx, score) VALUES (?, ?, ?, 0.5)",
+                     [(run, a, b) for a, b in dets])
+    conn.commit()
+    return conn, rec, run
+
+
+@pytest.mark.parametrize("rule", _RULES, ids=["default", "loose", "strict-onset"])
+@pytest.mark.parametrize("case", list(_EDGES))
+def test_the_section_score_is_the_whole_read_at_the_edges(case, rule, monkeypatch):
+    conn, rec, run = _edge_channel(case)
+    try:
+        fast = (SB.channel_score(conn, run, rule=rule, span=SECTION),
+                DIV.channel_divergence(conn, rec, [run], rule=rule, span=SECTION))
+        _whole_reads(monkeypatch)
+        assert fast[0] == SB.channel_score(conn, run, rule=rule, span=SECTION)
+        assert fast[1] == DIV.channel_divergence(conn, rec, [run], rule=rule, span=SECTION)
     finally:
         conn.close()
 
