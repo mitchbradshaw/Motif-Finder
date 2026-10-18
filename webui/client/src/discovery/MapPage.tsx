@@ -13,14 +13,36 @@
  *
  * URL keys are `dataset` / `channel` / `bin` / `chunks` / `norm` — `recording` and `channels` are the
  * session's own deep-link keys (session.ts) and must not be touched by this page. */
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Breadcrumb, Button, EmptyState, Icon, InfoTip, Seg, cx, useQueryState } from '../kit'
 import { Header } from '../shell/Header'
 import { navigate } from '../state'
-import { useSourced } from '../api/seam'
+import { useSourced, type SourcedState } from '../api/seam'
 import { getMap, getMapChannel, getMapDataset } from '../api/discovery'
 import type { DiscMapCell, DiscMapRow, DiscMapState, DiscMapTimeline } from '../api'
-import { LoadFailed, Loading } from './chrome'
+import { LoadFailed, Loading, Refreshing } from './chrome'
+
+/* ux-1018: a level answered only its first read. A run finishing or a verdict landing changed nothing on screen,
+ * and a new slice count drew the OLD payload until the next read landed, with nothing to say a read was out — which
+ * read as "the time chunks are not showing changes" (the researcher, 2026-10-18). Now a read in flight shows the
+ * refreshing line and dims the table; the level re-reads when the window comes back into focus; and while any cell
+ * is still running it re-reads every few seconds until none is. The server computes the map on every read, so the
+ * poll is tied to running cells, not left on. */
+const MAP_POLL_MS = 5000
+function useMapRefresh<T>(m: SourcedState<T>, running: boolean) {
+  const reload = useRef(m.reload)
+  reload.current = m.reload
+  useEffect(() => {
+    const onFocus = () => { if (document.visibilityState === 'visible') reload.current() }
+    window.addEventListener('focus', onFocus); document.addEventListener('visibilitychange', onFocus)
+    return () => { window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onFocus) }
+  }, [])
+  useEffect(() => {
+    if (!running) return
+    const t = window.setInterval(() => reload.current(), MAP_POLL_MS)
+    return () => window.clearInterval(t)
+  }, [running])
+}
 
 type Norm = 'row' | 'map'
 const BIN_OPTIONS: { value: string; label: string }[] = [
@@ -241,6 +263,8 @@ function DatasetLevel({ dataset, chunks, norm, onName, onChannel }: { dataset: s
   const data = m.data
   const cellsOf = useMemo(() => (key: string) => data ? Object.values(data.cells[key] ?? {}).flat() : [], [data])
   const shade = useShades(data?.rows ?? [], cellsOf, norm)
+  const running = !!data && data.rows.some(row => cellsOf(row.key).some(c => c.state === 'running'))
+  useMapRefresh(m, running)
   // the crumb learns the dataset's name after the fact, in an effect: a parent setState during this render is a console error
   useEffect(() => { if (data) onName(data.name, data.hours) }, [data?.name, data?.hours]) // eslint-disable-line react-hooks/exhaustive-deps
   if (m.error) return <LoadFailed what={`the map of ${dataset}`} error={m.error} onRetry={m.reload} />
@@ -250,7 +274,8 @@ function DatasetLevel({ dataset, chunks, norm, onName, onChannel }: { dataset: s
   const sliceH = (chHours: number) => chHours / n
   return (
     <>
-      <div className="dsc-map-wrap">
+      <Refreshing on={m.loading} label={chunks !== n ? `re-slicing ${data.name} into ${chunks} chunk${chunks === 1 ? '' : 's'} per channel…` : running ? 're-counting · a run is still going' : `re-counting the runs on ${data.name}`} />
+      <div className="dsc-map-wrap" data-testid="map-dataset-level" data-stale={m.loading ? '1' : '0'} style={{ opacity: m.loading ? 0.55 : 1, transition: 'opacity 140ms' }}>
         <table className="dsc-map-table" data-testid="map-table">
           <thead>
             <tr>
@@ -309,6 +334,8 @@ function ChannelLevel({ dataset, channel, binH, onName }: { dataset: string; cha
   const [hover, setHover] = useState<{ key: string; bin: number } | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const data = m.data
+  const running = !!data && Object.values(data.cells).some(c => c.state === 'running' || c.states.includes('running'))
+  useMapRefresh(m, running)
   useEffect(() => { if (data) onName(data.name, data.hours) }, [data?.name, data?.hours]) // eslint-disable-line react-hooks/exhaustive-deps
   if (m.error) return <LoadFailed what={`the timeline of ${channel}`} error={m.error} onRetry={m.reload} />
   if (!data) return <Loading height={320} label={`binning ${channel} over the whole recording`} />
@@ -331,6 +358,7 @@ function ChannelLevel({ dataset, channel, binH, onName }: { dataset: string; cha
   })()
   return (
     <>
+      <Refreshing on={m.loading} label={binH !== bh ? `re-binning ${channel} at ${binH} h…` : running ? 're-counting · a run is still going' : `re-counting the runs on ${channel}`} />
       <svg width={0} height={0} style={{ position: 'absolute' }} aria-hidden><defs><pattern id="dsc-map-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#fff" /><rect width="2.5" height="6" fill="#e5e7eb" /></pattern></defs></svg>
       <div className="dsc-map-timeline" data-testid="map-timeline">
         {data.rows.map(row => {
