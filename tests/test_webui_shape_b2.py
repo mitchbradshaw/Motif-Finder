@@ -147,6 +147,17 @@ def test_a_mapping_that_does_not_cover_the_cut_is_refused_before_training(ran):
     assert r.status_code == 422
 
 
+def test_launch_setup_names_the_anchor_and_the_drop_default(ran):
+    """ux-1019 (site-fixes item 3, BACKLOG §5 and §1 AM): Launch's setup line showed align and detrend but not
+    where in the window the aligned sample lands. The setup carries the anchor, and the researcher's default for
+    drop work (trough a third in, decided 2026-10-18) travels as data from the core, so the page never restates
+    it; this pool chain is not drop work and keeps centre at the middle."""
+    c, pool, tpl, _steps = ran
+    s = c.get("/api/models/b2/setup", params={"template": tpl["id"], "pool": pool["window_set_id"]}).json()
+    assert s["shape"]["align"] == "centre" and s["shape"]["anchor_frac"] == 0.5
+    assert s["shape"]["drop_default"] == {"align": "trough", "anchor_frac": 0.333}
+
+
 def test_a_window_set_is_renamed_its_key_and_version_kept_and_audited(ran):
     c, _pool, _tpl, _steps = ran
     sets = c.get("/api/windowsets/library").json()["sets"]
