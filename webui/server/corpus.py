@@ -31,6 +31,7 @@ from .runtime import HELD_OUT_FILE
 # it. A second copy here drifted from it within an hour of being written.
 from Working.discovery import divergence as DIV
 from Working.discovery import scoreboard as SB
+from Working.discovery import spans as SPANS
 from Working.discovery.channels import M2_STYLE_NAMES, channel_name as _core_channel_name
 
 # VERDICTS is imported from Working.database.schema above — the one vocabulary,
@@ -208,15 +209,10 @@ def recording_row(conn, recording_id: int) -> dict | None:
     return d
 
 
-def _absolute(start_idx, end_idx, span_start):
-    """Channel-absolute bounds for a detections row. Rows written before 2026-09-21
-    by a spanned run are span-relative (the executor added no offset); such a row
-    is recognisable because its start lies below the run's span_start. Rows the
-    executor writes now are absolute already."""
-    s, e, o = int(start_idx), int(end_idx), int(span_start or 0)
-    if o and s < o:
-        return s + o, e + o
-    return s, e
+#: Channel-absolute bounds for a detections row — the one rule, `Working.discovery.spans.absolute_bounds`
+#: (span-plot: this was a second copy, though the core's docstring said it delegated). Rows written before
+#: 2026-09-21 by a spanned run are span-relative; a start below the run's span_start marks one.
+_absolute = SPANS.absolute_bounds
 
 
 def run_methods(conn, source_file: str, run_ids=None) -> list[dict]:
@@ -470,17 +466,26 @@ def spans(conn, recording_id: int, t0_s: float, t1_s: float, fs: float, cap: int
     # the Python test below is unchanged and still decides.
     shifted = "(IFNULL(r.span_start, 0) != 0 AND d.start_idx < r.span_start)"
     det_all = conn.execute(
-        "SELECT d.id, d.start_idx, d.end_idx, d.score, d.run_id, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id "
+        "SELECT d.id, d.start_idx, d.end_idx, d.score, d.run_id, r.span_start, r.span_end, r.started_at FROM detections d JOIN runs r ON r.id = d.run_id "
         "WHERE r.recording_id = ? AND " + q.not_surrogate("r") + " AND " + q.not_window_part("r") + " "
         f"AND (CASE WHEN {shifted} THEN d.end_idx + r.span_start ELSE d.end_idx END) > ? "
         f"AND (CASE WHEN {shifted} THEN d.start_idx + r.span_start ELSE d.start_idx END) < ? "
         "ORDER BY d.start_idx", (recording_id, s0, s1)).fetchall()
     det = []
+    suspect = {}
     for d in det_all:
         a, b = _absolute(d["start_idx"], d["end_idx"], d["span_start"])
         if b > s0 and a < s1:
             det.append({"id": d["id"], "start_idx": a, "end_idx": b, "score": d["score"], "run_id": d["run_id"]})
+            rid = d["run_id"]
+            if rid not in suspect and rid not in SPANS._AMBIGUOUS_REPORTED \
+                    and SPANS.legacy_ambiguous(d["span_start"], d["span_end"], d["started_at"]):
+                suspect[rid] = (d["span_start"], d["span_end"], d["started_at"])
+    _warn_ambiguous(conn, suspect)
     det.sort(key=lambda d: d["start_idx"])
+    # span-plot, the pile at t = 0: a capped read is the window's FIRST `cap` detections by start, so a reader
+    # that takes a whole-channel read for the channel sees them all near its start. Say where they stop.
+    complete_to = det[cap - 1]["start_idx"] / fs if len(det) > cap else t1_s
     return {
         "recording_id": recording_id, "t0_s": t0_s, "t1_s": t1_s,
         "annotations": [{"id": a["id"], "start_s": a["start_idx"] / fs, "end_s": a["end_idx"] / fs, "verdict": a["verdict"],
@@ -488,7 +493,17 @@ def spans(conn, recording_id: int, t0_s: float, t1_s: float, fs: float, cap: int
         "detections": [{"id": d["id"], "start_s": d["start_idx"] / fs, "end_s": d["end_idx"] / fs,
                         "score": _finite(d["score"]), "run_id": d["run_id"]} for d in det[:cap]],
         "annotations_capped": len(ann) > cap, "detections_capped": len(det) > cap,
+        "detections_complete_to_s": complete_to,
     }
+
+
+def _warn_ambiguous(conn, suspect: dict) -> None:
+    """Name each ambiguous legacy run in a read once per process (`Working.discovery.spans.warn_if_ambiguous`),
+    with its detector read from its recipe — fetched only for runs not yet reported."""
+    for rid, (o, e, started) in suspect.items():
+        row = conn.execute("SELECT c.config_json FROM runs r LEFT JOIN configs c ON c.id = r.config_id WHERE r.id = ?",
+                           (rid,)).fetchone()
+        SPANS.warn_if_ambiguous(rid, o, e, started, algorithm=SPANS.detector_of(row[0] if row else None))
 
 
 def ribbons(conn, recording_id: int, fs: float, n: int, buckets: int = 300) -> dict:

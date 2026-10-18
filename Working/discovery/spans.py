@@ -16,6 +16,9 @@ Interval merging is not reimplemented: ``Working.database.queries.
 merge_intervals`` is the codebase's one definition and is imported.
 """
 
+import json
+import logging
+
 from Working.database.queries import merge_intervals
 
 
@@ -30,6 +33,72 @@ def absolute_bounds(start_idx, end_idx, span_start):
     if o and s < o:
         return s + o, e + o
     return s, e
+
+
+# span-plot (2026-10-18): the one case the rule above cannot settle. A spanned run longer than its offset
+# (``span_end - span_start > span_start``) can hold a relative index at or above ``span_start``, which then
+# reads as absolute and is drawn between 0 and the span's length. The migration in
+# ``Working.database.schema`` refuses such runs ("ambiguous") and leaves them alone. The database can say a run
+# IS ambiguous, and that it was written before the executor added the offset (commit a8cea40, 2026-09-21 07:05
+# UTC — the date is compared at day resolution, so the whole of the 21st counts as before); it cannot say
+# which of its rows are relative. So the read path keeps the heuristic, names the run once, and the fix is a
+# one-time, reviewed migration (proposed in docs/prompts/changes/reports/span-plot-report.md).
+
+#: the first UTC day every spanned run's detections were written channel-absolute
+EXECUTOR_ABSOLUTE_FROM = "2026-09-22"
+
+#: run ids already warned about in this process (a test clears it)
+_AMBIGUOUS_REPORTED: set = set()
+
+_log = logging.getLogger(__name__)
+
+
+def legacy_ambiguous(span_start, span_end, started_at):
+    """Is this run one whose relative rows `absolute_bounds` cannot tell from absolute ones?
+
+    True for a spanned run written before the executor added the offset whose span is longer than its offset.
+    A whole-channel run, a span shorter than its offset, and any run written since are never ambiguous."""
+    o = int(span_start or 0)
+    if o <= 0 or span_end is None:
+        return False
+    return (int(span_end) - o) > o and str(started_at or "") < EXECUTOR_ABSOLUTE_FROM
+
+
+def warn_if_ambiguous(run_id, span_start, span_end, started_at, algorithm=None):
+    """Log, once per run per process, that `run_id`'s detections may be drawn at the wrong time."""
+    if run_id in _AMBIGUOUS_REPORTED or not legacy_ambiguous(span_start, span_end, started_at):
+        return False
+    _AMBIGUOUS_REPORTED.add(run_id)
+    _log.warning(
+        "legacy detections: run %d (%s, started %s) spans [%d, %d), longer than its offset, and was written "
+        "before 2026-09-21: rows at or above span_start may be span-relative and are drawn as absolute "
+        "(the existing heuristic). A one-time migration is needed to place them.",
+        int(run_id), algorithm or "unknown detector", str(started_at or "?")[:10], int(span_start), int(span_end))
+    return True
+
+
+def detector_of(config_json):
+    try:
+        steps = json.loads(config_json or "{}").get("steps") or []
+    except (TypeError, ValueError):
+        return None
+    algos = [s.get("algorithm") for s in steps if isinstance(s, dict) and s.get("algorithm")]
+    return algos[-1] if algos else None
+
+
+def ambiguous_legacy_runs(conn):
+    """Every run `legacy_ambiguous` names that holds detections, with its detector (the recipe's last
+    algorithm), its start date, its row count and how many rows sit at or above ``span_start`` (the ones the
+    heuristic leaves where they are). Read-only: what the proposed migration would act on."""
+    rows = conn.execute(
+        "SELECT r.id, r.span_start, r.span_end, r.started_at, c.config_json, COUNT(d.id) AS n, "
+        "SUM(CASE WHEN d.start_idx >= r.span_start THEN 1 ELSE 0 END) AS n_hi "
+        "FROM runs r JOIN detections d ON d.run_id = r.id LEFT JOIN configs c ON c.id = r.config_id "
+        "WHERE r.span_start > 0 AND (r.span_end - r.span_start) > r.span_start AND r.started_at < ? "
+        "GROUP BY r.id ORDER BY r.id", (EXECUTOR_ABSOLUTE_FROM,)).fetchall()
+    return [{"run_id": int(r[0]), "span_start": int(r[1]), "span_end": int(r[2]), "started_at": str(r[3]),
+             "detector": detector_of(r[4]), "n": int(r[5]), "n_at_or_above_span_start": int(r[6] or 0)}
+            for r in rows]
 
 
 def clip(spans, lo, hi):
