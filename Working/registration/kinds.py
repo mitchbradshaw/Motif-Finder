@@ -556,6 +556,47 @@ def declare_units(conn, source_file: str, units: str, note: str | None = None, a
     return {"source_file": source_file, "units": u, "units_note": text, "channels": int(n)}
 
 
+def link_parent(conn, child_id: int, parent_id: int, offset: int, decimation: int = 1) -> dict:
+    """Record that recordings row ``child_id`` is ``parent_id``'s samples from
+    ``offset`` on, decimated ``decimation``:1 — the link the excerpt rule writes
+    for short excerpts (``_register_recording``), for a child too long for that
+    rule to find (L_LM_Jul_26_J at 10 Hz is a whole-length x1000 copy of five
+    MJu26a channels, datasets-derive 2026-10-18). The caller has measured the
+    alignment; this checks only what Review's shape code needs to read the link
+    (``webui/server/review.py::_shape_source``: parent sample = offset + i x
+    decimation, and fs_parent = decimation x fs_child).
+
+    Raises ``ValueError`` for a negative offset, an offset past the parent's
+    end, a self-link or a rate that does not match; ``KeyError`` for a missing
+    row. Returns what was written, with ``overhang`` = child samples that run
+    past the parent's end (Review clips there). Does not commit."""
+    d = int(decimation)
+    off = int(offset)
+    if off < 0:
+        raise ValueError(f"offset {off} is negative: a child that starts before its parent cannot be linked")
+    if d < 1:
+        raise ValueError(f"decimation {d} must be >= 1")
+    if int(child_id) == int(parent_id):
+        raise ValueError("a recording cannot be its own parent")
+    rows = {}
+    for rid in (child_id, parent_id):
+        r = conn.execute("SELECT id, source_file, channel, fs, n_samples FROM recordings WHERE id = ?", (int(rid),)).fetchone()
+        if r is None:
+            raise KeyError(f"no recordings row {rid}")
+        rows[int(rid)] = {"source_file": r[1], "channel": int(r[2]), "fs": float(r[3]), "n": int(r[4])}
+    c, p = rows[int(child_id)], rows[int(parent_id)]
+    if abs(p["fs"] - d * c["fs"]) > FS_RATIO_TOL * max(1.0, p["fs"]):
+        raise ValueError(f"{p['source_file']} runs at {p['fs']:g} Hz, which is not {d} x the child's {c['fs']:g} Hz")
+    if off >= p["n"]:
+        raise ValueError(f"offset {off:,} is past the parent's last sample ({p['n']:,} samples)")
+    overhang = max(0, off + c["n"] * d - p["n"])
+    conn.execute("UPDATE recordings SET parent_recording_id = ?, parent_offset = ?, decimation = ? WHERE id = ?",
+                 (int(parent_id), off, d, int(child_id)))
+    return {"child_id": int(child_id), "parent_id": int(parent_id), "parent_offset": off, "decimation": d,
+            "child": f"{c['source_file']} CH{c['channel']}", "parent": f"{p['source_file']} CH{p['channel']}",
+            "overhang": int(overhang)}
+
+
 def _list_recordings(conn, sidecar_root=None, **kw):
     rows = _rows(conn, "SELECT * FROM recordings WHERE active = 1 ORDER BY source_file, channel")
     by = {}
