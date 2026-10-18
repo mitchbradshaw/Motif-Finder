@@ -156,3 +156,67 @@ show the new revision.
 ## 9. Commits
 
 See `git log --oneline main..HEAD` (the red test commit, the implementation, this report).
+
+## Critic round (2026-10-18)
+
+Verdict: merge after the critic's fixes. The save rule holds rule 5 (the detections table is byte-identical
+across every save path, tested); the first commit touches only `tests/`; the removed `explore.json` states all
+opened the demo fixture (`m-1846` / `m-0917` / `m-9999`).
+
+**Fixed**
+
+1. `b52f077`: work item 3, which the implementer left open. Review now draws a Library member at its **current
+   revision**. `artifact_queue._members` also returns `shown_start_idx` / `shown_end_idx`, read through
+   `motif_member.current_revision_id`. Both `resolve_items` put that span in the item's `start_idx` / `end_idx`.
+   The verdict key (`_review_rows`, `member_verdicts`, `write_member_verdict`, the Library resolver) stays on
+   the member's own span. Tests (conda), one in each of `test_review_family_queue.py` and
+   `test_review_suspected_artifact.py`, check two things after a redraw: the item draws rev 2 and is still
+   judged with its verdict, and a second verdict re-describes the same row. Both tests were red before the fix.
+2. `9a736d5`: a member ref (`m-<id>`) fell back to `motif_entry.detection_id` without checking that the member
+   is that detection. As a result, every other member of the entry borrowed that detection's span, its
+   adjudication (written onto the new annotation as the item's verdict), and its id (written as the provenance
+   of the seeded machine rev 1). The fallback now requires the same recording and an overlap.
+3. `9a736d5`: an unjudged **member's** edit wrote a `seed` annotation. `seed` is not a member's question
+   (`family_queue` refuses it). A seed row over the member's span also resolves the member to "yes" by extent,
+   so a redraw silently judged it in Review and the Library and put it in the Explore spans queue. The member
+   path now falls back to `unsure`, with the note "span correction only: no verdict given", and the member
+   stays unjudged (tested). The plain-detection path keeps the prompt's `seed` fallback.
+4. `b84b9fc`:
+   - The "What saving writes" sentence now names the member's verdict.
+   - The start/end fields no longer re-commit their three-decimal text when focused and left unchanged.
+     Above 1 kHz that moved the span by a sample and enabled Save.
+   - `explore/index.tsx` no longer defaults to `m-1846`.
+   - `shell/pages.ts` now gives `explore/span-edit/101?from=review&queue=2&item=101` as the canonical route.
+5. Added coverage: a legacy span-relative detection is read and saved channel-absolute, and a second member save
+   becomes rev 3.
+
+**Not fixed (decisions or other owners)**
+
+- An unjudged **plain detection** still gets a `seed` annotation, as the prompt says. That row enters the
+  Explore spans queue. Through §4.6 extent matching it also counts the detection as human "yes" in the
+  Discovery divergence and scoreboard figures. The researcher should confirm `seed` rather than `unsure`.
+- Saving a plain detection twice leaves two live human rows: nothing links an annotation to its detection, so
+  the earlier correction cannot be withdrawn.
+- If a detection belongs to two Library members, `_member_of_detection` picks one: the newest by revision, else
+  the lowest id that overlaps. Only that member is revised.
+- `_span_edit_verdict` reads the family queue's member verdict and the adjudication. It does not read a
+  suspected-artifact queue's verdict. That is harmless now, because the fallback is `unsure`.
+- `_span_edit_context` nearly duplicates `review._trace_env`. Fold it in after the AR pass lands `review.py`.
+
+**Gate after the critic's fixes**
+
+| Check | Interpreter | Result |
+|---|---|---|
+| `test_webui_span_edit.py` | venv | 17 passed |
+| `test_webui_review.py` | venv | 32 passed |
+| `test_webui_review_axis.py` | venv | 7 passed |
+| `test_webui_library.py` | venv | 59 passed, 3 xpassed |
+| `test_webui_family_queue.py` | venv | 6 passed |
+| `test_webui_suspected_artifact.py` | venv | 4 passed |
+| `test_review_family_queue.py` | conda | 12 passed |
+| `test_review_suspected_artifact.py` | conda | 10 passed |
+| `test_library_verdicts.py` | conda | 4 passed |
+| `test_cross_channel_chance.py` | conda | 37 passed |
+| `test_import_boundaries.py` | conda | 4 passed |
+| `tsc -b` | | clean |
+| `vite build` | | built |
