@@ -175,3 +175,63 @@ On real data, the manager should look at two things:
 - f366f9f family: pick a trace in the family overlay; the family's members in place; the rose reference line
 - 2e452f0 family: red - the rose reference line is the live median over accepted motifs, n 0 with none
 - (this report, committed last)
+
+## Critic round (2026-10-19)
+
+**In plain words.** The work does what the prompt asks. One real bug: the reference line is remembered until
+"something about the verdicts changes", and the check for that change looked only at how many verdicts there are
+and the newest one's number. Review changes a verdict by rewriting the existing row, so a member re-judged from
+*interesting* to *artifact* left the line where it was. That is like a shop counting its receipts to see whether
+the takings changed: an edited receipt goes unnoticed. The check now also reads the verdicts themselves.
+
+**Checked and found right**
+- The median by hand: accepted slopes |−2| and |−4| give 3.0, n 2; an *artifact* window does not count; nothing
+  accepted gives n 0 and no line. `rose_reference.compute(min_accepted=1)` is the one slope reader; no second one.
+- The angle placement. The core draws each event at `arctan(slope / ref)` (`gradients.slope_angles`), so
+  `|slope| / tan|angle|` gives `ref` back exactly. I checked this on synthetic payloads in node. Pooled with
+  ref 2.5: the line for median 3 sits at −50.194°, the same angle as the event of slope −3. Raw gives 1.0. A
+  recording-scale rose over two recordings gives null, so no ray is drawn and the label says why. Correct.
+  `_clean` does not round angles, so the 1e-3 agreement tolerance holds.
+- Explore. `SignalBody.initial()` reads `explore.view` when `explore.channelId` matches the route's channel.
+  `startS`/`endS` are seconds from the recording's start (`start_idx / fs`), and the recording id is the channel
+  id (the same id the slideshow's `/api/channels/{id}/window` uses). So the Signal page opens on that span.
+- The hit test. The SVG has no viewBox and its width is the measured width, so `clientX − rect.left` is in CSS px.
+  devicePixelRatio does not enter. `useSize` re-measures on resize. A click on the SVG focuses the tabIndex=0 box,
+  so ↑/↓ work straight after a click. The overlay's Esc calls preventDefault, so the slideshow's window listener
+  stands back.
+- The atlas card's onClick sets `?members=`, which opens `FamilyMembersInPlace` (fixup-ae). The smoke unit's
+  grouping, family and member (g-05 / F-03 / m-856), and the routes `analyse/interrogation/sequence?id=1` and
+  `.../block/1`, all appear in existing passing states (`library.json`, `interrogation.json`). The JSON parses.
+  The harness supports `press`, `click_if` and `wait_for`.
+- First commit `2e452f0` touches `tests/` only. The red run was 4 failed and 1 passed.
+
+**Deviations judged**
+- (a) Send to Review via the family queue: **accepted.** `sendDetectionsToReview` takes a Discovery run key that
+  a Library member does not carry. The family queue lands the member in Review and judges it as a member, and
+  its verdict comes back through the same resolver the line reads. A member does have detection ids behind its
+  edges, but routing those through the picked queue would judge a detection rather than the member, and the
+  family would not see it. That would be less faithful.
+- (b) Explore view state rather than `ub-proto-a:source`: **accepted** (see above). Overwriting the Analyse
+  source would change someone's chain.
+- (c) The summary card as the "cluster strip": **accepted.** The family page has no strip of clusters, and the
+  atlas card already opens its members in place.
+
+**Fixed (b3de3b4)**
+- *should-fix*: the cache key moves on a verdict changed in place (`_verdict_checksum`). New tests: a verdict
+  changed in place moves the line (red before the fix); three reads compute once, and a new verdict computes again.
+- *minor*: Esc typed in a text field no longer closes the slideshow.
+- *minor*: the in-place host on the family page no longer offers a primary "Open family page" that navigates to
+  the page you are already on.
+- *cheap extra*: `analyse/EventFeatures.tsx`'s rose gets the reference line. `EventFeaturesPanel` currently has
+  no caller, so this costs nothing.
+
+**Not fixed (noted)**
+- `_view_fingerprint` itself has the same blind spot for verdicts changed in place. That affects every other
+  view cache that uses it, it predates this branch, and it is out of scope here.
+- The 6 px radius is tight on a 222 px overlay; the keyboard and `?pick=` are the fallback.
+
+**Gate after the critic's fixes**
+- webui/.venv: `test_webui_library_family_actions.py` 7 passed; `test_webui_library.py` 59 passed, 3 xpassed;
+  `test_webui_library_view.py` 9 passed.
+- conda: `test_import_boundaries.py` 4 passed.
+- `tsc -b` clean; `vite build` built.
