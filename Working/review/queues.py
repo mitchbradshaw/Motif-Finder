@@ -815,11 +815,11 @@ def _structure_fingerprint(conn, q, run_ids, rec_ids):
     parts.append(_rows(conn, "SELECT id, recording_id, start_idx, end_idx, verdict, deleted_at IS NULL "
                              "FROM annotations WHERE recording_id IN (" + _in(rec_ids) + ") ORDER BY id"))
     parts.append(repr(rule_from_settings(conn)))
-    # review-carry: the carried rows — their count and newest id (indexed: `idx_adjudications_carried_from`). The
-    # structure itself reads no adjudication (verdicts are the overlay, read fresh); a carried row is in the
-    # fingerprint because it changes which items a queue still asks about, and a verdict that carried nothing
-    # leaves every structure standing (AR's one-lookup step after a verdict)
-    parts.append(_rows(conn, "SELECT COUNT(*), MAX(id) FROM adjudications WHERE carried_from IS NOT NULL"))
+    # review-carry: no adjudication is in the fingerprint, carried or not. The structure reads none (overlap sets
+    # are built from the candidates' spans alone); verdicts and carried rows are the overlay, read fresh on every
+    # call, so a carried row changes what a queue asks about without touching the structure. Fingerprinting
+    # carried rows rebuilt every open queue's structure after every verdict that carried (AR's cold read, ~22 s for
+    # 20 queues on the scale fixture). Pinned: test_a_verdict_plain_or_carried_rebuilds_no_structure_...
     return hash(tuple(parts))
 
 

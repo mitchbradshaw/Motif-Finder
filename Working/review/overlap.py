@@ -65,6 +65,10 @@ def _span(d):
     return int(d[0]), int(d[1]), int(d[2])
 
 
+#: review-carry critic: a set is never longer than this many times its longest detection (see `overlap_sets`).
+MAX_SET_EXTENT = 2.0
+
+
 def overlap_sets(detections):
     """The overlap sets of ONE run's detections on ONE channel, as a list of id
     sets, ordered by the earliest onset in each set.
@@ -74,15 +78,26 @@ def overlap_sets(detections):
     closure: A~B and B~C put A and C in one set even when they do not overlap.
     The caller says which detections are one run on one channel; mixing runs or
     channels here would merge what the researcher decided stays apart.
+
+    **Bounded to one event's length.** A detector that emits a window every hop
+    (hop < window) chains for as long as it keeps firing: on a 600 h synthetic
+    channel, windows of 600 s at a hop of 150 s closed into sets of ~140
+    detections spanning 3-4 h, and one key press wrote a verdict on all of them
+    (and carried each one on). That is not "the same event twice". So the sweep
+    closes a set where the next detection would stretch it beyond
+    `MAX_SET_EXTENT` x its longest detection; that detection opens the next set.
+    Every set within the bound is exactly the transitive closure.
     """
     spans = sorted((_span(d) for d in detections), key=lambda s: (s[1], s[0]))
-    out, cur, reach = [], None, None
+    out, cur, first, reach, longest = [], None, None, None, 0
     for did, start, end in spans:
         if cur is not None and start < reach:
-            cur.add(did)
-            reach = max(reach, end)
-            continue
-        cur, reach = {did}, end
+            grown_longest = max(longest, end - start)
+            if max(reach, end) - first <= MAX_SET_EXTENT * grown_longest:
+                cur.add(did)
+                reach, longest = max(reach, end), grown_longest
+                continue
+        cur, first, reach, longest = {did}, start, end, end - start
         out.append(cur)
     return out
 
