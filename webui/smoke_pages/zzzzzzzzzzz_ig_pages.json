@@ -118,8 +118,29 @@
   "state": "ig-pages-event-trains-chain-runs",
   "hash": "analyse/chain",
   "settle_ms": 900,
-  "_why": "ig-pages: Import event_trains (the drop detector -> Event shape -> Trains (logISI, write_group) -> Intervals) on the example span and run it; the three feature rows draw",
+  "_why": "ig-pages: Import event_trains (the drop detector -> Event shape -> Trains (logISI, write_group) -> Intervals) on the example span and run it; the three feature rows draw; the example span is set first through the source chip, because by this file the walk's source may be a window pool left behind by an earlier unit",
   "actions": [
+   {
+    "press": "Escape"
+   },
+   {
+    "wait": 300
+   },
+   {
+    "click": "[data-testid=\"source-chip\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"source-popover\"] [data-testid=\"use-example\"]",
+     10000
+    ]
+   },
+   {
+    "click": "[data-testid=\"source-popover\"] [data-testid=\"use-example\"]"
+   },
+   {
+    "wait": 400
+   },
    {
     "press": "Escape"
    },
@@ -403,8 +424,29 @@
   "state": "ig-pages-cycle-shapes-chain-runs",
   "hash": "analyse/chain",
   "settle_ms": 900,
-  "_why": "ig-pages: noise_threshold with Cycle shapes inserted at 3 (as w3-cycle-shapes-thumbnails), run on the example span",
+  "_why": "ig-pages: noise_threshold with Cycle shapes inserted at 3 (as w3-cycle-shapes-thumbnails), run on the example span; the example span is set first through the source chip, because by this file the walk's source may be a window pool left behind by an earlier unit",
   "actions": [
+   {
+    "press": "Escape"
+   },
+   {
+    "wait": 300
+   },
+   {
+    "click": "[data-testid=\"source-chip\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"source-popover\"] [data-testid=\"use-example\"]",
+     10000
+    ]
+   },
+   {
+    "click": "[data-testid=\"source-popover\"] [data-testid=\"use-example\"]"
+   },
+   {
+    "wait": 400
+   },
    {
     "press": "Escape"
    },

@@ -451,7 +451,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
         )}
       </div>} folded={[
       anatomy && event && { key: 'readout', node: (
-        <SectionCard testid="readout-card" title={`Event ${event.id} in numbers`}
+        <SectionCard testid="event-readout-card" title={`Event ${event.id} in numbers`}
           info="The selected event's measures, as the store holds them. The plot above draws the same numbers.">
           <div className="ig-readout" data-testid="event-readout">
             <span>event <b>{event.id}</b> · {event.channel} · {event.onset_h.toFixed(2)} h</span>

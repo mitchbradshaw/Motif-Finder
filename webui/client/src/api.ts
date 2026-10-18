@@ -1664,7 +1664,7 @@ export interface TrainsPayload {
 export interface IntervalClasses {
   rule: 'family' | 'depth' | 'none'; rule_words: string; column: string | null; edges: number[] | null
   classes: { key: string; label: string; n: number }[]
-  event_class: string[]; event_t_s: number[]; event_group: string[] | null
+  event_class: string[]; event_t_s: (number | null)[]; event_group: string[] | null
   gap_s: (number | null)[]; within_gap_s: (number | null)[]
   stats: Record<string, Record<string, IntervalStats>>
 }

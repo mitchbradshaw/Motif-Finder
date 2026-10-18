@@ -118,3 +118,42 @@ def test_no_depth_and_no_family_is_one_class_and_says_so():
 def test_a_spanset_without_interval_stats_has_no_classes():
     p = to_payload("spanset", SpanSet(starts=(10, 40), ends=(20, 50)), {}, {"fs": FS})
     assert "interval_classes" not in p
+
+
+# ig-pages critic round -------------------------------------------------------------------------------------------
+
+def test_an_event_with_no_onset_has_no_time_and_the_payload_stays_json_safe():
+    """Event shape writes NaN `onset_idx` for an event whose fall it could not measure; the bridge's JSON response
+    refuses NaN (allow_nan=False), so one such event must not take the whole Intervals page down."""
+    import json
+    feats = pd.DataFrame({"onset_idx": [0.0, np.nan, 200.0, 300.0], "event_amplitude_mv": [-1.0, -2.0, -3.0, -4.0]})
+    res = _intervals(SpanSet(starts=(0, 100, 200, 300), ends=(5, 105, 205, 305), features=feats))
+    p = to_payload("spanset", res.value, res.meta, {"fs": FS})
+    json.dumps(p, allow_nan=False)
+    ic = p["interval_classes"]
+    assert ic["event_t_s"][1] is None and ic["event_t_s"][2] == pytest.approx(200.0)
+
+
+def test_all_equal_depths_are_one_class_not_all_large():
+    feats = pd.DataFrame({"event_amplitude_mv": [-2.0] * 5})
+    res = _intervals(SpanSet(starts=(0, 100, 200, 300, 400), ends=(5, 105, 205, 305, 405), features=feats))
+    ic = to_payload("spanset", res.value, res.meta, {"fs": FS})["interval_classes"]
+    assert ic["rule"] == "none" and ic["event_class"] == ["all"] * 5
+    assert "same depth" in ic["rule_words"]
+
+
+def test_the_per_class_timing_is_exactly_the_blocks_measure_over_those_groups():
+    """The serializer times each class per key (linear) instead of one `measure(groups=...)` call (quadratic in
+    the number of keys); the numbers must be the block's own, key for key."""
+    from Adapters.interrogation_intervals import measure
+    from server.serialize import _measure_grouped
+    rng = np.random.default_rng(3)
+    starts = np.sort(rng.choice(np.arange(5000), 300, replace=False))
+    onsets = starts.astype(float) + 2
+    onsets[::17] = np.nan
+    keys = [f"g{int(k)}\x1f{c}" for k, c in zip(rng.integers(0, 40, 300), rng.choice(["small", "large"], 300))]
+    want_b, _, want_s = measure(starts, FS, onsets=onsets, groups=keys)
+    got_b, got_s = _measure_grouped(measure, starts, FS, onsets, keys)
+    np.testing.assert_array_equal(np.isnan(got_b), np.isnan(want_b))
+    np.testing.assert_allclose(got_b[~np.isnan(got_b)], want_b[~np.isnan(want_b)])
+    assert list(got_s) == list(want_s) and got_s == want_s

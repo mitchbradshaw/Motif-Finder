@@ -51,9 +51,13 @@ export function IntervalTimeline({ ic, t0, t1, within, onWithin, coloured, onCol
   const shared = groups.length > MAX_LANES
   const groupOf = (i: number) => ic.event_group ? ic.event_group[i] : 'all'
   // the events of each lane in time order, and for each event the one its written distance is measured from
+  // an event with no onset (Event shape could not measure its fall) has no time (null) and is not drawn; its
+  // distances are not measured either (the intervals block skips it), and the legend counts it
+  const T = (i: number) => ic.event_t_s[i] as number
+  const untimed = useMemo(() => ic.event_t_s.filter(v => v === null).length, [ic])
   const lanes = useMemo(() => (shared ? ['all groups'] : groups).map(g => {
-    const idx = ic.event_t_s.map((_, i) => i).filter(i => shared || groupOf(i) === g)
-      .sort((a, b) => ic.event_t_s[a] - ic.event_t_s[b])
+    const idx = ic.event_t_s.map((_, i) => i).filter(i => ic.event_t_s[i] !== null && (shared || groupOf(i) === g))
+      .sort((a, b) => T(a) - T(b))
     const gaps: { from: number; to: number; s: number }[] = []
     for (const gg of shared ? groups : [g]) {
       const inG = idx.filter(i => groupOf(i) === gg)
@@ -61,6 +65,9 @@ export function IntervalTimeline({ ic, t0, t1, within, onWithin, coloured, onCol
       const from = within === 'all' ? ic.gap_s : ic.within_gap_s
       for (let k = 1; k < mine.length; k++) { const s = from[mine[k]]; if (s !== null) gaps.push({ from: mine[k - 1], to: mine[k], s }) }
     }
+    // left to right, so a label is written only where no earlier label on the lane already sits (on a shared lane
+    // the gaps of different groups overlap)
+    gaps.sort((a, b) => T(a.from) - T(b.from))
     return { g, idx, gaps }
   }), [ic, groups, within, shared])   // eslint-disable-line react-hooks/exhaustive-deps
   const histValues = lanes.flatMap(L => L.gaps.map(g => g.s))
@@ -97,15 +104,18 @@ export function IntervalTimeline({ ic, t0, t1, within, onWithin, coloured, onCol
         {size.width > 0 && <svg width={w} height={h + 20} data-testid="interval-timeline-plot">
           {lanes.map((L, li) => {
             const y0 = li * LANE + 4, mid = y0 + LANE / 2
+            let rightmost = -Infinity   // the right edge of the last label written on this lane
             return (
               <g key={L.g} data-lane={L.g}>
                 {lanes.length > 1 && <text x={2} y={y0 + 9} style={{ fontSize: 9.5, fill: 'var(--muted)' }}>{L.g}</text>}
                 <line x1={x(t0)} x2={x(t1)} y1={mid + 6} y2={mid + 6} stroke="var(--grey-200, #e5e7eb)" />
                 {L.gaps.map(gp => {
-                  const xa = x(ic.event_t_s[gp.from]), xb = x(ic.event_t_s[gp.to])
+                  const xa = x(T(gp.from)), xb = x(T(gp.to))
                   const text = fmtGap(gp.s)
-                  const fits = xb - xa >= text.length * LABEL_PX + 4
-                  if (!fits) unwritten++
+                  const half = (text.length * LABEL_PX) / 2
+                  const fits = xb - xa >= 2 * half + 4 && (xa + xb) / 2 - half >= rightmost + 2
+                  if (fits) rightmost = (xa + xb) / 2 + half
+                  else unwritten++
                   return (
                     <g key={`${gp.from}-${gp.to}`} data-testid="interval-gap">
                       <rect x={xa} y={mid - 6} width={Math.max(1, xb - xa)} height={14} fill="transparent"><title>{`${text} between these two events`}</title></rect>
@@ -116,7 +126,7 @@ export function IntervalTimeline({ ic, t0, t1, within, onWithin, coloured, onCol
                 })}
                 {L.idx.map(i => {
                   const dim = within !== 'all' && ic.event_class[i] !== within
-                  return <line key={i} x1={x(ic.event_t_s[i])} x2={x(ic.event_t_s[i])} y1={mid + 1} y2={mid + 12} stroke={colour(i)} strokeWidth={2} opacity={dim ? 0.2 : 1} data-class={ic.event_class[i]}><title>{`${ic.event_class[i]} · ${fmtGap(ic.event_t_s[i] - t0)} into the span`}</title></line>
+                  return <line key={i} x1={x(T(i))} x2={x(T(i))} y1={mid + 1} y2={mid + 12} stroke={colour(i)} strokeWidth={2} opacity={dim ? 0.2 : 1} data-class={ic.event_class[i]}><title>{`${ic.event_class[i]} · ${fmtGap(T(i) - t0)} into the span`}</title></line>
                 })}
               </g>
             )
@@ -129,6 +139,7 @@ export function IntervalTimeline({ ic, t0, t1, within, onWithin, coloured, onCol
           <span key={c.key}><i style={{ background: classColour(ic, c.key) }} />{c.label} · {c.n} event{c.n === 1 ? '' : 's'}</span>
         ))}
         <span className="muted" data-testid="interval-legend-rule">{ic.rule_words}{ic.rule === 'depth' && ic.edges ? ` (cuts at ${ic.edges[1].toPrecision(3)} and ${ic.edges[2].toPrecision(3)})` : ''}</span>
+        {untimed > 0 && <span className="muted" data-testid="interval-untimed">{untimed} event{untimed === 1 ? '' : 's'} with no measured onset · not drawn, not timed</span>}
         {unwritten > 0 && <span className="muted" data-testid="interval-unwritten">{unwritten} distance{unwritten === 1 ? '' : 's'} too narrow to write here · hover the gap</span>}
       </div>
       <div>
@@ -149,7 +160,9 @@ export function IntervalTimeline({ ic, t0, t1, within, onWithin, coloured, onCol
 
 /** The timeline with its own state (which class, coloured or not), for a page that just hands over the payload. */
 export function IntervalTimelinePanel({ ic, t0, t1, stats }: { ic: IntervalClasses; t0: number; t1: number; stats?: Record<string, IntervalStats> }) {
-  const [within, setWithin] = useState('all')
+  const [picked, setWithin] = useState('all')
   const [coloured, setColoured] = useState(ic.rule !== 'none')
+  // a re-run can drop the class that was picked: fall back to all rather than show an empty table
+  const within = ic.classes.some(c => c.key === picked) ? picked : 'all'
   return <IntervalTimeline ic={ic} t0={t0} t1={t1} within={within} onWithin={setWithin} coloured={coloured} onColoured={setColoured} stats={stats} />
 }

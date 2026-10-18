@@ -310,6 +310,27 @@ def _trains(meta):
             "log_isi_note": note, "lz": _clean(meta.get("lz_complexity")), "rule": _clean(meta.get("rule"))}
 
 
+def _measure_grouped(measure, starts, fs, onsets, keys):
+    """The intervals block's own `measure`, run once per key on that key's events: the same `before` gaps and
+    per-key statistics as `measure(..., groups=keys)`, but linear in the events (its group loop scans every event
+    for every key, which is quadratic for Trains' one-group-per-train times three classes)."""
+    starts = np.asarray(starts)
+    if keys is None:
+        before, _, stats = measure(starts, fs, onsets=onsets)
+        return before, stats
+    before = np.full(int(len(starts)), np.nan)
+    by: dict = {}
+    for i, k in enumerate(keys):
+        by.setdefault(str(k), []).append(i)
+    stats = {}
+    for k, idx in by.items():
+        idx = np.asarray(idx, dtype=int)
+        b, _, st = measure(starts[idx], fs, onsets=None if onsets is None else np.asarray(onsets)[idx])
+        before[idx] = b
+        stats[k] = st["all"]
+    return before, stats
+
+
 #: ig-pages: the depth classes of the intervals timeline, smallest first (thirds of the depth's range)
 DEPTH_CLASSES = ("small", "medium", "large")
 
@@ -348,7 +369,12 @@ def _interval_classes(value, meta, fs, ss, sl):
         elif value.scores is not None and len(value.scores) == n:
             depth, column = np.abs(np.asarray(value.scores, dtype=float)), "score"
         fin = depth[np.isfinite(depth)] if depth is not None else np.array([])
-        if fin.size:
+        if fin.size and float(fin.min()) == float(fin.max()):
+            # thirds of a zero range are no classes: one class, said so (not every event "large")
+            rule, cls, keys = "none", ["all"] * n, ["all"]
+            words = (f"nothing to colour by: every measured event has the same depth ({float(fin.min()):.3g})"
+                     + ("" if fam is None else "; not by family, because not every event is in one"))
+        elif fin.size:
             lo, hi = float(fin.min()), float(fin.max())
             edges = [lo, lo + (hi - lo) / 3, lo + 2 * (hi - lo) / 3, hi]
             which = np.clip(np.searchsorted(edges[1:3], depth, side="right"), 0, 2)
@@ -363,8 +389,8 @@ def _interval_classes(value, meta, fs, ss, sl):
             words = "nothing to colour by: no family on every event, and no depth or score measured"
 
     gkey = (lambda i: f"{groups[i]}\x1f{cls[i]}") if groups is not None else (lambda i: cls[i])
-    gap, _, _ = measure(value.starts, fs, onsets=onsets, groups=groups)
-    within, _, by_key = measure(value.starts, fs, onsets=onsets, groups=[gkey(i) for i in range(n)])
+    gap, _ = _measure_grouped(measure, value.starts, fs, onsets, groups)
+    within, by_key = _measure_grouped(measure, value.starts, fs, onsets, [gkey(i) for i in range(n)])
     stats: dict = {k: {} for k in keys}
     for key, s in by_key.items():
         g, c = key.split("\x1f", 1) if groups is not None else ("all", key)
@@ -372,7 +398,8 @@ def _interval_classes(value, meta, fs, ss, sl):
     return {
         "rule": rule, "rule_words": words, "column": column, "edges": _clean(edges),
         "classes": [{"key": k, "label": k, "n": int(sum(1 for c in cls if c == k))} for k in keys],
-        "event_class": cls[sl], "event_t_s": [float(v) for v in ((anchor[sl] + ss) / fs)],
+        # an event with no onset (Event shape could not measure its fall: NaN onset_idx) has no time: null, never NaN
+        "event_class": cls[sl], "event_t_s": _clean([float(v) for v in ((anchor[sl] + ss) / fs)]),
         "event_group": groups[sl] if groups is not None else None,
         "gap_s": _clean(gap[sl].tolist()), "within_gap_s": _clean(within[sl].tolist()), "stats": stats,
     }
