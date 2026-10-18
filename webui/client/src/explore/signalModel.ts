@@ -18,8 +18,13 @@ export function pickerRuns(demo: SignalDemo | null, live: DbRun[] | null): Picke
   })
 }
 
+/** The runs checked on first open: the three newest non-surrogate runs THAT HOLD DETECTIONS (span-plot critic round:
+ *  the run filter now applies on live channels, and the live read's `defaultRuns` are the three newest runs of any
+ *  kind — on a channel whose newest runs found nothing the span drew no detections at all). Fallback: `defaultRuns`. */
 export function defaultPicker(demo: SignalDemo | null, runs: PickerRun[]): PickerState {
-  return { checked: demo ? demo.defaultRuns : runs.map(r => r.id), colourByRun: !!demo, hideSurrogates: true, unadjudicatedOnly: false, group: 'run' }
+  const withDetections = runs.filter(r => !r.surrogate && r.count > 0).slice(0, 3).map(r => r.id)
+  const checked = demo ? (withDetections.length ? withDetections : demo.defaultRuns) : runs.map(r => r.id)
+  return { checked, colourByRun: !!demo, hideSurrogates: true, unadjudicatedOnly: false, group: 'run' }
 }
 
 /** Which runs actually draw: checked, and not hidden as a surrogate. */

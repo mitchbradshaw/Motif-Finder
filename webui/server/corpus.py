@@ -479,14 +479,17 @@ def spans(conn, recording_id: int, t0_s: float, t1_s: float, fs: float, cap: int
         "ORDER BY d.start_idx", (recording_id, s0, s1)).fetchall()
     det = []
     suspect = {}
+    seen = set()   # each run tested once per read, not once per row (a wide view holds 300k rows)
     for d in det_all:
         a, b = _absolute(d["start_idx"], d["end_idx"], d["span_start"])
         if b > s0 and a < s1:
             det.append({"id": d["id"], "start_idx": a, "end_idx": b, "score": d["score"], "run_id": d["run_id"]})
             rid = d["run_id"]
-            if rid not in suspect and rid not in SPANS._AMBIGUOUS_REPORTED \
-                    and SPANS.legacy_ambiguous(d["span_start"], d["span_end"], d["started_at"]):
-                suspect[rid] = (d["span_start"], d["span_end"], d["started_at"])
+            if rid not in seen:
+                seen.add(rid)
+                if rid not in SPANS._AMBIGUOUS_REPORTED \
+                        and SPANS.legacy_ambiguous(d["span_start"], d["span_end"], d["started_at"]):
+                    suspect[rid] = (d["span_start"], d["span_end"], d["started_at"])
     _warn_ambiguous(conn, suspect)
     det.sort(key=lambda d: d["start_idx"])
     # span-plot, the pile at t = 0: a capped read is the window's FIRST `cap` detections by start, so a reader
