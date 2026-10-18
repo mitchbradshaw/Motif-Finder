@@ -134,6 +134,7 @@ export function KeepCard({ dx, seed, label, cut, kept, previewDraws, bank, exclu
           <div className="dsc-keep-way" data-testid="keep-rigorous-way">
             <Button variant="primary" icon="play" onClick={runRigorous} loading={starting} disabled={starting} disabledReason="starting…" testid="run-seed-search">Run with the rigorous null</Button>
             <span className="small mono muted" data-testid="run-estimate">{rigorousLine}</span>
+            {cut == null && <span className="small mono amber" data-testid="apply-no-cut">no cut · the rigorous run keeps all {k} matches per channel kept by the search</span>}
           </div>
         ))}
       </div>
