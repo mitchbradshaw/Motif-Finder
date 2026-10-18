@@ -401,6 +401,80 @@ def test_the_scoreboard_scores_only_the_channels_in_scope(client, monkeypatch):
     assert one["channels"][0] == next(c for c in both["channels"] if c["channel"] == CH[0])
 
 
+def _section_db(n_outside):
+    """A whole-channel run and a spanned run with legacy span-relative rows,
+    20 detections each in [5000, 9000) — some at the same onset across the two
+    runs — plus `n_outside` outside it, and a surrogate draw that must not be
+    read as a finding."""
+    from Working.database import queries as q
+    from Working.database import runs as run_db
+    conn = init_db(":memory:")
+    rec = q.insert_recording(conn, "sec.mat", 0, 1.0, 200_000, 0, "sec_CH0.npy")
+    cfg, _ = run_db.get_or_create_config(conn, {"steps": [{"stage": "detection", "algorithm": "threshold"}]})
+    whole = run_db.insert_run(conn, cfg, rec, 0, 200_000, status="completed")
+    spanned = run_db.insert_run(conn, cfg, rec, 5000, 150_000, status="completed")
+    draw = run_db.insert_run(conn, cfg, rec, 0, 200_000, status="completed")
+    run_db.update_run(conn, draw, surrogate_of_run_id=whole)
+    inside = [5000 + k * 200 for k in range(20)]
+    outside = [(100 + k * 7) % 4500 if k % 2 else 10_000 + (k * 13) % 100_000 for k in range(n_outside)]
+    rows = [(whole, a, a + 50) for a in inside + outside] + [(draw, a, a + 50) for a in inside]
+    # the spanned run: half its section rows written span-relative (before 2026-09-21), half absolute
+    rows += [(spanned, a - 5000 if k % 2 else a, a - 5000 + 50 if k % 2 else a + 50) for k, a in enumerate(inside)]
+    rows += [(spanned, a, a + 50) for a in outside if a >= 5000]
+    conn.executemany("INSERT INTO detections (run_id, start_idx, end_idx, score) VALUES (?, ?, ?, 0.5)", rows)
+    conn.commit()
+    return conn, rec, [whole, spanned, draw]
+
+
+def _whole_run_detections(conn, run_ids, recording_id, span):
+    """What `_run_detections` returned before it asked SQL for the section:
+    every row of the runs, ordered by stored onset, kept here if in the section."""
+    from Working.database import queries as q
+    from Working.discovery.spans import absolute_bounds
+    marks = ",".join(str(int(i)) for i in run_ids)
+    out = []
+    for r in conn.execute(
+            "SELECT d.id, d.start_idx, d.end_idx, d.score, r.span_start, r.id AS run_id FROM detections d "
+            "JOIN runs r ON r.id = d.run_id WHERE r.id IN (" + marks + ") AND r.recording_id = ? "
+            "AND " + q.not_surrogate("r") + " ORDER BY d.start_idx", (int(recording_id),)).fetchall():
+        a, b = absolute_bounds(r["start_idx"], r["end_idx"], r["span_start"])
+        if span and not (span[0] <= a < span[1]):
+            continue
+        out.append({"id": int(r["id"]), "start": a, "end": b, "run_id": int(r["run_id"]),
+                    "score": (float(r["score"]) if r["score"] is not None else None)})
+    return out
+
+
+def test_a_runs_detections_in_a_section_are_read_from_the_section():
+    """The fires grid asks for every done run on each visible channel; reading
+    each run whole to histogram four hours took 3-4 s per Runs-tab open on a
+    database the size of the real one (perf, 2026-10-18)."""
+    import sqlite3
+    steps = []
+    for n in (2000, 8000):
+        conn, rec, ids = _section_db(n)
+        conn.row_factory = sqlite3.Row
+        try:
+            for span in ((5000, 9000), (4999.5, 8800.25), (0, 200_000), None):
+                assert _disc._run_detections(conn, ids, rec, span) == _whole_run_detections(conn, ids, rec, span), span
+            count = {"n": 0}
+
+            def tick():
+                count["n"] += 1
+                return 0
+
+            conn.set_progress_handler(tick, 100)
+            try:
+                assert len(_disc._run_detections(conn, ids, rec, (5000, 9000))) == 40
+            finally:
+                conn.set_progress_handler(None, 0)
+            steps.append(count["n"] * 100)
+        finally:
+            conn.close()
+    per = (steps[1] - steps[0]) / 6000.0
+    assert per < 1, f"VM steps {steps[0]} -> {steps[1]}: {per:.1f} per detection outside the section"
+
+
 def test_recall_is_a_value_with_its_hours_or_the_words_for_having_none(client):
     out = _apply(client)
     sb = client.get("/api/discovery/scoreboard", params={
