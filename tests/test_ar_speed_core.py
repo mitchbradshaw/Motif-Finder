@@ -100,6 +100,20 @@ def _mutations(conn, info):
                                           "VALUES (?, 'interesting', ?)", (dets[6], NOW))
     yield "verdict edited", lambda: conn.execute("UPDATE adjudications SET verdict = 'artifact' WHERE detection_id = ?",
                                                  (dets[6],))
+    # new detections on a run of the queue
+    yield "detection appended", lambda: conn.execute(
+        "INSERT INTO detections (run_id, start_idx, end_idx, score) VALUES (?, 95000, 95040, 0.7)", (runs[0],))
+    # a human span 30 samples off a detection: not the same event under the default rule, the same under a
+    # looser one — so the rule change below changes the queue
+    yield "near annotation", lambda: conn.execute(
+        "INSERT INTO annotations (recording_id, start_idx, end_idx, verdict, source, created_at) "
+        "SELECT r.recording_id, d.start_idx + 30, d.end_idx + 30, 'interesting', 't', ? FROM detections d "
+        "JOIN runs r ON r.id = d.run_id WHERE d.id = ?", (NOW, dets[10]))
+    def loose_rule():
+        for k, v in (("iou", "0.2"), ("onset", "1.0")):
+            conn.execute("INSERT OR REPLACE INTO settings (page, key, value_json, updated_at) "
+                         "VALUES ('analysis-defaults', ?, ?, ?)", (k, v, NOW))
+    yield "rule", loose_rule
     # a human span that makes a detection a rediscovery, then edited, then soft-deleted
     yield "annotation", lambda: conn.execute(
         "INSERT INTO annotations (recording_id, start_idx, end_idx, verdict, source, created_at) "
@@ -112,10 +126,6 @@ def _mutations(conn, info):
         "WHERE id = (SELECT MAX(id) FROM annotations)")
     yield "annotation deleted", lambda: conn.execute(
         "UPDATE annotations SET deleted_at = ? WHERE id = (SELECT MAX(id) FROM annotations)", (NOW,))
-    # the matching rule
-    yield "rule", lambda: conn.execute(
-        "INSERT OR REPLACE INTO settings (page, key, value_json, updated_at) VALUES ('analysis-defaults', 'onset', "
-        "'2.0', ?)", (NOW,))
     # a discarded run, then restored
     yield "superseded", lambda: conn.execute("UPDATE runs SET superseded_at = ? WHERE id = ?", (NOW, runs[1]))
     yield "restored", lambda: conn.execute("UPDATE runs SET superseded_at = NULL WHERE id = ?", (runs[1],))
@@ -131,9 +141,6 @@ def _mutations(conn, info):
         conn.commit()
         conn.execute("UPDATE runs SET run_group_id = ? WHERE id = ?", (info["group"], rid))
     yield "late group join", late_join
-    # new detections on a run of the queue
-    yield "detection appended", lambda: conn.execute(
-        "INSERT INTO detections (run_id, start_idx, end_idx, score) VALUES (?, 95000, 95040, 0.7)", (runs[0],))
     # a window run of a stitched run (a run group queue drops window parts)
     yield "window part", lambda: conn.execute(
         "INSERT INTO stitched_windows (run_id, window_index, window_run_id, span_start, span_end, core_start, "
@@ -156,15 +163,32 @@ def test_the_cached_resolver_answers_exactly_what_a_fresh_resolve_does(tmp_path)
             Q.queue_items(conn, qid, include_judged=True, include_prior_judged=True)
         change()
         conn.commit()
+        views = ({}, {"include_judged": True}, {"include_judged": True, "include_prior_judged": True},
+                 {"include_judged": True, "exclude_recording_ids": held})
+        # every cached answer first (a fresh resolve clears the cache for every queue), then every fresh one
+        got = {(qid, i): Q.queue_items(conn, qid, **kw) for qid in qids for i, kw in enumerate(views)}
+        got_counts = {qid: Q.queue_counts(conn, qid, exclude_recording_ids=held) for qid in qids}
+        for (qid, i), items in got.items():
+            assert items == _fresh(conn, qid, **views[i]), (
+                f"after '{name}', queue {qid} {views[i]}: the cached resolve served a stale queue")
         for qid in qids:
-            for kw in ({}, {"include_judged": True}, {"include_judged": True, "include_prior_judged": True},
-                       {"include_judged": True, "exclude_recording_ids": held}):
-                got = Q.queue_items(conn, qid, **kw)
-                want = _fresh(conn, qid, **kw)
-                assert got == want, f"after '{name}', queue {qid} {kw}: the cached resolve served a stale queue"
-                Q.queue_items(conn, qid, include_judged=True, include_prior_judged=True)   # re-warm
-            assert Q.queue_counts(conn, qid, exclude_recording_ids=held) == (
-                getattr(Q, "clear_resolver_cache", lambda: None)() or Q.queue_counts(conn, qid, exclude_recording_ids=held))
+            assert got_counts[qid] == Q.queue_counts(conn, qid, exclude_recording_ids=held)
+
+
+def test_two_databases_never_share_a_remembered_queue(tmp_path):
+    """Queue 1 of one database is not queue 1 of another, even laid out identically (the fingerprint reads
+    detections by id range, so only the database's identity tells them apart)."""
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    a, ia = _db(tmp_path / "a")
+    b, ib = _db(tmp_path / "b")
+    b.execute("UPDATE detections SET score = 0.01")
+    b.commit()
+    qa, qb = _queues(a, ia)[0], _queues(b, ib)[0]
+    assert qa == qb
+    sa = {it["score"] for it in Q.queue_items(a, qa)}
+    sb = {it["score"] for it in Q.queue_items(b, qb)}
+    assert sb == {0.01} and 0.01 not in sa
 
 
 def test_snapshot_agrees_with_the_three_reads_it_replaces(tmp_path):
@@ -184,6 +208,28 @@ def test_snapshot_agrees_with_the_three_reads_it_replaces(tmp_path):
         assert snap["items"] == Q.queue_items(conn, qid, include_judged=True, exclude_recording_ids=held)
         assert snap["deep"] == Q.queue_items(conn, qid, include_judged=True, include_prior_judged=True)
         assert snap["counts"] == Q.queue_counts(conn, qid, exclude_recording_ids=held)
+
+
+def test_item_view_agrees_with_the_snapshot_for_every_item(tmp_path):
+    """`item_view` answers one item read from the structure without building every item; for every target
+    (served, rediscovered, beyond the cap, held out, absent) it must say what the snapshot says."""
+    conn, info = _db(tmp_path)
+    qids = _queues(conn, info)
+    conn.execute("INSERT INTO annotations (recording_id, start_idx, end_idx, verdict, source, created_at) "
+                 "SELECT r.recording_id, d.start_idx, d.end_idx, 'interesting', 't', ? FROM detections d "
+                 "JOIN runs r ON r.id = d.run_id WHERE d.id IN (?, ?)", (NOW, info["dets"][7], info["dets"][45]))
+    conn.execute("INSERT INTO adjudications (detection_id, verdict, created_at) VALUES (?, 'seed', ?)",
+                 (info["dets"][9], NOW))
+    conn.execute("UPDATE review_queues SET cap = 40 WHERE id = ?", (qids[1],))
+    conn.commit()
+    for qid in qids:
+        for held in (set(), {info["recs"][1]}):
+            snap = Q.queue_snapshot(conn, qid, exclude_recording_ids=held)
+            for tid in [str(d) for d in info["dets"]] + ["0", "nonsense"]:
+                v = Q.item_view(conn, qid, tid, exclude_recording_ids=held)
+                deep = next((it for it in snap["deep"] if str(it["target_id"]) == tid), None)
+                rank = next((i + 1 for i, it in enumerate(snap["items"]) if str(it["target_id"]) == tid), None)
+                assert (v["item"], v["rank"], v["counts"]) == (deep, rank, snap["counts"]), (qid, held, tid)
 
 
 def test_pace_reads_the_tail_and_agrees_with_the_whole_ledger(tmp_path):

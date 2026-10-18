@@ -54,6 +54,7 @@ other way round.
 import json
 import math
 import numbers
+import threading
 from bisect import bisect_left, bisect_right
 from datetime import datetime, timezone
 
@@ -361,7 +362,15 @@ def queue_items(conn, queue_id, *, limit=-1, offset=0, include_judged=False,
     q = get_queue(conn, queue_id)
     if q is None:
         raise ValueError("no such queue: {!r}".format(queue_id))
-    items = _resolve(conn, q)
+    return select_items(q, _resolve(conn, q), limit=limit, offset=offset, include_judged=include_judged,
+                        include_prior_judged=include_prior_judged,
+                        exclude_recording_ids=exclude_recording_ids)
+
+
+def select_items(q, items, *, limit=-1, offset=0, include_judged=False, include_prior_judged=False,
+                 exclude_recording_ids=None):
+    """`queue_items`' filters over an already-resolved item list (`_resolve`), so a
+    caller that needs several views of one queue resolves it once (AR)."""
     # The caller may know of recordings that must not be put to anyone — the
     # bridge passes the held-out set (D6). The core is told WHICH recordings,
     # never why: "held out" is an evaluation decision that lives above it.
@@ -395,19 +404,52 @@ def queue_counts(conn, queue_id, *, exclude_recording_ids=None):
     q = get_queue(conn, queue_id)
     if q is None:
         raise ValueError("no such queue: {!r}".format(queue_id))
-    items = [it for it in _resolve(conn, q) if it.get("prior_verdict") is None]
     # Counted only if it could be served. A row nobody can be shown is not part
     # of the question the queue is putting, so counting it inflates `total` and
     # "N need you" and breaks total == judged + remaining for every reader.
-    if exclude_recording_ids:
-        drop = {int(r) for r in exclude_recording_ids}
-        items = [it for it in items
-                 if it.get("recording_id") is None
-                 or int(it["recording_id"]) not in drop]
-    items = _apply_cap(q, items)
-    judged = sum(1 for it in items if it["judged"])
-    return {"total": len(items), "judged": judged,
-            "remaining": len(items) - judged}
+    return _counts_of(select_items(q, _resolve(conn, q), include_judged=True,
+                                   exclude_recording_ids=exclude_recording_ids))
+
+
+def counts_of(served):
+    """`queue_counts`' numbers over a served list (`select_items(..., include_judged=True)`)."""
+    judged = sum(1 for it in served if it["judged"])
+    return {"total": len(served), "judged": judged, "remaining": len(served) - judged}
+
+
+_counts_of = counts_of
+
+
+def queue_view(conn, queue_id):
+    """The queue resolved once, unfiltered — for a caller that takes several
+    `select_items` views of it in one read (AR)."""
+    q = get_queue(conn, queue_id)
+    if q is None:
+        raise ValueError("no such queue: {!r}".format(queue_id))
+    return _resolve(conn, q)
+
+
+def queue_snapshot(conn, queue_id, *, exclude_recording_ids=None):
+    """One resolve, the three views an item read needs (AR, the speed pass):
+
+    * ``items`` — the served list, judged included: what `queue_items(...,
+      include_judged=True, exclude_recording_ids=...)` returns, and so the
+      list a position in the queue is counted in;
+    * ``deep`` — every item a deep link may open, rediscoveries included and
+      nothing excluded: `queue_items(..., include_judged=True,
+      include_prior_judged=True)`;
+    * ``counts`` — `queue_counts(..., exclude_recording_ids=...)`.
+
+    An item read used to resolve the queue three times for these.
+    """
+    q = get_queue(conn, queue_id)
+    if q is None:
+        raise ValueError("no such queue: {!r}".format(queue_id))
+    resolved = _resolve(conn, q)
+    served = select_items(q, resolved, include_judged=True, exclude_recording_ids=exclude_recording_ids)
+    return {"queue": q, "items": served,
+            "deep": select_items(q, resolved, include_judged=True, include_prior_judged=True),
+            "counts": _counts_of(served)}
 
 
 #: How many recent gestures the pace is taken over. Long enough for the median
@@ -434,22 +476,33 @@ def queue_pace_s(conn, queue_id, *, window=PACE_WINDOW):
     That is a real measurement - "faster than this ledger can resolve" - and
     the caller must not mistake it for an absent one.
     """
-    rows = conn.execute(
-        "SELECT target_ids, created_at FROM review_audit "
-        "WHERE queue_id = ? AND undone_at IS NULL AND action <> 'undo' "
-        "ORDER BY id", (int(queue_id),)).fetchall()
-    if len(rows) < 2:
-        return None
-    per_item = []
-    prev = _parse_ts(rows[0]["created_at"])
-    for row in rows[1:]:
-        t = _parse_ts(row["created_at"])
-        if prev is None or t is None:
+    # AR: the median is over the last `window` intervals, and an interval is a
+    # pair of consecutive gestures, so only the ledger's tail is read — a
+    # growing slice from the end until it holds `window` intervals or is the
+    # whole ledger. The answer is the whole-ledger answer (pinned in
+    # tests/test_ar_speed_core.py); the read no longer grows with the queue.
+    want = window + 1
+    while True:
+        rows = conn.execute(
+            "SELECT target_ids, created_at FROM review_audit "
+            "WHERE queue_id = ? AND undone_at IS NULL AND action <> 'undo' "
+            "ORDER BY id DESC LIMIT ?", (int(queue_id), int(want))).fetchall()[::-1]
+        whole = len(rows) < want
+        if len(rows) < 2:
+            return None
+        per_item = []
+        prev = _parse_ts(rows[0]["created_at"])
+        for row in rows[1:]:
+            t = _parse_ts(row["created_at"])
+            if prev is None or t is None:
+                prev = t
+                continue
+            n = _n_targets(row["target_ids"])
+            per_item.append(max(0.0, (t - prev).total_seconds()) / n)
             prev = t
-            continue
-        n = _n_targets(row["target_ids"])
-        per_item.append(max(0.0, (t - prev).total_seconds()) / n)
-        prev = t
+        if whole or len(per_item) >= window:
+            break
+        want *= 4
     if not per_item:
         return None
     return round(_median(per_item[-window:]), 2)
@@ -540,23 +593,25 @@ def _superseded_run_ids(conn):
         "SELECT id FROM runs WHERE superseded_at IS NOT NULL").fetchall()}
 
 
-def _resolve_detections(conn, q):
+def _detection_filters(q):
     filters = dict(q["filters"])
     if q["source_ref"] is not None and "run_group_id" not in filters:
         filters["run_group_id"] = int(q["source_ref"])
+    return filters
+
+
+def _detection_structure(conn, q):
+    """What a detection queue IS, before anyone's verdict: the live candidates
+    in queue order, each as ``(id, run_id, recording_id, channel, start_idx,
+    end_idx, score, prior)`` with channel-absolute bounds and its rediscovery
+    (``prior``: the matched human span, or None). Everything here is read from
+    the candidates, the runs, the recordings, the human spans and the matching
+    rule — and nothing from `adjudications`, which a key press changes."""
+    filters = _detection_filters(q)
     # The same object Discovery's queue descriptor names, with the status
     # filter off so the queue can report `judged` as well as `remaining`.
     queue = ReviewQueue(conn, adjudication_status=None, **filters)
     superseded = _superseded_run_ids(conn)
-    # The VERDICT, not just the flag. A row served as `judged: true` with no
-    # verdict made the inspector show "unadjudicated - no verdict yet in this
-    # queue" for an item the database had a verdict for: the page contradicting
-    # the table it was reading.
-    judged_verdicts = {r["detection_id"]: r["verdict"] for r in conn.execute(
-        "SELECT detection_id, verdict FROM adjudications").fetchall()}
-    judged_ids = set(judged_verdicts)
-    judged_tags = _adjudication_tag_values(conn)
-    blind = bool(q["blind"])
     live = [c for c in queue.candidates if c["run_id"] not in superseded]
     priors = _prior_verdicts(conn, live)
     # The coordinates the item carries OUT are channel-absolute (fixup-g). A
@@ -568,35 +623,268 @@ def _resolve_detections(conn, q):
     # `_prior_verdicts` already matched on the shifted bounds — the item must
     # say the same thing its rediscovery check used.
     span_starts = _run_span_starts(conn, {c["run_id"] for c in live})
-    items = []
+    out = []
     for cand in live:
-        prior = priors.get(cand["id"])
         start_idx, end_idx = absolute_bounds(
             cand["start_idx"], cand["end_idx"], span_starts.get(cand["run_id"], 0))
-        item = {
-            "target_id": cand["id"],
-            "unit": q["unit"],
-            "detection_id": cand["id"],
-            "run_id": cand["run_id"],
-            "recording_id": cand["recording_id"],
-            "channel": cand["channel"],
-            "start_idx": start_idx,
-            "end_idx": end_idx,
-            "judged": cand["id"] in judged_ids,
-            "verdict": judged_verdicts.get(cand["id"]),
-            "prior_verdict": prior["verdict"] if prior else None,
-            "prior_annotation_id": prior["annotation_id"] if prior else None,
-            "prior_iou": prior["iou"] if prior else None,
-            "prior_onset_gap": prior["onset_gap"] if prior else None,
-            # What the database holds against this verdict. Without it the
-            # Annotate card lost its tags on every reload, so a tag that DID
-            # reach the table was invisible afterwards (fixup-a item 9).
-            "tags": judged_tags.get(cand["id"], []),
-        }
-        if not blind:
-            item["score"] = cand["score"]
-        items.append(item)
-    return items
+        out.append((cand["id"], cand["run_id"], cand["recording_id"], cand["channel"], start_idx, end_idx,
+                    cand["score"], priors.get(cand["id"])))
+    return out
+
+
+# ── the structure, remembered while its inputs stand (AR, the speed pass) ────
+#
+# Review resolved a queue on every read: an item read did it three times and
+# the page re-read the whole queue after every verdict — 0.4–0.9 s per item and
+# 5.3 s per verdict at 3,195 items on the real database (2026-10-18). The
+# structure above is a function of the rows it reads, so it is kept against a
+# fingerprint of exactly those rows and rebuilt the moment one differs; the
+# verdicts are laid over it fresh on every call.
+#
+# **Keep `_structure_fingerprint` in step with `_detection_structure`** (and
+# with `queue_candidates`, `_prior_verdicts`, `_run_span_starts`,
+# `_superseded_run_ids`): a read added there and not here is a queue served
+# stale. `tests/test_ar_speed_core.py` changes each input in place and expects
+# the fresh answer.
+
+_STRUCTURE_CACHE: dict = {}
+_STRUCTURE_CACHE_MAX = 64
+_STRUCTURE_LOCK = threading.Lock()
+
+
+def clear_resolver_cache():
+    with _STRUCTURE_LOCK:
+        _STRUCTURE_CACHE.clear()
+
+
+def _rows(conn, sql, params=()):
+    cur = conn.cursor()
+    cur.row_factory = None          # plain tuples: a fingerprint has no use for named columns, and they cost
+    return tuple(cur.execute(sql, params).fetchall())
+
+
+def _in(ids):
+    """An inlined id list for `IN (...)`: ints only (coerced here), so nothing
+    else can reach the SQL, and no host-parameter ceiling."""
+    return ",".join(str(int(i)) for i in sorted(ids)) or "NULL"
+
+
+_RUN_COLS = ("id, recording_id, config_id, span_start, run_group_id, surrogate_of_run_id, "
+             "superseded_at IS NOT NULL")
+
+
+def _structure_fingerprint(conn, q, run_ids, rec_ids):
+    """Every row `_detection_structure` reads for this queue, given the runs and
+    recordings its last build named.
+
+    * the queue's own filters (the cap and blind flag are applied above the
+      structure, on every call);
+    * the runs: for a run-group queue every run that is in the group NOW (a
+      run joins its group after its detections are written), for an explicit
+      run set those runs, for an exact detection set the runs its detections
+      were on (a detection row never moves), for no run filter every run —
+      each with the columns a filter or the bounds read: recording, recipe,
+      span start, group, surrogate pairing, superseded or not;
+    * the detections: append-only (`scoreboard.inputs_fingerprint` states why),
+      so a run's set is its id range — two index lookups per run; an exact
+      detection set reads none (its rows are fixed by id), and a queue with no
+      run filter reads the table's maximum id;
+    * `stitched_windows` (a run-group queue drops window parts): its id range;
+    * every recording's channel (a channel filter reads it);
+    * the human spans on those recordings, whole (verdicts and spans are edited
+      in place and carry no timestamp of the edit), and the matching rule.
+    """
+    filters = _detection_filters(q)
+    parts = [repr(sorted((k, repr(v)) for k, v in filters.items()))]
+    if filters.get("run_group_id") is not None:
+        runs = _rows(conn, "SELECT " + _RUN_COLS + " FROM runs WHERE run_group_id = ? ORDER BY id",
+                     (int(filters["run_group_id"]),))
+    elif filters.get("run_ids") is not None or filters.get("run_id") is not None:
+        ids = list(filters.get("run_ids") or []) + ([filters["run_id"]] if filters.get("run_id") is not None else [])
+        runs = _rows(conn, "SELECT " + _RUN_COLS + " FROM runs WHERE id IN (" + _in(ids) + ") ORDER BY id")
+    elif filters.get("detection_ids") is not None:
+        runs = _rows(conn, "SELECT " + _RUN_COLS + " FROM runs WHERE id IN (" + _in(run_ids) + ") ORDER BY id")
+    else:
+        runs = _rows(conn, "SELECT " + _RUN_COLS + " FROM runs ORDER BY id")
+    parts.append(runs)
+    if filters.get("detection_ids") is None:
+        if filters.get("run_group_id") is None and filters.get("run_ids") is None and filters.get("run_id") is None:
+            parts.append(_rows(conn, "SELECT MAX(id) FROM detections"))
+        else:
+            parts.append(tuple(_rows(conn, "SELECT (SELECT MIN(id) FROM detections WHERE run_id = ?), "
+                                           "(SELECT MAX(id) FROM detections WHERE run_id = ?)", (r[0], r[0]))
+                               for r in runs))
+    parts.append(_rows(conn, "SELECT COUNT(*), MAX(id) FROM stitched_windows"))
+    # every recording's channel (a channel filter can bring in a run on any of them); a few hundred rows at most
+    parts.append(_rows(conn, "SELECT id, channel FROM recordings ORDER BY id"))
+    parts.append(_rows(conn, "SELECT id, recording_id, start_idx, end_idx, verdict, deleted_at IS NULL "
+                             "FROM annotations WHERE recording_id IN (" + _in(rec_ids) + ") ORDER BY id"))
+    parts.append(repr(rule_from_settings(conn)))
+    return hash(tuple(parts))
+
+
+def _database_identity(conn):
+    """Which database file this is — its path and the file's own identity (a
+    file deleted and rebuilt at the same path is another database) — or None
+    for an in-memory one. The cache is keyed on it: queue 1 of one database is
+    not queue 1 of another, and the fingerprint reads detections by id range."""
+    import os
+    row = next((r for r in conn.execute("PRAGMA database_list").fetchall() if r[1] == "main"), None)
+    path = row[2] if row is not None else ""
+    if not path:
+        return None
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (os.path.normcase(os.path.abspath(path)), getattr(st, "st_ino", 0), st.st_ctime_ns)
+
+
+def _cached_structure(conn, q):
+    """`_detection_structure(conn, q)`, answered from memory while
+    `_structure_fingerprint` is unchanged. Read inside one read transaction
+    where the connection is not already in one, so the fingerprint and the
+    structure it vouches for see the same rows."""
+    db = _database_identity(conn)
+    if db is None:                  # an in-memory database has no identity to key on: resolve every time
+        return _detection_structure(conn, q)
+    own = not conn.in_transaction
+    if own:
+        conn.execute("BEGIN")
+    try:
+        key = (db, int(q["id"]))
+        with _STRUCTURE_LOCK:
+            hit = _STRUCTURE_CACHE.get(key)
+        if hit is not None and _structure_fingerprint(conn, q, hit[1], hit[2]) == hit[0]:
+            return hit[3]
+        structure = _detection_structure(conn, q)
+        det_ids = _detection_filters(q).get("detection_ids")
+        # an exact set's runs are those of ALL its detections, live or not: un-discarding one must be seen
+        run_ids = ({int(r[0]) for r in conn.execute(
+            "SELECT DISTINCT run_id FROM detections WHERE id IN (" + _in(det_ids) + ")")}
+            if det_ids is not None else {s[1] for s in structure})
+        rec_ids = {s[2] for s in structure}
+        fp = _structure_fingerprint(conn, q, run_ids, rec_ids)
+        with _STRUCTURE_LOCK:
+            if len(_STRUCTURE_CACHE) >= _STRUCTURE_CACHE_MAX and key not in _STRUCTURE_CACHE:
+                _STRUCTURE_CACHE.pop(next(iter(_STRUCTURE_CACHE)))
+            _STRUCTURE_CACHE[key] = (fp, run_ids, rec_ids, structure)
+        return structure
+    finally:
+        if own:
+            conn.rollback()            # a read transaction: nothing to keep
+
+
+def _judged_overlay(conn):
+    """The verdicts and their tags, whole: what a key press changes, read fresh on every call. Human rows,
+    bounded by how many verdicts a person can give, never by the size of a queue or of `detections`."""
+    verdicts = {r[0]: r[1] for r in conn.execute("SELECT detection_id, verdict FROM adjudications").fetchall()}
+    return verdicts, _adjudication_tag_values(conn)
+
+
+def _detection_item(q, s, judged_verdicts, judged_tags):
+    did, run_id, rec_id, channel, start_idx, end_idx, score, prior = s
+    item = {
+        "target_id": did,
+        "unit": q["unit"],
+        "detection_id": did,
+        "run_id": run_id,
+        "recording_id": rec_id,
+        "channel": channel,
+        "start_idx": start_idx,
+        "end_idx": end_idx,
+        "judged": did in judged_verdicts,
+        "verdict": judged_verdicts.get(did),
+        "prior_verdict": prior["verdict"] if prior else None,
+        "prior_annotation_id": prior["annotation_id"] if prior else None,
+        "prior_iou": prior["iou"] if prior else None,
+        "prior_onset_gap": prior["onset_gap"] if prior else None,
+        # What the database holds against this verdict. Without it the
+        # Annotate card lost its tags on every reload, so a tag that DID
+        # reach the table was invisible afterwards (fixup-a item 9).
+        "tags": judged_tags.get(did, []),
+    }
+    if not bool(q["blind"]):
+        item["score"] = score
+    return item
+
+
+def _resolve_detections(conn, q):
+    # The VERDICT, not just the flag. A row served as `judged: true` with no
+    # verdict made the inspector show "unadjudicated - no verdict yet in this
+    # queue" for an item the database had a verdict for: the page contradicting
+    # the table it was reading.
+    structure = _cached_structure(conn, q)
+    judged_verdicts, judged_tags = _judged_overlay(conn)
+    return [_detection_item(q, s, judged_verdicts, judged_tags) for s in structure]
+
+
+def item_view(conn, queue_id, target_id, *, exclude_recording_ids=None):
+    """What one item read needs, without building every item (AR, the speed pass):
+    ``{"queue", "item", "rank", "counts"}``.
+
+    * ``item`` — the item a deep link opens (rediscoveries included, nothing
+      excluded: `queue_snapshot`'s ``deep``), or None when it is not in the queue;
+    * ``rank`` — its 1-based position in the served list (`queue_snapshot`'s
+      ``items``), or None when it is not served there;
+    * ``counts`` — `queue_counts(..., exclude_recording_ids=...)`.
+
+    A detection queue answers from its remembered structure: the positions and
+    the served set are functions of the structure, the held-out set and the cap,
+    and only the verdicts are read fresh. Any other kind resolves once
+    (`queue_snapshot`). Equal to the snapshot's answer either way
+    (tests/test_ar_speed_core.py)."""
+    q = get_queue(conn, queue_id)
+    if q is None:
+        raise ValueError("no such queue: {!r}".format(queue_id))
+    tid = str(target_id)
+    if q["source_kind"] not in _DETECTION_KINDS:
+        snap = queue_snapshot(conn, queue_id, exclude_recording_ids=exclude_recording_ids)
+        item = next((it for it in snap["deep"] if str(it.get("target_id", it.get("id"))) == tid), None)
+        rank = next((i + 1 for i, it in enumerate(snap["items"])
+                     if str(it.get("target_id", it.get("id"))) == tid), None)
+        return {"queue": q, "item": item, "rank": rank, "counts": snap["counts"]}
+    structure = _cached_structure(conn, q)
+    views = _structure_views(q, structure, exclude_recording_ids)
+    judged_verdicts, judged_tags = _judged_overlay(conn)
+    judged = sum(1 for did in views["served_ids"] if did in judged_verdicts)
+    total = len(views["served_ids"])
+    try:
+        key = int(tid)
+    except ValueError:
+        key = None
+    at = views["deep_at"].get(key)
+    return {"queue": q,
+            "item": None if at is None else _detection_item(q, structure[at], judged_verdicts, judged_tags),
+            "rank": views["rank"].get(key),
+            "counts": {"total": total, "judged": judged, "remaining": total - judged}}
+
+
+#: (id(structure), cap, held) -> the served ids, their ranks and the deep-link index; a structure is replaced,
+#: never edited, so its id names it while it lives (the entry holds the structure, so the id is never reused)
+_VIEWS_CACHE: dict = {}
+
+
+def _structure_views(q, structure, exclude_recording_ids):
+    held = tuple(sorted(int(r) for r in exclude_recording_ids)) if exclude_recording_ids else ()
+    cap = q["cap"]
+    key = (id(structure), cap, held)
+    with _STRUCTURE_LOCK:
+        hit = _VIEWS_CACHE.get(key)
+    if hit is not None and hit[0] is structure:
+        return hit[1]
+    drop = set(held)
+    capped = (lambda xs: xs[:cap]) if cap is not None and cap >= 0 else (lambda xs: xs)
+    served = capped([s[0] for s in structure if (s[2] is None or int(s[2]) not in drop) and s[7] is None])
+    deep_n = len(capped(structure))
+    views = {"served_ids": served,
+             "rank": {did: i + 1 for i, did in enumerate(served)},
+             "deep_at": {s[0]: i for i, s in enumerate(structure[:deep_n])}}
+    with _STRUCTURE_LOCK:
+        if len(_VIEWS_CACHE) >= 4 * _STRUCTURE_CACHE_MAX:
+            _VIEWS_CACHE.clear()
+        _VIEWS_CACHE[key] = (structure, views)
+    return views
 
 
 def _adjudication_tag_values(conn):
