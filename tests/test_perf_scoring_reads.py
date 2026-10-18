@@ -192,9 +192,9 @@ _BEFORE = "2026-09-01T00:00:00"
 _AFTER = "2026-09-20T00:00:00"
 
 
-@pytest.fixture
-def scored():
-    conn = init_db(":memory:")
+def _build_scored(conn):
+    """The `scored` fixture's content, on any connection (in memory here; a file for the corpus-map worker's
+    tests, which a child process must be able to open — corpus-map-off-the-request)."""
     rec = q.insert_recording(conn, "cache.mat", 0, 1.0, 100_000, 0, "cache_CH0.npy")
     other = q.insert_recording(conn, "cache.mat", 1, 1.0, 100_000, 0, "cache_CH1.npy")
     config_id, _ = run_db.get_or_create_config(conn, _STEPS)
@@ -212,9 +212,17 @@ def scored():
         anns[r] = q.insert_annotation(conn, r, 15_000, 15_200, "interesting", "excel_catalog", created_at=_BEFORE)
     old = run_db.insert_run(conn, config_id, rec, 0, 20_000, status="completed", started_at=_BEFORE)
     old_det = run_db.insert_detection(conn, old, 5100, 5300, score=0.5)
+    conn.commit()
+    return {"conn": conn, "rec": rec, "runs": runs, "dets": dets, "anns": anns, "config": config_id,
+            "old_det": old_det}
+
+
+@pytest.fixture
+def scored():
+    conn = init_db(":memory:")
+    s = _build_scored(conn)
     SB.clear_score_cache()
-    yield {"conn": conn, "rec": rec, "runs": runs, "dets": dets, "anns": anns, "config": config_id,
-           "old_det": old_det}
+    yield s
     conn.close()
 
 
@@ -368,6 +376,7 @@ def test_a_registered_block_is_looked_up_without_walking_the_package_again(monke
 
 def _corpus():
     from webui.server import corpus
+    getattr(corpus, "reset_coverage_worker", lambda: None)()
     corpus._COVERAGE_CACHE.clear()
     return corpus
 
@@ -450,15 +459,148 @@ def _run_stitched_into_another(s):
     _verdict_in_place, _soft_delete, _new_annotation, _adjudicated, _rule_changed,
     _detection_added, _second_channel_verdict, _new_run_on_the_channel, _run_stitched_into_another,
 ], ids=lambda f: f.__name__.strip("_"))
-def test_any_change_on_the_channels_redraws_the_corpus_map(scored, change):
+def test_any_change_on_the_channels_redraws_the_corpus_map(scored_file, change):
+    """A change on the channels redraws the map. A library call (no `db_path`) computes in place, as before. The
+    route's read (`db_path` given: corpus-map-off-the-request) never computes: right after the change it answers the
+    LAST map, marked `stale: true` with `stale_since`, and once the worker has finished the next read is the fresh
+    map, with no stale marker on it. A stale answer without its marker would fail here."""
     corpus = _corpus()
-    conn = scored["conn"]
-    before = _without_timing(corpus.coverage(conn, "cache.mat", bins=10))
-    change(scored)
+    conn, path = scored_file["conn"], scored_file["path"]
+    read = lambda: corpus.coverage(conn, "cache.mat", bins=10, db_path=path)   # noqa: E731
+    first = read()
+    assert first.get("pending") is True, "the first read of a map nobody has computed must say so"
+    assert corpus.wait_coverage_idle(120)
+    before = _without_timing(read())
+    assert "stale" not in before and "pending" not in before
+    assert before == _without_timing(corpus.coverage(conn, "cache.mat", bins=10))     # the in-place call agrees
+    change(scored_file)
     conn.commit()
     fresh = _without_timing(corpus._coverage(conn, "cache.mat", bins=10))
     assert fresh != before, "the change did not move the map, so this case proves nothing"
+    stale = _without_timing(read())
+    assert stale.get("stale") is True and stale.get("stale_since"), "a stale answer must carry its marker"
+    assert {k: v for k, v in stale.items() if k not in ("stale", "stale_since")} == before
+    assert corpus.wait_coverage_idle(120)
+    assert _without_timing(read()) == fresh
+    corpus.clear_coverage_cache()
     assert _without_timing(corpus.coverage(conn, "cache.mat", bins=10)) == fresh
+
+
+@pytest.fixture
+def scored_file(tmp_path):
+    """The `scored` fixture in a file a worker process can open (corpus-map-off-the-request)."""
+    path = str(tmp_path / "scored.sqlite")
+    conn = init_db(path)
+    s = _build_scored(conn)
+    SB.clear_score_cache()
+    yield {**s, "path": path}
+    from webui.server import corpus
+    corpus.wait_coverage_idle(120)
+    conn.close()
+
+
+def test_a_routed_read_never_computes_in_the_request(scored_file, monkeypatch):
+    """The parent never computes a map for a read that names its database: the worker process does. The
+    in-place computation is made to explode in the parent; the reads still answer, and the map arrives."""
+    corpus = _corpus()
+    conn, path = scored_file["conn"], scored_file["path"]
+    from Working.discovery import coverage_map as CM
+
+    def boom(*a, **kw):
+        raise AssertionError("the request computed the map in the bridge's own interpreter")
+    monkeypatch.setattr(corpus, "_coverage", boom)
+    monkeypatch.setattr(CM, "compute_conn", boom)
+    assert corpus.coverage(conn, "cache.mat", bins=10, db_path=path)["pending"] is True
+    assert corpus.wait_coverage_idle(120)
+    got = corpus.coverage(conn, "cache.mat", bins=10, db_path=path)
+    assert "pending" not in got and got["rows"]
+    assert corpus.coverage_status()["mode"] == "process"
+
+
+def test_concurrent_reads_of_a_stale_map_schedule_one_recompute(scored_file):
+    import threading
+    corpus = _corpus()
+    conn, path = scored_file["conn"], scored_file["path"]
+    corpus.coverage(conn, "cache.mat", bins=10, db_path=path)
+    assert corpus.wait_coverage_idle(120)
+    done = corpus.coverage_status()["computed"]
+    _new_annotation(scored_file)
+    conn.commit()
+    out = []
+    readers = [threading.Thread(target=lambda: out.append(corpus.coverage(conn, "cache.mat", bins=10, db_path=path)))
+               for _ in range(6)]
+    for t in readers:
+        t.start()
+    for t in readers:
+        t.join()
+    status = corpus.coverage_status()
+    assert len(status["pending"]) + (status["in_flight"] is not None) <= 1, status
+    assert all(o.get("stale") is True for o in out if "pending" not in o)
+    assert corpus.wait_coverage_idle(120)
+    assert corpus.coverage_status()["computed"] == done + 1, "six readers of one stale map recomputed it more than once"
+
+
+def test_the_start_up_warm_goes_through_the_worker(scored_file, monkeypatch):
+    """`warm_coverage` schedules every file's home map on the same queue; the parent computes none of them."""
+    corpus = _corpus()
+    conn, path = scored_file["conn"], scored_file["path"]
+
+    def boom(*a, **kw):
+        raise AssertionError("the warm computed a map in the bridge's own interpreter")
+    monkeypatch.setattr(corpus, "_coverage", boom)
+    assert corpus.warm_coverage(conn) == ["cache.mat"]
+    assert corpus.wait_coverage_idle(120)
+    got = corpus.coverage(conn, "cache.mat", db_path=path, **corpus.HOME_COVERAGE)
+    assert "pending" not in got and "stale" not in got
+
+
+def test_the_thread_fallback_yields_between_channels(scored_file, monkeypatch):
+    """When no process can be started, the recompute runs on a daemon thread that waits for the pages to go quiet
+    before every channel after the first; the map it lands is the same map."""
+    corpus = _corpus()
+    conn, path = scored_file["conn"], scored_file["path"]
+    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+    waits = []
+    monkeypatch.setattr(corpus, "wait_for_quiet", lambda quiet_s=2.0, max_wait_s=30.0: waits.append(1) or 0.0)
+    assert corpus.coverage(conn, "cache.mat", bins=10, db_path=path)["pending"] is True
+    assert corpus.wait_coverage_idle(120)
+    assert corpus.coverage_status()["mode"] == "thread"
+    got = _without_timing(corpus.coverage(conn, "cache.mat", bins=10, db_path=path))
+    assert got == _without_timing(corpus._coverage(conn, "cache.mat", bins=10))
+    assert len(waits) == len(got["rows"]) - 1
+
+
+def test_a_failed_recompute_is_a_loud_error_not_a_blank(scored_file, monkeypatch):
+    corpus = _corpus()
+    conn, path = scored_file["conn"], scored_file["path"]
+    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+
+    def broken(*a, **kw):
+        raise ValueError("the divergence could not be read")
+    monkeypatch.setattr(corpus, "_coverage", broken)
+    assert corpus.coverage(conn, "cache.mat", bins=10, db_path=path)["pending"] is True
+    assert corpus.wait_coverage_idle(120)
+    with pytest.raises(corpus.CoverageFailed, match="could not be computed.*the divergence could not be read"):
+        corpus.coverage(conn, "cache.mat", bins=10, db_path=path)
+
+
+def test_a_pending_answer_has_the_maps_shape_with_empty_layers(scored_file, monkeypatch):
+    corpus = _corpus()
+    conn, path = scored_file["conn"], scored_file["path"]
+    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+    gate = __import__("threading").Event()
+    real = corpus._coverage
+    monkeypatch.setattr(corpus, "_coverage", lambda *a, **kw: gate.wait(60) and real(*a, **kw))
+    try:
+        p = corpus.coverage(conn, "cache.mat", bins=10, db_path=path)
+    finally:
+        gate.set()
+    assert p["pending"] is True and p["bins"] == 10 and len(p["bin_edges_h"]) == 11
+    assert [r["name"] for r in p["rows"]] and all(sum(r["detections"]) == 0 and len(r["annotations"]) == 10
+                                                  for r in p["rows"])
+    assert corpus.wait_coverage_idle(120)
+    full = corpus.coverage(conn, "cache.mat", bins=10, db_path=path)
+    assert set(full) == set(p) - {"pending"}, "a pending answer's keys must be the map's keys and the marker"
 
 
 def test_one_read_pass_reads_each_channel_once(scored, monkeypatch):
@@ -490,8 +632,8 @@ def test_one_read_pass_reads_each_channel_once(scored, monkeypatch):
 # the legacy span-relative shift (`spans.absolute_bounds`) stated in the query.
 # The answers must be the old ones, legacy rows included.
 
-def _legacy_db():
-    conn = init_db(":memory:")
+def _legacy_db(path=":memory:"):
+    conn = init_db(path)
     rec = q.insert_recording(conn, "legacy.mat", 0, 1.0, 100_000, 0, "legacy_CH0.npy")
     config_id, _ = run_db.get_or_create_config(conn, _STEPS)
     rng = random.Random(7)
