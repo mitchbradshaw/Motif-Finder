@@ -188,10 +188,10 @@ def test_post_on_member_writes_a_revision_and_never_the_detection(seeded):
         assert revisions_mod.matching_revision(conn, info["member"])["start_idx"] == 5000  # rev 1 kept
     finally:
         conn.close()
-    # the human claim behind the revision is an annotation (rule 5). The member had no verdict, and a span
-    # correction is not one: `unsure` (seed is not a member's question, and would judge it "yes" by extent)
+    # the human claim behind the revision is an annotation (rule 5). The member had no verdict: a correction of an
+    # unjudged item saves `interesting` by default (the researcher, 2026-10-19)
     ann = _q(rt, "SELECT start_idx, end_idx, verdict, source, note FROM annotations ORDER BY id DESC LIMIT 1")[0]
-    assert ann[:4] == (4995, 5060, "unsure", "review-span-edit")
+    assert ann[:4] == (4995, 5060, "interesting", "review-span-edit")
     assert ann[4].startswith("onset was late")
     assert _q(rt, "SELECT COUNT(*) FROM annotations")[0][0] == n_ann + 1
     assert _detections(rt) == before, "rule 5: a span edit must never touch the detections row"
@@ -217,11 +217,13 @@ def test_post_on_plain_detection_writes_an_annotation_with_its_verdict(seeded):
     assert _q(rt, "SELECT COUNT(*) FROM motif_member_revision")[0][0] == n_rev
 
 
-def test_post_on_unjudged_detection_writes_seed(seeded):
+def test_post_on_unjudged_detection_writes_interesting(seeded):
     client, rt, info = seeded
     r = client.post(f"/api/explore/span-edit/{info['unjudged']}", json={"start_idx": 2990, "end_idx": 3035})
     assert r.status_code == 200, r.text
-    assert r.json()["annotation"]["verdict"] == "seed"
+    assert r.json()["annotation"]["verdict"] == "interesting"
+    # no seed row: a correction never enters the Explore spans queue by itself
+    assert _q(rt, "SELECT COUNT(*) FROM annotations WHERE verdict = 'seed'")[0][0] == 0
 
 
 @pytest.mark.parametrize("span, word", [
@@ -269,14 +271,14 @@ def _write(rt, sql, args=()):
         conn.close()
 
 
-def test_an_unjudged_member_edit_leaves_the_member_unjudged(seeded):
-    """Redrawing a span is not a verdict: the member the Library and Review counted unjudged stays so."""
+def test_an_unjudged_member_edit_is_judged_interesting(seeded):
+    """The researcher (2026-10-19): correcting an unjudged item's span saves it as `interesting` by default."""
     from Working.library import verdicts as LV
 
     client, rt, info = seeded
     r = client.post(f"/api/explore/span-edit/m-{info['member']}", json={"start_idx": 4998, "end_idx": 5052})
     assert r.status_code == 200, r.text
-    assert r.json()["annotation"]["verdict"] == "unsure"
+    assert r.json()["annotation"]["verdict"] == "interesting"
     conn = sqlite3.connect(rt.db_path)
     conn.row_factory = sqlite3.Row
     try:
@@ -284,7 +286,7 @@ def test_an_unjudged_member_edit_leaves_the_member_unjudged(seeded):
                                          "start_idx": 5000, "end_idx": 5050}])
     finally:
         conn.close()
-    assert got[info["member"]]["judged"] is False
+    assert got[info["member"]]["judged"] is True
     # no seed row: nothing enters the Explore spans queue
     assert _q(rt, "SELECT COUNT(*) FROM annotations WHERE verdict = 'seed'")[0][0] == 0
 
