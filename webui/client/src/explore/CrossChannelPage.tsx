@@ -29,7 +29,7 @@
    the stored volts were printed as mV. The ratio, and so the reason for 'centred', was always right.) */
 import { useMemo, useRef, useState } from 'react'
 import { DatasetName } from '../naming'
-import { ApiError } from '../api'
+import { ApiError, type CrossDetrend } from '../api'
 import { useSourced } from '../api/seam'
 import { getCrossChannel, getSignalDemo, lookupChannel, type CrossRead, type XBin, type XRow } from '../api/explore'
 import { useCrossChannelJob } from '../library/CrossChannel'
@@ -37,7 +37,7 @@ import { EnvelopePath } from '../charts/primitives'
 import { makeX } from '../charts/scale'
 import { unitWords } from '../charts/units'
 import { Y_MODES, Y_MODE_LABEL, Y_MODE_NOTE, fmtMvAt, fmtMvSpan, isYMode, scaleNote, stackGeom, type YMode } from './crossScale'
-import { lagShift, windowParam } from './crossModel'
+import { crossDetrendFor, lagShift, windowParam } from './crossModel'
 import { Badge, Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Popover, ProgressBar, Seg, Tooltip, cx, fmtInt, recordDemoWrite, useDemoState, useQueryState, useSim, type IconName } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
@@ -75,7 +75,10 @@ export function CrossChannelPage({ channelId }: { channelId: number }) {
   const [familyQ] = useQueryState<string>('family', '')
   const [groupingQ] = useQueryState<string>('grouping', '')
   const edge = !!(familyQ || groupingQ)
-  const read = useSourced(() => getCrossChannel(channelId, pad === '60' ? 60 : 20, explicit, windowQ, edge), [channelId, pad, t0Q, t1Q, windowQ, edge])
+  // ux-1019 (AQ): ?detrend=none|linear|cubic — the trend treatment lag and r are measured on; absent, the window's own
+  const [detrendQ] = useQueryState<string>('detrend', '')
+  const detrendSel: CrossDetrend | null = detrendQ === 'none' || detrendQ === 'linear' || detrendQ === 'cubic' ? detrendQ : null
+  const read = useSourced(() => getCrossChannel(channelId, pad === '60' ? 60 : 20, explicit, windowQ, edge, detrendSel), [channelId, pad, t0Q, t1Q, windowQ, edge, detrendSel])
   const header = (subtitle: string, demo = true) => <Header workspace="Explore" page="Cross-channel" subtitle={subtitle} search="Search spans, runs, families" demo={demo} />
   if (look.error || read.error) return <>{header(`channel ${channelId} · error`)}<div className="page"><div className="page-inner"><ErrorCard error={asApiError(look.error ?? read.error)} title="demo read for Cross-channel failed" /></div></div></>
   if (look.loading || read.loading || !look.data) return <>{header(`channel ${channelId} · loading…`)}<div className="page"><div className="page-inner" data-testid="cross-loading"><div className="skeleton" style={{ height: 30, width: 480 }} /><div className="skeleton" style={{ height: 50 }} /><div className="skeleton" style={{ height: 440 }} /></div></div></>
@@ -106,6 +109,7 @@ function CrossBody({ data }: { data: CrossRead }) {
   const toast = useToast()
   const ref = data.referenceId
   const [align, setAlign] = useQueryState<string>('align', 'recorded')
+  const [, setDetrendQ] = useQueryState<string>('detrend', '')
   const [windowQ, setWindowQ] = useQueryState<string>('window', '')
   const [pad, setPad] = useQueryState<string>('pad', '20')
   const [lagMode, setLagMode] = useQueryState<string>('lag', 'window')
@@ -212,8 +216,12 @@ function CrossBody({ data }: { data: CrossRead }) {
           <span className="ex-topbar-seg"><Seg size="sm" value="cross" onChange={v => { if (v === 'signal') navigate(`explore/signal/${ref}${windowQ.startsWith('motif-') ? `?motif=${windowQ.slice(6)}` : ''}`) }}
             options={[{ value: 'signal', label: 'Signal' }, { value: 'cross', label: 'Cross-channel' }]} ariaLabel="mode" testid="mode-seg" /></span>
           <DetectionsChip ref={pickerAnchor} label={chipLabel(runs, st)} open={popover === 'detections'} onClick={() => setPopover(popover === 'detections' ? null : 'detections')} />
-          <Dropdown variant="outline" prefix="display" value="raw" onChange={() => {}} testid="display-chip"
-            options={[{ value: 'raw', label: 'raw' }, { value: 'detrended', label: 'detrended (display only)', disabled: true, reason: 'the bridge serves raw mV — no display transform yet. The y control moves each row’s drawing origin; it does not change a value.' }]} />
+          {/* ux-1019 (AQ): the trend treatment lag and r are measured on, passed to the read — it was a disabled
+              "detrended (display only)" option while the bridge already served linear and cubic */}
+          <span className="lbl">detrend</span>
+          <Seg size="sm" value={data.detrend} onChange={v => setDetrendQ(v === crossDetrendFor(!!data.explicitWindow, data.edge) ? null : v)} ariaLabel="detrend" testid="detrend-seg"
+            options={[{ value: 'none', label: 'raw' }, { value: 'linear', label: 'linear' }, { value: 'cubic', label: 'cubic' }]} />
+          <InfoTip title="Detrend">What lag and r are measured on: <b>raw</b> — the window as recorded; <b>linear</b> — each channel&rsquo;s straight-line trend over the window taken out first; <b>cubic</b> — a cubic taken out, which also removes a curved drift a line leaves (and a slow event that fills the window). The traces are drawn as recorded either way. The default is linear, or raw for a Library edge&rsquo;s window, so it recomputes what the edge stores.</InfoTip>
           <InfoTip title="Cross-channel">The same window drawn on every selected channel. The detections chip filters the reference row only.</InfoTip>
           <span className="grow" />
           <a className="ex-back" onClick={() => navigate('explore/corpus')} data-testid="back-to-corpus">‹ back to corpus</a>
@@ -271,8 +279,10 @@ function CrossBody({ data }: { data: CrossRead }) {
             <span className="range mono" data-testid="window-phrase" data-t0={data.window.t0S} data-t1={data.window.t0S + data.window.durS}>{windowLabel} · {data.window.startH.toFixed(3)} – {data.window.endH.toFixed(3)} h</span>
             <span className="muted mono small" data-testid="scale-note" data-gain={geom.fullScaleMv !== null ? fmtMvSpan(geom.fullScaleMv) : undefined}>{scaleNote(geom, setByName)}</span>
             <span className="muted mono small" data-testid="detrend-note" data-detrend={data.detrend}
-              title={data.detrend === 'linear' ? 'each channel’s straight-line trend over the window is taken out before lag and r are measured; the traces are drawn as recorded' : 'an edge’s window is measured as recorded, as the edge stores it'}>
-              lag · r {data.detrend === 'linear' ? 'on the detrended window' : 'as recorded'}</span>
+              title={data.detrend === 'linear' ? 'each channel’s straight-line trend over the window is taken out before lag and r are measured; the traces are drawn as recorded'
+                : data.detrend === 'cubic' ? 'each channel’s cubic trend over the window is taken out before lag and r are measured — a curved drift a line leaves goes too; the traces are drawn as recorded'
+                : data.edge ? 'an edge’s window is measured as recorded, as the edge stores it' : 'lag and r are measured on the window as recorded, trend left in'}>
+              lag · r {data.detrend === 'linear' ? 'on the detrended window' : data.detrend === 'cubic' ? 'on the cubic-detrended window' : 'as recorded'}</span>
             {yMode === 'per-channel' && <Badge tone="amber" testid="normalised-badge">normalised</Badge>}
             {/* every lag on this corpus is either 0 or past the max-lag cut, so lag-aligned routinely moves
                 nothing — leaving it looking applied would be a claim the drawing does not support */}
@@ -342,7 +352,7 @@ function CrossBody({ data }: { data: CrossRead }) {
                   <span className="r mono">{computing ? '…' : r.channelId === ref ? '' : r.r === null ? '—' : (() => {
                     const raw = data.asRecorded[r.channelId]
                     return raw
-                      ? <Tooltip content={`r ${r.r.toFixed(2)} at ${fmtLag(r.lagS)} on the detrended window; as recorded (trend left in) r ${raw.r.toFixed(2)} at ${fmtLag(raw.lag_s)} — a strong r at lag 0 only as recorded is the shared drift`}>
+                      ? <Tooltip content={`r ${r.r.toFixed(2)} at ${fmtLag(r.lagS)} on the ${data.detrend === 'cubic' ? 'cubic-' : ''}detrended window; as recorded (trend left in) r ${raw.r.toFixed(2)} at ${fmtLag(raw.lag_s)} — a strong r at lag 0 only as recorded is the shared drift`}>
                         <span data-testid={`r-raw-${r.name}`} data-raw-r={raw.r.toFixed(2)} data-raw-lag={raw.lag_s}>{r.r.toFixed(2)}</span></Tooltip>
                       : r.r.toFixed(2)
                   })()}</span>
@@ -369,7 +379,7 @@ function CrossBody({ data }: { data: CrossRead }) {
 
         <div className="ex-cross-bottom">
           <div className="card card-pad" data-testid="classification">
-            <div className="ex-card-head"><b>Classification for this window</b><InfoTip title="Classification">Each channel is paired with the reference over the same absolute window{data.detrend === 'linear' ? ', each channel’s straight-line trend taken out first,' : ', as recorded,'} and binned by lag (in seconds) and |r|, the sign of r kept: {data.rules ? <>artifact — {data.rules.artifact}; propagation — {data.rules.propagation}; independent — {data.rules.independent_recurrence}.</> : 'the read carries no rule.'} The numbers are Settings › Analysis defaults. A window gets no chance test and no noise-floor test — Library › Family&rsquo;s <i>Classify across channels</i> runs both on its members. Shared-ground pairs come from Settings › Channels &amp; events.</InfoTip><span className="grow" /><span className="muted mono small">pairs against {refName} reference</span></div>
+            <div className="ex-card-head"><b>Classification for this window</b><InfoTip title="Classification">Each channel is paired with the reference over the same absolute window{data.detrend === 'linear' ? ', each channel’s straight-line trend taken out first,' : data.detrend === 'cubic' ? ', each channel’s cubic trend taken out first,' : ', as recorded,'} and binned by lag (in seconds) and |r|, the sign of r kept: {data.rules ? <>artifact — {data.rules.artifact}; propagation — {data.rules.propagation}; independent — {data.rules.independent_recurrence}.</> : 'the read carries no rule.'} The numbers are Settings › Analysis defaults. A window gets no chance test and no noise-floor test — Library › Family&rsquo;s <i>Classify across channels</i> runs both on its members. Shared-ground pairs come from Settings › Channels &amp; events.</InfoTip><span className="grow" /><span className="muted mono small">pairs against {refName} reference</span></div>
             <div className={cx('ex-tiles', computing && 'dim')}>
               {(['artifact', 'propagation', 'independent', 'no match'] as const).map(b => (
                 <button key={b} type="button" className={cx('ex-tile', `t-${BIN_TONE[b]}`, focusBin === b && 'on')} onClick={() => setFocusBin(focusBin === b ? null : b)} aria-pressed={focusBin === b} data-testid={`tile-${b.replace(' ', '-')}`}
