@@ -152,7 +152,7 @@ function WhereFires({ dx }: { dx: Discovery }) {
       {mode === 'spans' && sectionH > 24 && <div className="dsc-note small" data-testid="spans-note">spans are thinner than a pixel at this scale · zoom the section below 24 h</div>}
       {fires.error && <LoadFailed what="where each run fires" error={fires.error} onRetry={fires.reload} />}
       {!fires.data && !fires.error && <Loading height={200} />}
-      {fires.data && <div style={{ padding: '0 14px 4px' }}><Refreshing on={fires.loading} label={`re-reading ${dx.visibleChannels.join(', ')} · ${shown.length} run${shown.length === 1 ? '' : 's'}`} /></div>}
+      {fires.data && <div style={{ padding: '0 14px 4px' }}><Refreshing on={fires.loading} testid="fires-refreshing" label={`re-reading ${dx.visibleChannels.join(', ')} · ${shown.length} run${shown.length === 1 ? '' : 's'}`} /></div>}
       {fires.data && (
         <div className="dsc-fires-body" data-stale={fires.loading ? '1' : '0'} style={{ opacity: fires.loading ? 0.55 : 1, transition: 'opacity 140ms' }}>
           <div className="dsc-fires-scroll" data-testid="fires-scroll">

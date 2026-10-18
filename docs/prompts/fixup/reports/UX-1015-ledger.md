@@ -110,3 +110,105 @@ walk, the evaluation, the push.
   in `AR-speed-report.md` (item read 28,702 -> 56 ms; verdict 16,948 -> 133 ms; coverage after restart ~116 s -> 1.3 s).
 - Decisions recorded with the researcher the same evening: the per-merge gate (targeted tests + tsc + build + touched
   units; full pytest + full walk once a day by one manager; critic skipped under ~40 lines) - `docs/prompts/changes/README.md`.
+
+### AR re-timed on a quiet machine (2026-10-19 02:33, load ~23 %, fresh sandbox copy, after the maps warm)
+
+| read | before (18 Oct 19:04) | after (19 Oct 02:33) |
+|---|---|---|
+| bridge start: corpus maps warmed | 100-224 s (computed) | **1.0 s** (17 files read back from the disk cache) |
+| review queue 24 rows, full (3,195 items) | 5,257 ms / 3.1 MB | 4,135 ms / 3.1 MB; the page's rows-only read (`?thumbs=0`) 3,361 ms / 1.7 MB |
+| review item 1 / 2 / 3 | 382 / 872 / 704 ms | 153 / 222 / 372 ms |
+| review item channels | 416 ms | 126 ms |
+| review queues list / counts | 1,107 / 1,152 ms | 1,425 / 1,944 ms (first read builds the structure) |
+| discovery runs | 834 ms | 635 ms |
+| discovery templates (picker) | > 240 s while scoring | 528 ms |
+| discovery fires (3 ch x 53 runs) | 16,632 ms | 1,808 ms |
+| discovery scoreboard (10 runs, 3 ch) | 85,486 ms | 11,895 ms |
+| discovery map L3 / L2 (untouched) | 7,602 / 3,010 ms | 9,198 / 3,603 ms |
+| corpus coverage M2_aug (warm) | 555 ms | 925 ms |
+
+Units on the same bridge: `review` 3 failures = the morning baseline's three; `zzzzzzzzzzz_ar_speed` 1 failure = the
+first-paint state's fixed 150 ms wait (the Discovery chunk is lazy-loaded; state fixed the same night to wait for the
+toolbar); `discovery` 34 failures = **a `--pages-only` artifact, not a regression**: the discovery states name the two
+smoke runs the CORE FLOWS create (`smoke.py:1395`), and `--pages-only` skips the flows, so every state after
+`runs--running` fails with "the state names a smoke run the walk could not find". The discovery unit can only be judged
+in a walk that runs the flows (a full walk, or `--only discovery` without `--pages-only`).
+
+## changes/integration (de3f472) — gate result 2026-10-19 03:25–04:40, merge ABORTED, for the Prompt manager session
+
+Eight prompts (span-plot, explore-review, ig-pages, sequences, datasets, edit-span, site-fixes, review-carry) on top
+of AR. Tests, tsc and build were green on the merged tree (conda 356, venv 253 + 3 xpassed). The flows passed once the
+walker followed the new defaults (committed on main after 1ba7fef: runs hidden until chosen → the signal flow switches
+them on through `detection-runs-chip` → `picker-all`; carried verdict rows accepted; an honest "Send 0 unjudged"
+accepted; the routes prelude starts from `#/jobs`; `Refreshing` takes a `testid`). The FULL page walk is not clean:
+**735 screenshots, 91 failures, 61 not in the 18 Oct baseline** — Analyse block pages (`fixup-h-*` block views
+missing; every `ig-pages-*` state 60 s timeout), Analyse chain (insert-modal clicks timing out), the interrogation
+slope page (`slope--default` missing anatomy-card / rose / per-event-table: the fold moved them, the old states were not
+updated), Explore (`signal--default`, `--live-channel`, `--motif` missing `signal-overview`; four cross-channel states
+missing `scale-note` / `cross-axis`), Library (`sequence-family-renders` expects the placeholder;
+`sequences-keep-then-the-family-page-draws` 120 s), review-carry's and edit-span's own states timing out,
+`ar-templates-open-under-a-second`, a2_p2 / a2_p3 states, `settings.datasets--discovery-scope-names-its-dataset`.
+Full log kept by the WEBSITE CHANGES session (`smoke_full_integration4_keep.log`); the merge was aborted, main is
+untouched by the branch.
+
+**Caveat:** that walk took 75 min on a quiet box (norm 40), so part of the 61 may be the merged tree's own load (the AR
+background scorer, the flows' runs). A full walk of MAIN alone (AR + the walker fixes) is running as the new baseline;
+the diff of the integration walk against it — the branch's OWN regressions — will be appended below. Fix on the
+branch after merging main into it (fd8cdfa and the walker commit are needed under it), prompt by prompt, and re-gate
+with a full walk, not units: the discovery states need the flows' smoke runs.
+
+**Product defect found by the walker, for the speed second pass:** after any run finishes, the home page's corpus map
+recomputes (~100 s on the post-RQ4 database) and the heatmap does not paint for minutes; serve the last map at once
+and recompute behind it (the pattern AR gave the picker).
+
+### 2026-10-19 morning — what the full walks on MAIN found, and the new baseline
+
+Main alone (AR + the walker fixes), full walk 04:44–05:43: **720 screenshots, 77 failures, 52 not in the 18 Oct
+baseline** — so most of what the integration walk showed was already on main. Units re-run on a quiet fresh bridge
+(no flows) reproduced the failures: deterministic, not interference. Two causes, both fixed as `9ac3d27`:
+1. **AR's background template scorer** scored 73 templates back to back (3-4 min at every start and after every run the
+   flows wrote) and held the interpreter; every page read under it stalled, and states with 2-3 s settles failed
+   across Explore, Settings, Analyse and interrogation. It now waits for a quiet gap before each template (1.5 s, at
+   most 6 s). Test: one quiet-wait per template.
+2. **ux-1018's templates accordion** hid encoding / training / interrogation templates until their group was opened,
+   so the ten smoke states that import one by clicking its row timed out and every block state behind them cascaded.
+   The header click is idempotent now and those ten states open the group first.
+After the fixes, quiet units: interrogation 0 (was 5), zz_analyse_run 0 (was 15), analyse 0, explore 8 (was 12),
+settings 7. Main full walk 06:33–07:30 with the fixes: **728 screenshots, 61 failures, 33 not in the 18 Oct
+baseline, 17 of the baseline's now pass.** Of the 33: five are **data drift** (the held-out lock is OFF in the real
+database now — `explore.*--held-out`, `settings.*-locked` expect it locked; `settings.datasets--identity-fields`
+expects a dataset that has since been named); two are `requestfailed` on the corpus-map read that outlived AR's
+300 s read timeout from an earlier state (the home-page defect below) and were charged to whatever state was open;
+the rest are **timing on a bridge still running the flows' jobs** (seed searches and chain runs now take minutes on
+this database) — the interrogation and explore states among them passed in the quiet unit runs. The walker now waits
+for the jobs to go idle (cap 5 min) before the page walk; the next full walk is the baseline to compare against.
+Files: `scratchpad/smoke_full_main2.log`, failure set `base_main_0419b.txt` (WEBSITE CHANGES session).
+
+**For the Prompt manager session, `changes/integration`:** merge main (≥ 9ac3d27) into the branch first — the
+accordion and scorer fixes remove most of what its walk showed. Its own regressions, from the diff of its walk
+against the fixed main (to be re-confirmed on a re-walk after the merge): the seven `analyse.block--ig-pages-*`
+states (60 s timeouts) and `analyse.chain--ig-pages-event-trains-chain-runs`; `analyse.interrogation.slope--event-
+picked`, `--fixup-k-padding-is-honoured`, `--not-recovered-is-not-zero`, `aggregate--feature-wiring` (the fold moved
+what the old states expect); the Compare page (`compare--default` 30 s timeout, `--empty-one-pick`,
+`--filter-only-b`, `--popover-roles`, `--remove-and-pick-apart`, `--swapped`, `fixup-z-band-set-as-side-b`) and
+`runs--modal-slurm` — review-carry/explore-review changed what Compare reads; `explore.span-edit--…` (edit-span's own
+state, 30 s); `library.family--sequence-family-renders` (expects the placeholder the prompt replaced — update the
+state) and `--sequences-keep-then-the-family-page-draws` (120 s); `library.grouping--fixup-an-a-grouping-made-before-
+trees-says-so`. The `fixup-h` block/chain states in that diff are the accordion (fixed on main), not the branch.
+
+**Product defects for the speed second pass (BACKLOG):** (a) the home page's corpus map recomputes ~100 s after any
+run finishes and the heatmap does not paint until it is done — serve the last map, recompute behind it; (b) the
+300 s read timeout turns that into `requestfailed` console errors charged to unrelated pages. **Smoke debt:** the
+held-out states must set the lock they assume (a `PUT` in their actions) instead of assuming the database's state.
+
+**Baseline walk with the jobs-idle prelude (07:35–08:31): 728 screenshots, 65 failures, 35 not in the 18 Oct
+baseline** (`base_main_0419c.txt`). The idle wait was 0.1 s — the flows' jobs were already done, so job-manager jobs
+are not the interference. What distinguishes the full walk (fails) from the quiet unit runs (pass) is the corpus map:
+the flows write runs, the next corpus read recomputes the map for ~100 s and holds the interpreter, and the states
+visited in that window (interrogation aggregate/slope defaults, Explore signal and cross-channel, Library family,
+Models launch clicks) time out. **First item of the speed second pass:** the corpus map must not recompute inside a
+request — serve the last map (memory or disk, stale flagged), recompute behind it, and move the compute off the
+interpreter (a worker process, or make `channel_divergence` incremental per run). Until then the full walk's baseline
+on this database is ~65 failures and its comparison must be by SET against `base_main_0419c.txt`, not the 18 Oct 42.
+Five of the 35 are held-out-lock drift; `discovery.seed--source-explore`, `library.templates--model-stage`, the two
+a2_p2 states and `settings.datasets--discovery-scope-names…` are data/state drift to re-check by hand.

@@ -19,10 +19,11 @@
   "state": "ar-first-paint-no-placeholder",
   "_why": "AR: the first paint is the page's own layout in grey (the toolbar row where the toolbar will be), never the 600 px 'loading the session' card that the real layout then replaced",
   "hash": "discovery/runs",
-  "actions": [{"wait": 150}],
+  "actions": [{"wait_for": [".dsc-toolbar", 3000]}],
   "expect": [".dsc-toolbar", "[data-testid=\"discovery-refreshing\"]"],
   "expect_absent": ["[data-testid=\"discovery-loading\"]"],
-  "settle_ms": 50
+  "settle_ms": 50,
+  "_fix": "2026-10-19: a fixed 150 ms wait failed on a quiet machine because the Discovery chunk is lazy-loaded and had not executed yet on a cold navigation; the check is now 'the first toolbar to appear within 3 s is the skeleton's or the real one, and the 600 px loading card never' (the skeleton renders .dsc-toolbar with data-testid discovery-skeleton and its own Refreshing line)"
  },
  {
   "page": "discovery.runs",

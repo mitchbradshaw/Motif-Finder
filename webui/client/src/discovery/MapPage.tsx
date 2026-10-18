@@ -274,7 +274,7 @@ function DatasetLevel({ dataset, chunks, norm, onName, onChannel }: { dataset: s
   const sliceH = (chHours: number) => chHours / n
   return (
     <>
-      <Refreshing on={m.loading} label={chunks !== n ? `re-slicing ${data.name} into ${chunks} chunk${chunks === 1 ? '' : 's'} per channel…` : running ? 're-counting · a run is still going' : `re-counting the runs on ${data.name}`} />
+      <Refreshing on={m.loading} testid="map-refreshing" label={chunks !== n ? `re-slicing ${data.name} into ${chunks} chunk${chunks === 1 ? '' : 's'} per channel…` : running ? 're-counting · a run is still going' : `re-counting the runs on ${data.name}`} />
       <div className="dsc-map-wrap" data-testid="map-dataset-level" data-stale={m.loading ? '1' : '0'} style={{ opacity: m.loading ? 0.55 : 1, transition: 'opacity 140ms' }}>
         <table className="dsc-map-table" data-testid="map-table">
           <thead>
@@ -358,7 +358,7 @@ function ChannelLevel({ dataset, channel, binH, onName }: { dataset: string; cha
   })()
   return (
     <>
-      <Refreshing on={m.loading} label={binH !== bh ? `re-binning ${channel} at ${binH} h…` : running ? 're-counting · a run is still going' : `re-counting the runs on ${channel}`} />
+      <Refreshing on={m.loading} testid="map-refreshing" label={binH !== bh ? `re-binning ${channel} at ${binH} h…` : running ? 're-counting · a run is still going' : `re-counting the runs on ${channel}`} />
       <svg width={0} height={0} style={{ position: 'absolute' }} aria-hidden><defs><pattern id="dsc-map-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#fff" /><rect width="2.5" height="6" fill="#e5e7eb" /></pattern></defs></svg>
       <div className="dsc-map-timeline" data-testid="map-timeline">
         {data.rows.map(row => {

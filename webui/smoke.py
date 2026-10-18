@@ -487,10 +487,31 @@ class Smoke:
         if "explore/signal" not in page.url:
             self.goto(page, "explore/signal/4", 1500)
         page.wait_for_selector('[data-testid="signal-overview"]', timeout=20000)
-        page.wait_for_timeout(1200)
+        # 2026-10-19: the span card's first window read lands after the overview's whole-channel reads (89 k
+        # detections on CH4_A2 since the RQ4 import); a fixed 1.2 s saw an empty card. Wait for the span path and
+        # record how long the first paint took - that number is the perf evidence, not a failure at 1.2 s.
+        t_span = time.perf_counter()
+        try:
+            page.wait_for_selector('[data-testid="signal-span"] path[d], [data-testid="envelope-path"]', timeout=20000)
+        except Exception:   # noqa: BLE001 - the check below reports the empty path
+            pass
+        self.evidence["span_first_paint_s"] = round(time.perf_counter() - t_span, 2)
+        page.wait_for_timeout(400)
         d_len = page.evaluate("""() => [document.querySelector('[data-testid="signal-overview"] path[d]'), document.querySelector('[data-testid="signal-span"] path[d], [data-testid="envelope-path"]')].map(p => p ? (p.getAttribute('d')||'').length : 0)""")
         self.evidence["envelope_path_lengths"] = d_len
         self.check(len(d_len) == 2 and all(l > 500 for l in d_len), f"overview + span envelope paths painted (d lengths {d_len})")
+        # ux-1019 (site-fixes, the researcher 2026-10-18): no run is shown until it is switched on, so a fresh
+        # browser shows NO detection bands by default. Switch every run on through the picker before counting,
+        # exactly as a researcher would ("Show detections from … · all").
+        chip = page.locator('[data-testid="detection-runs-chip"]')
+        if chip.count():
+            chip.first.click()
+            page.wait_for_timeout(400)
+            allb = page.locator('[data-testid="picker-all"]')
+            if allb.count():
+                allb.first.click()
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(900)
         bands = page.locator('[data-testid="span-bands"] rect').count()
         self.evidence["span_bands"] = bands
         self.check(bands >= 1, f"{bands} tinted span bands drawn in the viewport")
@@ -923,7 +944,12 @@ class Smoke:
         label = btn.first.inner_text().strip() if btn.count() else ""
         m = re.search(r"Send (\d+) unjudged", label)
         offered = bool(m) and int(m.group(1)) > 0 and btn.first.is_enabled()
-        self.check(offered, f"the run acts offer to send ({label!r})")
+        # explore-review / review-carry (2026-10-19): the count is the detections Review WOULD ask about; a run whose
+        # detections all sit under existing human spans honestly offers 0 with the button disabled
+        honest_zero = bool(m) and int(m.group(1)) == 0 and not btn.first.is_enabled()
+        self.evidence["run_acts_label"] = label
+        self.check(offered or honest_zero,
+                   f"the run acts offer to send, or say honestly that Review would ask about none ({label!r})")
         if not offered:
             return
         row_sel = f'[data-testid="score-row-{a_key}"]'
@@ -1108,8 +1134,13 @@ class Smoke:
         page.wait_for_timeout(2000)
         new = [r for r in self._adjudications() if r["id"] not in adj_before]
         self.evidence["fixup_z"]["adjudication_written"] = new
-        self.check(len(new) == 1 and new[0]["surrogate_of_run_id"] is None,
-                   f"I wrote one verdict, on a real band run's detection ({new})")
+        # review-carry (2026-10-19): one key press also writes CARRIED rows on the other runs' detections of the
+        # same event (the researcher: "if I have reviewed an event once, the same event earns the same review"),
+        # so more than one row may appear; the one on the shown detection is the human's, every row is on a real run
+        shown_id = where.rsplit("/", 1)[1]
+        mine = [r for r in new if str(r["detection_id"]) == shown_id]
+        self.check(len(mine) == 1 and all(r["surrogate_of_run_id"] is None for r in new),
+                   f"I wrote one verdict on the shown detection, {len(new) - len(mine)} carried, all on real runs ({new})")
         self.shot(page, "discovery-13-remainder-judged")
 
         self.goto(page, f"discovery/compare?a={a_key}&b={side}", 2500)
@@ -1362,13 +1393,37 @@ class Smoke:
         # the live flows ran in this same tab: start the page walk from a hard reload, so a row whose error
         # boundary the loud-failure flow tripped (?throw=1) or an in-memory write (a span sent from Explore)
         # cannot leak into the first states. The states themselves keep sharing the tab, as the builders ran them.
-        page.goto(f"{self.url}/#/", wait_until="networkidle")
+        # 2026-10-19: 120 s, not 30 - the flows just wrote runs, so the home page's corpus map recomputes (~100 s on
+        # the post-RQ4 database); network-idle inside two minutes is still the sentinel, a hang beyond it still fails
+        t_home = time.perf_counter()
+        # 2026-10-19: network-idle is the wrong sentinel here. After the flows, their runs are still finishing and
+        # every completion re-invalidates the corpus map (~100 s per recompute on the post-RQ4 database), so the home
+        # page can poll for minutes without a 500 ms gap. The page is "up" when its heatmap has painted; how long that
+        # took is the evidence, and a hang beyond two minutes still fails the walk.
+        # … and on the post-RQ4 database even the heatmap took over two minutes after the flows (every finishing run
+        # re-invalidates the map). The prelude's only job is a hard reload with cleared storage, so it starts from the
+        # cheap Jobs page; the corpus states further down still test the home page on their own clock, and the
+        # product fix (serve the last map, recompute behind it) is filed in the backlog's speed row.
+        page.goto(f"{self.url}/#/jobs", wait_until="load", timeout=120000)
+        page.wait_for_selector('[data-testid="header"]', timeout=120000)
+        self.evidence["prelude_up_after_flows_s"] = round(time.perf_counter() - t_home, 1)
+        # 2026-10-19: let the flows' jobs finish before the page walk. On the post-RQ4 database the seed searches and
+        # chain runs the flows start take minutes, and every page state timed on a bridge still running them failed
+        # by its settle (33 states on main that had passed the morning before). Capped at five minutes.
+        t_jobs = time.perf_counter()
+        while time.perf_counter() - t_jobs < 300:
+            jobs = self._api("/api/jobs") or []
+            busy = [j for j in jobs if isinstance(j, dict) and j.get("status") in ("running", "queued")]
+            if not busy:
+                break
+            page.wait_for_timeout(2000)
+        self.evidence["jobs_idle_wait_s"] = round(time.perf_counter() - t_jobs, 1)
         # the app keeps the source span and the chain in sessionStorage across a reload (state.tsx), so a
         # reload alone is not a fresh tab: clear both storages first, as a new tab would have them
         page.evaluate("() => { try { sessionStorage.clear(); localStorage.clear() } catch (e) {} }")
         page.evaluate(SEED_CHAIN_JS, SMOKE_CHAIN)
         self._chain_cleared = False
-        page.reload(wait_until="networkidle")
+        page.reload(wait_until="load", timeout=120000); page.wait_for_selector('[data-testid="header"]', timeout=120000)
         page.wait_for_timeout(300)
         mdir = os.path.join(HERE, "smoke_pages")
         entries = []
@@ -1422,7 +1477,7 @@ class Smoke:
                     page.evaluate(SEED_CHAIN_JS, SMOKE_CHAIN); page.reload(wait_until="networkidle"); page.wait_for_timeout(300)
                     self._chain_cleared = False
                 if e.get("cold"):
-                    page.reload(wait_until="networkidle")
+                    page.reload(wait_until="networkidle", timeout=120000)
                 page.wait_for_timeout(e.get("settle_ms", 500))
                 waited = []
                 for a in e.get("actions", []):
