@@ -36,9 +36,11 @@ The rules, each one stated once
    Settings of one template are one family, and so are the four CNN models of one scale.
 5. **Existing verdicts** (annotations and adjudications, deleted spans ignored): an adjudication on one of the event's
    own detections, or a human span that is the same event (rule 2), labels it; a seed verdict is interesting (Q41).
-   Otherwise an event wholly inside a ``not_interesting`` or ``artifact`` span takes that label (Q-W1). An event
-   inside an interesting span stays unjudged (Q-W1), flagged ``inside_interesting``. Two verdicts that disagree, or
-   an event inside both an interesting and a not-interesting span, are a ``conflict``: unjudged, never resolved
+   Otherwise the human spans that wholly hold the event decide, the most specific first: of those, the shortest and
+   any at most ``SPECIFIC_FACTOR`` times as long. If they say ``not_interesting`` (or ``artifact``), that is the
+   event's label (Q-W1); if they say interesting, the event stays unjudged (Q-W1). Either way an event held by any
+   interesting span is flagged ``inside_interesting``. Two same-event verdicts that disagree, or specific spans that
+   disagree (two overlapping 10-minute windows, one yes and one no), are a ``conflict``: unjudged, never resolved
    silently. ``unsure`` is kept as unsure and is neither asked again nor counted.
 6. **The sample.** Only unjudged events (conflicts included) are drawn. Strata: the first ``SELECTIVE_FAMILIES``
    family among an event's own detectors, else its agreement level (``AGREEMENT_LEVELS``). A simple random sample in
@@ -91,6 +93,10 @@ DEFAULT_PER_FAMILY = 50
 
 #: rule 4: a family agrees when one detection overlaps at least this share of the shorter span
 AGREE_SHARE = 0.5
+
+#: rule 5: of the human spans that wholly hold an event, those at most this many times the shortest one's length
+#: decide (a 90-hour catalogue region says little about one event; a 10-minute window judged around it says a lot)
+SPECIFIC_FACTOR = 2.0
 
 FAMILY_SEP = "|"
 LABEL_OF = {"interesting": "interesting", "seed": "interesting", "not_interesting": "not_interesting",
@@ -447,7 +453,7 @@ def attach_labels(conn, events, members, *, rule=None):
                     r = r + a
                     ok = be[j] >= r_e[r]
                     for ri, jj in zip(r[ok].tolist(), sel[j[ok]].tolist()):
-                        contain.setdefault(int(rows[ri]), []).append((hl[jj], hr[jj]))
+                        contain.setdefault(int(rows[ri]), []).append((hl[jj], hr[jj], int(he[jj] - hs[jj])))
         for i in rows:
             i = int(i)
             mine = member_adj.get(int(eids[i]), [])
@@ -461,13 +467,17 @@ def attach_labels(conn, events, members, *, rule=None):
                 else:
                     kind[i] = "conflict"
                 continue
-            held = contain.get(i, [])
-            classes = {c for c, _ in held}
-            inside_int[i] = "interesting" in classes
+            held = [h for h in contain.get(i, []) if h[0] in JUDGED]
+            if not held:
+                continue
+            inside_int[i] = any(c == "interesting" for c, _r, _n in held)
+            shortest = min(n for _c, _r, n in held)     # the most specific spans decide (rule 5)
+            specific = [(c, r) for c, r, n in held if n <= SPECIFIC_FACTOR * shortest]
+            classes = {c for c, _ in specific}
             negative = classes & {"not_interesting", "artifact"}
             if negative:
-                refs[i] = ";".join(sorted({r for c, r in held if c in negative or c == "interesting"}))
-                if inside_int[i] or len(negative) > 1:
+                refs[i] = ";".join(sorted({r for _c, r in specific}))
+                if "interesting" in classes or len(negative) > 1:
                     kind[i] = "conflict"
                 else:
                     label[i] = negative.pop()
@@ -509,7 +519,7 @@ def build_table(conn, source_file, *, exclude=NEGATIVE_CONTROLS, rule=None):
                 "runs": [[r["run_id"], r["variant"], r["recording_id"], r["n_detections"]] for r in sweep["runs"]]}
     meta = {"key": f"{_safe(source_file)}_{short_hash(identity)}", "version": TABLE_VERSION,
             "source_file": str(source_file), "rule": rule, "agree_share": AGREE_SHARE,
-            "excluded_variants": sweep["excluded_variants"], "exclude": list(exclude), "runs": sweep["runs"],
+            "specific_factor": SPECIFIC_FACTOR, "excluded_variants": sweep["excluded_variants"], "exclude": list(exclude), "runs": sweep["runs"],
             "skipped": sweep["skipped"], "n_degenerate": sweep["n_degenerate"],
             "families": sorted(members["family"].unique()) if len(members) else [],
             "recordings": {str(k): v for k, v in sweep["recordings"].items()},

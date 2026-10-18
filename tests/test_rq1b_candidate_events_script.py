@@ -130,6 +130,31 @@ def test_queue_is_a_dry_run_until_apply_and_apply_twice_makes_one_queue(tmp_path
     assert os.path.isfile(os.path.join(done["sample"], "sample.parquet"))
 
 
+def test_queue_apply_on_the_real_database_waits_for_the_bridge_code(tmp_path, capsys):
+    """The queue's `order` filter is new: a bridge on older code raises on every queue read (the header's count
+    included), so --real --apply is refused until the main checkout serves it."""
+    mod = _script()
+    db = _db(tmp_path)                                       # stands in for the real database
+    for name, src in (("old_checkout", "# a bridge before a2-rq1b\n"), ("new_checkout", "QUEUE_ORDERS = ('listed',)\n")):
+        d = tmp_path / name / "Working" / "review"
+        d.mkdir(parents=True)
+        (d / "queues.py").write_text(src, encoding="utf-8")
+    _code, out = _run(mod, ["build", "--real", "--file", "rec.mat", "--out", str(tmp_path / "t"), "--json"], capsys,
+                      real=db)
+    table = json.loads(out)["table"]
+    with pytest.raises(SystemExit):
+        mod.main(["queue", "--table", table, "--real", "--apply"], real=db, checkout=str(tmp_path / "old_checkout"))
+    conn = sqlite3.connect(db)
+    assert conn.execute("SELECT COUNT(*) FROM review_queues").fetchone()[0] == 0
+    conn.close()
+    assert mod.main(["queue", "--table", table, "--real", "--apply", "--json"], real=db,
+                    checkout=str(tmp_path / "new_checkout")) == 0
+    capsys.readouterr()
+    conn = sqlite3.connect(db)
+    assert conn.execute("SELECT COUNT(*) FROM review_queues").fetchone()[0] == 1
+    conn.close()
+
+
 def test_estimate_reads_the_answers_given_so_far(tmp_path, capsys):
     mod = _script()
     db = _db(tmp_path)

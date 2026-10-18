@@ -82,6 +82,18 @@ def _read_only(db):
     return conn
 
 
+def bridge_serves_listed_order(checkout):
+    """Does the checkout the bridge runs from serve a listed-order queue? The queue's `order` filter is new
+    (a2-rq1b): a bridge on older code passes it to `ReviewQueue` and raises on every read of every queue, the
+    header's "N need you" included. So the queue goes into the real database only once that code is in the main
+    checkout (and the bridge restarted on it)."""
+    try:
+        with open(os.path.join(str(checkout), "Working", "review", "queues.py"), encoding="utf-8") as fh:
+            return "QUEUE_ORDERS" in fh.read()
+    except OSError:
+        return False
+
+
 def _print(report, as_json):
     if as_json:
         print(json.dumps(report, indent=1, default=str))
@@ -119,7 +131,11 @@ def _sample_name(a):
     return f"sample_seed{int(a.seed)}_l{int(a.per_level)}_f{int(a.per_family)}"
 
 
-def _queue(a, db):
+def _queue(a, db, checkout):
+    if a.apply and a.real and not bridge_serves_listed_order(checkout):
+        raise SystemExit(f"the main checkout ({checkout}) does not serve a listed-order queue yet: merge the a2-rq1b "
+                         "branch into it and restart the bridge, then --apply (a bridge on older code would fail "
+                         "on every queue read, the header's count included)")
     events, members, meta = ce.load_table(a.table)
     if a.apply:
         conn, held = GUARD._open_for_apply(db)
@@ -172,9 +188,11 @@ def _estimate(a, db):
     return est
 
 
-def main(argv=None, real=None):
-    """`real`: the real database's path (the main checkout's by default); a test hands in a stand-in."""
+def main(argv=None, real=None, checkout=None):
+    """`real`: the real database's path, `checkout`: the main checkout the bridge runs from (both the main
+    checkout's by default); a test hands in stand-ins."""
     real = real or GUARD.REAL_DB
+    checkout = checkout or GUARD.main_checkout()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("build", help="the candidate-event table of one recording (read-only)")
@@ -194,7 +212,7 @@ def main(argv=None, real=None):
     e.add_argument("--n-boot", type=int, default=1000)
     a = ap.parse_args(argv)
     db = _database(ap, a, real)
-    report = {"build": _build, "queue": _queue, "estimate": _estimate}[a.cmd](a, db)
+    report = _queue(a, db, checkout) if a.cmd == "queue" else {"build": _build, "estimate": _estimate}[a.cmd](a, db)
     _print(report, a.json)
     return 0
 

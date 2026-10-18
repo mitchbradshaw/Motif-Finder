@@ -299,6 +299,24 @@ def test_two_verdicts_that_disagree_on_one_event_are_a_conflict_and_an_artifact_
     assert (by[dets[9]].label, by[dets[9]].label_kind) == ("artifact", "same_event")
 
 
+def test_the_most_specific_span_that_holds_an_event_decides():
+    """A 25-hour catalogue region marked seed says little about one event inside it; a 10-minute window judged not
+    interesting says a lot. Among the spans that hold an event, the shortest (and those of comparable length, at
+    most twice as long) decide; a disagreement among THEM is the conflict."""
+    conn = _conn()
+    sid = _session(conn)
+    rid = _recording(conn)
+    _run_id, dets = _run(conn, sid, rid, "noise_threshold", [(20000, 20100), (40000, 40100)])
+    _annotation(conn, rid, 0, 90000, "seed", source="excel_catalog")
+    _annotation(conn, rid, 19800, 20400, "not_interesting", source="imported_10min")
+    _annotation(conn, rid, 39000, 40800, "not_interesting", source="blind_test_review")   # a 30-minute "no" ...
+    _annotation(conn, rid, 39800, 40400, "interesting", source="imported_10min")          # ... holding a 10-min "yes"
+    events, _members, _meta = ce.build_table(conn, "rec.mat")
+    by = _by_anchor(events)
+    assert (by[dets[0]].label, by[dets[0]].label_kind) == ("not_interesting", "inside_span")
+    assert pd.isna(by[dets[1]].label) and pd.isna(by[dets[1]].label_kind) and bool(by[dets[1]].inside_interesting)
+
+
 # ── reading the sweep ──────────────────────────────────────────────────────
 
 def test_the_sweep_is_read_from_live_real_template_runs_only():
