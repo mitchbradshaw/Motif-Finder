@@ -306,6 +306,18 @@ they were hit and fixed in session (2026-08-31), so treat them as load-bearing:
   Pack the work into three jobs that each use several cores instead. A seed search is single-threaded (CPU time
   1.08× wall time, about 0.5 GB per channel, measured locally), so
   `scripts/seed_job_parallel.py pack --jobs 3` runs one channel per core inside each of three jobs.
+- **Without `--time`, an a100 job gets 1 hour, not 5.** sacct showed Timelimit `01:00:00` for the RQ4 batch 2
+  packs (2026-10-18), although the partition allows 300 minutes (`Working/config.py`). Always ask for
+  `--time=05:00:00` on the a100.
+- **The home folder fills up (suspected quota, 2026-10-18).** Batch 2 stopped at 18:06 AEST:
+  - three jobs failed at start with exit code `0:53` and no log file;
+  - the running ones stopped mid-task without writing a word;
+  - about 16 GB of returned sweep results were in the home folder by then.
+
+  Check `quota -s` before a large run. Free space with `HPC/Detection/generated/rq4_batch2/cleanup_copied.sh`
+  (`scripts/rq4_cleanup.py`), which deletes only what the PC already holds, checked file by file. A P2 chain task
+  brings back full-length intermediate signals: about 331 MB a task on L_LM (22.9 M samples) against about
+  10 MB on the 1 Hz recordings.
 - **Generated scripts must use LF line endings, not CRLF.** `sbatch` rejects
   a script outright with `"Batch script contains DOS line breaks"`. On
   Windows (this repo's dev environment), Python's default text-mode file

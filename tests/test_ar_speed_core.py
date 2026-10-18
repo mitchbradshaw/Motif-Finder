@@ -178,6 +178,30 @@ def test_the_cached_resolver_answers_exactly_what_a_fresh_resolve_does(tmp_path)
                 Q.get_queue(conn, qid), Q.queue_view(conn, qid), include_judged=True, exclude_recording_ids=held))
 
 
+def test_a_listed_queue_is_served_and_ranked_in_its_lists_order_through_the_cache(tmp_path):
+    """a2-rq1b's listed-order queue, through the remembered structure: the order (and so every rank) is the
+    list's, and re-listing the same ids in another order is a different queue, not a cache hit."""
+    conn, info = _db(tmp_path)
+    ids = info["dets"][10:40]
+    shuffled = ids[::3] + ids[1::3] + ids[2::3]
+    qid = Q.create_queue(conn, name="listed", source_kind="discovery-run",
+                         filters={"detection_ids": shuffled, "order": "listed"})
+    Q.clear_resolver_cache()
+    assert [it["target_id"] for it in Q.queue_items(conn, qid, include_judged=True)] == shuffled
+    for i, t in enumerate(shuffled[:5]):
+        assert Q.item_view(conn, qid, str(t))["rank"] == i + 1
+    again = list(reversed(shuffled))
+    conn.execute("UPDATE review_queues SET filters_json = ? WHERE id = ?",
+                 (json.dumps({"detection_ids": again, "order": "listed"}), qid))
+    conn.commit()
+    assert [it["target_id"] for it in Q.queue_items(conn, qid, include_judged=True)] == again
+    assert Q.item_view(conn, qid, str(again[0]))["rank"] == 1
+    # dropping the order serves the same ids by detection id
+    conn.execute("UPDATE review_queues SET filters_json = ? WHERE id = ?", (json.dumps({"detection_ids": again}), qid))
+    conn.commit()
+    assert [it["target_id"] for it in Q.queue_items(conn, qid, include_judged=True)] == sorted(ids)
+
+
 def test_concurrent_cold_reads_build_the_structure_once(tmp_path, monkeypatch):
     """Fix round S2: the Review page opens with several reads of one queue at once; they must not each build the
     same structure. The second waits for the first and takes its answer."""

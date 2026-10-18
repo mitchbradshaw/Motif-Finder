@@ -477,7 +477,7 @@ def _write_packs(out_dir, out_rel, tasks, prefix="rq4", inputs=None, cpu_groups=
     ``cpu_groups``: ``[(tasks, parallel), (tasks, parallel)]`` to give the two CPU packs fixed contents and their
     own concurrency (a long recording's tasks apart, few at a time) instead of balancing ``tasks["cpu"]``."""
     from Working.config import HPC_CONDA_ENV_CPU, HPC_CONDA_ENV_GPU, HPC_CPU_PARTITION, HPC_GPU_PARTITION, \
-        HPC_REMOTE_REPO_ROOT
+        HPC_REMOTE_REPO_ROOT, HPC_WALLTIME_MINUTES_BY_PARTITION
 
     os.makedirs(out_dir, exist_ok=True)
     rel = out_rel.replace(os.sep, "/")
@@ -499,16 +499,19 @@ def _write_packs(out_dir, out_rel, tasks, prefix="rq4", inputs=None, cpu_groups=
                 for _est_s, spec, out, task, label in b:
                     f.write(f"{spec} {out} {task} {label}\n")
             gpu = kind == "gpu"
+            gpu_wall = int(HPC_WALLTIME_MINUTES_BY_PARTITION.get(HPC_GPU_PARTITION, 60))
             script_rel = f"{rel}/{name}.sh"
             text = _PACK.format(
                 name=name, remote_root=HPC_REMOTE_REPO_ROOT, n_tasks=len(b), parallel=parallel, cpus=8,
                 tasks_file=tasks_file, failed_file=f"{rel}/state/{name}.failed", max_chain=60,
                 min_launch=(600 if gpu else 240), script=script_rel,
-                time_line=("" if gpu else "#SBATCH --time=00:20:00\n"),
+                time_line=(f"#SBATCH --time={gpu_wall // 60:02d}:{gpu_wall % 60:02d}:00\n" if gpu
+                           else "#SBATCH --time=00:20:00\n"),
                 partition_lines=(f"#SBATCH --partition={HPC_GPU_PARTITION}\n#SBATCH --gres=gpu:a100" if gpu
                                  else f"#SBATCH --partition={HPC_CPU_PARTITION}"),
-                wall_note=("No --time: the a100 job runs to the account's own limit (the researcher expects 5 h); "
-                           "budgets are sized from the time SLURM reports left." if gpu else
+                wall_note=(f"Wall {gpu_wall // 60} h, the a100 partition's recorded limit (Working/config.py). Without "
+                           "--time a job gets the partition's DEFAULT, 1 h (batch 2, 2026-10-18), too short for the "
+                           "slowest CNN tasks; budgets are still sized from the time SLURM reports left." if gpu else
                            "Wall 20 min: the cpu partition's own limit is unverified (Working/config.py), so this "
                            "is the conservative floor; the pack chains through it."),
                 module_line=("module load cuda/12.2\n" if gpu else ""),

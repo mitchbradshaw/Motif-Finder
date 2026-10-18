@@ -171,6 +171,26 @@ at all. They call almost every minute "interesting".
   detector. Start the 10-minute templates at **threshold 0.1** (sweep 0.05 · 0.1 · 0.2 · 0.5) and the 1-hour ones at
   0.5 (sweep 0.3 · 0.5 · 0.9; no 1-hour labels exist). If one model is picked, lean GASF, with GADF close.
 
+### Agreement on M2_aug, and an instrument for "which find what a human accepts" (a2-rq1b, 2026-10-18)
+
+In plain words: the overnight sweep's detections were grouped into candidate events. A blind, stratified sample of
+them is ready to judge. Its answers give each detector family and each setting a precision with an interval. That is
+step 1 of *How it gets answered*, measured on events nobody chose by hand. Details: `findings/rq1b-candidate-events.md`.
+
+- **Coverage.** Some settings mark most of the recording: OASIS 61–65 % of the time, deconvolved_troughs at 60 s
+  46 %, Wavelet_detection_prototype at ε 0.02 38 %, the 1-minute CNNs 90 %. Only about 6 % of M2_aug is caught by
+  no detector.
+- **Agreement predicts your labels.** The number of families covering a stretch gives AUC ≈ 0.8 against the old
+  10-minute labels and the blind labels (CNNs left out). Over the 1.50 M candidate events the loose agreement gives
+  AUC 0.874.
+- **The sample** is 800 items: 100 per agreement level and 50 per selective family (drop_detection_v1 / v5,
+  wavelet_encoded, symbol_search, BEADs, signal_threshold).
+  - `scripts/rq1b_candidate_events.py estimate` reports precision per level, per family (the events it found) and per
+    setting.
+  - Your earlier verdicts count as known; the sample stands in for the rest.
+- **What it is not:** the Map's hits per false alarm per hour. It is the share of a detector's events you would
+  accept. Both can be read together.
+
 ### What blocks the full design today
 
 1. ~~**Template runs on the HPC never come back.**~~ Built 2026-10-17 (P2, above); waits for the first real round trip.
@@ -471,7 +491,8 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
 ## How it gets answered
 
 1. For each detector, pick the variant that best matches the human row on M2_aug (hits on accepted spans per false
-   alarm per hour).
+   alarm per hour). *Since 2026-10-18 (a2-rq1b), a precision per setting with an interval comes from the stratified
+   candidate-event sample: `findings/rq1b-candidate-events.md`.*
 2. Show how much the detectors agree across all datasets (Compare's union / only-A / only-B).
 3. Report each chosen variant against its 20-draw null.
 
@@ -549,6 +570,9 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
 - 2026-10-18 · the researcher · the A100 check: `stump` and `gpu_stump` agree within float rounding (≤ 2.3e-10, no
   sample changing side at 6, 8 or 10); one whole channel's profile takes 12.3 min on the A100; the `a100` partition
   runs 5 h (recorded in `Working/config.py`). The matrix-profile decision now recommends the cross-backend alias.
+- 2026-10-18 · a2-rq1b · the M2_aug sweep merged into 1.50 M candidate events, each carrying which families agree.
+  Agreement predicts the human labels (AUC 0.874). A stratified 800-item blind sample and the estimator give
+  precision per family and setting. Not merged. `findings/rq1b-candidate-events.md`.
 - 2026-10-18 · batch 2 · the sweep extended to three more recordings, one submission
   (`HPC/Detection/generated/rq4_batch2/submit_rq4b.sh`, `scripts/rq4_overnight.py build-batch`):
   - **Recordings:** M2_concat (16 ch, 1 Hz, V), M4_aug (16 ch, 1 Hz, undeclared, read as V) and L_LM_Jul_26_J
@@ -569,3 +593,23 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
   - **M4_aug is the held-out exam (RQ1b):** its results are for the Map and the detector comparison only. Keep M4
     detections out of Review promotions and *Add N matches*. The import needs the held-out lock still off.
   - Not yet run on the cluster.
+- 2026-10-18 · batch 2, first copy · the results were copied back at about 08:05 UTC, about 30 minutes into a run of
+  about 3 hours.
+  - 527 of 1,543 tasks complete, nothing refused and nothing crashed: cpu1 had done its first 509 tasks, cpu2 18,
+    gpuA had started its first 8, and gpuB was still queued.
+  - The jobs were still running. `HPC/Detection/generated/rq4_batch2/resume_rq4b.sh` submits nothing while any
+    rq4b_ job is queued or running; otherwise it resubmits only the packs with work left, which continue from the
+    cluster's own results.
+- 2026-10-18 · batch 2, why it stopped · not an early copy: the cluster's own report agreed with the copy (527 of
+  1,543), and sacct shows what happened. The CPU packs chained as designed until 18:06 AEST. Then:
+  - three jobs failed at start with no log file (exit 0:53);
+  - the running jobs stopped mid-task without writing;
+  - rq4b_gpuA ended "every task crashed" at 18:20.
+
+  Most likely the home folder's quota was full: about 16 GB of returned results were there.
+  - Space still needed: L_LM's CPU tasks bring back about 331 MB each, about 39 GB for the 117 left. M2_concat and
+    M4_aug need about 4 GB more, and the CNN and matrix-profile results are small.
+  - The A100 packs had the partition's 1-hour default limit; they now ask for 5 h.
+  - `cleanup_copied.sh` frees 15 GB on the cluster: batch 1, already imported, and batch 2's finished tasks, each
+    checked here file by file.
+  - `resume_rq4b.sh [packs]` resubmits the chosen packs.

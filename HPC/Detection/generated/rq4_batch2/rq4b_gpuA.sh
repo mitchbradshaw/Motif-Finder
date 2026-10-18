@@ -3,6 +3,7 @@
 #SBATCH --chdir=/home/Student/s4699158/CNN
 #SBATCH --output=/home/Student/s4699158/CNN/logs/rq4b_gpuA_%j.out
 #SBATCH --error=/home/Student/s4699158/CNN/logs/rq4b_gpuA_%j.err
+#SBATCH --time=05:00:00
 #SBATCH --partition=a100
 #SBATCH --gres=gpu:a100
 #SBATCH --cpus-per-task=8
@@ -11,7 +12,7 @@
 # Each task is `python -m Working.discovery.chain_job --spec S --out O --task I`, P2's own command: the real chain
 # and its null draw for one channel, written to O/return/task<I>/. A finished task is skipped, and a stopped one
 # continues from its own cache.
-# No --time: the a100 job runs to the account's own limit (the researcher expects 5 h); budgets are sized from the time SLURM reports left.
+# Wall 5 h, the a100 partition's recorded limit (Working/config.py). Without --time a job gets the partition's DEFAULT, 1 h (batch 2, 2026-10-18), too short for the slowest CNN tasks; budgets are still sized from the time SLURM reports left.
 # No task starts with under 600 s left. A task that crashes is noted in HPC/Detection/generated/rq4_batch2/state/rq4b_gpuA.failed and tried once more
 # in the next job. While any task has work left this script resubmits itself; it is capped at 60 jobs. If
 # every task this job started crashed, the environment is wrong: it stops and does not resubmit.

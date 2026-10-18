@@ -10,7 +10,7 @@ can do.
 
 | File | The question | Status |
 |---|---|---|
-| [`RQ1b-family-classifier.md`](RQ1b-family-classifier.md) | Can a CNN trained on the Library's **verified families** find those motifs across whole recordings? (the "new RQ1") | data not ready; training path needs code; after RQ4b |
+| [`RQ1b-family-classifier.md`](RQ1b-family-classifier.md) | Can a CNN trained on the Library's **verified families** find those motifs across whole recordings? (the "new RQ1") | data not ready; training path needs code; after RQ4b. *Candidate events and an 800-item stratified sample built 2026-10-18 (not merged): judge it next* |
 | [`RQ2b-second-seed.md`](RQ2b-second-seed.md) | Does seeded search hold up on a **second, different motif**? | first motif answered (97 % / 90 %); second planned |
 | [`RQ4b-detector-sweep.md`](RQ4b-detector-sweep.md) | Across **every detector and its settings**, where do they agree, and which find what a human accepts? | 27 variant templates created; ~~blocked on P2 / P3 for the full design~~ P2 and P3 built (2026-10-18); the window bound at the short scales is the researcher's decision (RQ4b) |
 
@@ -18,6 +18,7 @@ can do.
 
 | File | What |
 |---|---|
+| [`findings/rq1b-candidate-events.md`](findings/rq1b-candidate-events.md) | The RQ4b sweep merged into candidate events (M2_aug: 1.50 M from 2.0 M detections). Your verdicts are carried over and never re-asked; a stratified 800-item blind sample gives each detector's precision. Also measured: agreement predicts your labels (AUC 0.87), and your misses (≈ 11.5 % per look). Rebuild with `scripts/rq1b_candidate_events.py`. |
 | [`findings/library-fragments-and-duplicates.md`](findings/library-fragments-and-duplicates.md) | The Library audit. Two-thirds of the members are overlapping pieces of one 20-minute recording, and M2_aug events are held twice or four times. The researcher's 197 accepted members are 142 distinct events. **Read it before training on families.** Re-measure with `scripts/library_fragment_audit.py`. |
 
 ## Prompts (build work the researcher asked for on 2026-10-17)
