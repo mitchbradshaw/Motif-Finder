@@ -49,7 +49,7 @@ from Working.database import queries as _q
 from Working.discovery.channels import channel_name
 from Working.discovery.fanout import discovery_run_ids
 from Working.discovery.scoreboard import annotations as _annotations
-from Working.discovery.spans import absolute_bounds, clip, merged, total_length
+from Working.discovery.spans import clip, merged, total_length
 
 HUMAN_KEY = "human"
 #: the reference row's colour, the one the Runs page gives the human row
@@ -293,16 +293,23 @@ def _starts(conn, claimed, run_rows):
     owns the sample range it falls in."""
     if not claimed:
         return np.array([], dtype=float)
-    owners = sorted({rid for _, _, rid in claimed})
-    marks = ",".join(str(i) for i in owners)
+    # `absolute_bounds` stated as two index ranges on (run_id, start_idx) per claimed range: rows
+    # already absolute (start at or past the run's span_start, or a whole-channel run) whose start
+    # is in [lo, hi), and legacy span-relative rows (start below span_start) whose start + span_start
+    # is. It fetched every detection of every owning run (2.4 M rows, 8-10 s per open of the map,
+    # past 60 s under the smoke walk) to keep the ones in range (perf, 2026-10-18).
     span_start = {int(r["id"]): int(r["span_start"]) for r in run_rows}
-    by_run: dict[int, list] = {}
-    for d in conn.execute("SELECT run_id, start_idx, end_idx FROM detections WHERE run_id IN (" + marks + ")"):
-        a, _ = absolute_bounds(d["start_idx"], d["end_idx"], span_start.get(int(d["run_id"]), 0))
-        by_run.setdefault(int(d["run_id"]), []).append(a)
     out = []
     for lo, hi, rid in claimed:
-        out.extend(a for a in by_run.get(rid, ()) if lo <= a < hi)
+        o = int(span_start.get(rid, 0) or 0)
+        lo, hi = int(math.ceil(lo)), int(math.ceil(hi))       # integer starts: lo <= a < hi
+        out += [r[0] for r in conn.execute(
+            "SELECT start_idx FROM detections WHERE run_id = ? AND start_idx >= ? AND start_idx < ?",
+            (rid, max(lo, o) if o else lo, hi))]
+        if o:
+            out += [r[0] + o for r in conn.execute(
+                "SELECT start_idx FROM detections WHERE run_id = ? AND start_idx >= ? AND start_idx < ?",
+                (rid, lo - o, min(o, hi - o)))]
     return np.array(out, dtype=float)
 
 

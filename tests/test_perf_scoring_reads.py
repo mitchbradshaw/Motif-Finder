@@ -20,6 +20,7 @@ wall-clock budget fails under load for reasons that are not the code
 checked against the exhaustive one on random inputs, edge cases included.
 """
 
+import math
 import os
 import random
 import sys
@@ -440,3 +441,77 @@ def test_one_read_pass_reads_each_channel_once(scored, monkeypatch):
     assert reads["n"] == 2                        # two channels, each read once
     # and the memo changes no answer
     assert SB.score_runs_cached(conn, runs, memo=memo) == SB.score_runs(conn, runs)
+
+
+# ── window reads that fetched a whole channel to keep a slice ───────────────
+#
+# `corpus.spans` (Explore's span bands, every zoom step) and
+# `detection_map._starts` (every Detection-map cell) fetched every detection of
+# the channel or run and kept the window in Python: 5-9 s a call and 8-10 s a
+# map open on the 2026-10-18 database. Both now ask SQL for the window, with
+# the legacy span-relative shift (`spans.absolute_bounds`) stated in the query.
+# The answers must be the old ones, legacy rows included.
+
+def _legacy_db():
+    conn = init_db(":memory:")
+    rec = q.insert_recording(conn, "legacy.mat", 0, 1.0, 100_000, 0, "legacy_CH0.npy")
+    config_id, _ = run_db.get_or_create_config(conn, _STEPS)
+    rng = random.Random(7)
+    runs = []
+    for span in ((0, 100_000), (20_000, 60_000), (50_000, 90_000), (0, 30_000)):
+        run = run_db.insert_run(conn, config_id, rec, span[0], span[1], status="completed", started_at=_AFTER)
+        runs.append(run)
+        for _ in range(400):
+            if span[0] and rng.random() < 0.4:           # a legacy row: span-relative, below span_start
+                a = rng.randrange(0, min(span[0], span[1] - span[0]))
+            else:
+                a = rng.randrange(span[0], span[1])
+            conn.execute("INSERT INTO detections (run_id, start_idx, end_idx, score) VALUES (?, ?, ?, ?)",
+                         (run, a, a + rng.randrange(0, 900), 0.5))
+    conn.commit()
+    return conn, rec, runs
+
+
+def test_the_span_window_is_the_one_the_whole_channel_filter_kept():
+    from Working.discovery.spans import absolute_bounds
+    from webui.server import corpus
+    conn, rec, runs = _legacy_db()
+    rng = random.Random(3)
+    try:
+        for _ in range(40):
+            t0 = rng.uniform(0, 100_000)
+            t1 = min(100_000, t0 + rng.choice([10, 500, 5000, 100_000]))
+            got = corpus.spans(conn, rec, t0, t1, 1.0)
+            s0, s1 = int(math.floor(t0)), int(math.ceil(t1))
+            want = []
+            for d in conn.execute("SELECT d.id, d.start_idx, d.end_idx, r.span_start FROM detections d "
+                                  "JOIN runs r ON r.id = d.run_id ORDER BY d.start_idx"):
+                a, b = absolute_bounds(d["start_idx"], d["end_idx"], d["span_start"])
+                if b > s0 and a < s1:
+                    want.append((d["id"], a, b))
+            want.sort(key=lambda w: w[1])
+            assert [(d["id"], d["start_s"], d["end_s"]) for d in got["detections"]] == \
+                [(i, float(a), float(b)) for i, a, b in want]
+    finally:
+        conn.close()
+
+
+def test_the_map_counts_the_starts_the_whole_run_filter_kept():
+    from Working.discovery import detection_map as DM
+    from Working.discovery.spans import absolute_bounds
+    conn, rec, runs = _legacy_db()
+    try:
+        run_rows = [dict(r) for r in conn.execute("SELECT * FROM runs ORDER BY id")]
+        claimed = DM._resolve(run_rows)
+        assert any(lo for lo, _, _ in claimed), "the fixture must claim ranges off the channel start"
+        span_start = {r["id"]: r["span_start"] for r in run_rows}
+        want = []
+        for lo, hi, rid in claimed:
+            for d in conn.execute("SELECT start_idx, end_idx FROM detections WHERE run_id = ?", (rid,)):
+                a, _ = absolute_bounds(d["start_idx"], d["end_idx"], span_start[rid])
+                if lo <= a < hi:
+                    want.append(a)
+        assert sorted(DM._starts(conn, claimed, run_rows).tolist()) == sorted(float(a) for a in want)
+        assert len(want) > 100
+    finally:
+        conn.close()
