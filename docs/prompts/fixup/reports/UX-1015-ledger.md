@@ -212,3 +212,11 @@ interpreter (a worker process, or make `channel_divergence` incremental per run)
 on this database is ~65 failures and its comparison must be by SET against `base_main_0419c.txt`, not the 18 Oct 42.
 Five of the 35 are held-out-lock drift; `discovery.seed--source-explore`, `library.templates--model-stage`, the two
 a2_p2 states and `settings.datasets--discovery-scope-names…` are data/state drift to re-check by hand.
+
+**Daily full pytest, 2026-10-19 08:48–09:36 (`pytest -n 4`, main at d679d1a): 4,666 passed, 51 skipped, 1 failed** —
+`test_webui_seed_on_demand_client::test_the_smoke_walk_checks_the_seed_page_runs_nothing_on_its_own`: AR's smoke unit
+`zzzzzzzzzzz_ar_speed.json` opens a Discovery page and sorted AFTER `zzzzzzzzzzz_a2_p4_seed.json`, which changes the
+Discovery session and must walk after every other Discovery-opening manifest. Renamed to `zzzzzzzzzzz_a1_ar_speed.json`.
+Rule for new units: a manifest that opens any `discovery/` page must sort before `zzzzzzzzzzz_a2_p4_seed.json`
+(and `zzzzzzzzzzz_w3_cancel.json` stays last). The previous full run's one failure (`test_surrogate_never_a_detection`)
+now passes.
