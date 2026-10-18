@@ -954,10 +954,17 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
   const [now, setNow] = useState(Date.now())
   const onCluster = !!finished && finished.status === 'on cluster'
   const overCeiling = !!estimate && estimate.route === 'cluster'
+  /* ux-1018: the import POST is synchronous and can take a while (the null draws and candidates are written before
+   * the sweep starts); all the page showed meanwhile was the 90 px refreshing strip at the top, easy to miss (the
+   * researcher, 2026-10-18). While the file is being imported the bar below says so with a visible bar; once the run
+   * row exists, `running` takes over with the sweep's own progress. */
+  const [importing, setImporting] = useState<string | null>(null)
   const importResult = (file: File) => {
+    setImporting(file.name)
     file.text().then(text => postDiscoverySeedImport(JSON.parse(text)))
       .then(r => { onStarted({ key: r.run_key, label: r.label }); onImported?.(); toast.push({ text: `${r.label} · ${r.nullDraws} null draws imported · ${r.candidates} candidates · the real search is running here` }) })
       .catch(e => { console.error('the result could not be imported', e); toast.push({ text: `not imported · ${e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e)}` }) })
+      .finally(() => setImporting(null))
   }
   const running = !!live && (live.status === 'running' || live.status === 'queued')
   useEffect(() => { if (!running) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [running])
@@ -1034,7 +1041,13 @@ function ApplyBar({ dx, draft, kept, cut, finished, seed, sim, onStarted, onSave
   )
   return (
     <section className="k-card dsc-apply" data-testid="apply-bar" aria-label="Apply">
-      {running ? (
+      {importing ? (
+        <>
+          <ProgressBar indeterminate width={180} labelPosition="none" testid="seed-importing" />
+          <b data-testid="seed-importing-label">importing {importing} · writing its null draws and candidates…</b>
+          <span className="muted small mono">then the real search runs here and this bar shows its progress</span>
+        </>
+      ) : running ? (
         <>
           <ProgressBar value={frac} width={180} labelPosition="none" testid="seed-progress" />
           <b data-testid="seed-running">{live!.status === 'queued' ? 'queued · local' : `running · ${Math.round(frac * 100)} %`}{live!.progressText ? ` · ${live!.progressText}` : live!.channelsDone ? ` · ${live!.channelsDone} channels` : ''}</b>
@@ -1127,15 +1140,20 @@ function SeedSlurmModal({ open, onClose, dx, draft, seed, cut, bank, exclusion, 
       .finally(() => setBusy(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+  const [importing, setImporting] = useState<string | null>(null)   // ux-1018: the file being imported, shown in the footer
   const importResult = (file: File) => {
+    setImporting(file.name)
     file.text().then(text => postDiscoverySeedImport(JSON.parse(text)))
       .then(r => { onImported(r); toast.push({ text: `${r.label} · ${r.nullDraws} null draws imported · the real search is running here` }); onClose() })
       .catch(e => { console.error('the result could not be imported', e); toast.push({ text: `not imported · ${e instanceof Error ? e.message : String(e)}` }) })
+      .finally(() => setImporting(null))
   }
   const cost = estimate ? `about ${fmtSeconds(estimate.run.seconds)} here · ${estimate.channels} ch × ${(estimate.sectionH[1] - estimate.sectionH[0]).toFixed(1)} h × ${estimate.run.draws} null draws · over the ${fmtSeconds(estimate.ceilingS)} limit` : ''
   return (
     <Modal open={open} onClose={onClose} title="Seed search on the HPC" subtitle={cost} testid="seed-slurm-modal"
-      footerNote={made ? `sync the spec and the script to the cluster · ${made.sbatch_command} · bring ${made.result_path.split('/').pop()} back and import it` : 'the spec carries the exemplar’s own samples, the channels, the section and the null, so the cluster runs exactly this search'}
+      footerNote={importing
+        ? <span className="row" style={{ gap: 8 }} data-testid="modal-importing"><ProgressBar indeterminate size="sm" width={120} labelPosition="none" /><b>importing {importing} · writing its null draws and candidates…</b></span>
+        : made ? `sync the spec and the script to the cluster · ${made.sbatch_command} · bring ${made.result_path.split('/').pop()} back and import it` : 'the spec carries the exemplar’s own samples, the channels, the section and the null, so the cluster runs exactly this search'}
       footer={<><ImportResultButton onFile={importResult} testid="modal-import-result" /><Button variant="primary" onClick={onClose}>Done</Button></>}>
       {err ? <LoadFailed what="the SLURM script" error={err} onRetry={() => { setMade(null); setErr(null) }} />
         : busy || !made ? <Loading height={260} label="writing the spec and the script through Working.discovery.seed_job" />
