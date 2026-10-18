@@ -90,7 +90,7 @@ export function SpanActions({ channelKey, channelName, recordingId, fs, initial,
       <div>
         <div className="row" style={{ justifyContent: 'flex-end' }}>
           <Button onClick={save} testid="save-span">Save span</Button>
-          <SpanActionStrip window={view} reviewChannels={[recordingId]} artifactChannels={[{ id: recordingId, name: channelName }]} referenceId={recordingId}
+          <SpanActionStrip window={view} windowWhat="the span in view" reviewChannels={[recordingId]} artifactChannels={[{ id: recordingId, name: channelName }]} referenceId={recordingId}
             origin="signal" note={draft.note.trim() || undefined} onOpenInAnalyse={onSend} onTake={take} taking={taking}
             onSent={() => onWritten?.()} onMarked={() => onWritten?.()} />
           <InfoTip title="Span actions" placement="bottom-end">Saving stores tags and note only. Taking writes the span for Review as a seed. Send unjudged puts the machine&rsquo;s unjudged motifs in this span into Review; Mark artifact writes an artifact verdict over the span. Other verdicts are given in Review.</InfoTip>
@@ -117,6 +117,8 @@ export interface StripChannel { id: number; name: string }
 export interface SpanActionStripProps {
   /** the selected window, in seconds on the recording's clock */
   window: [number, number]
+  /** what the window is, in the page's words, for the Send button's tooltip (Signal: "the span in view") */
+  windowWhat?: string
   /** the channels *Send unjudged to Review* reads (Signal: its channel; Cross-channel: the rows shown) */
   reviewChannels: number[]
   /** the channels the artifact picker offers — every channel of the recording on Cross-channel */
@@ -196,7 +198,7 @@ export function SpanActionStrip(p: SpanActionStripProps) {
     <span className="row" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }} data-testid={p.testid ?? 'span-action-strip'}>
       {p.onZoom && <Button size="sm" icon="search" onClick={p.onZoom} disabled={!!off} disabledReason={off ?? undefined} testid="strip-zoom">Zoom</Button>}
       <Button variant="primary" onClick={send} disabled={!!off || sending || !nCh} disabledReason={off ?? (sending ? 'sending…' : 'no channel to read')} testid="strip-send-unjudged"
-        title={`every machine detection in this span on ${nCh} channel${nCh === 1 ? '' : 's'} that has no verdict yet goes to one Review queue, “picked from Explore”`}>
+        title={`every machine detection in ${range}${p.windowWhat ? ` (${p.windowWhat})` : ''} on ${nCh} channel${nCh === 1 ? '' : 's'} that has no verdict yet goes to one Review queue, “picked from Explore” (at most 2,000 at once)`}>
         Send unjudged to Review
       </Button>
       <Button ref={pickRef} variant="primary" iconRight="chevron-down" onClick={() => setPickOpen(o => !o)} disabled={!!off || !channels.length} disabledReason={off ?? 'no channel to mark'}

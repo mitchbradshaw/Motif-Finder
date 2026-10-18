@@ -235,3 +235,49 @@ def test_artifact_refuses_held_out_and_an_empty_window_writing_nothing(app):
     assert client.post("/api/explore/artifact", json={"recording_ids": [1], "t0_s": 4000, "t1_s": 5000}).status_code == 422
     assert client.post("/api/explore/artifact", json={"recording_ids": [], "t0_s": 0, "t1_s": 10}).status_code == 422
     assert _counts(rt) == before
+
+
+# ── critic round (2026-10-18) ───────────────────────────────────────────────
+
+def test_a_window_holding_too_many_unjudged_motifs_is_refused_writing_nothing(app, monkeypatch):
+    """A whole-recording window on a busy channel would put tens of thousands of ids into one queue filter (a
+    49k-id picked queue took 79 s to open in Review and 8 s on the queue list on a synthetic 16-channel DB). The
+    route refuses a send above `SPAN_REVIEW_MAX` with a sentence naming the count, and writes nothing."""
+    from server import explore_routes
+    monkeypatch.setattr(explore_routes, "SPAN_REVIEW_MAX", 1)
+    client, rt = app
+    before = _counts(rt)
+    r = client.post("/api/explore/span-review", json={"recording_ids": [1, 2], "t0_s": 400, "t1_s": 1300})
+    assert r.status_code == 422, r.text
+    msg = r.json()["detail"]["message"]
+    assert "2 unjudged" in msg and "narrower" in msg
+    assert client.post("/api/explore/span-review", json={"detection_ids": [1, 3]}).status_code == 422
+    assert _counts(rt) == before
+    # at the cap it goes through
+    ok = client.post("/api/explore/span-review", json={"recording_ids": [2], "t0_s": 400, "t1_s": 1300})
+    assert ok.status_code == 200 and ok.json()["added"] == 1
+
+
+def test_a_detection_a_human_verdict_already_covers_is_reported_as_not_asked(app):
+    """Review never serves a detection that is the same event as a span a person already judged (`prior_verdict`).
+    The toast must not promise it: like Discovery's picked send, it is counted as *not asked*."""
+    client, rt = app
+    c = _conn(rt)
+    try:
+        c.execute("INSERT INTO annotations (recording_id, start_idx, end_idx, verdict, source, created_at) "
+                  "VALUES (2, 2000, 2060, 'interesting', 'test', ?)", (NOW,))
+        c.commit()
+    finally:
+        c.close()
+    r = client.post("/api/explore/span-review", json={"recording_ids": [2], "t0_s": 1900, "t1_s": 2100})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["not_asked"] == 1 and body["unjudged_in_queue"] == 0
+    assert "not asked" in body["message"] and "1 added" not in body["message"]
+
+
+def test_artifact_reports_the_extent_it_wrote_clamped_to_the_channel(app):
+    client, _rt = app
+    r = client.post("/api/explore/artifact", json={"recording_ids": [1], "t0_s": 2900, "t1_s": 3500})
+    assert r.status_code == 200, r.text
+    assert (r.json()["start_s"], r.json()["end_s"]) == (2900, 3000)

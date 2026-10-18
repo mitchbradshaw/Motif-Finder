@@ -248,6 +248,8 @@ async function explorePost<T>(path: string, body: unknown): Promise<T> {
 export interface SpanReviewResult {
   queue_id: number | null; queue: string; added: number; added_ids: number[]; already_queued: number
   already_judged: number; total: number; unjudged_in_queue: number | null; message: string; note: string
+  /** of `added`, the ones Review will not ask about: the same event as a span a person already judged */
+  not_asked: number
 }
 export const sendSpanToReview = (recordingIds: number[], t0S: number, t1S: number, note?: string) =>
   explorePost<SpanReviewResult>('/api/explore/span-review', { recording_ids: recordingIds, t0_s: t0S, t1_s: t1S, note })

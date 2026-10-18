@@ -260,6 +260,11 @@ def take_span_for_review(request: Request, body: SeedBody):
 #: one open picked queue for Explore until it is closed in Review; the next send after that starts a new one.
 EXPLORE_PICKED_NOTE = "detections picked from Explore (Signal and Cross-channel) for Review"
 EXPLORE_PICKED_NAME = "Unjudged motifs · picked from Explore"
+#: The most unjudged detections one send may put into the picked queue. The queue is an exact id list in
+#: `filters_json`, re-resolved on every Review read: on a synthetic 16-channel, 52k-detection database a
+#: whole-recording send (49k ids) took 79 s to open in Review and slowed the queue list to 8 s, while 1.5k ids opened
+#: in 4 s (critic round, 2026-10-18). Above this the send is refused with the count and a narrower window suggested.
+SPAN_REVIEW_MAX = 2000
 
 
 class SpanReviewBody(BaseModel):
@@ -352,6 +357,11 @@ def send_span_to_review(request: Request, body: SpanReviewBody):
             judged = {int(r[0]) for r in c.execute(
                 f"SELECT detection_id FROM adjudications WHERE detection_id IN ({marks})", ids).fetchall()}
         unjudged = [i for i in ids if i not in judged]
+        if len(unjudged) > SPAN_REVIEW_MAX:
+            raise HTTPException(422, {"message": (
+                f"{where} holds {len(unjudged):,} unjudged motifs — more than {SPAN_REVIEW_MAX:,} at once makes a "
+                "Review queue too slow to work through; nothing was sent. Pick a narrower window (or fewer "
+                "channels) and send it in parts.")})
         qid = queues_mod.find_open_queue_by_note(c, source_kind="discovery-run", note=EXPLORE_PICKED_NOTE)
         added: list[int] = []
         already: list[int] = []
@@ -364,17 +374,28 @@ def send_span_to_review(request: Request, body: SpanReviewBody):
                 res = queues_mod.extend_queue(c, qid, unjudged)
                 added, already = [int(i) for i in res["added"]], [int(i) for i in res["already"]]
         queue = queues_mod.get_queue(c, qid) if qid is not None else None
+        # what Review will NOT ask about although it is in the filter: the same event as a span a person already
+        # judged (`prior_verdict`), read from the resolver Review itself uses — as Discovery's picked send does
+        not_asked: list[int] = []
+        if added:
+            prior = {int(it["target_id"]) for it in queues_mod.queue_items(
+                c, qid, include_judged=True, include_prior_judged=True) if it.get("prior_verdict") is not None}
+            not_asked = [i for i in added if i in prior]
+        skip = set(not_asked)
+        fresh = [i for i in added if i not in skip]
         if not ids:
             parts = [f"no detections in {where} — nothing to send"]
         else:
-            parts = [f"{len(added)} added to '{queue['name'] if queue else EXPLORE_PICKED_NAME}'" if added else "none added"]
+            parts = [f"{len(fresh)} added to '{queue['name'] if queue else EXPLORE_PICKED_NAME}'" if fresh else "none added"]
             if already:
                 parts.append(f"{len(already)} already in the queue")
             if judged:
                 parts.append(f"{len(judged)} already judged (not added)")
+            if not_asked:
+                parts.append(f"{len(not_asked)} not asked: a human verdict already covers it")
         counts = queues_mod.queue_counts(c, qid) if qid is not None else None
         return {"queue_id": None if qid is None else int(qid), "queue": queue["name"] if queue else EXPLORE_PICKED_NAME,
-                "added": len(added), "added_ids": added, "already_queued": len(already),
+                "added": len(added), "added_ids": added, "not_asked": len(not_asked), "already_queued": len(already),
                 "already_judged": len(judged), "total": len(ids),
                 "unjudged_in_queue": None if counts is None else int(counts["remaining"]),
                 "message": " · ".join(parts),
@@ -434,5 +455,7 @@ def mark_artifact(request: Request, body: ArtifactBody):
         c.close()
     names = [rec["name"] for rec, _a, _b in plan]
     return {"ids": [int(i) for i in ids], "recording_ids": [int(rec["id"]) for rec, _a, _b in plan],
-            "start_s": body.t0_s, "end_s": body.t1_s, "verdict": "artifact", "source": source,
+            # the extent written, clamped to the channels (a window past a channel's end is cut there)
+            "start_s": min(a / float(rec["fs"]) for rec, a, _b in plan),
+            "end_s": max(b / float(rec["fs"]) for rec, _a, b in plan), "verdict": "artifact", "source": source,
             "message": f"artifact marked on {len(ids)} channel{'' if len(ids) == 1 else 's'} ({', '.join(names)})"}
