@@ -1747,7 +1747,27 @@ def init_db(db_path=None):
     _migrate_review_queues_kinds(conn, db_path)
     # round A_2, P3: a windowed run's provenance and what each window fitted (additive)
     _migrate_windowed_tables(conn)
+    # review-carry (2026-10-18): a carried verdict's source row, and the class label given in Review (additive)
+    _migrate_adjudications_columns(conn)
     return conn
+
+
+# review-carry (2026-10-18). `carried_from`: a human verdict on detection A is written, as a row of its own, to
+# every other detection on the channel that is the same event by the scoreboard's matching rule
+# (`Working.review.overlap.carry_verdict`); the carried row names A's adjudication here, so undoing A's verdict
+# takes back exactly the rows it carried, and a human verdict written over a carried row clears it (the row is
+# then the human's own). NULL on every row a person wrote. A plain INTEGER, not a REFERENCES: an undo deletes the
+# source row after its carried rows, and a foreign key would make the order a constraint failure rather than a
+# choice. `class_label`: the class (spike-train, burst, ...) given with the verdict in Review (R3), stored rather
+# than held in the browser session. Both nullable and additive.
+_ADJUDICATIONS_NEW_COLUMNS = [("carried_from", "INTEGER"), ("class_label", "TEXT")]
+
+
+def _migrate_adjudications_columns(conn):
+    _migrate_columns(conn, "adjudications", _ADJUDICATIONS_NEW_COLUMNS)
+    # undo finds a source's carried rows, and the review structure's fingerprint counts them, by this
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_adjudications_carried_from ON adjudications(carried_from)")
+    conn.commit()
 
 
 # Round A_2, P3 (windowed detection, `Working/discovery/windowed.py`). A windowed application stitches its windows'

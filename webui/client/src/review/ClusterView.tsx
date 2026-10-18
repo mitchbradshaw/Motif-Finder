@@ -156,7 +156,8 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
         await postClusterVerdict(q, no, v === 'interesting' ? 'accept' : 'reject')
         return
       }
-      await postBatch(q, ids, v, { note, tags })
+      // review-carry (R3): the class travels with the batch; the core stores it where the queue writes adjudications
+      await postBatch(q, ids, v, { note, tags, classLabel: className })
     }
     const w = await commitWrite(send, { queueId: q, items: ids, kind: 'batch', clusterNo: no, verdict: v, className, count: targets.length, label, before, after })
     if (!w) { refused(); return false }

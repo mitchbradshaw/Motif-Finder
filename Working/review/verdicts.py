@@ -351,7 +351,12 @@ def _prior_adjudication(conn, detection_id):
     row = _adjudications.get_adjudication(conn, detection_id)
     if row is None:
         return None
-    return {"verdict": row["verdict"], "note": row["note"]}
+    # review-carry: the class label and, for a carried row, its source — a human verdict over a carried row makes
+    # the row theirs (`carried_from` cleared), and undoing it must hand the row back to its source
+    keys = row.keys()
+    return {"verdict": row["verdict"], "note": row["note"],
+            "class_label": row["class_label"] if "class_label" in keys else None,
+            "carried_from": row["carried_from"] if "carried_from" in keys else None}
 
 
 def _adjudication_tags(conn, detection_id):
@@ -361,7 +366,7 @@ def _adjudication_tags(conn, detection_id):
     return _adjudications.get_adjudication_tags(conn, row["id"])
 
 
-def _write_adjudication(conn, target_id, verdict, note, tags):
+def _write_adjudication(conn, target_id, verdict, note, tags, class_label=None):
     prior = _prior_adjudication(conn, target_id)
     # Tags are REPLACED per category by the writer, so a tagged verdict destroys
     # whatever was there. Undo restored the verdict and the note and left the
@@ -369,8 +374,61 @@ def _write_adjudication(conn, target_id, verdict, note, tags):
     if prior is not None:
         prior["tags"] = _adjudication_tags(conn, target_id)
     _adjudications.insert_adjudication(conn, target_id, verdict, note=note,
-                                       tags=tags, commit=False)
+                                       tags=tags, commit=False,
+                                       class_label=class_label)
     return prior
+
+
+#: review-carry (R3): the class given with a verdict in Review is a short name from Settings › Vocabulary
+#: (spike-train, burst, ...). Stored as given; a value this long is not a class name but a mistake.
+CLASS_LABEL_MAX = 64
+
+
+def _check_class_label(class_label):
+    """None for no class; otherwise the stripped name, or a ValueError naming why not (never truncated)."""
+    if class_label is None:
+        return None
+    if not isinstance(class_label, str):
+        raise ValueError(f"class_label must be a string, got {class_label!r}")
+    label = class_label.strip()
+    if not label:
+        return None
+    if len(label) > CLASS_LABEL_MAX:
+        raise ValueError(f"class_label is {len(label)} characters; a class name is at most {CLASS_LABEL_MAX}")
+    return label
+
+
+def _member_verdict(verdict, named):
+    """The verdict a set member is written with: the gesture's own, except that only the NAMED detection takes
+    `seed` (the Library exemplar) and the rest of its set take `interesting`, which `seed` implies (P21)."""
+    return "interesting" if verdict == "seed" and not named else verdict
+
+
+def _members_of(conn, queue, target_id):
+    """review-carry: the detections one verdict on `target_id` writes — its overlap set in this queue
+    (`queues.detection_set`) — or None for a queue that does not write `adjudications`, or a target the queue
+    does not hold (which `_check_membership` then refuses by name)."""
+    if queue["writes_to"] != "adjudications":
+        return None
+    from Working.review import queues as _queues
+    return _queues.detection_set(conn, queue["id"], target_id)
+
+
+def _carry_targets(conn, targets):
+    """Carry each written member's verdict to the same event on its channel (`overlap.carry`), recording on its
+    audit entry exactly which rows were created and which (carried by this same source before) rewritten, so an
+    undo reverses those and nothing else. Returns the detection ids written, ascending."""
+    from Working.review.overlap import carry
+    out = set()
+    for t in targets:
+        adj = _adjudications.get_adjudication(conn, t["row_id"])
+        if adj is None:
+            continue
+        done = carry(conn, adj["id"])
+        t["carried"] = done
+        out.update(done["created"])
+        out.update(u["detection_id"] for u in done["updated"])
+    return sorted(out)
 
 
 def _write_annotation(conn, target_id, verdict, note, tags):
@@ -447,7 +505,18 @@ def _write_window(conn, queue, coords, verdict, note):
     return prior
 
 
-def _restore_adjudication(conn, target_id, prior):
+def _restore_adjudication(conn, target_id, prior, carried=None):
+    """Put a detection's verdict back as the audit entry found it. review-carry: first the rows that verdict
+    carried (`carried`, as `overlap.carry` reported them) — created ones deleted, rewritten ones put back — and,
+    when the row itself goes, anything still carried from it (an audit row written before carrying existed
+    records no `carried`)."""
+    from Working.review.overlap import uncarry, undo_carry
+    current = _adjudications.get_adjudication(conn, target_id)
+    if current is not None:
+        if carried:
+            undo_carry(conn, current["id"], carried)
+        if prior is None:
+            uncarry(conn, current["id"], commit=False)
     if prior is None:
         adj = _adjudications.get_adjudication(conn, target_id)
         if adj is not None:
@@ -458,9 +527,9 @@ def _restore_adjudication(conn, target_id, prior):
                          (target_id,))
     else:
         conn.execute(
-            "UPDATE adjudications SET verdict = ?, note = ? "
+            "UPDATE adjudications SET verdict = ?, note = ?, class_label = ?, carried_from = ? "
             "WHERE detection_id = ?",
-            (prior["verdict"], prior["note"], target_id))
+            (prior["verdict"], prior["note"], prior.get("class_label"), prior.get("carried_from"), target_id))
         adj = _adjudications.get_adjudication(conn, target_id)
         if adj is not None and prior.get("tags") is not None:
             for category, values in prior["tags"].items():
@@ -518,7 +587,7 @@ def _audit(conn, queue_id, action, target_table, target_ids, payload):
 
 # ── the public surface ──────────────────────────────────────────────────────
 
-def _apply(conn, queue, target_id, row_id, verdict, note, tags, window_index):
+def _apply(conn, queue, target_id, row_id, verdict, note, tags, window_index, class_label=None):
     """Write one verdict into whichever store the queue says it writes.
 
     `target_id` is what the queue handed out; `row_id` is the row the verdict
@@ -533,7 +602,7 @@ def _apply(conn, queue, target_id, row_id, verdict, note, tags, window_index):
     """
     writes_to = queue["writes_to"]
     if writes_to == "adjudications":
-        return _write_adjudication(conn, row_id, verdict, note, tags), None, row_id
+        return _write_adjudication(conn, row_id, verdict, note, tags, class_label), None, row_id
     if writes_to == "annotations" and queue["unit"] == "member":
         if queue["source_kind"] == "library-family":
             from Working.review.family_queue import write_member_verdict
@@ -552,7 +621,7 @@ def _apply(conn, queue, target_id, row_id, verdict, note, tags, window_index):
 
 
 def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
-                  window_index=None):
+                  window_index=None, class_label=None):
     """Write one verdict through the queue that asked for it.
 
     Returns a dict describing what was written:
@@ -566,33 +635,67 @@ def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
 
     Raises `PermissionError` on a rule-5 crossing (see the module docstring)
     and `ValueError` on an unknown verdict, queue, target or tag.
+
+    review-carry: on a detection queue the target is an overlap set
+    (`queues.detection_set`) and the verdict is written to every member
+    (`members`, the set's first being the item's id), under this one audit
+    row; then each member's verdict is carried to the same event found by
+    other runs on its channel (`carried`: the detection ids written). The
+    class label (`class_label`) is stored on the row for a queue that writes
+    `adjudications`; the other stores have no class column and do not take it.
     """
     queue = _queue_row(conn, queue_id)
     _check_verdict(verdict)
+    class_label = _check_class_label(class_label)
     target_id, row_id = _resolve_target(conn, queue, target_id)
-    _check_membership(conn, queue, [target_id])
+    members = _members_of(conn, queue, target_id)
+    named = target_id                       # the detection the gesture named (a promotion mints its entry on it)
+    if members is None:
+        _check_membership(conn, queue, [target_id])
+    else:
+        target_id = members[0]
     tags = _normalise_tags(conn, tags)
     _check_tags(conn, tags)
-    prior, coords, row_id = _apply(conn, queue, target_id, row_id, verdict, note, tags,
-                                   window_index)
+    if members is None:
+        prior, coords, row_id = _apply(conn, queue, target_id, row_id, verdict, note, tags,
+                                       window_index)
+        targets = [{"target_id": target_id, "row_id": row_id, "prior": prior,
+                    "window_index": coords[1] if coords else None}]
+        carried = []
+    else:
+        coords = None
+        # `seed` is the one detection promoted to the Library (P21: it implies interesting); the set's other
+        # detections are the same event but not the exemplar, so they take what the seed implies
+        targets = [{"target_id": m, "row_id": m,
+                    "prior": _write_adjudication(conn, m, _member_verdict(verdict, m == named), note, tags,
+                                                 class_label),
+                    "window_index": None} for m in members]
+        prior, row_id = targets[0]["prior"], target_id
+        carried = _carry_targets(conn, targets)
     payload = {
         "writes_to": queue["writes_to"],
         "verdict": verdict,
         "note": note,
         "window_set_id": coords[0] if coords else None,
         "window_index": coords[1] if coords else None,
-        "targets": [{"target_id": target_id, "row_id": row_id, "prior": prior,
-                     "window_index": coords[1] if coords else None}],
+        "targets": targets,
     }
+    if class_label is not None:
+        payload["class_label"] = class_label
     audit_id = _audit(conn, queue_id, "verdict", queue["writes_to"],
                       [target_id], payload)
     conn.commit()
-    return {"queue_id": queue_id, "target_id": target_id, "row_id": row_id,
-            "verdict": verdict, "writes_to": queue["writes_to"],
-            "audit_id": audit_id, "prior": prior}
+    out = {"queue_id": queue_id, "target_id": target_id, "row_id": row_id,
+           "verdict": verdict, "writes_to": queue["writes_to"],
+           "audit_id": audit_id, "prior": prior}
+    if members is not None:
+        # promotion's reversal reads `targets` (every member, with what it carried); the bridge reads `carried`
+        out.update({"members": members, "carried": carried, "targets": targets,
+                    "class_label": class_label})
+    return out
 
 
-def write_batch(conn, queue_id, target_ids, verdict, *, note=None, tags=None):
+def write_batch(conn, queue_id, target_ids, verdict, *, note=None, tags=None, class_label=None):
     """The same verdict against N targets, under ONE `review_audit` row.
 
     Every target is resolved and checked before anything is written, so a batch
@@ -605,38 +708,55 @@ def write_batch(conn, queue_id, target_ids, verdict, *, note=None, tags=None):
     """
     queue = _queue_row(conn, queue_id)
     _check_verdict(verdict)
+    class_label = _check_class_label(class_label)
     seen, resolved = set(), []
+    # review-carry: on a detection queue each target is an overlap set; its members are written, each once
+    sets = {}
     for tid in target_ids:
         t, row_id = _resolve_target(conn, queue, tid)
+        members = _members_of(conn, queue, t)
+        if members is not None:
+            t, row_id = members[0], members[0]
+            sets[t] = members
         if t in seen:
             continue
         seen.add(t)
         resolved.append((t, row_id))
-    _check_membership(conn, queue, [t for t, _ in resolved])
+    _check_membership(conn, queue, [t for t, _ in resolved if t not in sets])
     tags = _normalise_tags(conn, tags)
     _check_tags(conn, tags)
     if not resolved:
         return {"queue_id": queue_id, "verdict": verdict, "count": 0,
                 "target_ids": [], "writes_to": queue["writes_to"],
-                "audit_id": None}
+                "audit_id": None, "carried": []}
     targets = []
     window_set_id = None
     for tid, row_id in resolved:
+        if tid in sets:
+            for m in sets[tid]:
+                targets.append({"target_id": m, "row_id": m, "window_index": None,
+                                "prior": _write_adjudication(conn, m, _member_verdict(verdict, m == tid), note,
+                                                             tags, class_label)})
+            continue
         prior, coords, row_id = _apply(conn, queue, tid, row_id, verdict, note, tags,
                                        None)
         if coords is not None:
             window_set_id = coords[0]
         targets.append({"target_id": tid, "row_id": row_id, "prior": prior,
                         "window_index": coords[1] if coords else None})
+    carried = _carry_targets(conn, targets) if sets else []
     ids = [t for t, _ in resolved]
     payload = {"writes_to": queue["writes_to"], "verdict": verdict,
                "note": note, "window_set_id": window_set_id,
                "targets": targets}
+    if class_label is not None:
+        payload["class_label"] = class_label
     audit_id = _audit(conn, queue_id, "batch", queue["writes_to"], ids, payload)
     conn.commit()
-    return {"queue_id": queue_id, "verdict": verdict, "count": len(ids),
+    # `count`: the rows written — on a detection queue every member of every set, which is what the gesture changed
+    return {"queue_id": queue_id, "verdict": verdict, "count": len(targets),
             "target_ids": ids, "writes_to": queue["writes_to"],
-            "audit_id": audit_id}
+            "audit_id": audit_id, "carried": carried}
 
 
 def undo_last(conn, queue_id=None):
@@ -704,13 +824,15 @@ def undo_last(conn, queue_id=None):
                 "target_ids": json.loads(row["target_ids"] or "[]"),
                 **undone}
 
-    for target in payload.get("targets", []):
+    # newest first: a member written later in one gesture is put back before an earlier one (review-carry: a
+    # member's carried rows are taken back before the rows they were carried from)
+    for target in reversed(payload.get("targets", [])):
         # `row_id` is where the verdict actually landed; older rows predate it
         # and the two were the same then.
         rid = target.get("row_id", target["target_id"])
         prior = target.get("prior")
         if writes_to == "adjudications":
-            _restore_adjudication(conn, rid, prior)
+            _restore_adjudication(conn, rid, prior, target.get("carried"))
         elif writes_to == "annotations":
             _restore_annotation(conn, rid, prior)
         elif writes_to == "window_verdicts":

@@ -220,6 +220,8 @@ def list_queues(conn, *, include_closed=False, exclude_recording_ids=None):
         q = _row_to_dict(row)
         q["filters"] = json.loads(q["filters_json"]) if q["filters_json"] else {}
         q.update(queue_counts(conn, q["id"], exclude_recording_ids=exclude_recording_ids))
+        if q["source_kind"] in _DETECTION_KINDS:      # review-carry: the detections behind the events
+            q["detections"] = served_detections(conn, q["id"], exclude_recording_ids=exclude_recording_ids)
         out.append(q)
     return out
 
@@ -434,9 +436,10 @@ def queue_counts(conn, queue_id, *, exclude_recording_ids=None):
         # AR, fix round S3: from the remembered structure, without building an item per row — the queue list and
         # the header re-count every open queue after each verdict (1.4-3 s with 20 queues on the scale fixture)
         structure = _cached_structure(conn, q)
-        served = _structure_views(q, structure, exclude_recording_ids)["served_ids"]
+        served = _structure_views(q, structure, exclude_recording_ids)["served_members"]
         adjudicated = {r[0] for r in conn.execute("SELECT detection_id FROM adjudications").fetchall()}
-        judged = sum(1 for did in served if did in adjudicated)
+        # review-carry: an item is an overlap set, judged when any of its detections is
+        judged = sum(1 for ms in served if _set_judged(ms, adjudicated))
         return {"total": len(served), "judged": judged, "remaining": len(served) - judged}
     return _counts_of(select_items(q, _resolve(conn, q), include_judged=True,
                                    exclude_recording_ids=exclude_recording_ids))
@@ -675,6 +678,51 @@ def _detection_structure(conn, q):
             cand["start_idx"], cand["end_idx"], span_starts.get(cand["run_id"], 0))
         out.append((cand["id"], cand["run_id"], cand["recording_id"], cand["channel"], start_idx, end_idx,
                     cand["score"], priors.get(cand["id"])))
+    return _as_overlap_sets(out)
+
+
+def _as_overlap_sets(rows):
+    """review-carry: one entry per overlap set of a run's detections on a channel (`overlap.overlap_sets`, the
+    transitive closure of any overlap), in queue order, each ``(id, run_id, recording_id, channel, start_idx,
+    end_idx, score, prior, members, member_spans)``:
+
+    * ``id`` — the set's first detection in queue order (the item's id, and the detection a verdict names);
+    * ``start_idx``/``end_idx`` — the whole event: the earliest start and the latest end of the set;
+    * ``score`` — the set's highest; ``prior`` — the first member's rediscovery (a human span already covering
+      any part of the event means Review does not ask about it);
+    * ``members`` — every detection in the set, in queue order. A set never crosses runs or channels;
+    * ``member_spans`` — each member's channel-absolute ``(start, end)``, in the same order.
+
+    Only the queue's own candidates are grouped: a verdict writes the detections the queue was made of, and the
+    rest of the run reaches them by carrying (`overlap.carry`), not by membership."""
+    from Working.review.overlap import overlap_sets
+    groups = {}
+    for r in rows:
+        groups.setdefault((r[1], r[2]), []).append((r[0], r[4], r[5]))
+    set_of = {}
+    for spans in groups.values():
+        if len(spans) == 1:
+            set_of[spans[0][0]] = 0
+            continue
+        for k, members in enumerate(overlap_sets(spans)):
+            for did in members:
+                set_of[did] = k
+    by_set = {}
+    for r in rows:
+        by_set.setdefault((r[1], r[2], set_of[r[0]]), []).append(r)
+    out = []
+    for r in rows:
+        members = by_set[(r[1], r[2], set_of[r[0]])]
+        if members[0][0] != r[0]:
+            continue
+        if len(members) == 1:
+            out.append(r + ((r[0],), ((r[4], r[5]),)))
+            continue
+        scores = [m[6] for m in members if m[6] is not None]
+        prior = next((m[7] for m in members if m[7] is not None), None)
+        out.append((r[0], r[1], r[2], r[3], min(m[4] for m in members), max(m[5] for m in members),
+                    max(scores) if scores else None, prior, tuple(m[0] for m in members),
+                    tuple((m[4], m[5]) for m in members)))
     return out
 
 
@@ -767,6 +815,11 @@ def _structure_fingerprint(conn, q, run_ids, rec_ids):
     parts.append(_rows(conn, "SELECT id, recording_id, start_idx, end_idx, verdict, deleted_at IS NULL "
                              "FROM annotations WHERE recording_id IN (" + _in(rec_ids) + ") ORDER BY id"))
     parts.append(repr(rule_from_settings(conn)))
+    # review-carry: no adjudication is in the fingerprint, carried or not. The structure reads none (overlap sets
+    # are built from the candidates' spans alone); verdicts and carried rows are the overlay, read fresh on every
+    # call, so a carried row changes what a queue asks about without touching the structure. Fingerprinting
+    # carried rows rebuilt every open queue's structure after every verdict that carried (AR's cold read, ~22 s for
+    # 20 queues on the scale fixture). Pinned: test_a_verdict_plain_or_carried_rebuilds_no_structure_...
     return hash(tuple(parts))
 
 
@@ -856,13 +909,31 @@ def _build_structure(conn, q, key):
 
 def _judged_overlay(conn):
     """The verdicts and their tags, whole: what a key press changes, read fresh on every call. Human rows,
-    bounded by how many verdicts a person can give, never by the size of a queue or of `detections`."""
-    verdicts = {r[0]: r[1] for r in conn.execute("SELECT detection_id, verdict FROM adjudications").fetchall()}
-    return verdicts, _adjudication_tag_values(conn)
+    bounded by how many verdicts a person can give, never by the size of a queue or of `detections`.
+
+    review-carry: also each row's class label and, for a carried row, the detection it was carried from —
+    ``extras[detection_id] = (class_label, carried_from_detection)`` (absent when both are empty)."""
+    verdicts, extras = {}, {}
+    for r in conn.execute("SELECT a.detection_id, a.verdict, a.class_label, s.detection_id FROM adjudications a "
+                          "LEFT JOIN adjudications s ON s.id = a.carried_from").fetchall():
+        verdicts[r[0]] = r[1]
+        if r[2] is not None or r[3] is not None:
+            extras[r[0]] = (r[2], r[3])
+    return verdicts, _adjudication_tag_values(conn), extras
 
 
-def _detection_item(q, s, judged_verdicts, judged_tags):
-    did, run_id, rec_id, channel, start_idx, end_idx, score, prior = s
+def _set_judged(members, judged_verdicts):
+    """A set is judged when any of its detections carries a verdict: the event has one (a carried row can reach
+    one member of a set and not another)."""
+    return any(m in judged_verdicts for m in members)
+
+
+def _detection_item(q, s, judged_verdicts, judged_tags, extras=None):
+    did, run_id, rec_id, channel, start_idx, end_idx, score, prior = s[:8]
+    members = list(_members(s))
+    # the item's verdict is its first judged member's (the named detection's when it has one)
+    shown = next((m for m in members if m in judged_verdicts), did)
+    extra = (extras or {}).get(shown, (None, None))
     item = {
         "target_id": did,
         "unit": q["unit"],
@@ -872,8 +943,13 @@ def _detection_item(q, s, judged_verdicts, judged_tags):
         "channel": channel,
         "start_idx": start_idx,
         "end_idx": end_idx,
-        "judged": did in judged_verdicts,
-        "verdict": judged_verdicts.get(did),
+        # review-carry: the overlap set this item stands for (one id when the detection overlaps nothing)
+        "members": members,
+        "member_spans": [list(sp) for sp in s[9]] if len(s) > 9 else [[start_idx, end_idx]],
+        "judged": _set_judged(members, judged_verdicts),
+        "verdict": judged_verdicts.get(shown),
+        "class_label": extra[0],
+        "carried_from_detection": extra[1],
         "prior_verdict": prior["verdict"] if prior else None,
         "prior_annotation_id": prior["annotation_id"] if prior else None,
         "prior_iou": prior["iou"] if prior else None,
@@ -881,7 +957,7 @@ def _detection_item(q, s, judged_verdicts, judged_tags):
         # What the database holds against this verdict. Without it the
         # Annotate card lost its tags on every reload, so a tag that DID
         # reach the table was invisible afterwards (fixup-a item 9).
-        "tags": judged_tags.get(did, []),
+        "tags": judged_tags.get(shown, []),
     }
     if not bool(q["blind"]):
         item["score"] = score
@@ -894,8 +970,8 @@ def _resolve_detections(conn, q):
     # queue" for an item the database had a verdict for: the page contradicting
     # the table it was reading.
     structure = _cached_structure(conn, q)
-    judged_verdicts, judged_tags = _judged_overlay(conn)
-    return [_detection_item(q, s, judged_verdicts, judged_tags) for s in structure]
+    judged_verdicts, judged_tags, extras = _judged_overlay(conn)
+    return [_detection_item(q, s, judged_verdicts, judged_tags, extras) for s in structure]
 
 
 def item_views(conn, queue_id, target_ids, *, exclude_recording_ids=None):
@@ -910,14 +986,15 @@ def item_views(conn, queue_id, target_ids, *, exclude_recording_ids=None):
         return {str(t): deep.get(str(t)) for t in target_ids}
     structure = _cached_structure(conn, q)
     views = _structure_views(q, structure, exclude_recording_ids)
-    judged_verdicts, judged_tags = _judged_overlay(conn)
+    judged_verdicts, judged_tags, extras = _judged_overlay(conn)
     out = {}
     for t in target_ids:
         try:
             at = views["deep_at"].get(int(str(t)))
         except ValueError:
             at = None
-        out[str(t)] = None if at is None else _detection_item(q, structure[at], judged_verdicts, judged_tags)
+        out[str(t)] = None if at is None else _detection_item(q, structure[at], judged_verdicts, judged_tags,
+                                                              extras)
     return out
 
 
@@ -948,18 +1025,22 @@ def item_view(conn, queue_id, target_id, *, exclude_recording_ids=None):
         return {"queue": q, "item": item, "rank": rank, "counts": snap["counts"]}
     structure = _cached_structure(conn, q)
     views = _structure_views(q, structure, exclude_recording_ids)
-    judged_verdicts, judged_tags = _judged_overlay(conn)
-    judged = sum(1 for did in views["served_ids"] if did in judged_verdicts)
+    judged_verdicts, judged_tags, extras = _judged_overlay(conn)
+    judged = sum(1 for ms in views["served_members"] if _set_judged(ms, judged_verdicts))
     total = len(views["served_ids"])
     try:
         key = int(tid)
     except ValueError:
         key = None
     at = views["deep_at"].get(key)
+    item = None if at is None else _detection_item(q, structure[at], judged_verdicts, judged_tags, extras)
     return {"queue": q,
-            "item": None if at is None else _detection_item(q, structure[at], judged_verdicts, judged_tags),
-            "rank": views["rank"].get(key),
-            "counts": {"total": total, "judged": judged, "remaining": total - judged}}
+            "item": item,
+            # review-carry: a member's id opens its set's item, numbered as the set
+            # (an item can be served yet past the deep list's cap, which counts rediscoveries: its rank stands)
+            "rank": views["rank"].get(item["target_id"] if item is not None else key),
+            "counts": {"total": total, "judged": judged, "remaining": total - judged},
+            "detections": views["n_detections"]}
 
 
 #: (id(structure), cap, held) -> the served ids, their ranks and the deep-link index; a structure is replaced,
@@ -977,16 +1058,53 @@ def _structure_views(q, structure, exclude_recording_ids):
         return hit[1]
     drop = set(held)
     capped = (lambda xs: xs[:cap]) if cap is not None and cap >= 0 else (lambda xs: xs)
-    served = capped([s[0] for s in structure if (s[2] is None or int(s[2]) not in drop) and s[7] is None])
+    served_sets = capped([s for s in structure if (s[2] is None or int(s[2]) not in drop) and s[7] is None])
+    served = [s[0] for s in served_sets]
     deep_n = len(capped(structure))
+    deep_at = {}
+    for i, s in enumerate(structure[:deep_n]):
+        for m in _members(s):                   # review-carry: any member's id finds its set
+            deep_at.setdefault(m, i)
     views = {"served_ids": served,
+             "served_members": [_members(s) for s in served_sets],
+             "n_detections": sum(len(_members(s)) for s in served_sets),
              "rank": {did: i + 1 for i, did in enumerate(served)},
-             "deep_at": {s[0]: i for i, s in enumerate(structure[:deep_n])}}
+             "deep_at": deep_at}
     with _STRUCTURE_LOCK:
         if len(_VIEWS_CACHE) >= 4 * _STRUCTURE_CACHE_MAX:
             _VIEWS_CACHE.clear()
         _VIEWS_CACHE[key] = (structure, views)
     return views
+
+
+def _members(s):
+    """A structure entry's detections (review-carry: its overlap set's, in queue order)."""
+    return s[8] if len(s) > 8 else (s[0],)
+
+
+def detection_set(conn, queue_id, target_id, *, exclude_recording_ids=None):
+    """review-carry: the detections a verdict on `target_id` writes in this queue — its overlap set's members in
+    queue order — or None when the queue is not a detection queue or does not hold the target. One read of the
+    remembered structure, as an item read is."""
+    q = get_queue(conn, queue_id)
+    if q is None or q["source_kind"] not in _DETECTION_KINDS:
+        return None
+    structure = _cached_structure(conn, q)
+    views = _structure_views(q, structure, exclude_recording_ids)
+    try:
+        at = views["deep_at"].get(int(str(target_id)))
+    except ValueError:
+        return None
+    return None if at is None else list(_members(structure[at]))
+
+
+def served_detections(conn, queue_id, *, exclude_recording_ids=None):
+    """review-carry: how many detections the queue's served items stand for ("312 events from 340 detections"),
+    or None for a queue whose items are not detections."""
+    q = get_queue(conn, queue_id)
+    if q is None or q["source_kind"] not in _DETECTION_KINDS:
+        return None
+    return _structure_views(q, _cached_structure(conn, q), exclude_recording_ids)["n_detections"]
 
 
 def _adjudication_tag_values(conn):
