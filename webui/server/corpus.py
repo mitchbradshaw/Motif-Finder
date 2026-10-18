@@ -332,9 +332,9 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
     key = (source_file, int(bins), tuple(verdicts) if verdicts else None,
            tuple(int(i) for i in run_ids) if run_ids is not None else None, method,
            bool(is_held_out(conn, source_file)))
-    # AR: only the settings the map reads (COVERAGE_SETTINGS), and a digest stable across restarts, so the map
-    # can be kept on disk
-    fp = SB.channels_fingerprint(conn, rec_ids, settings_keys=COVERAGE_SETTINGS, stable=True)
+    # AR: only the settings the map reads (COVERAGE_SETTINGS). Memory compares the in-process digest (cheap); a miss
+    # there computes the digest stable across restarts, which keys the copy kept on disk
+    fp = SB.channels_fingerprint(conn, rec_ids, settings_keys=COVERAGE_SETTINGS)
     hit = _COVERAGE_CACHE.get(key)
     if hit is not None and hit[0] == fp:
         out = copy.deepcopy(hit[1])
@@ -347,10 +347,11 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
             if hit is not None and hit[0] == fp:
                 out = copy.deepcopy(hit[1])
             else:
-                out = _disk_read(key, fp)
+                disk_fp = SB.channels_fingerprint(conn, rec_ids, settings_keys=COVERAGE_SETTINGS, stable=True)
+                out = _disk_read(key, disk_fp)
                 if out is None:
                     out = _coverage(conn, source_file, bins=bins, verdicts=verdicts, run_ids=run_ids, method=method)
-                    _disk_write(key, fp, out)
+                    _disk_write(key, disk_fp, out)
                 if len(_COVERAGE_CACHE) >= _COVERAGE_CACHE_MAX:
                     _COVERAGE_CACHE.pop(next(iter(_COVERAGE_CACHE)))
                 _COVERAGE_CACHE[key] = (fp, copy.deepcopy(out))
