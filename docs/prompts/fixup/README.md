@@ -328,3 +328,44 @@ header's path strip) were done directly the same day (commits prefixed `ux-1013:
 | `AN-library-dendrogram.md` | persist the Ward tree, preview a cut instantly, apply from the tree; reuses `TreePage.tsx` | L |
 | `AO-decompose-block.md` | baseline / noise / signal as layers with `pass_on`, on the wavelet-bands pattern | M |
 | `AP-grey-text-sweep.md` | one caption per card, the rest behind ⓘ — page by page, one commit each | M (long) |
+
+## 2026-10-18 — the researcher's second list, triaged
+
+Triaged from the code (read-only searches, 2026-10-18); nothing below is started. Sizes: **S** = under ~40 lines in
+one or two files and no new route; **M** = a new route or component; **L** = a design decision first.
+
+**Small — can be done directly, no prompt needed**
+
+| Item | Where | Size |
+|---|---|---|
+| Family page: `Edit grouping` clipped | `.lib-gbar` is `flex-wrap:nowrap; overflow:hidden` (`library/library.css:8`); the button is the last flex child | S |
+| Library: `Build the tree` looks dead | the job runs (`/api/library/groupings/run`) but `TreePanel` fetches the tree keyed on `[gid]` only and the job saves nothing until Apply (`library/GroupingPage.tsx:566,707`); show the job's `result.tree` and say "Apply to keep it" | S |
+| Discovery: detections table stops at three channels | `PAGE_SIZE = 3` (`discovery/session.ts:49,161`); scrolling the plots never changes `chPage` | S |
+| Discovery: loading row for a run's detections is "all on the left" | the `browser-loading` row is the first cell of the 200px/1fr grid (`RunsPage.tsx:364`, `discovery.css:142`) — `grid-column: 1 / -1` | S |
+| Discovery: run-card text spills under the buttons | `.dsc-run-meta` / `.dsc-run-line` are `nowrap` with no overflow or ellipsis (`discovery.css:78-79`) | S |
+| Discovery: runs list grows without bound | `.dsc-runs-list` has no max-height (`discovery.css:67`); ~8 rows plus `overflow-y:auto` | S |
+| Discovery: level-2 map chunks look stale | no server cache, but the client only refetches when `[dataset, chunks]` change (`MapPage.tsx:239`); add a poll or focus refetch and a refreshing indicator (fingerprint pattern at `library.py:3736`) | S |
+| Discovery: seed-result import shows only a spinner | the POST is synchronous, then `/api/discovery/runs` carries `progress`/`progressText` for the new run; show a determinate `ProgressBar` (`kit/display.tsx:202`) banner for that run key | S |
+| Analyse: templates popover as accordions, one open | `analyse/TemplatesPopover.tsx` groups by kind, every group always open; an `openKind` state with header buttons (~20 lines); auto-expand matches while searching | S |
+| Span-set highlights: thin blue line vs wide Review band | Analyse draws a pale `start_s→end_s` band plus a dark onset→extremum "core" (`analyse/views/SpanSetView.tsx:50-63`; red core = more than one event in the span); Review draws the whole emitted window (`review/parts.tsx:75`); the slideshow plots `[start_s, end_s]` unpadded when marks exist. Make the band visible and name the core in the tooltip. Carrying onset/extremum into the Review item is the fuller fix (M) | S |
+| Corpus warm: coalesce duplicate work | `corpus.coverage` has no single-flight lock, so a request during the 462 s warm recomputes the same map; log "warmed k/17" | S |
+
+**Larger — a prompt each, most opening with a question**
+
+| Item | What the code says | Decision needed | Size |
+|---|---|---|---|
+| Review › `Edit span in Explore` | navigates to `explore/span-edit/<detectionId>`, a demo fixture that knows one id (`api/explore.ts:225`, `fixtures/explore.ts:288`); `Working/library/revisions.py` has `add_revision`/`current_revision` with no bridge route | none; needs GET/POST revision routes, detection→member mapping, the return route | M |
+| Discovery: which detector ran on which channel, "run on CH2" | `/api/discovery/fires` returns zero counts for a channel a run never touched — indistinguishable from "ran, found nothing"; the map already has per-channel `covered/not_run` states (`detection_map.py:462`); applying a template to one more channel mints a new run key `<name>_2` | is "run on CH2" an extension of the run or a sibling run? | M |
+| Templates: share of `interesting` over all human adjudications | no route groups adjudications by template; needs adjudications → detections → runs → `discovery_runs.template_name` and a payload field next to `lastScore` | which of the five verdicts count as interesting | M |
+| Explore + Cross-channel: send unjudged motifs in a span to Review | Explore's "Send selected" and Cross-channel's "Review this window" are both demo-only (`SignalDrawer.tsx:161`, `CrossChannelPage.tsx:197`); queues take `detection_ids` (`Working/review/queues.py:211`); `corpus.spans` has the window query, `queries.py:644` the NOT-EXISTS-adjudication test; copy `discovery.py:4056` | none | M |
+| Cross-channel: mark artifact regions; a single-axis view | an artifact region is an `annotations` row with verdict `artifact`, written only by Review; Explore's take-span hardcodes `seed`; Cross-channel is stacked panels on one x scale with a per-row y (3.9 V of DC offset between channels) | one annotation per channel or one for the window? overlay as a mode or a new view? | M–L |
+| Website speed pass | warm runs in a background thread at startup; every cache is memory-only and rebuilt per restart; `/api/discovery/templates` rescores every template on each open; `req()` has no timeout or abort; only jobs cancel | disk cache keyed on the fingerprint vs incremental coverage per run | L (dedicated agent) |
+| Polish / readability pass | — | — | L (dedicated agent, after the speed pass) |
+| MJu26a at a uniform 10 Hz, parent of L_LM | stored raw and uneven, `fs = 1/median(dt)`, nothing reads `t.npy`; detections, annotations and runs are in sample indices; the step cache has no content hash; HPC import checks the npy sha1 (an in-place rewrite makes the RQ4 batch unimportable); the only parent link is the per-channel excerpt rule (child ≤ 200k samples); `scripts/derive_dwij_mfs2.py:152` has the linear resampler | interpolation; remap or retire the old detections; new source_file (recommended) vs overwrite; how to express a whole-recording parent; declare MJu26a as V | M |
+| Library sequences | no `sequences` page case in `library/index.tsx`; `atlas?unit=sequences` works; `SequenceFamilyPlaceholder` on the family page; `getLibrarySequences` route exists unused; nothing joins adjacent detections into `sequences` rows — the gap rules in `Working/interrogation/trains.py:395` (logisi, maxinterval, adamatzky) are the candidate joiner | the joining rule, and what a sequence family page shows | M page, L joiner |
+| Seed-search page redesign | toolbar, scope card, runs column, seed card + params card, preview/progress/matches, an apply bar with five buttons | a brief from the researcher on what is confusing | L |
+
+Still open from earlier lists: pick a trace in the family overlay; Reports (three prompts after a format decision); the
+interval/event page design pass; the overlapping/joined detections policy; the four `decide` rows in
+`reports/UX-1015-evaluation.md`; Models › Launch's setup line missing the anchor; the cubic detrend without a page
+control; and the "after wave 3" table above.
