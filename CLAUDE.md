@@ -86,7 +86,9 @@ questions can be answered yet. If your work changes what one of them can do, upd
    your commit message. For a change scoped to one module, running just its matching
    `tests/test_<module>.py` first (seconds, not minutes) is the faster feedback loop — the full
    suite is still the actual gate before calling anything done, especially for a change to
-   widely-shared code (`Working/config.py`, `execution.py`, the DB schema).
+   widely-shared code (`Working/config.py`, `execution.py`, the DB schema). **Since 2026-10-19 the full suite
+   runs once a day by one manager before the push (see "The UI gate" below); a merge runs the change's own
+   files plus the ones its prompt names.** A change to the shared core still runs the full suite before merge.
 3. **Plain SQL, no ORM.** Schema changes are additive and applied through `init_db()`, which must stay
    idempotent.
 4. **Bulk arrays never enter the database.** They live on disk, referenced by path.
@@ -154,14 +156,25 @@ emptied the real `DATA/db` and `DATA/derived` on 2026-09-21 (7.8 GB; the databas
 copy under `webui/runtime/`, the channels re-derived with `scripts/rederive_channels.py`). `cmd /c rmdir <junction>`
 removes only the link; do that first, then remove the worktree. The same applies to `git clean -x` and `rm -r`.
 
-**The UI gate.** A change under `webui/` is done when all three pass:
+**The UI gate** (per merge, as agreed with the researcher 2026-10-19 — a feature was taking six hours, most of it
+the full suite and the full walk). A change under `webui/` is merged when all of these pass:
 
 1. `npx tsc -b` in `webui/client` (type-check) and `npm run build` (production build);
-2. `"/c/ProgramData/anaconda3/python.exe" webui/smoke.py --url http://127.0.0.1:8765` against a running
-   bridge — Playwright via the conda python; it fails on any browser console or page error, any pane that
-   did not paint, any unexpected server traceback, and a broken core flow, and writes screenshots to
-   `webui/screenshots/`;
-3. the headless `pytest` suite, if the change touched anything Python outside `webui/`.
+2. the change's own tests and the test files its prompt names, plus `tests/test_import_boundaries.py` — with the
+   conda interpreter for core tests and `webui/.venv` for `tests/test_webui_*`;
+3. the smoke UNITS the change touches, on a fresh **sandbox** bridge (`webui/run_server.py --sandbox --port <yours>`,
+   never the researcher's 8765): `"/c/ProgramData/anaconda3/python.exe" webui/smoke.py --url http://127.0.0.1:<port>
+   --pages-only --only <unit>` — Playwright via the conda python; it fails on any browser console or page error, any
+   pane that did not paint, any unexpected server traceback, and writes screenshots to `webui/screenshots/`
+   (`SMOKE_SHOTS=<dir>` elsewhere). The `discovery` unit cannot be judged with `--pages-only` (its states name the
+   runs the core flows create): judge it in a full walk.
+
+**Once a day, by one manager, before the push:** the full `pytest` suite and the full smoke walk (no flags; flows
+then every page), compared by failure SET against the last recorded baseline (`docs/prompts/fixup/reports/
+UX-1015-ledger.md` names the current one) — never by count. A regression found there is fixed the next morning,
+not at midnight. A critic reviews every prompt-sized change; a change under about forty lines done directly by the
+manager skips it. At most three implementer agents at once on this machine: six made every smoke unit and timing
+meaningless (2026-10-18).
 
 Loud failure is structural here: a render error is a red card plus a console error; a server error is a
 500 with the traceback. Keep it that way — never catch an error into a blank.
