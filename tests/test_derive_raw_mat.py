@@ -268,3 +268,22 @@ def test_registering_the_same_file_twice_is_refused(env):
     assert _run(env, env["raw"] / "CO.mat", "--fs", "10") != 0
     assert _rows(env) == rows
     assert tree(env["data"]) == before
+
+
+# ------------------------------------------------- critic round (2026-10-18) --
+
+def test_a_failure_after_registration_leaves_no_rows_and_no_stem(env, monkeypatch, capsys):
+    import Working.database.datasets as datasets
+    X = _volts(1 * DAY_10HZ + 1, 2)
+    write_v5(env["raw"] / "CO.mat", {"CO": X})
+    before = tree(env["data"])
+
+    def boom(*a, **k):
+        raise sqlite3.OperationalError("database is locked")
+    monkeypatch.setattr(datasets, "put_dataset", boom)
+    assert _run(env, "CO") == 3
+    assert _rows(env, "CO.mat") == []
+    assert tree(env["data"]) == before
+    monkeypatch.undo()
+    assert _run(env, "CO") == 0
+    assert len(_rows(env, "CO.mat")) == 2
