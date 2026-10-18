@@ -53,9 +53,11 @@ export function TemplatesPopover({ onPick, onClose }: { onPick: (t: Template) =>
       {items && q && shown === 0 && <div className="an-pop-note" data-testid="templates-none">no template matches "{q}"</div>}
       {groups.map(g => (
         <div key={g.kind} data-testid={`template-group-${g.kind}`} data-open={isOpen(g.kind) ? '1' : '0'}>
+          {/* ux-1019: a header click OPENS its group (and so closes the other) and never closes it — the accordion's
+              collapse is "open another", which reads the same and makes a scripted or repeated click idempotent */}
           <button type="button" className="an-pop-group" aria-expanded={isOpen(g.kind)} disabled={searching}
-            onClick={() => setOpenKind(open === g.kind ? '' : g.kind)} data-testid={`template-group-toggle-${g.kind}`}
-            title={searching ? 'every group with a match is open while you search' : isOpen(g.kind) ? `close ${g.label}` : `open ${g.label}`}>
+            onClick={() => setOpenKind(g.kind)} data-testid={`template-group-toggle-${g.kind}`}
+            title={searching ? 'every group with a match is open while you search' : isOpen(g.kind) ? `${g.label} is open` : `open ${g.label}`}>
             <span aria-hidden className="an-pop-caret">{isOpen(g.kind) ? '▾' : '▸'}</span>{g.label} · {g.rows.length}
           </button>
           {isOpen(g.kind) && g.rows.map(t => (

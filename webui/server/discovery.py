@@ -718,6 +718,12 @@ def _drain_scoring():
                     _SCORING_IDLE.set()
                     return
                 name, db = _SCORING["pending"].pop(0), _SCORING["db"]
+            # ux-1019: yield to the pages between templates. Scoring one template holds the interpreter for seconds
+            # (5 M detections); 73 in a row held it for 3-4 minutes, and every page read in that window stalled —
+            # the 2026-10-19 full walk failed 52 states on main that had passed the morning before, with the
+            # scorer running under them. Wait for a quiet gap (no request for 1.5 s) before each template, at most
+            # 6 s, so a busy page gets at least two thirds of the time and the scores still land within minutes.
+            corpus.wait_for_quiet(quiet_s=1.5, max_wait_s=6.0)
             try:
                 c = corpus.connect(db)
                 try:

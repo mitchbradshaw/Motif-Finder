@@ -378,3 +378,27 @@ def test_the_coverage_map_survives_a_restart_and_ignores_unrelated_settings(brid
     c.close()
     with pytest.raises(AssertionError, match="recomputed"):
         client.get(url)
+
+
+def test_the_background_scorer_yields_to_the_pages_between_templates(monkeypatch):
+    """ux-1019: scoring 73 templates back to back held the interpreter for minutes and every page read stalled
+    under it (the 2026-10-19 walk). The drain waits for a quiet gap before EACH template, so a busy page gets most
+    of the time; the scores still land within minutes."""
+    import threading
+    from server import corpus
+    from server import discovery as D
+
+    waits, scored = [], []
+    monkeypatch.setattr(corpus, "wait_for_quiet", lambda quiet_s=2.0, max_wait_s=30.0: waits.append((quiet_s, max_wait_s)) or 0.0)
+    monkeypatch.setattr(corpus, "connect", lambda db: type("C", (), {"close": lambda self: None})())
+    monkeypatch.setattr(D, "_last_score", lambda c, name, memo=None: scored.append(name))
+    with D._SCORING_LOCK:
+        D._SCORING["pending"] = ["t1", "t2", "t3"]
+        D._SCORING["db"] = ":memory:"
+        D._SCORING["thread"] = threading.current_thread()
+    D._SCORING_IDLE.clear()
+    D._drain_scoring()
+    assert scored == ["t1", "t2", "t3"]
+    assert len(waits) == 3, f"expected one quiet-wait per template, saw {len(waits)}"
+    assert all(q <= 2.0 and m <= 10.0 for q, m in waits), "the wait must stay short or the scores never land"
+    assert D.wait_for_scoring(timeout=1)
