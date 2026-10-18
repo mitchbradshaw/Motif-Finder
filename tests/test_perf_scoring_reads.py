@@ -414,7 +414,7 @@ def test_two_concurrent_reads_of_one_corpus_map_compute_it_once(monkeypatch):
 
     monkeypatch.setattr(corpus, "_coverage", slow)
     monkeypatch.setattr(corpus.q, "list_recordings", lambda conn, source_file=None: [{"id": 1}])
-    monkeypatch.setattr(corpus.SB, "channels_fingerprint", lambda conn, ids, memo=None: "fp")
+    monkeypatch.setattr(corpus.SB, "channels_fingerprint", lambda conn, ids, memo=None, **kw: "fp")
     out = []
     threads = [threading.Thread(target=lambda: out.append(corpus.coverage(None, "cache.mat", bins=10))) for _ in range(2)]
     for t in threads:

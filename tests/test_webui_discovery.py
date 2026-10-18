@@ -317,8 +317,13 @@ def test_an_unrun_template_reads_not_yet_scored_and_has_no_preview(client):
 
 def test_a_run_templates_score_carries_its_scope(client):
     _apply(client)
+    # AR: the picker never scores on open - the first read queues the scoring and says so; the score lands after
+    first = next(r for r in client.get("/api/discovery/templates").json() if r["name"] == "mp_threshold")
+    assert first["scoring"] or first["lastScore"] != "not yet scored"
+    assert _disc.wait_for_scoring(120)
     rows = client.get("/api/discovery/templates").json()
     mp = next(r for r in rows if r["name"] == "mp_threshold")
+    assert mp["scoring"] is False
     assert mp["lastScore"] != "not yet scored"
     # §4.8: never a bare number on a template card
     assert any(word in mp["lastScore"] for word in ("reviewed", "overlap", "interesting"))
@@ -357,18 +362,19 @@ def test_the_fires_grid_reads_a_runs_status_once_per_run_not_once_per_channel(cl
     followed the channel pager. The status is read once per run key."""
     out = _apply(client)
     calls = {"n": 0}
-    real = _disc.fanout.group_status
+    # AR: the route reads the light status (the same answer in a handful of queries); it is still once per run
+    real = _disc.fanout.group_status_light
 
     def counted(*a, **kw):
         calls["n"] += 1
         return real(*a, **kw)
 
-    monkeypatch.setattr(_disc.fanout, "group_status", counted)
+    monkeypatch.setattr(_disc.fanout, "group_status_light", counted)
     fires = client.get("/api/discovery/fires", params={
         "channels": ",".join([CH[0], CH[1]]), "t0": 0.0, "t1": N / 3600.0,
         "runs": f"human,{out['run_key']}"}).json()
     assert [c["channel"] for c in fires["channels"]] == [CH[0], CH[1]]
-    assert calls["n"] == 1, f"group_status was read {calls['n']} times for one run over two channels"
+    assert calls["n"] == 1, f"the run status was read {calls['n']} times for one run over two channels"
 
 
 def test_the_scoreboard_cells_are_the_tables_own_numbers(client):

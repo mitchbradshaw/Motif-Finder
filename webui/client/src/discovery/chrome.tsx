@@ -32,6 +32,37 @@ export function Refreshing({ on, label = 'refreshing' }: { on: boolean; label?: 
     </div>
   )
 }
+/** AR (the speed pass): a Discovery page's first paint. It used to be a 600 px "loading the session" card that the
+ *  real layout then replaced — the toolbar's icons jumped down and back as it went. This is the real layout in
+ *  grey: the reload line where the page keeps it, the toolbar row at its height, the Scope card, the two columns.
+ *  The page swaps it for its content without moving the toolbar. The reload line runs indeterminate: the session
+ *  and the run list report no progress to show. */
+export function DiscoverySkeleton({ label, cols = true, testid = 'discovery-skeleton' }: { label: string; cols?: boolean; testid?: string }) {
+  const block = (w: number | string, h: number) => <span className="skeleton" style={{ display: 'block', width: w, height: h }} />
+  return (
+    <>
+      <Refreshing on label={label} />
+      <div className="dsc-toolbar" data-testid={testid} aria-busy="true" aria-label={label}>
+        {block(170, 30)}{block(300, 32)}<span className="k-spacer" />{block(110, 28)}{block(110, 28)}{block(90, 28)}{block(84, 32)}
+      </div>
+      <div className="k-card dsc-scope" aria-hidden="true">
+        <div className="dsc-scope-head">{block(60, 18)}{block(220, 24)}<span className="k-spacer" />{block(160, 24)}</div>
+        {block('100%', 28)}{block('100%', 96)}
+      </div>
+      {cols && (
+        <div className="dsc-cols" aria-hidden="true">
+          <div className="k-card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8, minHeight: 420 }}>
+            {block(120, 18)}{[0, 1, 2, 3, 4, 5].map(i => <span key={i}>{block('100%', 44)}</span>)}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+            <div className="k-card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>{block(180, 18)}{block('100%', 200)}</div>
+            <div className="k-card" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>{block(140, 18)}{block('100%', 160)}</div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
 export function LoadFailed({ what, error, onRetry }: { what: string; error: Error; onRetry: () => void }) {
   return <Callout tone="red" icon="alert-triangle" title={`Could not load ${what}`} action={<Button size="sm" icon="refresh" onClick={onRetry}>Retry</Button>} testid="discovery-load-failed">{error.message}</Callout>
 }

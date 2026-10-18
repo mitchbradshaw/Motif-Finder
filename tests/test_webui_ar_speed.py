@@ -183,6 +183,16 @@ def test_the_runs_list_reads_status_without_group_status(bridge, monkeypatch):
     for d in info["druns"]:
         st = fanout.group_status(c, run_ids=d["run_ids"])
         want[d["key"]] = (f"{st['done']} / {st['total']}", sum(x["detections"] for x in st["channels"]))
+        light = getattr(fanout, "group_status_light", None)
+        assert light is not None and light(c, run_ids=d["run_ids"]) == st, "the light status must be group_status's"
+        assert light(c, run_ids=d["run_ids"]) == st, "and again from its count cache"
+    # a detection appended to a run moves its id range, so the remembered count is not served
+    d0 = info["druns"][0]
+    c.execute("INSERT INTO detections (run_id, start_idx, end_idx, score) VALUES (?, 10, 20, 0.5)", (d0["run_ids"][0],))
+    c.commit()
+    assert fanout.group_status_light(c, run_ids=d0["run_ids"]) == fanout.group_status(c, run_ids=d0["run_ids"])
+    st = fanout.group_status(c, run_ids=d0["run_ids"])
+    want[d0["key"]] = (f"{st['done']} / {st['total']}", sum(x["detections"] for x in st["channels"]))
     c.close()
     calls = {"n": 0}
     real = fanout.group_status
@@ -256,6 +266,44 @@ def test_fires_counts_by_sql_and_match_the_span_histogram(bridge, monkeypatch):
                 starts = np.array([sp["start"] for sp in spans], dtype=float)
                 want = np.histogram(starts, bins=edges)[0].tolist() if len(starts) else [0] * got["nBins"]
                 assert row["counts"] == want, f"{name} {row['run']}"
+    finally:
+        c.close()
+
+
+def test_the_scoreboard_scores_only_the_channels_it_shows(bridge, monkeypatch):
+    client, rt, info = bridge
+    s = client.get("/api/discovery/session").json()["session"]
+    chans = s["channels"][:2]
+    keys = [d["key"] for d in info["druns"][:3]]
+    t0, t1 = s["section"]
+    SB.clear_score_cache()
+    calls = {"n": 0}
+    real = SB.channel_score
+
+    def counted(*a, **kw):
+        calls["n"] += 1
+        return real(*a, **kw)
+    monkeypatch.setattr(SB, "channel_score", counted)
+    got = client.get(f"/api/discovery/scoreboard?runs={','.join(keys)}&channels={','.join(chans)}&t0={t0}&t1={t1}")
+    assert got.status_code == 200, got.text
+    assert calls["n"] == len(keys) * len(chans), f"{calls['n']} channels scored to show {len(keys) * len(chans)}"
+    # the old computation: every channel of the run scored, the asked-for ones kept, the total over those
+    monkeypatch.setattr(SB, "channel_score", real)
+    c = corpus.connect(rt.db_path)
+    try:
+        rule = discovery.rule_from_settings(c)
+        span = (int(round(t0 * 3600)), int(round(t1 * 3600)))
+        ids_of = {d["key"]: d["run_ids"] for d in info["druns"]}
+        names = {i: n for i, n in zip(info["recordings"], info["channel_names"])}
+        wanted = {i for i, n in names.items() if n in chans}
+        for row, key in zip(got.json(), keys):
+            full = SB.score_runs(c, ids_of[key], rule=rule, span=span)
+            rows = [r for r in full["channels"] if r["recording_id"] in wanted]
+            total = SB.run_total(c, [r["run_id"] for r in rows], rule=rule, rows=rows)
+            assert row["total"] == discovery._score_row(total) | {"recall": discovery._recall_cell(total)}
+            assert [x["channel"] for x in row["channels"]] == [names[r["recording_id"]] for r in rows]
+            assert [{k: v for k, v in x.items() if k != "channel"} for x in row["channels"]] == \
+                [discovery._score_row(r) for r in rows]
     finally:
         c.close()
 

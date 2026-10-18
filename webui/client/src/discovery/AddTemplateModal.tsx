@@ -1,7 +1,7 @@
 /* Frame discovery-1b: Add runs · Apply template. Saved templates filtered to the scope's type with their stage glyph
  * strips; detail pane with locked parameters, per-channel cost, compute / disk / null tiles and the sample preview.
  * Cost decides the primary action (§7.5): within the 20 min local limit Add and run; above it Create SLURM script. */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, Seg, StatTile, TextField, cx, useNotWired, useQueryState,
 } from '../kit'
@@ -17,6 +17,15 @@ import type { Discovery } from './session'
 
 export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean; onClose: () => void; dx: Discovery; onSlurm: (keys: string[]) => void }) {
   const tpls = useSourced(getTemplates, [])
+  // AR: a template whose score is being worked out in the background says so and the list is re-read until every
+  // score has landed (the picker never waits on the scoring; it used to, for minutes behind the start-up warm)
+  const anyScoring = !!tpls.data?.some(t => t.scoring)
+  useEffect(() => {
+    if (!open || !anyScoring || tpls.loading) return
+    const t = window.setTimeout(() => tpls.reload(), 3000)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, anyScoring, tpls.loading, tpls.data])
   /* Both of these used to open the modal holding `mp_discord_v3` and
    * `spike_shape_v1` -- fixture-era names that exist in no live registry (the
    * canonical nine are in `webui/server/templates.py`). The footer read
@@ -226,7 +235,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                     <button type="button" className="dsc-tpl-body" onClick={() => setFocusQ(t.name)} aria-pressed={focus?.name === t.name}>
                       <b>{t.name}</b>
                       <span className="row" style={{ gap: 6 }}><span className={cx('k-badge', t.kind === 'seed' ? 't-purple' : 't-blue')}>{t.kind}</span><span className="mono muted small">{t.signature}</span>{t.hasModel && <span className="k-badge t-grey" title="a model reaches Discovery only as a stage inside a detection template (P16)">model stage</span>}</span>
-                      <span className="muted small">{t.fits && inSessionNote(t) ? `${inSessionNote(t)} · ${t.lastScore}` : t.lastScore}</span>
+                      <span className="muted small" data-testid={`template-score-${t.name}`} data-scoring={t.scoring ? '1' : '0'}>{t.fits && inSessionNote(t) ? `${inSessionNote(t)} · ${t.lastScore}` : t.lastScore}{t.scoring && !t.lastScore.startsWith('scoring') ? ' · rescoring…' : ''}</span>
                     </button>
                     <span className="dsc-tpl-glyphs">{t.stages.slice(1).map((st, i) => <span key={i} className="row" style={{ gap: 3 }}>{i > 0 && <span className="muted">›</span>}<RunGlyph kind={st.glyph} width={38} height={24} /></span>)}</span>
                   </div>

@@ -232,6 +232,22 @@ def test_item_view_agrees_with_the_snapshot_for_every_item(tmp_path):
                 assert (v["item"], v["rank"], v["counts"]) == (deep, rank, snap["counts"]), (qid, held, tid)
 
 
+def test_the_reads_an_item_step_makes_use_indexes(tmp_path):
+    """EXPLAIN QUERY PLAN on the reads behind one item step: none walks a whole table it could seek into."""
+    conn, info = _db(tmp_path)
+    init_db(str(tmp_path / "q.sqlite")).close()          # idempotent: a second init adds nothing and breaks nothing
+    plans = {
+        "run group": ("SELECT id FROM runs WHERE run_group_id = ?", (info["group"],)),
+        "detection id range": ("SELECT MAX(id) FROM detections WHERE run_id = ?", (info["runs"][0],)),
+        "pace tail": ("SELECT target_ids FROM review_audit WHERE queue_id = ? AND undone_at IS NULL "
+                      "ORDER BY id DESC LIMIT 21", (1,)),
+        "human spans": ("SELECT id FROM annotations WHERE recording_id IN (1, 2)", ()),
+    }
+    for name, (sql, params) in plans.items():
+        plan = " | ".join(str(r[3]) for r in conn.execute("EXPLAIN QUERY PLAN " + sql, params).fetchall())
+        assert "USING" in plan and not plan.startswith("SCAN") or "COVERING INDEX" in plan, f"{name}: {plan}"
+
+
 def test_pace_reads_the_tail_and_agrees_with_the_whole_ledger(tmp_path):
     conn, info = _db(tmp_path)
     qid = _queues(conn, info)[0]

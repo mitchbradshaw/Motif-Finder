@@ -48,6 +48,7 @@ No UI imports; the bridge is the only caller that knows a browser exists.
 
 import datetime as _dt
 import json
+import os
 
 from Working.config import HELD_OUT_RECORDING_FILE
 from Working.database import queries as _q
@@ -434,6 +435,108 @@ def group_status(conn, run_group_id=None, *, run_ids=None):
     return {"run_group_id": (int(run_group_id) if run_group_id is not None else None),
             "run_ids": [c["run_id"] for c in channels], "channels": channels, "done": done,
             "total": len(channels), "status": status, "n_surrogates": len(members) - len(real),
+            "progress": (done / len(channels)) if channels else 0.0}
+
+
+#: run_id -> (min detection id, max detection id, count) — see `group_status_light`
+_COUNT_CACHE: dict = {}
+_COUNT_CACHE_MAX = 200_000
+
+
+def _detection_count(conn, run_id):
+    """A run's detection count, remembered against its detection id range: detections are machine rows,
+    append-only (`scoreboard.inputs_fingerprint` states why), so while a run's first and last id stand its count
+    does. Two index seeks per run, where counting a 60k-detection run walks 60k index entries."""
+    lo, hi = conn.execute("SELECT (SELECT MIN(id) FROM detections WHERE run_id = ?), "
+                          "(SELECT MAX(id) FROM detections WHERE run_id = ?)", (int(run_id), int(run_id))).fetchone()
+    db = _db_key(conn)
+    key = (db, int(run_id))
+    hit = _COUNT_CACHE.get(key) if db is not None else None
+    if hit is not None and hit[0] == lo and hit[1] == hi:
+        return hit[2]
+    n = 0 if lo is None else int(conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ?",
+                                              (int(run_id),)).fetchone()[0])
+    if db is not None:
+        if len(_COUNT_CACHE) >= _COUNT_CACHE_MAX:
+            _COUNT_CACHE.clear()
+        _COUNT_CACHE[key] = (lo, hi, n)
+    return n
+
+
+def _db_key(conn):
+    """The database file (path and file identity) a cache entry belongs to; None for an in-memory one."""
+    row = next((r for r in conn.execute("PRAGMA database_list").fetchall() if r[1] == "main"), None)
+    path = row[2] if row is not None else ""
+    if not path:
+        return None
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (os.path.normcase(os.path.abspath(path)), getattr(st, "st_ino", 0), st.st_ctime_ns)
+
+
+def group_status_light(conn, run_group_id=None, *, run_ids=None):
+    """`group_status`, answered in a fixed handful of queries (AR, the speed pass): the member runs in one read,
+    their recordings in one, each file's channel count in one, and each run's detection count from its id range
+    (`_detection_count`). Discovery's run list called `group_status` per Discovery run — a run read, a recording
+    read, a recording LISTING and a COUNT(*) per member — 10-13 s for 53 runs on the real database. The answer is
+    `group_status`'s, key for key (tests/test_webui_ar_speed.py compares them); `group_status` stays for the
+    callers that read one fan-out."""
+    if run_ids is not None:
+        ids = [int(i) for i in run_ids]
+        marks = ",".join(str(i) for i in ids) or "NULL"
+        by_id = {int(r["id"]): r for r in conn.execute(f"SELECT * FROM runs WHERE id IN ({marks})").fetchall()}
+        members = [by_id[i] for i in ids if i in by_id]
+    else:
+        members = _runs.list_run_group_runs(conn, run_group_id)
+    real = [r for r in members if r["surrogate_of_run_id"] is None]
+    rec_marks = ",".join(str(int(r["recording_id"])) for r in real) or "NULL"
+    recs = {int(r["id"]): r for r in conn.execute(f"SELECT * FROM recordings WHERE id IN ({rec_marks})").fetchall()}
+    files = {r["source_file"] for r in recs.values()}
+    n_by_file = {}
+    if files:
+        n_by_file = {row[0]: int(row[1]) for row in conn.execute(
+            "SELECT source_file, COUNT(*) FROM recordings WHERE source_file IN ({}) GROUP BY source_file".format(
+                ",".join("?" * len(files))), sorted(files)).fetchall()}
+    channels = []
+    for r in real:
+        rec = recs.get(int(r["recording_id"]))
+        channels.append({
+            "run_id": int(r["id"]),
+            "recording_id": int(r["recording_id"]),
+            "channel": int(rec["channel"]) if rec else None,
+            "channel_name": (_channel_name(rec["source_file"], int(rec["channel"]), n_by_file.get(rec["source_file"], 0))
+                             if rec else None),
+            "status": r["status"],
+            "detections": _detection_count(conn, int(r["id"])),
+            "error": (r["error_text"].strip().splitlines()[-1] if r["error_text"] else None),
+            "current_step": r["current_step"],
+            "superseded_at": r["superseded_at"],
+            "started_at": r["started_at"],
+            "finished_at": r["finished_at"],
+            "span": [int(r["span_start"]), int(r["span_end"])],
+        })
+    return _status_of(channels, run_group_id, len(members) - len(real))
+
+
+def _status_of(channels, run_group_id, n_surrogates):
+    channels.sort(key=lambda c: (c["channel"] if c["channel"] is not None else -1, c["run_id"]))
+    done = sum(1 for c in channels if c["status"] == "completed")
+    failed = [c for c in channels if c["status"] == "failed"]
+    if channels and all(c["superseded_at"] for c in channels):
+        status = "superseded"
+    elif failed:
+        status = "failed"
+    elif channels and done == len(channels):
+        status = "completed"
+    elif any(c["status"] == "running" for c in channels):
+        status = "running"
+    else:
+        status = "queued"
+    return {"run_group_id": (int(run_group_id) if run_group_id is not None else None),
+            "run_ids": [c["run_id"] for c in channels], "channels": channels, "done": done,
+            "total": len(channels), "status": status, "n_surrogates": n_surrogates,
             "progress": (done / len(channels)) if channels else 0.0}
 
 
