@@ -37,7 +37,8 @@ commit ends with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Tes
    envelope over ±2 lengths, as Review's context card gets it)}`; `POST /api/explore/span-edit/{detection_id}
    {start_idx, end_idx, note}` → for a member: `revisions.add_revision` and returns the new revision; otherwise:
    inserts the annotation (`Working/database/queries.insert_annotation`, source `review-span-edit`, the item's
-   verdict, or `seed` if it has none) and returns it. Refuses a span outside the channel, shorter than two samples,
+   verdict, or **`interesting` if it has none** — the researcher, 2026-10-19: an unjudged correction saves
+   `interesting`, not `seed`) and returns it. Refuses a span outside the channel, shorter than two samples,
    or on a held-out recording.
 2. **Client:** `explore/SpanEditPage.tsx` reads the live route (delete the demo path and the fixture entry), draws
    the trace with the band and handles (reuse `SpanView`'s band and the `TimeRange` chip pattern, or the existing

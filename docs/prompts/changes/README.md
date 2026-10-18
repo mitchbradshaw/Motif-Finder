@@ -16,7 +16,12 @@ A single feature was taking up to six hours, most of it the full pytest suite an
   failure SET against the last good baseline. A regression found there is fixed the next morning, not at midnight.
 - **The critic** reviews every prompt-sized change; a change under about forty lines done directly by the manager
   skips it.
-- `CLAUDE.md`'s "UI gate" section is updated to say the same (pending the researcher's confirmation of Q42).
+- `CLAUDE.md`'s "UI gate" section says the same (the researcher confirmed Q42 on 2026-10-19).
+
+**Demo day is 2026-10-21** (the researcher, 2026-10-19). Everything outstanding is meant to land by then; from
+2026-10-20 evening nothing merges without the daily full walk being clean against the recorded baseline.
+The researcher also confirmed Q43 (interval colouring rule (c)), Q44 (gauge: green interesting + seed, red
+not-interesting + artifact, grey unsure) and Q46 (F2B included), so the three prompts' "assumed" lines are decisions.
 
 ## Order and dependencies
 
@@ -36,6 +41,7 @@ A single feature was taking up to six hours, most of it the full pytest suite an
 | 11 | `library-family-actions.md` — pick a trace; cluster → slideshow in place; the rose reference | M | — | ready |
 | 12 | `datasets-derive.md` — MJu26a_fs10 as L_LM's parent; CO, LM, SH, SO, F2B, L_R_Aug_26_PD_raw into derived | M | manager runs the scripts | ready (L_R rate must be read or stated) |
 | 13 | `polish-pass.md` — less grey, fewer warnings, one palette, the add-block "about" card | L, one commit per page | 6, 7, 10 merged | ready |
+| 14 | `corpus-map-off-the-request.md` — the home page serves its last map at once; the recompute runs in a worker process (speed second pass, item 1) | M | AR merged | running (WEBSITE CHANGES session, 2026-10-19) |
 
 **AR (the speed pass) merged 2026-10-18 as 5a20070** — the "AR merged" dependencies above are satisfied; base on
 5a20070 or later. A second session ("Prompt manager and examiner") runs these prompts; the two sessions agreed on
