@@ -5,7 +5,10 @@
 .lib-h { font-size: 13px; font-weight: 600; }
 
 /* grouping bar */
-.lib-gbar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; min-height: 47px; flex-wrap: nowrap; overflow: hidden; }
+/* ux-1018: the bar wraps instead of clipping — with `nowrap; overflow: hidden` its last child, Edit grouping, was cut
+ * off on the Family page whenever the chips and the unit control filled the row (the researcher, 2026-10-18) */
+.lib-gbar { display: flex; align-items: center; gap: 8px; row-gap: 6px; padding: 8px 10px; min-height: 47px; flex-wrap: wrap; overflow: visible; }
+.lib-gbar > .k-btn:last-child { margin-left: auto; }
 .lib-gbar[aria-disabled=true] { pointer-events: none; }
 .lib-basis-chip { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: 7px; border: 0; background: var(--blue-100); color: var(--blue-600); font-family: var(--font-mono); font-size: 11px; white-space: nowrap; cursor: pointer; flex: none; }
 .lib-basis-chip b { font-weight: 600; }
