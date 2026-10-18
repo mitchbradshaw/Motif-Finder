@@ -1505,8 +1505,12 @@ export interface LibGroupingTree {
   reason: string | null
   /** a regroup at this grouping's own settings would keep a tree */
   canBuild: boolean
+  /** ux-1018: false when the tree is one a regroup job built by `key` and no save has recorded yet */
+  saved?: boolean
 }
-export const getLibraryGroupingTree = (id: string) => req<LibGroupingTree>(`/api/library/groupings/${encodeURIComponent(id)}/tree`)
+/** ux-1018: `key` draws the tree a regroup job just built for this grouping's settings, before Apply saves it */
+export const getLibraryGroupingTree = (id: string, key?: string | null) =>
+  req<LibGroupingTree>(`/api/library/groupings/${encodeURIComponent(id)}/tree${key ? `?key=${encodeURIComponent(key)}` : ''}`)
 export interface LibCutSample { ref: number; trace: number[]; recording: string | null; channel?: string | null; startIdx?: number; endIdx?: number; missing?: string }
 export interface LibCutFamily { id: number; label: string; size: number; medoid: number; medoidDistance: number; flags: LibFamilyFlags; samples: LibCutSample[] }
 export interface LibCutPreview {
@@ -1517,7 +1521,7 @@ export interface LibCutPreview {
   change: { moved: number; newlyOmitted: number; newlyAssigned: number; currentFamilies: number; sameFamilies: boolean; rule: string }
   params: Record<string, unknown>; elapsedMs: number
 }
-export const getLibraryGroupingCut = (id: string, cut: number, opts: { min_group?: number; omit_d?: number; samples?: number } = {}) =>
+export const getLibraryGroupingCut = (id: string, cut: number, opts: { min_group?: number; omit_d?: number; samples?: number; key?: string } = {}) =>
   req<LibCutPreview>(`/api/library/groupings/${encodeURIComponent(id)}/cut${dq({ cut, ...opts })}`)
 
 /** fixup-AL: *Send this one to Review* from Discovery's browser. The detections go to the session's ONE picked

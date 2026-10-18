@@ -143,6 +143,28 @@ def test_a_grouping_made_before_trees_were_kept_says_so_and_offers_to_build_one(
     assert r.status_code == 404 and "tree" in r.text
 
 
+def test_a_built_tree_is_drawn_and_cut_by_its_key_before_it_is_saved(lib):
+    """ux-1018: Build the tree ran the regroup job and nothing on the page changed — the panel read the grouping
+    row, which records no tree until Apply saves a new grouping. The tree and cut routes take the job's `key` and
+    serve that tree for the row's own settings, marked unsaved; a key this server never wrote is a 404."""
+    client, ctx = lib
+    gid = f"g-{ctx['gid']:02d}"
+    key = _run(client, WARD_BODY)["tree"]["key"]
+    body = _ok(client.get(f"/api/library/groupings/{gid}/tree", params={"key": key}))
+    assert body["tree"] and body["tree"]["key"] == key and body["reason"] is None
+    assert body["saved"] is False and body["canBuild"] is False
+    assert body["tree"]["dendrogram"]["n_leaves"] == 5
+    cut = _ok(client.get(f"/api/library/groupings/{gid}/cut", params={"cut": 0.6, "key": key}))
+    assert cut["key"] == key and cut["nFamilies"] >= 1
+    # without the key the row still has no tree: nothing was written by drawing it
+    plain = _ok(client.get(f"/api/library/groupings/{gid}/tree"))
+    assert plain["tree"] is None and plain["saved"] is True
+    r = client.get(f"/api/library/groupings/{gid}/tree", params={"key": "deadbeef" * 4})
+    assert r.status_code == 404, r.text[:200]
+    r = client.get(f"/api/library/groupings/{gid}/tree", params={"key": "../../DATA/db/annotations"})
+    assert r.status_code == 422, r.text[:200]
+
+
 def test_a_feature_bin_grouping_has_no_tree_and_says_why(lib):
     client, _ = lib
     result = _run(client, {"unit": "motifs", "basis": "amplitude", "method": "feature_bins",

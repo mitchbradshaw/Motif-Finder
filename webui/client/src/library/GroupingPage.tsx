@@ -435,6 +435,10 @@ function GroupingEditor({ from }: { from: string }) {
   /* the tree panel draws the CURRENT grouping's kept tree, when it is a Ward grouping of this unit and the draft is Ward */
   const currentMethod = (current as (Grouping & { method?: string | null }) | undefined)?.method ?? 'ward'
   const treeGid = current && current.unit === d.unit && wardDraft && currentMethod === 'ward' && DISTANCE_BASES.includes(current.basis) ? current.id : null
+  /* ux-1018: the tree the last regroup job built for the current grouping's settings, drawn in the panel before Apply
+   * saves it (Build the tree is that job; its result carries the key the server wrote) */
+  const built = job.view.result
+  const builtKey = built?.tree?.key && current && built.unit === current.unit && built.basis === current.basis && built.method === 'ward' ? built.tree.key : null
   // fix 1 (critic 12): a refusal describes the settings it refused; once they change it is stale, so it goes
   useEffect(() => { if (job.view.refusal && job.view.refusalSig !== sig) job.clearRefusal() }, [sig, job.view.refusal, job.view.refusalSig]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -563,7 +567,7 @@ function GroupingEditor({ from }: { from: string }) {
       {editor.data && basis && <>
         {treeGid && (
           <TreePanel gid={treeGid} cut={d.cut} minGroup={d.minMembers} omitSmall={d.omitSmall} nearest={d.nearest}
-            onCut={c => set({ cut: c })} busy={busy} onBuild={() => runPreview()} />
+            onCut={c => set({ cut: c })} busy={busy} onBuild={() => runPreview()} builtKey={builtKey} />
         )}
         <section className="lib-ge-sec" data-testid="ge-unit">
           <h4>1&nbsp; What to group</h4>
@@ -695,19 +699,23 @@ function GroupingEditor({ from }: { from: string }) {
  * when the catalogue and the fit settings have not changed. */
 const MAX_TREE_CARDS = 40
 
-function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onBuild, busy }: {
+function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onBuild, busy, builtKey }: {
   gid: string; cut: number; minGroup: number; omitSmall: boolean; nearest: number
   onCut: (c: number) => void; onBuild: () => void; busy: boolean
+  /** ux-1018: the tree the regroup job just built for this grouping's settings — drawn and cut by its key until
+   *  Apply saves it. Build the tree used to run the job and change nothing here, because the panel read only the
+   *  row, which records no tree until a save (the researcher, 2026-10-18: "build the tree not working"). */
+  builtKey: string | null
 }) {
   const [tree, setTree] = useState<LibGroupingTree | null>(null)
   const [treeErr, setTreeErr] = useState<string | null>(null)
   useEffect(() => {
     let alive = true
     setTree(null); setTreeErr(null)
-    getLibraryGroupingTree(gid).then(t => { if (alive) setTree(t) })
+    getLibraryGroupingTree(gid, builtKey).then(t => { if (alive) setTree(t) })
       .catch(e => { if (alive) { console.error('the grouping tree did not load', e); setTreeErr(errText(e)) } })
     return () => { alive = false }
-  }, [gid])
+  }, [gid, builtKey])
   const has = !!tree?.tree
   const [pv, setPv] = useState<LibCutPreview | null>(null)
   const [pvErr, setPvErr] = useState<string | null>(null)
@@ -721,14 +729,14 @@ function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onBuild, bus
     if (!has || !(cut > 0)) return
     const go = () => {
       inFlight.current = true
-      getLibraryGroupingCut(gid, cut, { min_group: omitSmall ? minGroup : 1, omit_d: nearest, samples: 5 })
+      getLibraryGroupingCut(gid, cut, { min_group: omitSmall ? minGroup : 1, omit_d: nearest, samples: 5, ...(builtKey ? { key: builtKey } : {}) })
         .then(p => { if (mounted.current) { setPv(p); setPvErr(null) } })
         .catch(e => { console.error('the cut preview failed', e); if (mounted.current) setPvErr(errText(e)) })
         .finally(() => { inFlight.current = false; const next = pending.current; pending.current = null; if (next) next() })
     }
     const h = window.setTimeout(() => { if (inFlight.current) pending.current = go; else go() }, 180)
     return () => window.clearTimeout(h)
-  }, [gid, has, cut, minGroup, omitSmall, nearest])
+  }, [gid, has, cut, minGroup, omitSmall, nearest, builtKey])
 
   const head = (
     <h4 className="row" style={{ gap: 6 }}>0&nbsp; The tree behind {gid}
@@ -750,8 +758,13 @@ function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onBuild, bus
   const d = tree.tree.dendrogram
   const k = kAt(d.heights, cut)
   return (
-    <section className="lib-ge-sec" data-testid="ge-tree" data-key={tree.tree.key}>
+    <section className="lib-ge-sec" data-testid="ge-tree" data-key={tree.tree.key} data-saved={tree.saved === false ? '0' : '1'}>
       {head}
+      {tree.saved === false && (
+        <span className="mono small" style={{ color: 'var(--blue-600)' }} data-testid="tree-unsaved">
+          <Icon name="info" size={11} style={{ verticalAlign: -1 }} /> built by the regroup just run and kept on disk — not saved to {gid}. Apply saves it with the new grouping; {gid} stays as it is.
+        </span>
+      )}
       <span className="lib-cap">Drag the amber line to cut the tree somewhere else; the families below follow at once, read from the kept tree.</span>
       <Dendrogram t={{ dendrogram: d }} k={k} cutHeight={cut} leafWord="members" heightScale="sqrt"
         cutLabel={`cut ${fmtCut(cut)} · ${k} branch${k === 1 ? '' : 'es'} before the size and distance rules · drag`}

@@ -2836,6 +2836,30 @@ def _tree_state(row) -> tuple:
     return t, path, None, True
 
 
+def _tree_from_key(rt, key, row) -> tuple:
+    """ux-1018: `(tree, path)` for a tree the regroup job built for this grouping's settings but no save has
+    recorded yet — *Build the tree* before *Apply*. The panel draws and cuts it by the job's key, so the click
+    shows something; the row is untouched until Apply saves a new grouping. A malformed key is a 422, a key this
+    server never wrote a 404, a tree fitted for other settings a 422 that says which."""
+    if not isinstance(key, str) or not _TREE_KEY.match(key):
+        raise HTTPException(status_code=422, detail=f"{key!r} is not a grouping tree key (32 hex characters)")
+    path = tree_mod.path_for(_tree_root(rt), key)
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail=(f"no grouping tree {key} under this bridge's tree store: run "
+                                                     f"the grouping again to build it"))
+    try:
+        t = _tree_only(path)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    if t.key != key:
+        raise HTTPException(status_code=422, detail=f"the file under key {key} holds the tree of key {t.key}")
+    if (t.unit, t.basis, t.method) != (row["unit"], row["basis"], row["method"]):
+        raise HTTPException(status_code=422, detail=(
+            f"the tree {key} was fitted for {t.unit} · {t.basis} · {t.method}, not for this grouping's "
+            f"{row['unit']} · {row['basis']} · {row['method']}"))
+    return t, path
+
+
 def _grouping_or_404(conn, grouping_id):
     row = _grouping_row(conn, grouping_id)
     if row is None:
@@ -2844,17 +2868,23 @@ def _grouping_or_404(conn, grouping_id):
 
 
 @router.get("/groupings/{grouping_id}/tree")
-def get_grouping_tree(request: Request, grouping_id: str, leaves: int = Query(default=tree_mod.DEFAULT_DENDROGRAM_LEAVES)):
-    """`{groupingId, method, cut, tree: {key, path, nLeaves, dendrogram} | null, reason, canBuild}` — the kept
+def get_grouping_tree(request: Request, grouping_id: str, leaves: int = Query(default=tree_mod.DEFAULT_DENDROGRAM_LEAVES),
+                      key: str | None = Query(default=None)):
+    """`{groupingId, method, cut, tree: {key, path, nLeaves, dendrogram} | null, reason, canBuild, saved}` — the kept
     tree drawn as the dendrogram (`TreePage.tsx`'s payload: icoord / dcoord, the last `leaves` merges, every
     merge height high to low). A grouping with no tree says why in `reason`, and `canBuild` says whether a
-    regroup at its own settings would keep one."""
+    regroup at its own settings would keep one. ux-1018: `key` draws instead the tree a regroup job just built
+    for this grouping's settings (`_tree_from_key`), before any save records it — `saved` is then false."""
     conn = _conn(request)
     try:
         row = _grouping_or_404(conn, grouping_id)
     finally:
         conn.close()
-    t, path, reason, can_build = _tree_state(row)
+    if key:
+        t, path = _tree_from_key(_rt(request), key, row)
+        reason, can_build = None, False
+    else:
+        t, path, reason, can_build = _tree_state(row)
     tree = None
     if t is not None:
         d = tree_mod.dendrogram(t, leaves=max(2, min(200, int(leaves))))
@@ -2864,7 +2894,8 @@ def get_grouping_tree(request: Request, grouping_id: str, leaves: int = Query(de
     return {"groupingId": gid_str(row["id"]), "method": row["method"], "basis": row["basis"],
             "unit": UNIT_TO_CLIENT.get(row["unit"], "motifs"),
             "cut": row["cut"] if row["cut"] is not None else params.get("cut"),
-            "params": params, "tree": tree, "reason": reason, "canBuild": bool(can_build and t is None)}
+            "params": params, "tree": tree, "reason": reason, "canBuild": bool(can_build and t is None),
+            "saved": not key}
 
 
 def _sample_cards(conn, index, unit_db, refs) -> dict:
@@ -2890,7 +2921,7 @@ def _sample_cards(conn, index, unit_db, refs) -> dict:
 @router.get("/groupings/{grouping_id}/cut")
 def get_grouping_cut(request: Request, grouping_id: str, cut: float = Query(...),
                      min_group: int | None = Query(default=None), omit_d: float | None = Query(default=None),
-                     samples: int = Query(default=engine_mod.DEFAULT_SAMPLES)):
+                     samples: int = Query(default=engine_mod.DEFAULT_SAMPLES), key: str | None = Query(default=None)):
     """The families at `cut`, read from this grouping's kept tree — no job, nothing refitted, nothing written
     (`engine.cut_preview`). `min_group` and `omit_d` default to the grouping's own. Against this grouping's own
     assignments it counts the members that move (`change.rule`); each family carries a few sample members with
@@ -2901,9 +2932,12 @@ def get_grouping_cut(request: Request, grouping_id: str, cut: float = Query(...)
     conn = _conn(request)
     try:
         row = _grouping_or_404(conn, grouping_id)
-        t, path, reason, _ = _tree_state(row)
-        if t is None:
-            raise HTTPException(status_code=404, detail=f"{gid_str(row['id'])} has no tree to cut: {reason}")
+        if key:
+            t, path = _tree_from_key(_rt(request), key, row)     # ux-1018: the tree a job built, not yet saved
+        else:
+            t, path, reason, _ = _tree_state(row)
+            if t is None:
+                raise HTTPException(status_code=404, detail=f"{gid_str(row['id'])} has no tree to cut: {reason}")
         params = {k: v for k, v in json.loads(row["params_json"] or "{}").items()
                   if k in tree_mod.ASSIGN_ONLY_PARAMS}
         if min_group is not None:
