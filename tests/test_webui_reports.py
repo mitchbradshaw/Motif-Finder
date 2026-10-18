@@ -93,8 +93,11 @@ def _dist(tmp_path):
     return dist
 
 
-@pytest.fixture
-def client(tmp_path):
+@pytest.fixture(scope="module")
+def _env(tmp_path_factory):
+    """One app and one real Discovery run for the whole file: applying the
+    template is the slow part (a real fan-out with its paired nulls)."""
+    tmp_path = tmp_path_factory.mktemp("reports")
     db = _db(tmp_path)
     rt = Runtime(mode="sandbox", stamp="20261019-reports", db_source=str(db),
                  runtime_root=str(tmp_path / "runtime"), client_dist=str(_dist(tmp_path)))
@@ -105,9 +108,26 @@ def client(tmp_path):
                 "name": "test", "recording": "syn", "channels": CH, "section": [0.0, N / FS / 3600.0],
                 "null": {"method": "phase randomisation", "n": 2}})
             assert r.status_code == 200, r.text
-            yield c
+            r = c.post("/api/discovery/templates/apply",
+                       json={"templates": ["mp_threshold"], "channels": CH, "t0": 0.0, "t1": N / FS / 3600.0})
+            assert r.status_code == 200, r.text
+            out = r.json()[0]
+            if out.get("job_id"):
+                snap = _wait_job(c, out["job_id"])
+                assert snap["status"] == "completed", snap.get("error")
+            yield c, out["run_key"]
     finally:
         rt.restore()
+
+
+@pytest.fixture
+def client(_env):
+    return _env[0]
+
+
+@pytest.fixture
+def run_key(_env):
+    return _env[1]
 
 
 def _wait_job(client, job_id, timeout=300):
@@ -118,18 +138,6 @@ def _wait_job(client, job_id, timeout=300):
             return s
         time.sleep(0.25)
     raise AssertionError(f"job {job_id} did not finish")
-
-
-@pytest.fixture
-def run_key(client):
-    r = client.post("/api/discovery/templates/apply",
-                    json={"templates": ["mp_threshold"], "channels": CH, "t0": 0.0, "t1": N / FS / 3600.0})
-    assert r.status_code == 200, r.text
-    out = r.json()[0]
-    if out.get("job_id"):
-        snap = _wait_job(client, out["job_id"])
-        assert snap["status"] == "completed", snap.get("error")
-    return out["run_key"]
 
 
 def _report(client, key):
@@ -155,7 +163,9 @@ def test_the_markdown_scoreboard_is_the_scoreboard_routes_numbers(client, run_ke
     rep = _report(client, run_key)
     sb = client.get("/api/discovery/scoreboard", params={
         "runs": run_key, "channels": ",".join(CH), "t0": 0.0, "t1": N / FS / 3600.0}).json()[0]
-    lines = rep["markdown"].splitlines()
+    md = rep["markdown"]
+    # the scoreboard's own section: the map's tables above it also have a row per channel
+    lines = md[md.index("## 2. Scoreboard"):md.index("## 3.")].splitlines()
 
     def cells_of(label):
         line = next(ln for ln in lines if ln.startswith(f"| {label} |"))
@@ -210,13 +220,16 @@ def test_an_unknown_run_is_a_404_naming_it(client):
 def test_a_report_on_the_held_out_recording_is_refused(client, run_key):
     conn = sqlite3.connect(client.app.state.rt.db_path)
     try:
-        sid = conn.execute("SELECT MAX(id) FROM discovery_sessions").fetchone()[0]
+        sid, sf, chj = conn.execute("SELECT id, source_file, channels_json FROM discovery_sessions "
+                                    "ORDER BY id DESC LIMIT 1").fetchone()
         conn.execute("UPDATE discovery_sessions SET source_file = ?, channels_json = ? WHERE id = ?",
                      (HELD_OUT_FILE, json.dumps(["CH1"]), sid))
         conn.commit()
+        r = client.get(f"/api/reports/detection-run/{run_key}")
+        assert r.status_code == 423, r.text
+        r = client.post(f"/api/reports/detection-run/{run_key}/snapshot", json={})
+        assert r.status_code == 423, r.text
     finally:
+        conn.execute("UPDATE discovery_sessions SET source_file = ?, channels_json = ? WHERE id = ?", (sf, chj, sid))
+        conn.commit()
         conn.close()
-    r = client.get(f"/api/reports/detection-run/{run_key}")
-    assert r.status_code == 423, r.text
-    r = client.post(f"/api/reports/detection-run/{run_key}/snapshot", json={})
-    assert r.status_code == 423, r.text
