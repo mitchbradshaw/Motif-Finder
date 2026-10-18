@@ -108,8 +108,14 @@ function WhereFires({ dx }: { dx: Discovery }) {
   const [, setRunQ] = useQueryState('run', 'drop_motifs9')
   const [chQ, setChQ] = useQueryState('ch', 'CH4_A2')
   const [, setAt] = useQueryState('at', '')
-  const shown = dx.runs.filter(r => r.kind === 'reference' || hasResults(r) || r.status === 'on cluster' || r.status === 'running')
-  const notShown = dx.runs.filter(r => !shown.includes(r) && r.status !== 'draft')
+  const drawable = dx.runs.filter(r => r.kind === 'reference' || hasResults(r) || r.status === 'on cluster' || r.status === 'running')
+  const notShown = dx.runs.filter(r => !drawable.includes(r) && r.status !== 'draft')
+  /* ux-1019 (the researcher, 2026-10-18): a run is drawn — and read — only once its eye is on; a new session draws
+   * the human row alone. The hidden ones sit on one line under the rows, each a button that turns it on. */
+  const shown = drawable.filter(dx.isShown)
+  const hidden = drawable.filter(r => !dx.isShown(r))
+  const runKeys = drawable.filter(r => r.kind !== 'reference').map(r => r.key)
+  const nDrawn = shown.filter(r => r.kind !== 'reference').length
   /* ux-1018: the card pages with the strips (three channels at a time), and a page turn is now VISIBLE: the old
    * groups dim under a refreshing line until the next page's counts land. The researcher saw "the table still only
    * shows the first three" after paging because the re-read took minutes on the real session (16 channels, 52 runs,
@@ -123,11 +129,14 @@ function WhereFires({ dx }: { dx: Discovery }) {
     <section className="k-card dsc-fires" data-testid="where-fires" aria-label="Where each run fires">
       <div className="dsc-card-head">
         <h3>Where each run fires</h3>
-        <InfoTip title="Where each run fires">Small multiples by channel, one row per run, on one time axis. At section scale a span is thinner than a pixel, so rows show detections per 3 h bin — colour by run, opacity by count. The human row shows reviewed hours as a grey underlay: recall exists only there. With more than three channels the rows page with the strips' arrows; while the next page is being read the old rows dim under a refreshing line.</InfoTip>
+        <InfoTip title="Where each run fires">Small multiples by channel, one row per run, on one time axis. At section scale a span is thinner than a pixel, so rows show detections per 3 h bin — colour by run, opacity by count. The human row shows reviewed hours as a grey underlay: recall exists only there. A run is drawn only once its eye is on — a new session draws the human row alone; the hidden runs wait on the line under the rows (a hollow swatch), and <i>show all</i> / <i>hide all</i> switch every run at once. With more than three channels the rows page with the strips' arrows; while the next page is being read the old rows dim under a refreshing line.</InfoTip>
         <span className="muted small" data-testid="fires-channel-count">{dx.pageCount > 1
           ? `${dx.visibleChannels[0]}–${dx.visibleChannels[dx.visibleChannels.length - 1]} of ${s.channels.length} channels · page with the strips' arrows`
           : (mode === 'spans' ? 'every span in view · grouped by channel' : 'detections per 3 h · grouped by channel')}</span>
         <span className="k-spacer" />
+        <span className="muted small" data-testid="fires-shown-count">{nDrawn} of {runKeys.length} runs drawn</span>
+        <Button size="sm" variant="ghost" icon="eye" testid="fires-show-all" onClick={() => dx.setShown(runKeys)}>show all</Button>
+        <Button size="sm" variant="ghost" icon="eye-off" testid="fires-hide-all" onClick={() => dx.setShown([])}>hide all</Button>
         <Seg size="sm" value={mode} onChange={v => setMode(v)} options={[{ value: 'density', label: 'density' }, { value: 'spans', label: 'spans' }]} testid="fires-mode" />
         {/* the detection map (2026-10-12): the same rows as columns of channels and datasets, every session — where overall, not when */}
         <Button size="sm" variant="link" icon="grid" onClick={() => navigate(`discovery/map?dataset=${encodeURIComponent(s.recording)}`)} testid="open-map">Open the map</Button>
@@ -158,7 +167,11 @@ function WhereFires({ dx }: { dx: Discovery }) {
                   const isHuman = run.kind === 'reference'
                   return (
                     <div key={row.run} className="dsc-fires-row">
-                      <span className="dsc-fires-label"><i className="sw" style={{ background: run.colour }} />{isHuman ? 'human' : run.label}</span>
+                      <span className="dsc-fires-label">
+                        {isHuman ? <i className="sw" style={{ background: run.colour }} />
+                          : <button type="button" className="dsc-fires-eye" onClick={() => dx.toggleShown(run.key)} title={`hide ${run.label}`} aria-label={`hide ${run.label}`} aria-pressed data-testid={`fires-eye-${run.key}`} data-shown="1">
+                              <i className="sw" style={{ background: run.colour }} /><Icon name="eye" size={10} /></button>}
+                        {isHuman ? 'human' : run.label}</span>
                       <div className="dsc-fires-cells">
                         <FiresCells data={fires.data!} channel={ch.channel} counts={row.counts} reviewed={isHuman ? ch.reviewed : null} colour={run.colour} mode={mode} unfinishedFrom={row.unfinishedFrom}
                           label={isHuman ? 'human' : run.label} onCell={(bin) => { if (isHuman) return; setRunQ(run.key); setChQ(ch.channel); setAt(String(bin * fires.data!.binH)) }} />
@@ -177,6 +190,16 @@ function WhereFires({ dx }: { dx: Discovery }) {
           </div>
           <div className="dsc-fires-axis mono">{ticks.map((t, i) => <span key={i} style={{ left: `calc(${(i / 6) * 100}%)` }}>{i === 0 || i === 6 ? `${t} h` : t}</span>)}</div>
           {notShown.length > 0 && <div className="muted small dsc-fires-foot">not drawn: {notShown.map(r => `${r.label} (${r.status === 'paused' ? `paused ${r.pausedAt?.stage}/${r.pausedAt?.of}` : r.status})`).join(' · ')} — nothing to draw in this section</div>}
+        </div>
+      )}
+      {hidden.length > 0 && (
+        <div className="dsc-fires-hidden small" data-testid="fires-hidden">
+          <span className="muted">{nDrawn ? 'hidden' : 'no run drawn yet · press a run to draw it'}:</span>
+          {hidden.map(r => (
+            <button key={r.key} type="button" className="dsc-fires-eye off" onClick={() => dx.toggleShown(r.key)} title={`draw ${r.label}`} aria-label={`draw ${r.label}`} aria-pressed={false} data-testid={`fires-eye-${r.key}`} data-shown="0">
+              <i className="sw" style={{ borderColor: r.colour }} /><Icon name="eye-off" size={10} />{r.label}
+            </button>
+          ))}
         </div>
       )}
     </section>

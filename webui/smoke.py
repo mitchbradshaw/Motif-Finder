@@ -770,6 +770,10 @@ class Smoke:
         self.evidence["discovery_strip_paths"] = strips
         self.check(len(strips) >= 1 and max(strips or [0]) > 200,
                    f"the scope strips painted real overviews (path lengths {strips})")
+        # ux-1019: runs are hidden in where-each-run-fires until their eye is on; turn every run on first
+        if page.locator('[data-testid="fires-show-all"]').count():
+            page.locator('[data-testid="fires-show-all"]').click()
+            page.wait_for_timeout(1500)
         cells = page.locator('[data-testid="fires-cell"]').count()
         self.evidence["discovery_fires_cells"] = cells
         self.check(cells > 0, f"where-each-run-fires painted {cells} bins")

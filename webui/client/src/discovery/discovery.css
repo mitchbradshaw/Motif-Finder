@@ -128,6 +128,12 @@
 .dsc-fires-axis span { position: absolute; top: 3px; transform: translateX(-50%); white-space: nowrap; }
 .dsc-fires-axis span:first-child { transform: none; } .dsc-fires-axis span:last-child { transform: translateX(-100%); }
 .dsc-fires-foot { font-family: var(--font-mono); }
+/* ux-1019: the eye per run — a filled swatch when the run is drawn, a hollow one when it waits on the hidden line */
+.dsc-fires-eye { display: inline-flex; align-items: center; gap: 3px; padding: 0 2px; border: 0; background: none; cursor: pointer; color: var(--muted); font: inherit; flex: none; }
+.dsc-fires-eye:hover { color: var(--text); }
+.dsc-fires-eye .sw { width: 7px; height: 7px; display: inline-block; border-radius: 1.5px; flex: none; }
+.dsc-fires-eye.off .sw { background: transparent; border: 1.5px solid; box-sizing: border-box; }
+.dsc-fires-hidden { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 4px 14px 8px; font-family: var(--font-mono); font-size: 10px; }
 .dsc-ramp { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono); color: var(--muted); }
 
 /* scoreboard */
