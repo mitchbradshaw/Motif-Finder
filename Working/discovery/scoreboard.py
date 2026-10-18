@@ -65,7 +65,7 @@ from Working.database import runs as _runs
 from Working.discovery import divergence as _div
 from Working.discovery.channels import channel_name
 from Working.discovery.matching import match_span_sets, normalise_rule, rule_from_settings
-from Working.discovery.spans import absolute_bounds, clip, contains, merged, total_length
+from Working.discovery.spans import absolute_bounds, clip, contains, merged, stored_start_ranges, total_length
 
 #: A detection counts as reviewed when its onset falls inside the reviewed
 #: coverage. Stated on every row rather than left implicit.
@@ -86,10 +86,21 @@ def _run_row(conn, run_id):
     return row
 
 
-def _detections(conn, run_id, span_start):
-    rows = conn.execute(
-        "SELECT id, start_idx, end_idx, score FROM detections WHERE run_id = ? ORDER BY start_idx, id",
-        (int(run_id),)).fetchall()
+def _detections(conn, run_id, span_start, within=None):
+    """The run's detections, channel-absolute and ordered by onset; ``within``
+    ``(lo, hi)`` keeps the ones whose onset lies in it, asked of SQL on
+    ``(run_id, start_idx)`` rather than fetched whole and filtered here — a
+    4-hour section of a 721-hour run fetched every row (perf, 2026-10-18)."""
+    if within is None:
+        rows = conn.execute(
+            "SELECT id, start_idx, end_idx, score FROM detections WHERE run_id = ? ORDER BY start_idx, id",
+            (int(run_id),)).fetchall()
+    else:
+        rows = []
+        for a, b in stored_start_ranges(span_start, *within):
+            rows += conn.execute(
+                "SELECT id, start_idx, end_idx, score FROM detections WHERE run_id = ? AND start_idx >= ? "
+                "AND start_idx < ?", (int(run_id), a, b)).fetchall()
     out = []
     for r in rows:
         a, b = absolute_bounds(r["start_idx"], r["end_idx"], span_start)
@@ -97,6 +108,14 @@ def _detections(conn, run_id, span_start):
                     "score": (float(r["score"]) if r["score"] is not None else None)})
     out.sort(key=lambda d: (d["start"], d["id"]))
     return out
+
+
+def _count_in(conn, run_id, span_start, lo, hi):
+    """How many of the run's detections have their channel-absolute onset in
+    ``[lo, hi)`` — a null draw's count, which is all *null expects* reads of it."""
+    return sum(conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ? AND start_idx >= ? AND start_idx < ?",
+                            (int(run_id), a, b)).fetchone()[0]
+               for a, b in stored_start_ranges(span_start, lo, hi))
 
 
 def annotations(conn, recording_id):
@@ -125,11 +144,17 @@ def _reviewed_coverage(conn, recording_id, span_start, span_end):
 
 def _prior_adjudicated(conn, recording_id, started_at):
     """Spans on this recording that carried an adjudication before `started_at`
-    — a verdict given on some earlier run's detection of the same place."""
+    — a verdict given on some earlier run's detection of the same place.
+
+    CROSS JOIN keeps SQLite starting from the few adjudications: left to plan
+    it, it started from the channel's runs and walked every detection on the
+    channel to find them (21 s of a 66 s scoreboard, perf 2026-10-18), as
+    `_read_channel_rows` already says. The order is stated because the
+    pairing breaks ties by reference index; it is the order the walk gave."""
     rows = conn.execute(
         "SELECT d.start_idx, d.end_idx, r.span_start FROM adjudications a "
-        "JOIN detections d ON d.id = a.detection_id JOIN runs r ON r.id = d.run_id "
-        "WHERE r.recording_id = ? AND a.created_at < ?",
+        "CROSS JOIN detections d ON d.id = a.detection_id CROSS JOIN runs r ON r.id = d.run_id "
+        "WHERE r.recording_id = ? AND a.created_at < ? ORDER BY d.run_id, d.id",
         (int(recording_id), str(started_at or ""))).fetchall()
     return [absolute_bounds(r["start_idx"], r["end_idx"], r["span_start"]) for r in rows]
 
@@ -212,7 +237,7 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
                               "this run does not reach the section on screen")
     fs = float(rec["fs"]) if rec and rec["fs"] else 1.0
 
-    dets = [d for d in _detections(conn, run_id, int(run["span_start"]))
+    dets = [d for d in _detections(conn, run_id, int(run["span_start"]), within=(span_start, span_end))
             if span_start <= d["start"] < span_end]
     anns = [a for a in _annotations(conn, run["recording_id"]) if span_start <= a["start"] < span_end]
     coverage = _reviewed_coverage(conn, run["recording_id"], span_start, span_end)
@@ -295,8 +320,7 @@ def channel_score(conn, run_id, *, rule=None, null_run_id=None, span=None):
         counts = []
         for nid in null_ids:
             null_row = _run_row(conn, nid)
-            counts.append(sum(1 for d in _detections(conn, nid, int(null_row["span_start"]))
-                              if span_start <= d["start"] < span_end))
+            counts.append(_count_in(conn, nid, int(null_row["span_start"]), span_start, span_end))
         null_draws = len(counts)
         null_expects = sum(counts) / float(null_draws)
         null_expects = int(null_expects) if float(null_expects).is_integer() else round(null_expects, 2)

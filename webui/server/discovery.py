@@ -51,7 +51,7 @@ from Working.discovery import divergence as DIV
 from Working.discovery import fanout, seed_job, seeded_search
 from Working.discovery import scoreboard as SB
 from Working.discovery.matching import match_span_sets, rule_from_settings
-from Working.discovery.spans import absolute_bounds, clip, merged, total_length
+from Working.discovery.spans import absolute_bounds, clip, merged, stored_start_ranges, total_length
 from Working.review import queues as queues_mod
 
 from . import corpus
@@ -664,14 +664,16 @@ def _last_score(conn, template_name, memo=None):
 
 
 def warm_last_scores(db_path):
-    """The two reads a fresh bridge is first asked for, computed once into
-    their caches: the home page's corpus map (`corpus.warm_coverage`, the
-    M2_aug map first, ~10 s cold under load) and every detection template's
-    last score, so the picker's first open answers from
-    `SB.score_runs_cached` instead of rescoring (~6 s cold; 0.1 s warm).
-    Started in the background by `run_server.py`, never by `create_app`, so a
-    test's app never has a thread reading its database behind it. A failure
-    is logged and costs only the warm start: both read on demand as before."""
+    """The reads a fresh bridge is first asked for, computed once into
+    their caches: the open Discovery session's scoreboard first (every
+    Discovery tab opens on it; seconds, perf 2026-10-18), the home page's
+    corpus map (`corpus.warm_coverage`, the M2_aug map first, ~10 s cold under
+    load) and every detection template's last score, so the picker's first
+    open answers from `SB.score_runs_cached` instead of rescoring (~6 s cold;
+    0.1 s warm). Started in the background by `run_server.py`, never by
+    `create_app`, so a test's app never has a thread reading its database
+    behind it. A failure is logged and costs only the warm start: each reads
+    on demand as before."""
     from Working.database.schema import init_db
     from . import templates as T
     log = logging.getLogger("webui.discovery")
@@ -679,6 +681,13 @@ def warm_last_scores(db_path):
         init_db(db_path).close()
         c = corpus.connect(db_path)
         try:
+            try:
+                t0 = time.perf_counter()
+                n = warm_session_scoreboard(c)
+                log.info("session scoreboard warmed (%d runs, %.1f s)", n, time.perf_counter() - t0)
+            except Exception:
+                # a session on the held-out file while it is locked refuses here, as its page does
+                log.exception("warming the session's scoreboard failed; it will score on demand")
             t0 = time.perf_counter()
             files = corpus.warm_coverage(c, first="M2_aug_concat_fs1.mat")
             log.info("corpus maps warmed (%d files, %.1f s)", len(files), time.perf_counter() - t0)
@@ -783,11 +792,26 @@ def _run_detections(conn, run_ids, recording_id, span):
     if not run_ids:
         return []
     marks = ",".join(str(int(i)) for i in run_ids)
-    rows = conn.execute(
-        "SELECT d.id, d.start_idx, d.end_idx, d.score, r.span_start, r.id AS run_id FROM detections d "
-        "JOIN runs r ON r.id = d.run_id WHERE r.id IN (" + marks + ") AND r.recording_id = ? "
-        "AND " + q.not_surrogate("r") + " ORDER BY d.start_idx",
-        (int(recording_id),)).fetchall()
+    if not span:
+        rows = conn.execute(
+            "SELECT d.id, d.start_idx, d.end_idx, d.score, r.span_start, r.id AS run_id FROM detections d "
+            "JOIN runs r ON r.id = d.run_id WHERE r.id IN (" + marks + ") AND r.recording_id = ? "
+            "AND " + q.not_surrogate("r") + " ORDER BY d.start_idx",
+            (int(recording_id),)).fetchall()
+    else:
+        # the section's rows only, asked of SQL on (run_id, start_idx): the fires grid read every row of all 46
+        # runs on each channel to histogram four hours (3-4 s per Runs-tab open, perf 2026-10-18). Ordered as
+        # the one ORDER BY d.start_idx walked them: by stored onset, then run, then row.
+        rows = []
+        for r in conn.execute("SELECT r.id, r.span_start FROM runs r WHERE r.id IN (" + marks + ") "
+                              "AND r.recording_id = ? AND " + q.not_surrogate("r") + " ORDER BY r.id",
+                              (int(recording_id),)).fetchall():
+            for a, b in stored_start_ranges(r["span_start"], span[0], span[1]):
+                rows += conn.execute(
+                    "SELECT id, start_idx, end_idx, score, ? AS span_start, run_id FROM detections "
+                    "WHERE run_id = ? AND start_idx >= ? AND start_idx < ?",
+                    (int(r["span_start"]), int(r["id"]), a, b)).fetchall()
+        rows.sort(key=lambda r: (r["start_idx"], r["run_id"], r["id"]))
     out = []
     for r in rows:
         a, b = absolute_bounds(r["start_idx"], r["end_idx"], r["span_start"])
@@ -989,6 +1013,41 @@ def _score_row(row):
     }
 
 
+def _section_samples(t0, t1, fs):
+    """The section the page sends (hours) in samples: the scoreboard's cache key, so the warm states it once."""
+    return (int(round(t0 * 3600 * fs)), int(round(t1 * 3600 * fs)))
+
+
+def _in_scope(conn, run_ids, recording_ids):
+    """The runs of a Discovery run on the scope's channels, in their order. A run over M2_aug is 16 channel runs,
+    and scoring the 13 a 3-channel scope does not show, to drop their rows, was most of a 66 s scoreboard (perf,
+    2026-10-18)."""
+    marks = ",".join(str(int(i)) for i in run_ids)
+    on = {int(r[0]) for r in conn.execute(f"SELECT id FROM runs WHERE id IN ({marks}) AND recording_id IN "
+                                          f"({','.join(str(int(w)) for w in recording_ids)})")}
+    return [i for i in run_ids if int(i) in on]
+
+
+def warm_session_scoreboard(conn):
+    """The open session's scoreboard, scored into `SB.score_runs_cached` under the key `get_scoreboard` reads
+    it by — the first read of every Discovery tab. The section goes through the hours the page holds
+    (`_session_payload`), as the request does. Returns how many Discovery runs were scored."""
+    s = _session_row(conn)
+    if s is None:
+        return 0
+    key = _stem(s["source_file"])
+    fs = _file_for_key(conn, key)["fs"]
+    wanted = {ch["id"] for ch in _ids_for(conn, key, json.loads(s["channels_json"]))}
+    span = _section_samples(int(s["span_start"]) / fs / 3600.0, int(s["span_end"]) / fs / 3600.0, fs)
+    rule, memo, n = rule_from_settings(conn), {}, 0
+    for dr in _discovery_runs(conn, s["id"]):
+        ids = _run_ids(conn, dr)
+        if ids and not dr["superseded_at"]:
+            SB.score_runs_cached(conn, _in_scope(conn, ids, wanted), rule=rule, span=span, memo=memo, copy_out=False)
+            n += 1
+    return n
+
+
 @router.get("/api/discovery/scoreboard")
 def get_scoreboard(request: Request, runs: str = "", channels: str = "", t0: float = 0.0, t1: float = 0.0):
     c = _conn(request)
@@ -997,8 +1056,10 @@ def get_scoreboard(request: Request, runs: str = "", channels: str = "", t0: flo
         fs = rec["fs"]
         names = _split(channels) or json.loads(s["channels_json"])
         chans = _ids_for(c, _stem(s["source_file"]), names)
-        span = (int(round(t0 * 3600 * fs)), int(round(t1 * 3600 * fs)))
+        span = _section_samples(t0, t1, fs)
         rule = rule_from_settings(c)
+        wanted = {ch["id"] for ch in chans}
+        memo = {}      # one read of each channel's rows for every run's fingerprint (SB.inputs_fingerprint)
         out = []
         for key in _split(runs):
             if key == "human":
@@ -1007,8 +1068,7 @@ def get_scoreboard(request: Request, runs: str = "", channels: str = "", t0: flo
             ids = _run_ids(c, dr)
             if not ids:
                 continue
-            scored = SB.score_runs_cached(c, ids, rule=rule, span=span)
-            wanted = {ch["id"] for ch in chans}
+            scored = SB.score_runs_cached(c, _in_scope(c, ids, wanted), rule=rule, span=span, memo=memo)
             rows = [r for r in scored["channels"] if r["recording_id"] in wanted]
             # a run whose null came from the preview or the cluster has no paired surrogate
             # runs to count: its *null expects* is that null's matches per draw at the cut

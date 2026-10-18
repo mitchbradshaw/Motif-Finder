@@ -49,7 +49,7 @@ from Working.database import queries as _q
 from Working.discovery.channels import channel_name
 from Working.discovery.fanout import discovery_run_ids
 from Working.discovery.scoreboard import annotations as _annotations
-from Working.discovery.spans import clip, merged, total_length
+from Working.discovery.spans import clip, merged, stored_start_ranges, total_length
 
 HUMAN_KEY = "human"
 #: the reference row's colour, the one the Runs page gives the human row
@@ -64,6 +64,9 @@ SETTLED_DISCOVERY_STATUSES = ("failed", "cancelled", "done", "completed", "super
 #: hours travel rounded to a thousandth; the state is decided from the same number
 HOURS_PLACES = 3
 STATE_RANK = ("covered", "running", "failed", "discarded", "not_run", "not_reviewed")
+#: Up to this many cells per channel (the dataset and channel levels: 1-8), each cell's count is a COUNT in SQL;
+#: past it (the timeline's bins) the starts are fetched once and binned here (perf, 2026-10-18).
+SQL_COUNT_CELLS = 16
 
 
 # ── rows ────────────────────────────────────────────────────────────────────
@@ -334,6 +337,24 @@ def _starts(conn, claimed, run_rows):
     return np.array(out, dtype=float)
 
 
+def _counts(conn, claimed, run_rows, edges):
+    """Detections per cell, counted in SQL — the counts `np.histogram(_starts(...), edges)` gives (half-open
+    cells, the last one closed), without fetching a row: each claimed range cut at the cell edges, each piece
+    a COUNT on (run_id, start_idx) through `stored_start_ranges`."""
+    span_start = {int(r["id"]): int(r["span_start"]) for r in run_rows}
+    n = len(edges) - 1
+    out = [0] * n
+    for lo, hi, rid in claimed:
+        lo, hi = math.ceil(lo), math.ceil(hi)
+        for i in range(n):
+            a = max(lo, math.ceil(edges[i]))
+            b = min(hi, math.ceil(edges[i + 1]) if i < n - 1 else math.floor(edges[i + 1]) + 1)
+            for x, y in stored_start_ranges(span_start.get(rid, 0), a, b):
+                out[i] += conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ? AND start_idx >= ? "
+                                       "AND start_idx < ?", (rid, x, y)).fetchone()[0]
+    return out
+
+
 def _hours(samples, fs):
     return round(samples / fs / 3600.0, HOURS_PLACES)
 
@@ -346,8 +367,11 @@ def _machine_cells(conn, run_rows, edges, fs):
     claimed = _resolve(run_rows)
     cover = [(lo, hi) for lo, hi, _ in claimed]
     holder = {int(r["id"]): r for r in run_rows}
-    starts = _starts(conn, claimed, run_rows)
-    counts = np.histogram(starts, bins=np.asarray(edges, dtype=float))[0] if len(starts) else np.zeros(len(edges) - 1, dtype=int)
+    if len(edges) - 1 <= SQL_COUNT_CELLS:
+        counts = _counts(conn, claimed, run_rows, edges)
+    else:
+        starts = _starts(conn, claimed, run_rows)
+        counts = np.histogram(starts, bins=np.asarray(edges, dtype=float))[0] if len(starts) else np.zeros(len(edges) - 1, dtype=int)
     out = []
     for i in range(len(edges) - 1):
         lo, hi = edges[i], edges[i + 1]

@@ -65,12 +65,13 @@ Headless: plain SQL over an open connection, no UI import (rule 1).
 
 from bisect import bisect_left, bisect_right
 import json
+import math
 
 import numpy as np
 
 from Working.database import queries as _q
 from Working.discovery.matching import match_span_sets, normalise_rule, rule_from_settings
-from Working.discovery.spans import absolute_bounds
+from Working.discovery.spans import absolute_bounds, merged, stored_start_ranges
 
 HUMAN_YES = tuple(_q.ACCEPTED_VERDICTS)            # interesting, seed
 HUMAN_NO = ("not_interesting", "artifact")
@@ -163,13 +164,15 @@ def real_runs(conn, recording_id, run_ids=None):
     (None), so is each window run of a windowed application — its stitched run
     is the result (`queries.not_window_part`, a2-p3) — while one named in
     ``run_ids`` is read."""
-    pooled = "" if run_ids is not None else " AND " + _q.not_window_part("r")
+    if run_ids is None:
+        where = " AND " + _q.not_window_part("r")
+    else:
+        # the runs asked about, by id: reading every run on the channel to keep these read one row per window
+        # of every windowed application on it (perf, 2026-10-18)
+        where = " AND r.id IN (" + (",".join(str(int(i)) for i in set(run_ids)) or "NULL") + ")"
     rows = conn.execute(
         "SELECT r.id, r.span_start, r.span_end, r.status FROM runs r WHERE r.recording_id = ? AND "
-        + _q.not_surrogate("r") + pooled + " ORDER BY r.id", (int(recording_id),)).fetchall()
-    if run_ids is not None:
-        wanted = {int(i) for i in run_ids}
-        rows = [r for r in rows if int(r["id"]) in wanted]
+        + _q.not_surrogate("r") + where + " ORDER BY r.id", (int(recording_id),)).fetchall()
     return [dict(r) for r in rows]
 
 
@@ -215,20 +218,64 @@ def _morphology(meta_json):
     return None
 
 
-def _detections(conn, runs):
+def _detections(conn, runs, within=None):
+    """The runs' detections, channel-absolute and ordered by onset; ``within``
+    (disjoint absolute ``(lo, hi)`` ranges) keeps the ones whose onset lies in
+    one, asked of SQL on ``(run_id, start_idx)``."""
     if not runs:
         return []
     by_id = {int(r["id"]): r for r in runs}
-    marks = ",".join("?" * len(by_id))
+    cols = "SELECT id, run_id, start_idx, end_idx, score, meta_json FROM detections"
+    if within is None:
+        marks = ",".join("?" * len(by_id))
+        rows = conn.execute(f"{cols} WHERE run_id IN ({marks}) ORDER BY start_idx, id", list(by_id)).fetchall()
+    else:
+        rows = []
+        for run_id, run in by_id.items():
+            for lo, hi in within:
+                for a, b in stored_start_ranges(run["span_start"], lo, hi):
+                    rows += conn.execute(f"{cols} WHERE run_id = ? AND start_idx >= ? AND start_idx < ?",
+                                         (run_id, a, b)).fetchall()
     out = []
-    for r in conn.execute(f"SELECT id, run_id, start_idx, end_idx, score, meta_json FROM detections "
-                          f"WHERE run_id IN ({marks}) ORDER BY start_idx, id", list(by_id)).fetchall():
+    for r in rows:
         a, b = absolute_bounds(r["start_idx"], r["end_idx"], by_id[int(r["run_id"])]["span_start"])
         out.append({"id": int(r["id"]), "run_id": int(r["run_id"]), "start": a, "end": b,
                     "score": (float(r["score"]) if r["score"] is not None else None),
                     "morphology": _morphology(r["meta_json"])})
     out.sort(key=lambda d: (d["start"], d["id"]))
     return out
+
+
+def _section_reads(conn, runs, span, labels, events, rule):
+    """The absolute onset ranges a divergence over ``span`` reads: every
+    detection its result depends on, and few others (perf, 2026-10-18 — a
+    4-hour section of a 721-hour channel read all of it).
+
+    * The section, widened back by the longest detection and on by the
+      longest label: the detections in it, and every one overlapping a label
+      in it (such a label is that detection's item, not its own).
+    * Around each event row, the onsets the matcher could pair with it —
+      ``|onset gap| <= onset x the detection's width <= onset x the longest``,
+      plus the sample `match_span_sets` widens its own slice by. The extent
+      pairing is one-to-one over **every** detection, so one outside the
+      section can take an event from one inside it; a detection that can pair
+      with no event changes no pairing, so leaving it out changes nothing.
+
+    `tests/test_perf_section_reads.py` holds the result to the whole read's."""
+    ids = [int(r["id"]) for r in runs]
+    if not ids:
+        return []
+    marks = ",".join("?" * len(ids))
+    longest = conn.execute(f"SELECT MAX(end_idx - start_idx) FROM detections WHERE run_id IN ({marks})",
+                           ids).fetchone()[0]
+    if longest is None:
+        return []
+    longest = max(0, int(longest))
+    widest = max((lab["width"] for lab in labels), default=0)
+    ranges = [(math.floor(span[0]) - longest, math.ceil(span[1]) + max(0, widest))]
+    reach = rule["onset"] * longest + 1
+    ranges += [(math.floor(e["start"] - reach), math.ceil(e["start"] + reach) + 1) for e in events]
+    return merged(ranges)
 
 
 # ── the rules ───────────────────────────────────────────────────────────────
@@ -335,7 +382,8 @@ def channel_divergence(conn, recording_id, run_ids=None, *, rule=None, span=None
     runs = real_runs(conn, recording_id, run_ids)
     ids = [int(r["id"]) for r in runs]
     windows, events = human_labels(conn, recording_id)
-    dets = _detections(conn, runs)
+    dets = _detections(conn, runs, within=(None if span is None else
+                                           _section_reads(conn, runs, span, windows + events, events, rule)))
     adjud = _adjudications(conn, recording_id, ids)
 
     def in_scope(x):

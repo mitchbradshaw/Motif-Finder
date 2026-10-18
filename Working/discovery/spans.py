@@ -16,6 +16,8 @@ Interval merging is not reimplemented: ``Working.database.queries.
 merge_intervals`` is the codebase's one definition and is imported.
 """
 
+import math
+
 from Working.database.queries import merge_intervals
 
 
@@ -30,6 +32,28 @@ def absolute_bounds(start_idx, end_idx, span_start):
     if o and s < o:
         return s + o, e + o
     return s, e
+
+
+def stored_start_ranges(span_start, lo, hi):
+    """The ``detections.start_idx`` ranges ``[a, b)`` holding the rows of a run
+    whose span starts at ``span_start`` and whose **channel-absolute** start
+    (``absolute_bounds``) lies in ``[lo, hi)`` — what a read of one section asks
+    SQL for on ``(run_id, start_idx)`` instead of fetching every row of the run.
+
+    Two ranges at most, disjoint: rows already absolute (start at or past
+    ``span_start``; every row of a whole-channel run) and legacy span-relative
+    rows (start below it), shifted back by the offset ``absolute_bounds`` adds.
+    ``lo`` and ``hi`` may be fractional: starts are integers, so both round up.
+    """
+    o, lo, hi = int(span_start or 0), math.ceil(lo), math.ceil(hi)
+    if not o:
+        return [(lo, hi)] if hi > lo else []
+    out = []
+    if hi > max(lo, o):
+        out.append((max(lo, o), hi))
+    if min(o, hi - o) > lo - o:
+        out.append((lo - o, min(o, hi - o)))
+    return out
 
 
 def clip(spans, lo, hi):
