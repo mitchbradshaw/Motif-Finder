@@ -313,3 +313,20 @@ def test_a_failure_after_registration_leaves_no_rows_no_links_and_no_stem(env, m
     # and the next run goes through
     monkeypatch.undo()
     assert _run(env) == 0
+
+
+def test_a_child_grid_starting_under_one_sample_before_ours_links_at_offset_zero(env, capsys):
+    """MATLAB's retime rounds the first time DOWN to the clock: the child's
+    sample 0 can sit 0.5-1 sample before our t[0]. parent_offset cannot be
+    negative; within one sample it is 0 and the phase says how far."""
+    t, M = env["t"], env["M"]
+    tr = t - t[0]
+    chans = [1000.0 * np.interp((np.arange(CHILD_N) - 0.7) / 10.0, tr, M[CHILD_OF[c]]) for c in range(2)]
+    write_stem(env["channels"], "L_LM_Jul_26_J_raw_fs10", chans, 10.0, "L_LM_Jul_26_J_raw.mat", units="mV")
+    conn = init_db(str(env["db"]))
+    register_stem(conn, env["channels"], "L_LM_Jul_26_J_raw_fs10")
+    conn.close()
+    assert _run(env) == 0, capsys.readouterr().out
+    assert {r["parent_offset"] for r in _rows(env, "L_LM_Jul_26_J_raw.mat")} == {0}
+    with open(env["channels"] / "MJu26a_fs10" / "manifest.json", encoding="utf-8") as f:
+        assert {round(k["phase"], 2) for k in json.load(f)["children"]} == {-0.7}

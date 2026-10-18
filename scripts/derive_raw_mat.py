@@ -17,7 +17,8 @@ Usage
     ... --db <sqlite> --data-root <dir>                               # defaults: <repo>/DATA
 
 Exit status: 0 done (or a clean dry run), 2 refused before writing anything,
-3 failed after writing (the new stem directory is removed again).
+3 failed after writing: the file's database writes are rolled back (one
+transaction) and its new stem directory is removed, so a rerun starts clean.
 
 What it infers, in plain words
 ------------------------------
@@ -297,6 +298,11 @@ def read_time_axis(path: str, fmt: str, variables, n: int, time_file: str | None
         raise Refusal(f"--time-file {time_file} does not exist")
     if tf:
         vals = _load_any(tf)
+        if "t0" in vals:             # MATLAB char: one UTF-16 code per element
+            notes.append(f"{os.path.basename(tf)}: the recording starts at "
+                         + "".join(chr(int(c)) for c in vals["t0"] if 0 < c < 0x110000))
+        if "t_s" in vals and len(vals["t_s"]) == 1:
+            vals.pop("t_s")          # a scalar datetime: a start time, not an axis
         if "t_s" in vals:
             t = vals["t_s"]
             if len(t) != n:
@@ -310,7 +316,11 @@ def read_time_axis(path: str, fmt: str, variables, n: int, time_file: str | None
             return (np.arange(n, dtype=np.float64) * step,
                     f"{os.path.basename(tf)} (dur_s = {d:g} s, a scalar MATLAB duration read as "
                     + ("the sample interval" if d <= 60 else "the span from first to last sample") + ")", notes)
-        raise Refusal(f"{os.path.basename(tf)} holds neither t_s (one time per sample) nor a scalar dur_s")
+        if "t0" not in vals:
+            raise Refusal(f"{os.path.basename(tf)} holds neither t_s (one time per sample) nor a scalar dur_s")
+        # only a start time: no axis -- the count rule decides, and the start time is in the notes
+        notes.append(f"{os.path.basename(tf)} holds the start time only (a scalar datetime), not one time per sample")
+        return None, None, notes
     for name, shape, cls in variables:
         if name.lower() in TIME_NAMES and _numeric(cls) and shape and int(np.prod(shape)) == n:
             if fmt == "v7.3":
@@ -335,6 +345,30 @@ def read_time_axis(path: str, fmt: str, variables, n: int, time_file: str | None
 
 # ---------------------------------------------------------- the database --
 
+class Deferred:
+    """A connection whose ``commit()`` waits for the caller's.
+
+    The registry's ``register()``, ``append_audit()`` and ``put_dataset()``
+    each commit on their own; one derive calls all of them, and a failure
+    between two of those commits (a locked database under the researcher's
+    bridge, a refused display name) would leave rows registered and a stem on
+    disk that the next run refuses on. Handing them this wrapper makes the
+    whole derive ONE transaction: the caller commits or rolls back the real
+    connection (critic round, 2026-10-18)."""
+
+    def __init__(self, conn):
+        object.__setattr__(self, "_conn", conn)
+
+    def commit(self):
+        pass
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def __setattr__(self, name, value):
+        setattr(self._conn, name, value)
+
+
 def open_ro(db: str) -> sqlite3.Connection:
     if not os.path.isfile(db):
         raise Refusal(f"the database {db} does not exist")
@@ -345,12 +379,62 @@ def already_registered(conn, source_file: str) -> int:
     return int(conn.execute("SELECT COUNT(*) FROM recordings WHERE source_file = ?", (source_file,)).fetchone()[0])
 
 
+def repo_relative(path: str) -> str:
+    """``path`` relative to the repository when it lies inside it, else absolute.
+
+    ``recordings.npy_path`` is repo-relative by convention (the registry's
+    roots are ``DATA/derived/channels``; ``webui/server/runtime.py`` chdirs to
+    the repo so the core can ``np.load`` it as stored). A row registered from
+    an absolute root would carry ``C:/Users/.../DATA/...`` instead: right on
+    this machine, wrong in every copy of the database (the cluster, a worktree
+    sandbox) -- critic round, 2026-10-18."""
+    ap = os.path.abspath(path)
+    try:
+        rel = os.path.relpath(ap, _REPO)
+    except ValueError:               # another drive
+        return ap
+    return ap if rel == ".." or rel.startswith(".." + os.sep) else rel
+
+
+def stale_staging(channels_root: str, stem: str) -> list:
+    """Staging directories a killed run left for ``stem`` (dot-named, so the
+    registry never lists them; up to 16 x 183 MB for MJu26a_fs10)."""
+    if not os.path.isdir(channels_root):
+        return []
+    pre = f".staging_{stem}_"
+    return sorted(os.path.join(channels_root, n) for n in os.listdir(channels_root) if n.startswith(pre))
+
+
+def refuse_stale_staging(channels_root: str, stem: str):
+    left = stale_staging(channels_root, stem)
+    if left:
+        raise Refusal(f"a previous run was stopped while writing {stem}: delete {', '.join(left)} "
+                      "(a half-written copy nothing points at) and rerun")
+
+
 def register_stem(conn, channels_root: str, stem: str, provenance: dict, actor: str, skip_excerpt_ids=()) -> tuple:
     """Register ``<channels_root>/<stem>`` through the registry (scan, check,
     register). The excerpt rule may link already-registered short rows to the
     new channels; a row that already has a parent, or one the caller links
     itself (``skip_excerpt_ids``), keeps what it has. Returns
-    ``(row ids, report, dropped excerpt links)``; Refusal when a check fails."""
+    ``(row ids, report, dropped excerpt links)``; Refusal when a check fails.
+
+    A root inside the repository is scanned repo-relative from the repo root
+    (``repo_relative``), so the rows carry repo-relative paths and the excerpt
+    rule finds the registered rows' repo-relative files whatever the caller's
+    working directory."""
+    rel = repo_relative(channels_root)
+    if os.path.isabs(rel):
+        return _register_stem(conn, channels_root, stem, provenance, actor, skip_excerpt_ids)
+    prev = os.getcwd()
+    os.chdir(_REPO)
+    try:
+        return _register_stem(conn, rel, stem, provenance, actor, skip_excerpt_ids)
+    finally:
+        os.chdir(prev)
+
+
+def _register_stem(conn, channels_root: str, stem: str, provenance: dict, actor: str, skip_excerpt_ids=()) -> tuple:
     from Working.registration import check, register, scan
     from Working.registration.settings import append_audit
     cand = next((c for c in scan("recording", roots=[channels_root], conn=conn) if c.name == stem), None)
@@ -396,6 +480,7 @@ def write_channels(channels_root: str, stem: str, columns, manifest: dict) -> st
     final = os.path.join(channels_root, stem)
     if os.path.exists(final):
         raise Refusal(f"{final} exists")
+    refuse_stale_staging(channels_root, stem)
     staging = os.path.join(channels_root, f".staging_{stem}_{os.getpid()}")
     if os.path.isdir(staging):
         shutil.rmtree(staging)
@@ -403,6 +488,7 @@ def write_channels(channels_root: str, stem: str, columns, manifest: dict) -> st
     try:
         for i, y in enumerate(columns):
             np.save(os.path.join(staging, f"CH{i}.npy"), np.ascontiguousarray(y, dtype=np.float64))
+            del y                    # before the generator makes the next channel: one in memory, not two
         with open(os.path.join(staging, "manifest.json"), "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2)
         os.replace(staging, final)
@@ -505,6 +591,7 @@ def plan_file(path: str, args, channels_root: str, conn_ro) -> dict:
     final = os.path.join(channels_root, stem)
     if os.path.exists(final):
         raise Refusal(f"the stem {final} exists: refusing to write a second copy")
+    refuse_stale_staging(channels_root, stem)
     if conn_ro is not None and already_registered(conn_ro, p["basename"]):
         raise Refusal(f"{p['basename']} is already registered ({already_registered(conn_ro, p['basename'])} rows)")
     display = args.name or short_name(base)
@@ -535,18 +622,23 @@ def derive(p: dict, channels_root: str, db: str) -> int:
         "derived_by": f"{ACTOR} (datasets-derive, 2026-10-18)",
     }
     final = write_channels(channels_root, p["stem"], columns(), manifest)
+    p["X"] = X = None                # the matrix is on disk now
     from Working.database.schema import init_db
-    conn = init_db(db)
+    real = init_db(db)
+    conn = Deferred(real)            # one transaction: registration, audit and display name land together or not at all
     try:
         try:
             ids, rep, dropped = register_stem(conn, channels_root, p["stem"],
                                               {"notes": f"derived from {p['basename']} by {ACTOR}"}, ACTOR)
-        except Exception:
-            conn.rollback()
+            name_msg = set_display_name(conn, p["basename"], p["display"], ACTOR)
+            real.commit()
+        except BaseException:
+            real.rollback()
             shutil.rmtree(final, ignore_errors=True)
+            print(f"   ROLLED BACK every database write for {p['basename']} and removed {final}")
             raise
         print(f"   registered {len(ids)} rows (ids {ids[0]}..{ids[-1]}), units {p['units']}, fs_source "
-              f"{rep.facts.get('fs_source')}; {set_display_name(conn, p['basename'], p['display'], ACTOR)}")
+              f"{rep.facts.get('fs_source')}; {name_msg}")
         for e in rep.excerpts:
             print(f"   linked    registered {e['source_file']} CH{e['channel']} (id {e['recording_id']}) as a "
                   f"{e['decimation']}:1 excerpt of CH{e['candidate_channel']} at sample {e['offset']:,} (r = {e['r']})")
@@ -556,7 +648,7 @@ def derive(p: dict, channels_root: str, db: str) -> int:
         for w in rep.warnings:
             print(f"   warning   {w}")
     finally:
-        conn.close()
+        real.close()
     print(f"   wrote     {final}: CH0..CH{p['n_channels'] - 1}.npy + manifest.json")
     return 0
 
@@ -591,6 +683,7 @@ def main(argv=None) -> int:
     raw_root = os.path.join(data_root, "raw")
     status = 0
     for f in args.files:
+        p = None                     # the previous file's matrix goes before the next one loads
         try:
             path = resolve(f, raw_root)
             conn_ro = open_ro(db)

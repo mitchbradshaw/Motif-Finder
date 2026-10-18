@@ -287,3 +287,37 @@ def test_a_failure_after_registration_leaves_no_rows_and_no_stem(env, monkeypatc
     monkeypatch.undo()
     assert _run(env, "CO") == 0
     assert len(_rows(env, "CO.mat")) == 2
+
+
+def test_a_time_file_with_only_a_start_time_falls_back_to_the_count_rule(env, capsys):
+    """export_mat_time.m writes t0 alone when the file's MATLAB object is a
+    scalar datetime (a start time, not an axis): that must not block the
+    count rule, and the start time is reported."""
+    n = 1 * DAY_10HZ + 1
+    write_v5(env["raw"] / "SO.mat", {"SO": _volts(n, 2)})
+    tdir = env["data"] / "derived" / "time_axes"
+    tdir.mkdir(parents=True)
+    t0 = "2026-07-26T14:03:27.384"
+    write_v73(tdir / "SO_time.mat", {"t0": np.array([ord(c) for c in t0], dtype=np.uint16).reshape(1, -1)})
+    assert _run(env, "SO") == 0, capsys.readouterr().out
+    man = _manifest(env, "SO_fs10")
+    assert man["fs"] == 10.0 and "inferred from the sample count, not read" in man["fs_note"]
+    assert t0 in capsys.readouterr().out
+
+
+def test_a_half_written_staging_directory_from_a_killed_run_refuses_with_the_cleanup(env, capsys):
+    write_v5(env["raw"] / "CO.mat", {"CO": _volts(1 * DAY_10HZ + 1, 2)})
+    stale = env["channels"] / ".staging_CO_fs10_99999"
+    stale.mkdir()
+    (stale / "CH0.npy").write_bytes(b"half")
+    assert _run(env, "CO", "--dry-run") == 2
+    out = capsys.readouterr().out
+    assert ".staging_CO_fs10_99999" in out and "delete" in out
+    assert _rows(env, "CO.mat") == []
+
+
+def test_registered_paths_are_repo_relative_inside_the_repo_and_absolute_outside():
+    inside = os.path.join(PROJECT_ROOT, "DATA", "derived", "channels")
+    assert drm.repo_relative(inside) == os.path.join("DATA", "derived", "channels")
+    outside = os.path.join(os.path.dirname(PROJECT_ROOT), "elsewhere", "channels")
+    assert drm.repo_relative(outside) == os.path.abspath(outside)

@@ -27,10 +27,13 @@ written:
    MJu26a channel on the 10 Hz grid over the window +- ``--max-lag`` samples,
    high-passes both (minus a ``--hp``-sample moving mean: the slow drift is
    shared by every channel and would make them all look alike), and finds the
-   lag of the best normalised correlation. A child is linked to the parent
-   channel whose correlation is >= ``--min-r`` (0.999) on all three windows
-   AT THE SAME OFFSET; the parents must all differ. Otherwise the script
-   prints the full table and REFUSES: nothing is written;
+   lag of the best normalised correlation; the three best parents per child
+   are then refined to a FRACTIONAL offset (L_LM's grid origin may sit part
+   of a sample from ours). A child is linked to the parent whose refined r is
+   >= ``--min-r`` (0.95) on all three windows, ``--min-gap`` (0.1) above
+   the next parent's, with the three windows agreeing on the offset within
+   half a sample; the parents must all differ. Otherwise the script prints
+   the full table and REFUSES: nothing is written;
 4. writes ``<data-root>/derived/channels/MJu26a_fs10/CH0..CH15.npy`` +
    ``manifest.json`` (one channel in memory at a time), registers it through
    the registry with ``source_file = MJu26a_fs10.mat`` (a recording's identity
@@ -48,7 +51,8 @@ Usage
     ... --db <sqlite> --data-root <dir>                 # defaults: <repo>/DATA
 
 Exit status: 0 done (or a clean dry run), 2 refused before writing anything,
-3 failed after writing (the new stem directory is removed again).
+3 failed after writing: every database write of the run is rolled back (one
+transaction) and the new stem directory is removed, so a rerun starts clean.
 """
 from __future__ import annotations
 
@@ -67,7 +71,8 @@ for _p in (_REPO, _HERE):
 import numpy as np  # noqa: E402
 
 from derive_raw_mat import (  # noqa: E402,F401  (re-exported: the tests reach them here)
-    Refusal, axis_facts, open_ro, register_stem, resample_uniform, set_display_name, time_in_seconds, write_channels,
+    Deferred, Refusal, axis_facts, open_ro, refuse_stale_staging, register_stem, resample_uniform, set_display_name,
+    time_in_seconds, write_channels,
 )
 
 ACTOR = "scripts/derive_mju26a_fs10.py"
@@ -101,22 +106,34 @@ class RawMJu:
         t_raw = np.asarray(self.f["t"][()], dtype=np.float64).ravel()
         if len(t_raw) != self.n:
             raise Refusal(f"t has {len(t_raw):,} values for {self.n:,} samples")
-        self.t, self.t_note = time_in_seconds(t_raw, t_unit)
-        self.ax = axis_facts(self.t)
-        self.tr = self.t - self.t[0]
+        t, self.t_note = time_in_seconds(t_raw, t_unit)
+        del t_raw
+        self.ax = axis_facts(t)
+        self.t0 = float(t[0])
+        self.tr = t - self.t0        # t itself is dropped: one time vector in memory, not two (14.7 M x 8 B each)
+        del t
 
     def row(self, c: int, j0: int = 0, j1: int | None = None) -> np.ndarray:
         j1 = self.n if j1 is None else j1
         sl = self.M[c, j0:j1] if self.ch_axis == 0 else self.M[j0:j1, c]
         return np.asarray(sl, dtype=np.float64)
 
-    def on_grid(self, c: int, a: int, b: int, fs: float) -> np.ndarray:
-        """Channel ``c`` on grid samples ``[a, b)`` -- the same numbers
-        ``resample_uniform`` gives for those samples (np.interp is local)."""
-        g = np.arange(a, b, dtype=np.float64) / fs
-        j0 = max(int(np.searchsorted(self.tr, g[0], side="right")) - 1, 0)
-        j1 = min(int(np.searchsorted(self.tr, g[-1], side="left")) + 2, self.n)
-        return np.interp(g, self.tr[j0:j1], self.row(c, j0, j1))
+    def on_grid(self, c: int, a: int, b: int, fs: float, shift: float = 0.0) -> np.ndarray:
+        """Channel ``c`` on grid samples ``[a, b)`` (each moved ``shift`` of a
+        sample later) -- the same numbers ``resample_uniform`` gives for those
+        samples at ``shift`` 0 (np.interp is local)."""
+        tr, x = self.around(c, a + shift, b + shift, fs)
+        return np.interp((np.arange(a, b, dtype=np.float64) + shift) / fs, tr, x)
+
+    def around(self, c: int, a: float, b: float, fs: float):
+        """``(times, samples)`` of channel ``c`` that bracket grid positions ``[a, b)``."""
+        j0 = max(int(np.searchsorted(self.tr, a / fs, side="right")) - 1, 0)
+        j1 = min(int(np.searchsorted(self.tr, (b - 1) / fs, side="left")) + 2, self.n)
+        return self.tr[j0:j1], self.row(c, j0, j1)
+
+    def grid_column(self, c: int, grid: np.ndarray) -> np.ndarray:
+        """Channel ``c`` on the whole grid: ``resample_uniform`` without a second time vector."""
+        return np.interp(grid, self.tr, self.row(c))
 
     def close(self):
         self.f.close()
@@ -132,6 +149,42 @@ def highpass(x, width: int) -> np.ndarray:
     from scipy.ndimage import uniform_filter1d
     x = np.asarray(x, dtype=np.float64)
     return x - uniform_filter1d(x, size=int(width), mode="nearest")
+
+
+def _r(a, b) -> float:
+    a = a - a.mean()
+    b = b - b.mean()
+    d = float(np.sqrt(np.dot(a, a) * np.dot(b, b)))
+    return float(np.dot(a, b) / d) if d > 0 else 0.0
+
+
+def refine(raw: RawMJu, p: int, win: dict, lag: int, fs: float, hp: int):
+    """``(r, shift)``: the FRACTIONAL offset near the whole-sample ``lag`` at
+    which parent channel ``p`` best matches the child window ``win``.
+
+    Why. L_LM was put on its 10 Hz grid by someone else; if that grid's origin
+    sits a fraction of a sample from ours (MATLAB's retime puts its grid on
+    round clock times, not on t[0]), no whole-sample lag reproduces its
+    samples, and the high-passed r at the best lag falls to 0.92-0.97 for the
+    RIGHT pair (critic simulation, 2026-10-18). Interpolating the parent at the
+    fractional offset brings a linear-interpolation copy of the same t back to
+    r ~ 1."""
+    c0, lo, hi, xw = win["c0"], win["lo"], win["hi"], win["xw"]
+    tr, x = raw.around(p, lo + lag - 2, hi + lag + 2, fs)
+    pos = np.arange(lo, hi, dtype=np.float64)
+    cut = slice(c0 - lo, c0 - lo + len(xw))
+
+    def r_at(shift):
+        return _r(xw, highpass(np.interp((pos + shift) / fs, tr, x), hp)[cut])
+
+    best = (-2.0, float(lag))
+    for step in (np.linspace(-1.0, 1.0, 41), np.linspace(-0.05, 0.05, 41)):
+        centre = best[1]
+        for sh in centre + step:
+            r = r_at(float(sh))
+            if r > best[0]:
+                best = (r, float(sh))
+    return best
 
 
 def best_lag(window, segment):
@@ -151,14 +204,27 @@ def best_lag(window, segment):
     return float(r[i]), i
 
 
-def align(raw: RawMJu, children: list, fs: float, m: int, window: int, max_lag: int, hp: int, min_r: float):
+def align(raw: RawMJu, children: list, fs: float, m: int, window: int, max_lag: int, hp: int, min_r: float,
+          min_gap: float = 0.1, max_spread: float = 0.5):
     """Every (child, parent) pair on every window. Returns ``(table, links,
-    problems)``: ``table[child_ch][parent_ch] = [(r, offset), ...]`` per window,
-    ``links`` = one accepted link per child, ``problems`` = why any was not."""
+    problems)``: ``table[child_ch][parent_ch] = [(r, offset), ...]`` per window
+    at whole-sample lags, ``links`` = one accepted link per child, ``problems``
+    = why any was not.
+
+    The decision (critic round, 2026-10-18). The whole-sample table finds the
+    candidates; the three best parents per child are then REFINED to a
+    fractional offset on each window (``refine``). A child is linked to the
+    parent whose refined r (worst of the three windows) is >= ``min_r``, beats
+    the next parent's by >= ``min_gap``, and whose three fractional offsets --
+    25 / 50 / 75 % through a 26-day recording -- agree within ``max_spread``
+    samples (a constant offset: the signature of a copy; a wrong pair's
+    offsets scatter). ``parent_offset`` is the nearest whole sample, the
+    remainder is reported as ``phase``."""
     table, links, problems = {}, [], []
     wins = {}
     for ch in children:
-        x = np.load(ch["npy_path"], mmap_mode="r")
+        npy = ch["npy_path"] if os.path.isabs(ch["npy_path"]) else os.path.join(_REPO, ch["npy_path"])  # repo-relative rows
+        x = np.load(npy, mmap_mode="r")
         nc = len(x)
         if nc < window:
             raise Refusal(f"{ch['npy_path']} holds {nc:,} samples, fewer than one {window:,}-sample window")
@@ -166,9 +232,10 @@ def align(raw: RawMJu, children: list, fs: float, m: int, window: int, max_lag: 
         for frac in WINDOW_FRACS:
             c0 = max(0, min(int(frac * nc) - window // 2, nc - window))
             lo = max(0, c0 - hp)
-            xw_full = highpass(np.asarray(x[lo:c0 + window + hp], dtype=np.float64), hp)
+            hi = min(nc, c0 + window + hp)
+            xw_full = highpass(np.asarray(x[lo:hi], dtype=np.float64), hp)
             wins[ch["channel"]].append((c0, xw_full[c0 - lo:c0 - lo + window],
-                                        np.asarray(x[c0:c0 + window], dtype=np.float64)))
+                                        np.asarray(x[c0:c0 + window], dtype=np.float64), lo, hi))
         table[ch["channel"]] = {p: [None] * len(WINDOW_FRACS) for p in range(raw.n_channels)}
         del x
     # one parent segment in memory at a time; children at the same window position share it
@@ -181,33 +248,57 @@ def align(raw: RawMJu, children: list, fs: float, m: int, window: int, max_lag: 
             for (a, b), chans in spans.items():
                 seg = highpass(raw.on_grid(p, a, b, fs), hp)
                 for c in chans:
-                    c0, xw, _xraw = wins[c][k]
+                    c0, xw = wins[c][k][0], wins[c][k][1]
                     r, lag = best_lag(xw, seg)
                     table[c][p][k] = (r, None if lag is None else a + lag - c0)
                 del seg
     for ch in children:
-        wins_c = wins[ch["channel"]]
-        # the parent whose WORST window is best
-        p_best = max(table[ch["channel"]], key=lambda q: min(r for r, _o in table[ch["channel"]][q]))
-        res = table[ch["channel"]][p_best]
-        offs = {o for _r, o in res}
-        rmin = min(r for r, _o in res)
+        cc = ch["channel"]
+        wins_c = wins[cc]
+        coarse = {q: min(r for r, _o in table[cc][q]) for q in table[cc]}
+        cands = sorted(coarse, key=lambda q: -coarse[q])[:3]
+        refined = {}
+        for q in cands:
+            res = []
+            for k, (c0, xw, _xraw, lo, hi) in enumerate(wins_c):
+                lag = table[cc][q][k][1]
+                res.append((0.0, None) if lag is None else
+                           refine(raw, q, {"c0": c0, "lo": lo, "hi": hi, "xw": xw}, int(lag), fs, hp))
+            refined[q] = res
+        score = {q: min(r for r, _s in refined[q]) for q in refined}
+        p_best = max(score, key=lambda q: score[q])
+        res = refined[p_best]
+        rmin = score[p_best]
+        second = max([score[q] for q in score if q != p_best] + [coarse[q] for q in coarse if q not in score] + [0.0])
+        shifts = [s_ for _r, s_ in res]
+        why = (f"L_LM CH{cc}: best parent MJu26a CH{p_best}, refined r per window "
+               f"{[round(r, 5) for r, _s in res]} at offsets {[None if s_ is None else round(s_, 3) for s_ in shifts]}; "
+               f"next parent r = {second:.4f}")
         if rmin < min_r:
-            problems.append(f"L_LM CH{ch['channel']}: best parent MJu26a CH{p_best} reaches r = {rmin:.5f} on its "
-                            f"worst window, below {min_r}")
+            problems.append(f"{why} -- worst window below --min-r {min_r}")
             continue
-        if len(offs) != 1 or None in offs:
-            problems.append(f"L_LM CH{ch['channel']}: MJu26a CH{p_best} correlates (r >= {rmin:.5f}) but at "
-                            f"different offsets on the three windows {sorted(o for o in offs if o is not None)}")
+        if rmin - second < min_gap:
+            problems.append(f"{why} -- not separated from the next parent by --min-gap {min_gap}")
             continue
-        off = offs.pop()
+        if None in shifts or max(shifts) - min(shifts) > max_spread:
+            problems.append(f"{why} -- the three windows disagree on the offset by more than {max_spread} sample")
+            continue
+        shift = float(np.median(shifts))
+        off = int(np.floor(shift + 0.5))
+        if off < 0 and shift > -1.0:
+            # a grid that starts less than one sample before ours (retime rounds t[0] DOWN to the clock):
+            # parent_offset cannot be negative, so the first sample is taken; the phase says how far it is
+            off = 0
         # gain and intercept on the raw (not high-passed) middle window: the x1000 of mV against V
-        c0, _xw, xraw = wins_c[len(wins_c) // 2]
-        praw = raw.on_grid(p_best, c0 + off, c0 + off + window, fs)
+        c0, _xw, xraw = wins_c[len(wins_c) // 2][:3]
+        praw = raw.on_grid(p_best, c0, c0 + window, fs, shift=shift)
         g, b0 = np.polyfit(praw, xraw, 1)
-        r_raw = float(np.corrcoef(praw, xraw)[0, 1])
-        links.append({"child_id": ch["id"], "child_channel": ch["channel"], "parent_channel": p_best,
-                      "offset": int(off), "r_windows": [round(r, 6) for r, _o in res],
+        r_raw = _r(praw, xraw)
+        links.append({"child_id": ch["id"], "child_channel": cc, "parent_channel": p_best,
+                      "offset": off, "phase": round(shift - off, 4),
+                      "r_windows": [round(table[cc][p_best][k][0], 6) for k in range(len(wins_c))],
+                      "r_refined": round(rmin, 6), "r_refined_windows": [round(r, 6) for r, _s in res],
+                      "next_parent_r": round(second, 6),
                       "gain": float(g), "intercept": float(b0), "r_raw": r_raw})
     parents = [lk["parent_channel"] for lk in links]
     dup = sorted({p for p in parents if parents.count(p) > 1})
@@ -217,7 +308,7 @@ def align(raw: RawMJu, children: list, fs: float, m: int, window: int, max_lag: 
 
 
 def print_table(table, n_parents):
-    print("   best r per (L_LM channel, MJu26a channel), worst of the three windows (high-passed):")
+    print("   best r per (L_LM channel, MJu26a channel), worst of the three windows, at whole-sample lags (high-passed):")
     print("   L_LM \\ MJu " + " ".join(f"{p:>6}" for p in range(n_parents)))
     for c, row in table.items():
         print(f"   CH{c:<9}" + " ".join(f"{min(r for r, _o in row[p]):6.3f}" for p in range(n_parents)))
@@ -237,7 +328,11 @@ def build_parser():
     ap.add_argument("--window", type=int, default=10_000, help="samples per alignment window (default 10,000)")
     ap.add_argument("--max-lag", type=int, help="offsets searched either side (default 36,000 + |grid length - child length|)")
     ap.add_argument("--hp", type=int, default=601, help="high-pass: subtract a moving mean this many samples wide (default 601 = 60 s)")
-    ap.add_argument("--min-r", type=float, default=0.999, help="the correlation a link needs on every window (default 0.999)")
+    ap.add_argument("--min-r", type=float, default=0.95,
+                    help="the refined (fractional-offset) high-passed r a link needs on every window (default 0.95; a "
+                         "linear-interpolation copy of the same t gives ~1.0000)")
+    ap.add_argument("--min-gap", type=float, default=0.1,
+                    help="how far the chosen parent's refined r must beat the next parent's (default 0.1)")
     ap.add_argument("--skip-link", action="store_true", help="derive, register and declare units without linking L_LM")
     ap.add_argument("--dry-run", action="store_true", help="read, align and print; write nothing")
     return ap
@@ -257,6 +352,7 @@ def main(argv=None) -> int:
         final = os.path.join(channels_root, STEM)
         if os.path.exists(final):
             raise Refusal(f"the stem {final} exists: refusing to write a second copy")
+        refuse_stale_staging(channels_root, STEM)
         conn = open_ro(db)
         try:
             if conn.execute("SELECT COUNT(*) FROM recordings WHERE source_file = ?", (SOURCE_FILE,)).fetchone()[0]:
@@ -272,7 +368,7 @@ def main(argv=None) -> int:
         ax, dts = raw.ax, raw.ax["dt"]
         m = grid_len(ax["span_s"], fs)
         print(f"== {os.path.basename(raw_path)}: {args.variable} {raw.n_channels} channels x {raw.n:,} samples")
-        print(f"   t         {raw.t_note}; t[0] = {raw.t[0]:.6f}; span {ax['span_s']:,.1f} s = {ax['span_s'] / 3600:.2f} h "
+        print(f"   t         {raw.t_note}; t[0] = {raw.t0:.6f}; span {ax['span_s']:,.1f} s = {ax['span_s'] / 3600:.2f} h "
               f"= {ax['span_s'] / 86400:.3f} d")
         print(f"   dt        min {dts['min']:.6g} / median {dts['median']:.6g} / mean {dts['mean']:.6g} / max {dts['max']:.6g} s; "
               f"1/median = {ax['rate_of_median']:.6g} Hz -> {raw.n / ax['rate_of_median'] / 3600:.1f} h if read as even "
@@ -296,17 +392,23 @@ def main(argv=None) -> int:
             max_lag = args.max_lag if args.max_lag is not None else 36_000 + abs(m - nc)
             print(f"   child     {args.child_source}: {len(children)} channels x {nc:,} samples at {fs:g} Hz "
                   f"({nc / fs / 3600:.2f} h); windows of {args.window:,} at {', '.join(f'{f:.0%}' for f in WINDOW_FRACS)}, "
-                  f"offsets +-{max_lag:,}, high-pass {args.hp} samples, link needs r >= {args.min_r}")
-            table, links, problems = align(raw, children, fs, m, args.window, max_lag, args.hp, args.min_r)
+                  f"offsets +-{max_lag:,}, high-pass {args.hp} samples, link needs refined r >= {args.min_r}, "
+                  f"{args.min_gap} above the next parent, one offset on all three windows")
+            table, links, problems = align(raw, children, fs, m, args.window, max_lag, args.hp, args.min_r, args.min_gap)
             print_table(table, raw.n_channels)
             for lk in links:
                 print(f"   link      L_LM CH{lk['child_channel']} <- MJu26a_fs10 CH{lk['parent_channel']} at offset "
-                      f"{lk['offset']:,} (r per window {lk['r_windows']}; raw r {lk['r_raw']:.5f}; "
+                      f"{lk['offset']:,} (phase {lk['phase']:+.3f} sample; refined r per window {lk['r_refined_windows']}, "
+                      f"next parent {lk['next_parent_r']:.4f}; whole-sample r {lk['r_windows']}; raw r {lk['r_raw']:.5f}; "
                       f"L_LM = {lk['gain']:.2f} x MJu26a + {lk['intercept']:.3g})")
+                if lk["r_refined"] < 0.999:
+                    print(f"   note      L_LM CH{lk['child_channel']} is not a linear interpolation of the same t "
+                          f"(refined r {lk['r_refined']:.4f} < 0.999: another method, e.g. sample-and-hold); linked "
+                          f"on separation and a constant offset, to the nearest sample")
             if problems:
                 for pr in problems:
                     print(f"   problem   {pr}")
-                raise Refusal("L_LM does not align with MJu26a at r ~ 1 for every channel (table above); "
+                raise Refusal("L_LM does not align with one MJu26a channel each at a constant offset (table above); "
                               "rerun with --skip-link to derive MJu26a_fs10 without the link")
             for lk in links:
                 if lk["offset"] < 0:
@@ -327,12 +429,13 @@ def main(argv=None) -> int:
 
 def _write(raw: RawMJu, args, channels_root, db, fs, m, links) -> int:
     from Working.database.schema import init_db
-    from Working.registration.kinds import declare_units, link_parent
+    from Working.registration import kinds
+    declare_units, link_parent = kinds.declare_units, kinds.link_parent
     from Working.registration.settings import append_audit
     ax, dts = raw.ax, raw.ax["dt"]
     gains = ", ".join(f"CH{lk['child_channel']}: x{lk['gain']:.1f}" for lk in links)
     evidence = (f"L_LM_Jul_26_J (verified mV) equals these samples x ({gains}) at r >= "
-                f"{min(min(lk['r_windows']) for lk in links):.4f}" if links else "no L_LM alignment was run")
+                f"{min(lk['r_refined'] for lk in links):.4f}" if links else "no L_LM alignment was run")
     units_note = f"declared V by the researcher (grilling 2026-10-18), via {ACTOR}: {evidence}"
     manifest = {
         "source_file": SOURCE_FILE, "raw_file": f"DATA/raw/{RAW_NAME}",
@@ -343,7 +446,7 @@ def _write(raw: RawMJu, args, channels_root, db, fs, m, links) -> int:
                     f"{dts['min']:.6g} s, median {dts['median']:.6g} s, max {dts['max']:.6g} s"),
         "n_samples_per_channel": m, "dtype": "float64",
         "units": f"V -- {units_note}",
-        "time_base": f"uniform: sample i is at t[0] + i / {fs:g} s, t[0] = {raw.t[0]:.6f} in {RAW_NAME}'s t",
+        "time_base": f"uniform: sample i is at t[0] + i / {fs:g} s, t[0] = {raw.t0:.6f} in {RAW_NAME}'s t",
         "resampling": {"method": f"linear interpolation of each row of {args.variable} in t onto a uniform {1 / fs:g} s grid "
                                  "from t[0] to at or before t[-1]",
                        "source_samples": raw.n, "grid_samples": m, "span_s": ax["span_s"], "source_dt_s": dts,
@@ -354,12 +457,18 @@ def _write(raw: RawMJu, args, channels_root, db, fs, m, links) -> int:
         "derived_by": f"{ACTOR} (datasets-derive, 2026-10-18)",
     }
 
+    grid = np.arange(m, dtype=np.float64) / fs     # resample_uniform's grid, made once for all the rows
+
     def columns():
         for c in range(raw.n_channels):
-            yield resample_uniform(raw.t, raw.row(c), fs)[1]
+            yield raw.grid_column(c, grid)
 
     final = write_channels(channels_root, STEM, columns(), manifest)
-    conn = init_db(db)
+    grid = None                                    # 183 MB at the real size: gone before the registry reads
+    real = init_db(db)
+    # ONE transaction: register(), append_audit() and put_dataset() commit on their own, so they get a
+    # connection whose commit waits; a failure anywhere rolls every row back and removes the stem
+    conn = Deferred(real)
     try:
         try:
             ids, rep, dropped = register_stem(conn, channels_root, STEM, {"notes": f"{RAW_NAME} on a uniform {fs:g} Hz grid, by {ACTOR}"},
@@ -373,20 +482,20 @@ def _write(raw: RawMJu, args, channels_root, db, fs, m, links) -> int:
                 old_msg = f"declared V on the old {OLD_SOURCE} rows"
             except KeyError:
                 old_msg = f"no {OLD_SOURCE} rows to declare"
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            # a registration that went through stays; only a stem nothing points at is removed
-            if not conn.execute("SELECT COUNT(*) FROM recordings WHERE source_file = ?", (SOURCE_FILE,)).fetchone()[0]:
-                shutil.rmtree(final, ignore_errors=True)
+            for d in done:
+                append_audit(conn, "registration", f"Linked {d['child']} to its parent {d['parent']} at sample "
+                             f"{d['parent_offset']:,} (decimation 1)", "Datasets", actor=ACTOR, detail=d)
+            append_audit(conn, "settings", f"Declared V on {SOURCE_FILE} and {OLD_SOURCE}", "Datasets", actor=ACTOR,
+                         detail={"units_note": units_note})
+            name_msg = set_display_name(conn, SOURCE_FILE, DISPLAY, ACTOR)
+            real.commit()
+        except BaseException:
+            real.rollback()
+            shutil.rmtree(final, ignore_errors=True)
+            print(f"   ROLLED BACK every database write of this run and removed {final}")
             raise
-        for d in done:
-            append_audit(conn, "registration", f"Linked {d['child']} to its parent {d['parent']} at sample "
-                         f"{d['parent_offset']:,} (decimation 1)", "Datasets", actor=ACTOR, detail=d)
-        append_audit(conn, "settings", f"Declared V on {SOURCE_FILE} and {OLD_SOURCE}", "Datasets", actor=ACTOR,
-                     detail={"units_note": units_note})
         print(f"   registered {len(ids)} rows (ids {ids[0]}..{ids[-1]}) units {rep.facts.get('units')}; {old_msg}; "
-              f"{set_display_name(conn, SOURCE_FILE, DISPLAY, ACTOR)}")
+              f"{name_msg}")
         for d in done:
             print(f"   linked    {d['child']} (id {d['child_id']}) -> {d['parent']} (id {d['parent_id']}) at "
                   f"{d['parent_offset']:,}" + (f"; its last {d['overhang']:,} samples run past the parent's end" if d["overhang"] else ""))
@@ -400,7 +509,7 @@ def _write(raw: RawMJu, args, channels_root, db, fs, m, links) -> int:
         for w in rep.warnings:
             print(f"   warning   {w}")
     finally:
-        conn.close()
+        real.close()
     print(f"   wrote     {final}: CH0..CH{raw.n_channels - 1}.npy + manifest.json")
     return 0
 
