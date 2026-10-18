@@ -55,11 +55,14 @@ export function SpanSetView({ p, ctx, selected, onSelect, cut }: { p: SpansetPay
     const core = p.marks ? [ctx.x(p.marks.onset_s[i]), ctx.x(p.marks.extremum_s[i])] : null
     return (
       <g key={i} onClick={onSelect ? () => onSelect(i) : undefined} style={onSelect ? { cursor: 'pointer' } : undefined} data-span={i} data-testid={onSelect ? `span-band-${i}` : undefined}>
-        <rect x={x0} y={0} width={Math.max(2, x1 - x0)} height={ctx.height} fill={impure ? 'var(--band-artifact)' : 'var(--band-detected)'} stroke={on ? 'var(--amber)' : 'none'} strokeWidth={on ? 2 : 0}>
-          <title>{`#${i + 1} · ${(p.end_s[i] - p.start_s[i]).toFixed(1)} s${p.scores?.[i] != null ? ` · score ${p.scores[i]!.toFixed(3)}` : ''}${impure ? ` · holds ${p.window_counts![i]} ${p.window_count_of ?? 'events'}` : ''}`}</title>
+        {/* ux-1018: the window is outlined, not only tinted — at 0.14 alpha on white the band vanished and only the
+            onset→extremum core showed, "thin vertical blue lines", while Review's band is the whole window (the
+            researcher, 2026-10-18). The outline matches the legend swatch; the tooltip names both. */}
+        <rect x={x0} y={0} width={Math.max(2, x1 - x0)} height={ctx.height} fill={impure ? 'var(--band-artifact)' : 'var(--band-detected)'} stroke={on ? 'var(--amber)' : impure ? 'var(--red)' : 'var(--blue)'} strokeOpacity={on ? 1 : 0.45} strokeWidth={on ? 2 : 1}>
+          <title>{`#${i + 1} · ${(p.end_s[i] - p.start_s[i]).toFixed(1)} s window — the span Review shows${core ? ' · the darker bar inside it is onset → extremum' : ''}${p.scores?.[i] != null ? ` · score ${p.scores[i]!.toFixed(3)}` : ''}${impure ? ` · holds ${p.window_counts![i]} ${p.window_count_of ?? 'events'}` : ''}`}</title>
         </rect>
         <rect x={x0} y={0} width={Math.max(2, x1 - x0)} height={3} rx={2} fill={on ? 'var(--amber)' : impure ? 'var(--red)' : 'var(--blue)'} />
-        {core && <rect x={Math.min(core[0], core[1])} y={3} width={Math.max(1.5, Math.abs(core[1] - core[0]))} height={ctx.height - 3} fill={impure ? 'var(--red)' : 'var(--blue)'} fillOpacity={0.22} pointerEvents="none" />}
+        {core && <rect x={Math.min(core[0], core[1])} y={3} width={Math.max(1.5, Math.abs(core[1] - core[0]))} height={ctx.height - 3} fill={impure ? 'var(--red)' : 'var(--blue)'} fillOpacity={0.3} pointerEvents="none" />}
       </g>
     )
   }

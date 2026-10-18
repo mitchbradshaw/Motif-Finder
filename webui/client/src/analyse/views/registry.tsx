@@ -213,7 +213,7 @@ function SpanSetProcess({ q, lead, featuresFirst }: { q: ProcessProps; lead?: Re
       {explain}
       <Full q={q} height={featuresFirst ? 110 : 190}>{ctx => <SpanSetView p={p} ctx={ctx} selected={selected} onSelect={setSelected} cut={cut} />}</Full>
       <div className="bp-legend" style={{ paddingLeft: 0 }}>
-        <span><i style={{ background: 'var(--band-detected)', border: '1px solid var(--blue)' }} />span</span>
+        <span><i style={{ background: 'var(--band-detected)', border: '1px solid var(--blue)' }} />span · the window Review shows{p.marks ? '' : ' (the slideshow adds half its length of context each side)'}</span>
         {cut && <span><i style={{ background: 'var(--amber-100)', border: '1px solid var(--amber)' }} />the cut · drag the line{f !== 1 ? ` · drawn in ${axisUnit(q.ctx.ghostUnit)}; the parameter holds it in ${q.ctx.ghostStoredUnit ?? 'the stored unit'} (÷${fmtN(f)})` : ''}</span>}
         {p.marks && <span><i style={{ background: 'var(--blue)', opacity: 0.45 }} />{p.explain?.mark ?? 'the fall inside its window (onset → extremum)'}</span>}
         {impure > 0 && <span><i style={{ background: 'var(--band-artifact)', border: '1px solid var(--red)' }} />window holding more than one {p.window_count_of === 'falls' ? 'fall' : 'span'}</span>}
