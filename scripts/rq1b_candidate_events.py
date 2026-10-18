@@ -52,6 +52,8 @@ def _guard():
 
 GUARD = _guard()
 DEFAULT_FILE = "M2_aug_concat_fs1.mat"
+#: the columns rule 5 writes: saved with a sample as the labels its frame was drawn against
+LABEL_COLUMNS = ("label", "label_kind", "label_basis", "label_refs", "inside_interesting")
 DEFAULT_OUT = os.path.join(GUARD.main_checkout(), "DATA", "derived", "candidate_events")
 
 
@@ -154,7 +156,7 @@ def _queue(a, db, checkout):
                      "seed": int(a.seed), "per_level": int(a.per_level), "per_family": int(a.per_family),
                      "levels": [list(x) for x in ce.AGREEMENT_LEVELS], "selective": list(ce.SELECTIVE_FAMILIES),
                      "strata": strata, "database": os.path.abspath(db), "created_at": ce._now()}
-            labels = events[["event_id", "label", "label_kind", "label_refs", "inside_interesting"]]
+            labels = events[["event_id"] + list(LABEL_COLUMNS)]
             where = ce.save_sample(a.table, sample, labels, smeta)
             qid = ce.create_sample_queue(conn, sample, name=name, note=f"rq1b-sample:{meta['key']}:{smeta['name']}")
             smeta["queue_id"] = qid
@@ -173,8 +175,7 @@ def _estimate(a, db):
     events, members, meta = ce.load_table(table)
     if meta["key"] != smeta["table_key"]:
         raise SystemExit(f"{a.sample} was drawn from table {smeta['table_key']}, not {meta['key']}")
-    events = events.drop(columns=["label", "label_kind", "label_refs", "inside_interesting"]).merge(
-        labels, on="event_id", how="left")
+    events = events.drop(columns=[c for c in LABEL_COLUMNS if c in events]).merge(labels, on="event_id", how="left")
     conn = _read_only(db)
     try:
         ce.check_sample_against(conn, sample)

@@ -96,6 +96,10 @@ train a CNN on window-pool clusters but not yet on Library families.
   them, and review as many motifs as possible (up to about 10,000) to fill RQ1b's training data.
 - **2026-10-18 (the researcher): what is already judged is training data and is never asked again.** A new sample
   draws only from events nobody has judged (`findings/rq1b-candidate-events.md`).
+- **2026-10-18 (the researcher): the candidate-event decisions, all as recommended** (`findings/rq1b-candidate-events.md`):
+  - keep the 800-item first sample, then judge more, up to about 3,000, with further seeds;
+  - the shortest spans holding an event decide;
+  - window-based labels (`label_basis` = window) teach event-versus-background only, never shape classes.
 - **2026-10-18 (the researcher): your errors lean to misses.** You are more likely to call an interesting event not
   interesting than the reverse. So the plan is one look for a yes and two for a no, before a "no" becomes a training
   negative.

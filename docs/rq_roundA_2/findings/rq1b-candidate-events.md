@@ -130,6 +130,12 @@ Drawn on the copy as a dry run. It is the same draw `queue --real` will make, as
    point. It gives the precision per agreement level, per detector family and per setting, with 95 % intervals. Your
    earlier verdicts count as known, and the sample stands in for the rest. Unanswered and unsure items are counted
    and left out.
+6. **To judge more** (you are happy to go up to about 3,000), once the first 800 are answered:
+   - Draw a second sample with another seed, `queue --real --seed 1 --apply`. Add `--per-level 200` to put more into
+     the agreement levels.
+   - It draws only from what is still unjudged, and your answers to the first sample count as known.
+   - Top up where the estimate's intervals are widest; the big middle levels (3–4, 5–6) are the likely ones.
+   - A drawn sample is never redrawn: the same seed after new verdicts is refused, so the estimate stays honest.
 
 M4_aug is refused by name, whatever Settings › Datasets' lock says: it is RQ1b's exam. M2_concat and L_LM take the
 same commands with `--file` once their sweeps are imported.
@@ -145,28 +151,34 @@ same commands with `--file` once their sweeps are imported.
 - **Physical events and classes.** Merge accepted proposals that are one event, pick its extent, attach its class.
 - **The two other recordings,** once their sweeps are in.
 
-## Open decisions
+## Decisions (the researcher, 2026-10-18: all three as recommended)
 
-Each comes in plain words first, then a recommendation.
+Each comes in plain words first, then a recommendation, then what was decided.
 
-1. **How big a first sample.** Each answer in the big strata stands for thousands of events, so their precision will
+1. **How big a first sample.** *Decided: keep 800; happy to judge more, up to about 3,000 (step 6 of How to use
+   it).* Each answer in the big strata stands for thousands of events, so their precision will
    be known to about ±10 points from 100 answers. That is enough to rank detectors, though not to split hairs.
    - 800 items is perhaps one to two hours at your Review pace.
    - **Recommended:** keep 800. If time is short, `--per-level 50 --per-family 25` gives 400 first, and a second seed
      can top it up later.
-2. **Which spans speak for an event.** Rule 5 lets the shortest spans holding an event decide, and any at most twice
-   as long. A 90-hour catalogue region marked seed does not overrule a 10-minute window you judged "not interesting"
+2. **Which spans speak for an event.** *Decided: as built.* Rule 5 lets the shortest spans holding an event decide,
+   and any at most twice as long. A 90-hour catalogue region marked seed does not overrule a 10-minute window you judged "not interesting"
    around the event.
    - This turned 6,405 of the first build's 8,126 conflicts into labels, mostly "not interesting".
    - **Recommended:** keep it. The alternative, any interesting span anywhere means "conflict", throws away direct
      judgements.
-3. **What the inherited window labels are worth.** 21,362 events are "interesting" because a 10-minute window you
-   liked covers them.
+3. **What the inherited window labels are worth.** *Decided: (b).* 21,362 events are "interesting" because a
+   10-minute window you liked covers them.
    - Options: (a) use them as event labels everywhere; (b) use them only to teach event-versus-background, not shape
      classes; (c) leave them out.
    - **Recommended: (b).** A window says something happened in those 10 minutes, not what shape it was.
+   - **How it is kept.** Every label carries `label_basis`: `window` when every verdict behind it was given on a
+     judged window (the old 10-minute labels, the blind test), else `event`. Whatever builds the training set reads it
+     and never takes a shape class from a `window` label.
 
 ## Log
 
 - 2026-10-18 · a2-rq1b · first measured and built. Table key `M2_aug_concat_fs1_8f4af0ad` on the copy; the real
   build's key depends on the database's runs.
+- 2026-10-18 · the researcher · all three decisions as recommended; up to about 3,000 items can be judged. Labels now
+  carry `label_basis` (table version 2).

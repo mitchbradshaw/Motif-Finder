@@ -299,6 +299,21 @@ def test_two_verdicts_that_disagree_on_one_event_are_a_conflict_and_an_artifact_
     assert (by[dets[9]].label, by[dets[9]].label_kind) == ("artifact", "same_event")
 
 
+def test_a_label_says_whether_it_rests_on_an_event_or_on_a_window():
+    """The researcher, 2026-10-18 (decision 3): a label inherited from a window someone judged (the old 10-minute
+    labels, the blind test) says something happened in that stretch, not what shape it was, so it teaches
+    event-versus-background only. The table says which labels those are."""
+    _c, ev, dets, _ids = _label_fixture()
+    by = _by_anchor(ev)
+    assert by[dets[0]].label_basis == "event"         # a Library-review member span, the same event
+    assert by[dets[1]].label_basis == "window"        # inside an imported 10-minute window
+    assert by[dets[4]].label_basis == "event"         # an adjudication on a seed-search match
+    assert by[dets[5]].label_basis == "event"         # an adjudication on the event's own detection
+    assert by[dets[9]].label_basis == "window"        # a blind-test window's artifact verdict
+    assert pd.isna(by[dets[2]].label_basis) and pd.isna(by[dets[3]].label_basis)   # unjudged, conflict
+    assert ce.label_counts(ev)["basis"] == {"event": 4, "window": 2}
+
+
 def test_the_most_specific_span_that_holds_an_event_decides():
     """A 25-hour catalogue region marked seed says little about one event inside it; a 10-minute window judged not
     interesting says a lot. Among the spans that hold an event, the shortest (and those of comparable length, at

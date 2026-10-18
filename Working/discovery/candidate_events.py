@@ -41,7 +41,11 @@ The rules, each one stated once
    event's label (Q-W1); if they say interesting, the event stays unjudged (Q-W1). Either way an event held by any
    interesting span is flagged ``inside_interesting``. Two same-event verdicts that disagree, or specific spans that
    disagree (two overlapping 10-minute windows, one yes and one no), are a ``conflict``: unjudged, never resolved
-   silently. ``unsure`` is kept as unsure and is neither asked again nor counted.
+   silently. ``unsure`` is kept as unsure and is neither asked again nor counted. Each label says what it rests on
+   (``label_basis``): ``window`` when every verdict behind it was given on a judged window (``WINDOW_SOURCES``: the
+   old 10-minute labels, the blind test), else ``event``. The researcher's decision (2026-10-18): a window label
+   says something happened in that stretch, not what shape it was, so it teaches event-versus-background only, never
+   a shape class.
 6. **The sample.** Only unjudged events (conflicts included) are drawn. Strata: the first ``SELECTIVE_FAMILIES``
    family among an event's own detectors, else its agreement level (``AGREEMENT_LEVELS``). A simple random sample in
    each, weight N_h / n_h, served in a seeded random order through one blind queue over each event's anchor
@@ -76,7 +80,12 @@ from Working.database import queries as _queries
 from Working.discovery.matching import match_quality, match_span_sets, normalise_rule, rule_from_settings
 from Working.discovery.spans import absolute_bounds
 
-TABLE_VERSION = 1
+TABLE_VERSION = 2
+
+#: rule 5: verdicts given on WINDOWS someone judged, not on events. A label resting only on these says something
+#: happened in the stretch, not what shape it was; the researcher (2026-10-18, decision 3): such labels teach
+#: event-versus-background only, never shape classes (``label_basis`` = "window")
+WINDOW_SOURCES = ("imported_10min", "blind_test_review")
 
 #: fnmatch patterns over template names left out of the sweep: W4-A's 1-minute CNNs, a negative control
 NEGATIVE_CONTROLS = ("cnn_*_1min",)
@@ -109,7 +118,7 @@ _MAX_PAIRS = 4_000_000
 
 EVENT_COLUMNS = ("event_id", "recording_id", "channel", "start", "end", "anchor_detection_id", "anchor_variant",
                  "n_members", "matched_families", "n_matched_families", "agree_families", "n_agree", "label",
-                 "label_kind", "label_refs", "inside_interesting")
+                 "label_kind", "label_basis", "label_refs", "inside_interesting")
 
 
 def _now():
@@ -359,17 +368,19 @@ def add_agreement(events, detections, *, share=AGREE_SHARE):
 # ── rule 5: existing verdicts ───────────────────────────────────────────────
 
 def _human_spans(conn, recording_ids, skip_adjudications=()):
-    """`{recording_id: DataFrame(start, end, label, ref)}`: live annotations, and adjudications on any real run's
-    detections (in channel-absolute samples), except the adjudications in `skip_adjudications`."""
+    """`{recording_id: DataFrame(start, end, label, ref, basis)}`: live annotations, and adjudications on any real
+    run's detections (in channel-absolute samples), except the adjudications in `skip_adjudications`. `basis` is
+    "window" for a verdict on a judged window (`WINDOW_SOURCES`), else "event"."""
     rows = []
     ids = sorted(int(r) for r in recording_ids)
     for chunk in _chunks(ids):
         marks = ",".join("?" * len(chunk))
-        for aid, rid, s, e, verdict in conn.execute(
-                f"SELECT id, recording_id, start_idx, end_idx, verdict FROM annotations WHERE deleted_at IS NULL "
-                f"AND recording_id IN ({marks})", chunk):
+        for aid, rid, s, e, verdict, source in conn.execute(
+                f"SELECT id, recording_id, start_idx, end_idx, verdict, source FROM annotations "
+                f"WHERE deleted_at IS NULL AND recording_id IN ({marks})", chunk):
             if verdict in LABEL_OF:
-                rows.append((int(rid), int(s), int(e), LABEL_OF[verdict], f"annotation:{int(aid)}"))
+                rows.append((int(rid), int(s), int(e), LABEL_OF[verdict], f"annotation:{int(aid)}",
+                             "window" if source in WINDOW_SOURCES else "event"))
         for adj_id, rid, s, e, s0, verdict in conn.execute(
                 f"SELECT a.id, r.recording_id, d.start_idx, d.end_idx, r.span_start, a.verdict FROM adjudications a "
                 f"JOIN detections d ON d.id = a.detection_id JOIN runs r ON r.id = d.run_id "
@@ -377,8 +388,8 @@ def _human_spans(conn, recording_ids, skip_adjudications=()):
             if int(adj_id) in skip_adjudications or verdict not in LABEL_OF:
                 continue
             a, b = absolute_bounds(s, e, s0)
-            rows.append((int(rid), a, b, LABEL_OF[verdict], f"adjudication:{int(adj_id)}"))
-    df = pd.DataFrame(rows, columns=["recording_id", "start", "end", "label", "ref"])
+            rows.append((int(rid), a, b, LABEL_OF[verdict], f"adjudication:{int(adj_id)}", "event"))
+    df = pd.DataFrame(rows, columns=["recording_id", "start", "end", "label", "ref", "basis"])
     return {int(r): g.sort_values(["start", "end", "ref"]).reset_index(drop=True)
             for r, g in df.groupby("recording_id")}
 
@@ -391,7 +402,7 @@ def _member_adjudications(conn, members):
         ev = by_det.get(int(det_id))
         if ev is None or verdict not in LABEL_OF:
             continue
-        out.setdefault(int(ev), []).append((LABEL_OF[verdict], f"adjudication:{int(adj_id)}"))
+        out.setdefault(int(ev), []).append((LABEL_OF[verdict], f"adjudication:{int(adj_id)}", "event"))
         used.add(int(adj_id))
     return out, used
 
@@ -411,6 +422,7 @@ def attach_labels(conn, events, members, *, rule=None):
     n = len(events)
     label = np.full(n, None, dtype=object)
     kind = np.full(n, None, dtype=object)
+    basis = np.full(n, None, dtype=object)
     refs = np.full(n, None, dtype=object)
     inside_int = np.zeros(n, dtype=bool)
     member_adj, used = _member_adjudications(conn, members)
@@ -426,7 +438,8 @@ def attach_labels(conn, events, members, *, rule=None):
         contain = {}
         if spans is not None and len(spans):
             hs, he = spans["start"].to_numpy(np.int64), spans["end"].to_numpy(np.int64)
-            hl, hr = spans["label"].to_numpy(object), spans["ref"].to_numpy(object)
+            hl, hr, hb = (spans["label"].to_numpy(object), spans["ref"].to_numpy(object),
+                          spans["basis"].to_numpy(object))
             starts = hs.tolist()
             for i in rows:                              # rule 2, exactly as Review's rediscovery check
                 s, e = int(es[i]), int(ee[i])
@@ -435,7 +448,7 @@ def attach_labels(conn, events, members, *, rule=None):
                 hi = bisect_right(starts, math.floor(s + tol))
                 for j in range(lo, hi):
                     if match_quality((s, e), (int(hs[j]), int(he[j])), rule=rule)["ok"]:
-                        same.setdefault(int(i), []).append((hl[j], hr[j]))
+                        same.setdefault(int(i), []).append((hl[j], hr[j], hb[j]))
             r_s, r_e = es[rows], ee[rows]
             bucket = _length_buckets(he - hs)           # Q-W1: the spans that wholly hold an event
             for b in np.unique(bucket):
@@ -453,50 +466,62 @@ def attach_labels(conn, events, members, *, rule=None):
                     r = r + a
                     ok = be[j] >= r_e[r]
                     for ri, jj in zip(r[ok].tolist(), sel[j[ok]].tolist()):
-                        contain.setdefault(int(rows[ri]), []).append((hl[jj], hr[jj], int(he[jj] - hs[jj])))
+                        contain.setdefault(int(rows[ri]), []).append(
+                            (hl[jj], hr[jj], int(he[jj] - hs[jj]), hb[jj]))
         for i in rows:
             i = int(i)
             mine = member_adj.get(int(eids[i]), [])
             direct = mine + same.get(i, [])
             if direct:
-                classes = {c for c, _ in direct}
-                refs[i] = ";".join(sorted({r for _, r in direct}))
+                classes = {c for c, _r, _b in direct}
+                refs[i] = ";".join(sorted({r for _c, r, _b in direct}))
                 if len(classes) == 1:
                     label[i] = classes.pop()
                     kind[i] = "member" if mine else "same_event"
+                    basis[i] = _basis_of(b for _c, _r, b in direct)
                 else:
                     kind[i] = "conflict"
                 continue
             held = [h for h in contain.get(i, []) if h[0] in JUDGED]
             if not held:
                 continue
-            inside_int[i] = any(c == "interesting" for c, _r, _n in held)
-            shortest = min(n for _c, _r, n in held)     # the most specific spans decide (rule 5)
-            specific = [(c, r) for c, r, n in held if n <= SPECIFIC_FACTOR * shortest]
-            classes = {c for c, _ in specific}
+            inside_int[i] = any(c == "interesting" for c, _r, _n, _b in held)
+            shortest = min(n for _c, _r, n, _b in held)  # the most specific spans decide (rule 5)
+            specific = [(c, r, b) for c, r, n, b in held if n <= SPECIFIC_FACTOR * shortest]
+            classes = {c for c, _r, _b in specific}
             negative = classes & {"not_interesting", "artifact"}
             if negative:
-                refs[i] = ";".join(sorted({r for _c, r in specific}))
+                refs[i] = ";".join(sorted({r for _c, r, _b in specific}))
                 if "interesting" in classes or len(negative) > 1:
                     kind[i] = "conflict"
                 else:
                     label[i] = negative.pop()
                     kind[i] = "inside_span"
+                    basis[i] = _basis_of(b for _c, _r, b in specific)
     events["label"] = label
     events["label_kind"] = kind
+    events["label_basis"] = basis
     events["label_refs"] = refs
     events["inside_interesting"] = inside_int
     return events
 
 
+def _basis_of(bases):
+    """A label rests on a window only when every verdict behind it was given on a window (decision 3)."""
+    return "window" if all(b == "window" for b in bases) else "event"
+
+
 def label_counts(events):
     """What the table's labels say, for a report: the counts per label, conflicts and events inside an interesting
-    span, and how many are still unjudged."""
+    span, how many are still unjudged, and how many labels rest on an event or only on a window."""
     lab = events["label"]
     out = {k: int((lab == k).sum()) for k in ("interesting", "not_interesting", "artifact", "unsure")}
     out["conflict"] = int((events["label_kind"] == "conflict").sum())
     out["unjudged"] = int(lab.isna().sum())
     out["inside_interesting_unjudged"] = int((lab.isna() & events["inside_interesting"].astype(bool)).sum())
+    if "label_basis" in events:
+        out["basis"] = {b: int((events["label_basis"] == b).sum()) for b in ("event", "window")}
+        out["interesting_on_events"] = int(((lab == "interesting") & (events["label_basis"] == "event")).sum())
     return out
 
 
