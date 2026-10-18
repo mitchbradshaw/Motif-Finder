@@ -416,6 +416,10 @@ def materialize_target(recipe, target_index):
     target = fan["targets"][target_index]
     if fan["kind"] == "channels":
         return make_recipe(target, recipe["steps"], span=recipe["span"])
+    if fan["kind"] == "windows":
+        # round A_2, P3: a window is the ordinary recipe over its own span — the run
+        # any hand-made section of that length there would be, cached and reused alike
+        return make_recipe(target["recording_id"], recipe["steps"], span=target["span"])
     return make_recipe(
         recipe["recording_id"], [band_step(target)] + recipe["steps"], span=recipe["span"],
     )

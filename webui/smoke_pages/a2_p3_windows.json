@@ -1,0 +1,104 @@
+[
+ {
+  "page": "discovery.runs",
+  "state": "a2-p3-apply-template-offers-a-window-scope",
+  "hash": "discovery/runs?modal=add-template&tpl=noise_threshold&windows=on&wlen=3600&wov=0.5",
+  "settle_ms": 1500,
+  "_why": "round A_2 P3: Apply template has Windows beside Channels and Bands - off is the whole section; on, a length (10 min ... 168 h, or any in hours), an overlap with 50 % recommended (the default), the opt-in that fits the chain to the window, and the trade-off in a plain sentence. The scope sits in the template's detail pane, which paints once /api/discovery/templates answers (minutes on the real-data copy: hence the long wait). Needs no data beyond the canonical templates",
+  "actions": [
+   {"wait_for": ["[data-testid=\"window-scope\"]", 360000]},
+   {"wait": 500}
+  ],
+  "expect": ["[data-testid=\"add-template-modal\"]", "[data-testid=\"window-scope-head\"]", "[data-testid=\"window-scope-mode\"]",
+             "[data-testid=\"window-length\"]", "[data-testid=\"window-overlap\"]", "[data-testid=\"window-overlap\"]:has-text(\"50 % (recommended)\")",
+             "[data-testid=\"window-fit\"]", "[data-testid=\"window-tradeoff\"]:has-text(\"own thresholds\")"],
+  "expect_absent": ["[data-testid=\"discovery-load-failed\"]"]
+ },
+ {
+  "page": "discovery.runs",
+  "state": "a2-p3-the-plan-says-how-many-windows-and-what-they-cost",
+  "hash": "discovery/runs?modal=add-template&tpl=noise_threshold&windows=on&wlen=3600&wov=0.5",
+  "settle_ms": 1500,
+  "_why": "round A_2 P3: the window plan is the bridge's (POST /api/discovery/plan with windows; nothing runs): windows per channel x channels, the runs that makes with the null, the estimate and the run-bookkeeping floor, the route, and the shortest window the chain allows with the step that sets it (noise_threshold: step 01's 600 s rolling mean, so 40 min). A session section shorter than 1 h reads as a refusal in words instead of the count; either way the minimum is shown",
+  "actions": [
+   {"wait_for": ["[data-testid=\"window-count\"], [data-testid=\"window-refused\"]", 360000]},
+   {"wait": 300}
+  ],
+  "expect": ["[data-testid=\"window-plan\"]", "[data-testid=\"window-minimum\"]:has-text(\"step 01\")",
+             "[data-testid=\"window-minimum\"]:has-text(\"40 min\")"],
+  "expect_absent": ["[data-testid=\"discovery-load-failed\"]"]
+ },
+ {
+  "page": "discovery.runs",
+  "state": "a2-p3-ten-minute-windows-are-refused-naming-the-step",
+  "hash": "discovery/runs?modal=add-template&tpl=noise_threshold&windows=on&wlen=600&wov=0.5",
+  "settle_ms": 1500,
+  "_why": "round A_2 P3: the bound - a window at least 4 x the chain's longest rolling window - refuses the researcher's 10-minute scale for the 600 s detrend family, naming step 01 and saying how to go on (40 min or longer, or fit the chain: a different chain). The researcher's decision on this is in RQ4b",
+  "actions": [
+   {"wait_for": ["[data-testid=\"window-refused\"]", 360000]},
+   {"wait": 300}
+  ],
+  "expect": ["[data-testid=\"window-refused\"]:has-text(\"step 01\")", "[data-testid=\"window-refused\"]:has-text(\"fit\")"],
+  "expect_absent": ["[data-testid=\"discovery-load-failed\"]", "[data-testid=\"window-count\"]"]
+ },
+ {
+  "page": "discovery.runs",
+  "state": "a2-p3-fitted-ten-minute-windows-are-a-different-chain",
+  "hash": "discovery/runs?modal=add-template&tpl=noise_threshold&windows=on&wlen=600&wov=0.5&wfit=1",
+  "settle_ms": 1500,
+  "_why": "round A_2 P3: with 'fit the chain's internal windows to this window length' ticked, the 10-minute scale plans: the 600 s rolling mean becomes 150 s, written in the recipe - its own algorithm version and its own row on the Map - and the plan says what changed",
+  "actions": [
+   {"wait_for": ["[data-testid=\"window-fitted\"], [data-testid=\"window-refused\"]", 360000]},
+   {"wait": 300}
+  ],
+  "expect": ["[data-testid=\"window-fitted\"]:has-text(\"150\")", "[data-testid=\"window-count\"]"],
+  "expect_absent": ["[data-testid=\"discovery-load-failed\"]"]
+ },
+ {
+  "page": "discovery.runs",
+  "state": "a2-p3-a-windowed-run-is-one-run-named-by-its-scale",
+  "hash": "discovery/runs",
+  "settle_ms": 1500,
+  "_why": "round A_2 P3: a windowed application is ONE Discovery run, named by its scale ('noise_threshold · 1 h windows · 50 %'), its runs the stitched windows (one per channel), so found is the stitched count. Populated once a template has been applied with windows on the sandbox and has finished; the empty arm is the runs list",
+  "actions": [
+   {"wait_for": ["[data-testid=\"runs-card\"]", 60000]}
+  ],
+  "branch_on": {"api": "/api/discovery/runs", "items": "", "where": {"windowed": true, "status": "done"},
+                "empty": {"expect": ["[data-testid=\"runs-list\"]"]},
+                "populated": {"expect": ["[data-testid^=\"run-row-\"][data-status=\"done\"]:has-text(\"windows\")"]}},
+  "expect": ["[data-testid=\"discovery-runs-page\"]"],
+  "expect_absent": ["[data-testid=\"discovery-load-failed\"]"]
+ },
+ {
+  "page": "discovery.map",
+  "state": "a2-p3-a-windowed-row-on-the-map",
+  "hash": "discovery/map",
+  "settle_ms": 1500,
+  "_why": "round A_2 P3: the window scope joins the Map's row key, so a windowed application is its own row beside the whole-span run ('... · 1 h windows · 50 %'), each scale its own version of the algorithm; its cells count the stitched set, so overlapping windows are not counted twice. Populated once a windowed run has finished in the sandbox; the empty arm is the map card",
+  "actions": [
+   {"wait_for": ["[data-testid=\"map-card\"]", 60000]}
+  ],
+  "branch_on": {"api": "/api/discovery/runs", "items": "", "where": {"windowed": true, "status": "done"},
+                "empty": {"expect": ["[data-testid=\"map-card\"]"]},
+                "populated": {"expect": ["[data-testid^=\"map-row-\"]:has-text(\"windows\")",
+                                         "[data-testid=\"map-cell\"][data-state=\"covered\"]:not([data-row=\"human\"])"]}},
+  "expect": ["[data-testid=\"discovery-map-page\"]"],
+  "expect_absent": ["[data-testid=\"discovery-load-failed\"]"]
+ },
+ {
+  "page": "discovery.runs",
+  "state": "a2-p3-the-window-card-plans-with-the-chosen-bands",
+  "hash": "discovery/runs?modal=add-template&tpl=noise_threshold&windows=on&wlen=3600&wov=0.5",
+  "settle_ms": 1500,
+  "_why": "round A_2 P3 fix round (m6): the window card plans with the band scope. Turning the bands on ticks the named bands (Settings > Analysis defaults; Q43's seed starts with 0.001-0.01 Hz, whose bandpass reads a 1,000 s period, so it needs 66.7 min windows): at 1-hour windows the card is refused naming that band and its minimum - before the fix it said runnable and the apply refused it. A sandbox whose band list has no band that slow would read the count instead",
+  "actions": [
+   {"wait_for": ["[data-testid=\"window-scope\"]", 360000]},
+   {"click": "[data-testid=\"band-scope-mode\"] [data-value=\"bands\"]"},
+   {"wait_for": ["[data-testid=\"window-refused\"]", 360000]},
+   {"wait": 300}
+  ],
+  "expect": ["[data-testid=\"band-scope\"]", "[data-testid=\"window-refused\"]:has-text(\"0.001\")",
+             "[data-testid=\"window-refused\"]:has-text(\"66.7 min\")"],
+  "expect_absent": ["[data-testid=\"discovery-load-failed\"]"]
+ }
+]

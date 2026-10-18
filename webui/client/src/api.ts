@@ -1530,3 +1530,117 @@ export const sendDetectionsToReview = (runKey: string, detectionIds: number[]) =
     already_judged: { id: number; verdict: string | null }[]
     unjudged: number; judged: number; source_kind: 'discovery-run'; writes: string; message: string; note: string
   }>(`/api/discovery/runs/${encodeURIComponent(runKey)}/review`, { detection_ids: detectionIds })
+
+/* ---------------- a2-p4: the seed search on demand; every family as a seed (server/discovery.py) ----------------
+ * Appended; existing interfaces extended by declaration merging. The GET of a seed result never computes: with no
+ * result and nothing running it answers `job_id: null`, and `cancelled` (with the job) when the newest job for the
+ * query was cancelled — a cancelled preview is never kept. The seed picker takes a `grouping` (by default the newest
+ * shape-distance single-motif grouping, `isDefault`); `source=family` lists every family of it by its medoid, each a
+ * Library entry (`library:` id); `source=medoid` is the drop-motif store's sixteen catalogue spans, which are not
+ * Library families. */
+export interface DiscSeedPending { cancelled?: boolean | null; cancelledJob?: number | null
+  /** fix round (F1): the newest job for the query failed — its own message and traceback, as a state of the query */
+  failed?: boolean | null; failedJob?: number | null; error?: { message?: string | null; traceback?: string | null } | null
+  /** fix round (F5): the running job is a seed run drawing this preview first; the POST joins it */
+  drawnBy?: { runKey: string; label: string } | null }
+/** a run asked for the preview's null before a preview was in draws that preview first, inside the run's job */
+export interface DiscSeedRunAck { drawsPreviewFirst?: boolean }
+export type DiscSeedPickerSource = 'library' | 'family' | 'explore' | 'medoid'
+export interface DiscSeedGrouping {
+  id: string; name: string; basis: string; basisLabel: string; method: string; families: number; createdAt: string | null
+  isDefault: boolean
+}
+export interface DiscSeedPickerQuery {
+  source: DiscSeedPickerSource; grouping?: string; kind?: string; family?: string; recording?: string; channel?: string
+  entry?: number; offset?: number; limit?: number
+}
+export interface DiscSeedPage { grouping?: DiscSeedGrouping | null; groupings?: DiscSeedGrouping[] }
+export const getDiscoverySeedPicker = (q: DiscSeedPickerQuery) => req<DiscSeedPage>(`/api/discovery/seeds${dq({ ...q })}`)
+
+/* ---------------- a2-p1: the held-out lock ---------------- */
+/** GET /api/held-out — the lock every route obeys now: Settings › Datasets' `heldout.on` (or a script's
+ *  HELD_OUT_UNLOCK override). `locked` is the effective state the header chip shows; `on` is the setting alone;
+ *  `unlock` says how to turn it off. Read per request on the bridge; nothing is cached there. */
+export interface HeldOutLockState {
+  locked: boolean; on: boolean; recording: string; name: string; file: string; unlock: string; override: boolean
+}
+export const getHeldOutLock = () => req<HeldOutLockState>('/api/held-out')
+
+/* ---------------- a2 integration (P1 x P4): a seed draft moved off the held-out recording ---------------- */
+export interface DiscSeedDraft {
+  /** a2-p1 (m2): the remembered draft's seed is on the held-out recording and the lock is on, so the bridge opened
+   *  the first available seed instead; this sentence says why and how to unlock. Absent otherwise. */
+  heldOutNote?: string | null
+}
+
+/* ---------------- round A_2 · P2: a template run's chain job (server/discovery.py `post_slurm`, `/api/discovery/chain/import`) ----
+ * Appended. *Create SLURM script* writes `Working.discovery.chain_job`'s array job (one task per channel, the real chain
+ * and its null draws on a scratch database) and marks the run row *on cluster* with its `hpc`; `dryRun` is the modal's
+ * preview (nothing written). The import restores the step cache and runs the ordinary sweep here, so the run reads on
+ * Runs, Compare, Review and the Map as a local one. The run row's `hpc` widens by declaration merging. */
+export interface DiscSeedHpc {
+  kind?: 'chain'; tasks?: number; returnPath?: string; resultDir?: string; paired?: boolean; partition?: string
+  wallMinutes?: number; wallVerified?: boolean; chunked?: string[]; refused?: { at: string; message: string }
+  counts?: { recordingId: number; channelName: string; detections: number; draws: number[] }[]
+}
+export interface DiscRun { hpcImported?: boolean; hpcRefused?: string | null; clusterAgrees?: boolean; clusterCheck?: string | null }
+export interface DiscChainCopy { what: string; path: string; bytes: number | null; note?: string }
+export interface DiscChainExport {
+  run_key: string | null; label: string; dryRun: boolean; script: string; script_path: string; spec_path: string
+  result_dir: string; result_path: string; return_path: string; sbatch_command: string; slurm_time: string
+  wall_minutes: number; wall_verified: boolean; budget_s: number; max_chain: number
+  profile: { gpu: boolean; partition: string; cpus: number; condaEnv: string; wallMinutes: number; wallVerified: boolean }
+  tasks: number; draws: number; paired: boolean; specHash: string; copy_out: DiscChainCopy[]; warnings: string[]
+  chunked: string[]; route: string; estimate_s: number | null; ceiling_s: number; channels: string[]
+  capped: { recording_id: number; channel_name: string; step: number; name: string; cap: number | null; samples: number | null; where: string }[]
+  steps: string; note: string
+}
+/** Write (or, with `dryRun`, preview) the chain job for one Discovery run; the row is marked *on cluster* server-side. */
+export const exportDiscoveryChain = (body: DiscPlanBody & { runKey?: string; dryRun?: boolean }) =>
+  post<DiscChainExport>('/api/discovery/slurm', body)
+export interface DiscChainImportAck { run_key: string; job_id: number; label: string; tasks: number; entries: number; bytes: number; note: string }
+/** The tasks' return/ folder is back: verify it, restore the cache, run the sweep here. A refusal is a 422 with what is missing. */
+export const importDiscoveryChain = (runKey: string) => post<DiscChainImportAck>('/api/discovery/chain/import', { runKey })
+
+/* ---------------- round A_2 · P3: the window scope (server/discovery.py `PlanBody.windows`, `ApplyBody.windows`) ----
+ * Appended. A detection run over sliding windows with overlap: each window judged on its own scale, the windows'
+ * detections stitched into one result (`Working/discovery/windowed.py`). The plan answers counts — windows per
+ * channel, the runs that makes with the null, the run-overhead floor — the chain's minimum window and the step that
+ * sets it, and what fitting the chain to a shorter window changed. The interfaces widen by declaration merging. */
+export interface DiscWindowScope { window_s: number; overlap_frac?: number; fit?: boolean; allow_short?: boolean }
+export interface DiscWindowMinimum {
+  step: number; name: string; label: string; param: string; seconds: number; kind: 'context' | 'piece'; minimum_s: number
+  fittable: boolean
+}
+export interface DiscWindowFit { step: number; name: string; param: string; from: number; to: number }
+export interface DiscPlanWindows {
+  scope: { kind: 'windows'; window_s: number; overlap_frac: number; fit: boolean; allow_short?: boolean }; label: string
+  recommendedOverlap: number; tradeOff: string; minimum: DiscWindowMinimum | null; fitted: DiscWindowFit[]
+  refused: string | null; warning: string | null; per_channel: number; targets: number; runs: number; done: number
+  per_window_s: number | null; overhead_s: number; run_overhead_s: number; rules: { name: string; rule: string }[]
+}
+export interface DiscPlanBody { windows?: DiscWindowScope }
+export interface DiscPlan { windows?: DiscPlanWindows }
+export interface DiscApplyResult { windows?: { label: string; per_channel: number; targets: number; runs: number } }
+export interface DiscWindowStitch {
+  channel: string; windows: number; windowsReused: number; found: number; kept: number; duplicates: number; outside: number
+  /** fix round: events whose halves were joined at a boundary, and events kept from a neighbour the owner missed */
+  merged?: number; rescued?: number
+}
+export interface DiscRun {
+  windows?: {
+    scope: DiscPlanWindows['scope']; label: string; per_channel: number; targets: number; fitted: DiscWindowFit[]
+    minimum: DiscWindowMinimum | null; stitch?: DiscWindowStitch[] | null; tradeOff: string; warning?: string | null
+    /** the stitch rule the run was made by (fix round, m7) */
+    rule?: { iou: number; onset: number } | null; rules?: { name: string; rule: string }[] | null
+  }
+  windowed?: boolean
+}
+/** *Apply template* with a window scope (and, optionally, a band scope): each template becomes ONE Discovery run,
+ *  its runs the stitched windows, one per channel. */
+export const applyDiscoveryTemplatesWindowed = (templates: string[], channels: string[], t0: number, t1: number, run: boolean,
+  windows: DiscWindowScope, bands?: DiscBand[], exemplars?: Record<string, string>) =>
+  post<DiscApplyResult[]>('/api/discovery/templates/apply',
+    { templates, channels, t0, t1, run, windows, bands: bands && bands.length ? bands : undefined, exemplars })
+/** A Map row of a windowed application (`detection_map._row_meta`): its scope and its scale in words. */
+export interface DiscMapRow { windows?: { scope: DiscPlanWindows['scope']; label: string } | null }

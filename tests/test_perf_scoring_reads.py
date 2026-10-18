@@ -408,9 +408,16 @@ def _new_run_on_the_channel(s):
     run_db.insert_detection(s["conn"], run, 12_100, 12_300, score=0.5)
 
 
+def _run_stitched_into_another(s):
+    # round A_2's windowed application: once a run is a stitched run's window, a pooled read drops it.
+    # Only the stitched_windows row changes (no new run), so this pins that the fingerprint reads it.
+    s["conn"].execute("INSERT INTO stitched_windows (run_id, window_index, window_run_id, span_start, span_end, "
+                      "core_start, core_end) VALUES (?, 0, ?, 0, 20000, 0, 20000)", (s["runs"][1], s["runs"][0]))
+
+
 @pytest.mark.parametrize("change", [
     _verdict_in_place, _soft_delete, _new_annotation, _adjudicated, _rule_changed,
-    _detection_added, _second_channel_verdict, _new_run_on_the_channel,
+    _detection_added, _second_channel_verdict, _new_run_on_the_channel, _run_stitched_into_another,
 ], ids=lambda f: f.__name__.strip("_"))
 def test_any_change_on_the_channels_redraws_the_corpus_map(scored, change):
     corpus = _corpus()

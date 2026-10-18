@@ -5,7 +5,8 @@ shape* → *Shape clustering* (ticket `docs/prompts/fixup/AG-…`).
   library of EVERY saved window set (unlabelled sets, pools, the baseline's
   labelled set), each with its kind, recording(s), scale and counts, from
   ``Working.training.pool.list_sets`` — nothing assumes six. The held-out
-  recording is never listed.
+  recording is never listed: these are training sets, and training keeps its
+  own lock (exam iii) whatever Settings › Datasets says (a2-p1 fix round).
 
 The core does the work (``Working.training.pool``, ``Working.training.shape``);
 these routes hand it a connection and hand its answers back.

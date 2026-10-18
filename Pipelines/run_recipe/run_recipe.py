@@ -45,13 +45,20 @@ from Working.recipes import make_recipe
 
 
 def load_recipe_from_file(path):
+    """The recipe in `path`, re-validated through `make_recipe` — keeping its
+    `surrogate` flag (round A_2, P2). The flag is part of what a run is: a paired
+    run records it, and its config hash and every step-cache key carry it, so a
+    file re-normalised without it hashed as another run than the one it came from."""
     with open(path) as f:
         data = json.load(f)
     if "recording_id" not in data or "steps" not in data:
         raise ValueError(
             f"'{path}' doesn't look like a recipe (needs 'recording_id' and 'steps')."
         )
-    return make_recipe(data["recording_id"], data["steps"], span=data.get("span"))
+    recipe = make_recipe(data["recording_id"], data["steps"], span=data.get("span"))
+    if "surrogate" in data:
+        recipe["surrogate"] = bool(data["surrogate"])
+    return recipe
 
 
 def main():

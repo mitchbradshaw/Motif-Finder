@@ -556,7 +556,7 @@ export function ChainPage() {
               plot={(x, w, h) => sourcePayload ? <SourcePlot p={sourcePayload} x={x} w={w} h={h} throwTest={throwTest} /> : null}
               replace={locked ? (
                 <div className="an-hpc" data-testid="held-out-card" style={{ background: 'var(--grey-100)', borderColor: 'var(--grey-200)' }}>
-                  <div><div className="t" style={{ color: 'var(--text-2)' }}>🔒 {source.source_file} is held out — the bridge refuses it (423) and this page shows none of its data</div><div className="s">D6: the held-out lock stays on in every workspace · pick a span from another recording</div></div>
+                  <div><div className="t" style={{ color: 'var(--text-2)' }}>🔒 {source.source_file} is held out — the bridge refuses it (423) and this page shows none of its data</div><div className="s">D6: while the lock is on, every workspace refuses it · pick a span from another recording, or turn the lock off in Settings › Datasets (type the recording's name)</div></div>
                   <button className="btn" onClick={useExample}>Use the example span</button>
                 </div>
               ) : undefined}

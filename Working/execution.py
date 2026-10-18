@@ -134,6 +134,17 @@ def _recipe_prefix_hash(recipe, up_to_index, units=None):
     since declared in another (2026-10-15). Every caller that looks a key up
     — the executor, the bridge's readout, sidecar and cache status — passes
     the recording's unit.
+
+    Every param is in the key, the matrix profile's `backend` among them: a
+    profile computed with `backend: "auto"` (the GPU where there is one) is
+    not served to a chain that says `"stump"`, though both are exact. It
+    STAYS in the key (round A_2 P2 fix round, 2026-10-18): the RQ4 overnight
+    specs' `prefixHashes` include it, and the import
+    (`chain_job.verify_results`) refuses a result whose keys no longer
+    reproduce (`tests/test_rq4_overnight_specs.py` guards them). Sharing
+    profiles across the exact backends is the researcher's decision (RQ4b,
+    "What is still needed"); it would be an alias at lookup, not a change to
+    this key.
     """
     prefix = dict(recipe)
     prefix["steps"] = recipe["steps"][:up_to_index + 1]
@@ -336,21 +347,29 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
                               on_step_result=None):
     from Working.config import (
         HELD_OUT_RECORDING_FILE,
-        HELD_OUT_UNLOCK,
         STEP_CACHE_ROOT,
         STEP_CACHE_WRITE_THRESHOLD_S,
     )
+
+    if recipe.get("windows"):
+        # round A_2, P3: a stitched run's recipe names a window scope; run as one span it would be a whole-section
+        # run filed under the windowed run's identity. Its windows are ordinary recipes, run by the fan-out.
+        raise ValueError("this recipe is a windowed application (its 'windows' scope): it is run window by window "
+                         "and stitched (Working.discovery.windowed), never as one span")
 
     recording = q.get_recording_by_id(conn, recipe["recording_id"])
     if recording is None:
         raise ValueError(f"No recording with id={recipe['recording_id']}")
 
-    # Guard against accessing the held-out recording unless explicitly unlocked
-    if not HELD_OUT_UNLOCK and recording["source_file"] == HELD_OUT_RECORDING_FILE:
-        raise HeldOutRecordingLocked(
-            f"Access to held-out recording '{HELD_OUT_RECORDING_FILE}' is locked. "
-            f"Set HELD_OUT_UNLOCK=True in Working/config.py to temporarily allow access."
-        )
+    # Guard against accessing the held-out recording while it is locked: Settings › Datasets' switch, read
+    # now (a2-p1), or the HELD_OUT_UNLOCK override a script may set — both inside `held_out_locked`
+    if recording["source_file"] == HELD_OUT_RECORDING_FILE:
+        from Working.registration.settings import HELD_OUT_UNLOCK_HINT, held_out_locked
+        if held_out_locked(conn):
+            raise HeldOutRecordingLocked(
+                f"Access to held-out recording '{HELD_OUT_RECORDING_FILE}' is locked: "
+                f"{HELD_OUT_UNLOCK_HINT}."
+            )
 
     # Hard-fail before any computation (or run row) — a hand-edited or
     # cluster-generated recipe that bypassed `Working.recipes.make_recipe`
@@ -424,15 +443,6 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
             spec = get_adapter(adapter_name)
             params = spec.validate_params(step.get("params"))
 
-            if spec.max_span_samples is not None and len(x) > spec.max_span_samples:
-                raise ValueError(
-                    f"Step {i} ('{adapter_name}'): span is {len(x)} samples, which "
-                    f"exceeds this adapter's max_span_samples={spec.max_span_samples}. "
-                    "Choose a smaller span — this is an O(n^2)-or-worse encoding "
-                    "and a larger span would attempt to allocate a matrix whose "
-                    "size scales with the square of the span length."
-                )
-
             # Resume walk: the cache key is the recipe prefix through this
             # step. A hit restores the step's typed output from disk and
             # skips `spec.run`; a miss computes it and (if slow enough)
@@ -446,6 +456,18 @@ def _execute_recipe_with_conn(conn, recipe, force, on_progress, should_cancel, r
             if from_cache:
                 step_timings[i] = 0.0
             else:
+                # The span cap guards a COMPUTATION, so it is checked here, where
+                # the step is about to compute (round A_2, P2): a cached result is
+                # served whatever its length — a whole-channel matrix profile
+                # computed on the cluster and imported is read back, not refused.
+                if spec.max_span_samples is not None and len(x) > spec.max_span_samples:
+                    raise ValueError(
+                        f"Step {i} ('{adapter_name}'): span is {len(x)} samples, which "
+                        f"exceeds this adapter's max_span_samples={spec.max_span_samples}. "
+                        "Choose a smaller span — this is an O(n^2)-or-worse encoding "
+                        "and a larger span would attempt to allocate a matrix whose "
+                        "size scales with the square of the span length."
+                    )
                 accepted = inspect.signature(spec.run).parameters
                 extra = {}
                 if run_kwargs:

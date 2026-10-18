@@ -49,7 +49,7 @@ No UI imports; the bridge is the only caller that knows a browser exists.
 import datetime as _dt
 import json
 
-from Working.config import HELD_OUT_RECORDING_FILE, HELD_OUT_UNLOCK
+from Working.config import HELD_OUT_RECORDING_FILE
 from Working.database import queries as _q
 from Working.database import runs as _runs
 from Working.database.schema import init_db
@@ -110,7 +110,7 @@ def _uncosted_steps(steps):
 
 
 def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_channel_s=None,
-         reuse_lookup=None, null_draws=0):
+         null_draws=0, surrogate=None, surrogate_params=None, windows=None, stitch_rule=None):
     """The scope, checked, costed and routed — before anything runs.
 
     Parameters
@@ -126,26 +126,51 @@ def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_
     measured_per_channel_s : float, optional
         Seconds one channel really took, from `preview`. Supplied, it replaces
         the estimator (and is the only honest number for an uncosted chain).
-    reuse_lookup : callable(conn, recording_id, span) -> dict | None, optional
-        Per-target artifact reuse (a matrix profile already on disk). Recorded
-        on the target, never assumed.
     null_draws : int
         Paired surrogate draws per channel (Settings › Nulls, Q35). Each draw
         is the whole chain again on a surrogate signal, so the estimate is
         ``per channel × channels × (1 + null_draws)`` and the ROUTE is decided
         on that total — "null draws count toward local limits" (§9.4).
+    surrogate : bool, optional
+        Whether the run is paired with its null (the `surrogate` flag the run's
+        recipe records, and so part of every cache key); None means
+        ``null_draws > 0``.
+    surrogate_params : dict, optional
+        The null's params (method, seed, block) — what the draws' recipes are.
+
+    The estimate counts **only what the step cache does not hold** (round A_2,
+    P2): per target, the real run and each draw are read step by step against
+    the cache (`routing.target_cost`), so a chain whose heavy step came back
+    from the cluster plans local. A step that must compute over a **time** cap
+    (the matrix profile's, calibrated from this machine's speed) routes the plan
+    to the cluster instead of being refused; ``capped`` names it.
+
+    The dead ``reuse`` field (`seeded_search.find_reusable_profile`, read by
+    nothing) is gone: the step cache keys the exact question — recording, span,
+    params, backend, unit — and a profile over a longer span is not a profile
+    of a shorter one (the self-join's neighbours change), so containment reuse
+    would have served wrong distances.
+
+    ``windows`` (round A_2, P3) is a window scope (``{window_s, overlap_frac,
+    fit}``, `Working.discovery.windowed`): each channel's section is cut into
+    windows and each window is one target, an ordinary run over its own span;
+    the plan then carries ``windows`` (the count per channel, the runs left,
+    the chain's minimum window and what fitting changed). ``stitch_rule`` is
+    the matching rule the windows are stitched by (Settings › Analysis
+    defaults when None). Without ``windows`` nothing here changes.
 
     Returns
     -------
     dict
         ``{targets, refused, runnable, reason, span, n_channels, recipe,
         estimate_s, estimate_real_s, null_draws, per_channel_s, uncosted,
-        route, ceiling_s}``.
+        route, ceiling_s, costs, capped, memory_capped, surrogate}``.
     """
     ids = [int(r) for r in recording_ids]
     if not ids:
         raise ValueError("a Discovery scope needs at least one channel")
     ceiling = int(ceiling_s) if ceiling_s is not None else _ceiling_from_settings(conn)
+    from Working.registration.settings import HELD_OUT_UNLOCK_HINT, held_out_locked
 
     by_file = {}
     targets, refused = [], []
@@ -155,10 +180,12 @@ def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_
             refused.append({"recording_id": rid, "reason": f"no recording with id {rid}"})
             continue
         source_file = rec["source_file"]
-        if source_file == HELD_OUT_RECORDING_FILE and not HELD_OUT_UNLOCK:
+        # a2-p1: Settings › Datasets' lock, read now (never at import) — off, the held-out file plans like any other
+        if source_file == HELD_OUT_RECORDING_FILE and held_out_locked(conn):
             refused.append({"recording_id": rid, "reason": (
                 f"{HELD_OUT_RECORDING_FILE} is held out (spec §0 D6): locked for the final "
-                f"evaluation, and refused before the fan-out starts rather than partway through it")})
+                f"evaluation, and refused before the fan-out starts rather than partway through it — "
+                f"{HELD_OUT_UNLOCK_HINT}")})
             continue
         n_samples = int(rec["n_samples"])
         if span is not None:
@@ -183,30 +210,45 @@ def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_
             "n_samples": n_samples,
             "span": target_span,
             "samples": target_span[1] - target_span[0],
-            "reuse": (reuse_lookup(conn, rid, tuple(target_span)) if reuse_lookup else None),
         })
 
-    uncosted = _uncosted_steps(steps)
-    per_channel_s = None
-    if measured_per_channel_s is not None:
-        per_channel_s = float(measured_per_channel_s)
-    elif not uncosted and targets:
-        per_channel_s = _estimate_per_channel(steps, targets)
-
     null_draws = max(0, int(null_draws or 0))
-    estimate_real_s = per_channel_s * len(targets) if per_channel_s is not None else None
-    estimate_s = estimate_real_s * (1 + null_draws) if estimate_real_s is not None else None
-    if estimate_s is None:
-        route = "unknown"
-    elif estimate_s > ceiling:
-        route = "cluster"
-    else:
-        route = "local"
+    surrogate = (null_draws > 0) if surrogate is None else bool(surrogate)
+
+    if windows is not None:
+        # round A_2, P3: the same channels, refused the same way, each cut into windows
+        from Working.discovery import windowed
+        return windowed.plan_windows(conn, steps=steps, targets=targets, refused=refused, span=span,
+                                     ceiling=ceiling, measured_per_window_s=measured_per_channel_s,
+                                     null_draws=null_draws, surrogate=surrogate,
+                                     surrogate_params=surrogate_params, scope=windows, stitch_rule=stitch_rule)
 
     recipe = None
     if targets:
         recipe = make_recipe(targets[0]["recording_id"], steps, span=(list(span) if span else None),
                              fan_out={"kind": "channels", "targets": [t["recording_id"] for t in targets]})
+
+    # what each target will really compute, against the step cache, and the caps it meets (a measured
+    # cost replaces the estimate, so the draws are not read one by one for it: the real run's caps are theirs)
+    costed_draws = null_draws if (surrogate and measured_per_channel_s is None) else 0
+    costs = (_target_costs(conn, recipe, targets, draws=costed_draws, surrogate=surrogate,
+                           surrogate_params=surrogate_params) if recipe is not None else [])
+    capped, memory_capped = _capped(costs, "capped"), _capped(costs, "refused")
+    uncosted = sorted({i for c in costs for i in c["uncosted"]}) if costs else _uncosted_steps(steps)
+
+    per_channel_s = None
+    if measured_per_channel_s is not None:
+        per_channel_s = float(measured_per_channel_s)
+        estimate_real_s = per_channel_s * len(targets)
+        estimate_s = estimate_real_s * (1 + null_draws)
+    elif costs and all(c["seconds"] is not None for c in costs):
+        per_channel_s = max(c["real_s"] for c in costs)
+        estimate_real_s = float(sum(c["real_s"] for c in costs))
+        estimate_s = float(sum(c["seconds"] for c in costs))
+    else:
+        estimate_real_s = estimate_s = None
+    from Working.discovery.routing import route as _route
+    route = _route(estimate_s, ceiling, capped=capped)
 
     runnable = bool(targets)
     reason = None
@@ -220,6 +262,7 @@ def plan(conn, *, steps, recording_ids, span=None, ceiling_s=None, measured_per_
         "null_draws": null_draws, "per_channel_s": per_channel_s,
         "uncosted": uncosted, "route": route, "ceiling_s": ceiling,
         "measured": measured_per_channel_s is not None,
+        "costs": costs, "capped": capped, "memory_capped": memory_capped, "surrogate": surrogate,
     }
 
 
@@ -259,6 +302,13 @@ def start(plan_dict, *, db_path=None, on_progress=None, on_target_done=None, sho
     """
     if not plan_dict.get("runnable"):
         raise ValueError(f"this scope cannot run: {plan_dict.get('reason')}")
+    if plan_dict.get("windows"):
+        # round A_2, P3: every window, then each channel's windows stitched into its stitched run
+        from Working.discovery import windowed
+        return windowed.start_windows(plan_dict, db_path=db_path, on_progress=on_progress,
+                                      on_target_done=on_target_done, should_cancel=should_cancel,
+                                      surrogate=surrogate, surrogate_params=surrogate_params, force=force,
+                                      run_kwargs=run_kwargs, surrogate_draws=surrogate_draws, on_draw=on_draw)
     recipe = plan_dict["recipe"]
     targets = recipe["fan_out"]["targets"]
     n = len(targets)
@@ -273,8 +323,7 @@ def start(plan_dict, *, db_path=None, on_progress=None, on_target_done=None, sho
                 break
             if on_progress is not None:
                 on_progress(i, n, plan_dict["targets"][i]["channel_name"])
-            per_target = materialize_target(recipe, i)
-            per_target["surrogate"] = bool(surrogate)
+            per_target = target_recipe(recipe, i, surrogate)
             if surrogate_draws is None:
                 surrogate_draws = plan_dict.get("null_draws") or None
             result = run_paired_recipe(
@@ -454,6 +503,23 @@ def preview(plan_dict, *, db_path=None, sample_samples=14400, target_index=0):
     scale = (b - a) / float(sample_samples) if sample_samples else 1.0
     spans = int(result.get("detections_written") or 0)
     per_channel = measured * scale
+    if plan_dict.get("windows"):
+        # round A_2, P3: the sample is (part of) one window, timed with its run's bookkeeping; the application is
+        # every window of every channel, each with its draws, and each window's own share of the timeline is
+        # (1 - overlap) of it
+        w = plan_dict["windows"]
+        runs = len(plan_dict["targets"]) * (1 + (int(plan_dict.get("null_draws") or 0)
+                                                 if plan_dict.get("surrogate") else 0))
+        share = 1.0 - float(w["scope"]["overlap_frac"])
+        return {
+            "channel": target["channel_name"], "recording_id": target["recording_id"],
+            "sample_samples": sample_samples, "sample_span": [a, a + sample_samples],
+            "sample_hours": sample_samples / target["fs"] / 3600.0, "measured_s": measured,
+            "per_window_s": per_channel, "per_channel_s": per_channel * w["per_channel"],
+            "estimate_s": per_channel * runs, "windows": w["targets"], "runs": runs,
+            "spans_in_sample": spans, "extrapolated_spans": int(round(spans * scale * w["targets"] * share)),
+            "run_id": result.get("run_id"), "scale": scale,
+        }
     return {
         "channel": target["channel_name"],
         "recording_id": target["recording_id"],
@@ -468,3 +534,48 @@ def preview(plan_dict, *, db_path=None, sample_samples=14400, target_index=0):
         "run_id": result.get("run_id"),
         "scale": scale,
     }
+
+
+# ── round A_2, P2: one target's recipe, and what it will really compute ─────
+
+def target_recipe(recipe, index, surrogate):
+    """The plain per-target recipe a fan-out RUNS for target ``index``:
+    `materialize_target` plus the `surrogate` flag the run records (and so every
+    cache key carries). One statement of it, read by `start`, by the plan's cache
+    lookups and by the cluster export (`chain_job.build_spec`), so the three
+    cannot drift on what a target's recipe is."""
+    per = materialize_target(recipe, index)
+    per["surrogate"] = bool(surrogate)
+    return per
+
+
+def _target_costs(conn, recipe, targets, *, draws, surrogate, surrogate_params):
+    """Per target: what its real run and its draws will compute against the step
+    cache (`routing.target_cost`), with the target's identity."""
+    from Working.discovery import routing
+
+    out = []
+    for i, t in enumerate(targets):
+        c = routing.target_cost(conn, target_recipe(recipe, i, surrogate), samples=t["samples"], fs=t["fs"],
+                                draws=draws, surrogate_params=surrogate_params)
+        out.append({"recording_id": t["recording_id"], "channel_name": t["channel_name"], "samples": t["samples"],
+                    "seconds": c["seconds"], "real_s": c["real_s"], "draws_s": c["draws_s"],
+                    "uncosted": c["uncosted"], "cached": c["cached"], "draws_cached": c["draws_cached"],
+                    "draws_known": c["draws_known"], "capped": c["capped"], "refused": c["refused"]})
+    return out
+
+
+def _capped(costs, key):
+    """Each (target, chain step) over a cap that must compute, once: the real
+    run's index, a draw's shifted back past its surrogate step."""
+    out, seen = [], set()
+    for c in costs:
+        for st in c[key]:
+            where = st.get("where") or "real"
+            step = st["index"] if where in ("real", "draws") else st["index"] - 1
+            if (c["recording_id"], step) in seen:
+                continue
+            seen.add((c["recording_id"], step))
+            out.append({"recording_id": c["recording_id"], "channel_name": c["channel_name"], "step": step,
+                        "name": st["name"], "cap": st["cap"], "samples": c["samples"], "where": where})
+    return out

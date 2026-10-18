@@ -410,6 +410,20 @@ def completed_null_draw(alias="r"):
     return f"{alias}.surrogate_of_run_id IS NOT NULL AND {alias}.status = 'completed'"
 
 
+def not_window_part(alias="r"):
+    """The ONE statement of "this run is not one window of a windowed application", as a SQL predicate over a
+    `runs` row aliased `alias` — beside `not_surrogate`, for the readers that pool every run of a recording.
+
+    A windowed application (round A_2, P3, `Working.discovery.windowed`) runs the chain over each window as an
+    ordinary run and stitches the windows' detections into one stitched run per channel; `stitched_windows` names
+    the window runs each stitched run is made of. The stitched run is the result. A reader that pools a recording's
+    runs — Explore's spans, ribbons, counts, run list and coverage, the divergence with no run picked, a queue over a
+    run group, the run history — reads it and not its windows, or an event shows once for every window that found
+    it and once more stitched (the critic's M1, 2026-10-18). A window run asked for by its id is still read: the
+    readers that take explicit run ids do not add this clause."""
+    return f"NOT EXISTS (SELECT 1 FROM stitched_windows sw WHERE sw.window_run_id = {alias}.id)"
+
+
 def is_surrogate_run(conn, run_id):
     """True when `run_id` is some run's paired null."""
     row = conn.execute("SELECT surrogate_of_run_id FROM runs WHERE id = ?", (int(run_id),)).fetchone()
@@ -605,6 +619,8 @@ def queue_candidates(conn, run_id=None, run_group_id=None, method=None,
     if run_group_id is not None:
         clauses.append("r.run_group_id = ?")
         params.append(run_group_id)
+        # a windowed application's group holds its window runs too: its stitched runs are the result (a2-p3)
+        clauses.append(not_window_part("r"))
     if score_min is not None:
         clauses.append("d.score >= ?")
         params.append(score_min)

@@ -331,7 +331,7 @@ function HeldOut({ store: s, rows }: { store: ReturnType<typeof useSettingsPage>
       actions={<Chip tone={on ? 'blue' : 'grey'} testid="held-out-chip-state">{on ? `on · ${name} held out` : 'off · no recording held out'}</Chip>}>
       <Row id="f-hold-out-a-recording" testid="hold-out-row"
         label="hold out a recording" sub="kept from every workspace"
-        info="A held-out recording is kept from every workspace so evaluation on it stays honest (D6). When on, every workspace refuses it; turning it off needs the name typed, and is logged. The bridge refuses M4_aug_concat_fs1.mat on every route whatever this says."
+        info="A held-out recording is kept from every workspace so evaluation on it stays honest (D6). When on, every workspace refuses it; turning it off needs the name typed, and is logged. The bridge reads this switch on every request, so it takes effect at once, with no restart: off, Explore, Analyse, Discovery, Review and Library can all use the recording, and the top bar shows an amber 'unlocked' chip as a reminder. RQ1's exam (iii) in Models keeps its own lock whatever this says."
         dot={s.differs('heldout.on')} unsaved={s.dirty('heldout.on')}>
         <Toggle checked={on} testid="held-out-toggle" ariaLabel="hold out a recording"
           onChange={next => { if (!next) setModal('unlock'); else s.applyNow('heldout.on', true).then(() => push({ text: `Held-out lock on · ${name} held out · logged` })).catch(e => push({ text: String(e instanceof Error ? e.message : e), kind: 'error' })) }} />
@@ -359,8 +359,9 @@ function UnlockModal({ open, onClose, name, onConfirm }: { open: boolean; onClos
           onClick={() => { setBusy(true); setError(null); onConfirm(typed.trim()).catch(e => setError(e instanceof ApiError ? e.message : String(e))).finally(() => setBusy(false)) }}>Turn off lock</Button>
       </>}>
       <p className="small" style={{ marginTop: 0, lineHeight: 1.55 }}>
-        {name} becomes selectable in every workspace — Explore, Analyse, Discovery, Models, Review, Library.
-        Evaluation on it is no longer protected. This is written to the audit log.
+        {name} becomes selectable in every workspace — Explore, Analyse, Discovery, Review, Library — at once, with
+        no restart (RQ1's exam (iii) in Models keeps its own lock). Evaluation on it is no longer protected. This is
+        written to the audit log; turning the switch back on locks it again.
       </p>
       <label className="s-label mono" htmlFor="unlock-type">Type {name} to confirm</label>
       <TextField id="unlock-type" value={typed} onChange={setTyped} block placeholder={name} testid="unlock-input" />

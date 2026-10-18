@@ -563,8 +563,10 @@ def channels_fingerprint(conn, recording_ids, memo=None):
     parts = [_settings_rows(conn, memo)]
     for rec_id in sorted({int(r) for r in recording_ids}):
         parts += _channel_rows(conn, rec_id, memo)
-        # each run with its recipe's hash (a method filter reads the recipe) and its detection id range
+        # each run with its recipe's hash (a method filter reads the recipe), whether it is a stitched
+        # run's window (`queries.not_window_part`: a pooled read drops it) and its detection id range
         parts.append(_rows(conn, "SELECT r.*, (SELECT c.config_hash FROM configs c WHERE c.id = r.config_id), "
+                                 "(SELECT COUNT(*) FROM stitched_windows sw WHERE sw.window_run_id = r.id), "
                                  "(SELECT MIN(d.id) FROM detections d WHERE d.run_id = r.id), "
                                  "(SELECT MAX(d.id) FROM detections d WHERE d.run_id = r.id) "
                                  "FROM runs r WHERE r.recording_id = ? ORDER BY r.id", (rec_id,)))

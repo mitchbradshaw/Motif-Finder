@@ -9,9 +9,10 @@ import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
 import { getRebindExemplars, getBands, getBandsFor, getTemplates, previewRun, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryTemplate, type MeasuredPreview } from '../api/discovery'
-import { applyDiscoveryTemplates, applyDiscoveryTemplatesWithBands, type DiscBand } from '../api'
+import { applyDiscoveryTemplates, applyDiscoveryTemplatesWithBands, applyDiscoveryTemplatesWindowed, type DiscBand } from '../api'
 import { RunGlyph } from './glyphs'
 import { LoadFailed, Loading } from './chrome'
+import { WindowScope, windowScopeOf } from './WindowScope'
 import type { Discovery } from './session'
 
 export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean; onClose: () => void; dx: Discovery; onSlurm: (keys: string[]) => void }) {
@@ -57,6 +58,17 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   const chosenBands = bandMode === 'bands' ? [...bandList, ...waveLevels].filter(b => bandSel.includes(b.label) && !bandReason(b)) : []
   const nBands = chosenBands.length
   const bandMult = Math.max(1, nBands)
+  /* round A_2 · P3: the window scope beside Channels and Bands. Off is the whole section; on, each template is still ONE
+   * run, made of its windows stitched together (`WindowScope.tsx`). 50 % overlap is the recommended default. */
+  const [winMode, setWinMode] = useQueryState('windows', 'off')
+  const [winLen, setWinLen] = useQueryState('wlen', '3600')
+  const [winCustom, setWinCustom] = useState('')
+  const [winOverlap, setWinOverlap] = useQueryState('wov', '0.5')
+  const [winFit, setWinFit] = useQueryState('wfit', '')
+  const [winAllow, setWinAllow] = useQueryState('wallow', '')
+  const winState = { on: winMode === 'on', overlap: Number(winOverlap), fit: winFit === '1', allowShort: winAllow === '1',
+    lengthS: winLen === 'custom' ? (parseFloat(winCustom) > 0 ? parseFloat(winCustom) * 3600 : null) : Number(winLen) }
+  const winScope = windowScopeOf(winState)
   const setMode = (v: string) => {
     setBandMode(v)
     // the named bands start ticked (fixup-z); wavelet levels start unticked — a ladder of nine is not a default
@@ -85,7 +97,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
    * 320 h of six channels is not a measurement of 4 h of two, and the card was
    * still badging it "measured" after the scope shrank — out by eighty. */
   // and on the band: a preview with a band scope is the FIRST chosen band's chain, bandpass included
-  const scopeKey = `${s.channels.join(',')}|${s.section.join('-')}|${chosenBands[0]?.label ?? ''}`
+  const scopeKey = `${s.channels.join(',')}|${s.section.join('-')}|${chosenBands[0]?.label ?? ''}|${winScope ? JSON.stringify(winScope) : ''}`
   const [previews, setPreviews] = useState<Record<string, MeasuredPreview & { scope: string }>>({})
   const previewOf = (name: string) => { const p = previews[name]; return p && p.scope === scopeKey ? p : undefined }
   const [previewing, setPreviewing] = useState<string | null>(null)
@@ -105,7 +117,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
     setPreviewing(t.name)
     setPreviewErr(null)
     try {
-      const r = await previewRun({ template: t.name, channels: s.channels, t0: s.section[0], t1: s.section[1], sampleHours: 4, band: chosenBands[0] })
+      const r = await previewRun({ template: t.name, channels: s.channels, t0: s.section[0], t1: s.section[1], sampleHours: 4, band: chosenBands[0], windows: winScope ?? undefined })
       setPreviews(prev => ({ ...prev, [t.name]: { ...r.data, scope: scopeKey } }))
     } catch (e) {
       setPreviewErr(e instanceof Error ? e.message : String(e))
@@ -115,10 +127,13 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
   }
   const needsExemplar = chosen.find(t => t.bind === 'rebind' && !exemplar[t.name])
   const blockReason = chosen.length === 0 ? 'select at least one template' : needsExemplar ? `${needsExemplar.name} needs an exemplar`
-    : bandMode === 'bands' && nBands === 0 ? 'choose at least one band, or set the band scope to none' : null
-  const apply = (run: boolean) => nBands
-    ? applyDiscoveryTemplatesWithBands(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run, chosenBands, exemplar)
-    : applyDiscoveryTemplates(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run, exemplar)
+    : bandMode === 'bands' && nBands === 0 ? 'choose at least one band, or set the band scope to none'
+      : winState.on && !winScope ? 'give the window a length, or set the window scope to off' : null
+  const apply = (run: boolean) => winScope
+    ? applyDiscoveryTemplatesWindowed(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run, winScope, chosenBands, exemplar)
+    : nBands
+      ? applyDiscoveryTemplatesWithBands(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run, chosenBands, exemplar)
+      : applyDiscoveryTemplates(chosen.map(t => t.name), s.channels, s.section[0], s.section[1], run, exemplar)
 
   /* §7.5's *Add runs* / *Add and run*. This is a real POST: it used to add a
    * row to React state and drive a timer, which meant the row's "running", its
@@ -167,7 +182,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
       headerExtra={<Seg size="sm" value="template" onChange={v => { if (v === 'seed') { onClose(); navigate('discovery/seed') } }} options={[{ value: 'template', label: 'Apply template' }, { value: 'seed', label: 'Seed search' }]} testid="add-runs-mode" />}
       footer={
         <div className="dsc-add-foot">
-          <span><b>{chosen.length} template{chosen.length === 1 ? '' : 's'} selected</b> <span className="muted small" data-testid="add-multiplier">{nBands ? `× ${nBands} band${nBands === 1 ? '' : 's'} ` : ''}× {nCh} channel{nCh === 1 ? '' : 's'}</span></span>
+          <span><b>{chosen.length} template{chosen.length === 1 ? '' : 's'} selected</b> <span className="muted small" data-testid="add-multiplier">{nBands ? `× ${nBands} band${nBands === 1 ? '' : 's'} ` : ''}× {nCh} channel{nCh === 1 ? '' : 's'}{winScope ? ' · in windows, stitched' : ''}</span></span>
           <span className="k-spacer" />
           {chosen.length > 0 && <span className={cx('small mono', over ? 'amber' : 'muted')} data-testid="add-estimate">
             {priced.length === 0 ? 'cost not measured — Preview on a sample'
@@ -306,6 +321,10 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                     </div>
                   </div>
                 )}
+                <WindowScope template={focus.fits ? focus.name : null} channels={s.channels} section={s.section} bands={chosenBands} state={winState}
+                  mode={winMode} setMode={setWinMode} length={winLen} setLength={setWinLen} custom={winCustom} setCustom={setWinCustom}
+                  overlap={winOverlap} setOverlap={setWinOverlap} fit={winFit === '1'} setFit={v => setWinFit(v ? '1' : null)}
+                  allowShort={winAllow === '1'} setAllowShort={v => setWinAllow(v ? '1' : null)} />
                 <div className="dsc-tiles">
                   <StatTile label="compute" value={!focus.fits ? '—' : focusCost != null ? fmtMin(focusCost) : 'not measured'}
                     caption={!focus.fits ? (focus.fitsReason ?? 'does not fit the scope') : focusCost != null ? focus.complexity : noCost(focus)}

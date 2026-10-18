@@ -69,7 +69,7 @@ import os
 import numpy as np
 
 from Adapters.detection_seed_matches import format_scales, match_exemplar, match_exemplar_bank, parse_scales
-from Working.config import HELD_OUT_RECORDING_FILE, HELD_OUT_UNLOCK
+from Working.config import HELD_OUT_RECORDING_FILE
 from Working.database import queries as _q
 from Working.recipes import make_recipe
 
@@ -547,10 +547,13 @@ def seed_from_content(conn, source_file, channel, start_idx, end_idx, *, role=No
     channel, sample range and a hash of the samples themselves — so an exported
     recipe resolves on another machine's database (the `library_exemplar`
     binding is content-addressed for exactly this reason)."""
-    if source_file == HELD_OUT_RECORDING_FILE and not HELD_OUT_UNLOCK:
-        raise PermissionError(
-            f"{HELD_OUT_RECORDING_FILE} is held out (spec §0 D6): it cannot be a seed, "
-            f"a search target or a compare side")
+    if source_file == HELD_OUT_RECORDING_FILE:
+        # a2-p1: Settings › Datasets' lock, read now (never at import)
+        from Working.registration.settings import HELD_OUT_UNLOCK_HINT, held_out_locked
+        if held_out_locked(conn):
+            raise PermissionError(
+                f"{HELD_OUT_RECORDING_FILE} is held out (spec §0 D6): it cannot be a seed, "
+                f"a search target or a compare side while the lock is on — {HELD_OUT_UNLOCK_HINT}")
     rec = _q.get_recording(conn, source_file, int(channel))
     if rec is None:
         raise ValueError(f"no recording for {source_file!r} channel {channel}")

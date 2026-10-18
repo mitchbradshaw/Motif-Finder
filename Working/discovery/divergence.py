@@ -159,10 +159,14 @@ def _cell(machine_yes, side):
 
 def real_runs(conn, recording_id, run_ids=None):
     """The runs a divergence is over: ``run_ids`` restricted to this recording,
-    or every run on it when None. Surrogate runs are dropped either way."""
+    or every run on it when None. Surrogate runs are dropped either way; pooled
+    (None), so is each window run of a windowed application — its stitched run
+    is the result (`queries.not_window_part`, a2-p3) — while one named in
+    ``run_ids`` is read."""
+    pooled = "" if run_ids is not None else " AND " + _q.not_window_part("r")
     rows = conn.execute(
         "SELECT r.id, r.span_start, r.span_end, r.status FROM runs r WHERE r.recording_id = ? AND "
-        + _q.not_surrogate("r") + " ORDER BY r.id", (int(recording_id),)).fetchall()
+        + _q.not_surrogate("r") + pooled + " ORDER BY r.id", (int(recording_id),)).fetchall()
     if run_ids is not None:
         wanted = {int(i) for i in run_ids}
         rows = [r for r in rows if int(r["id"]) in wanted]

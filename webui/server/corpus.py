@@ -18,6 +18,7 @@ from Working.database import queries as q
 from Working.database import runs as r
 from Working.database.runs import list_runs, load_recipe
 from Working.database.schema import BUSY_TIMEOUT_S, VERDICTS
+from Working.registration import settings as _settings
 from Working.units import to_mv_factor
 
 from .decimate import envelope
@@ -58,6 +59,32 @@ def dataset_name(conn, source_file: str) -> str:
 def dataset_names(conn) -> dict:
     """`source_file -> name` for every registered file, in one query."""
     return _datasets.display_names(conn)
+
+
+# ── the held-out lock (a2-p1) ────────────────────────────────────────────────
+#: How a refusal of the held-out recording says to unlock it — the core's own sentence.
+HELD_OUT_UNLOCK_HINT = _settings.HELD_OUT_UNLOCK_HINT
+
+
+def held_out_locked(conn) -> bool:
+    """Settings › Datasets' held-out lock as it stands NOW: the core's one
+    predicate (`Working.registration.settings.held_out_locked`), asked per
+    request and never cached here, so turning the lock off or on takes effect on
+    the next request with no bridge restart."""
+    return _settings.held_out_locked(conn)
+
+
+def is_held_out(conn, source_file) -> bool:
+    """True when `source_file` is the held-out recording AND the lock is on —
+    the bridge's one question before a 423 or a list exclusion. The file name is
+    compared first, so any other recording costs no settings read."""
+    return source_file == HELD_OUT_FILE and _settings.held_out_locked(conn)
+
+
+def held_out_refusal(what: str) -> str:
+    """The sentence a refusal carries while the lock is on: the file, what is
+    refused, and how to unlock it."""
+    return f"{HELD_OUT_FILE} is held out (spec §0 D6): {what} while the lock is on — {HELD_OUT_UNLOCK_HINT}"
 
 
 @functools.lru_cache(maxsize=32)
@@ -130,6 +157,7 @@ def recordings(conn) -> list[dict]:
     for row in rows:
         by_file.setdefault(row["source_file"], []).append(row)
     names, meta = dataset_names(conn), _datasets.list_datasets(conn)
+    locked = held_out_locked(conn)          # a2-p1: once per read, from the settings row as it stands now
     out = []
     for sf, chans in by_file.items():
         chans.sort(key=lambda c: c["channel"])
@@ -153,9 +181,9 @@ def recordings(conn) -> list[dict]:
             "fs_source": c0.get("fs_source") or "unrecorded",
             "warnings": json.loads(c0["warnings_json"]) if c0.get("warnings_json") else [],
             "excerpt_of": parent,
-            "n_channels": len(chans), "held_out": sf == HELD_OUT_FILE,
-            "held_out_reason": (f"{HELD_OUT_FILE} is held out (spec §0 D6 / Working.config.HELD_OUT_RECORDING_FILE); "
-                                "the bridge refuses every request for it and the pages never draw it") if sf == HELD_OUT_FILE else None,
+            "n_channels": len(chans), "held_out": sf == HELD_OUT_FILE and locked,
+            "held_out_reason": (held_out_refusal("the bridge refuses every request for it and the pages never draw it")
+                                if sf == HELD_OUT_FILE and locked else None),
             "channels": [{"id": c["id"], "channel": c["channel"],
                           "name": channel_name(sf, c["channel"], len(chans)),
                           "npy_exists": os.path.isfile(c["npy_path"])} for c in chans],
@@ -172,7 +200,7 @@ def recording_row(conn, recording_id: int) -> dict | None:
     d = dict(row)
     n_ch = conn.execute("SELECT COUNT(*) FROM recordings WHERE source_file = ?", (d["source_file"],)).fetchone()[0]
     d["name"] = channel_name(d["source_file"], d["channel"], n_ch)
-    d["held_out"] = d["source_file"] == HELD_OUT_FILE
+    d["held_out"] = is_held_out(conn, d["source_file"])      # a2-p1: the lock as it stands now
     d["duration_s"] = d["n_samples"] / d["fs"]
     d["display_unit"] = display_unit(d)
     return d
@@ -189,24 +217,38 @@ def _absolute(start_idx, end_idx, span_start):
     return s, e
 
 
-def run_methods(conn, source_file: str) -> list[dict]:
-    """Every run on a recording file (with or without detections), with its method (the algorithms of its recipe)."""
+def run_methods(conn, source_file: str, run_ids=None) -> list[dict]:
+    """Every run on a recording file (with or without detections), with its method (the algorithms of its recipe),
+    newest first. A run's null is not a method to filter Explore by (q.not_surrogate), nor is one window of a
+    windowed application: its stitched run is the result (q.not_window_part) — unless `run_ids` names it. One query,
+    each recipe read once per config (a2-p3 fix round: this walked every run in the database, counting each one's
+    detections and loading its recipe in turn — 2.26 s once one recording held 20,000 window runs)."""
     out = []
     recs = {row["id"]: dict(row) for row in q.list_recordings(conn, source_file)}
-    for row in list_runs(conn):
-        if row["recording_id"] not in recs:
-            continue
-        if row["surrogate_of_run_id"] is not None:
-            continue    # a run's null is not a method to filter Explore by (q.not_surrogate)
-        n = conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ?", (row["id"],)).fetchone()[0]
-        try:
-            recipe = load_recipe(conn, row["config_id"])
-            algos = [s["algorithm"] for s in recipe["steps"]]
-        except Exception:
-            algos = []
+    if not recs:
+        return out
+    where = "x.source_file = ? AND " + q.not_surrogate("r")
+    args = [source_file]
+    if run_ids:
+        ids = [int(i) for i in run_ids]
+        where += " AND r.id IN (%s)" % ",".join(str(i) for i in ids)
+    else:
+        where += " AND " + q.not_window_part("r")
+    rows = conn.execute("SELECT r.*, (SELECT COUNT(*) FROM detections d WHERE d.run_id = r.id) AS n_det FROM runs r "
+                        "JOIN recordings x ON x.id = r.recording_id WHERE " + where + " ORDER BY r.id DESC",
+                        args).fetchall()
+    algos_of = {}
+    for row in rows:
+        if row["config_id"] not in algos_of:
+            try:
+                recipe = load_recipe(conn, row["config_id"])
+                algos_of[row["config_id"]] = [s["algorithm"] for s in recipe["steps"]]
+            except Exception:
+                algos_of[row["config_id"]] = []
+        algos = algos_of[row["config_id"]]
         out.append({"id": row["id"], "recording_id": row["recording_id"], "channel": recs[row["recording_id"]]["channel"],
                     "status": row["status"], "started_at": row["started_at"], "name": row["name"] if "name" in row.keys() else None,
-                    "algorithms": algos, "method": algos[-1] if algos else "?", "n_detections": int(n)})
+                    "algorithms": algos, "method": algos[-1] if algos else "?", "n_detections": int(row["n_det"])})
     return out
 
 
@@ -217,7 +259,7 @@ def _runs_matching(conn, source_file: str, run_ids, method) -> list | None:
     if not run_ids and not method:
         return None
     keep = []
-    for r in run_methods(conn, source_file):
+    for r in run_methods(conn, source_file, run_ids=run_ids or None):
         if run_ids and r["id"] not in run_ids:
             continue
         if method and not any(method.lower() in a.lower() for a in r["algorithms"]):
@@ -320,7 +362,8 @@ def _coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = N
         rid = rec["id"]
         ann = conn.execute("SELECT start_idx, end_idx, verdict FROM annotations WHERE recording_id = ? AND deleted_at IS NULL",
                            (rid,)).fetchall()
-        det = conn.execute("SELECT d.start_idx, d.end_idx, d.run_id, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + q.not_surrogate("r"),
+        det = conn.execute("SELECT d.start_idx, d.end_idx, d.run_id, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + q.not_surrogate("r")
+                           + ("" if keep_runs is not None else " AND " + q.not_window_part("r")),   # a2-p3: a window run is its stitched run's part
                            (rid,)).fetchall()
         if keep_runs is not None:
             det = [d for d in det if d["run_id"] in keep_runs]
@@ -361,7 +404,7 @@ def _coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = N
                                       "runs": len(div["run_ids"])},
                        "reviewed_pct": reviewed_pct},
         })
-    n_runs = conn.execute("SELECT COUNT(DISTINCT r.id) FROM runs r JOIN detections d ON d.run_id = r.id JOIN recordings x ON x.id = r.recording_id WHERE x.source_file = ? AND " + q.not_surrogate("r"), (source_file,)).fetchone()[0]
+    n_runs = conn.execute("SELECT COUNT(DISTINCT r.id) FROM runs r JOIN detections d ON d.run_id = r.id JOIN recordings x ON x.id = r.recording_id WHERE x.source_file = ? AND " + q.not_surrogate("r") + " AND " + q.not_window_part("r"), (source_file,)).fetchone()[0]
     return {"source_file": source_file, "fs": fs, "n_samples": n, "duration_h": n / fs / 3600.0,
             "bins": bins, "bin_h": n / fs / 3600.0 / bins, "bin_edges_h": (edges / fs / 3600.0).tolist(),
             "rows": rows, "verdict_counts": verdict_counts, "n_detection_runs": int(n_runs),
@@ -374,7 +417,7 @@ def _coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = N
                            "rules": {"containment": DIV.containment_rule_text(DIV.containment_from_settings(conn)),
                                      "extent": DIV.extent_rule_text(DIV.rule_from_settings(conn))},
                            "verdicts": "every verdict counts here; the verdict filter shapes the annotation layers only"},
-            "held_out": source_file == HELD_OUT_FILE, "compute_ms": (time.perf_counter() - t0) * 1e3}
+            "held_out": is_held_out(conn, source_file), "compute_ms": (time.perf_counter() - t0) * 1e3}
 
 
 def _finite(v):
@@ -398,7 +441,7 @@ def spans(conn, recording_id: int, t0_s: float, t1_s: float, fs: float, cap: int
     shifted = "(IFNULL(r.span_start, 0) != 0 AND d.start_idx < r.span_start)"
     det_all = conn.execute(
         "SELECT d.id, d.start_idx, d.end_idx, d.score, d.run_id, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id "
-        "WHERE r.recording_id = ? AND " + q.not_surrogate("r") + " "
+        "WHERE r.recording_id = ? AND " + q.not_surrogate("r") + " AND " + q.not_window_part("r") + " "
         f"AND (CASE WHEN {shifted} THEN d.end_idx + r.span_start ELSE d.end_idx END) > ? "
         f"AND (CASE WHEN {shifted} THEN d.start_idx + r.span_start ELSE d.start_idx END) < ? "
         "ORDER BY d.start_idx", (recording_id, s0, s1)).fetchall()
@@ -423,7 +466,7 @@ def ribbons(conn, recording_id: int, fs: float, n: int, buckets: int = 300) -> d
     verdict (coverage) and detection count (density)."""
     edges = np.linspace(0, n, buckets + 1)
     ann = conn.execute("SELECT start_idx, end_idx, verdict FROM annotations WHERE recording_id = ? AND deleted_at IS NULL", (recording_id,)).fetchall()
-    det = conn.execute("SELECT d.start_idx, d.end_idx, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + q.not_surrogate("r"), (recording_id,)).fetchall()
+    det = conn.execute("SELECT d.start_idx, d.end_idx, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + q.not_surrogate("r") + " AND " + q.not_window_part("r"), (recording_id,)).fetchall()
     det_starts = [_absolute(d["start_idx"], d["end_idx"], d["span_start"])[0] for d in det]   # legacy relative rows shifted, like spans()
     cov = [None] * buckets
     counts = {v: np.zeros(buckets, int) for v in VERDICTS}
@@ -445,7 +488,7 @@ def ribbons(conn, recording_id: int, fs: float, n: int, buckets: int = 300) -> d
 
 def channel_summary(conn, recording_id: int) -> dict:
     a = conn.execute("SELECT COUNT(*) FROM annotations WHERE recording_id = ? AND deleted_at IS NULL", (recording_id,)).fetchone()[0]
-    real = q.not_surrogate("r")     # a paired null's spans are not detections (fixup-T)
+    real = q.not_surrogate("r") + " AND " + q.not_window_part("r")     # a paired null's spans are not detections (fixup-T); a window run is its stitched run's part (a2-p3)
     d = conn.execute("SELECT COUNT(*) FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + real, (recording_id,)).fetchone()[0]
     runs = conn.execute("SELECT COUNT(DISTINCT r.id) FROM runs r JOIN detections d ON d.run_id = r.id WHERE r.recording_id = ? AND " + real, (recording_id,)).fetchone()[0]
     return {"annotations": int(a), "detections": int(d), "detection_runs": int(runs)}

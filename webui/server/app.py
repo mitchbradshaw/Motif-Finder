@@ -95,8 +95,8 @@ def create_app(rt: Runtime) -> FastAPI:
             c.close()
         if rec is None:
             raise HTTPException(404, f"no recording id {recording_id}")
-        if rec["held_out"]:
-            raise HTTPException(423, f"{HELD_OUT_FILE} is held out (spec §0 D6 / Working.config.HELD_OUT_RECORDING_FILE); the web UI refuses it")
+        if rec["held_out"]:          # a2-p1: true only while Settings › Datasets' lock is on (corpus.recording_row)
+            raise HTTPException(423, corpus.held_out_refusal("the web UI refuses it"))
         return rec
 
     # the canonical templates are rows from the first start on (prompt 01 "Templates")
@@ -135,6 +135,22 @@ def create_app(rt: Runtime) -> FastAPI:
     def runtime_info():
         return rt.describe()
 
+    @app.get("/api/held-out")
+    def held_out_lock():
+        """a2-p1: the held-out lock as every route obeys it now — what the header chip reads. `locked` is
+        the effective state (Settings › Datasets' `heldout.on`, or the HELD_OUT_UNLOCK override a script
+        may set); `on` is the setting alone. Read per request; nothing here is cached."""
+        import Working.config as _config
+        from Working.registration.settings import held_out_state
+        c = conn()
+        try:
+            state = held_out_state(c)
+            return {"locked": corpus.held_out_locked(c), "on": state["on"], "recording": state["recording"],
+                    "name": state["name"], "file": HELD_OUT_FILE, "unlock": corpus.HELD_OUT_UNLOCK_HINT,
+                    "override": bool(getattr(_config, "HELD_OUT_UNLOCK", False))}
+        finally:
+            c.close()
+
     @app.get("/api/boom")
     def boom(kind: str = "server"):
         """Deliberate failure endpoint for the loud-failure evidence."""
@@ -151,10 +167,10 @@ def create_app(rt: Runtime) -> FastAPI:
 
     @app.get("/api/corpus/{source_file}/coverage")
     def get_coverage(source_file: str, bins: int = 57, verdicts: str | None = None, run: str | None = None, method: str | None = None):
-        if source_file == HELD_OUT_FILE:
-            raise HTTPException(423, f"{HELD_OUT_FILE} is held out; the corpus map refuses it")
         c = conn()
         try:
+            if corpus.is_held_out(c, source_file):          # a2-p1: only while the lock is on
+                raise HTTPException(423, corpus.held_out_refusal("the corpus map refuses it"))
             vs = tuple(v for v in verdicts.split(",") if v) if verdicts else None
             run_ids = [int(r) for r in run.split(",") if r.strip()] if run else None
             return corpus.coverage(c, source_file, bins=max(4, min(400, bins)), verdicts=vs, run_ids=run_ids, method=method or None)
@@ -234,8 +250,10 @@ def create_app(rt: Runtime) -> FastAPI:
                 c.close()
             out["estimate"] = chain_mod.estimate(recipe, n, rec["fs"])
             out["route"] = {k: routed[k] for k in ("route", "estimate_s", "ceiling_s", "slowest")}
-            out["over_ceiling"] = [i for i, s in enumerate(recipe["steps"])
-                                   if (lambda spec: spec.max_span_samples is not None and n > spec.max_span_samples)(chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}"))]
+            # round A_2 (P2): a step the step cache holds is served whatever its span — it is not over anything
+            cached = {s["index"] for s in out["cache"] if s["cached"]}
+            out["over_ceiling"] = [i for i, s in enumerate(recipe["steps"]) if i not in cached
+                                   and (lambda spec: spec.max_span_samples is not None and n > spec.max_span_samples)(chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}"))]
         return out
 
     @app.post("/api/chain/compatible")
@@ -267,13 +285,24 @@ def create_app(rt: Runtime) -> FastAPI:
         except ValueError as e:
             raise HTTPException(422, str(e))
         n = (span[1] - span[0]) if span else rec["n_samples"]
+        # round A_2 (P2): the span cap guards a COMPUTATION. A step the step cache holds (a whole-span matrix
+        # profile imported from the cluster) is served whatever its span. An uncached step over its cap is refused
+        # here, as before P2 — fix round (F5): a TIME-capped one was written as the old one-way SLURM job
+        # (`_slurm_refusal`: no return path, no resume); the refusal now names the way that comes back
+        # (`_over_cap_message`)
+        c = conn()
+        try:
+            cached = {s_["index"] for s_ in chain_mod.cache_status(dict(recipe, surrogate=True) if body.surrogate
+                                                                   else recipe, c) if s_["cached"]}
+        finally:
+            c.close()
         over = [{"index": i, "name": f"{s['stage']}.{s['algorithm']}", "max_span_samples": chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}").max_span_samples}
                 for i, s in enumerate(recipe["steps"])
-                if chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}").max_span_samples is not None
+                if i not in cached
+                and chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}").max_span_samples is not None
                 and n > chain_mod.get_adapter(f"{s['stage']}.{s['algorithm']}").max_span_samples]
         if over:
-            raise HTTPException(422, {"message": f"stage {over[0]['index'] + 1:02d} ({over[0]['name']}) exceeds its local ceiling of {over[0]['max_span_samples']:,} samples (span is {n:,}); shorten the span or route it to HPC (out of slice scope)",
-                                      "over_ceiling": over})
+            raise HTTPException(422, {"message": _over_cap_message(over, n), "over_ceiling": over})
         null = None
         if body.surrogate:
             # the detection-chain null of Settings › Nulls: method, draws, and a fixed block if one is set
@@ -293,12 +322,33 @@ def create_app(rt: Runtime) -> FastAPI:
         # A run that cannot finish here is refused BEFORE it starts — a job in progress cannot be stopped inside a
         # step (cancel is checked between steps), so a days-long FLUSS once left the bridge to be killed by hand
         # (2026-10-14). Over the Analyse limit the chain is written as a SLURM job instead.
+        from Working.discovery import routing as _routing
         c = conn()
         try:
             routed = chain_mod.route_local(recipe, n, rec["fs"], ceiling_s=chain_mod.analyse_ceiling_s(c),
                                            draws=(null or {}).get("draws", 0))
+            # round A_2 (P2): what the step cache holds costs nothing, in the real run and in each null draw — the
+            # rule Discovery's plan uses
+            cost = _routing.target_cost(c, recipe, samples=n, fs=rec["fs"], draws=(null or {}).get("draws", 0),
+                                        surrogate_params=(null or {}).get("params"))
         finally:
             c.close()
+        if cost["capped"]:
+            # fix round (F5): the real chain is cached or under its caps, but a null draw would compute a step over
+            # a time cap (its own profile is not cached): refused as above, never the one-way SLURM job
+            # a draw's steps are its surrogate step and then the chain's: the chain's own index is one less
+            caps = [{"index": (st["index"] - 1 if str(st.get("where")).startswith("draw ") else st["index"]),
+                     "name": st["name"], "max_span_samples": st["cap"], "where": st.get("where")}
+                    for st in cost["capped"]]
+            w = str(caps[0]["where"] or "")
+            say = (f" in null draw {int(w.split()[-1]) + 1}" if w.startswith("draw ")
+                   else " in the null's draws" if w == "draws" else "")
+            raise HTTPException(422, {"message": _over_cap_message(caps, n, where=say, null_off=True),
+                                      "over_ceiling": caps})
+        if cost["cached"] or cost["draws_cached"]:
+            routed = dict(routed, route=_routing.route(cost["seconds"], routed["ceiling_s"]),
+                          estimate_s=(cost["seconds"] if cost["seconds"] is not None else routed["estimate_s"]),
+                          estimate_real_s=cost["real_s"], cached=cost["cached"])
         if routed["route"] == "cluster":
             raise HTTPException(422, _slurm_refusal(recipe, rec, routed))
         if routed.get("calibrating"):
@@ -311,6 +361,25 @@ def create_app(rt: Runtime) -> FastAPI:
                                      f"written as a SLURM job instead of starting here)")
         job = manager.start(recipe, rec, px=body.px, null=null)
         return job.snapshot()
+
+    def _over_cap_message(over: list, n: int, *, where: str = "", null_off: bool = False) -> str:
+        """The 422 message for a chain with an uncached step over its span cap (fix round, F5). A MEMORY cap is a
+        limit wherever the step runs: shorten the span (the message before P2). A TIME cap is this machine's budget:
+        the cluster computes the step, through Discovery's chain job — which comes back as a Discovery run and
+        leaves the profile in the step cache, where this chain then finds it (a cached step is not over anything).
+        Analyse no longer writes the old one-way SLURM job for it (`_slurm_refusal`: no return path, no resume)."""
+        from Working.discovery import routing as _routing
+        mem = [x for x in over if _routing.cap_kind(x["name"]) != "time"]
+        x = (mem or over)[0]
+        head = (f"stage {x['index'] + 1:02d} ({x['name']}){where} exceeds its local ceiling of "
+                f"{x['max_span_samples']:,} samples (span is {n:,})")
+        if mem:
+            return head + "; shorten the span or route it to HPC (out of slice scope)"
+        return (head + ": this machine does not compute it. Shorten the span"
+                + (", turn the null off" if null_off else "")
+                + ", or send it to the cluster from Discovery › Runs › Create SLURM script: that chain job (the null "
+                  "in the same task) comes back as a Discovery run and leaves the profile in the step cache, and the "
+                  "same chain over the same span then runs here")
 
     def _slurm_refusal(recipe: dict, rec, routed: dict) -> dict:
         """The 422 body for a run over the local limit, after writing its SLURM job (`Working.hpc.job_export`,
@@ -369,10 +438,14 @@ def create_app(rt: Runtime) -> FastAPI:
             rec_or_423(recording_id)
         c = conn()
         try:
-            held = {r["id"] for r in c.execute("SELECT id FROM recordings WHERE source_file = ?", (HELD_OUT_FILE,))}
+            held = ({r["id"] for r in c.execute("SELECT id FROM recordings WHERE source_file = ?", (HELD_OUT_FILE,))}
+                    if corpus.held_out_locked(c) else set())          # a2-p1: hidden only while the lock is on
             # the run history lists results; a paired surrogate run is its parent's null, not
-            # a result, and its n_detections is not a count of detections (fixup-T)
-            real = {r["id"] for r in c.execute("SELECT r.id FROM runs r WHERE " + not_surrogate("r"))}
+            # a result, and its n_detections is not a count of detections (fixup-T); a window run
+            # of a windowed application is part of its stitched run, which is listed (a2-p3)
+            from Working.database.queries import not_window_part
+            real = {r["id"] for r in c.execute("SELECT r.id FROM runs r WHERE " + not_surrogate("r")
+                                               + " AND " + not_window_part("r"))}
             rows = [r for r in list_runs(c, recording_id=recording_id)
                     if r["recording_id"] not in held and r["id"] in real][:limit]
             out = []

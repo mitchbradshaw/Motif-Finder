@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDatasetName } from '../naming'
 import { ApiError, getWindow, type RunNull, type WindowData } from '../api'
+import { heldOutLocked, useHeldOutLock } from '../shell/heldOutLock'
 import { useDismiss } from '../shell/useDismiss'
 import { fmtHours, type ChainDraft, type SourceSpan } from '../state'
 import { retryNow, setNullOn, useAnalyseStore, type RunErrorKind } from './store'
@@ -10,9 +11,12 @@ import { retryNow, setNullOn, useAnalyseStore, type RunErrorKind } from './store
 export const EXAMPLE_SOURCE: SourceSpan = { recording_id: 1, channel_name: 'CH1_A1', source_file: 'M2_aug_concat_fs1.mat', fs: 1, start_idx: 1209600, end_idx: 1216800, label: 'example span · the reference span (336–338 h)' }
 
 /** The held-out recording (spec §0 D6, Working.config.HELD_OUT_RECORDING_FILE; /api/recordings marks it held_out).
- *  Its data is never requested — the pages show the locked card without asking the bridge (critique r1). */
+ *  While Settings › Datasets' lock is on its data is never requested — the pages show the locked card without asking
+ *  the bridge (critique r1). With the lock off it is a source like any other (a2-p1): the lock is the bridge's, read
+ *  through shell/heldOutLock, never assumed here. A component that must re-render when the lock changes subscribes
+ *  with `useHeldOutLock` (useSourceEnvelope does, for the chain and block pages). */
 export const HELD_OUT_FILE = 'M4_aug_concat_fs1.mat'
-export const isHeldOut = (s: SourceSpan | null) => !!s && s.source_file === HELD_OUT_FILE
+export const isHeldOut = (s: SourceSpan | null) => !!s && s.source_file === HELD_OUT_FILE && heldOutLocked()
 
 /** fixup-ag: a chain that starts from a *Window pool* block (saved window sets) in place of a span. The run still
  *  names a recording and a one-sample span for its `runs` row (NOT NULL); the pool block ignores the signal, and
@@ -104,16 +108,19 @@ export function useSourceEnvelope(source: SourceSpan | null, px = 1200): { env: 
   const [env, setEnv] = useState<WindowData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<number | null>(null)
+  // a2-p1: subscribed, so the page re-renders — and a held-out source asks again — when the lock is turned off or on
+  const lock = useHeldOutLock()
+  const lockedHere = !!source && source.source_file === HELD_OUT_FILE && lock.on
   const key = source ? `${source.recording_id}:${source.start_idx}:${source.end_idx}` : ''
   useEffect(() => {
     if (!source || isPoolSource(source)) { setEnv(null); setStatus(null); setError(null); return }
     let alive = true
     setError(null); setStatus(null); setEnv(null)
-    if (isHeldOut(source)) { setStatus(423); setError(`held out · ${source.source_file} is refused by every workspace (D6) — no data request is made`); return }
+    if (lockedHere) { setStatus(423); setError(`held out · ${source.source_file} is refused by every workspace while the lock is on (D6) — no data request is made · to use it, ${lock.unlock ?? "turn the lock off in Settings › Datasets (type the recording's name)"}`); return }
     getWindow(source.recording_id, t0Of(source), t1Of(source), px).then(w => { if (alive) { setEnv(w); setStatus(200) } })
       .catch(e => { if (alive) { setStatus(e instanceof ApiError ? e.status : 0); setError(e instanceof ApiError ? `${e.status === 423 ? 'held out · ' : ''}${e.message}${e.traceback ? '\n' + e.traceback : ''}` : String(e)) } })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, px])
+  }, [key, px, lockedHere])
   return { env, error, status }
 }

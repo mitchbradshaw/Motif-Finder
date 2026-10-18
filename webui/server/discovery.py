@@ -98,11 +98,13 @@ def _conn(request: Request):
     return corpus.connect(rt.db_path)
 
 
-def _refuse_held_out(source_file: str):
-    if source_file == HELD_OUT_FILE:
+def _refuse_held_out(conn, source_file: str):
+    """423 for the held-out file while Settings › Datasets' lock is on, read now (a2-p1: it used to refuse the
+    file whatever the lock said). The refusal says how to unlock."""
+    if corpus.is_held_out(conn, source_file):
         raise HTTPException(423, {
-            "message": (f"{HELD_OUT_FILE} is held out (spec §0 D6): locked for the final evaluation — "
-                        f"Discovery will not scope, run, score or plot it"),
+            "message": corpus.held_out_refusal("locked for the final evaluation, Discovery will not scope, "
+                                               "run, score or plot it"),
             "file": HELD_OUT_FILE})
 
 
@@ -140,7 +142,7 @@ def _file_for_key(conn, key: str) -> dict:
 def _channel_map(conn, key: str) -> dict:
     """name -> recording row (with `name`), for one recording file."""
     rec = _file_for_key(conn, key)
-    _refuse_held_out(rec["source_file"])
+    _refuse_held_out(conn, rec["source_file"])
     out = {}
     for c in rec["channels"]:
         row = dict(q.get_recording_by_id(conn, c["id"]))
@@ -330,7 +332,7 @@ def put_session(request: Request, body: SessionBody):
         s = _session(c)
         key = body.recording or _stem(s["source_file"])
         rec = _file_for_key(c, key)
-        _refuse_held_out(rec["source_file"])
+        _refuse_held_out(c, rec["source_file"])
         names = body.channels if body.channels is not None else json.loads(s["channels_json"])
         chans = _ids_for(c, key, names)
         fs = rec["fs"]
@@ -496,14 +498,41 @@ def _run_payload(conn, row, index, span, jobs=None):
         out["entryId"] = params.get("entryId")
         # fixup-v: the scale bank the run searched (None: the native length only)
         out["scales"] = params.get("scales")
-        if params.get("hpc"):
-            # the SLURM job this run is, and where its result is expected
-            out["hpc"] = params["hpc"]
         if (params.get("null") or {}).get("imported"):
             out["nullImported"] = True
             out["nullSource"] = (params.get("null") or {}).get("source")
         elif (params.get("null") or {}).get("source") == "off":
             out["nullSource"] = "off"
+    hpc = params.get("hpc")
+    if hpc:
+        # the SLURM job this run is and where its result is expected: a seed search's, or (round A_2, P2) a
+        # template run's chain job — which comes back as this same row, its runs written here from the
+        # imported cache
+        out["hpc"] = hpc
+        if hpc.get("kind") == "chain":
+            out["hpcImported"] = bool(hpc.get("importedAt"))
+            if hpc.get("refused") and not hpc.get("importedAt"):
+                out["hpcRefused"] = hpc["refused"].get("message")
+            if ids and hpc.get("counts") and status == "done":
+                # what the cluster found against what the sweep here wrote, per channel: the same code on the
+                # same cached profile finds the same spans, and a difference is said, never smoothed over
+                here = {int(c["recording_id"]): int(c["detections"]) for c in st["channels"]}
+                if params.get("windows"):
+                    # round A_2, P3: the cluster counts each window's own spans, before stitching
+                    from Working.discovery import windowed as WD
+                    tot = WD.window_totals(conn, [c["run_id"] for c in st["channels"]])
+                    here = {int(c["recording_id"]): tot[int(c["run_id"])]["found"] for c in st["channels"]}
+                diff = [f"{c['channelName']}: {here.get(int(c['recordingId']))} here, {c['detections']} on the cluster"
+                        for c in hpc["counts"] if here.get(int(c["recordingId"])) != int(c["detections"])]
+                out["clusterAgrees"] = not diff
+                if diff:
+                    out["clusterCheck"] = "; ".join(diff)
+    if params.get("windows"):
+        # round A_2, P3: a windowed application — its scale, how many windows, what fitting changed, the stitch
+        out["windows"] = {k: params["windows"].get(k) for k in
+                          ("scope", "label", "per_channel", "targets", "fitted", "minimum", "stitch", "tradeOff",
+                           "warning", "rule", "rules")}
+        out["windowed"] = True
     if progress is not None and status == "running":
         out["progress"] = round(progress, 3)
     if progress_text:
@@ -723,7 +752,7 @@ def get_overview(request: Request, recording: str, channels: str = ""):
         # 423, like every other route that would serve this file's samples. It
         # used to answer 200 with a {"refused": ...} body, which reads as a
         # successful request to anything that is not this page's own callout.
-        _refuse_held_out(rec["source_file"])
+        _refuse_held_out(c, rec["source_file"])
         names = _split(channels) or [ch["name"] for ch in rec["channels"][:3]]
         rows = _ids_for(c, recording, names)
         out = {}
@@ -1077,7 +1106,7 @@ def get_detection_window(request: Request, detection_id: int, pad_s: float = 120
             # a paired null's span is not a detection either (fixup-T)
             raise HTTPException(404, {"message": f"no detection {detection_id}"})
         rec = corpus.recording_row(c, int(row["recording_id"]))
-        _refuse_held_out(rec["source_file"])
+        _refuse_held_out(c, rec["source_file"])
         a, b = absolute_bounds(row["start_idx"], row["end_idx"], row["span_start"])
         fs = float(rec["fs"])
         pad = int(round(pad_s * fs))
@@ -1133,7 +1162,7 @@ def _param_line(spec, params):
     return " · ".join(bits[:3]) or "defaults"
 
 
-# ── the seeds (§7.6: Library exemplar · Explore selection · Family medoid) ──
+# ── the seeds (§7.6: Library exemplar · Family medoids · Explore selection · Catalogue spans) ──
 
 def _seed_store():
     """The drop-motif seed store, read through the core's own reader. The
@@ -1179,8 +1208,12 @@ def _seed_by_id(conn, seed_id: str):
         raise HTTPException(400, {"message": f"unreadable seed id {seed_id!r}; expected source:recording:start:end"})
     if rec is None:
         raise HTTPException(404, {"message": f"no recording {rid} for seed {seed_id!r}"})
-    _refuse_held_out(rec["source_file"])
+    _refuse_held_out(conn, rec["source_file"])
     entry = _entry_for_span(conn, rid, a, b) if source == "library" else None
+    if entry is None and source == "medoid":
+        # a2-p4: a catalogue span (the drop-motif store's) whose span IS a Library entry's is that entry, so a run
+        # made from it can add its matches to the Library — both judged dip searches were started from such seeds
+        entry = _entry_for_span(conn, rid, a, b)
     seed = seeded_search.seed_from_content(conn, rec["source_file"], int(rec["channel"]), int(a), int(b),
                                            role=source, entry_id=(int(entry["id"]) if entry else 0))
     seed["id"] = seed_id
@@ -1200,12 +1233,17 @@ SOURCE_KIND_LABEL = {"review": "promoted in Review", "annotation": "from a human
                      "event_store": "machine-extracted"}
 
 
-def _families_by_entry(conn):
-    """`entry_id -> family label` in the current grouping — the newest
-    single-motif grouping, which is what the Library's pages open on
-    (`library._default_grouping`). An entry with members in two families takes
-    the family of its closest member."""
-    g = conn.execute("SELECT id FROM groupings WHERE unit = 'single_motifs' ORDER BY id DESC LIMIT 1").fetchone()
+def _families_by_entry(conn, grouping=None):
+    """`entry_id -> family label` in one grouping: `grouping` (a `groupings`
+    row), else the seed picker's default (`_seed_grouping`: the newest
+    shape-distance single-motif grouping). a2-p4: this read the newest
+    single-motif grouping of any basis — on 2026-10-17 grouping 9's amplitude
+    bins, where 3,562 of 3,627 entries had no family and grouping 5's 149
+    shape families could not be reached. A member the grouping omitted is in no
+    family, though its row names the family it failed to reach (`family_id` is
+    what says it joined). An entry with members in two families takes the
+    family of its closest member."""
+    g = grouping if grouping is not None else _seed_grouping(conn)
     if g is None:
         return {}
     out = {}
@@ -1213,29 +1251,44 @@ def _families_by_entry(conn):
             "SELECT mm.entry_id AS entry_id, ga.family_label AS family FROM grouping_assignments ga "
             "JOIN motif_member mm ON mm.id = ga.member_ref "
             "WHERE ga.grouping_id = ? AND ga.unit = 'single_motifs' AND ga.family_label IS NOT NULL "
+            "AND (ga.family_id IS NOT NULL OR ga.omit_reason IS NULL) "
             "ORDER BY ga.distance DESC", (int(g["id"]),)):
         out[int(r["entry_id"])] = r["family"]
     return out
 
 
-def _seed_info(conn, seed, *, title=None, family=None, family_line=None, families=None):
+def _seed_info(conn, seed, *, title=None, family=None, family_line=None, families=None, grouping=None):
     rec = q.get_recording_by_id(conn, seed["recording_id"])
     entry_id = int(seed.get("entry_id") or 0) or None
     if entry_id and family is None:
-        family = (families if families is not None else _families_by_entry(conn)).get(entry_id)
+        if families is None:
+            grouping = grouping if grouping is not None else _seed_grouping(conn)
+            families = _families_by_entry(conn, grouping)
+        family = families.get(entry_id)
     kind = seed.get("source_kind")
     if title is None and entry_id:
         title = f"entry {entry_id}"
+    if family_line is None and seed["source"] == "medoid":
+        # fix round (F6): a catalogue span says whether it is a Library entry — "Library entry E-0001 · family F-01
+        # in g-05" — and only one that is not says so; it read "family F-01" beside "not a Library family"
+        where = f" in {_gid(grouping)}" if grouping is not None else ""
+        family_line = ((f"Library entry E-{entry_id:04d} · "
+                        + (f"family {family}{where}" if family else f"no family{where or ' yet'}"))
+                       if entry_id else "not a Library entry")
     if family_line is None and entry_id:
+        # a2-p4: the family is one grouping's, so the line names which
+        where = f" in {_gid(grouping)}" if grouping is not None else ""
         family_line = " · ".join(x for x in (SOURCE_KIND_LABEL.get(kind, kind or "no source recorded"),
-                                             f"family {family}" if family else "no family yet") if x)
+                                             f"family {family}{where}" if family else f"no family{where or ' yet'}")
+                                 if x)
     if seed.get("annotation_id") and seed["source"] == "explore":
         title = title or f"span {seed['annotation_id']}"
         family_line = family_line or "taken for Review in Explore"
     return {
         "id": seed["id"],
+        # a2-p4: the drop-motif store's sixteen spans are not Library families
         "role": {"library": "Library exemplar", "explore": "Explore selection",
-                 "medoid": "Family medoid"}.get(seed["source"], seed["source"]),
+                 "medoid": "Catalogue span"}.get(seed["source"], seed["source"]),
         "source": seed["source"],
         "title": title or f"{corpus.dataset_name(conn, rec['source_file'])} · {seed['start_h']:.1f} h",
         "family": family, "familyLine": family_line,
@@ -1258,7 +1311,7 @@ def _recording_ids_for(conn, recording=None, channel=None):
         return None
     out = []
     for rec in corpus.recordings(conn):
-        if rec["source_file"] == HELD_OUT_FILE:
+        if rec["held_out"]:          # a2-p1: true only while the lock is on
             continue
         if recording and _stem(rec["source_file"]) != recording and rec["source_file"] != recording:
             continue
@@ -1270,7 +1323,7 @@ def _recording_ids_for(conn, recording=None, channel=None):
 
 
 def _library_page(conn, *, kind=None, family=None, recording=None, channel=None, entry=None, offset=0,
-                  limit=SEED_LIMIT):
+                  limit=SEED_LIMIT, grouping=None, entries=None):
     """§7.6's *Library exemplar*, over the WHOLE library (fixup-y).
 
     It was `motif_entry ORDER BY id LIMIT 24`: the first 24 of 3,603 rows, all
@@ -1281,7 +1334,7 @@ def _library_page(conn, *, kind=None, family=None, recording=None, channel=None,
     channel; `total` is the count under the filters, so the page can say how
     many it is not showing."""
     where, args = [], []
-    held = [int(r["id"]) for r in q.list_recordings(conn, HELD_OUT_FILE)]
+    held = [int(r["id"]) for r in q.list_recordings(conn, HELD_OUT_FILE)] if corpus.held_out_locked(conn) else []
     if held:
         where.append(f"recording_id NOT IN ({','.join('?' * len(held))})")
         args += held
@@ -1300,13 +1353,23 @@ def _library_page(conn, *, kind=None, family=None, recording=None, channel=None,
             return [], 0
         where.append(f"recording_id IN ({','.join('?' * len(rids))})")
         args += rids
-    families = _families_by_entry(conn)
     if family:
-        ids = [e for e, f in families.items() if f == family]
-        if not ids:
+        # a2-p4: the family is one grouping's — `grouping`, else the picker's default (newest shape-distance).
+        # Fix round (F2): an entry is in a family when one of its members is (an omitted member is in none); the
+        # family of its closest member alone hid a family whose members' entries all sat closer elsewhere
+        g = grouping if grouping is not None else _seed_grouping(conn)
+        if g is None:
             return [], 0
-        where.append(f"id IN ({','.join('?' * len(ids))})")
-        args += ids
+        where.append("EXISTS (SELECT 1 FROM grouping_assignments ga JOIN motif_member mm ON mm.id = ga.member_ref "
+                     "WHERE ga.grouping_id = ? AND ga.unit = 'single_motifs' AND ga.family_label = ? "
+                     "AND (ga.family_id IS NOT NULL OR ga.omit_reason IS NULL) AND mm.entry_id = motif_entry.id)")
+        args += [int(g["id"]), family]
+    if entries is not None:
+        # a2-p4: only these entries (a grouping's family medoids), under the same held-out rule and filters
+        if not entries:
+            return [], 0
+        where.append(f"id IN ({','.join('?' * len(entries))})")
+        args += [int(e) for e in entries]
     sql_where = (" WHERE " + " AND ".join(where)) if where else ""
     total = conn.execute(f"SELECT COUNT(*) FROM motif_entry{sql_where}", args).fetchone()[0]
     rank = "CASE source_kind WHEN 'review' THEN 0 WHEN 'annotation' THEN 1 ELSE 2 END"
@@ -1339,6 +1402,10 @@ def _seed_candidates(conn):
 
 
 def _medoid_candidates(events):
+    """The drop-motif store's sixteen catalogue spans, each by its median-depth event (`medoid:` ids). a2-p4: they
+    were offered as "Family medoid", but they are catalogue spans of the store, not Library families — the
+    Library's families are `source=family` (`_family_medoid_page`). The id prefix stays `medoid:`, so every run
+    and draft made from one still resolves, and one whose span is an entry's is that entry (`_seed_by_id`)."""
     by_family = {}
     for e in events:
         by_family.setdefault(e.get("span_key") or f"r{e['recording_id']}", []).append(e)
@@ -1347,9 +1414,13 @@ def _medoid_candidates(events):
         depths = sorted(float(m["drop_depth_mv"]) for m in members)
         median = depths[len(depths) // 2]
         medoid = min(members, key=lambda m: abs(float(m["drop_depth_mv"]) - median))
+        # fix round (F6): the line is `_seed_info`'s, which knows whether the span is a Library entry ("Library
+        # entry E-0001 · family F-01 in g-05", else "not a Library entry"); the count is said in words
+        n = len(members)
         out.append(("medoid", int(medoid["recording_id"]), int(medoid["snippet_start_idx"]),
-                    int(medoid["snippet_end_idx"]), f"{key} medoid · {len(members)} members",
-                    key, f"{len(members)} members · {medoid.get('morphology')}"))
+                    int(medoid["snippet_end_idx"]),
+                    f"catalogue span {key} · {medoid.get('morphology')} · medoid of {n} event{'' if n == 1 else 's'}",
+                    None, None))
     return out
 
 
@@ -1364,60 +1435,81 @@ def _explore_candidates(conn, *, offset=0, limit=SEED_LIMIT):
              f"span {a['id']}", None, "taken for Review in Explore") for a in rows]
 
 
-def _seeds_inline(conn, candidates=None):
+def _seeds_inline(conn, candidates=None, grouping=None):
     out = []
-    families = _families_by_entry(conn)
+    grouping = grouping if grouping is not None else _seed_grouping(conn)
+    families = _families_by_entry(conn, grouping)
     for source, rid, a, b, title, family, family_line in (candidates if candidates is not None
                                                            else _seed_candidates(conn)):
         rec = q.get_recording_by_id(conn, rid)
-        if rec is None or rec["source_file"] == HELD_OUT_FILE:
+        if rec is None or corpus.is_held_out(conn, rec["source_file"]):
             continue
         try:
             seed = _seed_by_id(conn, _seed_id(source, rid, a, b))
         except (ValueError, PermissionError, HTTPException):
             continue
         out.append(_seed_info(conn, seed, title=title, family=family, family_line=family_line,
-                              families=families))
+                              families=families, grouping=grouping))
     return out
 
 
 @router.get("/api/discovery/seeds")
 def get_seeds(request: Request, source: str | None = None, kind: str | None = None, family: str | None = None,
               recording: str | None = None, channel: str | None = None, entry: int | None = None,
-              offset: int = 0, limit: int = SEED_LIMIT):
-    """The seed picker (§7.6). With no `source`, the first page of each of the
-    three sources. `source=library` pages and filters the whole Library
-    (`kind`, `family`, `recording`, `channel`, `offset`, `limit`) and says
-    `total`; `source=explore` pages the spans taken in Explore. `entry=N`
-    answers for one Library entry — what Review's promotion card reads to
-    say which family, if any, holds the entry it just wrote."""
+              offset: int = 0, limit: int = SEED_LIMIT, grouping: str | None = None):
+    """The seed picker (§7.6). With no `source`, the first page of the
+    Library, the catalogue spans and the Explore selections. `source=library`
+    pages and filters the whole Library (`kind`, `family`, `recording`,
+    `channel`, `offset`, `limit`) and says `total`; `source=explore` pages the
+    spans taken in Explore. `entry=N` answers for one Library entry — what
+    Review's promotion card reads to say which family, if any, holds the entry
+    it just wrote.
+
+    a2-p4: a family is one grouping's. `grouping` names it (`g-05` or `5`; the
+    Library's own resolver); without it the picker reads the newest
+    shape-distance single-motif grouping, and `grouping` / `groupings` in the
+    answer say which and what else there is. `source=family` lists every
+    family of that grouping by its medoid, each a Library entry (`library:`
+    id), largest first, paged and filtered by `family`, `recording` and
+    `channel`. `source=medoid` is the drop-motif store's sixteen catalogue
+    spans, which are not Library families."""
     c = _conn(request)
     try:
         limit = max(1, min(int(limit), 200))
         offset = max(0, int(offset))
+        g = _seed_grouping(c, grouping)
         lib_total = c.execute("SELECT COUNT(*) FROM motif_entry").fetchone()[0]
         explore_total = c.execute("SELECT COUNT(*) FROM (SELECT 1 FROM annotations WHERE verdict = 'seed' AND "
                                   "deleted_at IS NULL GROUP BY recording_id, start_idx, end_idx)").fetchone()[0]
         kinds = {(r[0] or "event_store"): r[1] for r in
                  c.execute("SELECT source_kind, COUNT(*) FROM motif_entry GROUP BY source_kind")}
-        families = sorted(set(_families_by_entry(c).values()))
+        # fix round (F2): the families are the grouping's own — every family with a member, as the Family medoids
+        # list reads them — not "each entry's closest family", which hid a family whose members' entries all sat
+        # closer elsewhere from this list, the count and the filter
+        fams = _family_medoids(c, g) if g is not None else []
+        families = sorted({label for label, _, _ in fams}, key=_natural)
         if source == "library":
             rows, total = _library_page(c, kind=kind, family=family, recording=recording, channel=channel,
-                                        entry=entry, offset=offset, limit=limit)
+                                        entry=entry, offset=offset, limit=limit, grouping=g)
+            # filtered by a family, a card names that family (its entry may sit closer in another)
             seeds = _seeds_inline(c, [("library", int(e["recording_id"]), int(e["start_idx"]), int(e["end_idx"]),
-                                       None, None, None) for e in rows])
+                                       None, family or None, None) for e in rows], grouping=g)
+        elif source == "family":
+            picked, total = _family_medoid_page(c, g, family=family, recording=recording, channel=channel,
+                                                offset=offset, limit=limit, fams=fams)
+            seeds = _seeds_inline(c, picked, grouping=g)
         elif source == "explore":
-            seeds = _seeds_inline(c, _explore_candidates(c, offset=offset, limit=limit))
+            seeds = _seeds_inline(c, _explore_candidates(c, offset=offset, limit=limit), grouping=g)
             total = explore_total
         elif source == "medoid":
-            seeds = _seeds_inline(c, _medoid_candidates(_seed_store()))
+            seeds = _seeds_inline(c, _medoid_candidates(_seed_store()), grouping=g)
             total = len(seeds)
         elif source:
-            raise HTTPException(400, {"message": f"unknown seed source {source!r}: library, explore or medoid"})
+            raise HTTPException(400, {"message": f"unknown seed source {source!r}: library, family, explore or medoid"})
         else:
-            seeds = _seeds_inline(c)
+            seeds = _seeds_inline(c, grouping=g)
             total = len(seeds)
-        counts = {"library": lib_total, "explore": explore_total}
+        counts = {"library": lib_total, "explore": explore_total, "family": len(families)}
         for s in seeds:
             if s["source"] == "medoid":
                 counts["medoid"] = counts.get("medoid", 0) + 1
@@ -1425,8 +1517,12 @@ def get_seeds(request: Request, source: str | None = None, kind: str | None = No
         if not lib_total:
             note = ("the motif library is empty, so a Library exemplar here is a span of the drop-motif seed "
                     "store (DATA/library_seed/drop_motifs5/motifs, 410 extracted events)")
+        default = _seed_grouping(c) if grouping not in (None, "", "undefined", "null") else g
         return {"seeds": seeds, "total": total, "offset": offset, "limit": limit, "counts": counts,
-                "kinds": kinds, "families": families, "note": note}
+                "kinds": kinds, "families": families, "note": note,
+                "grouping": _grouping_wire(c, g, default) if g is not None else None,
+                "groupings": [_grouping_wire(c, r, default) for r in c.execute(
+                    "SELECT * FROM groupings WHERE unit = 'single_motifs' ORDER BY id DESC")]}
     finally:
         c.close()
 
@@ -1452,7 +1548,29 @@ def _draft(conn, session, seed_id=None):
         if first is None:
             return None
         draft["seedId"] = _seed_id(first[0], first[1], first[2], first[3])
-    seed = _seed_by_id(conn, draft["seedId"])
+    held_out_note = None
+    try:
+        seed = _seed_by_id(conn, draft["seedId"])
+    except HTTPException as e:
+        # a2-p1 fix round (m2): a draft left on the held-out recording, locked again since it was drafted, would
+        # strand the Seed page on a 423 whose only control is a Retry that repeats it. A seed asked for by link
+        # (`seed_id`) still refuses; the remembered one falls back to the first seed available and says why. The
+        # stored draft is not rewritten, so it comes back when the lock is turned off again.
+        if seed_id or e.status_code != 423:
+            raise
+        seed = None
+        for cand in _seed_candidates(conn):
+            try:
+                seed = _seed_by_id(conn, _seed_id(cand[0], cand[1], cand[2], cand[3]))
+                break
+            except (ValueError, PermissionError, HTTPException):
+                continue
+        if seed is None:
+            raise e
+        draft = {"seedId": seed["id"], "bind": draft.get("bind")}
+        held_out_note = (f"The seed this page remembered is on the held-out recording ({HELD_OUT_FILE}), which is "
+                         f"locked again, so the first seed available is shown instead. To search with that seed, "
+                         f"{corpus.HELD_OUT_UNLOCK_HINT}.")
     recommended = seeded_search.recommended_params(seed)
     # fixup-v: the scale bank the page offers is Settings' one key, in words
     bank = seeded_search.scale_bank_from_settings(conn)
@@ -1479,6 +1597,7 @@ def _draft(conn, session, seed_id=None):
         "params": params, "applied": draft.get("applied"),
         "estimateS": draft.get("estimateS"),
         "recommended": recommended, "seed": _seed_info(conn, seed),
+        "heldOutNote": held_out_note,
     }
 
 
@@ -1730,6 +1849,9 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
     The candidates are the block's own `match_exemplar`; the null is N
     surrogate draws of the same channel put through the same function, so the
     two distributions are comparable by construction rather than by assertion.
+
+    None when `job` was cancelled (a2-p4): the search stops at the next channel
+    — the draws stop at the next draw — and a caller keeps nothing of it.
     """
     exemplar = np.asarray(seeded_search.exemplar_signal(conn, seed).x, dtype=float)
     computed, capped = [], []
@@ -1741,6 +1863,8 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
     per = 1 + (_preview_draws(span[1] - span[0], int(null["n"])) if null_on else 0)
     total = n * per
     for i, ch in enumerate(chans):
+        if job is not None and job.cancel_event.is_set():
+            return None
         if job is not None:
             job.progress(i * per, total, f"{ch['name']} · matching")
         # the core matches stored samples against a stored-unit exemplar
@@ -1772,6 +1896,8 @@ def _seed_search(conn, seed, chans, span, *, k, max_distance, null, job=None, sc
                             "byScale": nulls.get("by_scale"), "blockS": nulls["block_s"]}
         computed.append({"ch": ch, "found": found, "null": channel_null})
 
+    if job is not None and job.cancel_event.is_set():
+        return None
     if job is not None:
         job.progress(total, total, "scoring the cut")
     return _assemble_seed_result(conn, seed, chans, span, computed, null, scales=scales, capped=capped)
@@ -1963,10 +2089,13 @@ def _null_expects(by_channel, cut, names):
 def _live_seed_jobs(request, key, finished=False):
     """The preview jobs for one result key, newest first — the ones still
     running (or, with ``finished``, any the manager remembers). Read off the
-    manager's own jobs, not a 25-row listing a busy Jobs page pushes them out of."""
+    manager's own jobs, not a 25-row listing a busy Jobs page pushes them out of.
+    Fix round (F5): a seed run that draws the preview first is one of them — its
+    job's meta carries the preview's key as `previewKey` (`_start_sweep`)."""
     out = []
     for j in list(request.app.state.manager.jobs.values()):
-        if getattr(j, "kind", None) != "sweep" or (getattr(j, "meta", None) or {}).get("key") != key:
+        meta = getattr(j, "meta", None) or {}
+        if getattr(j, "kind", None) != "sweep" or key not in (meta.get("key"), meta.get("previewKey")):
             continue
         if not finished and j.status not in ("running", "queued"):
             continue
@@ -1997,8 +2126,9 @@ def start_seed_results(request: Request, body: SeedBody):
         # each at a twentieth of the speed — "6 h left" for a minute's work
         live = _live_seed_jobs(request, key)
         if live:
+            # fix round (F5): a seed run drawing this preview first is joined too, never computed a second time
             return {"ready": False, "job_id": live[0]["job_id"], "key": key, "joined": True,
-                    "progress": live[0].get("progress")}
+                    "progress": live[0].get("progress"), "drawnBy": _drawn_by(live[0])}
         span = (int(round(body.t0 * 3600 * fs)), int(round(body.t1 * 3600 * fs)))
         if span[1] <= span[0]:
             span = (int(s["span_start"]), int(s["span_end"]))
@@ -2014,6 +2144,10 @@ def start_seed_results(request: Request, body: SeedBody):
                 result = _seed_search(conn2, seed2, chans2, span, k=body.k,
                                       max_distance=body.maxDistance, null=null, job=job,
                                       scales=bank, overlap=body.overlap, exclusion=body.exclusion)
+                # a2-p4: a cancelled preview is never kept — its null is short, and a run would reuse it.
+                # Returning None makes the job `cancelled`, which the GET then reports.
+                if job.cancel_event.is_set() or result is None:
+                    return None
                 _store_result(conn2, session_id, key, result)
                 # what this search cost, so the next estimate is measured
                 _record_seed_rate(conn2, session_id, "preview",
@@ -2040,6 +2174,9 @@ def get_seed_results(request: Request, seedId: str, channels: str = "", t0: floa
     c = _conn(request)
     try:
         s = _session(c)
+        # a2 integration (P1 x P4, critic m1): a stored result is the session recording's matches, so once the
+        # held-out lock is back on, the read refuses it as every other read of that recording does
+        _refuse_held_out(c, s["source_file"])
         null = _seed_null(c, s)
         names = _split(channels) or json.loads(s["channels_json"])
         bank = _bank(scales or None)
@@ -2053,18 +2190,38 @@ def get_seed_results(request: Request, seedId: str, channels: str = "", t0: floa
         if live:
             j = live[0]
             if j["status"] == "failed":
+                # fix round (F1): the failure is this query's state — loud, with the job's own message and
+                # traceback — not a 500 for the read: the page's Retry only read again, so the query could
+                # never be run again from the page. A POST of the same query starts a new job.
                 err = j.get("error") or {}
-                raise HTTPException(500, {"message": f"the seeded search failed: {err.get('message')}",
-                                          "traceback": err.get("traceback")})
+                return {"ready": False, "job_id": None, "key": key, "cancelled": False, "failed": True,
+                        "failedJob": j["job_id"], "drawnBy": _drawn_by(j),
+                        "error": {"message": f"the seeded search failed: {err.get('message')}",
+                                  "traceback": err.get("traceback")},
+                        "note": "the newest preview of this query failed and nothing from it was kept — "
+                                "Run preview runs it again"}
+            if j["status"] in ("cancelled", "completed"):
+                # a2-p4: nothing runs and nothing is kept for this query. A cancelled preview is never stored;
+                # a finished one that is not in hand (not expected) is said too, rather than waited on forever.
+                # Fix round (F5): a seed run's job cancelled while it drew the preview ends `completed`, its
+                # result saying `cancelled`
+                cancelled = j["status"] == "cancelled" or bool((j.get("result") or {}).get("cancelled"))
+                return {"ready": False, "job_id": None, "key": key, "cancelled": cancelled,
+                        "cancelledJob": (j["job_id"] if cancelled else None),
+                        "note": ("the preview was cancelled and nothing from it was kept — Run preview starts it "
+                                 "again" if cancelled else
+                                 f"job {j['job_id']} finished but its result is not held here — run the preview again")}
             prog = j.get("progress") or {}
             elapsed = j.get("elapsed_s")
             done, total = prog.get("done") or 0, prog.get("total") or 0
             eta = (elapsed * (total - done) / done) if elapsed and done > 0 and total >= done else None
             return {"ready": False, "job_id": j["job_id"], "progress": prog, "key": key,
                     "elapsedS": (round(float(elapsed), 1) if elapsed is not None else None),
-                    "etaS": (round(float(eta), 1) if eta is not None else None)}
-        return {"ready": False, "job_id": None, "key": key,
-                "note": "no result for this query yet — POST the same query to start the search"}
+                    "etaS": (round(float(eta), 1) if eta is not None else None),
+                    # fix round (F5): the run drawing this preview first, if the job is a run's
+                    "drawnBy": _drawn_by(j)}
+        return {"ready": False, "job_id": None, "key": key, "cancelled": False,
+                "note": "no preview for this query yet — Run preview (POST the same query) starts it; reading never does"}
     finally:
         c.close()
 
@@ -2134,6 +2291,9 @@ class PlanBody(BaseModel):
     #: the seed to bind a `rebind` template's exemplar to when it is applied
     #: (a seed id as the Seed page's list names them); a carry template ignores it
     exemplar: str | None = None
+    #: round A_2, P3: a window scope — {window_s, overlap_frac (0.5 recommended), fit}
+    #: (`Working.discovery.windowed`); None is the whole section
+    windows: dict | None = None
 
 
 # ── the band scope (fixup-Z, Q43) ───────────────────────────────────────────
@@ -2314,29 +2474,25 @@ def _plan(conn, body: PlanBody):
         if chans:
             steps = _banded_steps(conn, steps, band, chans[0]["id"], span)
 
-    def reuse(c2, recording_id, target_span):
-        """A matrix profile already on disk for this exact question. Only the
-        matrix-profile blocks can consume one; `detection.seed_matches` runs
-        `stumpy.match` directly and has nothing to reuse (seeded_search
-        .WHY_NO_PROFILE), so a seeded search never claims a reuse it did not
-        make."""
-        mp_steps = [st for st in steps if st["algorithm"] == "matrix_profile"]
-        if not mp_steps:
-            return None
-        rec_row = q.get_recording_by_id(c2, recording_id)
-        window_min = float((mp_steps[0].get("params") or {}).get("window_min") or 0)
-        if window_min <= 0:
-            return None
-        mm = int(round(window_min * 60 * float(rec_row["fs"])))
-        return seeded_search.find_reusable_profile(c2, recording_id, mm, span=target_span)
-
     # the paired null is N more sweeps (Q35), so it is in the estimate and in the
-    # route: "null draws count toward local limits" (§9.4)
+    # route: "null draws count toward local limits" (§9.4). The plan reads every
+    # step of the run and of each draw against the step cache (round A_2, P2), so
+    # it needs the null's flag and params — they are in every cache key. (The
+    # `reuse` lookup that sat here filled a field nothing read; the step cache
+    # keys the exact question, and is what a cluster run's import restores.)
     on, sp, why, draws = _surrogate_for(
         conn, seeded_search.NULL_KIND if seed else seeded_search.DETECTION_KIND, s)
-    plan = fanout.plan(conn, steps=steps, recording_ids=[ch["id"] for ch in chans], span=span,
-                       ceiling_s=ceiling, measured_per_channel_s=measured_s, reuse_lookup=reuse,
-                       null_draws=(draws if on else 0))
+    if body.windows is not None and seed is not None:
+        raise HTTPException(422, {"message": "a window scope applies to a template, not a seed search"})
+    try:
+        plan = fanout.plan(conn, steps=steps, recording_ids=[ch["id"] for ch in chans], span=span,
+                           ceiling_s=ceiling, measured_per_channel_s=measured_s,
+                           null_draws=(draws if on else 0), surrogate=on, surrogate_params=sp,
+                           windows=body.windows)
+    except ValueError as e:
+        if body.windows is None:
+            raise
+        raise HTTPException(422, {"message": f"window scope: {e}"})
     plan["null"] = {"paired": on, "params": sp, "reason": why, "draws": (draws if on else 0)}
     plan["template"] = template["name"] if template else None
     plan["seedId"] = seed["id"] if seed else None
@@ -2364,6 +2520,10 @@ def _band_plans(conn, body: PlanBody, bands):
     total = None if any(e is None for e in ests) else float(sum(ests))
     ceiling = plans[0][0]["ceiling_s"] if plans else fanout.ceiling_s(conn)
     route = "unknown" if total is None else ("cluster" if total > ceiling else "local")
+    if any(p[0].get("capped") for p in plans):
+        route = "cluster"      # round A_2 (P2): a band's profile must compute over this machine's cap
+    if any(p[0].get("route") == "cluster" for p in plans):
+        route = "cluster"      # round A_2 (P3): a band's windows alone are over the ceiling (their run overhead)
     return plans, total, route, ceiling
 
 
@@ -2379,9 +2539,11 @@ def post_plan(request: Request, body: PlanBody):
                          "bands": [{**p[0]["band"], "estimate_s": p[0]["estimate_s"], "route": p[0]["route"]}
                                    for p in plans],
                          "note": f"{len(bands)} bands × one sweep across {plan['n_channels']} channels"})
-            return _clean(plan)
+            if body.windows is not None:
+                _windows_bands(plan, plans)
+            return _clean(_windows_public(plan))
         plan, *_ = _plan(c, body)
-        return _clean(plan)
+        return _clean(_windows_public(plan))
     finally:
         c.close()
 
@@ -2457,10 +2619,12 @@ def _surrogate_for(conn, kind=seeded_search.DETECTION_KIND, s=None):
 
 
 def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
-                 surrogate_params=None, prelude=None):
+                 surrogate_params=None, prelude=None, on_done=None):
     """One fan-out, one `sweep` job, per-channel progress. The job writes the
     run group id back onto the `discovery_runs` row as soon as it has one, so a
-    page that reloads mid-sweep still finds the runs."""
+    page that reloads mid-sweep still finds the runs. ``on_done(conn, out)`` runs
+    once the row reads its final status (round A_2, P2: a chain import stamps
+    ``hpc.importedAt`` there, not before the sweep has written the run)."""
     db_path = request.app.state.rt.db_path
 
     def run(job):
@@ -2520,6 +2684,10 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
             if skipped:
                 null_rec["skipped"] = skipped
             params["null"] = null_rec
+            if plan.get("windows") and params.get("windows") is not None:
+                # round A_2, P3: what the stitch did per channel (the windows' own spans, kept, merged, dropped)
+                params["windows"]["stitch"] = [dict(r["stitch"], channel=r["channel_name"], windows=r["windows"],
+                                                    windowsReused=r["windows_reused"]) for r in out["runs"]]
             # the group the runs are actually in: a reused run keeps the first
             # group it joined, so this is not always out["run_group_id"]
             groups = sorted({r["run_group_id"] for r in out["runs"] if r["run_group_id"]})
@@ -2529,6 +2697,8 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
                            "cancelled" if out["cancelled"] else "done", _now(),
                            int(session_id), run_key))
             conn2.commit()
+            if on_done is not None:
+                on_done(conn2, out)
             return {"run_group_id": out["run_group_id"], "runs": len(out["runs"]),
                     "cancelled": out["cancelled"],
                     "detections": sum(r["detections_written"] or 0 for r in out["runs"])}
@@ -2543,7 +2713,9 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
     job = request.app.state.manager.start_job("sweep", run, meta={
         "what": label, "run_key": run_key, "channels": plan["channels"],
         "span": plan["span"], "route": plan["route"],
-        "null": (f"{plan.get('null_draws') or 1} paired surrogate runs per channel" if surrogate else "off")})
+        "null": (f"{plan.get('null_draws') or 1} paired surrogate runs per channel" if surrogate else "off"),
+        # a2-p4 fix round (F5): a seed run that draws the preview first IS that query's preview while it does
+        "previewKey": getattr(prelude, "preview_key", None)})
     return job
 
 
@@ -2561,6 +2733,10 @@ class ApplyBody(BaseModel):
     #: with. It used to stay in the browser; the template went out with an
     #: empty binding and the core refused it (the researcher, 2026-10-13).
     exemplars: dict[str, str] | None = None
+    #: round A_2, P3: a window scope beside Channels and Bands — {window_s,
+    #: overlap_frac (0.5 recommended), fit}. Each template becomes ONE run whose
+    #: runs are its stitched windows.
+    windows: dict | None = None
 
 
 def _band_set_key(conn, session_id, template_name):
@@ -2584,17 +2760,21 @@ def _apply_bands(request, c, body: ApplyBody, name: str, bands: list[dict]):
     whole application (`_band_plans`): over the ceiling every band run is added
     and none started, and the page's primary action is *Create SLURM script*."""
     pb = PlanBody(template=name, channels=body.channels, t0=body.t0, t1=body.t1,
-                  exemplar=(body.exemplars or {}).get(name))
+                  exemplar=(body.exemplars or {}).get(name), windows=body.windows)
     plans, total, route, ceiling = _band_plans(c, pb, bands)
-    for plan, *_ in plans:
+    for band, (plan, *_) in zip(bands, plans):
         if not plan["runnable"]:
-            raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"], "template": name})
+            # round A_2, P3: in windows a band's own filter can refuse the scale, so the refusal names the band
+            why = f"band {band['label']}: {plan['reason']}" if body.windows is not None else plan["reason"]
+            raise HTTPException(422, {"message": why, "refused": plan["refused"], "template": name})
     s = plans[0][6]
     set_key = _band_set_key(c, s["id"], name)
     out = []
     for i, (band, (plan, steps, template, _seed, span, chans, _s)) in enumerate(zip(bands, plans)):
         key = _next_key(c, s["id"], _slug(f"{name}_{band['label'].replace(' ', '')}"))
         label = f"{name} · {band['label']}"
+        if plan.get("windows"):
+            label = f"{label} · {plan['windows']['label']}"         # round A_2, P3
         params = {"stage_count": len(steps), "version": template.get("version"),
                   "null": dict(plan["null"]),
                   "detail": f"v{template.get('version') or 1} · {len(steps)} stages · band {band['label']}",
@@ -2602,6 +2782,8 @@ def _apply_bands(request, c, body: ApplyBody, name: str, bands: list[dict]):
                   "route": route, "estimate_s": plan["estimate_s"],
                   "band": band, "bandSet": set_key, "bandIndex": i, "bandCount": len(bands),
                   "applicationEstimate_s": total}
+        if plan.get("windows"):
+            params.update(_windows_params(plan, params["detail"]))
         _insert_run(c, s["id"], run_key=key, kind="template", label=label,
                     template_name=name, template_id=template.get("id"), params=params)
         job_id = None
@@ -2646,22 +2828,26 @@ def apply_templates(request: Request, body: ApplyBody):
                 out.extend(_apply_bands(request, c, body, name, bands))
                 continue
             pb = PlanBody(template=name, channels=body.channels, t0=body.t0, t1=body.t1,
-                          exemplar=(body.exemplars or {}).get(name))
+                          exemplar=(body.exemplars or {}).get(name), windows=body.windows)
             plan, steps, template, _seed, span, chans, s = _plan(c, pb)
             if not plan["runnable"]:
                 raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"],
                                           "template": name})
-            key = _next_key(c, s["id"], name)
+            # round A_2, P3: a windowed application is one run named by its scale (its own row on the Map)
+            label = f"{name} · {plan['windows']['label']}" if plan.get("windows") else name
+            key = _next_key(c, s["id"], _slug(label) if plan.get("windows") else name)
             params = {"stage_count": len(steps), "version": template.get("version"),
                       "null": dict(plan["null"]),
                       "detail": f"v{template.get('version') or 1} · {len(steps)} stages",
                       "glyph": D.glyph_for(f"{steps[-1]['stage']}.{steps[-1]['algorithm']}"),
                       "route": plan["route"], "estimate_s": plan["estimate_s"]}
-            _insert_run(c, s["id"], run_key=key, kind="template", label=name,
+            if plan.get("windows"):
+                params.update(_windows_params(plan, params["detail"]))
+            _insert_run(c, s["id"], run_key=key, kind="template", label=label,
                         template_name=name, template_id=template.get("id"), params=params)
             job_id = None
             if body.run and plan["route"] != "cluster":
-                job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=name,
+                job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=plan, label=label,
                                    surrogate=plan["null"]["paired"], surrogate_params=plan["null"]["params"])
                 job_id = job.id
                 c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? "
@@ -2673,6 +2859,8 @@ def apply_templates(request: Request, body: ApplyBody):
                         "note": (None if job_id else
                                  ("over the local ceiling — create a SLURM script" if plan["route"] == "cluster"
                                   else "added, not started"))})
+            if plan.get("windows"):
+                out[-1]["windows"] = {k: plan["windows"][k] for k in ("label", "per_channel", "targets", "runs")}
         return out
     finally:
         c.close()
@@ -2794,6 +2982,12 @@ def _preview_prelude(request, conn, s, body, seed, names, span, null):
         t_start = time.time()
         result = _seed_search(conn2, seed2, chans2, span, k=k, max_distance=0.0, null=null, job=job,
                               scales=bank, overlap=overlap, exclusion=exclusion)
+        if job.cancel_event.is_set() or result is None:
+            # a2-p4: cancelled while drawing the preview: nothing is kept for the page (a short null a later run
+            # would reuse), and the row says no null was drawn; the sweep after this stops at once on the cancel
+            return {"paired": False, "imported": False, "source": "preview", "cancelled": True, "key": key,
+                    "draws": 0, "drawn": 0, "method": null.get("method"),
+                    "reason": "the run was cancelled while it drew the preview's null; nothing was kept"}
         _store_result(conn2, session_id, key, result)
         _record_seed_rate(conn2, session_id, "preview", _seed_work(n_samples, len(names), result["null"]["draws"]),
                           time.time() - t_start)
@@ -2801,6 +2995,9 @@ def _preview_prelude(request, conn, s, body, seed, names, span, null):
                 "draws": int(result["null"]["draws"]), "drawn": int(result["null"]["draws"]),
                 "method": result["null"].get("method"),
                 "expectsByChannel": _null_expects(result.get("nullByChannel") or {}, cut, names)}
+    # fix round (F5): the run's job is tagged with this key (`_start_sweep`), so the page's GET of this query finds
+    # the run drawing it and a POST of it joins the run rather than computing it a second time
+    prelude.preview_key = key
     return prelude, draws, seconds
 
 
@@ -3088,46 +3285,126 @@ def save_seed_template(request: Request, body: SeedTemplateBody):
         c.close()
 
 
+class SlurmBody(PlanBody):
+    #: round A_2 (P2): the Discovery run the script is for — that row is marked *on cluster* and is what the
+    #: import finishes. Without one, a new template row is added for the export.
+    runKey: str | None = None
+    #: the modal's preview: the script and the job's numbers; nothing is written and no row is marked
+    dryRun: bool = False
+
+
+def _chunked(spec):
+    """The profile steps a chain job computes in blocks, in words (the modal and Jobs print them)."""
+    return sorted({f"step {c_['step'] + 1:02d} in blocks of {c_['blockSamples']:,}"
+                   for t in spec["targets"] for c_ in t["chunks"]})
+
+
+def _chain_hpc(spec, made, h, *, estimate_s, created_at):
+    """A run row's ``params.hpc`` for a chain job: what the import (`import_chain_result_for`) and Jobs read.
+    One writer for *Create SLURM script* and for adopting a job written outside the bridge, so the two records
+    cannot drift apart. ``made`` is `chain_job.write_job`'s answer for the job's files."""
+    null = spec["null"]
+    return {"kind": "chain", "specPath": made["spec_path"], "scriptPath": made["script_path"],
+            "resultDir": made["result_dir"], "resultPath": made["result_repo_path"],
+            "returnPath": made["return_repo_path"], "specHash": h, "sbatch": made["sbatch_command"],
+            "createdAt": created_at, "tasks": spec["tasks"], "draws": null["draws"],
+            "paired": null["paired"], "estimateS": estimate_s,
+            "dependencies": made["dependencies"], "copyOut": made["copy_out"],
+            "wallMinutes": made["wall_minutes"], "wallVerified": made["wall_verified"],
+            "partition": made["profile"]["partition"], "chunked": _chunked(spec)}
+
+
 @router.post("/api/discovery/slurm")
-def post_slurm(request: Request, body: PlanBody):
-    """§7.5: above the ceiling the primary action is *Create SLURM script*.
-    The script is `Working.hpc.job_export`'s, fan-out aware — one array job
-    whose task index selects its own channel."""
-    from Working.hpc.job_export import export_job
+def post_slurm(request: Request, body: SlurmBody):
+    """§7.5: above the ceiling the primary action is *Create SLURM script* —
+    and the run comes back (round A_2, P2).
+
+    The script is `Working.discovery.chain_job`'s: an array job, one task per
+    channel, each running the real chain AND its paired null draws (Settings ›
+    Nulls, down to 1) on a scratch database keyed to this machine's recording
+    ids, resubmitting itself while its result reads incomplete. The run row
+    stands *on cluster* with its ``params.hpc`` (paths, spec hash, tasks) —
+    marked here, server-side, as the seed export marks its own. When the tasks'
+    ``return/`` folder is back, Discovery's *Import results* or Jobs › Waiting on
+    the cluster imports it (`import_chain_result_for`). A step that reads the
+    database (a Library exemplar, human verdicts, a saved pool) is refused by
+    name; a seed search goes to the cluster from the Seed page."""
+    from Working.discovery import chain_job
 
     c = _conn(request)
     try:
+        row = None
+        if body.runKey:
+            row = _dr_by_key(c, _session(c)["id"], body.runKey)
+            if row["kind"] == "seed":
+                raise HTTPException(422, {"message": f"{row['label']} is a seed search: it goes to the cluster from "
+                                                     f"the Seed page, as its own job (candidates and null draws)"})
+            if row["status"] in ("running", "queued", "done"):
+                raise HTTPException(409, {"message": f"{row['label']} is {row['status']}: there is nothing to send "
+                                                     f"to the cluster"})
+            rp = json.loads(row["params_json"] or "{}")
+            body = body.model_copy(update={"template": row["template_name"] or body.template,
+                                           "band": rp.get("band") or body.band, "seedId": None,
+                                           # round A_2, P3: a windowed run goes out with its own window scope
+                                           "windows": (rp.get("windows") or {}).get("scope") or body.windows})
         plan, steps, template, seed, span, chans, s = _plan(c, body)
+        if seed is not None:
+            raise HTTPException(422, {"message": "a seed search goes to the cluster from the Seed page, as its own job "
+                                                 "(candidates and null draws)"})
         if not plan["runnable"]:
             raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"]})
-        name = body.label or plan["template"] or (f"seed_{seed['hash'][:6]}" if seed else "discovery")
-        out_dir = os.path.join(request.app.state.rt.dir, "hpc") if request.app.state.rt.mode == "sandbox" \
-            else os.path.join(REPO_ROOT, "HPC", "Detection", "generated")
-        os.makedirs(out_dir, exist_ok=True)
-        base = f"{name}_{plan['n_channels']}ch_{int(span[0])}-{int(span[1])}"
-        # The array job runs the REAL chain per channel and nothing else: `job_export` has no
-        # paired-null task. So the wall time it asks for is the real sweep's, not the
-        # (1 + draws) figure that routed the run here, and the response says the null is
-        # not in the script rather than letting the page imply it is (fixup-T; left open).
-        real_s = plan.get("estimate_real_s") if plan.get("estimate_real_s") is not None else plan["estimate_s"]
-        data_files = ["DATA/db/annotations.sqlite"]
-        for t in plan["targets"]:
-            rec_row = q.get_recording_by_id(c, int(t["recording_id"]))
-            if rec_row is not None and rec_row["npy_path"]:
-                data_files.append(rec_row["npy_path"])
-        res = export_job(plan["recipe"], out_dir=out_dir, base_name=base, job_name=base,
-                         est_seconds=real_s, data_files=data_files)
-        draws = (plan.get("null") or {}).get("draws") or 0
-        null_note = (f"this script runs the real chain only — the {draws} paired null draws per channel that "
-                     f"routed the run past the local ceiling are not in it" if draws else None)
-        script = ""
-        if os.path.isfile(res["script_path"]):
-            with open(res["script_path"], encoding="utf-8") as f:
-                script = f.read()
-        return {**res, "script": script, "route": plan["route"], "estimate_s": plan["estimate_s"],
-                "estimate_real_s": real_s, "nullNote": null_note,
-                "ceiling_s": plan["ceiling_s"], "channels": plan["channels"],
-                "note": request.app.state.rt.banner() + (f" · {null_note}" if null_note else "")}
+        label = (row["label"] if row is not None else None) or body.label or plan["template"] or "discovery"
+        if row is None and plan.get("windows") and not body.label:
+            label = f"{label} · {plan['windows']['label']}"
+        try:
+            spec = chain_job.build_spec(c, plan, label=label, null=plan["null"],
+                                        run_key=(row["run_key"] if row is not None else None),
+                                        session_id=int(s["id"]), template=plan["template"], band=plan.get("band"))
+        except chain_job.ExportRefused as e:
+            raise HTTPException(422, {"message": str(e), "steps": e.steps})
+        h = chain_job.spec_hash(spec)
+        base = f"{_slug(label)}_{plan['n_channels']}ch_{int(span[0])}-{int(span[1])}_{h[:6]}"
+        made = chain_job.write_job(spec, out_dir=_hpc_out_dir(request), base_name=base, dry_run=body.dryRun)
+        null = spec["null"]
+        chunked = _chunked(spec)
+        steps_on = (f"copy {made['spec_repo_path']}, {made['script_repo_path']} and the {spec['tasks']} channel "
+                    f"array(s) listed to the same paths under the cluster's repo; `{made['sbatch_command']}`; when "
+                    f"every task reads complete, bring {made['return_repo_path']} back to the same place here and "
+                    f"press Import results on the run (or in Jobs › Waiting on the cluster)")
+        out = {"run_key": (row["run_key"] if row is not None else None), "label": label, "dryRun": bool(body.dryRun),
+               "script": made["script"], "script_path": made["script_path"], "spec_path": made["spec_path"],
+               "result_dir": made["result_dir"], "result_path": made["result_repo_path"],
+               "return_path": made["return_repo_path"], "sbatch_command": made["sbatch_command"],
+               "slurm_time": made["slurm_time"], "wall_minutes": made["wall_minutes"],
+               "wall_verified": made["wall_verified"], "budget_s": made["budget_s"], "max_chain": made["max_chain"],
+               "profile": made["profile"], "tasks": spec["tasks"], "draws": null["draws"], "paired": null["paired"],
+               "specHash": h, "copy_out": made["copy_out"], "warnings": made["warnings"], "chunked": chunked,
+               "route": plan["route"], "estimate_s": plan["estimate_s"], "ceiling_s": plan["ceiling_s"],
+               "channels": plan["channels"], "capped": plan["capped"], "steps": steps_on,
+               "note": request.app.state.rt.banner() + " · " + steps_on}
+        if body.dryRun:
+            return _clean(out)
+        if row is None:
+            key = _next_key(c, s["id"], _slug(label))
+            row = _insert_run(c, s["id"], run_key=key, kind="template", label=label, template_name=plan["template"],
+                              template_id=(template or {}).get("id"), params={
+                                  "stage_count": len(steps), "version": (template or {}).get("version"),
+                                  "null": dict(plan["null"]), "detail": f"v{(template or {}).get('version') or 1} · "
+                                                                        f"{len(steps)} stages",
+                                  "glyph": D.glyph_for(f"{steps[-1]['stage']}.{steps[-1]['algorithm']}"),
+                                  "estimate_s": plan["estimate_s"],
+                                  **(_windows_params(plan, f"v{(template or {}).get('version') or 1} · "
+                                                           f"{len(steps)} stages") if plan.get("windows") else {})})
+            out["run_key"] = key
+        params = json.loads(row["params_json"] or "{}")
+        params.pop("error", None)
+        params["route"] = "cluster"
+        params["null"] = dict(plan["null"])
+        params["hpc"] = _chain_hpc(spec, made, h, estimate_s=plan["estimate_s"], created_at=_now())
+        c.execute("UPDATE discovery_runs SET params_json = ?, status = 'on cluster', job_id = NULL, updated_at = ? "
+                  "WHERE id = ?", (json.dumps(params), _now(), int(row["id"])))
+        c.commit()
+        return _clean(out)
     finally:
         c.close()
 
@@ -4088,5 +4365,630 @@ def get_compare_stages(request: Request, a: str, b: str, channel: str, atH: floa
             "note": ("the window is pushed through both chains here and nothing is written: no run row, "
                      "no detections, no step cache"),
         }
+    finally:
+        c.close()
+
+
+# ── a2-p4: every Library family as a seed (round A_2, 2026-10-17) ────────────
+#
+# The picker's families are one grouping's. Its "Family medoid" tab was the drop-motif store's sixteen catalogue
+# spans, not the Library's families, and its family filter read the newest single-motif grouping of any basis (the
+# amplitude bins), so grouping 5's 149 shape families could not be reached. These helpers sit at the end of the file
+# so the branches working beside this one merge cleanly; they are called from the seed routes above.
+
+#: The basis the seed picker reads its families in by default (`Working.library.grouping.bases.BASES`).
+SEED_GROUPING_BASIS = "shape-distance"
+
+
+def _gid(row) -> str:
+    """A grouping's id as the Library spells it (`g-05`)."""
+    from . import library as L
+    return L.gid_str(row["id"])
+
+
+def _natural(label):
+    """`F-2` before `F-10`: digit runs compare as numbers."""
+    return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", str(label))]
+
+
+def _seed_grouping(conn, grouping=None):
+    """The grouping the seed picker reads its families in. Named (`g-05`, `5`): that grouping, through the
+    Library's own resolver (`library._resolve_grouping`) — a 404 naming it when there is none, a 422 when it does
+    not group single motifs. Not named: the newest shape-distance single-motif grouping, else the newest
+    single-motif grouping of any basis (the one the Library opens on), else None (no grouping yet)."""
+    from . import library as L
+    if grouping not in (None, "", "undefined", "null"):
+        row = L._resolve_grouping(conn, grouping)
+        if row is None:
+            raise HTTPException(404, {"message": f"no grouping {grouping!r}: Library › Grouping lists the groupings "
+                                                 f"there are"})
+        if row["unit"] != "single_motifs":
+            raise HTTPException(422, {"message": (f"grouping {_gid(row)} groups {row['unit']}, not single motifs: a "
+                                                  f"seed is one motif, so its families are a single-motif grouping's")})
+        return row
+    row = conn.execute("SELECT * FROM groupings WHERE unit = 'single_motifs' AND basis = ? ORDER BY id DESC LIMIT 1",
+                       (SEED_GROUPING_BASIS,)).fetchone()
+    return row if row is not None else L._resolve_grouping(conn, None)
+
+
+def _grouping_wire(conn, row, default=None):
+    """One grouping as the picker's grouping control lists it."""
+    from Working.library.grouping import bases as bases_mod
+    n = row["n_families"]
+    if n is None:
+        n = conn.execute("SELECT COUNT(DISTINCT family_label) FROM grouping_assignments WHERE grouping_id = ? AND "
+                         "family_id IS NOT NULL", (int(row["id"]),)).fetchone()[0]
+    return {"id": _gid(row), "name": row["name"], "basis": row["basis"],
+            "basisLabel": bases_mod.BASES.get(row["basis"], (None, row["basis"], ""))[1],
+            "method": row["method"], "families": int(n or 0), "createdAt": row["created_at"],
+            "isDefault": default is not None and int(row["id"]) == int(default["id"])}
+
+
+def _family_medoids(conn, grouping):
+    """`[(label, size, row)]` for every family of `grouping`, largest first: the member the grouping recorded as
+    the family's medoid (`is_medoid = 1`), else its closest member, else its first — a feature-bin grouping
+    records neither a medoid nor a distance, and its families are reachable all the same. `row` carries the
+    member's span and its entry's (`rid`, `a`, `b`). The count is the grouping's own assignments: the Library's
+    view filter and hand edits are not applied here. A member the grouping omitted is in no family."""
+    rows = conn.execute(
+        "SELECT ga.id AS aid, ga.family_label AS family, ga.is_medoid AS is_medoid, ga.distance AS distance, "
+        "mm.entry_id AS entry_id, mm.recording_id AS m_rid, mm.start_idx AS m_a, mm.end_idx AS m_b, "
+        "me.recording_id AS rid, me.start_idx AS a, me.end_idx AS b "
+        "FROM grouping_assignments ga JOIN motif_member mm ON mm.id = ga.member_ref "
+        "JOIN motif_entry me ON me.id = mm.entry_id "
+        "WHERE ga.grouping_id = ? AND ga.unit = 'single_motifs' AND ga.family_label IS NOT NULL "
+        "AND (ga.family_id IS NOT NULL OR ga.omit_reason IS NULL)", (int(grouping["id"]),)).fetchall()
+    by_family = {}
+    for r in rows:
+        by_family.setdefault(r["family"], []).append(r)
+    out = []
+    for label, members in by_family.items():
+        best = min(members, key=lambda r: (0 if r["is_medoid"] else 1, r["distance"] is None,
+                                           r["distance"] if r["distance"] is not None else 0.0, r["aid"]))
+        out.append((label, len(members), best))
+    out.sort(key=lambda t: (-t[1], _natural(t[0])))
+    return out
+
+
+def _family_medoid_page(conn, grouping, *, family=None, recording=None, channel=None, offset=0, limit=SEED_LIMIT,
+                        fams=None):
+    """`source=family`: one page of a grouping's families, each by its medoid as a Library seed (`library:` id at
+    its entry's span, so the run made from it carries the entry and can add its matches to the Library), and the
+    count under the filters. The held-out rule and the recording / channel filters are `_library_page`'s, applied
+    to the medoids' entries, so they live in one place. `fams`: `_family_medoids` already read."""
+    if grouping is None:
+        return [], 0
+    fams = list(fams) if fams is not None else _family_medoids(conn, grouping)
+    if family:
+        fams = [f for f in fams if f[0] == family]
+    ids = sorted({int(f[2]["entry_id"]) for f in fams})
+    rows, _ = _library_page(conn, recording=recording, channel=channel, entries=ids, limit=max(1, len(ids)))
+    allowed = {int(r["id"]) for r in rows}
+    fams = [f for f in fams if int(f[2]["entry_id"]) in allowed]
+    gid = _gid(grouping)
+    out = []
+    for label, size, m in fams[offset:offset + limit]:
+        how = ("its medoid" if m["is_medoid"] else
+               "its closest member (no medoid recorded)" if m["distance"] is not None else
+               "its first member (this grouping records no medoid)")
+        if (m["m_rid"], m["m_a"], m["m_b"]) != (m["rid"], m["a"], m["b"]):
+            how += f" · searched at its entry E-{int(m['entry_id']):04d}'s span"
+        out.append(("library", int(m["rid"]), int(m["a"]), int(m["b"]),
+                    f"{label} medoid" if m["is_medoid"] else f"{label} · E-{int(m['entry_id']):04d}", label,
+                    f"family {label} · {size} member{'' if size == 1 else 's'} in {gid} · {how}"))
+    return out, len(fams)
+
+
+def _drawn_by(snap):
+    """Fix round (F5): `{runKey, label}` when a job snapshot is a seed run drawing a preview first (its meta
+    carries `previewKey`), else None — the page watches such a preview and stops it from the run, never with the
+    preview's own Cancel, which would cancel the run."""
+    meta = (snap or {}).get("meta") or {}
+    if not meta.get("previewKey") or not meta.get("run_key"):
+        return None
+    return {"runKey": meta["run_key"], "label": meta.get("what") or meta["run_key"]}
+
+# ── round A_2, P2: a template run's chain job comes back ─────────────────────
+
+class ChainImportBody(BaseModel):
+    #: the run sent to the cluster (Discovery's *Import results*)
+    runKey: str | None = None
+    #: or the job's spec file (Jobs › Waiting on the cluster)
+    path: str | None = None
+
+
+def _repo_abs(path):
+    p = str(path)
+    return os.path.abspath(p if os.path.isabs(p) else os.path.join(REPO_ROOT, p))
+
+
+def _read_spec(spec_path):
+    """A chain job's spec file, read; a 404 or 422 in words when it is not one."""
+    from Working.discovery import chain_job
+
+    if not os.path.isfile(spec_path):
+        raise HTTPException(404, {"message": f"no chain job spec at {spec_path}"})
+    try:
+        with open(spec_path, encoding="utf-8") as f:
+            spec = json.load(f)
+    except (OSError, ValueError) as e:
+        raise HTTPException(422, {"message": f"{spec_path} is not a chain job spec: {type(e).__name__}: {e}"})
+    if not isinstance(spec, dict) or spec.get("kind") != chain_job.KIND:
+        raise HTTPException(422, {"message": f"{spec_path} is not a chain job spec"})
+    return spec
+
+
+@router.post("/api/discovery/chain/import")
+def import_chain_result(request: Request, body: ChainImportBody):
+    """A template run's chain job, brought back (round A_2, P2): the tasks'
+    ``return/`` folder is verified against the spec and this machine, its step
+    cache entries restored, and the ordinary local sweep then runs over the
+    exported plan — heavy steps are cache hits, every row is written by
+    `_start_sweep`, so the run reads on Runs, Compare, Review, the Scoreboard and
+    the Map as a local one. A missing or incomplete task, or any mismatch, is a
+    422 naming it, and nothing is recorded."""
+    return import_chain_result_for(request, run_key=body.runKey, spec_path=body.path)
+
+
+def import_chain_result_for(request: Request, *, run_key=None, spec_path=None):
+    """The import behind Discovery's button (by run key) and Jobs' row (by the
+    spec's path): one implementation, two callers."""
+    import Working.config as cfg
+    from Working.discovery import chain_job
+
+    c = _conn(request)
+    try:
+        if run_key:
+            row = _dr_by_key(c, _session(c)["id"], run_key)
+            hpc = json.loads(row["params_json"] or "{}").get("hpc") or {}
+            if hpc.get("kind") != "chain":
+                raise HTTPException(422, {"message": f"{row['label']} was not sent to the cluster as a chain job: "
+                                                     f"there is nothing to import for it"})
+            spec_path = _repo_abs(hpc["specPath"])
+        elif spec_path:
+            # a2 integration (P1 x P2): a path naming the held-out recording is refused only while the lock is on
+            if HELD_OUT_FILE in str(spec_path) and corpus.held_out_locked(c):
+                raise HTTPException(423, {"message": corpus.held_out_refusal("the web UI refuses it")})
+            spec_path, row, hpc = _repo_abs(spec_path), None, None
+        else:
+            raise HTTPException(422, {"message": "name the run (runKey) or the job's spec file (path)"})
+        spec = _read_spec(spec_path)
+        h = chain_job.spec_hash(spec)
+        if row is None:
+            row = c.execute("SELECT * FROM discovery_runs WHERE json_extract(params_json, '$.hpc.specHash') = ? "
+                            "ORDER BY id DESC LIMIT 1", (h,)).fetchone()
+            if row is None:
+                raise HTTPException(404, {"message": f"no Discovery run waits for this job (spec {h}): export it "
+                                                     f"again from Discovery › Runs"})
+            hpc = json.loads(row["params_json"] or "{}").get("hpc") or {}
+        if hpc.get("specHash") != h:
+            raise HTTPException(422, {"message": f"{spec_path} is spec {h}; {row['label']} was exported as spec "
+                                                 f"{hpc.get('specHash')} — the job was written again since"})
+        if row["status"] in ("running", "queued"):
+            raise HTTPException(409, {"message": f"{row['label']} is {row['status']} here right now; let it finish"})
+        out_dir = _repo_abs(hpc.get("resultDir") or hpc["resultPath"])
+
+        def refuse(message, status=422):
+            p = json.loads(row["params_json"] or "{}")
+            p["hpc"] = dict(p.get("hpc") or {}, refused={"at": _now(), "message": message})
+            c.execute("UPDATE discovery_runs SET params_json = ?, updated_at = ? WHERE id = ?",
+                      (json.dumps(p), _now(), int(row["id"])))
+            c.commit()
+            raise HTTPException(status, {"message": message, "run_key": row["run_key"]})
+
+        try:
+            plan = chain_job.local_plan(c, spec, ceiling_s=fanout.ceiling_s(c))   # targets and chain still the exported
+            checked = chain_job.verify_results(c, spec, out_dir)                 # everything checked, nothing written
+        except chain_job.ImportRefused as e:
+            refuse(str(e))
+        params = json.loads(row["params_json"] or "{}")
+        params.pop("error", None)
+        params["null"] = dict(plan["null"])
+        # fix round (F3): the START of the import. `importedAt` is stamped once the sweep has written the run
+        # (`stamp_imported`, below) — a restore that fails part-way never reads as imported
+        params["hpc"] = dict(params.get("hpc") or {}, importStartedAt=_now(), counts=checked["counts"],
+                             imported={"tasks": checked["tasks"], "entries": checked["entries"],
+                                       "bytes": checked["bytesToCopy"]})
+        params["hpc"].pop("refused", None)
+        params["hpc"].pop("importedAt", None)
+        c.execute("UPDATE discovery_runs SET params_json = ?, updated_at = ? WHERE id = ?",
+                  (json.dumps(params), _now(), int(row["id"])))
+        c.commit()
+        cache_root, null_rec, run_id = cfg.STEP_CACHE_ROOT, dict(plan["null"]), int(row["id"])
+
+        def hpc_update(conn2, **fields):
+            p = json.loads(conn2.execute("SELECT params_json FROM discovery_runs WHERE id = ?",
+                                         (run_id,)).fetchone()[0] or "{}")
+            p["hpc"] = dict(p.get("hpc") or {}, **fields)
+            conn2.execute("UPDATE discovery_runs SET params_json = ? WHERE id = ?", (json.dumps(p), run_id))
+            conn2.commit()
+            return p
+
+        def restore(job, conn2):
+            """The import's long part, as the job's first act: copy the verified cache entries in, then make sure
+            nothing heavy is left to compute here before the sweep starts."""
+            def fail(message):
+                p = json.loads(conn2.execute("SELECT params_json FROM discovery_runs WHERE id = ?",
+                                             (run_id,)).fetchone()[0] or "{}")
+                p["error"] = message
+                conn2.execute("UPDATE discovery_runs SET params_json = ? WHERE id = ?", (json.dumps(p), run_id))
+                conn2.commit()
+                raise RuntimeError(message)
+
+            job.progress(0, 1, f"restoring {checked['entries']} cache entries from the cluster")
+            try:
+                got = chain_job.restore_cache(conn2, checked, cache_root=cache_root,
+                                              should_cancel=job.cancel_event.is_set)
+            except chain_job.RestoreCancelled as e:
+                # F4: stopped between entries; the sweep reads the same cancel and stops before its first channel,
+                # so the row reads cancelled and nothing claims to be imported (import again to finish the copy)
+                p = json.loads(conn2.execute("SELECT params_json FROM discovery_runs WHERE id = ?",
+                                             (run_id,)).fetchone()[0] or "{}")
+                hpc_update(conn2, imported=dict((p.get("hpc") or {}).get("imported") or {}, copied=e.copied,
+                                                already=e.already, bytes=e.bytes, cancelled=True))
+                return null_rec
+            except Exception as e:
+                # F3: a copy that failed part-way is the row's error, in its own words (and Jobs reads it there)
+                fail(f"restoring the cluster's cache failed part-way: {type(e).__name__}: {e}. The entries restored "
+                     f"before it are whole and kept, the half-copied one is not used; import again (Jobs › Waiting "
+                     f"on the cluster) once that is fixed")
+            after = chain_job.local_plan(conn2, spec, ceiling_s=fanout.ceiling_s(conn2))
+            if after["capped"] or after["route"] == "cluster":
+                left = "; ".join(f"{x['channel_name']} step {x['step'] + 1:02d} ({x['name']})" for x in after["capped"])
+                fail("the cluster's cache entries were restored, but this run would still compute "
+                     + (left or f"about {(after['estimate_s'] or 0) / 60:.0f} min") + " here, over this machine's "
+                     "limit: nothing was run")
+            p = json.loads(conn2.execute("SELECT params_json FROM discovery_runs WHERE id = ?",
+                                         (run_id,)).fetchone()[0] or "{}")
+            hpc_update(conn2, imported=dict((p.get("hpc") or {}).get("imported") or {}, **got))
+            return null_rec
+
+        def stamp_imported(conn2, out):
+            """F3: the import is done when the sweep has written the run, not when it was asked for."""
+            if not out["cancelled"]:
+                hpc_update(conn2, importedAt=_now())
+
+        job = _start_sweep(request, session_id=int(row["session_id"]), run_key=row["run_key"], plan=plan,
+                           label=row["label"], surrogate=plan["null"]["paired"],
+                           surrogate_params=plan["null"]["params"], prelude=restore, on_done=stamp_imported)
+        c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? WHERE id = ?",
+                  (job.id, _now(), run_id))
+        c.commit()
+        mb = checked["bytesToCopy"] / 1e6
+        return {"run_key": row["run_key"], "job_id": job.id, "label": row["label"], "tasks": checked["tasks"],
+                "entries": checked["entries"], "bytes": checked["bytesToCopy"],
+                "note": (f"every task checked; {checked['entries']} cache entr{'y' if checked['entries'] == 1 else 'ies'} "
+                         f"({mb:.0f} MB) are restored from the cluster, then the run's channels are written here — "
+                         f"the heavy steps read from the cache, the cheap ones recomputed")}
+    finally:
+        c.close()
+
+
+# ── round A_2, P3: the window scope (`Working.discovery.windowed`) ──────────
+#
+# Appended so the branches working beside this one merge cleanly; called from `post_plan`, `apply_templates`,
+# `_apply_bands` and `post_slurm` above.
+
+def _windows_bands(plan, plans):
+    """A window scope over a band scope (the critic's m6): each band prepends its own filter, and a filter's period
+    can ask for a longer window than the template does (the default 0.001-0.01 Hz band: 66.7 min). The plan is
+    runnable only when every band's is; a band that cannot run says so by name, and its plan's windows stand for the
+    application's, so the card shows the minimum that refused it."""
+    bad = [p[0] for p in plans if not p[0].get("runnable")]
+    if not bad:
+        return plan
+    first = bad[0]
+    why = "; ".join(f"band {p['band']['label']}: {p.get('reason')}" for p in bad)
+    plan.update(runnable=False, reason=why)
+    if first.get("windows"):
+        plan["windows"] = dict(first["windows"], refused=why)
+    return plan
+
+
+def _windows_public(plan):
+    """A windowed plan as the page reads it: counts per channel, not one entry per window (thousands at the RQ4
+    sweep's 10-minute scale). Any other plan is returned as it is."""
+    if not plan.get("windows") or not plan.get("recipe"):
+        return plan
+    from Working.discovery import windowed as WD
+    return WD.public_plan(plan)
+
+
+def _windows_params(plan, detail):
+    """What a windowed application's Discovery row records about its scope: the scope (the Map reads its scale off
+    it, `detection_map._row_meta`), the counts, the chain's minimum window, what fitting changed and the stitch
+    rule, and the row's ``detail`` line with the scale on it; the stitch's own numbers are added when the sweep ends
+    (`_start_sweep`)."""
+    w = plan["windows"]
+    bits = [detail, w["label"], f"{w['per_channel']} windows per channel"]
+    if w.get("warning"):
+        bits.append("run as it is in windows shorter than the chain allows")
+    if w.get("fitted"):
+        bits.append("fitted: " + ", ".join(f"step {f['step'] + 1:02d} {f['param']} {f['from']:g} → {f['to']:g}"
+                                           for f in w["fitted"]))
+    return {"windows": {"scope": w["scope"], "label": w["label"], "per_channel": w["per_channel"],
+                        "targets": w["targets"], "fitted": w.get("fitted") or [], "minimum": w.get("minimum"),
+                        "rule": w.get("rule"), "rules": w.get("rules"), "tradeOff": w.get("tradeOff"),
+                        "warning": w.get("warning")},
+            "detail": " · ".join(b for b in bits if b)}
+
+# ── 2026-10-18: a chain job written outside the bridge comes back ───────────
+# The RQ4 overnight sweep's jobs were written by `scripts/rq4_overnight.py`, not by *Create SLURM script*, so no run
+# row waits for them and the import above has nothing to finish. Adopting a job writes that row (HPC/README.md, "The
+# adoption contract"); importing it is then the import above, unchanged.
+
+class ChainAdoptBody(BaseModel):
+    #: the job's spec file (…chain.json), absolute or repo-relative
+    path: str
+    #: what would be registered and imported, and nothing written
+    dryRun: bool = True
+
+
+class ChainLocalBody(BaseModel):
+    #: the template to run here
+    template: str
+    #: the chain job (…chain.json) whose channels, span and null the run takes
+    like: str
+    #: the plan, and nothing written or started
+    dryRun: bool = True
+
+
+def _spec_at(conn, path):
+    """``(absolute path, spec, spec hash)`` for a chain job named by its spec file. The held-out recording is
+    refused only while Settings › Datasets' lock is on, as the import refuses it."""
+    from Working.discovery import chain_job
+
+    p = _repo_abs(path)
+    if HELD_OUT_FILE in p and corpus.held_out_locked(conn):
+        raise HTTPException(423, {"message": corpus.held_out_refusal("the web UI refuses it")})
+    spec = _read_spec(p)
+    return p, spec, chain_job.spec_hash(spec)
+
+
+def _session_for(conn, source_file):
+    """The newest Discovery session on ``source_file``: where a job's run row goes (Discovery's own session when
+    it is open on that recording, as it is for the RQ4 sweep)."""
+    row = conn.execute("SELECT * FROM discovery_sessions WHERE source_file = ? ORDER BY id DESC LIMIT 1",
+                       (source_file,)).fetchone()
+    if row is None:
+        raise HTTPException(404, {"message": f"no Discovery session is on {source_file}: open that recording in "
+                                             f"Discovery › Scope first, then adopt the job"})
+    return row
+
+
+def _template_named(conn, name):
+    """The template row Discovery applies under ``name`` (the first, as `_steps_for` finds it), or None."""
+    from . import templates as T
+    return next((t for t in T.list_all(conn) if t["name"] == name), None)
+
+
+def _template_of(conn, spec):
+    """The template a job's run row names: it must be a row, and its chain must be the one the job ran — the row
+    would otherwise claim a chain that did not run (a Map row is keyed by the executed steps)."""
+    from Working.recipes import make_recipe
+
+    name = spec.get("template")
+    row = _template_named(conn, name)
+    if row is None:
+        raise HTTPException(422, {"message": f"the job's template {name!r} is not a template in this database: "
+                                             f"create it first (scripts/create_rq4_variants.py writes the RQ4 sweep's "
+                                             f"variant templates; the canonical ones, the CNN templates among them, "
+                                             f"are seeded when the bridge starts)", "template": name})
+    ids = [int(t["recordingId"]) for t in spec["targets"]]
+    mine = make_recipe(ids[0], row["steps"], span=spec["span"], fan_out={"kind": "channels", "targets": ids})["steps"]
+    if mine != spec["steps"]:
+        where = next((f"step {i + 1:02d} differs" for i, (a, b) in enumerate(zip(mine, spec["steps"])) if a != b),
+                     f"{len(mine)} steps here, {len(spec['steps'])} in the job")
+        raise HTTPException(422, {"message": f"template {name!r}'s chain is not the one this job ran ({where}): its "
+                                             f"run row would claim a chain that did not run", "template": name})
+    return row
+
+
+def _free_bytes(path):
+    import shutil
+
+    p = os.path.abspath(path)
+    while not os.path.isdir(p) and os.path.dirname(p) != p:
+        p = os.path.dirname(p)
+    return int(shutil.disk_usage(p).free)
+
+
+def _mtime_iso(path):
+    return _dt.datetime.fromtimestamp(os.path.getmtime(path), _dt.timezone.utc).isoformat(timespec="seconds")
+
+
+def _template_params(template, steps, null, estimate_s, route):
+    """A template run row's params as `apply_templates` and `post_slurm` write them: stage count, version, null,
+    detail, glyph, route and estimate."""
+    return {"stage_count": len(steps), "version": template.get("version"), "null": dict(null),
+            "detail": f"v{template.get('version') or 1} · {len(steps)} stages",
+            "glyph": D.glyph_for(f"{steps[-1]['stage']}.{steps[-1]['algorithm']}"),
+            "route": route, "estimate_s": estimate_s}
+
+
+@router.post("/api/discovery/chain/adopt")
+def adopt_chain_job(request: Request, body: ChainAdoptBody):
+    """Register the Discovery run a chain job written outside the bridge comes back to (2026-10-18).
+
+    One template run per spec, in the newest Discovery session on the spec's recording, labelled with the spec's
+    label and template, *on cluster*, its ``params.hpc`` exactly as *Create SLURM script* writes it
+    (`_chain_hpc`). The null is the spec's own (`chain_job.local_plan`), never Settings'. The template must be a
+    row whose chain is the job's. A job already registered (a row with the spec's hash) is not registered again.
+
+    The import is then P2's, unchanged: Jobs › Waiting on the cluster, or ``POST /api/hpc/chain/import`` with the
+    spec's path. The answer says whether it would go through: every task's state, a refusal in
+    `verify_results`' own words, the bytes the restore copies and the disk free where it copies them. ``dryRun``
+    (the default) writes nothing."""
+    import Working.config as cfg
+    from Working.discovery import chain_job
+
+    c = _conn(request)
+    try:
+        p, spec, h = _spec_at(c, body.path)
+        template = _template_of(c, spec)
+        s = _session_for(c, spec["sourceFile"])
+        out_dir = p[:-len(chain_job.SPEC_SUFFIX)] + chain_job.OUT_SUFFIX
+        try:
+            plan = chain_job.local_plan(c, spec, ceiling_s=fanout.ceiling_s(c))
+        except chain_job.ImportRefused as e:
+            raise HTTPException(422, {"message": str(e)})
+        st = chain_job.collect(spec, out_dir)
+        try:
+            checked, refusal = chain_job.verify_results(c, spec, out_dir), None
+        except chain_job.ImportRefused as e:
+            checked, refusal = None, str(e)
+        row = c.execute("SELECT * FROM discovery_runs WHERE json_extract(params_json, '$.hpc.specHash') = ? "
+                        "ORDER BY id DESC LIMIT 1", (h,)).fetchone()
+        if row is None:
+            made = chain_job.write_job(spec, out_dir=os.path.dirname(p),
+                                       base_name=os.path.basename(p)[:-len(chain_job.SPEC_SUFFIX)], dry_run=True)
+            hpc = _chain_hpc(spec, made, h, estimate_s=plan["estimate_s"], created_at=_mtime_iso(p))
+            if not body.dryRun:
+                params = _template_params(template, spec["steps"], plan["null"], plan["estimate_s"], "cluster")
+                params["hpc"] = hpc
+                params["adopted"] = {"at": _now(), "why": "a chain job written outside the bridge "
+                                                          "(scripts/rq4_overnight.py), adopted to be imported"}
+                row = _insert_run(c, s["id"], run_key=_next_key(c, s["id"], _slug(spec["label"])), kind="template",
+                                  label=spec["label"], template_name=template["name"], template_id=template["id"],
+                                  params=params)
+                c.execute("UPDATE discovery_runs SET status = 'on cluster', updated_at = ? WHERE id = ?",
+                          (_now(), int(row["id"])))
+                c.commit()
+                row = c.execute("SELECT * FROM discovery_runs WHERE id = ?", (int(row["id"]),)).fetchone()
+        if row is not None:
+            hpc = json.loads(row["params_json"] or "{}").get("hpc") or {}
+        return _clean({
+            "dryRun": bool(body.dryRun), "specPath": p, "specHash": h, "label": spec["label"],
+            "template": template["name"], "templateId": template["id"],
+            "session": {"id": int(s["id"]), "name": s["name"], "recording": _stem(s["source_file"])},
+            "registered": row is not None,
+            "runKey": row["run_key"] if row is not None else _next_key(c, s["id"], _slug(spec["label"])),
+            "status": row["status"] if row is not None else None, "imported": bool(hpc.get("importedAt")),
+            "tasks": {"total": st["total"], "complete": st["done"],
+                      "notComplete": [{"index": t["index"], "channelName": t["channelName"], "state": t["state"],
+                                       "reason": t["reason"]} for t in st["tasks"] if t["state"] != "complete"]},
+            "importable": checked is not None, "refusal": refusal,
+            "entries": checked["entries"] if checked else None,
+            "bytesToCopy": checked["bytesToCopy"] if checked else None,
+            "disk": {"root": cfg.STEP_CACHE_ROOT, "freeBytes": _free_bytes(cfg.STEP_CACHE_ROOT)},
+            "hpc": hpc,
+        })
+    finally:
+        c.close()
+
+
+def _uncached_time_capped(conn, plan):
+    """Every time-capped step (the matrix-profile family, `routing.TIME_CAPPED_BLOCKS`) the plan's real runs and
+    draws would compute, the step cache not holding it — whatever this machine's calibration says. An
+    uncalibrated machine has no cap and no estimate for the profile, so its plan reads "unknown" rather than
+    "capped"; the whole-signal profile would still take hours here. ``[{channel_name, step, name, where}]``, a
+    draw's step counted past its prepended surrogate step. Draws whose params are not known yet (a block shuffle
+    before its real run) count as uncached (``where: "draws"``)."""
+    from Working.discovery import routing
+
+    null = plan["null"]
+    out = []
+    for i, t in enumerate(plan["targets"]):
+        recipe = fanout.target_recipe(plan["recipe"], i, bool(null["paired"]))
+        runs = [("real", recipe, 0)]
+        if null["paired"] and int(null["draws"] or 0):
+            drs, _why = routing.draw_recipes(conn, recipe, draws=int(null["draws"]), surrogate_params=null["params"])
+            if drs is None:
+                # the draws cannot be keyed before the real run exists: each computes the real chain from scratch
+                out += [{"channel_name": t["channel_name"], "step": k, "name": f"{st['stage']}.{st['algorithm']}",
+                         "where": "draws"} for k, st in enumerate(recipe["steps"])
+                        if f"{st['stage']}.{st['algorithm']}" in routing.TIME_CAPPED_BLOCKS]
+            else:
+                runs += [(f"draw {j}", dr, 1) for j, dr in enumerate(drs)]
+        for where, r, skip in runs:
+            for st in routing.step_status(conn, r, samples=t["samples"], fs=t["fs"], skip=skip):
+                if st["name"] in routing.TIME_CAPPED_BLOCKS and not st["cached"]:
+                    out.append({"channel_name": t["channel_name"], "step": st["index"] - skip, "name": st["name"],
+                                "where": where})
+    return out
+
+
+@router.post("/api/discovery/chain/local")
+def run_like_chain_job(request: Request, body: ChainLocalBody):
+    """A template run HERE over a chain job's own channels, span and null — only when the step cache holds every
+    matrix-profile step, for the real run and each draw, and nothing else is over a cap (2026-10-18; RQ4b's
+    decision, option 1).
+
+    The overnight sweep brought back the matrix profiles of ``mp_threshold__backend_auto``. A template with the
+    same detrend → profile prefix (the ``backend: "auto"`` copies of the other matrix-profile templates) reads them
+    from the step cache, but only over the same recording, span and null: every one of those is in the key. So the
+    run is planned from the job: the template's chain as a spec over the job's targets (`chain_job.build_spec`,
+    nothing written) and P2's `local_plan`, the plan an import runs. A profile the cache does not hold (a ``stump``
+    template's, keyed apart) is refused by step, rather than computed here for hours — read from the cache, not
+    from the cap, which an uncalibrated machine does not have (`_uncached_time_capped`).
+    ``dryRun`` (the default) answers with the plan: per channel the steps the cache holds, and whether it runs
+    here. A template already run like this job (not failed or cancelled) is not run again."""
+    from Working.discovery import chain_job
+
+    c = _conn(request)
+    try:
+        p, like, h = _spec_at(c, body.like)
+        template = _template_named(c, body.template)
+        if template is None:
+            raise HTTPException(404, {"message": f"no template {body.template!r}"})
+        s = _session_for(c, like["sourceFile"])
+        null, ceiling = like["null"], fanout.ceiling_s(c)
+        plan = fanout.plan(c, steps=template["steps"], recording_ids=[int(t["recordingId"]) for t in like["targets"]],
+                           span=like["span"], ceiling_s=ceiling,
+                           null_draws=(int(null["draws"]) if null["paired"] else 0), surrogate=bool(null["paired"]),
+                           surrogate_params=null["params"])
+        if not plan["runnable"]:
+            raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"]})
+        try:
+            spec = chain_job.build_spec(c, plan, label=body.template, null=null, template=body.template)
+            lp = chain_job.local_plan(c, spec, ceiling_s=ceiling)
+        except (chain_job.ExportRefused, chain_job.ImportRefused) as e:
+            raise HTTPException(422, {"message": str(e)})
+        steps = lp["recipe"]["steps"]
+        uncached = _uncached_time_capped(c, lp)
+        runs_here = not uncached and not lp["capped"] and lp["route"] != "cluster"
+        reason = None
+        if not runs_here:
+            seen = set()
+            left = "; ".join(f"{x['channel_name']} step {x['step'] + 1:02d} ({x['name']}, {x['where']})"
+                             for x in uncached + lp["capped"]
+                             if (x["channel_name"], x["step"], x["where"]) not in seen
+                             and not seen.add((x["channel_name"], x["step"], x["where"])))
+            reason = (f"{body.template} would compute " + (left or f"about {(lp['estimate_s'] or 0) / 60:.0f} min")
+                      + " here: the step cache holds no result for it under this template's keys (the backend is "
+                        "in the key), and a matrix profile is the cluster's to compute")
+        existing = None
+        for r in _discovery_runs(c, s["id"]):
+            rp = json.loads(r["params_json"] or "{}")
+            if r["template_name"] == body.template and (rp.get("like") or {}).get("specHash") == h \
+                    and r["status"] not in ("failed", "cancelled"):
+                existing = r
+        out = {"dryRun": bool(body.dryRun), "template": body.template, "templateId": template["id"],
+               "like": {"specPath": p, "specHash": h, "label": like["label"]},
+               "session": {"id": int(s["id"]), "name": s["name"], "recording": _stem(s["source_file"])},
+               "route": lp["route"], "estimate_s": lp["estimate_s"], "ceiling_s": ceiling, "capped": lp["capped"],
+               "uncached": uncached, "runsHere": runs_here, "reason": reason,
+               "targets": [{"channelName": t["channel_name"], "recordingId": t["recording_id"],
+                            "cached": [f"{steps[i]['stage']}.{steps[i]['algorithm']}" for i in cost["cached"]],
+                            "drawsCached": cost["draws_cached"], "draws": lp["null"]["draws"]}
+                           for t, cost in zip(lp["targets"], lp["costs"])],
+               "runKey": existing["run_key"] if existing is not None else _next_key(c, s["id"], _slug(body.template)),
+               "status": existing["status"] if existing is not None else None, "jobId": None}
+        if body.dryRun or existing is not None:
+            return _clean(out)
+        if not runs_here:
+            raise HTTPException(422, {"message": reason, "capped": lp["capped"]})
+        key = out["runKey"]
+        params = _template_params(template, steps, dict(lp["null"], source="like"), lp["estimate_s"], lp["route"])
+        params["like"] = dict(out["like"])
+        _insert_run(c, s["id"], run_key=key, kind="template", label=body.template, template_name=body.template,
+                    template_id=template["id"], params=params)
+        job = _start_sweep(request, session_id=int(s["id"]), run_key=key, plan=lp, label=body.template,
+                           surrogate=lp["null"]["paired"], surrogate_params=lp["null"]["params"])
+        c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? "
+                  "WHERE session_id = ? AND run_key = ?", (job.id, _now(), int(s["id"]), key))
+        c.commit()
+        out.update(status="running", jobId=job.id)
+        return _clean(out)
     finally:
         c.close()

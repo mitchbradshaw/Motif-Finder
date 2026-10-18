@@ -140,6 +140,19 @@ def _slurm_time_from_estimate(est_seconds):
     return f"{h:02d}:{m:02d}:00"
 
 
+def partition_wall_minutes(partition):
+    """``(minutes, verified)``: the wall a job on ``partition`` may ask for — the
+    value recorded in `Working.config.HPC_WALLTIME_MINUTES_BY_PARTITION` (measured
+    on the account), else the conservative `HPC_MAX_WALLTIME_MINUTES`, said to be
+    unverified (round A_2, P2: the `cpu` partition's limit has never been read)."""
+    from Working.config import HPC_WALLTIME_MINUTES_BY_PARTITION
+
+    recorded = HPC_WALLTIME_MINUTES_BY_PARTITION.get(str(partition))
+    if recorded is not None:
+        return int(recorded), True
+    return int(HPC_MAX_WALLTIME_MINUTES), False
+
+
 class _Span:
     """Lightweight stand-in for a signal array so an adapter's `estimate`
     can be evaluated for a span without materialising the array. Only `len`

@@ -302,6 +302,21 @@ HPC_REMOTE_REPO_ROOT = "/home/Student/s4699158/CNN"
 # own QOS via `sacctmgr show qos` or an actual longer job that succeeds.
 HPC_MAX_WALLTIME_MINUTES = 20
 
+# ── The wall per partition (round A_2, P2) ──────────────────────────────────
+# Measured values only, {partition: minutes}. `a100-test`'s 20 minutes is the
+# QOS refusal above. `a100` runs 5 hours (the researcher on rangpur,
+# 2026-10-18: the 20-minute limit met before was a100-test's own). On it, a
+# whole 721-h channel's matrix profile (2,596,000 samples, m = 60) took 736 s
+# with gpu_stump (job 671109). The `cpu` partition's limit is NOT measured yet:
+# until the researcher reads it on rangpur and records it here, a job on it
+# asks for HPC_MAX_WALLTIME_MINUTES and says the value is unverified
+# (`Working.hpc.job_export.partition_wall_minutes`). How to read one:
+#   sacctmgr show qos format=Name,MaxWall,MaxTRESPU%40     (the QOS limits)
+#   sacctmgr show assoc user=$USER format=Partition,QOS%30  (which QOS a partition uses)
+#   scontrol show partition cpu | grep -i -E "MaxTime|QoS"  (the partition's own limit)
+# or submit a deliberately long job (--time=01:00:00) and see whether sbatch accepts it.
+HPC_WALLTIME_MINUTES_BY_PARTITION = {"a100-test": 20, "a100": 300}
+
 # `sinfo -o "%P %a %l %D %G %f"` on the real account (2026-08-31) is the
 # source of truth here, not a guess: the hand-written scripts' hardcoded
 # `--partition=gpu` does not exist on this cluster at all (`sbatch: error:
@@ -457,6 +472,9 @@ SIMILARITY_WIDTH_RATIO_THRESHOLD = 1.5
 # The evaluation recording is refused by both the viewer and the runner unless
 # explicitly unlocked, so "untouched until the freeze" is true by construction.
 # The lock keys on source file, so every materialised channel of the held-out
-# recording is covered by one config entry.
+# recording is covered by one config entry. The app's switch is Settings ›
+# Datasets (`heldout.on`), read on every request and run through
+# `Working.registration.settings.held_out_locked` (a2-p1); RQ1's exam (iii)
+# keeps its own lock (`Working.training.windows.refuse_held_out`).
 HELD_OUT_RECORDING_FILE = "M4_aug_concat_fs1.mat"
-HELD_OUT_UNLOCK = False  # Set to True to temporarily allow access for evaluation
+HELD_OUT_UNLOCK = False  # A script's override: True unlocks for that process, whatever the setting says

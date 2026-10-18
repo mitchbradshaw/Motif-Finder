@@ -192,8 +192,12 @@ def test_unlocking_the_held_out_recording_needs_the_typed_name(bridge):
     assert client.get("/api/settings/datasets").json()["held_out"]["on"] is False
     locks = client.get("/api/audit?kind=lock").json()["entries"]
     assert len(locks) == 1 and "turned off" in locks[0]["what"]
-    # the routes still refuse the held-out FILE (rule of the routes, not of the lock): 423 in both modes
+    # a2-p1: the routes obey this lock now (until 2026-10-17 they refused the held-out FILE whatever it said):
+    # off, the held-out recording is served (its spans are database rows, so this row needs no .npy) ...
     held_id = [x for x in client.get("/api/registry/recording").json()["registered"] if x["name"] == HELD_OUT_FILE[:-4]][0]["ids"][0]
+    assert client.get(f"/api/channels/{held_id}/spans").status_code == 200
+    # ... and turned back on, the routes refuse it again (423), with no restart
+    assert client.put("/api/settings/datasets", json={"values": {"heldout.on": True}}).status_code == 200
     assert client.get(f"/api/channels/{held_id}").status_code == 423
 
 

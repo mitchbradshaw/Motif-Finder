@@ -461,13 +461,24 @@ function PromotedEntryLinks({ rec }: { rec: VerdictRecord }) {
   const entryId = rec.entryId ?? null
   const found = useSourced(() => entryId == null ? Promise.resolve({ data: null, source: 'live' as const }) : getSeedPage({ source: 'library', entry: entryId, limit: 1 }), [entryId])
   const family = found.data?.seeds[0]?.family ?? null
+  // a2-p4 fix round (F3): the family was read in this grouping (the seed picker's default: the newest shape-distance
+  // one), so the link opens it there; without it the Library opened the newest grouping of any basis, which has no
+  // such family
+  const grouping = found.data?.grouping?.id ?? null
   const noEntry = entryId == null ? 'the bridge named no Library entry for this promotion' : null
   const noFamily = found.loading ? 'reading which family holds the entry…' : found.error ? `could not read the entry: ${found.error.message}`
-    : !family ? `entry ${entryId} is in no family of the current grouping yet — the next regroup places it` : null
+    : !family ? `entry ${entryId} is in no family of ${grouping ? `grouping ${grouping}` : 'the current grouping'} yet — the next regroup places it` : null
+  const familyHref = () => {
+    const q = new URLSearchParams()
+    if (grouping) q.set('grouping', grouping)
+    if (rec.memberId != null) q.set('member', `m-${rec.memberId}`)
+    const s = q.toString()
+    return `library/family/${encodeURIComponent(family!)}${s ? `?${s}` : ''}`
+  }
   return (
     <>
       <Button variant="link" disabled={!!(noEntry ?? noFamily)} disabledReason={noEntry ?? noFamily ?? undefined}
-        onClick={() => navigate(`library/family/${encodeURIComponent(family!)}${rec.memberId != null ? `?member=m-${rec.memberId}` : ''}`)} testid="promo-open-library">Open in Library</Button>
+        onClick={() => navigate(familyHref())} testid="promo-open-library">Open in Library</Button>
       <Button variant="link" iconRight="arrow-right" disabled={!!noEntry} disabledReason={noEntry ?? undefined}
         onClick={() => navigate(`discovery/seed?entry=${entryId}`)} testid="promo-seed-search">Seed search in Discovery</Button>
     </>

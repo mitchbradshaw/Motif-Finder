@@ -180,3 +180,7 @@ None.
 - 2026-10-14 · drop-nan · the drop detector, dSAX and symbol search skip a gap (letter `-`, statistics over the recorded part) instead of returning nothing; gap-free input unchanged bit for bit
 - 2026-10-14 · readout · each block's derive readout shown on its block page, computed on the block's real input (stages before it re-run in memory or read from the step cache); the drop detector's σ, cut, letters and the Missing samples warning visible before a run; nothing measured moves
 - 2026-10-15 · units · the drop detector, its two readouts and event shape read mV by the recording's declared unit (Q20 re-asked: tell the block); on the mV recordings every depth, slope and threshold was 1000× too large (L_LM σ 605.6 → 0.6056 mV/s); events found and volts recordings unchanged
+- 2026-10-18 · W4-A evaluation · the twelve CNN templates measured on real data, for the detector sweep that widens
+  this question (`../rq_roundA_2/RQ4b-detector-sweep.md`; report `docs/prompts/blocks/reports/W4-A-evaluation.md`).
+  10-minute CNNs agree with the blind labels (balanced accuracy 0.86–0.88 at threshold 0.1). The 1-minute ones call
+  nearly every minute interesting and fail the labels. Nothing in this file's route changes.

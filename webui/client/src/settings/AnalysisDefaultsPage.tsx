@@ -8,6 +8,7 @@ import {
 } from '../kit'
 import { live, useSourced } from '../api/seam'
 import { getRoseReference, recomputeRoseReference, type LibRoseReference } from '../api'
+import { useHeldOutLock } from '../shell/heldOutLock'
 import { navigate } from '../state'
 import { getAnalysisDefaults, ruleKey, type RecommendRule } from '../api/settings'
 import { DEFAULT_BANDS, type BandEntry } from '../fixtures/settings'
@@ -34,6 +35,8 @@ function Body({ data }: { data: Data }) {
   const [modal, setModal] = useQueryState('modal', '')
   const [clearing, setClearing] = useState<'idle' | 'running' | 'done'>('idle')
   const [cacheGb, setCacheGb] = useState(data.cacheGb)
+  // a2-p1 fix round (m3): the held-out context is offered as locked only while Settings › Datasets' lock is on
+  const heldOut = useHeldOutLock()
 
   const nyquist = ctx.startsWith('M2_aug fs2') ? 1 : 0.5
   const ruleError = (r: RecommendRule, v: string): string | null => {
@@ -156,7 +159,7 @@ function Body({ data }: { data: Data }) {
             {
               key: 'example', header: (
                 <SelectField value={ctx} onChange={setCtx} size="sm" width={175} testid="rule-context" ariaLabel="evaluation context"
-                  options={[...data.contexts.map(c => ({ value: c, label: `on ${c}` })), { value: 'M4_aug CH1_A1', label: 'on M4_aug CH1_A1', disabled: true, reason: 'held out · locked' }]} />
+                  options={[...data.contexts.map(c => ({ value: c, label: `on ${c}` })), ...(heldOut.on ? [{ value: 'M4_aug CH1_A1', label: 'on M4_aug CH1_A1', disabled: true, reason: 'held out · locked — turn the lock off in Settings › Datasets' }] : [])]} />
               ), width: '16%', render: r => {
                 const ex = data.examples[ctx]?.[`${r.block}.${r.parameter}`]
                 return ex ? <span><span className="s-rec-bar" /><b className="mono">{ex}</b></span> : <span className="muted">—</span>

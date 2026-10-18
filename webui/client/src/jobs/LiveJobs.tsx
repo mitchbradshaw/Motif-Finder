@@ -19,6 +19,7 @@ import {
   importReturnedJob, importSeedResult, isActive, WORKSPACE_ICON, wsOf,
   type ClusterJob, type ClusterList, type ClusterState, type ImportAttempt, type LiveJob,
 } from '../api/jobs'
+import { importChainResult } from '../api/jobs'
 import type { ReviewQueue } from '../api/review'
 import { fmtBytes } from '../api/cnn'
 import { navigate } from '../state'
@@ -223,12 +224,15 @@ export function useImport(onEnd: () => void) {
 /* ------------------------------------------------------------------ the seed-result import (a result file, by path) */
 export interface SeedImportFollow { path: string; status: 'running' | 'done' | 'refused'; message: string; runKey?: string; jobId?: number | null }
 
-/** Import a seed job's result file through the Seed page's own import; a refusal is the message, nothing is stored. */
+/** Import a seed job's result file through the Seed page's own import; a refusal is the message, nothing is stored.
+ *  Round A_2 (P2): `how = 'chain'` imports a template run's chain job by its spec, through Discovery's own import. */
 export function useSeedImport(onEnd: () => void) {
   const [cur, setCur] = useState<SeedImportFollow | null>(null)
-  const start = useCallback((path: string) => {
-    setCur({ path, status: 'running', message: 'checking the result against the session and its spec…' })
-    importSeedResult(path).then(
+  const start = useCallback((path: string, how: 'seed' | 'chain' = 'seed') => {
+    setCur({ path, status: 'running', message: how === 'chain' ? "checking every task's result against its spec and this machine…" : 'checking the result against the session and its spec…' })
+    const call: Promise<{ run_key: string; job_id: number | null; label: string; note?: string }> =
+      how === 'chain' ? importChainResult(path) : importSeedResult(path)
+    call.then(
       ack => { setCur({ path, status: 'done', message: ack.note ?? `imported as ${ack.label}`, runKey: ack.run_key, jobId: ack.job_id }); onEnd() },
       (e: unknown) => { setCur({ path, status: 'refused', message: (e instanceof Error ? e.message : String(e)).replace(/^\d{3} /, '') }); onEnd() })
   }, [onEnd])
@@ -280,7 +284,8 @@ export function ClusterJobsCard({ q, imp, seedImp }: { q: LiveRead<ClusterList>;
           The site writes a job directory or a script and never logs in to the cluster or submits anything: copy what a row
           lists, <code>sbatch</code> the script, bring the results back, then import them — from the row or the Manifest inbox.
           Three things write scripts: Models › Launch (the B.2 CNN, paired training), the Shape clustering page (Ward over every
-          training window) and the Discovery Seed page (a seed search over the ceiling). A row's state is read from its folder,
+          training window), the Discovery Seed page (a seed search over the ceiling) and Discovery › Runs (a template run's chain
+          job, one task per channel — it comes back as the same run). A row's state is read from its folder,
           its result file and the database: <i>written</i>, <i>running on the cluster</i> (a seed job's checkpoint is back),
           <i> results back</i>, <i>results imported</i> (with the run) or <i>import refused</i> with the reason. A script whose
           results cannot come back through the site says so instead of offering an import.
@@ -307,8 +312,8 @@ export function ClusterJobsCard({ q, imp, seedImp }: { q: LiveRead<ClusterList>;
               <ClusterRow key={`${r.source}:${r.name}`} r={r} open={open === r.name} onToggle={() => setOpen(open === r.name ? null : r.name)}
                 importing={(imp.cur?.path === r.import_path && (imp.cur.status === 'starting' || imp.cur.status === 'running'))
                   || (seedImp.cur?.path === r.import_path && seedImp.cur.status === 'running')}
-                seedOutcome={r.import_how === 'seed' && seedImp.cur?.path === r.import_path ? seedImp.cur : null}
-                onImport={() => { if (r.import_how === 'inbox' && r.import_path) imp.start(r.import_path); else if (r.import_how === 'seed' && r.import_path) seedImp.start(r.import_path) }} />
+                seedOutcome={(r.import_how === 'seed' || r.import_how === 'chain') && seedImp.cur?.path === r.import_path ? seedImp.cur : null}
+                onImport={() => { if (r.import_how === 'inbox' && r.import_path) imp.start(r.import_path); else if ((r.import_how === 'seed' || r.import_how === 'chain') && r.import_path) seedImp.start(r.import_path, r.import_how) }} />
             ))}
           </tbody>
         </table>
@@ -329,20 +334,23 @@ function ClusterRow({ r, open, onToggle, importing, seedOutcome, onImport }: {
 }) {
   const canImport = !!r.import_how && (r.state === 'returned' || r.state === 'refused' || r.state === 'failed')
   const why = !r.import_how ? (r.import_note ?? 'not imported through the site')
-    : r.state === 'written' ? (r.import_how === 'seed' ? 'no result here yet: bring the seed job\'s …result.json back to where the row expects it first' : 'no results here yet: copy the job\'s out/ back from the cluster first')
-      : r.state === 'partial' ? 'the job is still running on the cluster: only a checkpoint is back'
-        : r.state === 'imported' ? 'already imported' : r.state === 'unreadable' ? 'the job cannot be read' : undefined
+    : r.state === 'written' ? (r.import_how === 'seed' ? 'no result here yet: bring the seed job\'s …result.json back to where the row expects it first'
+      : r.import_how === 'chain' ? 'no results here yet: bring the job\'s …_out/return/ folder back from the cluster first' : 'no results here yet: copy the job\'s out/ back from the cluster first')
+      : r.state === 'partial' ? (r.import_how === 'chain' ? 'some tasks are not back or not complete yet: every task\'s result must be here' : 'the job is still running on the cluster: only a checkpoint is back')
+        : r.state === 'imported' ? 'already imported' : r.state === 'importing' ? 'importing: the run is being written here' : r.state === 'unreadable' ? 'the job cannot be read' : undefined
   const channels = r.copy.filter(c => c.what === 'channel array').length
-  const title = r.source === 'seed' ? `${r.label ?? r.name}` : `${r.kind_label ?? 'unknown job'}${r.smoke ? ' · local smoke' : ''}`
-  const sub = r.source === 'seed' ? `${r.kind_label} · ${r.name}` : `${r.name}${r.model ? ` · ${r.model}` : ''}`
-  const openLabel = r.open ? (r.kind === 'shape_tree_full' ? 'Open in Analyse' : r.source === 'seed' ? 'Open in Discovery' : 'Open in Results') : ''
+  // round A_2 (P2): a template run's chain job reads like a seed search — the run's own label, its kind beneath
+  const named = r.source === 'seed' || r.source === 'chain'
+  const title = named ? `${r.label ?? r.name}` : `${r.kind_label ?? 'unknown job'}${r.smoke ? ' · local smoke' : ''}`
+  const sub = named ? `${r.kind_label} · ${r.name}` : `${r.name}${r.model ? ` · ${r.model}` : ''}`
+  const openLabel = r.open ? (r.kind === 'shape_tree_full' ? 'Open in Analyse' : named ? 'Open in Discovery' : 'Open in Results') : ''
   return (
     <>
       <tr className={`jb-tr ${open ? 'sel' : ''}`} data-testid={`exported-row-${r.name}`} data-state={r.state} data-kind={r.kind ?? ''} data-source={r.source}
         tabIndex={0} onClick={onToggle} onKeyDown={e => { if (e.key === 'Enter') onToggle() }}>
         <td>
           <span className="jb-job">
-            <Icon name={r.kind === 'shape_tree_full' ? 'branch' : r.source === 'seed' ? 'target' : r.kind === 'detection_chain' ? 'target' : 'cpu'} size={13} className="ic" />
+            <Icon name={r.kind === 'shape_tree_full' ? 'branch' : named ? 'target' : r.kind === 'detection_chain' ? 'target' : 'cpu'} size={13} className="ic" />
             <span className="txt">
               <div className="t" title={r.job_dir ?? r.scripts[0]?.path ?? r.name}>{title}<WsTag ws={r.workspace} /></div>
               <div className="s" title={r.job_dir ?? r.scripts[0]?.path ?? ''}>{sub}</div>
@@ -351,10 +359,12 @@ function ClusterRow({ r, open, onToggle, importing, seedOutcome, onImport }: {
         </td>
         <td><span className="jb-mono" title={r.recipe_ok === false ? 'recipe.json no longer matches the hash it was written with' : 'the hash the import checks'}>{r.recipe_hash ?? '—'}{r.recipe_ok === false && <span className="jb-red"> ✕</span>}</span></td>
         <td><span className="jb-time">{isoWhen(r.written_at)}</span></td>
-        <td data-testid={`exported-copy-size-${r.name}`}>{r.copy.length ? <><span className="jb-mono">{fmtBytes(r.total_bytes)}</span><div className="jb-live-msg">{r.source === 'job_dir' ? `job folder${channels ? ` + ${channels} channel arrays` : ''}` : r.source === 'seed' ? 'spec + script' : 'recipe + script'}</div></> : <span className="jb-muted">—</span>}</td>
+        <td data-testid={`exported-copy-size-${r.name}`}>{r.copy.length ? <><span className="jb-mono">{fmtBytes(r.total_bytes)}</span><div className="jb-live-msg">{r.source === 'job_dir' ? `job folder${channels ? ` + ${channels} channel arrays` : ''}` : r.source === 'seed' ? 'spec + script' : r.source === 'chain' ? `spec + script${channels ? ` + ${channels} channel arrays` : ''}` : 'recipe + script'}</div></> : <span className="jb-muted">—</span>}</td>
         <td>
           <StateBadge row={r} />
-          {r.state === 'partial' && r.progress && <div className="jb-live-msg" data-testid={`exported-progress-${r.name}`}>{r.progress.channels_done} of {r.progress.channels ?? '?'} channels in the checkpoint</div>}
+          {r.state === 'partial' && r.progress && (r.source === 'chain'
+            ? <div className="jb-live-msg" data-testid={`exported-progress-${r.name}`}>{r.progress.tasks_done ?? 0} of {r.progress.tasks ?? '?'} tasks complete</div>
+            : <div className="jb-live-msg" data-testid={`exported-progress-${r.name}`}>{r.progress.channels_done} of {r.progress.channels ?? '?'} channels in the checkpoint</div>)}
           {r.reason && <div className="jb-live-msg jb-red" data-testid={`exported-reason-${r.name}`} title={r.reason}>{r.reason}</div>}
           {r.error && <div className="jb-live-msg jb-red" title={r.error}>{r.error}</div>}
           {seedOutcome && seedOutcome.status !== 'running' && (
@@ -365,7 +375,7 @@ function ClusterRow({ r, open, onToggle, importing, seedOutcome, onImport }: {
           {r.open
             ? <Button size="sm" variant="link" icon="external" testid={`exported-open-${r.name}`} title={r.open.label} onClick={() => navigate(r.open!.route)}>{openLabel}</Button>
             : <Button size="sm" variant={canImport ? 'primary' : 'default'} icon="download" loading={importing} disabled={!canImport} disabledReason={why}
-                testid={r.import_how === 'seed' ? `seed-import-${r.name}` : `exported-import-${r.name}`} onClick={onImport}>{r.import_how === 'seed' ? 'Import result' : 'Import results'}</Button>}
+                testid={r.import_how === 'seed' ? `seed-import-${r.name}` : r.import_how === 'chain' ? `chain-import-${r.name}` : `exported-import-${r.name}`} onClick={onImport}>{r.import_how === 'seed' ? 'Import result' : 'Import results'}</Button>}
           {/* the reason used to live only in the hover: a grey button with no words read as broken (2026-10-13) */}
           {!r.open && !canImport && why && <div className="jb-live-msg" data-testid={`import-why-${r.name}`} title={why}>{why}</div>}
         </td>
@@ -396,7 +406,14 @@ function ClusterRow({ r, open, onToggle, importing, seedOutcome, onImport }: {
           </>}
           {r.source === 'job_dir' && <div className="jb-small jb-row">never copied<InfoTip title="Never copied"><code>cache/</code> (built on the cluster) and <code>out/</code> (what comes back) are never copied.</InfoTip></div>}
           {r.source === 'seed' && r.result_path && <div className="jb-small jb-mono" data-testid={`exported-result-${r.name}`}>the result comes back to <b>{r.result_path}</b>{r.state === 'written' ? ' — nothing there yet' : ''}; the script checkpoints into it after every channel and resubmits itself while it reads incomplete</div>}
-          {r.returned && <div className="jb-small jb-mono">{r.source === 'seed' ? 'result file' : 'out/done.json'}: {r.returned.status} · {r.source === 'seed' ? 'spec' : 'recipe'} {r.returned.recipe_hash ?? '?'}{r.returned.finished_at ? ` · finished ${isoWhen(r.returned.finished_at)}` : ''}</div>}
+          {r.source === 'chain' && (
+            <div className="jb-small jb-mono" data-testid={`exported-chain-${r.name}`}>
+              template run <b>{r.label}</b> · run <b>{r.run_key}</b>{r.session ? ` · session ${r.session}` : ''}{r.run_status ? ` · row ${r.run_status}` : ''}
+              {r.progress?.tasks != null ? ` · ${r.progress.tasks_done ?? 0} of ${r.progress.tasks} tasks back` : ''}{r.draws != null ? ` · ${r.draws} null draw${r.draws === 1 ? '' : 's'} per task` : ''}
+              {r.result_path && <> · each task writes <b>{r.result_path}</b>/return/task&lt;i&gt;/ and resubmits itself while its result reads incomplete</>}
+            </div>
+          )}
+          {r.returned && <div className="jb-small jb-mono">{r.source === 'seed' ? 'result file' : r.source === 'chain' ? 'task results' : 'out/done.json'}: {r.returned.status} · {named ? 'spec' : 'recipe'} {r.returned.recipe_hash ?? '?'}{r.returned.finished_at ? ` · finished ${isoWhen(r.returned.finished_at)}` : ''}</div>}
           {r.import_note && <div className="jb-small jb-muted" data-testid={`exported-no-import-${r.name}`}>{r.import_note}</div>}
           {r.last_attempt && <div className="jb-small jb-mono">last import: job {r.last_attempt.job_id} · {r.last_attempt.outcome}{r.last_attempt.message ? ` · ${r.last_attempt.message}` : ''}</div>}
           {r.last_attempt?.traceback && <pre className="jb-trace">{r.last_attempt.traceback}</pre>}
