@@ -569,3 +569,10 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
   - **M4_aug is the held-out exam (RQ1b):** its results are for the Map and the detector comparison only. Keep M4
     detections out of Review promotions and *Add N matches*. The import needs the held-out lock still off.
   - Not yet run on the cluster.
+- 2026-10-18 · batch 2, first copy · the results were copied back at about 08:05 UTC, about 30 minutes into a run of
+  about 3 hours.
+  - 527 of 1,543 tasks complete, nothing refused and nothing crashed: cpu1 had done its first 509 tasks, cpu2 18,
+    gpuA had started its first 8, and gpuB was still queued.
+  - The jobs were still running. `HPC/Detection/generated/rq4_batch2/resume_rq4b.sh` submits nothing while any
+    rq4b_ job is queued or running; otherwise it resubmits only the packs with work left, which continue from the
+    cluster's own results.
