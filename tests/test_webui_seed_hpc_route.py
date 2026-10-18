@@ -306,21 +306,26 @@ def test_save_as_template_can_update_the_existing_one(client):
 
 # ── 2026-10-09: the null is the researcher's choice on the run ─────────────
 
-def test_a_run_with_the_null_off_is_a_real_run_that_review_can_take(client):
-    body = {"seedId": _seed_id(client), "channels": [CH[0]], "t0": 0.0, "t1": N / 3600.0, "k": 20,
-            "label": "nulloff", "nullMode": "off"}
-    _ceiling(client, 0.02)                                 # one second: a paired run is over it; this one has no draws
-    r = client.post("/api/discovery/seed/run", json=body)
+def test_the_quick_run_is_now_the_previews_matches_kept_and_review_can_take_them(client):
+    # seed-search (2026-10-18): "no null" is gone. The quick, exploratory run it stood for is the preview's
+    # matches kept as a run (POST /seed/keep) — over the local ceiling too, because it writes rows and searches
+    # nothing — with the preview's null as its null.
+    body, got = _preview(client, k=20, channels=(CH[0],))
+    _ceiling(client, 0.02)                                 # one second: a paired run is over it; a keep never is
+    r = client.post("/api/discovery/seed/run", json={**body, "label": "nulloff", "nullMode": "off"})
+    assert r.status_code == 422, "the null is no longer optional"
+    r = client.post("/api/discovery/seed/keep", json={**body, "label": "kept", "cut": None})
     assert r.status_code == 200, r.text
     out = r.json()
-    assert out["started"] is True and out["nullFrom"] == "off", out
-    assert _wait_job(client, out["job_id"])["status"] == "completed"
+    if out.get("job_id") and not out.get("done"):
+        assert _wait_job(client, out["job_id"])["status"] == "completed"
     params = json.loads(_q(client, "SELECT params_json FROM discovery_runs WHERE run_key = ?", (out["run_key"],))[0]["params_json"])
-    assert params["null"]["paired"] is False and params["null"].get("draws", 0) == 0 and params["null"]["source"] == "off"
+    assert params["null"]["paired"] is False and params["null"]["source"] == "preview"
     ids = params["run_ids"]
     assert _q(client, f"SELECT COUNT(*) AS n FROM runs WHERE surrogate_of_run_id IN ({','.join('?' * len(ids))})", ids)[0]["n"] == 0
     sb = client.get("/api/discovery/scoreboard", params={"runs": out["run_key"], "channels": CH[0], "t0": 0.0, "t1": N / 3600.0}).json()
-    assert sb[0]["total"]["nullRun"] is False
+    assert sb[0]["total"]["nullRun"] is True, "the preview's null stands behind the kept run"
+    assert sb[0]["total"]["found"] == len(got["candidates"]), "no cut keeps every match the preview returned"
     sent = client.post(f"/api/discovery/runs/{out['run_key']}/review", json={})
     assert sent.status_code == 200, sent.text
     assert sent.json()["total"] >= 1, "the run has detections Review can take"
