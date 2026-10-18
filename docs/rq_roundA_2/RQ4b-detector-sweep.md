@@ -576,3 +576,16 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
   - The jobs were still running. `HPC/Detection/generated/rq4_batch2/resume_rq4b.sh` submits nothing while any
     rq4b_ job is queued or running; otherwise it resubmits only the packs with work left, which continue from the
     cluster's own results.
+- 2026-10-18 · batch 2, why it stopped · not an early copy: the cluster's own report agreed with the copy (527 of
+  1,543), and sacct shows what happened. The CPU packs chained as designed until 18:06 AEST. Then:
+  - three jobs failed at start with no log file (exit 0:53);
+  - the running jobs stopped mid-task without writing;
+  - rq4b_gpuA ended "every task crashed" at 18:20.
+
+  Most likely the home folder's quota was full: about 16 GB of returned results were there.
+  - Space still needed: L_LM's CPU tasks bring back about 331 MB each, about 39 GB for the 117 left. M2_concat and
+    M4_aug need about 4 GB more, and the CNN and matrix-profile results are small.
+  - The A100 packs had the partition's 1-hour default limit; they now ask for 5 h.
+  - `cleanup_copied.sh` frees 15 GB on the cluster: batch 1, already imported, and batch 2's finished tasks, each
+    checked here file by file.
+  - `resume_rq4b.sh [packs]` resubmits the chosen packs.
