@@ -158,7 +158,7 @@ def test_the_class_label_round_trips(seeded):
     assert bad.status_code == 400, "an over-long class label is refused, not truncated"
 
 
-def test_the_structure_cache_sees_a_carried_row(seeded, monkeypatch):
+def test_a_carried_row_is_seen_without_rebuilding_the_structure(seeded, monkeypatch):
     client, rt, info = seeded
     d = info["d"]
     qa, qb = _queue(client, info["runs"][0]), _queue(client, info["runs"][1])
@@ -177,5 +177,7 @@ def test_the_structure_cache_sees_a_carried_row(seeded, monkeypatch):
                        json={"target_id": str(d["a1"]), "verdict": "interesting"}).json()["carried"] == 1
     n = calls["n"]
     row = next(r for r in client.get(f"/api/review/queues/{qb}?thumbs=0").json()["rows"] if r["id"] == str(d["b1"]))
-    assert calls["n"] == n + 1, "the carried row did not invalidate run B's remembered structure"
+    # the structure reads no adjudication: the carried row is laid over it fresh, and nothing is rebuilt
+    assert calls["n"] == n, "a carried verdict rebuilt run B's remembered structure"
     assert row["judged"] is True
+    assert client.get(f"/api/review/queues/{qb}/counts").json()["judged"] == 1

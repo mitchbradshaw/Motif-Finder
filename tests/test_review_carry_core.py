@@ -258,13 +258,20 @@ def test_the_class_label_is_stored_carried_and_served(tmp_path):
     assert _adj(conn, d["a1"])["class_label"] == "burst", "undo restores the class with the verdict"
 
 
-# ── AR: the structure fingerprint sees a carried row ───────────────────────
+# ── AR: a verdict, carried or not, leaves every remembered structure standing ──
 
-def test_a_carried_row_invalidates_the_structure_and_a_plain_verdict_does_not(tmp_path, monkeypatch):
+def test_a_verdict_plain_or_carried_rebuilds_no_structure_and_every_queue_reads_right(tmp_path, monkeypatch):
+    """The structure reads no adjudication (verdicts and carried rows are the overlay, read fresh), so neither a
+    plain verdict nor one that carries may rebuild it: a carried verdict rebuilding every open queue's structure
+    is the cold read AR removed (22 s for 20 queues on the scale fixture), after every verdict on a channel with
+    several runs. Every queue's items and counts must still equal a fresh resolve on the next read."""
     conn, info = _db(tmp_path)
     d = info["d"]
     qa = Q.create_queue(conn, name="A", source_kind="discovery-run", filters={"run_ids": [info["ra"]]})
     qb = Q.create_queue(conn, name="B", source_kind="discovery-run", filters={"run_ids": [info["rb"]]})
+    qab = Q.create_queue(conn, name="AB", source_kind="discovery-run",
+                         filters={"run_ids": [info["ra"], info["rb"]]})
+    queues = (qa, qb, qab)
     calls = {"n": 0}
     real = _queries.queue_candidates
 
@@ -272,21 +279,90 @@ def test_a_carried_row_invalidates_the_structure_and_a_plain_verdict_does_not(tm
         calls["n"] += 1
         return real(*a, **kw)
 
+    def reads():
+        return {q: (Q.queue_items(conn, q, include_judged=True), Q.queue_items(conn, q), Q.queue_counts(conn, q),
+                    Q.item_view(conn, q, Q.queue_items(conn, q, include_judged=True)[0]["target_id"])["counts"])
+                for q in queues}
+
+    def fresh():
+        Q.clear_resolver_cache()
+        monkeypatch.setattr(_queries, "queue_candidates", real)
+        out = reads()
+        monkeypatch.setattr(_queries, "queue_candidates", counted)
+        return out
+
     monkeypatch.setattr(_queries, "queue_candidates", counted)
     Q.clear_resolver_cache()
-    Q.queue_items(conn, qa, include_judged=True)
-    Q.queue_items(conn, qb, include_judged=True)
-    assert calls["n"] == 2
-    V.write_verdict(conn, qb, d["b3"], "unsure")              # carries nothing: the structure stands
-    n0 = calls["n"]
-    Q.queue_items(conn, qb, include_judged=True)
-    assert calls["n"] == n0, "a verdict that carried nothing rebuilt the structure"
-    V.write_verdict(conn, qa, d["a1"], "interesting")         # carries to b1
-    n1 = calls["n"]
-    got = Q.queue_items(conn, qb, include_judged=True)
-    assert calls["n"] == n1 + 1, "a carried row did not invalidate the structure"
-    Q.clear_resolver_cache()
-    assert got == Q.queue_items(conn, qb, include_judged=True)
+    reads()
+    built = calls["n"]
+    assert built == 3
+    V.write_verdict(conn, qb, d["b3"], "unsure")              # carries nothing
+    cached = reads()
+    assert calls["n"] == built, "a plain verdict rebuilt a structure"
+    assert cached == fresh()
+    calls["n"] = built = 0
+    reads()
+    out = V.write_verdict(conn, qa, d["a1"], "interesting")   # carries to b1
+    assert out["carried"] == [d["b1"]]
+    cached = reads()
+    assert calls["n"] == 0, "a carried verdict rebuilt a structure (it reads no adjudication)"
+    assert cached == fresh()
+    # and the carried row is seen: run B's queue no longer asks about b1, the joint queue counts it judged
+    assert d["b1"] not in [it["target_id"] for it in cached[qb][1]]
+    assert cached[qab][2]["judged"] == 3                      # a1's set, b1 (carried), b3
+
+
+# ── the rule's edge: a near miss is not carried ────────────────────────────
+
+def test_a_near_miss_by_the_rule_is_not_carried_and_a_near_hit_is(tmp_path):
+    """The carry reaches exactly what `matching.spans_match` matches: one detection just inside the onset
+    tolerance (carried), one just outside it, one with the onset exact but IoU just under the threshold."""
+    from Working.discovery.matching import spans_match
+    conn, info = _db(tmp_path)
+    rec0 = info["recs"][0]
+    cfg = conn.execute("SELECT id FROM configs").fetchone()[0]
+
+    def run():
+        return conn.execute("INSERT INTO runs (config_id, recording_id, span_start, span_end, started_at, status) "
+                            "VALUES (?, ?, 0, 100000, ?, 'completed')", (cfg, rec0, NOW)).lastrowid
+
+    def det(rid, a, b):
+        return conn.execute("INSERT INTO detections (run_id, start_idx, end_idx, score) VALUES (?, ?, ?, 0.5)",
+                            (rid, a, b)).lastrowid
+
+    src_run = run()
+    src = det(src_run, 20000, 20100)
+    hit = det(run(), 20025, 20125)        # onset gap 25 = 0.25 x 100: inside; IoU 75/125 = 0.6
+    late = det(run(), 20026, 20126)       # onset gap 26 > 25: outside
+    wide = det(run(), 20000, 20201)       # onset exact; IoU 100/201 < 0.5
+    conn.commit()
+    ref = (20000, 20100)
+    assert spans_match((20025, 20125), ref) and not spans_match((20026, 20126), ref) \
+        and not spans_match((20000, 20201), ref)
+    qs = Q.create_queue(conn, name="S", source_kind="discovery-run", filters={"run_ids": [src_run]})
+    out = V.write_verdict(conn, qs, src, "interesting")
+    assert out["carried"] == [hit]
+    assert _adj(conn, late) is None and _adj(conn, wide) is None
+
+
+# ── a sliding-window detector does not chain a run into one item ───────────
+
+def test_a_sliding_window_chain_is_cut_into_event_sized_sets():
+    """Transitive closure of any overlap is the rule, but a detector emitting a window every hop (hop < window)
+    chains for as long as it keeps firing: one "item" spanned hours and dozens of events, and one key press wrote
+    a verdict on all of them — and carried each. A set is cut where it would grow longer than twice its longest
+    detection; a set within that bound (every set the rule was decided on) is unchanged."""
+    from Working.review.overlap import overlap_sets
+    windows = [(i, i * 150, i * 150 + 600) for i in range(40)]          # 40 windows of 600, hop 150: one chain
+    sets = overlap_sets(windows)
+    spans = {i: (a, b) for i, a, b in windows}
+    assert len(sets) > 1
+    for s in sets:
+        ext = max(spans[i][1] for i in s) - min(spans[i][0] for i in s)
+        assert ext <= 2 * 600, (sorted(s), ext)
+    assert sorted(i for s in sets for i in s) == list(range(40)), "every window is in exactly one set"
+    # a set within the bound is the transitive closure, as before
+    assert sorted(sorted(s) for s in overlap_sets([(1, 1000, 1100), (2, 1050, 1150), (3, 1140, 1200)])) == [[1, 2, 3]]
 
 
 # ── the scoreboard counts a carried verdict as a human one ────────────────
