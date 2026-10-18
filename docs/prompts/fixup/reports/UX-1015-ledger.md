@@ -160,3 +160,43 @@ with a full walk, not units: the discovery states need the flows' smoke runs.
 **Product defect found by the walker, for the speed second pass:** after any run finishes, the home page's corpus map
 recomputes (~100 s on the post-RQ4 database) and the heatmap does not paint for minutes; serve the last map at once
 and recompute behind it (the pattern AR gave the picker).
+
+### 2026-10-19 morning — what the full walks on MAIN found, and the new baseline
+
+Main alone (AR + the walker fixes), full walk 04:44–05:43: **720 screenshots, 77 failures, 52 not in the 18 Oct
+baseline** — so most of what the integration walk showed was already on main. Units re-run on a quiet fresh bridge
+(no flows) reproduced the failures: deterministic, not interference. Two causes, both fixed as `9ac3d27`:
+1. **AR's background template scorer** scored 73 templates back to back (3-4 min at every start and after every run the
+   flows wrote) and held the interpreter; every page read under it stalled, and states with 2-3 s settles failed
+   across Explore, Settings, Analyse and interrogation. It now waits for a quiet gap before each template (1.5 s, at
+   most 6 s). Test: one quiet-wait per template.
+2. **ux-1018's templates accordion** hid encoding / training / interrogation templates until their group was opened,
+   so the ten smoke states that import one by clicking its row timed out and every block state behind them cascaded.
+   The header click is idempotent now and those ten states open the group first.
+After the fixes, quiet units: interrogation 0 (was 5), zz_analyse_run 0 (was 15), analyse 0, explore 8 (was 12),
+settings 7. Main full walk 06:33–07:30 with the fixes: **728 screenshots, 61 failures, 33 not in the 18 Oct
+baseline, 17 of the baseline's now pass.** Of the 33: five are **data drift** (the held-out lock is OFF in the real
+database now — `explore.*--held-out`, `settings.*-locked` expect it locked; `settings.datasets--identity-fields`
+expects a dataset that has since been named); two are `requestfailed` on the corpus-map read that outlived AR's
+300 s read timeout from an earlier state (the home-page defect below) and were charged to whatever state was open;
+the rest are **timing on a bridge still running the flows' jobs** (seed searches and chain runs now take minutes on
+this database) — the interrogation and explore states among them passed in the quiet unit runs. The walker now waits
+for the jobs to go idle (cap 5 min) before the page walk; the next full walk is the baseline to compare against.
+Files: `scratchpad/smoke_full_main2.log`, failure set `base_main_0419b.txt` (WEBSITE CHANGES session).
+
+**For the Prompt manager session, `changes/integration`:** merge main (≥ 9ac3d27) into the branch first — the
+accordion and scorer fixes remove most of what its walk showed. Its own regressions, from the diff of its walk
+against the fixed main (to be re-confirmed on a re-walk after the merge): the seven `analyse.block--ig-pages-*`
+states (60 s timeouts) and `analyse.chain--ig-pages-event-trains-chain-runs`; `analyse.interrogation.slope--event-
+picked`, `--fixup-k-padding-is-honoured`, `--not-recovered-is-not-zero`, `aggregate--feature-wiring` (the fold moved
+what the old states expect); the Compare page (`compare--default` 30 s timeout, `--empty-one-pick`,
+`--filter-only-b`, `--popover-roles`, `--remove-and-pick-apart`, `--swapped`, `fixup-z-band-set-as-side-b`) and
+`runs--modal-slurm` — review-carry/explore-review changed what Compare reads; `explore.span-edit--…` (edit-span's own
+state, 30 s); `library.family--sequence-family-renders` (expects the placeholder the prompt replaced — update the
+state) and `--sequences-keep-then-the-family-page-draws` (120 s); `library.grouping--fixup-an-a-grouping-made-before-
+trees-says-so`. The `fixup-h` block/chain states in that diff are the accordion (fixed on main), not the branch.
+
+**Product defects for the speed second pass (BACKLOG):** (a) the home page's corpus map recomputes ~100 s after any
+run finishes and the heatmap does not paint until it is done — serve the last map, recompute behind it; (b) the
+300 s read timeout turns that into `requestfailed` console errors charged to unrelated pages. **Smoke debt:** the
+held-out states must set the lock they assume (a `PUT` in their actions) instead of assuming the database's state.

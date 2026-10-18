@@ -1403,6 +1403,17 @@ class Smoke:
         page.goto(f"{self.url}/#/jobs", wait_until="load", timeout=120000)
         page.wait_for_selector('[data-testid="header"]', timeout=120000)
         self.evidence["prelude_up_after_flows_s"] = round(time.perf_counter() - t_home, 1)
+        # 2026-10-19: let the flows' jobs finish before the page walk. On the post-RQ4 database the seed searches and
+        # chain runs the flows start take minutes, and every page state timed on a bridge still running them failed
+        # by its settle (33 states on main that had passed the morning before). Capped at five minutes.
+        t_jobs = time.perf_counter()
+        while time.perf_counter() - t_jobs < 300:
+            jobs = self._api("/api/jobs") or []
+            busy = [j for j in jobs if isinstance(j, dict) and j.get("status") in ("running", "queued")]
+            if not busy:
+                break
+            page.wait_for_timeout(2000)
+        self.evidence["jobs_idle_wait_s"] = round(time.perf_counter() - t_jobs, 1)
         # the app keeps the source span and the chain in sessionStorage across a reload (state.tsx), so a
         # reload alone is not a fresh tab: clear both storages first, as a new tab would have them
         page.evaluate("() => { try { sessionStorage.clear(); localStorage.clear() } catch (e) {} }")
