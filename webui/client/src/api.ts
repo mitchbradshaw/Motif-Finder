@@ -1648,3 +1648,9 @@ export const applyDiscoveryTemplatesWindowed = (templates: string[], channels: s
     { templates, channels, t0, t1, run, windows, bands: bands && bands.length ? bands : undefined, exemplars })
 /** A Map row of a windowed application (`detection_map._row_meta`): its scope and its scale in words. */
 export interface DiscMapRow { windows?: { scope: DiscPlanWindows['scope']; label: string } | null }
+
+/* span-plot (2026-10-18, appended): the spans read's extra fields, and the span view's own read. A capped read is the
+ * window's first 5 000 detections by start; `spread` thins it evenly across the window instead, so the span view's
+ * bands show where the detections are rather than piling into the view's opening hours. */
+export interface Spans { detections_total?: number; detections_spread?: boolean; detections_complete_to_s?: number | null }
+export const getViewSpans = (id: number, t0: number, t1: number) => req<Spans>(`/api/channels/${id}/spans?t0=${t0}&t1=${t1}&spread=1`)

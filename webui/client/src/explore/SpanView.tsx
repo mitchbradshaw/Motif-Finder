@@ -112,12 +112,14 @@ function hexToFill(hex: string) {
   return Number.isNaN(n) ? 'var(--band-detected)' : `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, 0.16)`
 }
 
-export function SpanView({ ch, vp, plotRef, width, bands: allBands, selected, selectedLabel, onBandClick, nav, legendOpen, setLegendOpen, demo, toggles, onToggle }: {
+export function SpanView({ ch, vp, plotRef, width, bands: allBands, selected, selectedLabel, onBandClick, nav, legendOpen, setLegendOpen, demo, toggles, onToggle, bandNote }: {
   ch: Channel; vp: Viewport; plotRef: React.Ref<HTMLDivElement>; width: number
   bands: Band[]; selected: Motif | null; selectedLabel: string | null; onBandClick: (m: Motif) => void
   nav: { index: number; total: number; capped: boolean; prev: () => void; next: () => void }
   legendOpen: boolean; setLegendOpen: (o: boolean) => void; demo: boolean
   toggles: Toggles; onToggle: (k: ToggleKind) => void
+  /** span-plot critic: why fewer detections draw than are in view (no runs picked; a thinned read), in words */
+  bandNote?: string | null
 }) {
   const legendRef = useRef<HTMLButtonElement>(null)
   const W = Math.max(0, width)
@@ -245,6 +247,7 @@ export function SpanView({ ch, vp, plotRef, width, bands: allBands, selected, se
           </svg>
         )}
       </div>
+      {bandNote && <div className="ex-band-note" data-testid="span-band-note">{bandNote}</div>}
       <div className="row between" style={{ marginTop: 6 }}>
         <span className="row" style={{ gap: 10 }}>
           <BandToggles toggles={toggles} onToggle={onToggle} counts={counts} />

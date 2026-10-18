@@ -455,7 +455,13 @@ def _finite(v):
     return f if np.isfinite(f) else None
 
 
-def spans(conn, recording_id: int, t0_s: float, t1_s: float, fs: float, cap: int = 5000) -> dict:
+def spans(conn, recording_id: int, t0_s: float, t1_s: float, fs: float, cap: int = 5000, spread: bool = False) -> dict:
+    """Annotations and detections overlapping [t0_s, t1_s), in channel seconds, each list capped at `cap`.
+
+    A capped detection list is the window's FIRST `cap` rows by start (a prefix: what a reader walking rows in
+    order wants). `spread=True` (the span view's own read) instead thins a capped list evenly across the window,
+    every k-th row in time order, so a plot of it shows where the detections are rather than piling every band
+    into the window's opening hours (span-plot critic round, 2026-10-18)."""
     s0 = int(np.floor(t0_s * fs)); s1 = int(np.ceil(t1_s * fs))
     ann = conn.execute(
         "SELECT id, start_idx, end_idx, verdict, tag, note, source FROM annotations WHERE recording_id = ? AND deleted_at IS NULL "
@@ -486,14 +492,19 @@ def spans(conn, recording_id: int, t0_s: float, t1_s: float, fs: float, cap: int
     # span-plot, the pile at t = 0: a capped read is the window's FIRST `cap` detections by start, so a reader
     # that takes a whole-channel read for the channel sees them all near its start. Say where they stop.
     complete_to = det[cap - 1]["start_idx"] / fs if len(det) > cap else t1_s
+    total = len(det)
+    thinned = bool(spread and total > cap)
+    if thinned:
+        det = [det[i] for i in np.unique(np.linspace(0, total - 1, cap).round().astype(int))]
+        complete_to = None   # thinned across the whole window, not truncated: no second where it stops
     return {
         "recording_id": recording_id, "t0_s": t0_s, "t1_s": t1_s,
         "annotations": [{"id": a["id"], "start_s": a["start_idx"] / fs, "end_s": a["end_idx"] / fs, "verdict": a["verdict"],
                          "tag": a["tag"], "note": a["note"], "source": a["source"]} for a in ann[:cap]],
         "detections": [{"id": d["id"], "start_s": d["start_idx"] / fs, "end_s": d["end_idx"] / fs,
                         "score": _finite(d["score"]), "run_id": d["run_id"]} for d in det[:cap]],
-        "annotations_capped": len(ann) > cap, "detections_capped": len(det) > cap,
-        "detections_complete_to_s": complete_to,
+        "annotations_capped": len(ann) > cap, "detections_capped": total > cap,
+        "detections_complete_to_s": complete_to, "detections_total": total, "detections_spread": thinned,
     }
 
 

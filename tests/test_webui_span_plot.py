@@ -135,3 +135,91 @@ def test_the_annotation_verdict_is_served_uncollapsed(tmp_path):
     out = corpus.spans(conn, rec, 0, N / FS, FS)
     conn.close()
     assert [a["verdict"] for a in out["annotations"]] == ["interesting", "not_interesting", "unsure", "artifact", "seed"]
+
+
+# ---------------------------------------------------------------- critic round: the span view's own read
+# The span view draws its bands from the VIEWPORT's read (useViewport -> GET /spans?t0&t1), not the whole-channel
+# copy. That read is capped the same way: a view holding more than 5 000 detections (any view wider than ~12 h on
+# a channel with 300k detections) got the first 5 000 by start, so every band piled into the left of the view —
+# the researcher's "all detections cluster into the start of the signal". `spread` asks for a capped read thinned
+# evenly across the window instead, which is what a plot needs; the default (a prefix) is unchanged for the
+# readers that walk rows in order.
+
+def _busy(tmp_path, n_det=12_000):
+    conn, rec = _db(tmp_path)
+    run = _run(conn, rec, 0, N)
+    starts = np.linspace(0, N - 10, n_det).astype(int)
+    conn.executemany("INSERT INTO detections (run_id, start_idx, end_idx) VALUES (?, ?, ?)",
+                     [(run, int(s), int(s) + 5) for s in starts])
+    conn.commit()
+    return conn, rec
+
+
+def test_a_spread_read_covers_its_whole_window(tmp_path):
+    conn, rec = _busy(tmp_path)
+    out = corpus.spans(conn, rec, 0, N / FS, FS, spread=True)
+    conn.close()
+    dets = out["detections"]
+    assert out["detections_capped"] is True and len(dets) == 5_000
+    assert out["detections_spread"] is True and out["detections_total"] == 12_000
+    starts = np.array([d["start_s"] for d in dets])
+    assert np.all(np.diff(starts) >= 0), "still in time order"
+    assert starts[0] < 0.01 * N and starts[-1] > 0.99 * N, "from the window's start to its end"
+    hist, _ = np.histogram(starts, bins=10, range=(0, N))
+    assert hist.min() > 0.08 * 5_000, f"thinned evenly, not piled: {hist.tolist()}"
+    assert out["detections_complete_to_s"] == N / FS or out["detections_complete_to_s"] is None
+
+
+def test_a_spread_read_inside_a_zoomed_window(tmp_path):
+    """The view at hour ~20 of a 27.8 h channel: the bands of a spread read stay inside the view and fill it."""
+    conn, rec = _busy(tmp_path, n_det=40_000)
+    t0, t1 = 60_000.0, 90_000.0
+    out = corpus.spans(conn, rec, t0, t1, FS, spread=True)
+    conn.close()
+    starts = np.array([d["start_s"] for d in out["detections"]])
+    assert out["detections_capped"] is True and len(starts) == 5_000
+    assert starts.min() >= t0 - 10 and starts.max() < t1
+    hist, _ = np.histogram(starts, bins=10, range=(t0, t1))
+    assert hist.min() > 0.08 * 5_000, hist.tolist()
+
+
+def test_an_uncapped_spread_read_is_the_plain_read(tmp_path):
+    conn, rec = _busy(tmp_path, n_det=300)
+    a = corpus.spans(conn, rec, 0, N / FS, FS, spread=True)
+    b = corpus.spans(conn, rec, 0, N / FS, FS)
+    conn.close()
+    assert a["detections"] == b["detections"] and a["detections_spread"] is False
+    assert a["detections_total"] == 300
+
+
+def test_the_spans_route_takes_spread(tmp_path):
+    pytest.importorskip("httpx", reason="fastapi.testclient needs httpx (webui/.venv)")
+    from fastapi.testclient import TestClient
+    from server.app import create_app
+    from server.runtime import Runtime
+    db_dir = tmp_path / "db"; db_dir.mkdir()
+    db = db_dir / "annotations.sqlite"
+    conn = init_db(str(db))
+    npy = tmp_path / "c0.npy"
+    np.save(npy, np.zeros(N, dtype=np.float32))
+    conn.execute("INSERT INTO recordings (source_file, channel, fs, n_samples, global_offset, npy_path, units) "
+                 "VALUES ('F.mat', 0, 1.0, ?, 0, ?, 'V')", (N, str(npy)))
+    rec = conn.execute("SELECT id FROM recordings").fetchone()[0]
+    run = _run(conn, rec, 0, N)
+    starts = np.linspace(0, N - 10, 12_000).astype(int)
+    conn.executemany("INSERT INTO detections (run_id, start_idx, end_idx) VALUES (?, ?, ?)",
+                     [(run, int(s), int(s) + 5) for s in starts])
+    conn.commit(); conn.close()
+    dist = tmp_path / "dist"; (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<!doctype html><title>spa</title>", encoding="utf-8")
+    rt = Runtime(mode="sandbox", stamp="20261018-spanplot", db_source=str(db), runtime_root=str(tmp_path / "runtime"),
+                 client_dist=str(dist))
+    rt.setup()
+    try:
+        with TestClient(create_app(rt)) as c:
+            plain = c.get(f"/api/channels/{rec}/spans?t0=0&t1={N}").json()
+            spread = c.get(f"/api/channels/{rec}/spans?t0=0&t1={N}&spread=1").json()
+    finally:
+        rt.restore()
+    assert plain["detections"][-1]["start_s"] < 0.45 * N, "the default read is still the prefix"
+    assert spread["detections_spread"] is True and spread["detections"][-1]["start_s"] > 0.99 * N

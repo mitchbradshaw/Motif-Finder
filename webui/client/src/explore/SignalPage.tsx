@@ -186,12 +186,20 @@ function SignalBody({ ch }: { ch: Channel }) {
   const vis = useMemo(() => visibleRunIds(runs, st), [runs, st])
   const runColour = useMemo(() => new Map(runs.map(r => [r.id, r.colour])), [runs])
   const [a, b] = vp.view
+  // span-plot critic: say in words why detections in view are not all drawn — none picked, or a thinned read
+  const bandNote = useMemo(() => {
+    if (runs.length && vis.size === 0) return 'No runs are picked in “show detections from”, so no detections are drawn. Pick a run there to see its detections.'
+    const sp = vp.spans
+    if (sp?.detections_spread && sp.detections_total) return `Too many detections in this view to draw each one: ${fmtInt(sp.detections.length)} of the ${fmtInt(sp.detections_total)} here (every run) are drawn, spread evenly across the view. Zoom in to see every one.`
+    return null
+  }, [runs.length, vis, vp.spans])
   const inView = useMemo(() => motifs.filter(m => m.end_s > a && m.start_s < b), [motifs, a, b])
-  const liveInView = useMemo(() => (vp.spans ? visibleDetections(vp.spans.detections.filter(d => !!d), vis, runs.length) : []), [vp.spans, runs, vis])
+  // in the view as it is NOW: until the new view's read lands, vp.spans is the previous view's (critic round)
+  const liveInView = useMemo(() => (vp.spans ? visibleDetections(vp.spans.detections.filter(d => !!d && d.end_s > a && d.start_s < b), vis, runs.length) : []), [vp.spans, runs, vis, a, b])
   const bands = useMemo<Band[]>(() => {
     const out: Band[] = []
     for (const an of vp.spans?.annotations ?? []) {
-      if (!an) continue
+      if (!an || an.end_s <= a || an.start_s >= b) continue
       const m: Motif = { key: `a:${an.id}`, kind: 'annotated', id: an.id, start_s: an.start_s, end_s: an.end_s, verdict: an.verdict, tag: an.tag, note: an.note, source: an.source }
       const toggle = annotationKind(an.verdict)
       const kind: SpanKind = sel?.key === m.key ? 'selected' : toggle
@@ -202,7 +210,7 @@ function SignalBody({ ch }: { ch: Channel }) {
       out.push({ start_s: d.start_s, end_s: d.end_s, kind: sel?.key === m.key ? 'selected' : 'detected', toggle: 'detected', id: m.key, title: `detection ${d.id} · run ${d.run_id}`, motif: m, colour: st.colourByRun ? runColour.get(`#${d.run_id}`) : undefined })
     }
     return out
-  }, [vp.spans, liveInView, sel, st, runColour])
+  }, [vp.spans, liveInView, sel, st, runColour, a, b])
 
   const send = (t0: number, t1: number, label: string) => {
     setSource({ recording_id: ch.id, channel_name: ch.name, source_file: ch.source_file, fs: ch.fs, start_idx: Math.round(t0 * ch.fs), end_idx: Math.round(t1 * ch.fs), label })
@@ -327,7 +335,7 @@ function SignalBody({ ch }: { ch: Channel }) {
             <ErrorBoundary label="span tier">
               <SpanView ch={ch} vp={vp} plotRef={plotRef} width={plotSize.width} bands={bands} selected={sel} selectedLabel={selLabel} onBandClick={m => choose(m, false)}
                 nav={{ index, total: motifs.length, capped, prev, next }} legendOpen={popover === 'span-legend'} setLegendOpen={o => setPopover(o ? 'span-legend' : null)} demo={!!demo}
-                toggles={toggles} onToggle={flipToggle} />
+                toggles={toggles} onToggle={flipToggle} bandNote={bandNote} />
             </ErrorBoundary>
             <ErrorBoundary label="motif tier">
               <MotifView key="motif-tier" ch={ch} motif={sel} label={selLabel} medoid={demo?.medoid ?? null} onSend={m => send(m.start_s, m.end_s, `${selLabel ?? `MOTIF ${m.id}`} · ${ch.name}`)} onReview={reviewMotif} />
