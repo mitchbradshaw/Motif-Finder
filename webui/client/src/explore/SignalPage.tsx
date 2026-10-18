@@ -282,7 +282,8 @@ function SignalBody({ ch }: { ch: Channel }) {
   }, [all, runs, vis, ch])
   const pickerAnchor = useRef<HTMLButtonElement>(null)
   const subtitle = drawer ? `${ch.name} · drawer, ${TAB_LABEL[drawer]}` : `${ch.name} · ${fmtInt(ch.summary.annotations)} annotations · ${fmtInt(ch.summary.detections)} detections`
-  const totals = demo ? { annotations: demo.annotations.length, detections: demo.detections.length } : { annotations: ch.summary.annotations, detections: ch.summary.detections }
+  // span-plot critic: the live read's detections are capped at 5 000 — a capped copy is not the channel's count
+  const totals = demo ? { annotations: demo.annotations.length, detections: all?.detections_capped ? ch.summary.detections : demo.detections.length } : { annotations: ch.summary.annotations, detections: ch.summary.detections }
   const initialDraft = demo ? { tags: demo.spanTags, selected: [demo.spanTags[0]], note: demo.spanNote } : { tags: [], selected: [], note: '' }
   const selLabel = labelOf(sel, index)
 
