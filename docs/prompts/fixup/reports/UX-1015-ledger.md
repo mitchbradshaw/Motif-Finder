@@ -110,3 +110,26 @@ walk, the evaluation, the push.
   in `AR-speed-report.md` (item read 28,702 -> 56 ms; verdict 16,948 -> 133 ms; coverage after restart ~116 s -> 1.3 s).
 - Decisions recorded with the researcher the same evening: the per-merge gate (targeted tests + tsc + build + touched
   units; full pytest + full walk once a day by one manager; critic skipped under ~40 lines) - `docs/prompts/changes/README.md`.
+
+### AR re-timed on a quiet machine (2026-10-19 02:33, load ~23 %, fresh sandbox copy, after the maps warm)
+
+| read | before (18 Oct 19:04) | after (19 Oct 02:33) |
+|---|---|---|
+| bridge start: corpus maps warmed | 100-224 s (computed) | **1.0 s** (17 files read back from the disk cache) |
+| review queue 24 rows, full (3,195 items) | 5,257 ms / 3.1 MB | 4,135 ms / 3.1 MB; the page's rows-only read (`?thumbs=0`) 3,361 ms / 1.7 MB |
+| review item 1 / 2 / 3 | 382 / 872 / 704 ms | 153 / 222 / 372 ms |
+| review item channels | 416 ms | 126 ms |
+| review queues list / counts | 1,107 / 1,152 ms | 1,425 / 1,944 ms (first read builds the structure) |
+| discovery runs | 834 ms | 635 ms |
+| discovery templates (picker) | > 240 s while scoring | 528 ms |
+| discovery fires (3 ch x 53 runs) | 16,632 ms | 1,808 ms |
+| discovery scoreboard (10 runs, 3 ch) | 85,486 ms | 11,895 ms |
+| discovery map L3 / L2 (untouched) | 7,602 / 3,010 ms | 9,198 / 3,603 ms |
+| corpus coverage M2_aug (warm) | 555 ms | 925 ms |
+
+Units on the same bridge: `review` 3 failures = the morning baseline's three; `zzzzzzzzzzz_ar_speed` 1 failure = the
+first-paint state's fixed 150 ms wait (the Discovery chunk is lazy-loaded; state fixed the same night to wait for the
+toolbar); `discovery` 34 failures = **a `--pages-only` artifact, not a regression**: the discovery states name the two
+smoke runs the CORE FLOWS create (`smoke.py:1395`), and `--pages-only` skips the flows, so every state after
+`runs--running` fails with "the state names a smoke run the walk could not find". The discovery unit can only be judged
+in a walk that runs the flows (a full walk, or `--only discovery` without `--pages-only`).
