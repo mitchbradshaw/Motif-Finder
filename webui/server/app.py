@@ -196,7 +196,10 @@ def create_app(rt: Runtime) -> FastAPI:
                 raise HTTPException(423, corpus.held_out_refusal("the corpus map refuses it"))
             vs = tuple(v for v in verdicts.split(",") if v) if verdicts else None
             run_ids = [int(r) for r in run.split(",") if r.strip()] if run else None
-            return corpus.coverage(c, source_file, bins=max(4, min(400, bins)), verdicts=vs, run_ids=run_ids, method=method or None)
+            # corpus-map-off-the-request: the database path lets the read hand a recompute to the worker process and
+            # answer at once (the last map marked `stale`, or `pending`), instead of computing inside the request
+            return corpus.coverage(c, source_file, bins=max(4, min(400, bins)), verdicts=vs, run_ids=run_ids, method=method or None,
+                                   db_path=rt.db_path)
         except KeyError:
             raise HTTPException(404, f"unknown recording {source_file}")
         finally:

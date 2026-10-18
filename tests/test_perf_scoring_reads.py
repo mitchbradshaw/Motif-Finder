@@ -527,8 +527,14 @@ def test_concurrent_reads_of_a_stale_map_schedule_one_recompute(scored_file):
     _new_annotation(scored_file)
     conn.commit()
     out = []
-    readers = [threading.Thread(target=lambda: out.append(corpus.coverage(conn, "cache.mat", bins=10, db_path=path)))
-               for _ in range(6)]
+
+    def reader():                       # each on its own connection, as each route call is
+        c = corpus.connect(path)
+        try:
+            out.append(corpus.coverage(c, "cache.mat", bins=10, db_path=path))
+        finally:
+            c.close()
+    readers = [threading.Thread(target=reader) for _ in range(6)]
     for t in readers:
         t.start()
     for t in readers:

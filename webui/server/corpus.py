@@ -29,6 +29,7 @@ from .runtime import HELD_OUT_FILE
 # The one electrode-name table, in the core (Working/discovery/channels.py) so
 # Discovery's scope, fan-out and scoreboard call a channel what Explore calls
 # it. A second copy here drifted from it within an hour of being written.
+from Working.discovery import coverage_map as _CM
 from Working.discovery import divergence as DIV
 from Working.discovery import scoreboard as SB
 from Working.discovery.channels import M2_STYLE_NAMES, channel_name as _core_channel_name
@@ -219,55 +220,10 @@ def _absolute(start_idx, end_idx, span_start):
     return s, e
 
 
-def run_methods(conn, source_file: str, run_ids=None) -> list[dict]:
-    """Every run on a recording file (with or without detections), with its method (the algorithms of its recipe),
-    newest first. A run's null is not a method to filter Explore by (q.not_surrogate), nor is one window of a
-    windowed application: its stitched run is the result (q.not_window_part) — unless `run_ids` names it. One query,
-    each recipe read once per config (a2-p3 fix round: this walked every run in the database, counting each one's
-    detections and loading its recipe in turn — 2.26 s once one recording held 20,000 window runs)."""
-    out = []
-    recs = {row["id"]: dict(row) for row in q.list_recordings(conn, source_file)}
-    if not recs:
-        return out
-    where = "x.source_file = ? AND " + q.not_surrogate("r")
-    args = [source_file]
-    if run_ids:
-        ids = [int(i) for i in run_ids]
-        where += " AND r.id IN (%s)" % ",".join(str(i) for i in ids)
-    else:
-        where += " AND " + q.not_window_part("r")
-    rows = conn.execute("SELECT r.*, (SELECT COUNT(*) FROM detections d WHERE d.run_id = r.id) AS n_det FROM runs r "
-                        "JOIN recordings x ON x.id = r.recording_id WHERE " + where + " ORDER BY r.id DESC",
-                        args).fetchall()
-    algos_of = {}
-    for row in rows:
-        if row["config_id"] not in algos_of:
-            try:
-                recipe = load_recipe(conn, row["config_id"])
-                algos_of[row["config_id"]] = [s["algorithm"] for s in recipe["steps"]]
-            except Exception:
-                algos_of[row["config_id"]] = []
-        algos = algos_of[row["config_id"]]
-        out.append({"id": row["id"], "recording_id": row["recording_id"], "channel": recs[row["recording_id"]]["channel"],
-                    "status": row["status"], "started_at": row["started_at"], "name": row["name"] if "name" in row.keys() else None,
-                    "algorithms": algos, "method": algos[-1] if algos else "?", "n_detections": int(row["n_det"])})
-    return out
-
-
-def _runs_matching(conn, source_file: str, run_ids, method) -> list | None:
-    """Run ids to keep for the detection layers, or None for 'every run'.
-    `run_ids` is an explicit list; `method` a substring of any algorithm in the
-    run's recipe (stage-3 prompt 01: Explore's run/method filters)."""
-    if not run_ids and not method:
-        return None
-    keep = []
-    for r in run_methods(conn, source_file, run_ids=run_ids or None):
-        if run_ids and r["id"] not in run_ids:
-            continue
-        if method and not any(method.lower() in a.lower() for a in r["algorithms"]):
-            continue
-        keep.append(r["id"])
-    return keep
+#: corpus-map-off-the-request: both moved to the core with the map (`Working.discovery.coverage_map`) so the worker
+#: process can filter runs without importing the bridge; the names stay here for their readers (explore_routes, tests)
+run_methods = _CM.run_methods
+_runs_matching = _CM.runs_matching
 
 
 #: (source_file, bins, verdicts, run_ids, method) -> (channels fingerprint, payload)
@@ -291,8 +247,13 @@ def _coverage_lock(key) -> threading.Lock:
         return lock
 
 
+class CoverageFailed(RuntimeError):
+    """The last recompute of a corpus map failed. A read raises it with the sentence (the route's loud handler makes
+    it a 500 the page shows as a red card) — never a blank, and never the old map passed off as current."""
+
+
 def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = None,
-             run_ids: list | None = None, method: str | None = None) -> dict:
+             run_ids: list | None = None, method: str | None = None, db_path: str | None = None) -> dict:
     """channels × bins counts of annotation spans, detection spans, their SUM
     and 'disagree', plus per-channel summaries. `run_ids` / `method` restrict
     the detection layers to those runs.
@@ -317,11 +278,21 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
     reads) and every label that shows it now says what it is.
 
     Answered from memory while nothing on the recording's channels has changed
-    (`scoreboard.channels_fingerprint`): the divergence pools every run on every
-    channel, ~10 s for M2_aug's 16 channels under load, on every Corpus open and
-    every home-page load, which kept the page from ever reaching network-idle
-    (perf, 2026-10-18). `compute_ms` is this call's own time; `_coverage` is the
-    computation."""
+    (`scoreboard.channels_fingerprint`), else from the copy kept on disk.
+
+    **With `db_path` (the route, the start-up warm): a read never computes** (corpus-map-off-the-request,
+    2026-10-19: a recompute after any run took ~100 s on the post-RQ4 database, inside the request, and every other
+    page stalled behind it). When the map for this question is not current the read answers at once with the LAST
+    map it knows (memory, else disk), marked ``stale: true`` and ``stale_since`` (when the newer state was first
+    seen), or — when no map was ever computed for the question — the map's shape with empty layers and
+    ``pending: true``; and it schedules the recompute on the bridge's one worker process (`_schedule`). A fresh map
+    carries neither marker and is the same map as before, cell for cell. When the last recompute of the current
+    state failed, the read raises `CoverageFailed` with the reason.
+
+    Without `db_path` (a library call on a connection: scripts, the core's tests, an in-memory database no worker
+    could open) the map is computed in place on a miss, one flight per key, as before.
+
+    `compute_ms` is this read's own time; `_coverage` is the computation."""
     import copy
 
     t0 = time.perf_counter()
@@ -338,6 +309,8 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
     hit = _COVERAGE_CACHE.get(key)
     if hit is not None and hit[0] == fp:
         out = copy.deepcopy(hit[1])
+    elif db_path:
+        out = _read_behind(conn, key, fp, rec_ids, db_path)
     else:
         # ux-1018: one flight per key. The startup warm and a page's request for the same map used to compute it
         # side by side (two ~10 s divergences over M2_aug's 16 channels, competing for the GIL and SQLite); the
@@ -352,11 +325,55 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
                 if out is None:
                     out = _coverage(conn, source_file, bins=bins, verdicts=verdicts, run_ids=run_ids, method=method)
                     _disk_write(key, disk_fp, out)
-                if len(_COVERAGE_CACHE) >= _COVERAGE_CACHE_MAX:
-                    _COVERAGE_CACHE.pop(next(iter(_COVERAGE_CACHE)))
-                _COVERAGE_CACHE[key] = (fp, copy.deepcopy(out))
+                _remember(key, fp, out)
     out["compute_ms"] = (time.perf_counter() - t0) * 1e3
     return out
+
+
+def _remember(key, fp, out):
+    import copy
+    if key not in _COVERAGE_CACHE and len(_COVERAGE_CACHE) >= _COVERAGE_CACHE_MAX:
+        _COVERAGE_CACHE.pop(next(iter(_COVERAGE_CACHE)))
+    _COVERAGE_CACHE[key] = (fp, copy.deepcopy(out))
+
+
+def _read_behind(conn, key, fp, rec_ids, db_path) -> dict:
+    """The read that never computes (see `coverage`): fresh from disk, else the last map marked stale, else the
+    empty shape marked pending — and the recompute scheduled."""
+    import copy
+
+    disk_fp = SB.channels_fingerprint(conn, rec_ids, settings_keys=COVERAGE_SETTINGS, stable=True)
+    held = _disk_read_any(key)
+    if held is not None and held[0] == disk_fp:
+        _remember(key, fp, held[1])
+        return copy.deepcopy(held[1])
+    failed = _COVERAGE_ERRORS.get(key)
+    if failed is not None and failed[0] == disk_fp:
+        raise CoverageFailed(failed[1])
+    source_file, bins, verdicts, run_ids, method, held_out = key
+    _schedule(key, {"key": key, "fp": fp, "disk_fp": disk_fp, "db_path": db_path, "source_file": source_file,
+                    "bins": bins, "verdicts": verdicts, "run_ids": list(run_ids) if run_ids is not None else None,
+                    "method": method, "held_out": held_out})
+    since = _stale_since(key, disk_fp)
+    hit = _COVERAGE_CACHE.get(key)
+    last = hit[1] if hit is not None else (held[1] if held is not None else None)
+    if last is not None:
+        out = copy.deepcopy(last)
+        out["stale"] = True
+        out["stale_since"] = since
+        return out
+    out = _CM.empty(conn, source_file, bins=bins, held_out=held_out)
+    out["pending"] = True
+    return out
+
+
+def _stale_since(key, disk_fp) -> str:
+    """When the state `disk_fp` names was first seen for `key` (UTC, ISO 8601)."""
+    with _WORK_LOCK:
+        seen = _FIRST_SEEN.get(key)
+        if seen is None or seen[0] != disk_fp:
+            seen = _FIRST_SEEN[key] = (disk_fp, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+        return seen[1]
 
 
 #: AR (the speed pass): the settings `_coverage` reads, and only these, go into its fingerprint — the matching
@@ -429,17 +446,50 @@ def wait_for_quiet(quiet_s: float = 2.0, max_wait_s: float = 30.0) -> float:
 #: what the Corpus page — the home page — asks first (`CorpusPage.tsx`'s default bins and verdicts)
 HOME_COVERAGE = {"bins": 57, "verdicts": ("seed", "interesting")}
 
+#: how long the start-up warm waits for the worker to finish the maps it scheduled before it logs and returns (the
+#: template-score warm follows it); a map still computing then simply lands later
+WARM_WAIT_S = 1800.0
 
-def warm_coverage(conn, first: str | None = None) -> list:
-    """Compute the home page's first coverage request for every recording file
-    (`first` before the rest), so a bridge's first page load answers from
-    memory. Returns the files warmed."""
+
+def _db_file(conn) -> str:
+    """The file behind `conn`'s main database, or '' for an in-memory one (no worker can open that)."""
+    try:
+        for row in conn.execute("PRAGMA database_list").fetchall():
+            if row[1] == "main":
+                return row[2] or ""
+    except Exception:
+        return ""
+    return ""
+
+
+def warm_coverage(conn, first: str | None = None, db_path: str | None = None) -> list:
+    """Make the home page's first coverage request current for every recording file
+    (`first` before the rest), so a bridge's first page load answers fresh.
+    Returns the files warmed.
+
+    corpus-map-off-the-request: the warm goes through the same queue as the pages' reads, so the bridge's own
+    interpreter never computes a map; it schedules each file whose map is not current, then waits (at most
+    `WARM_WAIT_S`) for the worker, which logs a line per map. On an in-memory database no worker can open, the maps
+    are computed in place as before, yielding to the pages between files."""
     files = [sf for sf in dict.fromkeys(row["source_file"] for row in q.list_recordings(conn))
              if sf != HELD_OUT_FILE]
     if first in files:
         files.remove(first)
         files.insert(0, first)
     log = logging.getLogger("webui.corpus")
+    db_path = db_path or _db_file(conn)
+    if db_path:
+        t0 = time.perf_counter()
+        behind = 0
+        for sf in files:
+            got = coverage(conn, sf, db_path=db_path, **HOME_COVERAGE)
+            behind += bool(got.get("stale") or got.get("pending"))
+        log.info("corpus map warm: %d files, %d current, %d scheduled on the worker", len(files),
+                 len(files) - behind, behind)
+        if behind and not wait_coverage_idle(WARM_WAIT_S):
+            log.info("corpus map warm: the worker is still computing after %.0f s; the maps land as it finishes",
+                     time.perf_counter() - t0)
+        return files
     for i, sf in enumerate(files, 1):
         if i > 1:
             # AR: the first file (the home page's) at once; each after it between page reads
@@ -454,80 +504,222 @@ def warm_coverage(conn, first: str | None = None) -> list:
 
 
 def _coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = None,
-              run_ids: list | None = None, method: str | None = None) -> dict:
-    """The corpus map, computed: see `coverage` for what each layer is."""
-    t0 = time.perf_counter()
-    recs = [dict(x) for x in q.list_recordings(conn, source_file)]
-    if not recs:
-        raise KeyError(source_file)
-    keep_runs = _runs_matching(conn, source_file, run_ids, method)
-    n = int(recs[0]["n_samples"]); fs = float(recs[0]["fs"])
-    edges = np.linspace(0, n, bins + 1)
-    rows = []
-    verdict_counts = {v: 0 for v in VERDICTS}
-    div_runs = set()
-    div_totals = {c: 0 for c in DIV.CELLS}
-    div_nc = 0
-    for rec in recs:
-        rid = rec["id"]
-        ann = conn.execute("SELECT start_idx, end_idx, verdict FROM annotations WHERE recording_id = ? AND deleted_at IS NULL",
-                           (rid,)).fetchall()
-        det = conn.execute("SELECT d.start_idx, d.end_idx, d.run_id, r.span_start FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.recording_id = ? AND " + q.not_surrogate("r")
-                           + ("" if keep_runs is not None else " AND " + q.not_window_part("r")),   # a2-p3: a window run is its stitched run's part
-                           (rid,)).fetchall()
-        if keep_runs is not None:
-            det = [d for d in det if d["run_id"] in keep_runs]
-        det = [dict(zip(("start_idx", "end_idx", "run_id"), (*_absolute(d["start_idx"], d["end_idx"], d["span_start"]), d["run_id"]))) for d in det]
-        for a in ann:
-            if a["verdict"] in verdict_counts:
-                verdict_counts[a["verdict"]] += 1
-        if verdicts:
-            ann = [a for a in ann if a["verdict"] in verdicts]
-        a_s = np.array([a["start_idx"] for a in ann], dtype=np.int64); a_e = np.array([a["end_idx"] for a in ann], dtype=np.int64)
-        d_s = np.array([d["start_idx"] for d in det], dtype=np.int64); d_e = np.array([d["end_idx"] for d in det], dtype=np.int64)
-        a_mid = (a_s + a_e) / 2 if len(a_s) else a_s
-        d_mid = (d_s + d_e) / 2 if len(d_s) else d_s
-        ah = np.histogram(a_mid, bins=edges)[0] if len(a_s) else np.zeros(bins, int)
-        dh = np.histogram(d_mid, bins=edges)[0] if len(d_s) else np.zeros(bins, int)
-        div = DIV.channel_divergence(conn, rid, keep_runs)
-        div_runs.update(div["run_ids"])
-        for k in DIV.CELLS:
-            div_totals[k] += div["cells"][k]
-        div_nc += div["not_comparable"]["n"]
-        dis_mid = np.array([(it["start"] + it["end"]) / 2.0 for it in div["items"] if it["cell"] in DIV.DISAGREE])
-        xh = np.histogram(dis_mid, bins=edges)[0] if len(dis_mid) else np.zeros(bins, int)
-        reviewed = q.reviewed_fraction(conn, rid)
+              run_ids: list | None = None, method: str | None = None, **kw) -> dict:
+    """The corpus map, computed on `conn`: the core's `coverage_map.compute_conn` (corpus-map-off-the-request moved
+    the body there so a worker process can run it). See `coverage` for what each layer is."""
+    return _CM.compute_conn(conn, source_file, bins=bins, verdicts=verdicts, run_ids=run_ids, method=method, **kw)
+
+
+def _disk_read_any(key):
+    """The map kept on disk for `key` whatever state it was computed from: `(stable fingerprint, payload)`, or None.
+    The last known map a stale read serves."""
+    path = _disk_path(key)
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            held = json.load(fh)
+    except (OSError, ValueError):
+        logging.getLogger("webui.corpus").warning("unreadable corpus-map cache file %s; recomputing", path)
+        return None
+    if held.get("key") != repr(key) or "payload" not in held:
+        return None
+    return held.get("fp"), held["payload"]
+
+
+# ── the recompute, off the request (corpus-map-off-the-request) ─────────────
+#
+# One worker PROCESS (a `ProcessPoolExecutor` of one, spawned lazily) computes every map the reads and the warm
+# schedule, one at a time, from a de-duplicated queue; the result lands in memory and on disk. The child imports
+# `Working` only (`coverage_map.compute`), never this package: the pool starts it with `__main__` hidden, because a
+# spawned child otherwise re-runs the parent's main script (`webui/run_server.py`, which imports the bridge). If no
+# process can be started the queue is drained on a daemon thread instead, which yields to the pages between
+# channels (`wait_for_quiet`) — and the log says so.
+
+#: "process" (the default) or "thread" (no worker process; tests, and a sandbox that forbids processes)
+COVERAGE_WORKER = "process"
+#: how long the first start of the worker may take (a spawned interpreter importing numpy and the core)
+POOL_START_TIMEOUT_S = 180.0
+
+#: key -> (stable fingerprint of the state whose recompute failed, the sentence)
+_COVERAGE_ERRORS: dict = {}
+#: key -> (stable fingerprint, when that state was first seen) — a stale answer's `stale_since`
+_FIRST_SEEN: dict = {}
+_WORK = {"pending": {}, "in_flight": None, "computed": 0, "failed": 0, "thread": None, "mode": None}
+_WORK_LOCK = threading.Lock()
+_WORK_IDLE = threading.Event()
+_WORK_IDLE.set()
+_POOL = {"pool": None, "pid": None, "failed": None}
+_POOL_LOCK = threading.Lock()
+
+
+class _MainHidden:
+    """`sys.modules['__main__']` swapped for an empty module while the pool spawns its child, so the child does not
+    re-run the parent's main script (`multiprocessing.spawn` imports it by path or name). Held only for the
+    `submit` that starts the process."""
+
+    def __enter__(self):
+        import sys
+        import types
+        self._main = sys.modules.get("__main__")
+        sys.modules["__main__"] = types.ModuleType("__main__")
+        return self
+
+    def __exit__(self, *exc):
+        import sys
+        if self._main is not None:
+            sys.modules["__main__"] = self._main
+        return False
+
+
+def coverage_pool():
+    """The bridge's one corpus-map worker process (started on first use), or None when `COVERAGE_WORKER` is
+    "thread" or the process could not be started (then the queue drains on a thread)."""
+    if COVERAGE_WORKER != "process":
+        return None
+    log = logging.getLogger("webui.corpus")
+    with _POOL_LOCK:
+        if _POOL["pool"] is not None:
+            return _POOL["pool"]
+        if _POOL["failed"]:
+            return None
+        pool = None
         try:
-            reviewed_pct = float(reviewed) * (100.0 if float(reviewed) <= 1.0 else 1.0)
-        except Exception:
-            reviewed_pct = None
-        rows.append({
-            "id": rid, "channel": rec["channel"], "name": channel_name(source_file, rec["channel"], len(recs)),
-            # `both` is annotations + detections per bin - a SUM, not an
-            # intersection. See this function's docstring (fixup-a item 16).
-            "annotations": ah.tolist(), "detections": dh.tolist(), "both": (ah + dh).tolist(), "disagree": xh.tolist(),
-            "counts": {"annotations": int(len(a_s)), "detections": int(len(d_s)),
-                       "disagree": int(sum(div["cells"][k] for k in DIV.DISAGREE)),
-                       "divergence": {**div["cells"], "not_comparable": div["not_comparable"]["n"],
-                                      "not_comparable_why": {**div["not_comparable"]["detections"],
-                                                             **div["not_comparable"]["labels"]},
-                                      "runs": len(div["run_ids"])},
-                       "reviewed_pct": reviewed_pct},
-        })
-    n_runs = conn.execute("SELECT COUNT(DISTINCT r.id) FROM runs r JOIN detections d ON d.run_id = r.id JOIN recordings x ON x.id = r.recording_id WHERE x.source_file = ? AND " + q.not_surrogate("r") + " AND " + q.not_window_part("r"), (source_file,)).fetchone()[0]
-    return {"source_file": source_file, "fs": fs, "n_samples": n, "duration_h": n / fs / 3600.0,
-            "bins": bins, "bin_h": n / fs / 3600.0 / bins, "bin_edges_h": (edges / fs / 3600.0).tolist(),
-            "rows": rows, "verdict_counts": verdict_counts, "n_detection_runs": int(n_runs),
-            "run_filter": keep_runs, "method_filter": method or None,
-            "divergence": {"pooled": keep_runs is None, "n_runs": len(div_runs),
-                           "scope": DIV.scope_text(len(div_runs), keep_runs is None),
-                           "cells": div_totals, "not_comparable": div_nc,
-                           "labels": DIV.CELL_LABEL, "disagree": list(DIV.DISAGREE),
-                           "containment": DIV.containment_from_settings(conn),
-                           "rules": {"containment": DIV.containment_rule_text(DIV.containment_from_settings(conn)),
-                                     "extent": DIV.extent_rule_text(DIV.rule_from_settings(conn))},
-                           "verdicts": "every verdict counts here; the verdict filter shapes the annotation layers only"},
-            "held_out": is_held_out(conn, source_file), "compute_ms": (time.perf_counter() - t0) * 1e3}
+            import multiprocessing as mp
+            from concurrent.futures import ProcessPoolExecutor
+            pool = ProcessPoolExecutor(max_workers=1, mp_context=mp.get_context("spawn"))
+            with _MainHidden():
+                started = pool.submit(_CM.ping)
+            pid = started.result(timeout=POOL_START_TIMEOUT_S)
+        except Exception as exc:
+            _POOL["failed"] = f"{type(exc).__name__}: {exc}"
+            log.warning("corpus maps: the worker process could not start (%s); recomputing on a background thread "
+                        "that yields to the pages between channels", _POOL["failed"])
+            if pool is not None:
+                try:
+                    pool.shutdown(wait=False, cancel_futures=True)
+                except Exception:
+                    pass
+            return None
+        _POOL.update(pool=pool, pid=pid)
+        log.info("corpus maps recompute in a worker process (pid %d), off the request path", pid)
+        return pool
+
+
+def shutdown_coverage_pool():
+    """Stop the worker process (tests; a later use starts a fresh one)."""
+    with _POOL_LOCK:
+        pool = _POOL["pool"]
+        _POOL.update(pool=None, pid=None, failed=None)
+    if pool is not None:
+        pool.shutdown(wait=True, cancel_futures=True)
+
+
+def _schedule(key, job) -> bool:
+    """Queue `job` (the recompute of `key` for the state `job['disk_fp']`) unless that exact recompute is queued or
+    running. A newer state of a queued key replaces the queued job in its place. Returns whether it queued."""
+    with _WORK_LOCK:
+        cur = _WORK["in_flight"]
+        if cur is not None and cur["key"] == key and cur["disk_fp"] == job["disk_fp"]:
+            return False
+        queued = _WORK["pending"].get(key)
+        if queued is not None and queued["disk_fp"] == job["disk_fp"]:
+            return False
+        _WORK["pending"][key] = job
+        _WORK_IDLE.clear()
+        if _WORK["thread"] is None:
+            _WORK["thread"] = threading.Thread(target=_drain, daemon=True, name="corpus-map-worker")
+            _WORK["thread"].start()
+        return True
+
+
+def _run(job) -> dict:
+    """One recompute: in the worker process, else (no pool, or it broke) on this thread with a yield between
+    channels."""
+    from concurrent.futures.process import BrokenProcessPool
+    args = dict(bins=job["bins"], verdicts=job["verdicts"], run_ids=job["run_ids"], method=job["method"],
+                held_out=job["held_out"])
+    pool = coverage_pool()
+    if pool is not None:
+        try:
+            out = pool.submit(_CM.compute, job["db_path"], job["source_file"], **args).result()
+            _WORK["mode"] = "process"
+            return out
+        except BrokenProcessPool as exc:
+            logging.getLogger("webui.corpus").warning(
+                "corpus maps: the worker process died (%s); this map is recomputed on a background thread and the "
+                "next one starts a fresh worker", exc)
+            shutdown_coverage_pool()
+    _WORK["mode"] = "thread"
+    conn = _CM.connect_read_only(job["db_path"])
+    try:
+        return _coverage(conn, job["source_file"], between_channels=lambda: wait_for_quiet(), **args)
+    finally:
+        conn.close()
+
+
+def _drain():
+    log = logging.getLogger("webui.corpus")
+    while True:
+        with _WORK_LOCK:
+            if not _WORK["pending"]:
+                _WORK["in_flight"] = None
+                _WORK["thread"] = None
+                _WORK_IDLE.set()
+                return
+            key = next(iter(_WORK["pending"]))
+            job = _WORK["in_flight"] = _WORK["pending"].pop(key)
+        t0 = time.perf_counter()
+        try:
+            out = _run(job)
+        except Exception as exc:
+            sentence = f"the corpus map for {key[0]} could not be computed: {type(exc).__name__}: {exc}"
+            log.exception("%s", sentence)
+            with _WORK_LOCK:
+                _COVERAGE_ERRORS[key] = (job["disk_fp"], sentence)
+                _WORK["failed"] += 1
+                _WORK["in_flight"] = None
+            continue
+        _disk_write(key, job["disk_fp"], out)
+        with _WORK_LOCK:
+            _remember(key, job["fp"], out)
+            _COVERAGE_ERRORS.pop(key, None)
+            _WORK["computed"] += 1
+            _WORK["in_flight"] = None
+        log.info("corpus map recomputed: %s, %d bins (%.1f s, in a %s)", key[0], key[1], time.perf_counter() - t0,
+                 _WORK["mode"])
+
+
+def coverage_status() -> dict:
+    """What the worker is doing: queued keys, the key in flight, maps computed and failed so far, and where the last
+    one ran ("process" / "thread")."""
+    with _WORK_LOCK:
+        cur = _WORK["in_flight"]
+        return {"pending": list(_WORK["pending"]), "in_flight": cur["key"] if cur is not None else None,
+                "computed": _WORK["computed"], "failed": _WORK["failed"], "mode": _WORK["mode"],
+                "pool_pid": _POOL["pid"], "pool_failed": _POOL["failed"]}
+
+
+def wait_coverage_idle(timeout: float | None = None) -> bool:
+    """Block until nothing is queued or computing (tests, the warm). True when idle."""
+    return _WORK_IDLE.wait(timeout)
+
+
+def clear_coverage_cache():
+    """Forget every map held in memory, every failure and every stale-since time (the disk copies stay)."""
+    with _WORK_LOCK:
+        _COVERAGE_CACHE.clear()
+        _COVERAGE_ERRORS.clear()
+        _FIRST_SEEN.clear()
+
+
+def reset_coverage_worker(timeout: float = 120.0):
+    """Tests: drop what is queued, wait for the map in flight, and forget everything in memory. The worker process
+    is kept (a fresh one costs seconds to start)."""
+    with _WORK_LOCK:
+        _WORK["pending"].clear()
+    wait_coverage_idle(timeout)
+    clear_coverage_cache()
 
 
 def _finite(v):

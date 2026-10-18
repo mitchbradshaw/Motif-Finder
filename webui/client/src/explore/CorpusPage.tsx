@@ -81,7 +81,8 @@ export function CorpusPage() {
 
   const verdictKey = verdicts.length === VERDICTS.length ? '' : verdicts.join(',')
   const noVerdicts = verdicts.length === 0
-  const rows = useMemo(() => (cov && cov.source_file === fileName ? cov.rows : []), [cov, fileName])
+  // a pending answer's rows are an empty shape, not counts: nothing reads them as numbers (corpus-map-off-the-request)
+  const rows = useMemo(() => (cov && cov.source_file === fileName && !cov.pending ? cov.rows : []), [cov, fileName])
   const names = useMemo(() => rows.map(r => r.name), [rows])
   const chanRefs = useMemo(() => rows.map(r => ({ id: r.id, name: r.name })), [rows])
   const demoRead = useSourced(() => getCorpusLive(fileName ?? '', chanRefs, bins), [fileName, names.join(','), bins])
@@ -127,6 +128,26 @@ export function CorpusPage() {
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileName, heldOut, file, bins, verdictKey, noVerdicts, runKey])
+
+  /* corpus-map-off-the-request: the bridge never computes a map inside a read. While the map is being recomputed
+   * it answers the last one it has (`stale`) or, the first time a view is asked for, an empty shape (`pending`);
+   * the page shows which, and re-reads every 3 s until the fresh map lands. Same question, same params: a poll
+   * never flashes the skeleton, and a failed recompute arrives as an error like any other. */
+  const covBehind = !!cov && cov.source_file === fileName && !!(cov.stale || cov.pending)
+  useEffect(() => {
+    if (!covBehind || !fileName || heldOut) return
+    let alive = true
+    const timer = window.setTimeout(() => {
+      getCoverageFiltered(fileName, bins, {
+        verdicts: verdictKey && !noVerdicts ? verdictKey.split(',') : undefined,
+        run: runIdFilter,
+      })
+        .then(c => { if (alive) setCov(c) })
+        .catch(e => { if (alive) setCovErr(asApiError(e)) })
+    }, 3000)
+    return () => { alive = false; window.clearTimeout(timer) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cov, covBehind, fileName, heldOut, bins, verdictKey, noVerdicts, runKey])
 
   const nothingShown = !show.annotations && !show.detections
   const matrix: ColourBy | null = nothingShown ? null : show.annotations && show.detections ? colourBy : show.annotations ? 'annotations' : 'detections'
@@ -232,7 +253,17 @@ export function CorpusPage() {
               </div>
               <div className="mono" style={{ fontSize: 10, color: 'var(--muted-2)', marginBottom: 2 }}>channel</div>
               <div className="ex-map-wrap" onKeyDown={e => { if (e.key === 'Escape' && !e.defaultPrevented) { setCleared(true) } }}>
-                {cov && cov.source_file === fileName && !showLoading ? (
+                {cov && cov.source_file === fileName && cov.stale && !showLoading && (
+                  <div className="meta" style={{ color: 'var(--muted-2)', marginBottom: 4 }} data-testid="coverage-stale"
+                    title={`The runs or labels on this recording changed${cov.stale_since ? ` (${cov.stale_since})` : ''}; the map below is the last one computed, and the new one replaces it when the background recompute finishes.`}>
+                    updating · the map is from before the last run; recomputing…</div>
+                )}
+                {cov && cov.source_file === fileName && cov.pending && !showLoading && (
+                  <div className="meta" style={{ color: 'var(--muted-2)', marginBottom: 4 }} data-testid="coverage-pending"
+                    title="Nobody has asked for this view of the map before, so it is being computed in the background; it appears here when it is ready.">
+                    computing the map for the first time…</div>
+                )}
+                {cov && cov.source_file === fileName && !cov.pending && !showLoading ? (
                   <ErrorBoundary label="coverage map">
                     <Heatmap cov={cov} matrix={matrix} unit={matrix ? MATRIX_UNIT[matrix] : 'spans'} selectedId={selId} onSelect={select} onOpen={open} range={range ?? undefined} overlay={overlay} />
                   </ErrorBoundary>
