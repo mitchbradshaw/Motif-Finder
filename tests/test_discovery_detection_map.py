@@ -470,3 +470,32 @@ def test_the_timeline_refuses_an_unknown_channel_loudly(db):
             dm.timeline_map(conn, ALPHA, "CH9", bin_h=1.0)
     finally:
         conn.close()
+
+
+# ── counting in SQL (perf, 2026-10-18) ──────────────────────────────────────
+#
+# Levels 3 and 2 drew every detection start into Python to count a few cells
+# per channel: 2.37 M rows per open on a database the size of the real one
+# (1.3 s for each level). Up to `SQL_COUNT_CELLS` cells per channel the counts
+# come from SQL; past it (the timeline's bins) the starts are fetched once and
+# binned. The two must draw the same map on every case the fixture holds.
+
+def _every_map(dm, conn):
+    out = [dm.dataset_map(conn)]
+    for f in (ALPHA, BETA, GAMMA, EPSILON):
+        out += [dm.channel_map(conn, f, chunks=k) for k in dm.CHUNK_OPTIONS]
+    for f, ch in ((ALPHA, "CH1"), (ALPHA, "CH2"), (ALPHA, "CH4"), (BETA, "CH2"), (EPSILON, "CH1")):
+        out += [dm.timeline_map(conn, f, ch, bin_h=b) for b in (0.05, 0.25, 0.5, 1.0, 3.0)]
+    return out
+
+
+def test_counting_in_sql_and_binning_the_starts_draw_the_same_map(db, monkeypatch):
+    dm = _dm()
+    conn = _open(db)
+    try:
+        default = _every_map(dm, conn)
+        for cells in (0, 10_000):                  # every cell binned here; every cell counted in SQL
+            monkeypatch.setattr(dm, "SQL_COUNT_CELLS", cells, raising=False)
+            assert _every_map(dm, conn) == default, f"SQL_COUNT_CELLS={cells}"
+    finally:
+        conn.close()

@@ -212,6 +212,33 @@ def test_scoring_one_run_does_not_read_every_run_on_the_channel():
     assert fetched[0] == fetched[1], f"{fetched[0]} -> {fetched[1]} rows fetched for 200 more runs on the channel"
 
 
+def test_the_map_counts_a_channel_without_fetching_its_detections():
+    """Discovery › Map's dataset and channel levels count a few cells per
+    channel; they fetched every detection start to do it (2.37 M rows, 1.3 s
+    per level on a database the size of the real one)."""
+    from Working.discovery import detection_map as DM
+    fetched = []
+    for n in (2000, 8000):
+        conn, rec, run = _channel(n)
+        conn.execute("INSERT INTO discovery_sessions (name, source_file, channels_json, span_start, span_end, "
+                     "created_at, updated_at) VALUES ('s', 'sec.mat', '[]', 0, 0, ?, ?)", (_RUN_AT, _RUN_AT))
+        conn.execute("INSERT INTO discovery_runs (session_id, run_key, kind, label, params_json, status, created_at, "
+                     "updated_at) VALUES (1, 'r', 'template', 'r', ?, 'done', ?, ?)",
+                     (json.dumps({"run_ids": [run]}), _RUN_AT, _RUN_AT))
+        conn.commit()
+        try:
+            counting = _Counting(conn)
+            top = DM.dataset_map(counting)
+            eighths = DM.channel_map(counting, "sec.mat", chunks=8)
+            fetched.append(counting.rows)
+            key = next(r["key"] for r in top["rows"] if r["key"] != DM.HUMAN_KEY)
+            assert top["datasets"][0]["cells"][key]["CH1"]["count"] == n + 20
+            assert sum(c["count"] for c in eighths["cells"][key]["CH1"]) == n + 20
+        finally:
+            conn.close()
+    assert fetched[0] == fetched[1], f"{fetched[0]} -> {fetched[1]} rows fetched for 6,000 more detections"
+
+
 # ── the section read is the whole read, restricted ──────────────────────────
 #
 # The reference reads every detection of the run, as the scoreboard and the
