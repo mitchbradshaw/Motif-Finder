@@ -64,7 +64,9 @@
 .dsc-runs-head { display: flex; align-items: center; gap: 8px; padding: 0 4px 8px; }
 .dsc-runs-head .small { font-family: var(--font-mono); }
 .dsc-runs-add { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-bottom: 10px; }
-.dsc-runs-list { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+/* ux-1018: about eight rows show at once; a longer list scrolls inside the card instead of growing the page
+ * (the researcher, 2026-10-18) */
+.dsc-runs-list { display: flex; flex-direction: column; gap: 8px; flex: 1; max-height: 600px; overflow-y: auto; scrollbar-gutter: stable; padding-right: 2px; }
 .dsc-run { position: relative; display: flex; align-items: flex-start; gap: 6px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); padding: 8px 8px 8px 11px; overflow: hidden; }
 .dsc-run::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--run); }
 .dsc-run.selected { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); background: #f2f8ff; }
@@ -75,8 +77,12 @@
 .dsc-run-body:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
 .dsc-run-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
 .dsc-run-text b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dsc-run-meta { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10.5px; white-space: nowrap; }
-.dsc-run-line { font-family: var(--font-mono); color: var(--muted); font-size: 10.5px; white-space: nowrap; }
+/* ux-1018: the detail and status lines end in an ellipsis at the text column's edge — `nowrap` with no overflow
+ * rule ran them under the pick box and the Retry / Import button (the researcher, 2026-10-18); the full text is
+ * the row's title */
+.dsc-run-meta { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 10.5px; white-space: nowrap; min-width: 0; overflow: hidden; }
+.dsc-run-meta > .muted { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dsc-run-line { display: block; font-family: var(--font-mono); color: var(--muted); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .dsc-run-progress { display: inline-flex; align-items: center; gap: 8px; }
 .dsc-run-jobs { margin-left: auto; }
 .dsc-run-retry { align-self: flex-end; flex: none; white-space: nowrap; }
@@ -103,6 +109,9 @@
 
 /* where each run fires */
 .dsc-fires-body { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 10px; }
+/* ux-1018: every scope channel is drawn; past three or four the groups scroll inside the card, the axis staying
+ * put below them (the researcher, 2026-10-18: the card showed the first three whatever the strips did) */
+.dsc-fires-scroll { display: flex; flex-direction: column; gap: 10px; max-height: 380px; overflow-y: auto; scrollbar-gutter: stable; }
 .dsc-fires-group { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 0; }
 .dsc-fires-ch { font-size: 12px; padding-top: 1px; }
 .dsc-fires-rows { position: relative; display: flex; flex-direction: column; gap: 2px; }

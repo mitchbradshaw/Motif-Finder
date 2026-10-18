@@ -474,6 +474,7 @@ function BandSetRow({ dx, set }: { dx: Discovery; set: BandSet }) {
 
 function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: DiscoveryRun; selected: boolean; onSelect?: (k: string) => void; mode: RunsMode }) {
   const toast = useToast()
+  const [importing, setImporting] = useState(false)
   /* the × (the researcher, 2026-10-06): the run leaves this session. The row is marked, not deleted — its runs
    * and detections stay, nothing human is written, and History lists it as removed and can put it back. */
   const remove = () => {
@@ -525,11 +526,13 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
       </button>
       {status === 'paused' && run.id && <Button variant="link" size="sm" icon="external" className="dsc-run-jobs-link" onClick={() => navigate('jobs')} testid={`open-in-jobs-${run.key}`}>Open in Jobs</Button>}
       {/* round A_2 (P2): the chain job's results are back — verified, the cache restored, the run written here */}
-      {status === 'on cluster' && run.hpc?.kind === 'chain' && <Button size="sm" icon="download" className="dsc-run-retry" onClick={() => {
+      {status === 'on cluster' && run.hpc?.kind === 'chain' && <Button size="sm" icon="download" className="dsc-run-retry" loading={importing} disabled={importing} onClick={() => {
+        setImporting(true)   // ux-1018: the button shows the import is under way — the POST verifies and restores every task before it answers
         importDiscoveryChain(run.key)
           .then(ack => { dx.reload(); toast.push({ text: `${run.label}: ${ack.note}`, action: { label: 'Open Jobs', onClick: () => navigate('jobs') } }) })
           .catch(e => { dx.reload(); toast.push({ text: `${run.label} was not imported · ${(e instanceof Error ? e.message : String(e)).replace(/^\d{3} /, '')}` }) })
-      }} testid={`chain-import-${run.key}`} title="verify the tasks' results against this machine, restore their step cache, and write the run's channels here">Import results</Button>}
+          .finally(() => setImporting(false))
+      }} testid={`chain-import-${run.key}`} title="verify the tasks' results against this machine, restore their step cache, and write the run's channels here">{importing ? 'Importing…' : 'Import results'}</Button>}
       {/* a real retry: a seed run is started again from its seed and cut, a template run from its template, over the
           scope. It used to mark the row `new` in the page's memory, which the Seed page then took for a pending run of
           this search and greyed *Run seed search* out. */}

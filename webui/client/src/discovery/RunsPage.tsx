@@ -108,17 +108,19 @@ function WhereFires({ dx }: { dx: Discovery }) {
   const [, setAt] = useQueryState('at', '')
   const shown = dx.runs.filter(r => r.kind === 'reference' || hasResults(r) || r.status === 'on cluster' || r.status === 'running')
   const notShown = dx.runs.filter(r => !shown.includes(r) && r.status !== 'draft')
-  const fires = useSourced(() => getFires(dx.visibleChannels, s.section, shown), [dx.visibleChannels.join(','), s.section.join(','), shown.map(r => r.key + r.status).join(',')])
+  /* ux-1018: every channel in the scope, not the strips' page of three. The card followed the scope pager, so with
+   * four or more channels it showed the first three and a page label, whatever the researcher did with the plots
+   * (2026-10-18); the groups scroll inside the card past three or four, the axis stays below them */
+  const fires = useSourced(() => getFires(s.channels, s.section, shown), [s.channels.join(','), s.section.join(','), shown.map(r => r.key + r.status).join(',')])
   const sectionH = s.section[1] - s.section[0]
   const ticks = useMemo(() => Array.from({ length: 7 }, (_, i) => Math.round(s.section[0] + (i * sectionH) / 6)), [s.section, sectionH])
   const browserMarker = useBrowserMarker(dx)
-  const paged = s.channels.length > 3
   return (
     <section className="k-card dsc-fires" data-testid="where-fires" aria-label="Where each run fires">
       <div className="dsc-card-head">
         <h3>Where each run fires</h3>
-        <InfoTip title="Where each run fires">Small multiples by channel, one row per run, on one time axis. At section scale a span is thinner than a pixel, so rows show detections per 3 h bin — colour by run, opacity by count. The human row shows reviewed hours as a grey underlay: recall exists only there. With more than three channels the rows page with the scope pager.</InfoTip>
-        <span className="muted small">{paged ? `channels ${(dx.chPage - 1) * 3 + 1}–${Math.min(s.channels.length, dx.chPage * 3)} of ${s.channels.length}` : (mode === 'spans' ? 'every span in view · grouped by channel' : 'detections per 3 h · grouped by channel')}</span>
+        <InfoTip title="Where each run fires">Small multiples by channel, one row per run, on one time axis. At section scale a span is thinner than a pixel, so rows show detections per 3 h bin — colour by run, opacity by count. The human row shows reviewed hours as a grey underlay: recall exists only there. Every channel in the scope is drawn here; past three or four the groups scroll inside the card (the strips above page three at a time, this card does not).</InfoTip>
+        <span className="muted small" data-testid="fires-channel-count">{mode === 'spans' ? 'every span in view' : 'detections per 3 h'} · {s.channels.length} channel{s.channels.length === 1 ? '' : 's'}</span>
         <span className="k-spacer" />
         <Seg size="sm" value={mode} onChange={v => setMode(v)} options={[{ value: 'density', label: 'density' }, { value: 'spans', label: 'spans' }]} testid="fires-mode" />
         {/* the detection map (2026-10-12): the same rows as columns of channels and datasets, every session — where overall, not when */}
@@ -137,6 +139,7 @@ function WhereFires({ dx }: { dx: Discovery }) {
       {!fires.data && !fires.error && <Loading height={200} />}
       {fires.data && (
         <div className="dsc-fires-body">
+          <div className="dsc-fires-scroll" data-testid="fires-scroll">
           {fires.data.channels.map(ch => (
             <div key={ch.channel} className="dsc-fires-group" data-testid={`fires-group-${ch.channel}`}>
               <b className="dsc-fires-ch mono">{ch.channel}</b>
@@ -164,6 +167,7 @@ function WhereFires({ dx }: { dx: Discovery }) {
               </div>
             </div>
           ))}
+          </div>
           <div className="dsc-fires-axis mono">{ticks.map((t, i) => <span key={i} style={{ left: `calc(${(i / 6) * 100}%)` }}>{i === 0 || i === 6 ? `${t} h` : t}</span>)}</div>
           {notShown.length > 0 && <div className="muted small dsc-fires-foot">not drawn: {notShown.map(r => `${r.label} (${r.status === 'paused' ? `paused ${r.pausedAt?.stage}/${r.pausedAt?.of}` : r.status})`).join(' · ')} — nothing to draw in this section</div>}
         </div>
@@ -362,8 +366,10 @@ function Browser({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
         : !det ? (n === 0 && dets.data ? <EmptyState size="sm" title={`no detections on ${ch}`} testid="browser-none" /> : <Loading height={150} />) : (
           <div className="dsc-browser-body">
             {dets.loading && (
-            /* the list is being re-read for another run or channel; the old detection stays visible until the new one lands (2026-10-13) */
-            <div className="row" style={{ gap: 8, marginBottom: 6 }} data-testid="browser-loading"><ProgressBar indeterminate size="sm" width={120} labelPosition="none" /><span className="muted small">loading this run's detections…</span></div>
+            /* the list is being re-read for another run or channel; the old detection stays visible until the new one lands (2026-10-13).
+             * ux-1018: the row spans both grid columns — as the body's first cell it took the 200 px info column, pushing the
+             * facts right and the plot under them (the researcher, 2026-10-18: "too vertical, all information on the left") */
+            <div className="row" style={{ gap: 8, marginBottom: 6, gridColumn: '1 / -1' }} data-testid="browser-loading"><ProgressBar indeterminate size="sm" width={120} labelPosition="none" /><span className="muted small">loading this run's detections…</span></div>
           )}
           <div className="dsc-det-info" data-testid="browser-detection" style={dets.loading ? { opacity: 0.6 } : undefined}>
               <span className="row" style={{ gap: 6 }}>
