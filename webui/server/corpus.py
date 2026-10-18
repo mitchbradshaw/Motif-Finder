@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import functools
 import json
+import logging
 import os
 import sqlite3
+import threading
 import time
 
 import numpy as np
@@ -271,6 +273,22 @@ def _runs_matching(conn, source_file: str, run_ids, method) -> list | None:
 #: (source_file, bins, verdicts, run_ids, method) -> (channels fingerprint, payload)
 _COVERAGE_CACHE: dict = {}
 _COVERAGE_CACHE_MAX = 64
+#: ux-1018: one lock per cache key, so concurrent misses compute a map once (see `coverage`)
+_COVERAGE_LOCKS: dict = {}
+_COVERAGE_LOCKS_GUARD = threading.Lock()
+
+
+def _coverage_lock(key) -> threading.Lock:
+    """The lock a miss on `key` computes under. The registry is bounded: when it has grown well past the cache,
+    idle locks of other keys are dropped (a dropped key simply gets a fresh lock on its next miss)."""
+    with _COVERAGE_LOCKS_GUARD:
+        lock = _COVERAGE_LOCKS.get(key)
+        if lock is None:
+            if len(_COVERAGE_LOCKS) >= 4 * _COVERAGE_CACHE_MAX:
+                for k in [k for k, lk in _COVERAGE_LOCKS.items() if not lk.locked()][:_COVERAGE_CACHE_MAX]:
+                    del _COVERAGE_LOCKS[k]
+            lock = _COVERAGE_LOCKS[key] = threading.Lock()
+        return lock
 
 
 def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = None,
@@ -317,10 +335,18 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
     if hit is not None and hit[0] == fp:
         out = copy.deepcopy(hit[1])
     else:
-        out = _coverage(conn, source_file, bins=bins, verdicts=verdicts, run_ids=run_ids, method=method)
-        if len(_COVERAGE_CACHE) >= _COVERAGE_CACHE_MAX:
-            _COVERAGE_CACHE.pop(next(iter(_COVERAGE_CACHE)))
-        _COVERAGE_CACHE[key] = (fp, copy.deepcopy(out))
+        # ux-1018: one flight per key. The startup warm and a page's request for the same map used to compute it
+        # side by side (two ~10 s divergences over M2_aug's 16 channels, competing for the GIL and SQLite); the
+        # second reader now waits on the first and takes the entry it wrote.
+        with _coverage_lock(key):
+            hit = _COVERAGE_CACHE.get(key)
+            if hit is not None and hit[0] == fp:
+                out = copy.deepcopy(hit[1])
+            else:
+                out = _coverage(conn, source_file, bins=bins, verdicts=verdicts, run_ids=run_ids, method=method)
+                if len(_COVERAGE_CACHE) >= _COVERAGE_CACHE_MAX:
+                    _COVERAGE_CACHE.pop(next(iter(_COVERAGE_CACHE)))
+                _COVERAGE_CACHE[key] = (fp, copy.deepcopy(out))
     out["compute_ms"] = (time.perf_counter() - t0) * 1e3
     return out
 
@@ -338,8 +364,12 @@ def warm_coverage(conn, first: str | None = None) -> list:
     if first in files:
         files.remove(first)
         files.insert(0, first)
-    for sf in files:
+    log = logging.getLogger("webui.corpus")
+    for i, sf in enumerate(files, 1):
+        t0 = time.perf_counter()
         coverage(conn, sf, **HOME_COVERAGE)
+        # ux-1018: a line per file, so a 462 s warm (2026-10-18) can be watched and the slow file named
+        log.info("corpus map %d/%d warmed: %s (%.1f s)", i, len(files), sf, time.perf_counter() - t0)
     return files
 
 

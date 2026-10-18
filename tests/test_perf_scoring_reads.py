@@ -397,6 +397,37 @@ def test_an_unchanged_corpus_map_is_not_recomputed(scored, monkeypatch):
     assert calls["n"] == 2
 
 
+def test_two_concurrent_reads_of_one_corpus_map_compute_it_once(monkeypatch):
+    """ux-1018: the startup warm and a page's request for the same map used to compute it twice, side by side —
+    on 2026-10-18 the warm took 462 s for 17 files while the home page recomputed the M2_aug map it was already
+    building. A miss takes a per-key lock: the second reader waits and answers from the entry the first wrote."""
+    import threading
+    import time
+
+    corpus = _corpus()
+    calls = {"n": 0}
+
+    def slow(conn, source_file, **kw):
+        calls["n"] += 1
+        time.sleep(0.3)
+        return {"source_file": source_file, "rows": []}
+
+    monkeypatch.setattr(corpus, "_coverage", slow)
+    monkeypatch.setattr(corpus.q, "list_recordings", lambda conn, source_file=None: [{"id": 1}])
+    monkeypatch.setattr(corpus.SB, "channels_fingerprint", lambda conn, ids, memo=None: "fp")
+    out = []
+    threads = [threading.Thread(target=lambda: out.append(corpus.coverage(None, "cache.mat", bins=10))) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert calls["n"] == 1, f"the map was computed {calls['n']} times for two concurrent readers"
+    assert len(out) == 2 and all(o["source_file"] == "cache.mat" for o in out)
+    # a different key is its own flight
+    corpus.coverage(None, "other.mat", bins=10)
+    assert calls["n"] == 2
+
+
 def _second_channel_verdict(s):
     other = s["conn"].execute("SELECT recording_id FROM runs WHERE id = ?", (s["runs"][1],)).fetchone()[0]
     s["conn"].execute("UPDATE annotations SET verdict = 'not_interesting' WHERE recording_id = ? AND start_idx = 4000",
