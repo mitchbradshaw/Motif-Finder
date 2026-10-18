@@ -260,6 +260,10 @@ they were hit and fixed in session (2026-08-31), so treat them as load-bearing:
   the `sinfo` command above before guessing a replacement — two guesses
   (`gpu` outright, then `--partition=gpu` without `--gres`) both failed
   against the live account before this table was pulled from `sinfo` directly.
+- **The `a100` partition runs 5 hours** (the researcher, 2026-10-18; `Working.config.HPC_WALLTIME_MINUTES_BY_PARTITION`). The 20-minute ceiling below is `a100-test`'s own QOS. One whole 721-h
+  channel's matrix profile (2,596,000 samples, m = 60) takes 736 s with `gpu_stump` there (job 671109;
+  `docs/rq_roundA_2/findings/gpu-stump-2026-10-18/`), and `stump` and `gpu_stump` agree within float
+  rounding (job 671107).
 - **`--time` cannot exceed 20 minutes on `a100-test`.** This account's
   `QoS=test` (tied to that partition, confirmed via
   `scontrol show partition a100-test`: `MaxTime=UNLIMITED` at the partition

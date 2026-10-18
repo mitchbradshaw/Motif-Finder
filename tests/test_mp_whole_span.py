@@ -264,6 +264,8 @@ def test_wall_limits_are_recorded_per_partition_and_the_unverified_ones_say_so()
     from Working.hpc import job_export
 
     assert job_export.partition_wall_minutes("a100-test") == (20, True)
+    # the researcher on rangpur, 2026-10-18: the a100 partition runs 5 h; a100-test's 20 min is its own QOS
+    assert job_export.partition_wall_minutes("a100") == (300, True)
     minutes, verified = job_export.partition_wall_minutes("cpu")
     assert verified is False and minutes == cfg.HPC_MAX_WALLTIME_MINUTES
     assert isinstance(cfg.HPC_WALLTIME_MINUTES_BY_PARTITION, dict)
