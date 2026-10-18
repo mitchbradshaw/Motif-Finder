@@ -4218,9 +4218,11 @@ def send_remainder_to_review(request: Request, body: CompareReviewBody):
         judged = {int(r["detection_id"]) for r in c.execute("SELECT detection_id FROM adjudications").fetchall()}
         ids = sorted({next((i for i in r["ids"] if i in judged), r["ids"][0]) for r in regions})
         filters = {"detection_ids": ids}
-        # never adopt a Discovery picked queue whose set happens to equal this remainder (fixup-AL)
+        # never adopt a Discovery picked queue whose set happens to equal this remainder (fixup-AL), nor Explore's
+        # picked queue, which is the same `discovery-run` kind (explore-review-actions)
+        from .explore_routes import EXPLORE_PICKED_NOTE
         existing = queues_mod.find_open_queue(c, source_kind="discovery-run", filters=filters,
-                                              skip_note_prefix=PICKED_NOTE_PREFIX)
+                                              skip_note_prefix=(PICKED_NOTE_PREFIX, EXPLORE_PICKED_NOTE))
         label_a, label_b = (_side(c, s["id"], k, chans, span, "")[0]["label"] for k in (body.a, body.b))
         if existing is not None:
             qid, reused = existing, True
