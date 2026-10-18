@@ -1,0 +1,14 @@
+{
+  "kind": "detection_chain",
+  "specHash": "fc6afaaad1f5",
+  "tasks": 5,
+  "label": "cnn_recurrence_10min",
+  "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_recurrence_10min_5ch_0-22892769_fc6afa.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5"
+  ]
+}

@@ -1,0 +1,1120 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "BEADs_invert_detect_v1__delta_mv_25",
+  "runKey": null,
+  "sessionId": null,
+  "template": "BEADs_invert_detect_v1__delta_mv_25",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "beads",
+      "params": {
+        "baseline_period_s": 7200,
+        "filter_order": 2,
+        "polarity": "drop",
+        "sparsity": 1
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "preprocessing",
+      "algorithm": "invert",
+      "params": {},
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "spike_v1",
+      "params": {
+        "d": 30,
+        "delta_mv": 25.0,
+        "polarity": "both",
+        "span_s": 400,
+        "width": 2000
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    1817998
+  ],
+  "sourceFile": "M4_aug_concat_fs1.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 16,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 49,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 0,
+      "channelName": "CH1_A1",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 0,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH0.npy",
+      "npySha1": "61333ded9ccb11d093ddff01638b6c8c637e1ba8",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 49,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "5109b5f1",
+      "prefixHashes": [
+        "ad24429795ef6b714c6f05c457c86e120a2d6071156c1358cb86c10ba931d330",
+        "436caac1027e606d18e2f4bbd01e589c61958ea5b172bb4edcf0c3c3943672db",
+        "5109b5f1ba7fa47cfdb407069e7288202968a1094af1aa718f692e28672daf50"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 1,
+      "recordingId": 50,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 1,
+      "channelName": "CH2_A1",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 1817998,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH1.npy",
+      "npySha1": "b21e5ac4b8550244aca1f23b2585525f2d690b20",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 50,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "f87b2ffc",
+      "prefixHashes": [
+        "b9273b087e407851bdc36951b609be9869dfb934df031a592e2cfcd6d26407b1",
+        "b8969e0dbcf015ce605f53523a5711c86e84563a9e8b3cd7e583ebc0968f5358",
+        "f87b2ffc529e979ff2dd602d9693cee62fb883406c63689ddfc86f931989a87b"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 2,
+      "recordingId": 51,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 2,
+      "channelName": "CH3_A2",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 3635996,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH2.npy",
+      "npySha1": "97e9310af4a57d7624d5639e5f36bc3ba6a7962e",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 51,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "1deb17a0",
+      "prefixHashes": [
+        "b72ec8d28a99657b45ef14036d0776ec4f34c7af6369c9145c8d7e52d66120a9",
+        "7b37547e97db400da8983a9ba50f85cddad1a835d645869902f799835768417e",
+        "1deb17a0657f17714c970ba6f7c6a7bf825d73b5a1cf432998c5a44828fdda16"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 3,
+      "recordingId": 52,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 3,
+      "channelName": "CH4_A2",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 5453994,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH3.npy",
+      "npySha1": "903b144cc0c62d144225f0aee6684df5fea48495",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 52,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "12d9b433",
+      "prefixHashes": [
+        "0408364e4b8068b26a3c18240c31fb83ec5eb4d91fbf10d11dfbe5f1885a89e7",
+        "39bc1908cfb0bf290c6354f8f2898195ef882d3b727f677d55ddcdf44d85bf0f",
+        "12d9b43381c563d9e7960ec89316cc068415cdede9b91c5eb8750e691a47bcdf"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 4,
+      "recordingId": 53,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 4,
+      "channelName": "CH5_B1",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 7271992,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH4.npy",
+      "npySha1": "c9785567c9a018d3713cabe65b00fba3f5bc870d",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 53,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "16beba1e",
+      "prefixHashes": [
+        "2ab9c13a5bc8ccf4c78e83920a8c07c7bbe368820140b958ef30b030088e3744",
+        "1d3026a411ddd5d7f5648b81dde3aef66c2b5984a05b6272e0e1e566f43e19d5",
+        "16beba1e7e11f495e4e03e913b8a1b6546a5b061b0290cfb5853ba66f2fc4a27"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 5,
+      "recordingId": 54,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 5,
+      "channelName": "CH6_B1",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 9089990,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH5.npy",
+      "npySha1": "9398ffb3ee555e08839c45c5fdc0a7431da4e482",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 54,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "226fc0fb",
+      "prefixHashes": [
+        "eb545eda5fd3f0b01bcf39d6c8a0ab3dd4c4f01cb518e8285ca2ac21d37e8bd2",
+        "0a19c1de8ed06811c9e9ac2148ffff27b45b40813d82e08e09610b9ad259766b",
+        "226fc0fb4db125f9af691bf22f43130ad95aa60df0ca70ca690d3adefb6c63a8"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 6,
+      "recordingId": 55,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 6,
+      "channelName": "CH7_B2",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 10907988,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH6.npy",
+      "npySha1": "de7732664b60970cb8c20789bfb33e8d61cbe6bb",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 55,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "281caa12",
+      "prefixHashes": [
+        "04fc747281c8b02846a60f3331933d4673db233552de6f06fc6f8d699a69bdc4",
+        "1360820a8267d94c40b9131e52c015e3ff1a7f282e23428febb231908e6d9667",
+        "281caa1289b2de98bd0e0bcf221dfc6a22bd6ccdce9846add98940a26c7ae95a"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 7,
+      "recordingId": 56,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 7,
+      "channelName": "CH8_B2",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 12725986,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH7.npy",
+      "npySha1": "384d098a1bbb8c0d5b0f21bf257044030324eb32",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 56,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "acb65000",
+      "prefixHashes": [
+        "67be6ff93b999fd09b02eb634082d94a4a14b18e8b4718d6f8e9bf109d23b9e6",
+        "40ea9f8514e015b0113bc25cc41fe7bc66e35da0b7fddd2e800479b0f71724e7",
+        "acb6500017368e67f94682de528339ee3a3052885e8984690954c23beb566a46"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 8,
+      "recordingId": 57,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 8,
+      "channelName": "CH9_C1",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 14543984,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH8.npy",
+      "npySha1": "8fa4ab85658b7cb6e7e109a2de4ce3db08c51195",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 57,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "aeab08c0",
+      "prefixHashes": [
+        "38e857e0279db6f3578cef32be56056408f97fb14c22db092b8ce94edafa502f",
+        "5281761b26b64ad937846c2b522160d31bc1ac5d399caeb8c9738635a9a8b2cc",
+        "aeab08c081fe9611b8328ff7fd7a2958da5d05c85f95656785dabc2bfbc71108"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 9,
+      "recordingId": 58,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 9,
+      "channelName": "CH10_C1",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 16361982,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH9.npy",
+      "npySha1": "787fb82141917bd1bb34a7ee027db80a87a80b47",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 58,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "9fd182a7",
+      "prefixHashes": [
+        "094513c765f451fddfdf99896ce539b1eee2a220190efd743c10478aa13dd017",
+        "d1f54ebc5eba84f042f101711e6b79050192af657e601db4f29669acee43833b",
+        "9fd182a762e945b2e99a0cc36a90387860160e83d2b458983f1b15ae3ae11a1d"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 10,
+      "recordingId": 59,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 10,
+      "channelName": "CH11_C2",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 18179980,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH10.npy",
+      "npySha1": "20815df9fae962b8a790a260be01492a59e4b5b2",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 59,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "c2225c8f",
+      "prefixHashes": [
+        "bddcb2e8a248669e3b1c3c361a7564c588b31b7e27b4628c4c6d0dbbb4f12554",
+        "e7aecd1d59edd8d3b45ee500f349a15dfd6a3e5218c6962534105601d5e0d4b2",
+        "c2225c8f52375fae927ccdb9720bae90bd414874bf92c14cfdf6e99ed571e447"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 11,
+      "recordingId": 60,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 11,
+      "channelName": "CH12_C2",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 19997978,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH11.npy",
+      "npySha1": "618d3e612b19c46b949911ba6241068e2663295a",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 60,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "d197ff33",
+      "prefixHashes": [
+        "f52178b9e248259a1205c244ce557a95d07e4368c583cd5b9de64ab4e82f0d63",
+        "a690a321c11258e26f671a3ab5c11616a30144398977ef2264a541e5b1705fc6",
+        "d197ff337a7af83d583585c7cfa707ae85be629c6ba0855f26674999b509c1a1"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 12,
+      "recordingId": 61,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 12,
+      "channelName": "CH13_D1",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 21815976,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH12.npy",
+      "npySha1": "b96a43e5d7eeffd1a36f688f6bce2c86b4ca1dd0",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 61,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "54444b5e",
+      "prefixHashes": [
+        "bf8523856355c1cc16750ea34dc2558578df64860fc6296013b5efe5d734f384",
+        "d13d8dccebd6f455bc2be7ca3cad8635f0ea32cc0a1f5311cc65e4cd13db545d",
+        "54444b5e715a6897a5cccf096fd5cdc846511a70312d87b6d1d9b36123ba93c9"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 13,
+      "recordingId": 62,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 13,
+      "channelName": "CH14_D1",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 23633974,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH13.npy",
+      "npySha1": "76209b2d54d777527694159dc4ab415e6f38957d",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 62,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "bcd764ef",
+      "prefixHashes": [
+        "2fcd99eebf8147bcc637f3209396e15e0bc32ef7563e927997f994ee56bb80d8",
+        "18dba8bc4343357439319e3270c8588b856c362ef35513f289a96de53964d994",
+        "bcd764ef283d43b7c49d77b5df86cc36802a35969b2ae1fe7ebdd4d156f1c208"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 14,
+      "recordingId": 63,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 14,
+      "channelName": "CH15_D2",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 25451972,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH14.npy",
+      "npySha1": "7712119b8e23a26e4206385691a611061033f15f",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 63,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b8220278",
+      "prefixHashes": [
+        "2276bcdb1c38caec88906c859bc925ce969ca85dc554f35e877d1c9090110c65",
+        "95e77d137c2b6b4f8cb79b3abd90370ef9193c2d34c07db3d098d6800dab642a",
+        "b82202788c5a6c45e7c9606facb4910295a0a703cb43f699a27c918122c4e29e"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    },
+    {
+      "index": 15,
+      "recordingId": 64,
+      "sourceFile": "M4_aug_concat_fs1.mat",
+      "channel": 15,
+      "channelName": "CH16_D2",
+      "fs": 1.0,
+      "nSamples": 1817998,
+      "globalOffset": 27269970,
+      "units": null,
+      "unitsNote": "undeclared (fixup-b, 2026-09-23): held out (spec \u00a70 D6) and not opened for this check; its unit is not asserted by analogy. Declare it in Settings \u203a Datasets once it is known.",
+      "npy": "DATA/derived/channels/M4_aug_concat_fs1/CH15.npy",
+      "npySha1": "511ec3ba05663f0054800720b19612184515731a",
+      "npyBytes": 14544112,
+      "span": [
+        0,
+        1817998
+      ],
+      "recipe": {
+        "recording_id": 64,
+        "span": [
+          0,
+          1817998
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 25.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "ba6cd196",
+      "prefixHashes": [
+        "889c1e4b1e0e0fda2fc15190f6d527876c1212672807da36a3a8eeffa614e755",
+        "7b8d68efc1450f27ea837b4b0270171d0b792c4e47d72e5d2e047ad680c38937",
+        "ba6cd1968aca2ebb700ce462370061c97e92854673b2cea436f3568fefe14438"
+      ],
+      "chunks": [],
+      "heldOutUnlocked": true
+    }
+  ]
+}

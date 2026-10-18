@@ -1,0 +1,318 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "signal_threshold__threshold_mV_m2",
+  "runKey": null,
+  "sessionId": null,
+  "template": "signal_threshold__threshold_mV_m2",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "detrend",
+      "params": {
+        "mode": "rolling_mean",
+        "window_s": 600.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "signal_threshold",
+      "params": {
+        "direction": "below",
+        "threshold": -2.0
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    22892769
+  ],
+  "sourceFile": "L_LM_Jul_26_J_raw.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 5,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 540,
+      "sourceFile": "L_LM_Jul_26_J_raw.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 10.0,
+      "nSamples": 22892769,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "verified 2026-09-23 (fixup-b): its CH2 block-meaned 10:1 is 998.2 x the Mushroom_260720 excerpt, a volts file \u2014 the x1000 of a millivolt recording (Pipelines/drop_motifs/lionsmane12.py found the same); noise MAD 0.03-0.25 mV.",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH0.npy",
+      "npySha1": "9f03c9643ac6fb091bf9cb884f63c5f0bea5be6f",
+      "npyBytes": 183142280,
+      "span": [
+        0,
+        22892769
+      ],
+      "recipe": {
+        "recording_id": 540,
+        "span": [
+          0,
+          22892769
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "signal_threshold",
+            "params": {
+              "direction": "below",
+              "threshold": -2.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "9a06fde3",
+      "prefixHashes": [
+        "b5ac2bfd793094ae9c326ba5e34165b0c58d6fe8bd465fede09a62641de8b06e",
+        "9a06fde33f4b9c0c656049b89c0dc37d43bb7b07347ad818aa9186b9ed994556"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 541,
+      "sourceFile": "L_LM_Jul_26_J_raw.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 10.0,
+      "nSamples": 22892769,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "verified 2026-09-23 (fixup-b): its CH2 block-meaned 10:1 is 998.2 x the Mushroom_260720 excerpt, a volts file \u2014 the x1000 of a millivolt recording (Pipelines/drop_motifs/lionsmane12.py found the same); noise MAD 0.03-0.25 mV.",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH1.npy",
+      "npySha1": "c91fb07cd103d5acf5943404a4515f6585de3a13",
+      "npyBytes": 183142280,
+      "span": [
+        0,
+        22892769
+      ],
+      "recipe": {
+        "recording_id": 541,
+        "span": [
+          0,
+          22892769
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "signal_threshold",
+            "params": {
+              "direction": "below",
+              "threshold": -2.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "3ba9c34a",
+      "prefixHashes": [
+        "bd68ebc400264c8c4c2831cdc5ff18322358b215ce75269eac195bf9e4f51f9b",
+        "3ba9c34a55240151946c1e254400ec9f2150d98e9dee9929f2352979b26af609"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 542,
+      "sourceFile": "L_LM_Jul_26_J_raw.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 10.0,
+      "nSamples": 22892769,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "verified 2026-09-23 (fixup-b): its CH2 block-meaned 10:1 is 998.2 x the Mushroom_260720 excerpt, a volts file \u2014 the x1000 of a millivolt recording (Pipelines/drop_motifs/lionsmane12.py found the same); noise MAD 0.03-0.25 mV.",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH2.npy",
+      "npySha1": "03b79e80dbd8f4d4f84920c07326dd1d19d96d1c",
+      "npyBytes": 183142280,
+      "span": [
+        0,
+        22892769
+      ],
+      "recipe": {
+        "recording_id": 542,
+        "span": [
+          0,
+          22892769
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "signal_threshold",
+            "params": {
+              "direction": "below",
+              "threshold": -2.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "294caf54",
+      "prefixHashes": [
+        "d158c66f45723f3b2c232d5055090696670dddcb6c19cd0cabbc3a2d0d5bb46e",
+        "294caf542a316f277306a3e1c15eda32291acc3ac21fc3266c156ea867c3cdc3"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 543,
+      "sourceFile": "L_LM_Jul_26_J_raw.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 10.0,
+      "nSamples": 22892769,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "verified 2026-09-23 (fixup-b): its CH2 block-meaned 10:1 is 998.2 x the Mushroom_260720 excerpt, a volts file \u2014 the x1000 of a millivolt recording (Pipelines/drop_motifs/lionsmane12.py found the same); noise MAD 0.03-0.25 mV.",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH3.npy",
+      "npySha1": "1077439e9d05ad00b5341b703cf18263890768e0",
+      "npyBytes": 183142280,
+      "span": [
+        0,
+        22892769
+      ],
+      "recipe": {
+        "recording_id": 543,
+        "span": [
+          0,
+          22892769
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "signal_threshold",
+            "params": {
+              "direction": "below",
+              "threshold": -2.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "12e9e0ae",
+      "prefixHashes": [
+        "9526a2f80f7a1d72872b9c9c95af1bb12e9524411353aa69c558d9f1eb73cc79",
+        "12e9e0aedef38554c543b2b475b6a191bc395772daf85f3ec49df09424fea4b2"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 544,
+      "sourceFile": "L_LM_Jul_26_J_raw.mat",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 10.0,
+      "nSamples": 22892769,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "verified 2026-09-23 (fixup-b): its CH2 block-meaned 10:1 is 998.2 x the Mushroom_260720 excerpt, a volts file \u2014 the x1000 of a millivolt recording (Pipelines/drop_motifs/lionsmane12.py found the same); noise MAD 0.03-0.25 mV.",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH4.npy",
+      "npySha1": "54587b7b0e4c9c1b01fa1b48cdd1b5b488bae1c1",
+      "npyBytes": 183142280,
+      "span": [
+        0,
+        22892769
+      ],
+      "recipe": {
+        "recording_id": 544,
+        "span": [
+          0,
+          22892769
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "signal_threshold",
+            "params": {
+              "direction": "below",
+              "threshold": -2.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "9db9d910",
+      "prefixHashes": [
+        "87ba6afdfe9f458599b9f45f6d8787018c827c234b005a88e39e9bed3c6c8236",
+        "9db9d9102abbb39348e9cdb4202aad5fc7f97230181369f25cd32b54892ef9cd"
+      ],
+      "chunks": []
+    }
+  ]
+}

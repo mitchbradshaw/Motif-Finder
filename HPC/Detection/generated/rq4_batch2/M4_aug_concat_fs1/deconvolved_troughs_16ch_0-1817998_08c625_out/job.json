@@ -1,0 +1,25 @@
+{
+  "kind": "detection_chain",
+  "specHash": "08c6253ae3e9",
+  "tasks": 16,
+  "label": "deconvolved_troughs",
+  "spec": "HPC/Detection/generated/rq4_batch2/M4_aug_concat_fs1/deconvolved_troughs_16ch_0-1817998_08c625.chain.json",
+  "channels": [
+    "CH1_A1",
+    "CH2_A1",
+    "CH3_A2",
+    "CH4_A2",
+    "CH5_B1",
+    "CH6_B1",
+    "CH7_B2",
+    "CH8_B2",
+    "CH9_C1",
+    "CH10_C1",
+    "CH11_C2",
+    "CH12_C2",
+    "CH13_D1",
+    "CH14_D1",
+    "CH15_D2",
+    "CH16_D2"
+  ]
+}

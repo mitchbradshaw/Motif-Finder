@@ -1,0 +1,1070 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "cnn_fusion3_60min",
+  "runKey": null,
+  "sessionId": null,
+  "template": "cnn_fusion3_60min",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "sliding_windows",
+      "params": {
+        "gap_s": 0.0,
+        "window_s": 3600.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "catalogue",
+      "algorithm": "cnn_window_scores",
+      "params": {
+        "image_type": "fusion",
+        "model_path": "MODELS/fusion_cnn_3.pth",
+        "resample_to": 600
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "threshold",
+      "params": {
+        "threshold": 0.5
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    1016952
+  ],
+  "sourceFile": "M2_concat_fs1.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 16,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 33,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH0.npy",
+      "npySha1": "64977ed858f8eaf6376418d4e1abe416e4edff65",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 33,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "db25f27d",
+      "prefixHashes": [
+        "9dc8f896f658560b44dbdd460746ce21cfcd439f0baa44cca7867aa95b3d80c1",
+        "6471bc79b9e5de41c42466f228d97d6c46e96a6a2273937c801a69feefcb0a73",
+        "db25f27d7cb1d6f01ea74488a4a485d88fe98ea0cdd261182089c84850285158"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 34,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 1016952,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH1.npy",
+      "npySha1": "59435b089f15caa849f820f5eb361cfc08675efc",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 34,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "338df63c",
+      "prefixHashes": [
+        "26de57474deab9b58dff8bb2b7f3fdfd11011dc3801f2652bc1a73710c84ccb3",
+        "4eb9cb8a39af7a325e1c791f29cbf2ce8eb70020e6ebba6850a69b8dd0290edf",
+        "338df63c9e78c8b503e9b003a09d3e30abed476d6132d9ca399de6900741df66"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 35,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 2033904,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH2.npy",
+      "npySha1": "522c4f25e06e194370ef1dd2025bf401f223e9f4",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 35,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "17b17aff",
+      "prefixHashes": [
+        "dfca0bf5bd060cd50427992cc34a7e2df4c052fa662f6ce4fd647733e355ea38",
+        "71bdba7e5886cb7649e0207ea7093ab6521c84ce2b2a25ca7cb13c2e364b1464",
+        "17b17aff68ab461f10eb965778dcdd9be1998340f547aac75af2f6de44db2767"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 36,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 3050856,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH3.npy",
+      "npySha1": "0b0caeb1365dffa3b397c0de9f0c9cb39354dbff",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 36,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "2d7d0c55",
+      "prefixHashes": [
+        "6a49452a3fd6513f184fe1d09cb57f04df237e023d24eb15354784e075f3a7da",
+        "18f846efcea5e12f78c3b043e591e2fbc4784a5bbaea33512ecbcb2bc64b8ef6",
+        "2d7d0c55dc2aa00eef8ef4eba2a5846cde6ef81f4f6472d903ca9daf6702b872"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 37,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 4067808,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH4.npy",
+      "npySha1": "2a90f2436fe91d6397bd12e13b3ca07746865fdf",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 37,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b24f7853",
+      "prefixHashes": [
+        "be9c9d681a763d6775160c6ce56e5e647527c3ff704c81cb4d92cb3e13b487ea",
+        "c75f89807000ec28ce3fa21ae7a6567f5e836c1ae42c1da7033bd5c862dc56ca",
+        "b24f785317d00eeb2eeff38848143ccc752d8712761650c7151b11d5f3eb20b6"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 5,
+      "recordingId": 38,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 5,
+      "channelName": "CH6",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 5084760,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH5.npy",
+      "npySha1": "7b009b5310304947d54a1c50fbd8ed20d39e4982",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 38,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "903d09da",
+      "prefixHashes": [
+        "da7ee9ab2a8a3121260805bb416b03b9f980faaf4f99f0b6371066c2996b851b",
+        "92623df0659181ff69e621960e407211357f120f3ffc55385126cfb72bdfa851",
+        "903d09dab0b473eba25608f7c6e0570e619c6187723494890e0f28e8bfbd112c"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 6,
+      "recordingId": 39,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 6,
+      "channelName": "CH7",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 6101712,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH6.npy",
+      "npySha1": "df4b1a2ed3228a45d470d1be8e6c6fd4fd5e41ec",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 39,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "8573c7ce",
+      "prefixHashes": [
+        "b1c0de9ecefd80860ad2b6ed5bce947355a12722025660080ee5a797cc65d6f5",
+        "ee334f8934895d3312264e8e778e341915eefea45450684438b9ca84bb282e40",
+        "8573c7ce320aab478cb5b10c45b4237b5081a4ede0523d1f3ddd818587d4e441"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 7,
+      "recordingId": 40,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 7,
+      "channelName": "CH8",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 7118664,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH7.npy",
+      "npySha1": "452f1f42fe648bf54fb4b2710c1b201c138bdd29",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 40,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "edb2799a",
+      "prefixHashes": [
+        "fe1153f9c1f08011948ab2afce3edd4a147686ac10c6a7c6043daf785d6114db",
+        "d2d05025356b8a6b21455ef7505b336f092bcc2cc8fb4a768c74fda440fa37dd",
+        "edb2799a4200391e2913c2e2acf85e4a05fbbfacba331a9d5202112e4f5c7dbb"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 8,
+      "recordingId": 41,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 8,
+      "channelName": "CH9",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 8135616,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH8.npy",
+      "npySha1": "6e1b95196512494873ee33d80ff3f9cb57f56430",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 41,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "759c32a5",
+      "prefixHashes": [
+        "dbe9ef66200d68dc80f6e9f9ce8f8768cdc00fc47b600640ca57dd0df724079f",
+        "c55b164bf2791b41b3e675184b703163ccee78c09b67b15cacab55303efb7f48",
+        "759c32a569db50ac41ab8c2678016e517006530b08a6e1dbba7404f216deb17b"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 9,
+      "recordingId": 42,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 9,
+      "channelName": "CH10",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 9152568,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH9.npy",
+      "npySha1": "b2fcf4abf14369e6869b0220229a60ecd3fb98ee",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 42,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "7029eb8b",
+      "prefixHashes": [
+        "c382f3625d169b862b7f2d0df9b1bef14b0f468900c4df665dc44e4f53a3db22",
+        "9163bb2a7315e18d0ae02a4bd14d8fe21ac5e463df9c8c5c8bbe4e6a3311e1ce",
+        "7029eb8b726e579ef0998679303f9b7caa8c7043bffe6346f2059bbf82cf93f2"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 10,
+      "recordingId": 43,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 10,
+      "channelName": "CH11",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 10169520,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH10.npy",
+      "npySha1": "920453324868bfe60dc3e63dd36a66ada3a0d861",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 43,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "c16a265e",
+      "prefixHashes": [
+        "c642831c19d4a4b4e06d5513d369ec758c621d0c03950b08989435ea069de0c5",
+        "19e992953d7e7f2cce86df2072836a3a53f52b269d1256116474653b51a78ee0",
+        "c16a265e50efd3a28bdb2f4a300be8a57e41ab7f6b80c463486ec8e6498f2b9f"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 11,
+      "recordingId": 44,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 11,
+      "channelName": "CH12",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 11186472,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH11.npy",
+      "npySha1": "d11e5c081074e1e7d728214cca3836f7dce1891e",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 44,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "ea792fe4",
+      "prefixHashes": [
+        "d634cf936094d4a838873896557fcd455b9beb7e30e830f75f1c7455e90ccdef",
+        "73ebde4d47f9de2a76ef8abecb79c5b05e5817b91d8416aa98c41efd399d481a",
+        "ea792fe4c3692f04bf430a16f6e29bf597ec7691dba9dac56b7783b7b85b7d49"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 12,
+      "recordingId": 45,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 12,
+      "channelName": "CH13",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 12203424,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH12.npy",
+      "npySha1": "c6d3c4057116f4227641c32f66c04b6568bb20cd",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 45,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "13e82ed0",
+      "prefixHashes": [
+        "15354f82c52a535ef5a5fbcacf56aeec97a2aada99badd2464fd37ede4faab7a",
+        "38a9bea6b996137e7c4aa20dd823cf15a90634ecbbfcc16c7f7063b6d0bffba1",
+        "13e82ed0e4dd014111794d535ddea3722ac97cb01c08045b97d239375ce083c1"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 13,
+      "recordingId": 46,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 13,
+      "channelName": "CH14",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 13220376,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH13.npy",
+      "npySha1": "a40580ab79dcd01d04a552e66a3bc784f7350e87",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 46,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "dc81bd93",
+      "prefixHashes": [
+        "a479c94e68e10be5ff1a065cb7d3b0bcd473cd55578364a7407a0b37ad3357ef",
+        "f1e24994f01e2650a070deb213d30de7fff3a5e562f63f111d791601aa8b475b",
+        "dc81bd936bf2b03c86577bbf1a231dd7578e61fd101c5af1677a93015ce0d864"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 14,
+      "recordingId": 47,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 14,
+      "channelName": "CH15",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 14237328,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH14.npy",
+      "npySha1": "186b4c5d319bb8f30fd6b064b4c7c5e7d0edabff",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 47,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "0fd329fc",
+      "prefixHashes": [
+        "6b67487e4dc846b12a31b709d89e6a17a24f2f21a68a641a93d5b6a1f9f4ca92",
+        "eb25a048bade4b0785a6c1940375c0052b4c0903325c5af762d7d8e94501dc25",
+        "0fd329fcefcad7005376322680f941b82c2ccfc8f7ff7b7a6c526c68f2cad57e"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 15,
+      "recordingId": 48,
+      "sourceFile": "M2_concat_fs1.mat",
+      "channel": 15,
+      "channelName": "CH16",
+      "fs": 1.0,
+      "nSamples": 1016952,
+      "globalOffset": 15254280,
+      "units": "V",
+      "unitsNote": "verified 2026-09-23 (fixup-b): the M2 export family by scale only \u2014 baselines -0.11 to -0.63, noise MAD 0.010-0.013 mV if volts, the verified M2_aug range; no store snippet covers this file.",
+      "npy": "DATA/derived/channels/M2_concat_fs1/CH15.npy",
+      "npySha1": "8d66c75954958df56e5cf84933edd0721e87c709",
+      "npyBytes": 8135744,
+      "span": [
+        0,
+        1016952
+      ],
+      "recipe": {
+        "recording_id": 48,
+        "span": [
+          0,
+          1016952
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "85ff7ea9",
+      "prefixHashes": [
+        "4a85d96674424bdaee4339c414b7fd1b82ddad2735666abb06afa5cc6b0fe3d6",
+        "147a705b9710cc1d6f793d4061b7a013e631d639c0876959a70eed5ae31ef930",
+        "85ff7ea98eb6450bc168e99eeb810546bc1bab9d0c3f8244467854f4f200c094"
+      ],
+      "chunks": []
+    }
+  ]
+}

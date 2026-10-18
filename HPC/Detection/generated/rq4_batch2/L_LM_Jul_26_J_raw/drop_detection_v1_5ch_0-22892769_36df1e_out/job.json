@@ -1,0 +1,14 @@
+{
+  "kind": "detection_chain",
+  "specHash": "36df1e72ad62",
+  "tasks": 5,
+  "label": "drop_detection_v1",
+  "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/drop_detection_v1_5ch_0-22892769_36df1e.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5"
+  ]
+}

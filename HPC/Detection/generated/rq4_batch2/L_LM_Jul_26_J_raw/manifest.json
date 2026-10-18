@@ -1,0 +1,967 @@
+{
+  "source": "L_LM_Jul_26_J_raw.mat",
+  "span": [
+    0,
+    22892769
+  ],
+  "jobs": [
+    {
+      "label": "drop_detection_v1",
+      "template": "drop_detection_v1",
+      "specHash": "36df1e72ad62",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/drop_detection_v1_5ch_0-22892769_36df1e.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/drop_detection_v1_5ch_0-22892769_36df1e_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "drop_detection_v5",
+      "template": "drop_detection_v5",
+      "specHash": "0f7f5b2d31a3",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/drop_detection_v5_5ch_0-22892769_0f7f5b.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/drop_detection_v5_5ch_0-22892769_0f7f5b_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "symbol_search",
+      "template": "symbol_search",
+      "specHash": "4b6910b5b387",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/symbol_search_5ch_0-22892769_4b6910.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/symbol_search_5ch_0-22892769_4b6910_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "wavelet_encoded",
+      "template": "wavelet_encoded",
+      "specHash": "a64392fa71ec",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/wavelet_encoded_5ch_0-22892769_a64392.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/wavelet_encoded_5ch_0-22892769_a64392_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "noise_threshold",
+      "template": "noise_threshold",
+      "specHash": "0c2ac48acc16",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/noise_threshold_5ch_0-22892769_0c2ac4.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/noise_threshold_5ch_0-22892769_0c2ac4_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "deconvolved_troughs",
+      "template": "deconvolved_troughs",
+      "specHash": "7efbd6a31659",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/deconvolved_troughs_5ch_0-22892769_7efbd6.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/deconvolved_troughs_5ch_0-22892769_7efbd6_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "OASIS_Deconvolution",
+      "template": "OASIS_Deconvolution",
+      "specHash": "a50f598380a7",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/OASIS_Deconvolution_5ch_0-22892769_a50f59.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/OASIS_Deconvolution_5ch_0-22892769_a50f59_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "BEADs_invert_detect_v1",
+      "template": "BEADs_invert_detect_v1",
+      "specHash": "acc3996d1023",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/BEADs_invert_detect_v1_5ch_0-22892769_acc399.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/BEADs_invert_detect_v1_5ch_0-22892769_acc399_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "drop_detection_v1__slope_sigma_4",
+      "template": "drop_detection_v1__slope_sigma_4",
+      "specHash": "0bcb32151883",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/drop_detection_v1__slope_sigma_4_5ch_0-22892769_0bcb32.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/drop_detection_v1__slope_sigma_4_5ch_0-22892769_0bcb32_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "drop_detection_v1__slope_sigma_12",
+      "template": "drop_detection_v1__slope_sigma_12",
+      "specHash": "4e961df9fddc",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/drop_detection_v1__slope_sigma_12_5ch_0-22892769_4e961d.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/drop_detection_v1__slope_sigma_12_5ch_0-22892769_4e961d_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "drop_detection_v5__same_fraction_0p5",
+      "template": "drop_detection_v5__same_fraction_0p5",
+      "specHash": "066a6cafc6d9",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/drop_detection_v5__same_fraction_0p5_5ch_0-22892769_066a6c.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/drop_detection_v5__same_fraction_0p5_5ch_0-22892769_066a6c_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "drop_detection_v5__same_fraction_0p7",
+      "template": "drop_detection_v5__same_fraction_0p7",
+      "specHash": "d605f5cd16cc",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/drop_detection_v5__same_fraction_0p7_5ch_0-22892769_d605f5.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/drop_detection_v5__same_fraction_0p7_5ch_0-22892769_d605f5_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "wavelet_encoded__level_3",
+      "template": "wavelet_encoded__level_3",
+      "specHash": "a7b17c2e3986",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/wavelet_encoded__level_3_5ch_0-22892769_a7b17c.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/wavelet_encoded__level_3_5ch_0-22892769_a7b17c_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "wavelet_encoded__level_5",
+      "template": "wavelet_encoded__level_5",
+      "specHash": "c7946786698b",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/wavelet_encoded__level_5_5ch_0-22892769_c79467.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/wavelet_encoded__level_5_5ch_0-22892769_c79467_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "symbol_search__seconds_per_symbol_10",
+      "template": "symbol_search__seconds_per_symbol_10",
+      "specHash": "53935fae54a1",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/symbol_search__seconds_per_symbol_10_5ch_0-22892769_53935f.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/symbol_search__seconds_per_symbol_10_5ch_0-22892769_53935f_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "symbol_search__seconds_per_symbol_40",
+      "template": "symbol_search__seconds_per_symbol_40",
+      "specHash": "d63391d52dbf",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/symbol_search__seconds_per_symbol_40_5ch_0-22892769_d63391.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/symbol_search__seconds_per_symbol_40_5ch_0-22892769_d63391_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "noise_threshold__k_sigma_3",
+      "template": "noise_threshold__k_sigma_3",
+      "specHash": "dae994c41770",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/noise_threshold__k_sigma_3_5ch_0-22892769_dae994.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/noise_threshold__k_sigma_3_5ch_0-22892769_dae994_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "noise_threshold__k_sigma_6",
+      "template": "noise_threshold__k_sigma_6",
+      "specHash": "c32cfe8ba512",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/noise_threshold__k_sigma_6_5ch_0-22892769_c32cfe.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/noise_threshold__k_sigma_6_5ch_0-22892769_c32cfe_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "signal_threshold__threshold_mV_m2",
+      "template": "signal_threshold__threshold_mV_m2",
+      "specHash": "612d037efb53",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/signal_threshold__threshold_mV_m2_5ch_0-22892769_612d03.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/signal_threshold__threshold_mV_m2_5ch_0-22892769_612d03_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "signal_threshold__threshold_mV_m5",
+      "template": "signal_threshold__threshold_mV_m5",
+      "specHash": "d60a766ebf08",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/signal_threshold__threshold_mV_m5_5ch_0-22892769_d60a76.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/signal_threshold__threshold_mV_m5_5ch_0-22892769_d60a76_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "signal_threshold__threshold_mV_m10",
+      "template": "signal_threshold__threshold_mV_m10",
+      "specHash": "d98a54630161",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/signal_threshold__threshold_mV_m10_5ch_0-22892769_d98a54.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/signal_threshold__threshold_mV_m10_5ch_0-22892769_d98a54_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "deconvolved_troughs__recovery_half_s_60",
+      "template": "deconvolved_troughs__recovery_half_s_60",
+      "specHash": "8f184146ece8",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/deconvolved_troughs__recovery_half_s_60_5ch_0-22892769_8f1841.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/deconvolved_troughs__recovery_half_s_60_5ch_0-22892769_8f1841_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "deconvolved_troughs__recovery_half_s_240",
+      "template": "deconvolved_troughs__recovery_half_s_240",
+      "specHash": "48b93f726975",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/deconvolved_troughs__recovery_half_s_240_5ch_0-22892769_48b93f.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/deconvolved_troughs__recovery_half_s_240_5ch_0-22892769_48b93f_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "OASIS_Deconvolution__threshold_3",
+      "template": "OASIS_Deconvolution__threshold_3",
+      "specHash": "246d37b4ac25",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/OASIS_Deconvolution__threshold_3_5ch_0-22892769_246d37.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/OASIS_Deconvolution__threshold_3_5ch_0-22892769_246d37_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "OASIS_Deconvolution__threshold_5",
+      "template": "OASIS_Deconvolution__threshold_5",
+      "specHash": "5dad809e84c0",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/OASIS_Deconvolution__threshold_5_5ch_0-22892769_5dad80.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/OASIS_Deconvolution__threshold_5_5ch_0-22892769_5dad80_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "BEADs_invert_detect_v1__delta_mv_5",
+      "template": "BEADs_invert_detect_v1__delta_mv_5",
+      "specHash": "7d6947f398e1",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/BEADs_invert_detect_v1__delta_mv_5_5ch_0-22892769_7d6947.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/BEADs_invert_detect_v1__delta_mv_5_5ch_0-22892769_7d6947_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "BEADs_invert_detect_v1__delta_mv_25",
+      "template": "BEADs_invert_detect_v1__delta_mv_25",
+      "specHash": "52b8bc2f9411",
+      "kind": "cpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/BEADs_invert_detect_v1__delta_mv_25_5ch_0-22892769_52b8bc.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/BEADs_invert_detect_v1__delta_mv_25_5ch_0-22892769_52b8bc_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_fusion3_10min",
+      "template": "cnn_fusion3_10min",
+      "specHash": "8934e1f2b4a6",
+      "kind": "gpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_fusion3_10min_5ch_0-22892769_8934e1.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_fusion3_10min_5ch_0-22892769_8934e1_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_fusion3_1min",
+      "template": "cnn_fusion3_1min",
+      "specHash": "52bdecc920d4",
+      "kind": "gpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_fusion3_1min_5ch_0-22892769_52bdec.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_fusion3_1min_5ch_0-22892769_52bdec_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_fusion3_60min",
+      "template": "cnn_fusion3_60min",
+      "specHash": "190d5381015c",
+      "kind": "gpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_fusion3_60min_5ch_0-22892769_190d53.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_fusion3_60min_5ch_0-22892769_190d53_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_gadf_10min",
+      "template": "cnn_gadf_10min",
+      "specHash": "9f07d30438d9",
+      "kind": "gpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_gadf_10min_5ch_0-22892769_9f07d3.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_gadf_10min_5ch_0-22892769_9f07d3_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_gadf_1min",
+      "template": "cnn_gadf_1min",
+      "specHash": "381b1be388ec",
+      "kind": "gpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_gadf_1min_5ch_0-22892769_381b1b.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_gadf_1min_5ch_0-22892769_381b1b_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_gadf_60min",
+      "template": "cnn_gadf_60min",
+      "specHash": "1cdee2beb814",
+      "kind": "gpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_gadf_60min_5ch_0-22892769_1cdee2.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_gadf_60min_5ch_0-22892769_1cdee2_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_gasf_10min",
+      "template": "cnn_gasf_10min",
+      "specHash": "d87cf4c588fb",
+      "kind": "gpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_gasf_10min_5ch_0-22892769_d87cf4.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_gasf_10min_5ch_0-22892769_d87cf4_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_gasf_1min",
+      "template": "cnn_gasf_1min",
+      "specHash": "2e8d27124e51",
+      "kind": "gpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_gasf_1min_5ch_0-22892769_2e8d27.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_gasf_1min_5ch_0-22892769_2e8d27_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_gasf_60min",
+      "template": "cnn_gasf_60min",
+      "specHash": "fbab720e97e0",
+      "kind": "gpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_gasf_60min_5ch_0-22892769_fbab72.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_gasf_60min_5ch_0-22892769_fbab72_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_recurrence_10min",
+      "template": "cnn_recurrence_10min",
+      "specHash": "fc6afaaad1f5",
+      "kind": "gpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_recurrence_10min_5ch_0-22892769_fc6afa.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_recurrence_10min_5ch_0-22892769_fc6afa_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_recurrence_1min",
+      "template": "cnn_recurrence_1min",
+      "specHash": "0fc728a97f1c",
+      "kind": "gpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_recurrence_1min_5ch_0-22892769_0fc728.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_recurrence_1min_5ch_0-22892769_0fc728_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_recurrence_60min",
+      "template": "cnn_recurrence_60min",
+      "specHash": "deed982e0d66",
+      "kind": "gpu",
+      "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_recurrence_60min_5ch_0-22892769_deed98.chain.json",
+      "out": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_recurrence_60min_5ch_0-22892769_deed98_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4",
+        "CH5"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    }
+  ],
+  "refused": [],
+  "unit": "mV",
+  "volts": false,
+  "fs": 10.0,
+  "samples": 22892769,
+  "mpChannels": [],
+  "leftOut": [
+    {
+      "label": "Wavelet_detection_prototype",
+      "reason": "detection.dehshibi_spikes holds a 99-scale array over the whole span: 16.9 GB here, over 4 GB; it waits for windowed runs"
+    },
+    {
+      "label": "Wavelet_detection_prototype__epsilon_factor_0p02",
+      "reason": "detection.dehshibi_spikes holds a 99-scale array over the whole span: 16.9 GB here, over 4 GB; it waits for windowed runs"
+    },
+    {
+      "label": "Wavelet_detection_prototype__epsilon_factor_0p1",
+      "reason": "detection.dehshibi_spikes holds a 99-scale array over the whole span: 16.9 GB here, over 4 GB; it waits for windowed runs"
+    }
+  ],
+  "heavy": true,
+  "mpLeftOut": "a whole-channel profile here is about 15.9 h on the A100 (22,892,769 samples: the cost grows with the square of the length), over the 1 h limit for this batch"
+}

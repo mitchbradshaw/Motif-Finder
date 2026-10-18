@@ -1,0 +1,133 @@
+{
+  "prefix": "rq4b",
+  "datasets": [
+    {
+      "source": "M2_concat_fs1.mat",
+      "folder": "HPC/Detection/generated/rq4_batch2/M2_concat_fs1",
+      "jobs": 43,
+      "tasks": 674,
+      "refused": [],
+      "leftOut": [],
+      "heavy": false,
+      "unit": "V",
+      "mpChannels": [
+        "CH1",
+        "CH2"
+      ],
+      "mpLeftOut": null
+    },
+    {
+      "source": "M4_aug_concat_fs1.mat",
+      "folder": "HPC/Detection/generated/rq4_batch2/M4_aug_concat_fs1",
+      "jobs": 43,
+      "tasks": 674,
+      "refused": [],
+      "leftOut": [],
+      "heavy": false,
+      "unit": "undeclared (read as volts)",
+      "mpChannels": [
+        "CH1_A1",
+        "CH2_A1"
+      ],
+      "mpLeftOut": null
+    },
+    {
+      "source": "L_LM_Jul_26_J_raw.mat",
+      "folder": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw",
+      "jobs": 39,
+      "tasks": 195,
+      "refused": [],
+      "leftOut": [
+        {
+          "label": "Wavelet_detection_prototype",
+          "reason": "detection.dehshibi_spikes holds a 99-scale array over the whole span: 16.9 GB here, over 4 GB; it waits for windowed runs"
+        },
+        {
+          "label": "Wavelet_detection_prototype__epsilon_factor_0p02",
+          "reason": "detection.dehshibi_spikes holds a 99-scale array over the whole span: 16.9 GB here, over 4 GB; it waits for windowed runs"
+        },
+        {
+          "label": "Wavelet_detection_prototype__epsilon_factor_0p1",
+          "reason": "detection.dehshibi_spikes holds a 99-scale array over the whole span: 16.9 GB here, over 4 GB; it waits for windowed runs"
+        }
+      ],
+      "heavy": true,
+      "unit": "mV",
+      "mpChannels": [],
+      "mpLeftOut": "a whole-channel profile here is about 15.9 h on the A100 (22,892,769 samples: the cost grows with the square of the length), over the 1 h limit for this batch"
+    }
+  ],
+  "inputs": [
+    "DATA/derived/channels/M2_concat_fs1/CH0.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH1.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH2.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH3.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH4.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH5.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH6.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH7.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH8.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH9.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH10.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH11.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH12.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH13.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH14.npy",
+    "DATA/derived/channels/M2_concat_fs1/CH15.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH0.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH1.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH2.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH3.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH4.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH5.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH6.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH7.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH8.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH9.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH10.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH11.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH12.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH13.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH14.npy",
+    "DATA/derived/channels/M4_aug_concat_fs1/CH15.npy",
+    "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH0.npy",
+    "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH1.npy",
+    "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH2.npy",
+    "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH3.npy",
+    "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH4.npy",
+    "MODELS/GADF_cnn.pth",
+    "MODELS/GASF_cnn.pth",
+    "MODELS/fusion_cnn_3.pth",
+    "MODELS/recurrence_cnn.pth"
+  ],
+  "packs": [
+    {
+      "name": "rq4b_cpu1",
+      "script": "HPC/Detection/generated/rq4_batch2/rq4b_cpu1.sh",
+      "tasks": 960,
+      "parallel": 8,
+      "estimateCoreS": 56620
+    },
+    {
+      "name": "rq4b_cpu2",
+      "script": "HPC/Detection/generated/rq4_batch2/rq4b_cpu2.sh",
+      "tasks": 135,
+      "parallel": 3,
+      "estimateCoreS": 115099
+    },
+    {
+      "name": "rq4b_gpuA",
+      "script": "HPC/Detection/generated/rq4_batch2/rq4b_gpuA.sh",
+      "tasks": 225,
+      "parallel": 8,
+      "estimateCoreS": 130300
+    },
+    {
+      "name": "rq4b_gpuB",
+      "script": "HPC/Detection/generated/rq4_batch2/rq4b_gpuB.sh",
+      "tasks": 223,
+      "parallel": 8,
+      "estimateCoreS": 130308
+    }
+  ]
+}

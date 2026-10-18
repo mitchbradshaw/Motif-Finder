@@ -1,0 +1,14 @@
+{
+  "kind": "detection_chain",
+  "specHash": "4b6910b5b387",
+  "tasks": 5,
+  "label": "symbol_search",
+  "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/symbol_search_5ch_0-22892769_4b6910.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5"
+  ]
+}

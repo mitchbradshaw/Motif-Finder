@@ -1,0 +1,14 @@
+{
+  "kind": "detection_chain",
+  "specHash": "7efbd6a31659",
+  "tasks": 5,
+  "label": "deconvolved_troughs",
+  "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/deconvolved_troughs_5ch_0-22892769_7efbd6.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5"
+  ]
+}

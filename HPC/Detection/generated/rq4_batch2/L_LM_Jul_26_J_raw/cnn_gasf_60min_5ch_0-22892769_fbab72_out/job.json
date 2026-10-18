@@ -1,0 +1,14 @@
+{
+  "kind": "detection_chain",
+  "specHash": "fbab720e97e0",
+  "tasks": 5,
+  "label": "cnn_gasf_60min",
+  "spec": "HPC/Detection/generated/rq4_batch2/L_LM_Jul_26_J_raw/cnn_gasf_60min_5ch_0-22892769_fbab72.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5"
+  ]
+}

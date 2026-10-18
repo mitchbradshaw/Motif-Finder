@@ -1,0 +1,389 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "BEADs_invert_detect_v1__delta_mv_5",
+  "runKey": null,
+  "sessionId": null,
+  "template": "BEADs_invert_detect_v1__delta_mv_5",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "beads",
+      "params": {
+        "baseline_period_s": 7200,
+        "filter_order": 2,
+        "polarity": "drop",
+        "sparsity": 1
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "preprocessing",
+      "algorithm": "invert",
+      "params": {},
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "spike_v1",
+      "params": {
+        "d": 30,
+        "delta_mv": 5.0,
+        "polarity": "both",
+        "span_s": 400,
+        "width": 2000
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    22892769
+  ],
+  "sourceFile": "L_LM_Jul_26_J_raw.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 5,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 540,
+      "sourceFile": "L_LM_Jul_26_J_raw.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 10.0,
+      "nSamples": 22892769,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "verified 2026-09-23 (fixup-b): its CH2 block-meaned 10:1 is 998.2 x the Mushroom_260720 excerpt, a volts file \u2014 the x1000 of a millivolt recording (Pipelines/drop_motifs/lionsmane12.py found the same); noise MAD 0.03-0.25 mV.",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH0.npy",
+      "npySha1": "9f03c9643ac6fb091bf9cb884f63c5f0bea5be6f",
+      "npyBytes": 183142280,
+      "span": [
+        0,
+        22892769
+      ],
+      "recipe": {
+        "recording_id": 540,
+        "span": [
+          0,
+          22892769
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 5.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "046369ab",
+      "prefixHashes": [
+        "79dc848842d17f63bbfd1a10990608d9c924bff5b41b344292473d62b6d99802",
+        "340bc1a10abee2c77a15000143662b7e1fc3f97d36971d466e7c159a656ae9f4",
+        "ea3496d4b8504ea574b472545d1df4d5805bad05e977a591e1304c04ac3c2f8d"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 541,
+      "sourceFile": "L_LM_Jul_26_J_raw.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 10.0,
+      "nSamples": 22892769,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "verified 2026-09-23 (fixup-b): its CH2 block-meaned 10:1 is 998.2 x the Mushroom_260720 excerpt, a volts file \u2014 the x1000 of a millivolt recording (Pipelines/drop_motifs/lionsmane12.py found the same); noise MAD 0.03-0.25 mV.",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH1.npy",
+      "npySha1": "c91fb07cd103d5acf5943404a4515f6585de3a13",
+      "npyBytes": 183142280,
+      "span": [
+        0,
+        22892769
+      ],
+      "recipe": {
+        "recording_id": 541,
+        "span": [
+          0,
+          22892769
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 5.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "5d31d229",
+      "prefixHashes": [
+        "38d98307af0ea27fae0fd8f9513c5344748bb1be5dccea31010bb27e3587a53e",
+        "befc8d3d93efa3dc3309ea792dd6990a242bc1f90418f54eb6d2bef6cc209673",
+        "addfd8a898ceca45106bb0fb5065108ad6067e569c30522f0137691b9236300f"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 542,
+      "sourceFile": "L_LM_Jul_26_J_raw.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 10.0,
+      "nSamples": 22892769,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "verified 2026-09-23 (fixup-b): its CH2 block-meaned 10:1 is 998.2 x the Mushroom_260720 excerpt, a volts file \u2014 the x1000 of a millivolt recording (Pipelines/drop_motifs/lionsmane12.py found the same); noise MAD 0.03-0.25 mV.",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH2.npy",
+      "npySha1": "03b79e80dbd8f4d4f84920c07326dd1d19d96d1c",
+      "npyBytes": 183142280,
+      "span": [
+        0,
+        22892769
+      ],
+      "recipe": {
+        "recording_id": 542,
+        "span": [
+          0,
+          22892769
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 5.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "68e9131e",
+      "prefixHashes": [
+        "96f94fca9d2a70f4c64038bbd494ebebc3893fe44bf03a2e7987bac2c6f49542",
+        "c4998562bcd70d69b413d1a9ac79801961089ec40d1aa3b79104896d2be37762",
+        "1f7c22a34705fb16dec909946d09479dc6b0244378a0c8153d1aa3760aead6fb"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 543,
+      "sourceFile": "L_LM_Jul_26_J_raw.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 10.0,
+      "nSamples": 22892769,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "verified 2026-09-23 (fixup-b): its CH2 block-meaned 10:1 is 998.2 x the Mushroom_260720 excerpt, a volts file \u2014 the x1000 of a millivolt recording (Pipelines/drop_motifs/lionsmane12.py found the same); noise MAD 0.03-0.25 mV.",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH3.npy",
+      "npySha1": "1077439e9d05ad00b5341b703cf18263890768e0",
+      "npyBytes": 183142280,
+      "span": [
+        0,
+        22892769
+      ],
+      "recipe": {
+        "recording_id": 543,
+        "span": [
+          0,
+          22892769
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 5.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "2581100f",
+      "prefixHashes": [
+        "8d6fde27c8851693ccde9397a76acf9d2c2099dcfc206fcc7e026bd841d5cdad",
+        "78be609f7b774e0461262069e5022ce1889eb23a6267157b0d923525ac4b50b7",
+        "96e99b6ab674a0cb9c24059508c6af8fa00909960d7c84584b8053155dc0548f"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 544,
+      "sourceFile": "L_LM_Jul_26_J_raw.mat",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 10.0,
+      "nSamples": 22892769,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "verified 2026-09-23 (fixup-b): its CH2 block-meaned 10:1 is 998.2 x the Mushroom_260720 excerpt, a volts file \u2014 the x1000 of a millivolt recording (Pipelines/drop_motifs/lionsmane12.py found the same); noise MAD 0.03-0.25 mV.",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs10/CH4.npy",
+      "npySha1": "54587b7b0e4c9c1b01fa1b48cdd1b5b488bae1c1",
+      "npyBytes": 183142280,
+      "span": [
+        0,
+        22892769
+      ],
+      "recipe": {
+        "recording_id": 544,
+        "span": [
+          0,
+          22892769
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 5.0,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "f36d4648",
+      "prefixHashes": [
+        "ef2bbaac56aaee2080be3099e44d0412f5fd5575b4f206e3f13bc6bb0917ae0c",
+        "324701529ff6ec5d9b578e6aff2e715848c3c428112604fb53c134c36145c999",
+        "e35810170df5cba4bf6eba8d0e24d6e92b112d87f7750395b2e2399675f362b8"
+      ],
+      "chunks": []
+    }
+  ]
+}

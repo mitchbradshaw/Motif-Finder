@@ -549,3 +549,23 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
 - 2026-10-18 · the researcher · the A100 check: `stump` and `gpu_stump` agree within float rounding (≤ 2.3e-10, no
   sample changing side at 6, 8 or 10); one whole channel's profile takes 12.3 min on the A100; the `a100` partition
   runs 5 h (recorded in `Working/config.py`). The matrix-profile decision now recommends the cross-backend alias.
+- 2026-10-18 · batch 2 · the sweep extended to three more recordings, one submission
+  (`HPC/Detection/generated/rq4_batch2/submit_rq4b.sh`, `scripts/rq4_overnight.py build-batch`):
+  - **Recordings:** M2_concat (16 ch, 1 Hz, V), M4_aug (16 ch, 1 Hz, undeclared, read as V) and L_LM_Jul_26_J
+    (5 ch, 10 Hz, mV). That is 125 chain jobs and 1,543 tasks.
+  - **MJu26a was swapped for L_LM by the researcher:** MJu26a is unevenly sampled (dt 0.124–2.83 s; at 7.25 Hz it
+    reads as 564 h against about 636 h of real time). L_LM looks like five of its channels retimed to 10 Hz and
+    ×1000: block profiles correlate 0.87–0.97 and the spread ratio is 981–1029.
+  - **MJu26a's units:** it is declared mV but looks like volts. It was not built, so nothing depends on that yet.
+  - **Same settings as M2_aug:** whole signal, 1 phase-randomise draw, all CPU and CNN templates; a millivolt
+    recording runs the three mV `signal_threshold` copies instead of the V ones.
+  - **Matrix profile:** on the first two channels of M2_concat and M4_aug; left out of L_LM, where a whole-channel
+    profile would take about 16 h on the A100.
+  - **Left out of L_LM:** the three `Wavelet_detection_prototype` runs. `dehshibi_spikes` needs a 99 × n array
+    (16.9 GB there; measured, the allocation failed). They wait for windows.
+  - **Memory:** L_LM tasks measured locally at up to 5.3 GB (`wavelet_encoded`, 9 min) and 3.75 GB
+    (`deconvolved_troughs`), so L_LM's CPU tasks get their own pack, 3 at a time. M2_concat and M4_aug run 8 at a
+    time.
+  - **M4_aug is the held-out exam (RQ1b):** its results are for the Map and the detector comparison only. Keep M4
+    detections out of Review promotions and *Add N matches*. The import needs the held-out lock still off.
+  - Not yet run on the cluster.
