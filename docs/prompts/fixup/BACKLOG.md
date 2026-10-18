@@ -1,0 +1,75 @@
+# BACKLOG — the large outstanding changes (consolidated 2026-10-18)
+
+The one file that holds every outstanding change too large to do directly: items from the researcher's lists of
+2026-10-13, 2026-10-15 and 2026-10-18, the follow-ups the UX-1015 wave left behind, and the older "after wave 3"
+table. Each row is meant to become one prompt under `docs/prompts/fixup/`. When a prompt is written, replace the row
+with the prompt's name; when it merges, delete the row. Small items are not kept here: they are done directly and
+recorded in the commit log (`ux-1013:`, `ux-1018:` prefixes) and in `README.md`'s dated triage tables.
+
+Standing rules for any prompt cut from this file: the question to the researcher opens in plain language, then the
+options, then a recommendation (CLAUDE.md, "Talking to the researcher"); the five verdict words are fixed; buttons are
+never demoted to grey (`--blue-muted` is the muted colour); the UI gate is `tsc -b`, `npm run build`, the smoke walk
+against a sandbox bridge (never the researcher's 8765), and `pytest` if Python outside `webui/` changed.
+
+Sizes: **M** = a new route or component, one agent, a day; **L** = a design decision first, or several prompts.
+
+## 1. Decisions waiting on the researcher
+
+These block nothing else but each closes a row in `reports/UX-1015-evaluation.md`.
+
+| Decision | Options | Recommendation |
+|---|---|---|
+| AK: spike threshold δ default | 1 mV (shipped) vs a per-recording noise multiple | keep 1 mV; the noise multiple is a later block |
+| AK: a recording with no declared unit | read as volts (shipped) vs refuse until declared | read as volts, warn once; add the declaration to Datasets |
+| AM: default alignment for drop work | `centre` at 0.5 (shipped) vs `trough` at ⅓ | trough at ⅓ when the template is a drop detector, centre otherwise |
+| AO: baseline window | 600 s (shipped; absorbs drops that recover over 5–10 min) vs longer | expose it on the block card with the 600 s default; no code change until a case needs it |
+| AP: "half the grey per page" | count data lines or only instruction lines | instruction lines only; the 12 pages still over are data-heavy |
+| Header path strip (`ux-1013`) | keep / change / remove | awaiting the researcher's look |
+
+## 2. From the 2026-10-15 list — no prompt yet
+
+| Item | What is known | Decision needed | Size |
+|---|---|---|---|
+| **Pick a trace in the family overlay and act on it** | the overlay draws every member; the remove-member edit exists on the family page; wanted: click a trace → it is highlighted, its detection named, remove / send to Review from there | none | M |
+| **Reports** | three surfaces: a chain run and its block pages; detection runs and comparisons; the Export page with provenance. Nothing is drawn yet | format (printable HTML? PDF via matplotlib? Markdown?) and scope before the three prompts | L (three prompts) |
+| **Interval / event analysis pages, design pass** | the pages show every figure at once; wanted: three headline figures, the rest behind a toggle; the slope page likewise | which three figures per page — ask with the current figure list | M |
+| **Sequence family page** | `library/FamilyPage.tsx` renders `SequenceFamilyPlaceholder`; `GET /api/library/sequences` (`server/library.py:2428`, client `api.ts:917 getLibrarySequences`) exists and nothing calls it; `atlas?unit=sequences` is a working family grid | what a sequence family shows (member order, gaps, the shape of each element, the train statistics?) | M–L |
+| **Overlapping / joined detections policy** | only the two threshold blocks merge gaps today; other detectors emit overlapping spans that Review shows twice | open with the options in plain words: merge on emit, merge in Review, keep both and mark the overlap | M after the decision |
+
+## 3. From the 2026-10-18 list — the large items (code facts from the 2026-10-18 searches)
+
+| Item | What the code says | Decision needed | Size |
+|---|---|---|---|
+| **Review › `Edit span in Explore`** | `review/parts.tsx:105-118` navigates to `explore/span-edit/<detectionId>?from=review&queue=…&item=…`; `explore/SpanEditPage.tsx:24` calls `getSpanEdit`, which is `demo(spanEditDemo(id))` (`api/explore.ts:225`) and knows only `m-1846` (`fixtures/explore.ts:288`); saving is an in-memory demo write; the page ignores `from`/`queue`/`item` and reads `queue`/`candidate`/`of`/`return`. The core has `Working/library/revisions.py:91 add_revision`, `current_revision`, `revision_list` and no bridge route (`library.py:1907 _revisions_for` is read-only). Explore's own span comes from app state `explore.view` (`state.tsx:57`); sessionStorage `ub-proto-a:source` carries a span from Explore to Analyse, not into Explore | none | M |
+| **Discovery: which detector ran on which channel; "run on CH2"** | `WhereFires` (`discovery/RunsPage.tsx:103-173`) reads `GET /api/discovery/fires` (`discovery.py:871`), which returns zero counts for a channel a run never touched — the same as "ran, found nothing". `/api/discovery/map/dataset` → `Working/discovery/detection_map.py:462 channel_map` already has `cells[row][channel].state ∈ covered/not_run/running/failed/discarded`. `RunRow` shows "2 ch" (`chrome.tsx:497`) not which. Launch is `POST /api/discovery/templates/apply` (`discovery.py:2806`; callers `RunsPage.tsx:42`, `chrome.tsx:542`, `AddTemplateModal.tsx:136`) and mints a new run key `<name>_2` (`_next_key`) | is "run on CH2" an extension of the existing run (same key, more channels) or a sibling run? | M |
+| **Templates: share of `interesting` adjudications** | no route groups adjudications by template (the only verdict GROUP BYs are global: `registration.py:393`, `training_routes.py:323`); the scoreboard's `reviewed`/`interesting` (`Working/discovery/scoreboard.py:239-247`) counts detections inside reviewed coverage, a different measure; the card's score is `_last_score` (`discovery.py:647-663`) → `lastScore` in `_template_payload` (`discovery.py:592`), shown at `AddTemplateModal.tsx:229`. Needs adjudications → detections → runs → `discovery_runs.template_name` | which of the five verdicts count as "interesting" (accepted only? accepted + seed?) | M |
+| **Explore + Cross-channel: send unjudged motifs in a span to Review** | Explore › Signal "Take span" is real (`explore/SpanActions.tsx:44`, `POST /api/annotations/seed` `explore_routes.py:221`, writes one `seed` annotation, never detections). The drawer's "Send selected to Review" (`SignalDrawer.tsx:161`) and Cross-channel's "Review this window on all channels" (`CrossChannelPage.tsx:197`) are demo-only. Queues take `filters.detection_ids` (`Working/review/queues.py:211`; `find_open_queue`, `create_queue`, `extend_queue`); the window query is `corpus.spans` (`corpus.py:432`, `GET /api/channels/{id}/spans`); "unjudged" is `NOT EXISTS adjudications` (`queries.py:644`). Copy `discovery.py:4056 send_remainder_to_review` | none; route shape `POST /api/explore/span-review {recording_ids[], t0, t1}` | M |
+| **Cross-channel: artifact regions; a single-axis view** | an artifact region is an `annotations` row with verdict `artifact` (no region table; `schema.py:74 VERDICTS`), written only by Review (`Inspector.tsx:115`, `ClusterView.tsx:182`, `BlindTest.tsx:32`); Explore's take-span hardcodes `seed`; Settings only sets `cross_channel.artifact_max_lag_s` / `artifact_min_abs_r` (`AnalysisDefaultsPage.tsx:89`). Cross-channel is one `<svg>` per channel on one x scale with per-row y (`CrossChannelPage.tsx:268-367`; modes absolute / centred / per-channel; ~3.9 V of DC offset between channels) | one artifact annotation per channel or one per window? overlay as a fourth y-mode or a separate view? | M–L |
+| **Website speed pass** | the warm (`run_server.py:107` → `discovery.py:666 warm_last_scores`) runs in a daemon thread at startup: `corpus.warm_coverage` (462 s for 17 files on 2026-10-18) then `_last_score` per template. No lock; it competes for the GIL and SQLite. Caches are memory-only and rebuilt every restart: `corpus._COVERAGE_CACHE` (64 entries FIFO, key `(source_file, bins, verdicts, run_ids, method)` validated by `SB.channels_fingerprint`) and `scoreboard._SCORE_CACHE`. The fingerprint (`scoreboard.py:555`) hashes the settings rows (global — any settings change invalidates every file), each channel's human rows and every run's config/stitched/MIN-MAX detection id; a new run forces a full `_coverage` (`corpus.py:346`, `DIV.channel_divergence` over every channel × run). `GET /api/discovery/templates` (`discovery.py:696`) rescores every template on each open. The client `req()` (`api.ts:25`) has no timeout or AbortController; only jobs cancel (`POST /api/runs/{id}/cancel`). Memory `scoring-reads-perf-2026-10-18` has the earlier findings (quadratic matcher in the picker, corpus coverage as the home-page blocker) | disk cache keyed on the fingerprint vs incremental coverage per run; what the per-request budget is ("load times over X are blocked / cancellable") | L — dedicated agent |
+| **Polish / readability pass** | page by page after the speed pass; AP's per-page caption rule is the standard | none | L — dedicated agent |
+| **MJu26a at a uniform 10 Hz, parent of L_LM** | `scripts/rederive_channels.py:204 do_mju26a` writes the 16 raw rows as-is, `fs = 1/median(dt)`, `t.npy` saved and read by nothing; L_LM (`:241`) is 5 columns at an inferred 10 Hz, mV. Rows come from `Working/registration/kinds.py:503 _register_recording`. Detections, annotations, reviewed_spans and runs are all in **sample indices** (`schema.py:91-157`); the step cache key (`execution.py:122`) has no content hash, so overwriting the npy under the same ids serves stale results silently; matrix-profile and window-matrix stores flag staleness by `data_sha1`; HPC import (`chain_job.py:12-37`) checks the npy sha1 and would refuse the rq4 batch-2 results if the files changed. Lineage: `parent_recording_id`/`parent_offset`/`decimation` (`schema.py:490`) set only by the excerpt rule (`kinds.py:456`, child ≤ 200 000 samples, one channel); UI at `settings/DatasetsPage.tsx:166`; Review's shape code maps through it (`review.py:214-254`, needs `fs_parent == decimation × fs_child`). Resampler to reuse: `scripts/derive_dwij_mfs2.py:152 resample` (linear `np.interp` onto a 0, dt, 2dt… grid; manifest template at `:198`). MJu26a's unit is undeclared (`Working/units.py:137`) | linear vs nearest (linear flattens one-sample spikes); remap or retire the old MJu26a detections; **register a new source_file rather than overwrite** (keeps every id and the HPC hashes valid); how to write a whole-recording parent on all 5 L_LM rows (decimation 1, per-channel offset) or a `datasets`-level link; declare MJu26a as V; confirm MJu26a's span covers L_LM's 636 h | M |
+| **Library sequences — page and joiner** | `library/index.tsx:20-28` has no `sequences` case ("No Library page called…"); `atlas?unit=sequences` works; the family page is `SequenceFamilyPlaceholder` (`FamilyPage.tsx:146,159`); `getLibrarySequences` unused. Nothing joins adjacent detections into `sequences` rows: sequences arrive only via importers (`library/importers/sequences.py:170`, `catalogue.py:474`, `annotations.py:217`). Candidate joiners: `Working/interrogation/trains.py:395 find_trains` (gap rules logisi / maxinterval / adamatzky, emits `train_id`), `cycle_shapes.py:853 sequences_of`, `drop_motifs/detect.py:455 merge_up_runs` | the joining rule and its parameters; whether a joined sequence is a Library unit or an interrogation result (RQ1 precursor) | M page, L joiner |
+| **Seed-search page redesign** | `discovery/SeedPage.tsx`: toolbar (session, scope, null, cost, History); ScopeCard with the 3-at-a-time channel pager; left RunsCard in seed mode; SeedCard (source Seg, provenance, change-seed picker, disabled "+ seed", carry/rebind radios); ParamsCard (algorithm, window, scale bank, exclusion zone, overlap, revert, per-length null, cut histogram with a draggable threshold); NotPreviewed → SearchProgress → DistanceProfile + MatchesCard; ApplyBar (null mode, cost, Import HPC result, Save as template, Create SLURM script, Run seed search, Open in Runs) | the researcher's brief on what is confusing | L |
+| **Review item carries onset/extremum** | the medium half of the span-set highlight fix: Review draws the whole emitted window (`review/parts.tsx:75`, from `start_idx`/`end_idx` at `review.py:344`); Analyse's core is `marks.onset_s→extremum_s` (`SpanSetView.tsx:62`). Storing the marks on the review item lets Review draw the same core | none | M |
+
+## 4. Older — "what is left after wave 3" (predates this session; verify before cutting a prompt)
+
+| Item | Status |
+|---|---|
+| **Review behaviour** — R3 (a class 1/2/3/4/9 is never stored), R7 (a rediscovery can be put twice; carry the prior verdict), R8 "sorted by score" wording, R16 coherence; the blind-labelling mode for RQ1's yardstick (Q42) | decided (Q16, Q42); no prompt written; R3 and R7 cost the researcher real time |
+| **Library** — click a cluster → its members in place in the `H` slideshow (Q-L6/Q-E6); the rose reference = median steepest slope over human-accepted motifs | decisions made; no prompt |
+| **Jobs, Models, Training** — fixture pages wearing the `demo data` chip; labels must come from `corpus.dataset_name` | partly wired since; check each page |
+| **`I` U4** — Explore's fine span adjustment | small and self-contained |
+| **U13** global search | needs a design |
+| **U12** the phantom Ctrl-C | needs reproduction |
+
+## 5. Small follow-ups still open (do directly when passing)
+
+- Models › Launch's setup line shows align and detrend but not the anchor fraction (AM).
+- The cubic detrend (`detrend=cubic`) exists on the bridge for Cross-channel and has no page control (AQ).
+
+## 6. Housekeeping
+
+- The matrix-profile persist fix `fd0143b` (null draws overwrote the real run's `mp_v2_*.npz`) is on `claude/peaceful-sutherland-22bdf8`, not main — memory `mp-persist-null-collision`.
+- Unmerged local branches from other sessions: `claude/admiring-rubin-6854f1`, `claude/peaceful-sutherland-22bdf8`, `claude/wonderful-engelbart-da8936`.
+- The seven UX-1015 agent worktrees under `.claude/worktrees/` and the 8766 sandbox bridge are still in place (unlink any DATA junction with `cmd /c rmdir` before `git worktree remove`).

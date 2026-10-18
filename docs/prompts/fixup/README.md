@@ -365,6 +365,8 @@ one or two files and no new route; **M** = a new route or component; **L** = a d
 | Library sequences | no `sequences` page case in `library/index.tsx`; `atlas?unit=sequences` works; `SequenceFamilyPlaceholder` on the family page; `getLibrarySequences` route exists unused; nothing joins adjacent detections into `sequences` rows — the gap rules in `Working/interrogation/trains.py:395` (logisi, maxinterval, adamatzky) are the candidate joiner | the joining rule, and what a sequence family page shows | M page, L joiner |
 | Seed-search page redesign | toolbar, scope card, runs column, seed card + params card, preview/progress/matches, an apply bar with five buttons | a brief from the researcher on what is confusing | L |
 
+Every large item above, with the earlier lists, is consolidated in [`BACKLOG.md`](BACKLOG.md).
+
 Still open from earlier lists: pick a trace in the family overlay; Reports (three prompts after a format decision); the
 interval/event page design pass; the overlapping/joined detections policy; the four `decide` rows in
 `reports/UX-1015-evaluation.md`; Models › Launch's setup line missing the anchor; the cubic detrend without a page
