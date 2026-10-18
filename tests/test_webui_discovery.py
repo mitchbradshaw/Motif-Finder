@@ -377,6 +377,30 @@ def test_the_scoreboard_cells_are_the_tables_own_numbers(client):
         assert c["reviewedH"] == pytest.approx(3000 / 3600, abs=5e-4)
 
 
+def test_the_scoreboard_scores_only_the_channels_in_scope(client, monkeypatch):
+    """Every Discovery tab loads the scoreboard over every done run. A run over
+    M2_aug is 16 channel runs; scoring all of them for a 3-channel scope and
+    dropping 13 rows was most of a 66 s read (perf, 2026-10-18). The rows it
+    does show are the ones the wider read showed."""
+    from Working.discovery import scoreboard as SB
+    out = _apply(client)
+    params = {"runs": out["run_key"], "t0": 0.0, "t1": N / 3600.0}
+    both = client.get("/api/discovery/scoreboard", params={**params, "channels": f"{CH[0]},{CH[1]}"}).json()[0]
+    SB.clear_score_cache()
+    scored = []
+    real = SB.channel_score
+
+    def counted(conn, run_id, **kw):
+        scored.append(run_id)
+        return real(conn, run_id, **kw)
+
+    monkeypatch.setattr(SB, "channel_score", counted)
+    one = client.get("/api/discovery/scoreboard", params={**params, "channels": CH[0]}).json()[0]
+    assert [c["channel"] for c in one["channels"]] == [CH[0]]
+    assert len(scored) == 1, f"{len(scored)} channel runs scored for a one-channel scope"
+    assert one["channels"][0] == next(c for c in both["channels"] if c["channel"] == CH[0])
+
+
 def test_recall_is_a_value_with_its_hours_or_the_words_for_having_none(client):
     out = _apply(client)
     sb = client.get("/api/discovery/scoreboard", params={
