@@ -137,6 +137,9 @@ def _run(x, t, fs, rule="logisi", min_events=3, max_core_gap_s=0.0, theta_mult=1
         "anchor_used": "onset_idx" if use_onset else "span_start",
         "n_trains": int(offset), "n_in_trains": n_in, "fraction_in_trains": (n_in / n) if n else None,
         "train_size_distribution": TR.size_distribution(all_sizes),
+        # ig-pages: the sizes themselves, groups in first-seen order and trains in time order within each, so the
+        # page's size histogram reads the list the LZ was computed over (a payload key; nothing computed anew)
+        "train_sizes": [int(s) for s in all_sizes],
         "refused": "; ".join(refusals) or None,
         "no_trains_reason": ("; ".join(reasons) or "no events") if offset == 0 else None,
         "warnings": warnings, "write_group": bool(write_group),

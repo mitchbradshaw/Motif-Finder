@@ -3,7 +3,7 @@
  * a per-event table, a sliding strip (P8) and — for a large family — a sampled overlay. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Badge, Button, Callout, Chip, ColourDot, Dropdown, Icon, IconButton, InfoTip, LineChart, MiniTrace, Page, Rose, Seg, SectionCard,
+  Badge, Button, Callout, Chip, ColourDot, Dropdown, Headline, Icon, IconButton, InfoTip, LineChart, MiniTrace, Page, Rose, Seg, SectionCard,
   Slider, Table, fmtInt, recordDemoWrite, useNotWired, useQueryState, useSim, type BadgeStatus, type Column, type SortState,
 } from '../kit'
 import { Header } from '../shell/Header'
@@ -318,6 +318,9 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
       <AddStagePopover open={popover === 'stage'} onClose={() => setPopover(null)} anchorRef={sourceRef}
         onPick={kind => { navigate(interrogationHref('block1', familyId, kind)); push({ text: `01 is now ${UPSTREAMS[kind].block}` }) }} />
 
+      {/* ig-pages (decided with the researcher, 2026-10-18): the anatomy plot, the rose (or the overlay) and the
+          thumbnail strip lead; the readout, the rules and the per-event table fold under one "more" toggle */}
+      <Headline page="interrogation-slope" testid="headline" leads={
       <div className={large ? 'ig-cols even' : 'ig-cols wide-right'}>
         {/* ------------------------------------------------ anatomy ------------------------------------------------ */}
         <SectionCard testid="anatomy-card" number="01" title={block.upstream.blockTitle}
@@ -378,24 +381,6 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
                     <span><Icon name="info" size={11} /> window {fmtT(t(-anatomy.window.pre))} … {fmtT(t(event.duration_s + anatomy.window.post))} from onset · context padding {paddingLabel(padding)} (Source settings) · the stored samples · y measured from the trace drawn</span>
                   </div>
                 )}
-
-                <div className="ig-readout" style={{ marginTop: 8 }} data-testid="event-readout">
-                  <span>event <b>{event.id}</b> · {event.channel} · {event.onset_h.toFixed(2)} h</span>
-                  <span>depth <b>{event.depth_mV.toFixed(3)} mV</b></span>
-                  <span>duration <b>{fmtSec(event.duration_s)} s</b></span>
-                  <span>recovery <b data-testid="readout-recovery">{event.recovery_s == null ? 'not recovered' : `${fmtSec(event.recovery_s)} s`}</b></span>
-                  {upstream === 'event-shape' && <span>FWHM <b>{event.measures?.fwhm_s == null ? '—' : `${fmtSec(event.measures.fwhm_s)} s`}</b></span>}
-                  {upstream === 'event-shape' && <span>rise <b>{event.measures?.rise_time_s == null ? '— (a drop has no rise)' : `${fmtSec(event.measures.rise_time_s)} s`}</b></span>}
-                  <span>max slope <b>{fmtSlope(event.max_slope)} mV/s</b></span>
-                  <span>steepest at <b data-testid="readout-steepest">{anatomy.trace && anatomy.steepest_s != null
-                    ? `${fmtT(t(anatomy.steepest_s))}${anatomy.trough_s ? ` · ${Math.round(100 * anatomy.steepest_s / anatomy.trough_s)} % of the fall` : ''}`
-                    : 'not measured'}</b></span>
-                  <span>angle <b>{fmtAngle(event)}</b></span>
-                  <span>peakedness <b>{event.peakedness.toFixed(2)}</b></span>
-                </div>
-                <div className="ig-foot" style={{ marginTop: 4 }} data-testid="units-note">
-                  units {unitLabel} · {u.note} · the angle is the core's: {rose.caption || 'arctan of the steepest slope over the stated reference'}
-                </div>
 
                 <div className="ig-strip" style={{ marginTop: 10 }} data-testid="event-strip">
                   <IconButton icon="chevron-left" label="previous ten events" testid="strip-prev" bordered
@@ -464,9 +449,30 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
             {theRose}
           </SectionCard>
         )}
-      </div>
-
-      {/* ------------------------------------------------ rules ------------------------------------------------ */}
+      </div>} folded={[
+      anatomy && event && { key: 'readout', node: (
+        <SectionCard testid="event-readout-card" title={`Event ${event.id} in numbers`}
+          info="The selected event's measures, as the store holds them. The plot above draws the same numbers.">
+          <div className="ig-readout" data-testid="event-readout">
+            <span>event <b>{event.id}</b> · {event.channel} · {event.onset_h.toFixed(2)} h</span>
+            <span>depth <b>{event.depth_mV.toFixed(3)} mV</b></span>
+            <span>duration <b>{fmtSec(event.duration_s)} s</b></span>
+            <span>recovery <b data-testid="readout-recovery">{event.recovery_s == null ? 'not recovered' : `${fmtSec(event.recovery_s)} s`}</b></span>
+            {upstream === 'event-shape' && <span>FWHM <b>{event.measures?.fwhm_s == null ? '—' : `${fmtSec(event.measures.fwhm_s)} s`}</b></span>}
+            {upstream === 'event-shape' && <span>rise <b>{event.measures?.rise_time_s == null ? '— (a drop has no rise)' : `${fmtSec(event.measures.rise_time_s)} s`}</b></span>}
+            <span>max slope <b>{fmtSlope(event.max_slope)} mV/s</b></span>
+            <span>steepest at <b data-testid="readout-steepest">{anatomy.trace && anatomy.steepest_s != null
+              ? `${fmtT(t(anatomy.steepest_s))}${anatomy.trough_s ? ` · ${Math.round(100 * anatomy.steepest_s / anatomy.trough_s)} % of the fall` : ''}`
+              : 'not measured'}</b></span>
+            <span>angle <b>{fmtAngle(event)}</b></span>
+            <span>peakedness <b>{event.peakedness.toFixed(2)}</b></span>
+          </div>
+          <div className="ig-foot" style={{ marginTop: 4 }} data-testid="units-note">
+            units {unitLabel} · {u.note} · the angle is the core's: {rose.caption || 'arctan of the steepest slope over the stated reference'}
+          </div>
+        </SectionCard>
+      ) },
+      { key: 'rules', node: (
       <SectionCard testid="rules-card" title="Rules" style={pending != null ? { borderColor: 'var(--amber)' } : undefined}
         info="Three rules turn a span into numbers: where the fall starts, where it ends, and over how many samples the slope is measured. Everything on this page is downstream of them."
         subtitle={storeRules ? 'the store\'s numbers were measured with the rules listed below; the selectors are disabled: nothing on this page re-runs them yet (I4)' : 'these three rules define every number on this page'}
@@ -503,8 +509,10 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
           </div>
         </div>
       </SectionCard>
+      ) },
 
-      {/* ------------------------------------------------ per-event output ------------------------------------------------ */}
+      /* ------------------------------------------------ per-event output ------------------------------------------------ */
+      { key: 'table', node: (
       <SectionCard testid="per-event-table" title="Per-event output"
         info="One row per member. These are the Features the block declares, so 02 Aggregate can wire its plots to them without knowing what this block is."
         subtitle="one row per member → derived features (span, recipe_hash)"
@@ -529,6 +537,8 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
           <IconButton icon="chevron-right" label="next rows" testid="table-next" disabled={tableFrom + TABLE_PAGE >= events.length} disabledReason="at the last rows" onClick={() => setTablePage(p => p + 1)} />
         </div>
       </SectionCard>
+      ) },
+      ]} />
 
       <div className="ig-row">
         <Badge status={stale ? 'stale' : 'cached'} />

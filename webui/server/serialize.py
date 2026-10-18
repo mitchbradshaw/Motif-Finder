@@ -256,6 +256,10 @@ def _spanset(value, meta, ctx):
         out.update(_event_families(value, meta, ctx, fs, ss))
     if isinstance((meta or {}).get("cycle_stack"), dict):
         out.update(_cycle_shapes(value, meta, ctx, fs, ss))
+    if "train_size_distribution" in (meta or {}) and "n_trains" in (meta or {}):
+        out["trains"] = _trains(meta)
+    if isinstance((meta or {}).get("interval_stats"), dict):
+        out["interval_classes"] = _interval_classes(value, meta, fs, ss, sl)
     if feats is not None and "units" in ctx:
         out["features_unit_note"] = _features_unit_note(feats, ctx)
     return out
@@ -277,6 +281,128 @@ def _features_unit_note(feats: dict, ctx: dict) -> str | None:
 
 
 _SPANSET_META_VIEWS = ("rules", "rose", "interval_stats")
+
+
+def _trains(meta):
+    """ig-pages: an `interrogation.trains` SpanSet's three figures, read off its meta (no number computed here):
+    `{n_trains, sizes, log_isi: {edges, density, cut} | None, log_isi_note, lz, rule}`. `edges` are the
+    log10-seconds points the adapter evaluated its log-gap density on, `cut` the cut in seconds (None = no valley).
+    `sizes` is the adapter's `train_sizes` (time order); a run cached before that key existed expands its size
+    distribution instead (ascending - the histogram does not need the order). Trains found per group have one
+    density per group (the adapter's `groups`), so `log_isi` is None and `log_isi_note` says why."""
+    sizes = meta.get("train_sizes")
+    if sizes is None:
+        sizes = [int(k) for k, c in sorted((meta.get("train_size_distribution") or {}).items(),
+                                           key=lambda kv: int(kv[0])) for _ in range(int(c))]
+    dens = meta.get("density") if isinstance(meta.get("density"), dict) else None
+    log_isi, note = None, None
+    if dens and dens.get("log10_gap_s"):
+        log_isi = {"edges": _clean(dens["log10_gap_s"]), "density": _clean(dens["density"]),
+                   "cut": _clean(meta.get("cut_s"))}
+    elif int(meta.get("n_groups") or 1) > 1:
+        note = ("trains were found per group, each with its own log-interval density and cut; "
+                "no single density to draw")
+    elif meta.get("rule") not in (None, "logisi"):
+        note = f"the {meta.get('rule')} rule cuts at fixed gaps, not at a valley of the log-interval density"
+    else:
+        note = meta.get("refused") or meta.get("no_trains_reason") or "the block printed no log-interval density"
+    return {"n_trains": int(meta.get("n_trains") or 0), "sizes": [int(s) for s in sizes], "log_isi": log_isi,
+            "log_isi_note": note, "lz": _clean(meta.get("lz_complexity")), "rule": _clean(meta.get("rule"))}
+
+
+def _measure_grouped(measure, starts, fs, onsets, keys):
+    """The intervals block's own `measure`, run once per key on that key's events: the same `before` gaps and
+    per-key statistics as `measure(..., groups=keys)`, but linear in the events (its group loop scans every event
+    for every key, which is quadratic for Trains' one-group-per-train times three classes)."""
+    starts = np.asarray(starts)
+    if keys is None:
+        before, _, stats = measure(starts, fs, onsets=onsets)
+        return before, stats
+    before = np.full(int(len(starts)), np.nan)
+    by: dict = {}
+    for i, k in enumerate(keys):
+        by.setdefault(str(k), []).append(i)
+    stats = {}
+    for k, idx in by.items():
+        idx = np.asarray(idx, dtype=int)
+        b, _, st = measure(starts[idx], fs, onsets=None if onsets is None else np.asarray(onsets)[idx])
+        before[idx] = b
+        stats[k] = st["all"]
+    return before, stats
+
+
+#: ig-pages: the depth classes of the intervals timeline, smallest first (thirds of the depth's range)
+DEPTH_CLASSES = ("small", "medium", "large")
+
+
+def _interval_classes(value, meta, fs, ss, sl):
+    """ig-pages: the intervals timeline's colour classes and every number it writes, from the bridge.
+
+    The class rule (recommendation (c) of the 2026-10-18 grilling, Q43 pending): a `family` column with every event
+    in a family (>= 0) -> `family <n>`; else the depth - |event_amplitude_mv| (Event shape), else the detector's
+    span score - in thirds of its range (small / medium / large; an event with no depth is `unmeasured`); else one
+    class `all`. The timing is the intervals block's own (`Adapters.interrogation_intervals.measure`, the same
+    anchor and groups), run twice: per upstream group (`gap_s`, the block's `interval_before_s`) and per group AND
+    class (`within_gap_s`: the distance to the previous event of the same class; `stats[class][group]`: the core's
+    `interval_statistics` over those distances). Per-event lists are capped as the spans are."""
+    from Adapters.interrogation_intervals import measure   # the block's own timing; imported late (registry import)
+
+    f = getattr(value, "features", None)
+    n = int(len(value.starts))
+    has = lambda c: f is not None and c in f.columns
+    num = lambda c: np.asarray(pd.to_numeric(f[c], errors="coerce"), dtype=float)
+    onsets = num("onset_idx") if meta.get("anchor_used") == "onset_idx" and has("onset_idx") else None
+    groups = [str(g) for g in f["group"]] if has("group") else None
+    anchor = onsets if onsets is not None else np.asarray(value.starts, dtype=float)
+
+    edges, column = None, None
+    fam = num("family") if has("family") else None
+    if fam is not None and n and np.all(np.isfinite(fam)) and np.all(fam >= 0):
+        rule, column = "family", "family"
+        cls = [f"family {int(v)}" for v in fam]
+        keys = sorted(set(cls), key=lambda s: int(s.split()[1]))
+        words = "coloured by family: every event is a member of one (its family column)"
+    else:
+        depth = None
+        if has("event_amplitude_mv"):
+            depth, column = np.abs(num("event_amplitude_mv")), "event_amplitude_mv"
+        elif value.scores is not None and len(value.scores) == n:
+            depth, column = np.abs(np.asarray(value.scores, dtype=float)), "score"
+        fin = depth[np.isfinite(depth)] if depth is not None else np.array([])
+        if fin.size and float(fin.min()) == float(fin.max()):
+            # thirds of a zero range are no classes: one class, said so (not every event "large")
+            rule, cls, keys = "none", ["all"] * n, ["all"]
+            words = (f"nothing to colour by: every measured event has the same depth ({float(fin.min()):.3g})"
+                     + ("" if fam is None else "; not by family, because not every event is in one"))
+        elif fin.size:
+            lo, hi = float(fin.min()), float(fin.max())
+            edges = [lo, lo + (hi - lo) / 3, lo + 2 * (hi - lo) / 3, hi]
+            which = np.clip(np.searchsorted(edges[1:3], depth, side="right"), 0, 2)
+            cls = [DEPTH_CLASSES[int(k)] if np.isfinite(d) else "unmeasured" for k, d in zip(which, depth)]
+            rule = "depth"
+            keys = [k for k in (*DEPTH_CLASSES, "unmeasured") if k in cls]
+            src = "|event amplitude|" if column == "event_amplitude_mv" else "|detector score|"
+            words = (f"coloured by depth ({src}) in thirds of its range {lo:.3g} to {hi:.3g}: small, medium, large"
+                     + ("" if fam is None else "; not by family, because not every event is in one"))
+        else:
+            rule, cls, keys = "none", ["all"] * n, ["all"]
+            words = "nothing to colour by: no family on every event, and no depth or score measured"
+
+    gkey = (lambda i: f"{groups[i]}\x1f{cls[i]}") if groups is not None else (lambda i: cls[i])
+    gap, _ = _measure_grouped(measure, value.starts, fs, onsets, groups)
+    within, by_key = _measure_grouped(measure, value.starts, fs, onsets, [gkey(i) for i in range(n)])
+    stats: dict = {k: {} for k in keys}
+    for key, s in by_key.items():
+        g, c = key.split("\x1f", 1) if groups is not None else ("all", key)
+        stats.setdefault(c, {})[g] = _clean(s)
+    return {
+        "rule": rule, "rule_words": words, "column": column, "edges": _clean(edges),
+        "classes": [{"key": k, "label": k, "n": int(sum(1 for c in cls if c == k))} for k in keys],
+        # an event with no onset (Event shape could not measure its fall: NaN onset_idx) has no time: null, never NaN
+        "event_class": cls[sl], "event_t_s": _clean([float(v) for v in ((anchor[sl] + ss) / fs)]),
+        "event_group": groups[sl] if groups is not None else None,
+        "gap_s": _clean(gap[sl].tolist()), "within_gap_s": _clean(within[sl].tolist()), "stats": stats,
+    }
 
 CYCLE_EXEMPLAR_FORM = '{"<group key without suffix>": <event index into the SpanSet>}'
 
