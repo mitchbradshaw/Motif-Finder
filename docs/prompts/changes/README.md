@@ -37,6 +37,12 @@ A single feature was taking up to six hours, most of it the full pytest suite an
 | 12 | `datasets-derive.md` — MJu26a_fs10 as L_LM's parent; CO, LM, SH, SO, F2B, L_R_Aug_26_PD_raw into derived | M | manager runs the scripts | ready (L_R rate must be read or stated) |
 | 13 | `polish-pass.md` — less grey, fewer warnings, one palette, the add-block "about" card | L, one commit per page | 6, 7, 10 merged | ready |
 
+**AR (the speed pass) merged 2026-10-18 as 5a20070** — the "AR merged" dependencies above are satisfied; base on
+5a20070 or later. A second session ("Prompt manager and examiner") runs these prompts; the two sessions agreed on
+2026-10-18: at most three implementer agents at once on this machine (six saturated it and made every smoke unit and
+timing meaningless), no smoke unit or timing while another agent's pytest or build runs, a message before each fast-
+forward of main and before each smoke window.
+
 Parallel-safe sets (different files): {1, 5, 8, 9, 11, 12} can run together; {2 then 3}; {4, 6, 7} after AR; 13 last.
 Two Discovery prompts (6, 7) touch `discovery.py` and the Discovery pages: run them one after the other, not together.
 

@@ -3,7 +3,21 @@
   "page": "discovery.runs",
   "state": "default",
   "hash": "discovery/runs",
-  "actions": [],
+  "_why": "ux-1019: runs are hidden in Where each run fires until their eye is on, so the state turns every run on before it expects drawn bins",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"fires-show-all\"]",
+     30000
+    ]
+   },
+   {
+    "click": "[data-testid=\"fires-show-all\"]"
+   },
+   {
+    "wait": 1500
+   }
+  ],
   "expect": [
    "[data-testid=\"runs-card\"]",
    "[data-testid=\"where-fires\"] [data-testid=\"fires-cell\"]",

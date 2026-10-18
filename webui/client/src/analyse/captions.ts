@@ -10,6 +10,13 @@ export function paramCaption(step: Step, adapter: AdapterCard | undefined): stri
   switch (name) {
     case 'preprocessing.detrend':
       return p.mode === 'linear' ? 'linear trend subtracted' : `${fmtNum(p.window_s ?? 600)} s ${p.mode === 'rolling_z' ? 'rolling z-score' : 'rolling mean'} subtracted`
+    case 'preprocessing.decompose': {
+      // ux-1019 (BACKLOG §1 AO): the baseline window is the knob to tune first, so the card names it and its default
+      const win = Number(p.baseline_window_s ?? 600)
+      const dflt = adapter?.params.find(s => s.name === 'baseline_window_s')?.default
+      const hz = Number(p.noise_cut_hz ?? 0)
+      return `baseline window ${fmtNum(win)} s${dflt != null && Number(dflt) === win ? ' (default)' : dflt != null ? ` (default ${fmtNum(dflt)} s)` : ''} · ${p.baseline_method === 'rolling_mean' ? 'running mean' : 'running median'} · noise above ${hz > 0 ? `${fmtNum(hz)} Hz` : '¼ Nyquist'} · ${String(p.pass_on ?? 'signal')} goes on`
+    }
     case 'detection.matrix_profile':
       return `m = ${fmtNum(p.window_min ?? 10)} min · z-normalised · ${String(p.backend ?? 'auto')}`
     case 'detection.threshold':

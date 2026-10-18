@@ -157,13 +157,15 @@ const OPTION_CAP = 40
  *  human span, else its first ten minutes — each ± `padS` — or, when `explicit` is given (fixup-W: an edge's own
  *  window, opened from Library › Family), exactly that window, unpadded and as recorded, so the lag, r and bin
  *  recomputed here are the ones the edge stores. Every other window is classified detrended (fixup-AQ, X3). */
-export async function getCrossChannel(referenceId: number, padS = 20, explicit?: { t0: number; t1: number } | null, windowSel = '', edge = false): Promise<Sourced<CrossRead | null>> {
+export async function getCrossChannel(referenceId: number, padS = 20, explicit?: { t0: number; t1: number } | null, windowSel = '', edge = false,
+  /** ux-1019 (AQ): the page's raw · linear · cubic control; null keeps the window's own default (crossDetrendFor) */
+  detrendSel: CrossDetrend | null = null): Promise<Sourced<CrossRead | null>> {
   if ((await locate(referenceId)).state !== 'ok') return { data: null, source: 'live' }
   const ch = await getChannel(referenceId)
   const raw = await getSpans(referenceId, 0, ch.duration_s)
   const spans = orderSpans(raw.annotations, raw.detections)
   const w = resolveCrossWindow({ spans, durationS: ch.duration_s, sel: windowSel, padS, explicit: explicit ?? null, edge })
-  const detrend: CrossDetrend = crossDetrendFor(!!explicit, edge)
+  const detrend: CrossDetrend = detrendSel ?? crossDetrendFor(!!explicit, edge)
   const x = await getCrossWindow(referenceId, w.t0, w.t1, 600, detrend)
   // the envelope verbatim: t stays absolute (and non-uniform once decimated), a null stays a null so the
   // line breaks at a gap instead of writing NaN into the path and truncating the rest of the trace
@@ -211,7 +213,9 @@ export async function getCrossChannel(referenceId: number, padS = 20, explicit?:
       ].slice(0, 6),
       sharedGround: [], openQuestions: [
         'lag is the peak of the z-normalised cross-correlation over this window (Working.cross_channel); a shared-ground flag needs the montage, which is not registered yet',
-        'the window is detrended by a straight line before it is correlated; a curved drift survives a line, so a strong r at lag 0 on every pair can still be drift — such rows are marked “may be curved drift”; compare the as-recorded r in each row’s r tip',
+        detrend === 'cubic'
+          ? 'the window is detrended by a cubic before it is correlated; a cubic also takes out a slow event that fills the window, so a weak r here may be the trend treatment — compare linear and the as-recorded r in each row’s r tip'
+          : 'the window is detrended by a straight line before it is correlated; a curved drift survives a line, so a strong r at lag 0 on every pair can still be drift — such rows are marked “may be curved drift”; compare the cubic detrend and the as-recorded r in each row’s r tip',
         'lag is searched over the whole window: on independent random walks over 640 s about 1 pair in 6 bins as propagation (49 of 300 detrended, 47 as recorded; 14 of 300 on AR(1) noise), and the median |lag| between unrelated drifting channels was 114 s — a propagation badge here is a lead to check, not evidence',
       ],
       rules: x.rules, explicitWindow: !!explicit,

@@ -39,6 +39,9 @@ export interface Discovery {
   resetScope: () => void
   runs: DiscoveryRun[]; patchRun: (key: string, patch: Partial<DiscoveryRun>) => void
   picks: string[]; setPicks: (p: string[]) => void; togglePick: (key: string) => void
+  /** ux-1019: the runs drawn in "Where each run fires" — none on a new session, each turned on by its eye button;
+   *  the human reference row is always drawn and is never in this list. */
+  shown: string[]; isShown: (r: DiscoveryRun) => boolean; toggleShown: (key: string) => void; setShown: (keys: string[]) => void
   stale: boolean; setStale: (v: boolean) => void
   pending: DiscoveryRun[]; estimateMin: number; overLimit: boolean
   chPage: number; setChPage: (p: number) => void; pageCount: number; visibleChannels: string[]
@@ -64,6 +67,9 @@ export function useDiscovery(): Discovery {
   // nothing is picked until the researcher picks it: the old default named a
   // fixture run (`drop_motifs9`) that no live session has
   const [picks, setPicks] = useDemoState<string[]>('discovery.picks', () => [])
+  /* ux-1019 (the researcher, 2026-10-18): no run is drawn until its eye is pressed. Kept per session (by the
+   * session's name), with the other demo-store keys: it survives moving between Discovery pages, not a reload. */
+  const [shownBySession, setShownBySession] = useDemoState<Record<string, string[]>>('discovery.shown', () => ({}))
   const [stale, setStale] = useDemoState<boolean>('discovery.stale', () => false)
   const [chPageQ, setChPageQ] = useQueryState('chpage', '1')
   const [channelsQ, setChannelsQ] = useQueryState('channels', '')
@@ -118,6 +124,11 @@ export function useDiscovery(): Discovery {
     ? { ...r, status: 'failed' as const, error: 'shown by the ?state=failed deep link — not a real failure; a real one carries the run’s traceback' }
     : r)
   const patchRun = (key: string, patch: Partial<DiscoveryRun>) => setPatches(p => ({ ...p, [key]: { ...p[key], ...patch } }))
+  const sessionKey = scope?.name ?? ''
+  const shown = shownBySession[sessionKey] ?? []
+  const setShown = (keys: string[]) => setShownBySession(m => ({ ...m, [sessionKey]: keys }))
+  const toggleShown = (key: string) => setShown(shown.includes(key) ? shown.filter(k => k !== key) : [...shown, key])
+  const isShown = (r: DiscoveryRun) => r.kind === 'reference' || shown.includes(r.key)
   const togglePick = (key: string) => setPicks(picks.includes(key) ? picks.filter(k => k !== key) : picks.length < 2 ? [...picks, key] : [picks[0], key])
 
   /* ?state=running starts a REAL run over the first fifteen minutes of the
@@ -172,7 +183,7 @@ export function useDiscovery(): Discovery {
     error: sess.error ?? base.error ?? scoreRead.error, reload: () => { sess.reload(); base.reload(); scoreRead.reload() },
     demo: sess.source === 'demo' || base.source === 'demo',
     scope, recordings, recording, setScope, resetScope,
-    runs, patchRun, picks, setPicks, togglePick, stale, setStale,
+    runs, patchRun, picks, setPicks, togglePick, shown, isShown, toggleShown, setShown, stale, setStale,
     pending, estimateMin, overLimit: estimateMin > DISCOVERY_LIMIT_MIN,
     chPage, setChPage: p => setChPageQ(String(p)), pageCount, visibleChannels,
     scores: scoreRead.data, foundOf, sectionH,

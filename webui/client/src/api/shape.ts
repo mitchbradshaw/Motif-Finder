@@ -122,7 +122,9 @@ export interface B2Setup {
     recordings: { source_file: string; name: string; channels: { channel: number; name: string; role: 'train' | 'exam'; n: number }[] }[]
     plan: { n_blocks: number; test_frac: number; validation_frac: number; gap_s: number; hold_out_pack: string | null }; rule: string }
   arm: { name: string; label: string; k: number; mapping: { k: number | null; clusters: Record<string, MappingEntry> }; read_only: boolean; mapping_state: string; where: string }
-  shape: { align: string; detrend: string; resample_length: number; noise_floor: boolean }
+  shape: { align: string; detrend: string; resample_length: number; noise_floor: boolean
+    /** ux-1019: where in the window the aligned sample lands (null on the grid) and the researcher's drop-work setting */
+    anchor_frac?: number | null; drop_default?: { align: string; anchor_frac: number } }
   cluster: { sample: number; seed: number }
   inputs: { features: string; stages: string[]; rule: string }
   frozen: Frozen | null; checks: B2Check[]; defaults: { n_estimators: number; class_weight: string; random_state: number }

@@ -277,7 +277,7 @@ def b2_setup(request: Request, template: int, pool: int):
                 "arm": {"name": "B.2", "label": sf.ARM_LABEL, "k": k, "mapping": mapping, "read_only": True,
                         "mapping_state": mapping_state(mapping, k) if k else "none",
                         "where": "Analyse › Chain › Shape clustering (the cut and the mapping table)"},
-                "shape": {k2: shp[k2] for k2 in ("align", "detrend", "resample_length", "noise_floor")},
+                "shape": sf.launch_shape(shp),
                 "cluster": {"sample": int(clu["sample"]), "seed": int(clu["seed"])},
                 "inputs": {"features": "raw samples at the re-cut bounds", "stages": list(sf.DEFAULT_STAGES),
                            "rule": sf.INPUTS_RULE},

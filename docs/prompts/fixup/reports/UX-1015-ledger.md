@@ -88,3 +88,25 @@ walk, the evaluation, the push.
 ## Evaluation
 
 `docs/prompts/fixup/reports/UX-1015-evaluation.md`, written after the last merge.
+
+## AR - the speed pass (launched 2026-10-18 evening, merged 2026-10-18 23:1x as 5a20070)
+
+- Prompt `AR-speed-pass.md`; implementer on Opus in an isolated worktree; critic on the branch (no semantic drift over
+  16 mutation steps, every cache invalidated; one blocker - cold thumbnails on a rows-only read - and seven should-fixes,
+  closed in 1ff00ef); then main's a2-rq1b listed-order queue landed under it and the first gate merge raised
+  `NameError: listed` (54 tests) - the implementer merged main into its branch (5c7994f) so the listed queue reads
+  through the cached structure.
+- Gate (per-merge rule, Q42): conda 324 passed (test_review_*, ar_speed_core, perf_scoring_reads, surrogate,
+  candidate_events, rq1b script, import boundaries); venv 182 passed (webui_ar_speed, review, review_axis, corpus,
+  discovery, listed_order, candidate_events, rq1b script); tsc clean; build. Smoke units ar_speed / review / discovery
+  on a fresh sandbox: 0 console errors, 0 tracebacks in all three; the three review failures are the morning baseline's;
+  the discovery cascade and the ar first-paint state failed on TIMING with the machine at 96 % CPU (another session's
+  six parallel agents) - the same cascade reproduced on pre-AR code under that load earlier in the day.
+- Realistic timings: BEFORE (19:04, fresh sandbox copy of the real DB, after the maps warm): queue 24 rows 5,257 ms /
+  3.1 MB (3,195 items), item 382-872 ms, /runs 834 ms, picker > 240 s while scoring, fires (3 ch x 53 runs) 16.6 s,
+  scoreboard 85 s, map L3 7.6 s. The AFTER run (23:0x) was taken on a used sandbox during the discovery unit's runs with
+  the machine saturated and is NOT comparable (every route 5-50x slower, including untouched ones) - **owed: re-time on
+  a quiet machine with `scratchpad/perf_before.py` and walk the three units; record here.** Scale-fixture numbers are
+  in `AR-speed-report.md` (item read 28,702 -> 56 ms; verdict 16,948 -> 133 ms; coverage after restart ~116 s -> 1.3 s).
+- Decisions recorded with the researcher the same evening: the per-merge gate (targeted tests + tsc + build + touched
+  units; full pytest + full walk once a day by one manager; critic skipped under ~40 lines) - `docs/prompts/changes/README.md`.

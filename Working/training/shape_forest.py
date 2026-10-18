@@ -119,6 +119,18 @@ def _recipe_shape(shp):
     return out
 
 
+def launch_shape(shp):
+    """What Models › Launch shows of a template's Trace shape settings (ux-1019): align, the anchor (where in the
+    window the aligned sample lands; None on the grid, where nothing is re-cut), detrend, the length, the floor —
+    and the researcher's setting for drop work (2026-10-18), so the page names it without restating a number."""
+    from Working.training import shape as sh
+    out = {k2: shp[k2] for k2 in ("align", "detrend", "resample_length", "noise_floor")}
+    a = shp.get("anchor_frac")
+    out["anchor_frac"] = None if out["align"] == "grid" else float(sh.DEFAULT_ANCHOR_FRAC if a is None else a)
+    out["drop_default"] = {"align": sh.DROP_ALIGN, "anchor_frac": sh.DROP_ANCHOR_FRAC}
+    return out
+
+
 def make_recipe(pool_ref, template, *, stages=DEFAULT_STAGES, n_estimators=300, class_weight="balanced",
                 random_state=42, holdback_frac=HOLDBACK_FRAC):
     """The B.2 recipe: the pool, the template (its steps carry the cut and the mapping), the forest."""
