@@ -75,7 +75,7 @@ function SpanEditBody({ refId, d, returnTo }: { refId: string; d: SpanEdit; retu
   const label = d.member ? `member ${d.member.ref}` : `detection ${d.detection_id}`
   const verdictWord = d.verdict ?? 'seed'
   const writes = d.member
-    ? `a new revision (rev ${d.member.current.revision_no + 1}) of ${d.member.ref}, backed by a human annotation; the earlier revisions stay in its history and the detection is untouched`
+    ? `a new revision (rev ${d.member.current.revision_no + 1}) of ${d.member.ref}, backed by a human annotation (${d.verdict ? `verdict ${d.verdict}` : 'unsure: a redrawn extent is not a verdict, and the member stays unjudged'}); the earlier revisions stay in its history and the detection is untouched`
     : `a human annotation over the corrected span with the item's verdict (${verdictWord}${d.verdict ? '' : ', as the item has none'}); the detection is untouched`
 
   const back = (discard: boolean) => {
@@ -245,6 +245,8 @@ function SpanPlot({ d, original, extent, onChange, invalid }: { d: SpanEdit; ori
 /** Seconds to three decimals, with ±1-sample steppers; commits on Enter / blur, so the plot follows what is typed. */
 function SecondsField({ label, value, fs, invalid, onCommit, testid }: { label: string; value: number; fs: number; invalid: boolean; onCommit: (v: number) => void; testid: string }) {
   const [raw, setRaw] = useState<string | null>(null)
+  // what the field showed when it took focus: blurring it unchanged must not round the span to three decimals
+  const shown = useRef<string | null>(null)
   const parse = (s: string): number | string => {
     const t = s.trim().replace(/−/g, '-').replace(/\s*s$/i, '')
     if (/^#-?\d+$/.test(t)) return Number(t.slice(1))
@@ -252,15 +254,15 @@ function SecondsField({ label, value, fs, invalid, onCommit, testid }: { label: 
     return 'type seconds (e.g. 1234.567) or a sample (#1234567)'
   }
   const p = raw === null ? null : parse(raw)
-  const commit = () => { if (typeof p === 'number') onCommit(p); setRaw(null) }
+  const commit = () => { if (typeof p === 'number' && raw !== shown.current) onCommit(p); setRaw(null); shown.current = null }
   return (
     <div className="fld"><span className="lbl">{label}</span>
       <span className={cx('k-input', (invalid || typeof p === 'string') && 'invalid', 'ex-sample')}>
-        <input value={raw ?? fmtSec(value / fs)} onFocus={() => setRaw(fmtSec(value / fs))} onChange={e => { setRaw(e.target.value); const q = parse(e.target.value); if (typeof q === 'number') onCommit(q) }} onBlur={commit} aria-label={label} data-testid={testid}
+        <input value={raw ?? fmtSec(value / fs)} onFocus={() => { shown.current = fmtSec(value / fs); setRaw(shown.current) }} onChange={e => { setRaw(e.target.value); const q = parse(e.target.value); if (typeof q === 'number') onCommit(q) }} onBlur={commit} aria-label={label} data-testid={testid}
           onKeyDown={e => {
             if (e.key === 'Enter') commit()
             else if (e.key === 'Escape') { e.stopPropagation(); setRaw(null); (e.target as HTMLInputElement).blur() }
-            else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const nv = value + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1); onCommit(nv); setRaw(fmtSec(nv / fs)) }
+            else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const nv = value + (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1); onCommit(nv); shown.current = fmtSec(nv / fs); setRaw(shown.current) }
           }} />
         <span className="steps">
           <button type="button" aria-label={`${label} +1 sample`} onMouseDown={e => e.preventDefault()} onClick={() => onCommit(value + 1)} data-testid={`${testid}-up`}><Icon name="chevron-up" size={10} /></button>
