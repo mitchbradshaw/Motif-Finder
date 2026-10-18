@@ -248,3 +248,214 @@ def take_span_for_review(request: Request, body: SeedBody):
             "verdict": "seed", "source": "explore.take_for_review", "note": body.note, "queue_id": int(qid),
             "seed_id": f"explore:{body.recording_id}:{int(body.start_idx)}:{int(body.end_idx)}",
             "banner": request.app.state.rt.banner()}
+
+
+# ── explore-review (2026-10-18): send a span's unjudged motifs to Review; mark an artifact across channels ──────────
+# One contiguous block, appended. Both routes are the shared action strip's (explore/SpanActions.tsx), mounted on
+# Signal and on Cross-channel.
+
+#: The note that identifies Explore's one picked queue. Its filter changes with every send, so `find_open_queue`
+#: (which matches filters) cannot find it again; `find_open_queue_by_note` finds it by this — the pattern of
+#: Discovery's per-session picked queue (`discovery._picked_note`, fixup-AL). Explore has no session row, so there is
+#: one open picked queue for Explore until it is closed in Review; the next send after that starts a new one.
+EXPLORE_PICKED_NOTE = "detections picked from Explore (Signal and Cross-channel) for Review"
+EXPLORE_PICKED_NAME = "Unjudged motifs · picked from Explore"
+#: The most unjudged detections one send may put into the picked queue. The queue is an exact id list in
+#: `filters_json`, re-resolved on every Review read: on a synthetic 16-channel, 52k-detection database a
+#: whole-recording send (49k ids) took 79 s to open in Review and slowed the queue list to 8 s, while 1.5k ids opened
+#: in 4 s (critic round, 2026-10-18). Above this the send is refused with the count and a narrower window suggested.
+SPAN_REVIEW_MAX = 2000
+
+
+class SpanReviewBody(BaseModel):
+    recording_ids: list[int] = []
+    t0_s: float | None = None
+    t1_s: float | None = None
+    #: the drawer's *Send selected to Review*: these detections, no window
+    detection_ids: list[int] | None = None
+    note: str | None = None
+
+
+def _live_recording(c, recording_id: int) -> dict:
+    """`_rec` on an open connection: 404 for an unknown id, 423 for the held-out recording while the lock is on —
+    the same predicate (`corpus.recording_row` → `corpus.is_held_out`) and the same refusal as every Explore read
+    and *Take span*."""
+    rec = corpus.recording_row(c, recording_id)
+    if rec is None:
+        raise HTTPException(404, f"no recording id {recording_id}")
+    if rec["held_out"]:
+        raise HTTPException(423, corpus.held_out_refusal("the web UI refuses it"))
+    return rec
+
+
+def _window_detection_ids(c, recs: list[dict], t0_s: float, t1_s: float) -> list[int]:
+    """Every detection whose span intersects [t0, t1] on these channels: `corpus.spans`' own query (legacy relative
+    rows shifted, surrogate and window-part runs left out), uncapped, minus a discarded run's rows (Review never
+    serves those, `queues._superseded_run_ids`, so counting them would promise items the queue will not show)."""
+    ids: list[int] = []
+    for rec in recs:
+        got = corpus.spans(c, rec["id"], t0_s, t1_s, float(rec["fs"]), cap=10 ** 9)["detections"]
+        ids.extend(int(d["id"]) for d in got)
+    if not ids:
+        return []
+    marks = ",".join("?" * len(ids))
+    dropped = {int(r[0]) for r in c.execute(
+        f"SELECT d.id FROM detections d JOIN runs r ON r.id = d.run_id WHERE d.id IN ({marks}) "
+        "AND r.superseded_at IS NOT NULL", ids).fetchall()}
+    return sorted(set(ids) - dropped)
+
+
+def _named_detection_ids(c, detection_ids: list[int]) -> list[int]:
+    """The drawer's ids, validated before anything is written: each must exist, belong to a real run (not a paired
+    surrogate's, not a window part's), and lie on a recording the web UI may read."""
+    want = list(dict.fromkeys(int(i) for i in detection_ids))
+    if not want:
+        raise HTTPException(422, {"message": "no detection named: detection_ids is empty"})
+    marks = ",".join("?" * len(want))
+    rows = {int(r["id"]): r for r in c.execute(
+        f"SELECT d.id, r.recording_id, r.surrogate_of_run_id, "
+        f"CASE WHEN {q.not_window_part('r')} THEN 0 ELSE 1 END AS window_part "
+        f"FROM detections d JOIN runs r ON r.id = d.run_id WHERE d.id IN ({marks})", want).fetchall()}
+    missing = [i for i in want if i not in rows]
+    if missing:
+        raise HTTPException(422, {"message": f"no detection {', '.join(map(str, missing))} in the database"})
+    fake = [i for i in want if rows[i]["surrogate_of_run_id"] is not None or rows[i]["window_part"]]
+    if fake:
+        raise HTTPException(422, {"message": f"detection {', '.join(map(str, fake))} belongs to a paired surrogate "
+                                             "or a window part of a stitched run — not a detection anyone judges"})
+    for rid in sorted({int(rows[i]["recording_id"]) for i in want}):
+        _live_recording(c, rid)
+    return want
+
+
+@router.post("/api/explore/span-review")
+def send_span_to_review(request: Request, body: SpanReviewBody):
+    """*Send unjudged to Review*: the detections whose span intersects [t0, t1] on the named channels (or the
+    drawer's named detections) that carry no adjudication go to Explore's ONE picked queue — created on the first
+    send, extended (`queues.extend_queue`) on every later one, as Discovery's browser does (fixup-AL). A detection
+    already judged is counted in `already_judged` and not added; one already in the queue in `already_queued`.
+
+    The queue is a `discovery-run` queue over an exact detection set — the kind `extend_queue` takes — so Review
+    serves it with the detection resolver and its verdicts land in `adjudications` (rule 5). A window with nothing
+    to send answers 200 with `added: 0` and a sentence; no queue is made for nothing."""
+    c = _conn(request)
+    try:
+        if body.detection_ids is not None:
+            ids = _named_detection_ids(c, body.detection_ids)
+            where = f"the {len(ids)} selected detection{'' if len(ids) == 1 else 's'}"
+        else:
+            if not body.recording_ids:
+                raise HTTPException(422, {"message": "no channel named: recording_ids is empty"})
+            if body.t0_s is None or body.t1_s is None or not (body.t1_s > body.t0_s):
+                raise HTTPException(422, {"message": f"the window [{body.t0_s}, {body.t1_s}] s is empty"})
+            recs = [_live_recording(c, int(r)) for r in dict.fromkeys(body.recording_ids)]
+            ids = _window_detection_ids(c, recs, float(body.t0_s), float(body.t1_s))
+            where = f"this window on {len(recs)} channel{'' if len(recs) == 1 else 's'}"
+        judged: set[int] = set()
+        if ids:
+            marks = ",".join("?" * len(ids))
+            judged = {int(r[0]) for r in c.execute(
+                f"SELECT detection_id FROM adjudications WHERE detection_id IN ({marks})", ids).fetchall()}
+        unjudged = [i for i in ids if i not in judged]
+        if len(unjudged) > SPAN_REVIEW_MAX:
+            raise HTTPException(422, {"message": (
+                f"{where} holds {len(unjudged):,} unjudged motifs — more than {SPAN_REVIEW_MAX:,} at once makes a "
+                "Review queue too slow to work through; nothing was sent. Pick a narrower window (or fewer "
+                "channels) and send it in parts.")})
+        qid = queues_mod.find_open_queue_by_note(c, source_kind="discovery-run", note=EXPLORE_PICKED_NOTE)
+        added: list[int] = []
+        already: list[int] = []
+        if unjudged:
+            if qid is None:
+                qid = queues_mod.create_queue(c, name=EXPLORE_PICKED_NAME, source_kind="discovery-run",
+                                              filters={"detection_ids": unjudged}, note=EXPLORE_PICKED_NOTE)
+                added = list(unjudged)
+            else:
+                res = queues_mod.extend_queue(c, qid, unjudged)
+                added, already = [int(i) for i in res["added"]], [int(i) for i in res["already"]]
+        queue = queues_mod.get_queue(c, qid) if qid is not None else None
+        # what Review will NOT ask about although it is in the filter: the same event as a span a person already
+        # judged (`prior_verdict`), read from the resolver Review itself uses — as Discovery's picked send does
+        not_asked: list[int] = []
+        if added:
+            prior = {int(it["target_id"]) for it in queues_mod.queue_items(
+                c, qid, include_judged=True, include_prior_judged=True) if it.get("prior_verdict") is not None}
+            not_asked = [i for i in added if i in prior]
+        skip = set(not_asked)
+        fresh = [i for i in added if i not in skip]
+        if not ids:
+            parts = [f"no detections in {where} — nothing to send"]
+        else:
+            parts = [f"{len(fresh)} added to '{queue['name'] if queue else EXPLORE_PICKED_NAME}'" if fresh else "none added"]
+            if already:
+                parts.append(f"{len(already)} already in the queue")
+            if judged:
+                parts.append(f"{len(judged)} already judged (not added)")
+            if not_asked:
+                parts.append(f"{len(not_asked)} not asked: a human verdict already covers it")
+        counts = queues_mod.queue_counts(c, qid) if qid is not None else None
+        return {"queue_id": None if qid is None else int(qid), "queue": queue["name"] if queue else EXPLORE_PICKED_NAME,
+                "added": len(added), "added_ids": added, "not_asked": len(not_asked), "already_queued": len(already),
+                "already_judged": len(judged), "total": len(ids),
+                "unjudged_in_queue": None if counts is None else int(counts["remaining"]),
+                "message": " · ".join(parts),
+                "note": ("one queue for every motif sent from Explore; it is a filter over those detections, and a "
+                         "verdict in Review lands in adjudications like any other")}
+    finally:
+        c.close()
+
+
+class ArtifactBody(BaseModel):
+    recording_ids: list[int] = []
+    t0_s: float
+    t1_s: float
+    note: str | None = None
+    #: which page marked it — Cross-channel (the default) or Signal; it becomes the row's `source`
+    origin: str = "cross-channel"
+
+
+ARTIFACT_SOURCES = {"cross-channel": "explore-cross-channel", "signal": "explore-signal"}
+
+
+@router.post("/api/explore/artifact")
+def mark_artifact(request: Request, body: ArtifactBody):
+    """*Mark artifact*: one human `annotations` row with verdict `artifact` per selected channel over [t0, t1],
+    written through the rule-5 human door (`write_human`) — the verdict word Review writes, never a sixth. Every
+    channel is checked (404, or 423 for the held-out recording while the lock is on) and the window clamped to each
+    channel before anything is written, so a refusal writes nothing. The channels must share one recording: a window
+    in seconds names one place only on one recording's clock."""
+    if body.origin not in ARTIFACT_SOURCES:
+        raise HTTPException(422, {"message": f"origin must be one of {', '.join(ARTIFACT_SOURCES)}, got {body.origin!r}"})
+    if not body.recording_ids:
+        raise HTTPException(422, {"message": "no channel named: recording_ids is empty"})
+    if not (body.t1_s > body.t0_s):
+        raise HTTPException(422, {"message": f"the window [{body.t0_s:g}, {body.t1_s:g}] s is empty"})
+    c = _conn(request)
+    try:
+        recs = [_live_recording(c, int(r)) for r in dict.fromkeys(body.recording_ids)]
+        files = sorted({r["source_file"] for r in recs})
+        if len(files) > 1:
+            raise HTTPException(422, {"message": f"the channels come from {len(files)} recordings ({', '.join(files)}); "
+                                                 "an artifact window is marked on the channels of one recording"})
+        plan = []
+        for rec in recs:
+            fs, n = float(rec["fs"]), int(rec["n_samples"])
+            a = max(0, int(np.floor(body.t0_s * fs))); b = min(n, int(np.ceil(body.t1_s * fs)))
+            if not b > a:
+                raise HTTPException(422, {"message": f"the window [{body.t0_s:g}, {body.t1_s:g}] s lies outside "
+                                                     f"{rec['name']} (0 to {n / fs:g} s)"})
+            plan.append((rec, a, b))
+        now = _dt.datetime.now().isoformat(timespec="seconds")
+        source = ARTIFACT_SOURCES[body.origin]
+        ids = [write_human(c, "annotations", {
+            "recording_id": int(rec["id"]), "start_idx": a, "end_idx": b, "verdict": "artifact",
+            "note": body.note, "source": source, "created_at": now}) for rec, a, b in plan]
+        c.commit()
+    finally:
+        c.close()
+    names = [rec["name"] for rec, _a, _b in plan]
+    return {"ids": [int(i) for i in ids], "recording_ids": [int(rec["id"]) for rec, _a, _b in plan],
+            # the extent written, clamped to the channels (a window past a channel's end is cut there)
+            "start_s": min(a / float(rec["fs"]) for rec, a, _b in plan),
+            "end_s": max(b / float(rec["fs"]) for rec, _a, b in plan), "verdict": "artifact", "source": source,
+            "message": f"artifact marked on {len(ids)} channel{'' if len(ids) == 1 else 's'} ({', '.join(names)})"}

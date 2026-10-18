@@ -38,10 +38,11 @@ import { makeX } from '../charts/scale'
 import { unitWords } from '../charts/units'
 import { Y_MODES, Y_MODE_LABEL, Y_MODE_NOTE, fmtMvAt, fmtMvSpan, isYMode, scaleNote, stackGeom, type YMode } from './crossScale'
 import { lagShift, windowParam } from './crossModel'
-import { Badge, Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Popover, ProgressBar, Seg, Tooltip, cx, fmtInt, recordDemoWrite, useDemoState, useQueryState, useSim, type IconName } from '../kit'
+import { Badge, Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Popover, ProgressBar, Seg, Tooltip, cx, fmtInt, useDemoState, useQueryState, useSim, type IconName } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
-import { navigate } from '../state'
+import { navigate, useApp } from '../state'
+import { SpanActionStrip } from './SpanActions'
 import { DetectionsChip, DetectionsPicker } from './DetectionsPicker'
 import { ErrorCard } from './ErrorCard'
 import { LockedCard } from './LockedCard'
@@ -194,9 +195,14 @@ function CrossBody({ data }: { data: CrossRead }) {
   const shiftFor = (r: XRow) => lagShift(r.lagS, r.channelId === ref, align, maxLag)
   const pickWindow = (v: string) => { setT0Q(null); setT1Q(null); setWindowQ(v) }
   const at = data.resolved.index
-  const reviewAll = () => {
-    recordDemoWrite('explore', 'stage-window-for-review', { queue: 'Explore spans', window: windowLabel, channels: rows.map(r => r.name) })
-    toast.push({ text: `${rows.length} spans staged for Review`, action: { label: 'Open Review →', onClick: () => navigate('review') } })
+  // explore-review: the window's actions are the shared strip (SpanActions.tsx::SpanActionStrip); the demo
+  // "Review this window on all channels" it replaces staged nothing
+  const { setSource } = useApp()
+  const openInAnalyse = () => {
+    const fs = data.window.fs || 1
+    setSource({ recording_id: ref, channel_name: refName, source_file: data.file, fs, start_idx: Math.round(t0 * fs), end_idx: Math.round(t1 * fs), label: `${refName} · ${windowLabel}` })
+    toast.push({ text: `${refName} · ${windowLabel} sent to Analyse as the chain source` })
+    navigate('analyse/chain')
   }
 
   return (
@@ -392,7 +398,11 @@ function CrossBody({ data }: { data: CrossRead }) {
               testid="act-classify" onClick={() => { if (familyQ) void xcJob.start(familyQ, groupingQ || undefined) }}
               disabled={!familyQ || xcJob.busy} reason={!familyQ ? 'open this page from a Library family (an edge\u2019s Explore › link) to say which family to classify' : 'a classification is running'} />
             <ActionRow icon="target" title={`Apply a template across these ${rows.length} channels`} caption="opens Discovery with a channel scope" testid="act-template" onClick={() => navigate(`discovery/runs?modal=add-template&channels=${selected.join(',')}`)} />
-            <ActionRow icon="checklist" title="Review this window on all channels" caption={`stages ${rows.length} spans in Review`} testid="act-review" onClick={reviewAll} disabled={tooFew} reason="pick at least one more channel first" />
+            <div className="muted small" style={{ margin: '10px 2px 6px' }} data-testid="cross-strip-caption">
+              This window on the {rows.length} channel{rows.length === 1 ? '' : 's'} shown: send their unjudged motifs to Review, or mark it an artifact on the channels you pick.
+            </div>
+            <SpanActionStrip window={[t0, t1]} reviewChannels={selected} artifactChannels={data.channels} referenceId={ref}
+              origin="cross-channel" onOpenInAnalyse={openInAnalyse} testid="cross-action-strip" />
           </div>
         </div>
 

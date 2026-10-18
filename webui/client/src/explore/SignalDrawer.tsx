@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Spans } from '../api'
 import { useSourced } from '../api/seam'
-import { FILTER_VOCAB, getShortcuts, type AnnotationRow, type DetectionRow, type SignalDemo } from '../api/explore'
+import { FILTER_VOCAB, getShortcuts, sendDetectionIdsToReview, type AnnotationRow, type DetectionRow, type SignalDemo } from '../api/explore'
 import { Badge, Button, Dropdown, EmptyState, Icon, IconButton, InfoTip, Kbd, Pager, Popover, Table, Tabs, TextField, fmtInt, recordDemoWrite, useDemoState, useNotWired, useQueryState, type Column, type MenuItem, type SortState } from '../kit'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
@@ -34,10 +34,12 @@ function download(name: string, text: string, type: string) {
 }
 const csvCell = (v: unknown) => { const s = Array.isArray(v) ? v.join('; ') : v && typeof v === 'object' ? JSON.stringify(v) : String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }
 
-export function SignalDrawer({ channelKey, channelName, fs, demo, live, tab, setTab, onClose, view, onOpenRow, focusSignal }: {
+export function SignalDrawer({ channelKey, channelName, fs, demo, live, tab, setTab, onClose, view, onOpenRow, focusSignal, onSent }: {
   channelKey: string; channelName: string; fs: number; demo: SignalDemo | null; live: Spans | null
   tab: DrawerTab; setTab: (t: DrawerTab) => void; onClose: () => void; view: [number, number]
   onOpenRow: (r: { id: number; start_s: number; end_s: number; kind: 'annotated' | 'detected'; row: ARow | DRow }) => void; focusSignal: number
+  /** explore-review: after a live send to Review, so the page re-reads its spans */
+  onSent?: () => void
 }) {
   const toast = useToast()
   const notWired = useNotWired()
@@ -158,9 +160,28 @@ export function SignalDrawer({ channelKey, channelName, fs, demo, live, tab, set
     }
     toast.push({ text: `exported ${fmtInt(rows.length)} filtered ${tab} to ${name}` })
   }
+  /* explore-review: live for the live detections tab — the selected ids go to Explore's one picked queue through
+   * POST /api/explore/span-review, the strip's own route. The canon channel's rows are demo ids, so there it stays
+   * the demo write it was; an annotation already carries a human verdict, so it is not "sent" (Take span is how a
+   * span reaches Review as a new seed). */
+  const [sending, setSending] = useState(false)
+  const sendLive = !demo && tab === 'detections'
+  const sendOff = !nSel ? noSel : sending ? 'sending…' : !demo && tab === 'annotations'
+    ? 'an annotation already carries a human verdict — use Take span for Review to put a span in front of Review' : undefined
   const sendToReview = () => {
+    if (sendLive) {
+      setSending(true)
+      sendDetectionIdsToReview(sel.map(Number))
+        .then(r => {
+          toast.push({ text: r.message, action: r.queue_id != null && (r.added > 0 || r.already_queued > 0) ? { label: 'Open Review →', onClick: () => navigate(`review/queue/${r.queue_id}`) } : undefined })
+          setSel([]); onSent?.()
+        })
+        .catch(e => toast.push({ kind: 'error', text: `the selected detections were not sent to Review: ${e instanceof Error ? e.message : String(e)}` }))
+        .finally(() => setSending(false))
+      return
+    }
     recordDemoWrite('explore', 'send-to-review', { queue: 'Explore spans', kind: tab, ids: sel.map(Number), channel: channelName })
-    toast.push({ text: tab === 'annotations' ? `${nSel} spans sent to Review · Explore spans queue` : `${nSel} detections sent to Review`, action: { label: 'Open Review →', onClick: () => navigate('review') } })
+    toast.push({ text: tab === 'annotations' ? `${nSel} spans sent to Review · Explore spans queue (demo)` : `${nSel} detections sent to Review (demo)`, action: { label: 'Open Review →', onClick: () => navigate('review') } })
     setSel([])
   }
   const [tagOpen, setTagOpen] = useState(false)
@@ -259,7 +280,7 @@ export function SignalDrawer({ channelKey, channelName, fs, demo, live, tab, set
         </>}
         <span className="grow" />
         <Pager format="range" page={p} pageCount={pageCount} total={cur.length} pageSize={PAGE} onPage={setPage} label="page" testid="drawer-pager" />
-        <Button variant="primary" size="sm" iconRight="arrow-right" disabled={!nSel} disabledReason={noSel} onClick={sendToReview} testid="send-to-review">Send selected to Review</Button>
+        <Button variant="primary" size="sm" iconRight="arrow-right" disabled={!!sendOff} disabledReason={sendOff} onClick={sendToReview} testid="send-to-review">Send selected to Review</Button>
       </div>
       <Popover open={tagOpen} onClose={() => setTagOpen(false)} anchorRef={tagRef} width={260} title={`Tag ${nSel} annotation${nSel === 1 ? '' : 's'}`} testid="bulk-tag-popover">
         <div className="col" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

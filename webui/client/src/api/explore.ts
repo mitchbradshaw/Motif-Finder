@@ -223,3 +223,39 @@ export async function getCrossChannel(referenceId: number, padS = 20, explicit?:
 
 /** The motif member being edited, its revisions and the trace around it (§4.2) — still demo: span editing lands with Prompt 05. */
 export const getSpanEdit = (memberId: string): Promise<Sourced<SpanEditDemo | null>> => demo(spanEditDemo(memberId))
+
+/* ---------------------------------------------------------- explore-review ---- */
+/* explore-review (2026-10-18), appended: the shared action strip's two writes (webui/server/explore_routes.py).
+ *   - sendSpanToReview: the unjudged detections in a window on these channels (or the drawer's named ids) go to
+ *     Explore's ONE picked queue, "Unjudged motifs · picked from Explore", created once and appended to after;
+ *   - markArtifact: one `annotations` row with verdict `artifact` per channel over the window (never a sixth verdict). */
+import { ApiError as ExploreApiError } from '../api'
+
+async function explorePost<T>(path: string, body: unknown): Promise<T> {
+  const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  if (!r.ok) {
+    let b: any = null   // eslint-disable-line @typescript-eslint/no-explicit-any
+    try { b = await r.json() } catch { /* not json */ }
+    const msg = b?.error ?? (typeof b?.detail === 'string' ? b.detail : b?.detail?.message) ?? `${r.status} ${r.statusText}`
+    throw new ExploreApiError(r.status, msg, b?.detail ?? b, b?.traceback)
+  }
+  return r.json() as Promise<T>
+}
+
+/** What a send to Explore's picked queue did. `added` new ids went in; `already_queued` were in it already;
+ *  `already_judged` carry a verdict and were not added; `total` is every detection the window (or selection) held.
+ *  `queue_id` is null only when nothing was ever sent from Explore and this send had nothing to add. */
+export interface SpanReviewResult {
+  queue_id: number | null; queue: string; added: number; added_ids: number[]; already_queued: number
+  already_judged: number; total: number; unjudged_in_queue: number | null; message: string; note: string
+  /** of `added`, the ones Review will not ask about: the same event as a span a person already judged */
+  not_asked: number
+}
+export const sendSpanToReview = (recordingIds: number[], t0S: number, t1S: number, note?: string) =>
+  explorePost<SpanReviewResult>('/api/explore/span-review', { recording_ids: recordingIds, t0_s: t0S, t1_s: t1S, note })
+export const sendDetectionIdsToReview = (detectionIds: number[]) =>
+  explorePost<SpanReviewResult>('/api/explore/span-review', { detection_ids: detectionIds })
+
+export interface ArtifactResult { ids: number[]; recording_ids: number[]; start_s: number; end_s: number; verdict: 'artifact'; source: string; message: string }
+export const markArtifact = (recordingIds: number[], t0S: number, t1S: number, origin: 'cross-channel' | 'signal', note?: string) =>
+  explorePost<ArtifactResult>('/api/explore/artifact', { recording_ids: recordingIds, t0_s: t0S, t1_s: t1S, origin, note })

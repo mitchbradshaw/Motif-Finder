@@ -124,7 +124,11 @@ function SignalBody({ ch }: { ch: Channel }) {
     if (ch.source_file === 'M2_aug_concat_fs1.mat' && ch.name === 'CH4_A2') return [995040, 1002240]  // the frames' example span
     return [0, Math.min(7200, ch.duration_s)]
   }, [])  // eslint-disable-line react-hooks/exhaustive-deps -- initial only
-  const vp = useViewport(ch, initial, plotSize.width)
+  // explore-review: bumped after the action strip or the drawer writes (a send to Review, an artifact mark), so the
+  // viewport and the whole-channel list re-read their spans from the bridge
+  const [spansRev, setSpansRev] = useState(0)
+  const reread = useCallback(() => setSpansRev(n => n + 1), [])
+  const vp = useViewport(ch, initial, plotSize.width, spansRev)
   useEffect(() => {
     const id = window.setTimeout(() => setExplore({ channelId: ch.id, view: vp.view }), 200)
     return () => window.clearTimeout(id)
@@ -137,7 +141,7 @@ function SignalBody({ ch }: { ch: Channel }) {
     let alive = true
     getSpans(ch.id, 0, ch.duration_s).then(s => { if (alive) setAll(s) }).catch(e => { if (alive) setAllErr(asApiError(e)) })
     return () => { alive = false }
-  }, [ch.id, ch.duration_s])
+  }, [ch.id, ch.duration_s, spansRev])
   // live runs feed the picker on channels without demo canon
   const [liveRuns, setLiveRuns] = useState<DbRun[] | null>(null)
   const [runsErr, setRunsErr] = useState<ApiError | null>(null)
@@ -318,7 +322,7 @@ function SignalBody({ ch }: { ch: Channel }) {
         ) : drawer ? (
           <>
             <ErrorBoundary label="drawer">
-              <SignalDrawer channelKey={String(ch.id)} channelName={ch.name} fs={ch.fs} demo={demo} live={all} tab={drawer} setTab={t => openDrawer(t)} onClose={() => setDrawerQ(null)} view={vp.view} focusSignal={focusSignal}
+              <SignalDrawer channelKey={String(ch.id)} channelName={ch.name} fs={ch.fs} demo={demo} live={all} tab={drawer} setTab={t => openDrawer(t)} onClose={() => setDrawerQ(null)} view={vp.view} focusSignal={focusSignal} onSent={reread}
                 onOpenRow={r => {
                   const key = r.kind === 'annotated' ? `a:${r.id}` : `d:${r.id}`   // span-plot: the live keys, on every channel
                   const found = motifs.find(m => m.key === key)
@@ -342,7 +346,7 @@ function SignalBody({ ch }: { ch: Channel }) {
               <MotifView key="motif-tier" ch={ch} motif={sel} label={selLabel} medoid={demo?.medoid ?? null} onSend={m => send(m.start_s, m.end_s, `${selLabel ?? `MOTIF ${m.id}`} · ${ch.name}`)} onReview={reviewMotif} />
             </ErrorBoundary>
             <ErrorBoundary label="span actions">
-              <SpanActionsBound actionsRef={actions} channelKey={String(ch.id)} channelName={ch.name} recordingId={ch.id} fs={ch.fs} initial={initialDraft} view={vp.view} nInView={inView.length} tagSignal={tagSignal}
+              <SpanActionsBound actionsRef={actions} channelKey={String(ch.id)} channelName={ch.name} recordingId={ch.id} fs={ch.fs} initial={initialDraft} view={vp.view} nInView={inView.length} tagSignal={tagSignal} onWritten={reread}
                 onSend={() => send(vp.view[0], vp.view[1], `${ch.name} · ${fmtRangeH(vp.view[0], vp.view[1])}`)} />
             </ErrorBoundary>
             <ErrorBoundary label="ribbons">
