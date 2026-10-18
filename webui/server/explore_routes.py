@@ -473,9 +473,9 @@ def mark_artifact(request: Request, body: ArtifactBody):
 #     then `revisions.add_revision(origin='human', annotation_id=...)`, which
 #     makes it the member's current revision (rev 1, the matcher's, is kept);
 #   * a plain DETECTION -> a human `annotations` row with the corrected span
-#     and the item's verdict (``seed`` when it has none).
-#   A member's annotation carries its verdict, ``unsure`` when it has none: it
-#   backs the revision and is not itself a judgement (critic round).
+#     and the item's verdict.
+#   On both paths an item with no verdict is saved ``interesting``: correcting
+#   an unjudged item's span is a judgement (the researcher, 2026-10-19).
 # The `detections` row is never written, on either path.
 #
 # Its imports live here, with the block, so a sibling prompt appending routes
@@ -650,7 +650,7 @@ def get_span_edit(request: Request, ref: str, px: int = SPAN_EDIT_PX):
 @router.post("/api/explore/span-edit/{ref}")
 def post_span_edit(request: Request, ref: str, body: SpanEditBody):
     """Save a corrected span. A member gets a new human revision (backed by an annotation); a plain detection
-    gets a human annotation with the item's verdict (``seed`` when it has none). Never the detections row."""
+    gets a human annotation with the item's verdict (``interesting`` when it has none). Never the detections row."""
     c = _conn(request)
     try:
         t = _span_edit_target(c, ref)
@@ -666,17 +666,16 @@ def post_span_edit(request: Request, ref: str, body: SpanEditBody):
     c = _conn(request)
     try:
         verdict = _span_edit_verdict(c, t)
-        # a plain detection: the item's verdict, `seed` when it has none (the prompt's rule). A member: its
-        # verdict, `unsure` when it has none — the annotation there only backs the revision, a redrawn extent is
-        # not a verdict, and `seed` is not a member's question (family_queue): it would count the member judged
-        # "yes" by extent in Review and the Library, and put it in the Explore spans queue (critic round)
-        fallback = "seed" if t["member_id"] is None else "unsure"
+        # the item's verdict; `interesting` when it has none, on both paths — correcting an unjudged item's span is
+        # a judgement (the researcher, 2026-10-19; the prompt's `seed` and the critic's `unsure` for a member are
+        # both superseded). Never `seed`: a seed row would also put the span in the Explore spans queue
+        fallback = "interesting"
         word = verdict if verdict in q.VERDICTS else fallback
         note = body.note
         if verdict and word != verdict:
             note = f"{note + ' · ' if note else ''}item verdict {verdict!r} is not an annotation verdict"
-        elif not verdict and t["member_id"] is not None:
-            note = f"{note + ' · ' if note else ''}span correction only: no verdict given"
+        elif not verdict:
+            note = f"{note + ' · ' if note else ''}the item had no verdict: a span correction saves interesting"
         if t["member_id"] is None:
             aid = q.insert_annotation(c, t["recording_id"], s, e, word, SPAN_EDIT_SOURCE, note=note,
                                       created_at=now, commit=False)

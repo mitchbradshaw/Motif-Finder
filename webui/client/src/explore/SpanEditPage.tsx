@@ -73,9 +73,9 @@ function SpanEditBody({ refId, d, returnTo }: { refId: string; d: SpanEdit; retu
     : extent.start < 0 || extent.end > d.n_samples ? `outside the channel (0 – ${fmtSec(d.n_samples / fs)} s)` : null
   const saveReason = busy ? 'saving…' : problem ? 'fix the extent first' : !changed ? 'nothing changed — drag a handle or edit start / end' : undefined
   const label = d.member ? `member ${d.member.ref}` : `detection ${d.detection_id}`
-  const verdictWord = d.verdict ?? 'seed'
+  const verdictWord = d.verdict ?? 'interesting'
   const writes = d.member
-    ? `a new revision (rev ${d.member.current.revision_no + 1}) of ${d.member.ref}, backed by a human annotation (${d.verdict ? `verdict ${d.verdict}` : 'unsure: a redrawn extent is not a verdict, and the member stays unjudged'}); the earlier revisions stay in its history and the detection is untouched`
+    ? `a new revision (rev ${d.member.current.revision_no + 1}) of ${d.member.ref}, backed by a human annotation (${d.verdict ? `verdict ${d.verdict}` : 'interesting, as the member has no verdict yet'}); the earlier revisions stay in its history and the detection is untouched`
     : `a human annotation over the corrected span with the item's verdict (${verdictWord}${d.verdict ? '' : ', as the item has none'}); the detection is untouched`
 
   const back = (discard: boolean) => {

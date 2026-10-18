@@ -309,7 +309,7 @@ def test_a_member_of_an_entry_is_not_given_the_entrys_detection(seeded):
     assert r.status_code == 200, r.text
     out = r.json()
     assert out["seeded_rev1"] is True and out["revision"]["revision_no"] == 2
-    assert out["annotation"]["verdict"] == "unsure"
+    assert out["annotation"]["verdict"] == "interesting"   # its own default, not the entry detection's not_interesting
     rev1 = _q(rt, "SELECT origin, detection_id, start_idx, end_idx FROM motif_member_revision "
                   "WHERE member_id = ? AND revision = 1", (other,))[0]
     assert rev1 == ("machine", None, 12000, 12050)
