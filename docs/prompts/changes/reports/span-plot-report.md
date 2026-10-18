@@ -153,3 +153,54 @@ fa07d78 span-plot: one absolute rule; a capped spans read says where its detecti
 985ae8d span-plot: red - the pile's suspects as fixtures, and the capped whole-channel read
 (+ the commit adding this report)
 ```
+
+## Critic round (2026-10-18)
+
+**In plain words first.** The branch fixed the small overview strip but not the main span plot. The span plot asks
+the bridge for "the detections in this view", and the bridge answered with the first 5 000 by time. On a channel with
+~300 000 detections, any view wider than about 12 hours got only its opening hours' detections, so every blue band
+sat at the left of the plot: the researcher's complaint, still there after the branch. The span plot now asks for an
+even sample across the view instead, and says so in a sentence under the plot.
+
+### Findings
+
+| # | Severity | Where | What | Status |
+|---|---|---|---|---|
+| 1 | blocker | `webui/explore/useViewport.ts:50` → `corpus.spans` | The span view's bands come from the viewport read, which is capped at the view's first 5 000 detections by start. Any view holding more than 5 000 piled into its left edge. The branch fixed only the overview ribbon and the second push. | FIXED `6d3861a`: `GET /spans?spread=1` / `corpus.spans(spread=True)` thins a capped read evenly (every k-th row in time order) and returns `detections_total` and `detections_spread`. The default read is unchanged. `api.ts::getViewSpans` is append-only. A sentence under the plot says "N of M drawn, spread evenly; zoom in". 4 red tests, then green. |
+| 2 | should-fix | `explore/SignalPage.tsx` | "No runs picked" drew an empty span with no word. | FIXED `6d3861a`: `span-band-note` gives the sentence. |
+| 3 | should-fix | `explore/signalModel.ts::defaultPicker` | Now that the run filter applies, the default was the live read's `defaultRuns`: the three newest runs of *any* kind (`run_methods` lists runs without detections too). A channel whose newest runs found nothing would draw no detections on first open. | FIXED `aad1bf9`: the default is the three newest non-surrogate runs holding detections, falling back to `defaultRuns`. `CrossChannelPage` reads the same default. |
+| 4 | should-fix | `corpus.spans` | `legacy_ambiguous` was evaluated on every row of every non-ambiguous run, which is 300k Python calls on a wide view, on every pan. | FIXED `aad1bf9`: each run is tested once per read. The warning is still once per run per process. |
+| 5 | should-fix | `SignalPage.tsx` bands | Bands were not cut to the current view, so until a new view's read landed, the previous view's rows drew off-plot. Smoke state 6 (`data-in-view=0` absent) could flake on a slow bridge. | FIXED `6d3861a`. |
+| 6 | nit | `SignalPage.tsx` totals | On a busy channel the Ribbons card showed the capped copy's length (5 000) as the channel's detection total. | FIXED `9b55f5d`. |
+| 7 | nit | `explore.css` `.ex-band-toggle.off` | The off state is a grey pill with strike-through. This is a state, not a secondary button, so it is left as is. | NOT FIXED (judgement) |
+| 8 | note | nav / drawer | ‹ N / M › and the drawer still walk the whole-channel read, which is a prefix of 5 000 on a busy channel, so nav cannot reach past the first ~12 h there. This predates the branch and is outside the prompt. | for polish-pass |
+
+Checked and clean:
+- `_absolute` is the one rule, and post-fix runs draw exactly as before.
+- The warning is once per run per process (tested).
+- The edge fields do not rewrite themselves while typing: `text` holds the typed value until blur, Enter or Escape. The debounced commit does not re-fire, because `parsed` is stable. Valid values pass through `clampView` unchanged, so there is no feedback loop.
+- The smoke JSON is valid, uses only actions `smoke.py` knows (`fill`, `reload`, `wait_for`, `click`), and states share the tab, so state 3's reload sees state 2's `localStorage`.
+- Channel 4 is `M2_aug` CH4_A2 at 1 Hz, and smoke already sends 995040–1067040 s on it, so the typed windows exist.
+
+Out of the prompt's file list (critic):
+- `webui/server/app.py` (one route parameter, `spread`);
+- `webui/client/src/api.ts` (append-only: an interface merge and `getViewSpans`);
+- `webui/client/src/explore/useViewport.ts` (one call).
+
+### Gate after the critic round
+
+| Interpreter | File | Result |
+|---|---|---|
+| venv | `tests/test_webui_span_plot.py` | 10 passed |
+| venv | `tests/test_webui_corpus.py` | 10 passed |
+| conda | `tests/test_span_plot_absolute.py` | 7 passed |
+| conda | `tests/test_legacy_detections_migration.py` | 12 passed |
+| conda | `tests/test_import_boundaries.py` | 4 passed |
+
+`tsc -b` passes, and `vite build` passes.
+
+### Merge risk
+
+- `app.py`'s `get_spans` gains one parameter. The AR speed pass has `app.py` changes in flight, so check that hunk.
+- `SignalPage.tsx`'s band block and the `SpanView` props line are where `explore-review-actions` also edits; expect a textual conflict there.
+- `corpus.spans` sits below the coverage-cache region the AR pass changes.
