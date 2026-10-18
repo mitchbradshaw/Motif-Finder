@@ -334,7 +334,14 @@ header's path strip) were done directly the same day (commits prefixed `ux-1013:
 Triaged from the code (read-only searches, 2026-10-18); nothing below is started. Sizes: **S** = under ~40 lines in
 one or two files and no new route; **M** = a new route or component; **L** = a design decision first.
 
-**Small — can be done directly, no prompt needed**
+**Small — done directly the same day (commits `ux-1018:`, 9c4247a … d422bab). Gate run: `tsc` and the build clean;
+the new route tests green (tree by key, corpus single-flight, fires status once per run); smoke units on the sandbox
+bridge: `zzzzzzzzzz_ux1015_small` 4/4, the tree unit's own states pass (its one failure is the baseline's). The
+`discovery` and `library` units and the full walk could NOT be read that evening: the machine was at 80–97 % CPU from
+outside this project and the rq4 import had grown the database, so the home page no longer reaches network-idle in
+30 s and the discovery states time out on the slow routes (numbers in `BACKLOG.md`, speed pass). The researcher chose
+not to wait two hours for a full walk; run one on a quiet machine before the next wave and compare failure SETS with
+the 2026-10-18 morning baseline (704 screenshots / 42 failures).**
 
 | Item | Where | Size |
 |---|---|---|
