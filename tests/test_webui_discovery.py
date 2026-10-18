@@ -1547,9 +1547,25 @@ def test_a_second_keep_with_the_same_identity_returns_the_same_row(client):
     assert a["reused"] is True and a["run_key"] == first["run_key"]
     assert sorted(a["detectionIds"]) == sorted(first["detectionIds"])
     assert (_counts(client, "discovery_runs"), _counts(client, "detections")) == (n_rows, n_dets)
+    # the preview gone (a restart that lost it, another query since): the keep that happened is still answered
+    with _disc._results_lock:
+        _disc._results.clear()
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    try:
+        conn.execute("UPDATE discovery_sessions SET state_json = '{}'")
+        conn.commit()
+    finally:
+        conn.close()
+    gone = _keep(client, q, cut)
+    assert gone.status_code == 200, gone.text
+    assert gone.json()["reused"] is True and gone.json()["run_key"] == first["run_key"]
 
 
 def test_a_keep_after_a_restart_reads_the_preview_back_from_the_session(client):
+    # the process dict outlives one test's database (its key names the file, not the database), so an earlier
+    # test's preview of this query would be served from memory and never stored in THIS session's row
+    with _disc._results_lock:
+        _disc._results.clear()
     q, res = _seed_preview(client)
     cut = _cut_between(res)
     with _disc._results_lock:

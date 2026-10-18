@@ -1675,3 +1675,15 @@ export const applyDiscoveryTemplatesWindowed = (templates: string[], channels: s
     { templates, channels, t0, t1, run, windows, bands: bands && bands.length ? bands : undefined, exemplars })
 /** A Map row of a windowed application (`detection_map._row_meta`): its scope and its scale in words. */
 export interface DiscMapRow { windows?: { scope: DiscPlanWindows['scope']; label: string } | null }
+
+/* ---------------- seed-search (2026-10-18): the preview's matches kept as a run (server/discovery.py) ----------------
+ * Appended. *Use these as detections*: the preview IS the search, so `POST /api/discovery/seed/keep` writes its matches
+ * at or below the cut as a run (one per channel, the preview's null as its null) and searches nothing again. 409 with
+ * `needsPreview` when no preview of the query is held; a second press with the same identity answers the same row. */
+export interface DiscSeedKeepAck {
+  run_key: string; label: string; job_id: number | null; reused: boolean; started: boolean; status: string
+  /** the rows are written (the bridge waits for its own short sweep); `detectionIds` are then the run's own */
+  done: boolean; found: number | null; detectionIds: number[]; nullFrom: 'preview'; note: string
+}
+export const keepDiscoverySeedMatches = (body: DiscSeedQuery & { cut?: number | null; label?: string }) =>
+  post<DiscSeedKeepAck>('/api/discovery/seed/keep', body)
