@@ -210,7 +210,7 @@ def create_app(rt: Runtime) -> FastAPI:
         return resp
 
     @app.get("/api/channels/{recording_id}/spans")
-    def get_spans(recording_id: int, t0: float = 0.0, t1: float | None = None):
+    def get_spans(recording_id: int, t0: float = 0.0, t1: float | None = None, spread: bool = False):
         rec = rec_or_423(recording_id)
         if t1 is None:
             t1 = rec["duration_s"]
@@ -218,7 +218,7 @@ def create_app(rt: Runtime) -> FastAPI:
             raise HTTPException(422, f"window must satisfy 0 <= t0 < t1 <= {rec['duration_s']:.0f} s; got t0={t0}, t1={t1}")
         c = conn()
         try:
-            return corpus.spans(c, recording_id, t0, t1, rec["fs"])
+            return corpus.spans(c, recording_id, t0, t1, rec["fs"], spread=spread)   # span-plot: the span view thins, never truncates
         finally:
             c.close()
 
