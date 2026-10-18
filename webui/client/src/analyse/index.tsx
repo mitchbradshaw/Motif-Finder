@@ -3,10 +3,10 @@
    keep these two lines when editing this file).
    Demo mode: `?template=<demo chain>` or `?state=…` opens the B24 detection chain (and the other frame chains) built from
    `demo.*` blocks; without them the chain and block pages run live against the bridge's adapters. */
-import { lazy } from 'react'
 import './analyse.css'
 import './demo/demo.css'
 import { useApp } from '../state'
+import { lazyNamed } from '../shell/chunkReload'
 import { GlyphsPage } from './GlyphsPage'
 import { isDemoTemplate } from '../api/analyse'
 import { BlockPage } from './BlockPage'
@@ -15,8 +15,9 @@ import { DemoChainPage } from './demo/DemoChainPage'
 import { DemoBlockPage } from './demo/DemoBlockPage'
 import './demo/blocks.css'
 
-const InterrogationPage = lazy(() => import('../interrogation').then(m => ({ default: m.InterrogationPage })))
-const TrainingPage = lazy(() => import('../training').then(m => ({ default: m.TrainingPage })))
+// ux-1019: through the reload-once cure, like the workspaces (shell/chunkReload.ts)
+const InterrogationPage = lazyNamed(() => import('../interrogation'), 'InterrogationPage')
+const TrainingPage = lazyNamed(() => import('../training'), 'TrainingPage')
 
 export function AnalysePage() {
   const { route } = useApp()
