@@ -181,3 +181,30 @@ def test_a_carried_row_is_seen_without_rebuilding_the_structure(seeded, monkeypa
     assert calls["n"] == n, "a carried verdict rebuilt run B's remembered structure"
     assert row["judged"] is True
     assert client.get(f"/api/review/queues/{qb}/counts").json()["judged"] == 1
+
+
+def test_a_picked_overlap_set_reads_as_one_item_in_discoverys_marks(seeded):
+    """manager, review-carry merge: Discovery's picked marks map an overlap set's every member to the set's item.
+    Before the fix a non-first member (a2) read "not asked" because the marks were keyed by the item's target id."""
+    from server import discovery as disc
+    client, rt, info = seeded
+    d = info["d"]
+    conn = sqlite3.connect(rt.db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        qid = Q.create_queue(conn, name="picked", source_kind="discovery-run",
+                             filters={"detection_ids": [d["a1"], d["a2"]]}, note=disc._picked_note(1))
+        conn.commit()
+        Q.clear_resolver_cache()
+        assert disc._picked_states(conn, 1) == {d["a1"]: ("waiting", None), d["a2"]: ("waiting", None)}
+    finally:
+        conn.close()
+    ack = client.post(f"/api/review/queues/{qid}/verdict", json={"target_id": str(d["a1"]), "verdict": "interesting"})
+    assert ack.status_code == 200, ack.text
+    conn = sqlite3.connect(rt.db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        Q.clear_resolver_cache()
+        assert disc._picked_states(conn, 1) == {d["a1"]: ("judged", "interesting"), d["a2"]: ("judged", "interesting")}
+    finally:
+        conn.close()
