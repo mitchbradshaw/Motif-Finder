@@ -1747,3 +1747,11 @@ export const getLibrarySequenceFamily = (id: string, grouping?: string) =>
 export const sendSequenceFamilyReview = (id: string, grouping?: string) =>
   post<{ queueId: number; name: string; sent: number; total: number; judged: number; remaining: number }>(
     `/api/library/sequences/${encodeURIComponent(id)}/review${dq({ grouping })}`, {})
+
+/* ---------------- library-family-actions: the rose reference LINE (server/library.py `_rose_reference_line`) ----------------
+   The median steepest slope over the human-accepted Library motifs (interesting or seed), live — a verdict moves it —
+   with its n; `median_slope: null, n: 0` when none is accepted (no line). Not the stored 45° (`getRoseReference`).
+   Append-only (shared file). */
+export interface LibRoseReferenceLine { unit: string; median_slope: number | null; n: number; field: string; computed_from: string }
+export const getRoseReferenceLine = (unit: 'motifs' = 'motifs') =>
+  req<LibRoseReferenceLine>(`/api/library/rose-reference?unit=${unit}`)

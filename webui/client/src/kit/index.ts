@@ -26,3 +26,4 @@ export { useSim, startSim, cancelSim, resetSim, forceSim, getSim, type SimStatus
 export { useNotWired } from './notWired'
 export { KitGallery } from './Gallery'
 export { Headline, type HeadlineFold, type HeadlineProps } from './Headline'
+export type { RoseReferenceLine } from './Rose'

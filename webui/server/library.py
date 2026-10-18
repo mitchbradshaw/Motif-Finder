@@ -4254,12 +4254,52 @@ class RoseReferenceBody(BaseModel):
     actor: str = "this installation"
 
 
+#: library-family-actions: the rose reference LINE, one per (database, unit), keyed by the adjudication fingerprint
+#: (`_view_fingerprint` with no grouping: members, hand edits, annotations, adjudications, features, settings, units)
+_ROSE_LINE_CACHE: dict = {}
+ROSE_LINE_UNITS = ("motifs",)
+
+
+def _rose_reference_line(conn, unit: str) -> dict:
+    """The line every rose draws (library-family-actions, 2026-10-19): the median steepest slope over the
+    human-accepted Library motifs of `unit` — resolved *interesting* or *seed* by the one verdict resolver — with
+    its n, computed live (a new verdict moves it on the next read), unlike the stored 45° above, which only an
+    explicit act moves. No accepted motif: `median_slope: None`, `n: 0`, and no line; never the above-the-floor
+    fallback, which is the 45°'s rule, not this line's. Reuses `rose_reference.compute` with `min_accepted=1`
+    (its accepted branch is exactly this population) rather than a second slope reader."""
+    if unit not in ROSE_LINE_UNITS:
+        raise HTTPException(400, f"the rose reference line is computed over Library motifs only: unit must be "
+                                 f"one of {', '.join(ROSE_LINE_UNITS)}, not {unit!r}")
+    db = conn.execute("PRAGMA database_list").fetchone()[2]
+    finger = _view_fingerprint(conn, 0)
+    hit = _ROSE_LINE_CACHE.get((db, unit))
+    if hit is not None and hit[0] == finger:
+        return hit[1]
+    r = rose_mod.compute(conn, min_accepted=1)
+    accepted = r["population"] == rose_mod.POP_ACCEPTED and r["value_mv_s"] is not None
+    n = int(r["n"]) if accepted else 0
+    value = float(r["value_mv_s"]) if accepted else None
+    out = {"unit": unit, "median_slope": value, "n": n, "field": r["field"],
+           "computed_from": (f"median steepest slope over human-accepted Library motifs (interesting or seed), n = {n}"
+                             if accepted else "no human-accepted Library motif (interesting or seed) has a measured "
+                                              "steepest slope yet, so there is no reference line")}
+    while len(_ROSE_LINE_CACHE) >= 8:
+        _ROSE_LINE_CACHE.pop(next(iter(_ROSE_LINE_CACHE)))
+    _ROSE_LINE_CACHE[(db, unit)] = (finger, out)
+    return out
+
+
 @router.get("/rose-reference")
-def get_rose_reference(request: Request):
+def get_rose_reference(request: Request, unit: str | None = None):
     """What 45° means on every rose (Round 10): the stored reference with its population, or — when none is
-    stored yet — the one it would store, marked `stored: false`. Reading never writes."""
+    stored yet — the one it would store, marked `stored: false`. Reading never writes.
+
+    With `?unit=motifs` (library-family-actions): the reference LINE instead, `{median_slope, n, computed_from}`
+    — `_rose_reference_line`."""
     conn = _conn(request)
     try:
+        if unit is not None:
+            return _rose_reference_line(conn, unit)
         return rose_mod.current(conn)
     finally:
         conn.close()

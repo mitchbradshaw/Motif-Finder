@@ -21,6 +21,7 @@ import { clamp, makeX, makeY, polylinePath, type XScale } from '../../charts/sca
 import { useSize } from '../../charts/useSize'
 import { axisUnit } from '../../charts/units'
 import { Button, EmptyState, Headline, Histogram, InfoTip, Rose, type HeadlineFold } from '../../kit'
+import { useRoseReferenceLine } from '../../library/roseReference'
 import { IntervalTimelinePanel } from './IntervalTimeline'
 import { TrainsFigures } from './TrainsView'
 import { fmtHours, navigate } from '../../state'
@@ -428,6 +429,7 @@ function FeatureHistograms({ p }: { p: SpansetPayload }) {
  *  measures, so those lead: a histogram per measure, the rose, the interval statistics. The table is still
  *  there, folded away, because the point of this page is not to read a table. */
 function SpansToSpans(q: ProcessProps) {
+  const roseRef = useRoseReferenceLine()   // library-family-actions: before the early return (a hook)
   const p = as<SpansetPayload>(q.payload, 'spanset')
   if (!p) return <NoResult />
   // W3-F: a stack of cycles (a payload convention): the stack, the verdicts as the block gave them, the medoid cycles
@@ -458,7 +460,7 @@ function SpansToSpans(q: ProcessProps) {
       <FeatureHistograms p={p} />
     </div>
   ) : <div className="muted mono small" data-testid="event-features-none">this block returned its spans with no measures attached</div>
-  const rose = p.rose ? <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Steepest slope, each event as one angle</h3></div><Rose rose={p.rose} testid="rose-fan" /></div> : null
+  const rose = p.rose ? <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Steepest slope, each event as one angle</h3></div><Rose rose={p.rose} reference={roseRef} testid="rose-fan" /></div> : null
   const intervals = !p.interval_stats ? null : p.interval_classes
     ? <IntervalTimelinePanel ic={p.interval_classes} t0={q.ctx.t0} t1={q.ctx.t1} stats={p.interval_stats} />
     : <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Inter-event intervals</h3><span className="sg">per group, never pooled</span></div><IntervalStatsTable stats={p.interval_stats} /></div>
