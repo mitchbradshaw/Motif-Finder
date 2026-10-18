@@ -188,3 +188,24 @@ def test_a_bad_rule_is_refused_in_words(seqb):
     client, ctx = seqb
     r = client.post("/api/library/sequences/preview", json={**BODY, "rule": "nope", "recording_id": ctx["rid"]})
     assert r.status_code == 400 and "rule" in r.text
+
+
+def test_send_to_review_queues_the_familys_unjudged_elements(seqb):
+    """critic: the rail's *Send to Review* (the fourth route) — the family's
+    unjudged ELEMENTS become one Review queue, and a second send reuses it."""
+    client, ctx = seqb
+    kept = _ok(client.post("/api/library/sequences/keep", json={**BODY, "recording_id": ctx["rid"]}))
+    fam = _ok(client.get(f"/api/library/sequences/{CHAIN}?grouping={kept['grouping']}"))
+    unjudged = fam["judgedOf"] - fam["judged"]
+    assert unjudged == 3
+    sent = _ok(client.post(f"/api/library/sequences/{CHAIN}/review?grouping={kept['grouping']}"))
+    assert sent["sent"] == 3 and sent["queueId"]
+    conn = sqlite3.connect(ctx["db"])
+    try:
+        n = conn.execute("SELECT COUNT(*) FROM review_queues WHERE id = ?", (sent["queueId"],)).fetchone()[0]
+    finally:
+        conn.close()
+    assert n == 1
+    again = _ok(client.post(f"/api/library/sequences/{CHAIN}/review?grouping={kept['grouping']}"))
+    assert again["queueId"] == sent["queueId"], "one queue per family"
+    assert client.post(f"/api/library/sequences/F-09.F-09/review?grouping={kept['grouping']}").status_code == 404
