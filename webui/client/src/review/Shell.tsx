@@ -11,10 +11,10 @@ import {
 } from '../kit'
 import { useSourced } from '../api/seam'
 import { useToast } from '../shell/Toast'
-import { getAllQueues, VOCABULARY, type QueueData, type QueueRow } from '../api/review'
+import { getQueueCounts, getQueues, useThumbs, VOCABULARY, type QueueData, type QueueRow } from '../api/review'
 import { SHORTCUTS } from './keys'
-import { counts, isJudged, queueCounts, unitHash, unitKey, units, type UnitRef } from './queue'
-import { effective, useAutoAdvance, useBlindOverrides, useFilters, useRecords, useReviewVersion } from './store'
+import { counts, isJudged, queueCounts, rowById, unitHash, unitKey, units, type UnitRef } from './queue'
+import { effective, useAutoAdvance, useBlindOverrides, useCountsVersion, useFilters, useRecords, useReviewVersion } from './store'
 
 /* The queue thumbnails used to share one hand-set domain, [-0.45, 0.45] (right in volts, served as mV), then ±450 mV after
    fixup-b. Each is drawn on its own measured domain now (charts/domain.ts, fixup-c): at 38 px a thumbnail's job is
@@ -94,6 +94,10 @@ export function Shell({ data, unit, blind, setBlind, paused, micro, evidenceTitl
 /* ================= toolbar ================= */
 function Toolbar({ data, judged, blind, setBlind, paused }: { data: QueueData; judged: number; blind: boolean; setBlind: (v: boolean) => void; paused?: boolean }) {
   const { queue } = data
+  // AR: the pace is re-read with the counts after every verdict (`/counts`), not with every row
+  const countsVersion = useCountsVersion()
+  const liveCounts = useSourced(() => getQueueCounts(queue.id), [queue.id, countsVersion])
+  const paceS = liveCounts.data && String(liveCounts.data.id) === queue.id ? liveCounts.data.pace_s : queue.paceS
   const [pop, setPop] = useQueryState<string>('pop', '')
   const [modal, setModal] = useQueryState<string>('modal', '')
   const [auto, setAuto] = useAutoAdvance()
@@ -140,7 +144,7 @@ function Toolbar({ data, judged, blind, setBlind, paused }: { data: QueueData; j
 
       <span className="grow" />
       <div className="rv-progress" data-testid="queue-progress" title={`${fmtInt(judged)} of ${fmtInt(queue.total)} judged`}>
-        <div className="row1"><span><b>{fmtInt(judged)}</b> / {fmtInt(queue.total)}</span><span className="muted" data-testid="queue-pace">{queue.paceS == null ? 'pace not yet measured' : fmtPace(queue.paceS)}</span></div>
+        <div className="row1"><span><b>{fmtInt(judged)}</b> / {fmtInt(queue.total)}</span><span className="muted" data-testid="queue-pace">{paceS == null ? 'pace not yet measured' : fmtPace(paceS)}</span></div>
         <ProgressBar value={judged / queue.total} size="sm" labelPosition="none" width={164} ariaLabel="queue progress" />
       </div>
       <span className="k-divider-v" />
@@ -160,18 +164,20 @@ function Toolbar({ data, judged, blind, setBlind, paused }: { data: QueueData; j
 
 /* ================= queue list (rail + picker) ================= */
 function QueueList({ current, onPick }: { current: string; onPick: (id: string) => void }) {
-  // re-read the whole queue list after an accepted write, so the rail's counts come from the database
+  // re-read the queue list after an accepted write, so the rail's counts come from the database. AR: the HEADERS
+  // only (each with its own total and judged) — it used to read every queue's every row with thumbnails, after
+  // every verdict
   const version = useReviewVersion()
-  const all = useSourced(getAllQueues, [version])
+  const countsVersion = useCountsVersion()
+  const all = useSourced(getQueues, [version, countsVersion])
   const records = useRecords()
   const [over] = useBlindOverrides()
   if (all.error) return <div className="error-card" data-testid="queues-error">Queues failed to load: {all.error.message}</div>
   if (!all.data) return <div className="skeleton" style={{ height: 180 }} />
   return (
     <div className="rv-queues" data-testid="queue-list">
-      {all.data.map(d => {
-        const q = d.queue
-        const c = queueCounts(q.id, q, d.rows, records)
+      {all.data.map(q => {
+        const c = queueCounts(q.id, q, undefined, records)
         const blind = over[q.id] ?? q.blind
         return (
           <button key={q.id} type="button" className={cx('rv-queue-row', q.id === current && 'on')} onClick={() => onPick(q.id)} data-testid={`queue-row-${q.id}`}>
@@ -201,12 +207,14 @@ function QueueRailCollapsed({ data, unit, left, onOpen }: { data: QueueData; uni
     shown.push(u); thumbs += n
   }
   const rest = list.length - start - shown.length
-  const row = (id: string) => data.rows.find(r => r.id === id)!
+  const row = (id: string) => rowById(data, id)!
+  // AR: rows arrive without thumbnails; the ones in this strip are paged in
+  const thumbOf = useThumbs(shown.flatMap(u => u.kind === 'item' ? [u.id] : u.members).map(row).filter(Boolean))
   const Thumb = ({ r, current }: { r: QueueRow; current: boolean }) => {
     const rec = effective(records, r)
     return (
       <span className={cx('rv-thumb', current && 'current', rec && !current && 'judged')} title={`${r.id} · ${r.channel}${r.score != null ? ` · ${r.score.toFixed(2)}` : ''}${rec ? ` · ${rec.verdict.replace('_', ' ')}` : ''}`}>
-        <MiniTrace values={r.thumb} width={38} height={28} zeroLine={false} />
+        <MiniTrace values={thumbOf(r)} width={38} height={28} zeroLine={false} />
         {rec && <i className="dot" style={{ background: verdictColour(rec.verdict) }} />}
       </span>
     )
@@ -248,7 +256,7 @@ function QueueRailOpen({ data, unit, blind, left, onClose }: { data: QueueData; 
   const rowOk = (r: QueueRow) => f.channels.includes(r.channel) && (!hasScore || (value(r) >= f.score[0] - 1e-9 && value(r) <= f.score[1] + 1e-9)) && (f.method === 'all' || f.method === 'matrix profile')
   const visible = useMemo(() => list.filter((u, i) => {
     const ids = u.kind === 'item' ? [u.id] : u.members
-    const rows = ids.map(id => data.rows.find(r => r.id === id)!)
+    const rows = ids.map(id => rowById(data, id)!)
     if (!rows.some(rowOk)) return false
     const j = isJudged(data, records, u)
     if (f.status === 'unjudged') return !j || i === curIdx - 1 || i === curIdx
@@ -259,14 +267,16 @@ function QueueRailOpen({ data, unit, blind, left, onClose }: { data: QueueData; 
   const byFamily = f.group === 'family'
   const paged = usePagedList(visible, 10)
   const sortLabel = queue.order
-  const unitRows = (u: UnitRef) => (u.kind === 'item' ? [u.id] : u.members).map(id => data.rows.find(r => r.id === id)!)
+  const unitRows = (u: UnitRef) => (u.kind === 'item' ? [u.id] : u.members).map(id => rowById(data, id)!)
+  // AR: the rows of the page on screen get their thumbnails; the rest are never drawn
+  const thumbOf = useThumbs(paged.items.flatMap(unitRows))
 
   const RowBtn = ({ r, inCluster }: { r: QueueRow; inCluster?: boolean }) => {
     const rec = effective(records, r)
     const current = unit?.kind === 'item' && unit.id === r.id
     return (
       <button type="button" className={cx('rv-next-row', current && 'on', rec && !current && 'judged', inCluster && 'member')} onClick={() => navigate(`review/queue/${queue.id}/${r.id}`)} data-testid={`next-row-${r.id}`}>
-        <MiniTrace values={r.thumb} width={44} height={24} zeroLine={false} />
+        <MiniTrace values={thumbOf(r)} width={44} height={24} zeroLine={false} />
         <b className="mono">{r.id}</b><span className="mono muted">{r.channel}</span><span className="grow" />
         {hasScore && (blind ? <span className="mono muted" title="hidden in a blind queue"><Icon name="eye-off" size={12} /></span> : <span className="mono">{isDistance ? `d ${value(r).toFixed(2)}` : value(r).toFixed(2)}</span>)}
         {rec && <i className="dot" style={{ background: verdictColour(rec.verdict) }} title={rec.verdict} />}

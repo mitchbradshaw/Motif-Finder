@@ -29,9 +29,11 @@ handler.
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import sqlite3
+import threading
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -317,19 +319,79 @@ def _channel_label(rec: dict | None, item: dict) -> str:
     return (rec or {}).get("name") or str(item.get("channel") or "")
 
 
-def _thumb(conn, item: dict, rec: dict | None, unit: str) -> list:
+#: AR (the speed pass): a thumbnail is a function of the channel file, its unit and rate, and the span — none of
+#: which a verdict changes — so it is kept, keyed on exactly those (the file by path and mtime, so a re-derived
+#: channel is read again). A 10,000-row queue drew 10,000 thumbnails on every read, each with two queries and a
+#: settings read for its recording row (26 s on the scale fixture). Bounded; ~0.5 KB an entry.
+_THUMB_CACHE: "OrderedDict" = None  # type: ignore[assignment]
+_THUMB_CACHE_MAX = 100_000
+_THUMB_LOCK = threading.Lock()
+
+
+def _thumb_source(conn, rec: dict, memo: dict | None):
+    """(recording row, cache key prefix) for one recording, once per request when the caller passes a memo."""
+    rid = int(rec["recording_id"])
+    if memo is not None and rid in memo:
+        return memo[rid]
+    row = _row_for(conn, rec)
+    prefix = None
+    if row and row.get("npy_path"):
+        try:
+            prefix = (row["npy_path"], os.stat(row["npy_path"]).st_mtime_ns, row.get("units"), float(row["fs"] or 1.0))
+        except OSError:
+            prefix = None                       # missing: drawn empty with its reason, never kept
+    got = (row, prefix)
+    if memo is not None:
+        memo[rid] = got
+    return got
+
+
+def _thumb(conn, item: dict, rec: dict | None, unit: str, memo: dict | None = None) -> list:
     """A queue row's thumbnail: a bare value list (a sparkline with nothing drawn beside it, so there is no
     second coordinate system to disagree with). fixup-ah: a blind test queue's rows carry none — a sparkline
     list would let the eye find the window shown twice (and its first answer) before the card is read."""
+    global _THUMB_CACHE
     if (rec or {}).get("held_out") or unit == "test window":
         return []
     start = int(item.get("start_idx") or 0)
     end = int(item.get("end_idx") or start)
-    return _trace_env(_row_for(conn, rec), start, end, THUMB_PX)["v"]
+    if not rec:
+        return _trace_env(None, start, end, THUMB_PX)["v"]
+    row, prefix = _thumb_source(conn, rec, memo)
+    if prefix is None:
+        return _trace_env(row, start, end, THUMB_PX)["v"]
+    key = prefix + (start, end)
+    with _THUMB_LOCK:
+        if _THUMB_CACHE is None:
+            from collections import OrderedDict
+            _THUMB_CACHE = OrderedDict()
+        hit = _THUMB_CACHE.get(key)
+        if hit is not None:
+            _THUMB_CACHE.move_to_end(key)
+            return list(hit)
+    v = _trace_env(row, start, end, THUMB_PX)["v"]
+    with _THUMB_LOCK:
+        _THUMB_CACHE[key] = tuple(v)
+        while len(_THUMB_CACHE) > _THUMB_CACHE_MAX:
+            _THUMB_CACHE.popitem(last=False)
+    return v
+
+
+def baseline_peak(values) -> float:
+    """`charts/domain.ts::baselinePeak`, the same arithmetic: a trace's largest deviation from its own median,
+    over its finite values. The Shape card's queue-wide reference bar is drawn from every row's, and since rows
+    no longer carry their thumbnails (AR) the bridge sends the two ends of that range (`thumbPeaks`)."""
+    finite = [float(v) for v in (values or ()) if v is not None and math.isfinite(float(v))]
+    if not finite:
+        return 0.0
+    s = sorted(finite)
+    n = len(s)
+    mid = s[(n - 1) // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
+    return max(abs(v - mid) for v in finite)
 
 
 def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUMB_PX,
-                   rank: int | None = None, thumb: bool = True) -> dict:
+                   rank: int | None = None, thumb: bool = True, memo: dict | None = None) -> dict:
     """One queue row in the client's `QueueEntry` shape, with its thumbnail."""
     rid = item.get("recording_id")
     rec = index.get(int(rid)) if rid is not None else None
@@ -362,7 +424,7 @@ def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUM
     # fixup-ah: a blind test queue's rows carry no thumbnail — a sparkline list would let the eye find the window
     # shown twice (and its first answer) before the card is read
     # AR: `thumb=False` serves the row without it (`thumbsServed: false` on the read); `/thumbs` pages them
-    row["thumb"] = _thumb(conn, item, rec, row["unit"]) if thumb else []
+    row["thumb"] = _thumb(conn, item, rec, row["unit"], memo) if thumb else []
     row["family"] = str(item.get("family") or "")
     # The run that wrote this detection, and where the item sits in the queue.
     # Without them the inspector subtitle read "run undefined - rank undefined"
@@ -701,11 +763,25 @@ def get_queue(request: Request, qid: str, include_judged: int = Query(default=1)
                                         include_prior_judged=bool(include_prior_judged),
                                         exclude_recording_ids=held)
         ranks = {str(it.get("target_id", it.get("id"))): i + 1 for i, it in enumerate(served)}
+        memo: dict = {}
         rows = [_entry_payload(conn, it, queue, index, rank=ranks.get(str(it.get("target_id", it.get("id")))),
-                               thumb=bool(thumbs))
+                               thumb=bool(thumbs), memo=memo)
                 for it in items]
+        # the Shape card's queue-wide reference bar: the smallest positive and the largest row peak, from every
+        # row's thumbnail, whether or not the thumbnails ride along (`referenceScale` reads only those two ends)
+        peaks = []
+        for it, row in zip(items, rows):
+            if row.get("heldOut"):
+                continue
+            v = row["thumb"] if thumbs else _thumb(conn, it, index.get(int(it["recording_id"]))
+                                                   if it.get("recording_id") is not None else None,
+                                                   row["unit"], memo)
+            p = baseline_peak(v)
+            if p > 0:
+                peaks.append(p)
         return {"queue": _queue_payload(conn, queue, counts=queues_mod.counts_of(served)),
-                "rows": rows, "clusters": _clusters(items, queue), "thumbsServed": bool(thumbs)}
+                "rows": rows, "clusters": _clusters(items, queue), "thumbsServed": bool(thumbs),
+                "thumbPeaks": [min(peaks), max(peaks)] if peaks else []}
     finally:
         conn.close()
 
@@ -721,12 +797,12 @@ def get_thumbs(request: Request, qid: str, ids: str = Query(default="")):
         want = [i for i in (x.strip() for x in ids.split(",")) if i][:200]
         index = _index(conn)
         held = _held_out_ids(conn)
-        out = {}
+        out, memo = {}, {}
         for tid in want:
             item = _item_or_404(conn, queue, tid, held)["item"]
             rid = item.get("recording_id")
             rec = index.get(int(rid)) if rid is not None else None
-            out[tid] = _thumb(conn, item, rec, queue.get("unit") or item.get("unit") or "detection")
+            out[tid] = _thumb(conn, item, rec, queue.get("unit") or item.get("unit") or "detection", memo)
         return {"thumbs": out}
     finally:
         conn.close()

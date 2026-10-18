@@ -129,6 +129,9 @@ def test_rows_without_thumbnails_read_no_channel_and_lose_nothing_else(bridge, m
     assert len(lean["rows"]) == len(full["rows"]) == lean["queue"]["total"]
     for a, b in zip(lean["rows"], full["rows"]):
         assert {**a, "thumb": None} == {**b, "thumb": None}, "a rows-only read must differ only by the thumbnail"
+    # the Shape card's queue-wide reference bar reads only the two ends of every row's peak: both reads carry them
+    peaks = [p for p in (review.baseline_peak(r["thumb"]) for r in full["rows"] if not r.get("heldOut")) if p > 0]
+    assert lean["thumbPeaks"] == full["thumbPeaks"] == [min(peaks), max(peaks)]
 
 
 def test_thumbnails_are_paged_and_equal_the_full_reads(bridge):

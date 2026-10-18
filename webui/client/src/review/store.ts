@@ -7,7 +7,7 @@
  * this file: the bridge is written first and this stack is updated only once the POST was accepted, so the undo
  * affordance and the "previous" line keep working without the page ever showing a verdict nobody stored. */
 import { getDemo, recordDemoWrite, setDemo, useDemoState } from '../kit'
-import { postBatch, postPromote, postVerdict, type QueueEntry, type Verdict } from '../api/review'
+import { clearItemCache, postBatch, postPromote, postVerdict, type QueueEntry, type Verdict } from '../api/review'
 
 export interface VerdictRecord {
   verdict: Verdict; className?: string; blind: boolean; at: number
@@ -156,17 +156,30 @@ function failed(e: unknown, label: string): WriteFailure {
   return { message: e instanceof Error ? e.message : String(e), status, label, at: Date.now() }
 }
 
-/** Bumped after every accepted write. Review's `useSourced` reads carry it in their deps, so an accepted
- *  verdict re-reads the queue and the item instead of trusting the local record to have guessed right. */
+/** Bumped after every accepted write that can change the queue's SET of rows (a promotion, a batch, an undo or
+ *  redo, any write to a queue whose verdicts land in `annotations`). Review's reads carry it in their deps, so such
+ *  a write re-reads the rows and the item instead of trusting the local record to have guessed right. */
 export function useReviewVersion() { return useDemoState<number>(VERSION, () => 0)[0] }
-export const bumpReviewVersion = () => setDemo<number>(VERSION, n => (n ?? 0) + 1)
+export const bumpReviewVersion = () => { clearItemCache(); setDemo<number>(VERSION, n => (n ?? 0) + 1) }
 
-/** Send, then record. Returns the session write on success and `null` on a refusal. */
-export async function commitWrite(send: () => Promise<unknown>, w: Omit<SessionWrite, 'id' | 'at' | 'undone'>): Promise<SessionWrite | null> {
+/** AR (the speed pass): bumped after every accepted write, including the single verdicts that change only one
+ *  row's judged state. What carries it re-reads the queue's COUNTS (`/counts`, and the queue list's headers) —
+ *  never every row, which was 5.3 s and 3 MB per verdict at 3,195 items on the real database. The row's own
+ *  verdict is the session record the write just made, so the page shows what the bridge accepted. */
+const COUNTS_VERSION = 'review.countsVersion'
+export function useCountsVersion() { return useDemoState<number>(COUNTS_VERSION, () => 0)[0] }
+const bumpCountsVersion = () => setDemo<number>(COUNTS_VERSION, n => (n ?? 0) + 1)
+
+/** Send, then record. Returns the session write on success and `null` on a refusal. `light`: the write changes
+ *  one row's verdict and nothing else about the queue (a verdict or class on a queue writing adjudications or
+ *  window verdicts), so only the counts are re-read. */
+export async function commitWrite(send: () => Promise<unknown>, w: Omit<SessionWrite, 'id' | 'at' | 'undone'>,
+                                  opts: { light?: boolean } = {}): Promise<SessionWrite | null> {
   try { await send() } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, w.label)); return null }
   clearWriteError()
   const full = applyWrite(w)
-  bumpReviewVersion()
+  if (!opts.light) bumpReviewVersion()
+  bumpCountsVersion()
   return full
 }
 
@@ -176,7 +189,7 @@ export async function commitUndo(send: () => Promise<unknown>, w: SessionWrite):
   try { await send() } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, `undo · ${w.label}`)); return false }
   clearWriteError()
   undoWrite(w)
-  bumpReviewVersion()
+  bumpReviewVersion(); bumpCountsVersion()
   return true
 }
 
@@ -186,7 +199,7 @@ export async function commitRedo(send: () => Promise<unknown>, w: SessionWrite):
   try { await send() } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, `redo · ${w.label}`)); return false }
   clearWriteError()
   redoWrite(w)
-  bumpReviewVersion()
+  bumpReviewVersion(); bumpCountsVersion()
   return true
 }
 

@@ -19,7 +19,7 @@
  * column for. Those are DERIVED from source kind — never invented data. */
 import { useEffect, useState } from 'react'
 import { live, type Sourced } from './seam'
-import { ApiError } from '../api'
+import { ApiError, fetchBridge } from '../api'
 import { CLASSES, MORPHOLOGY_TAGS, RECORDINGS, VERDICTS } from '../fixtures/canon'
 import {
   CLUSTERS, REVIEW_TAG_SUGGESTIONS,
@@ -33,7 +33,10 @@ export { CONTEXT_PAD_MAX } from '../fixtures/review'
  *  carries a verdict in the table the queue writes. It carries no verdict VALUE (see `rowOf`), so it is kept
  *  as its own flag instead of being turned into a `baseVerdict` nobody sent. */
 export interface QueueRow extends QueueEntry { thumb: number[]; family: string; judged: boolean }
-export interface QueueData { queue: ReviewQueue; rows: QueueRow[]; clusters: ReviewCluster[] }
+/** `thumbsServed: false` (AR): the rows came without their thumbnails — `useThumbs` pages in the ones on screen.
+ *  `thumbPeaks`: the smallest positive and the largest row peak (`baselinePeak` of every row's thumbnail), which is
+ *  all the Shape card's queue-wide reference bar reads; empty when no row has a positive peak. */
+export interface QueueData { queue: ReviewQueue; rows: QueueRow[]; clusters: ReviewCluster[]; thumbsServed?: boolean; thumbPeaks?: number[] }
 
 /* ---------------- a trace WITH its axis (fixup-g) ----------------
  * The bridge used to serve a decimated envelope's VALUES and discard its `t`, on a contract that "the x axis is
@@ -152,8 +155,9 @@ const refusal = (rec: string) => `${rec} is held out (D6): it is locked for the 
 /* ---------------------------------------------------------------- bridge ---------------------------------------------------------------- */
 
 /** One fetch. Non-2xx throws `ApiError` with the server's message (and traceback on a 500) — never a blank. */
-async function req<T>(path: string): Promise<T> {
-  const r = await fetch(`/api/review${path}`, { headers: { 'content-type': 'application/json' } })
+async function req<T>(path: string, signal?: AbortSignal): Promise<T> {
+  // AR: a timeout (the page says so rather than waiting for ever) and the caller's abort (a superseded read stops)
+  const r = await fetchBridge(`/api/review${path}`, { headers: { 'content-type': 'application/json' }, signal })
   if (!r.ok) {
     let body: any = null
     try { body = await r.json() } catch { /* not json */ }
@@ -291,8 +295,11 @@ export const VOCABULARY = {
   morphologyTags: [...MORPHOLOGY_TAGS],
 }
 
-export function getQueue(queueId: string): Promise<Sourced<QueueData | null>> {
-  return live(req<SrvQueueData>(`/queues/${encodeURIComponent(queueId)}`).then(d => {
+/** `opts.thumbs: false` (AR) reads the rows without their thumbnails — the page's own read; the thumbnails of the
+ *  rows on screen come from `useThumbs`. */
+export function getQueue(queueId: string, opts: { thumbs?: boolean; signal?: AbortSignal } = {}): Promise<Sourced<QueueData | null>> {
+  const q = opts.thumbs === false ? '?thumbs=0' : ''
+  return live(req<SrvQueueData & { thumbsServed?: boolean; thumbPeaks?: number[] }>(`/queues/${encodeURIComponent(queueId)}${q}`, opts.signal).then(d => {
     if (!d?.queue) return null
     const queue = queueOf(d.queue)
     const raw = (d.rows ?? d.items ?? []) as any[]
@@ -306,15 +313,114 @@ export function getQueue(queueId: string): Promise<Sourced<QueueData | null>> {
     queue.channels = Array.from(new Set(rows.map(r => r.channel).filter(Boolean)))
     const scores = rows.map(r => r.score).filter((v): v is number => typeof v === 'number')
     queue.scoreFloor = scores.length ? Math.min(...scores) : null
-    return { queue, rows, clusters: (d.clusters ?? []) as ReviewCluster[] }
+    return { queue, rows, clusters: (d.clusters ?? []) as ReviewCluster[], thumbsServed: d.thumbsServed !== false,
+             thumbPeaks: Array.isArray(d.thumbPeaks) ? d.thumbPeaks : undefined }
   }))
 }
 
-/** `opts.px` is the width of the plot that will draw the traces and `opts.padS` the context padding shown;
- *  the bridge sizes and pads the traces to them (fixup-g). */
-export function getItem(queueId: string, itemId: string, opts: TraceOpts = {}): Promise<Sourced<ItemDetail | null>> {
+/** AR: what the toolbar and the queue list re-read after a verdict, in place of every row. */
+export interface LiveCounts { id: number; total: number; judged: number; remaining: number; pace_s: number | null }
+export const getQueueCounts = (queueId: string, signal?: AbortSignal): Promise<Sourced<LiveCounts>> =>
+  live(req<LiveCounts>(`/queues/${encodeURIComponent(queueId)}/counts`, signal))
+
+/* ---------------- thumbnails, paged (AR) ----------------
+ * A queue's rows arrive without their thumbnails (a trace per row was most of a 10,000-row read). The rail asks for
+ * the rows it shows; each answer is kept for the session (a thumbnail is a fixed function of the recording and the
+ * span — no verdict changes it), so paging back and forth reads nothing twice. */
+const THUMBS = new Map<string, number[]>()
+const thumbKey = (queueId: string, id: string) => `${queueId}/${id}`
+const thumbListeners = new Set<() => void>()
+const thumbInflight = new Set<string>()
+
+export function cachedThumb(row: QueueRow): number[] {
+  return row.thumb && row.thumb.length ? row.thumb : THUMBS.get(thumbKey(row.queueId, row.id)) ?? []
+}
+
+/** Fetch the thumbnails of these rows that are not held yet (200 per read, the bridge's bound). A failed read is
+ *  logged and the rows stay without a thumbnail — the item card itself never depends on one. */
+export async function loadThumbs(queueId: string, ids: string[]): Promise<void> {
+  const want = ids.filter(id => !THUMBS.has(thumbKey(queueId, id)) && !thumbInflight.has(thumbKey(queueId, id)))
+  for (let i = 0; i < want.length; i += 200) {
+    const chunk = want.slice(i, i + 200)
+    chunk.forEach(id => thumbInflight.add(thumbKey(queueId, id)))
+    try {
+      const d = await req<{ thumbs: Record<string, number[]> }>(`/queues/${encodeURIComponent(queueId)}/thumbs?ids=${chunk.map(encodeURIComponent).join(',')}`)
+      for (const [id, v] of Object.entries(d.thumbs ?? {})) THUMBS.set(thumbKey(queueId, id), Array.isArray(v) ? v : [])
+    } catch (e) {
+      console.error('queue thumbnails failed to load', e)
+    } finally {
+      chunk.forEach(id => thumbInflight.delete(thumbKey(queueId, id)))
+    }
+    thumbListeners.forEach(f => f())
+  }
+}
+
+/** The rows' thumbnails for drawing: asks for any not held yet and re-renders when they land. */
+export function useThumbs(rows: QueueRow[]): (row: QueueRow) => number[] {
+  const [, setTick] = useState(0)
+  const ids = rows.filter(r => !(r.thumb && r.thumb.length) && !THUMBS.has(thumbKey(r.queueId, r.id)))
+  const key = ids.map(r => thumbKey(r.queueId, r.id)).join(',')
+  useEffect(() => {
+    const f = () => setTick(t => t + 1)
+    thumbListeners.add(f)
+    return () => { thumbListeners.delete(f) }
+  }, [])
+  useEffect(() => {
+    if (!ids.length) return
+    const byQueue = new Map<string, string[]>()
+    ids.forEach(r => byQueue.set(r.queueId, [...(byQueue.get(r.queueId) ?? []), r.id]))
+    byQueue.forEach((list, q) => { void loadThumbs(q, list) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+  return cachedThumb
+}
+
+/* ---------------- item reads: a small cache, and the next item fetched before it is asked for (AR) ----------------
+ * Stepping to the next item used to be a cold read every time. The Inspector prefetches the items either side of the
+ * one on screen at the width and padding the card will ask for, so the step paints from here. Twelve entries: the
+ * reader moves a few items either way, never far. Cleared whenever the queue's SET is re-read (a promotion, a
+ * batch, an undo), since an entry carries the queue header it was read with. */
+const ITEM_LRU_MAX = 12
+const ITEMS = new Map<string, Promise<Sourced<ItemDetail | null>>>()
+const SETTLED = new Map<string, ItemDetail | null>()
+const itemKey = (queueId: string, itemId: string, opts: TraceOpts) => `${queueId}/${itemId}${traceQuery(opts)}`
+
+function remember(k: string, p: Promise<Sourced<ItemDetail | null>>) {
+  ITEMS.delete(k)
+  ITEMS.set(k, p)
+  while (ITEMS.size > ITEM_LRU_MAX) { const old = ITEMS.keys().next().value as string; ITEMS.delete(old); SETTLED.delete(old) }
+  p.then(r => { if (ITEMS.get(k) === p) SETTLED.set(k, r.data) },
+    () => { if (ITEMS.get(k) === p) { ITEMS.delete(k); SETTLED.delete(k) } })   // a failure is never served from here
+}
+
+export function clearItemCache() { ITEMS.clear(); SETTLED.clear() }
+
+/** The item as already read (or prefetched), synchronously — what the card paints on a step before any read. */
+export function peekItem(queueId: string, itemId: string, opts: TraceOpts = {}): ItemDetail | null {
+  return SETTLED.get(itemKey(queueId, itemId, opts)) ?? null
+}
+
+/** Read an item ahead of the step to it. Nothing happens for one held or in flight. */
+export function prefetchItem(queueId: string, itemId: string, opts: TraceOpts = {}) {
+  const k = itemKey(queueId, itemId, opts)
+  if (!ITEMS.has(k)) remember(k, fetchItem(queueId, itemId, opts))
+}
+
+function fetchItem(queueId: string, itemId: string, opts: TraceOpts): Promise<Sourced<ItemDetail | null>> {
   return live(req<any>(`/queues/${encodeURIComponent(queueId)}/items/${encodeURIComponent(itemId)}${traceQuery(opts)}`)
     .then(d => (d ? detailOf(d) : null)))
+}
+
+/** `opts.px` is the width of the plot that will draw the traces and `opts.padS` the context padding shown;
+ *  the bridge sizes and pads the traces to them (fixup-g). Answered from the item cache when the same item was
+ *  read or prefetched at the same width and padding (AR). */
+export function getItem(queueId: string, itemId: string, opts: TraceOpts = {}): Promise<Sourced<ItemDetail | null>> {
+  const k = itemKey(queueId, itemId, opts)
+  const hit = ITEMS.get(k)
+  if (hit) { remember(k, hit); return hit }
+  const p = fetchItem(queueId, itemId, opts)
+  remember(k, p)
+  return p
 }
 
 export function getCluster(queueId: string, no: number, opts: TraceOpts = {}): Promise<Sourced<ClusterDetail | null>> {
