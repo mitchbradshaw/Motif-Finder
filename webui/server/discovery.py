@@ -439,7 +439,7 @@ def _run_payload(conn, row, index, span, jobs=None):
             progress = min(1.0, float(prog.get("done") or 0) / float(prog["total"]))
         progress_text = prog.get("message") or None
     if ids:
-        st = fanout.group_status(conn, run_ids=ids)
+        st = fanout.group_status_light(conn, run_ids=ids)      # AR: the same answer in a handful of queries
         channels_done = f"{st['done']} / {st['total']}"
         progress = st["progress"]
         if live is not None and live.status in ("running", "queued") and (live.progress_state or {}).get("total"):
@@ -589,7 +589,7 @@ def _seed_bind(steps) -> str:
     return core_templates.REBIND if binding.get("mode") == core_templates.REBIND else core_templates.CARRY
 
 
-def _template_payload(conn, row, in_session: set, rank: int, memo=None):
+def _template_payload(conn, row, in_session: set, rank: int, memo=None, stale=None):
     steps = row["steps"]
     signature, terminal = _signature(steps)
     is_seed = any(st["algorithm"] == "seed_matches" for st in steps)
@@ -598,12 +598,15 @@ def _template_payload(conn, row, in_session: set, rank: int, memo=None):
         cell = _step_cell(st, i)
         stages.append({"index": f"{i + 1:02d}", "name": cell["name"], "signature": cell["signature"],
                        "locked": cell["param"], "glyph": cell["glyph"]})
-    score = _last_score(conn, row["name"], memo)
+    # AR: never scored on open — the remembered score, or the last known one marked `scoring` (queued by the caller)
+    score, scoring = _score_view(conn, row["name"], memo)
+    if scoring and stale is not None:
+        stale.append(row["name"])
     return {
         "name": row["name"], "kind": "seed" if is_seed else "template", "signature": signature,
         "fits": terminal == "spanset",
         "fitsReason": None if terminal == "spanset" else f"terminal type is {terminal}, not SpanSet",
-        "lastScore": score, "savedAt": (row.get("created_at") or "")[:10], "lastUsed": rank,
+        "lastScore": score, "scoring": scoring, "savedAt": (row.get("created_at") or "")[:10], "lastUsed": rank,
         "stages": stages, "perChannelMin": None, "complexity": _complexity(steps), "diskGB": None,
         "preview": None,
         "previewNote": "not previewed — run Preview on a sample to get a measured number",
@@ -654,6 +657,88 @@ def _last_score(conn, template_name, memo=None):
     if not ids:
         return "not yet scored"
     total = SB.score_runs_cached(conn, ids, memo=memo, copy_out=False)["total"]     # read, never changed
+    return _score_text(total)
+
+
+#: AR: the picker's scoring placeholder, when a template has never been scored on this bridge
+SCORING_TEXT = "scoring… — the score appears here when the background scoring reaches this template"
+#: tests set this to hold the background scoring until a read has answered
+SCORING_PAUSED = False
+_SCORING_LOCK = threading.Lock()
+_SCORING = {"pending": [], "thread": None, "db": None}
+_SCORING_IDLE = threading.Event()
+_SCORING_IDLE.set()
+
+
+def _score_view(conn, template_name, memo=None):
+    """`(lastScore, scoring)` for the picker WITHOUT scoring anything (AR, the speed pass): the remembered score
+    when its inputs still stand; otherwise the last known one (or the placeholder) with ``scoring=True``, and the
+    template is queued for the background scorer. The picker used to score on open and waited minutes behind the
+    start-up warm (> 240 s on the real database, 2026-10-18)."""
+    row = conn.execute(
+        "SELECT * FROM discovery_runs WHERE template_name = ? AND run_group_id IS NOT NULL "
+        "ORDER BY id DESC LIMIT 1", (template_name,)).fetchone()
+    ids = _run_ids(conn, row) if row is not None else []
+    if not ids:
+        return "not yet scored", False
+    out, fresh = SB.score_runs_peek(conn, ids, memo=memo)
+    if out is not None and fresh:
+        return _score_text(out["total"]), False
+    return (_score_text(out["total"]) if out is not None else SCORING_TEXT), True
+
+
+def _queue_scoring(db_path, names):
+    """Add templates to the background scorer's list and start it if it is not running. One worker at a time;
+    the start-up warm drains the same list."""
+    with _SCORING_LOCK:
+        for n in names:
+            if n not in _SCORING["pending"]:
+                _SCORING["pending"].append(n)
+        _SCORING["db"] = db_path
+        if _SCORING["thread"] is not None or not _SCORING["pending"]:
+            return
+        _SCORING_IDLE.clear()
+        t = threading.Thread(target=_drain_scoring, name="score-templates", daemon=True)
+        _SCORING["thread"] = t
+    t.start()
+
+
+def _drain_scoring():
+    """Score the queued templates one by one into `SB.score_runs_cached`, so the next picker read finds them
+    fresh. A failure is logged and costs only that template's score (it reads 'scoring…' until the next open
+    queues it again)."""
+    log = logging.getLogger("webui.discovery")
+    try:
+        while True:
+            while SCORING_PAUSED:
+                time.sleep(0.05)
+            with _SCORING_LOCK:
+                if not _SCORING["pending"]:
+                    _SCORING["thread"] = None
+                    _SCORING_IDLE.set()
+                    return
+                name, db = _SCORING["pending"].pop(0), _SCORING["db"]
+            try:
+                c = corpus.connect(db)
+                try:
+                    _last_score(c, name)
+                finally:
+                    c.close()
+            except Exception:
+                log.exception("scoring template %s in the background failed", name)
+    except BaseException:
+        with _SCORING_LOCK:
+            _SCORING["thread"] = None
+            _SCORING_IDLE.set()
+        raise
+
+
+def wait_for_scoring(timeout=None) -> bool:
+    """Block until the background scorer has drained its list (tests, and the start-up warm's log line)."""
+    return _SCORING_IDLE.wait(timeout)
+
+
+def _score_text(total):
     # fixup-X: the containment figure (Q-D2 (a)) — the §4.6 one is 0 by
     # construction on window labels and would put that 0 on the card
     p = (total.get("precisions") or {}).get("containment")
@@ -682,10 +767,11 @@ def warm_last_scores(db_path):
             t0 = time.perf_counter()
             files = corpus.warm_coverage(c, first="M2_aug_concat_fs1.mat")
             log.info("corpus maps warmed (%d files, %.1f s)", len(files), time.perf_counter() - t0)
-            t0, memo = time.perf_counter(), {}
-            for row in T.list_all(c):
-                if row.get("kind") in (None, "detection"):
-                    _last_score(c, row["name"], memo)
+            t0 = time.perf_counter()
+            # AR: through the picker's own background scorer, so a picker read during the warm joins the same list
+            # (it serves the last known score meanwhile) instead of scoring beside it
+            _queue_scoring(db_path, [row["name"] for row in T.list_all(c) if row.get("kind") in (None, "detection")])
+            wait_for_scoring()
             log.info("template scores warmed (%.1f s)", time.perf_counter() - t0)
         finally:
             c.close()
@@ -703,10 +789,13 @@ def get_templates(request: Request):
         rows = T.list_all(c)
         out = []
         memo = {}      # one read of each channel's rows for every template's score (SB.inputs_fingerprint)
+        stale = []     # AR: templates whose score is not current: scored in the background, never here
         for i, row in enumerate(rows):
             if row.get("kind") not in (None, "detection"):
                 continue
-            out.append(_template_payload(c, row, in_session, i, memo))
+            out.append(_template_payload(c, row, in_session, i, memo, stale))
+        if stale:
+            _queue_scoring(request.app.state.rt.db_path, stale)
         return out
     finally:
         c.close()
@@ -722,7 +811,7 @@ def get_history(request: Request):
         out = []
         for r in rows:
             ids = _run_ids(c, r)
-            st = fanout.group_status(c, run_ids=ids) if ids else None
+            st = fanout.group_status_light(c, run_ids=ids) if ids else None
             n = sum(x["detections"] for x in st["channels"]) if st else 0
             out.append({
                 "id": f"g-{r['run_group_id']}" if r["run_group_id"] else f"d-{r['id']}",
@@ -796,6 +885,27 @@ def _run_detections(conn, run_ids, recording_id, span):
         out.append({"id": int(r["id"]), "start": a, "end": b, "run_id": int(r["run_id"]),
                     "score": (float(r["score"]) if r["score"] is not None else None)})
     return out
+
+
+def _run_starts(conn, run_ids, recording_id, span):
+    """The channel-absolute starts `_run_detections` would return, and nothing else, as one int64 array (AR, the
+    speed pass). The fires card only histograms the starts; building a dict per detection per channel per run was
+    most of a 147 s read on the real session. `absolute_bounds`' shift is stated in SQL (a legacy span-relative row
+    — start below a non-zero `span_start` — is shifted by it) and the section test is the same half-open one."""
+    if not run_ids:
+        return np.zeros(0, dtype=np.int64)
+    marks = ",".join(str(int(i)) for i in run_ids)
+    a = ("CASE WHEN COALESCE(r.span_start, 0) != 0 AND d.start_idx < COALESCE(r.span_start, 0) "
+         "THEN d.start_idx + r.span_start ELSE d.start_idx END")
+    sql = ("SELECT " + a + " FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.id IN (" + marks + ") "
+           "AND r.recording_id = ? AND " + q.not_surrogate("r"))
+    params = [int(recording_id)]
+    if span:
+        sql += " AND " + a + " >= ? AND " + a + " < ?"
+        params += [int(span[0]), int(span[1])]
+    cur = conn.cursor()
+    cur.row_factory = None
+    return np.fromiter((row[0] for row in cur.execute(sql, params)), dtype=np.int64)
 
 
 def _human_spans(conn, recording_id, span, verdicts=("interesting", "seed")):
@@ -889,13 +999,14 @@ def get_fires(request: Request, channels: str = "", t0: float = 0.0, t1: float =
         # channel — `group_status` reads several rows per member run, and on the real session (16 channels, 52 runs,
         # 721 h) three channels took 147 s on 2026-10-18 with it inside the channel loop. The rest of that time is
         # the per-channel span reads; the speed pass (BACKLOG.md) owns those.
-        unfinished_from = {}
+        unfinished_from, run_ids_of = {}, {}
         for key in keys:
             if key == "human":
                 continue
             ids = _run_ids(c, _dr_by_key(c, s["id"], key))
+            run_ids_of[key] = ids
             if ids:
-                st = fanout.group_status(c, run_ids=ids)
+                st = fanout.group_status_light(c, run_ids=ids)
                 if st["status"] in ("running", "queued"):
                     unfinished_from[key] = int(n_bins * st["progress"])
         out_channels = []
@@ -909,8 +1020,12 @@ def get_fires(request: Request, channels: str = "", t0: float = 0.0, t1: float =
                 reviewed_bins.append(round(total_length(clip(cov, lo, hi)) / fs / 3600.0, 3))
             rows = []
             for key in keys:
-                spans = _spans_for(c, s["id"], key, ch, span)
-                starts = np.array([sp["start"] for sp in spans], dtype=float)
+                if key != "human" and not key.startswith(SET_PREFIX):
+                    # AR: a plain run's spans are its detections, and only their starts are counted
+                    starts = _run_starts(c, run_ids_of[key], int(ch["id"]), span).astype(float)
+                else:
+                    spans = _spans_for(c, s["id"], key, ch, span)
+                    starts = np.array([sp["start"] for sp in spans], dtype=float)
                 counts = np.histogram(starts, bins=edges)[0].tolist() if len(starts) else [0] * n_bins
                 row = {"run": key, "counts": [int(v) for v in counts]}
                 if key in unfinished_from:
@@ -1015,8 +1130,14 @@ def get_scoreboard(request: Request, runs: str = "", channels: str = "", t0: flo
             ids = _run_ids(c, dr)
             if not ids:
                 continue
-            scored = SB.score_runs_cached(c, ids, rule=rule, span=span)
             wanted = {ch["id"] for ch in chans}
+            # AR: only the runs on the channels asked for are scored — a channel's score reads its own run alone
+            # (`SB.score_runs`), and the rows kept were always just these; scoring all 16 to show 3 was most of an
+            # 85 s read on the real session
+            on = {int(r[0]) for r in c.execute("SELECT id FROM runs WHERE id IN (" + ",".join(str(int(i)) for i in ids)
+                                               + ") AND recording_id IN (" + ",".join(str(int(w)) for w in wanted)
+                                               + ")").fetchall()}
+            scored = SB.score_runs_cached(c, [i for i in ids if int(i) in on], rule=rule, span=span)
             rows = [r for r in scored["channels"] if r["recording_id"] in wanted]
             # a run whose null came from the preview or the cluster has no paired surrogate
             # runs to count: its *null expects* is that null's matches per draw at the cut

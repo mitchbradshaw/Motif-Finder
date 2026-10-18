@@ -8,7 +8,7 @@ import { useEffect } from 'react'
 import { Header } from '../shell/Header'
 import { useApp } from '../state'
 import { EmptyState, Button, useDemoState } from '../kit'
-import { useSourced } from '../api/seam'
+import { useAbortableSourced, useSourced } from '../api/seam'
 import { clusterQueue, getQueue, getQueues } from '../api/review'
 import { navigate } from '../state'
 import { Inspector } from './Inspector'
@@ -56,10 +56,12 @@ export function ReviewPage() {
 
 function QueueRoute({ queueId, rest }: { queueId: string; rest: string[] }) {
   const { route } = useApp()
-  // `version` is bumped by every ACCEPTED write, so the queue is re-read from the database rather than
-  // left to the session's guess about what the write did to the counts and the judged set
+  // `version` is bumped by every accepted write that can change the queue's set (see store.ts), so the rows are re-read
+  // from the database then; a single verdict's row shows the session record of what the bridge accepted
   const version = useReviewVersion()
-  const data = useSourced(() => getQueue(queueId), [queueId, version])
+  // AR: the rows without their thumbnails (the rail pages in the ones it shows), and only when the SET can have
+  // changed: a single verdict bumps the counts, not this. A superseded read is abandoned.
+  const data = useAbortableSourced(signal => getQueue(queueId, { thumbs: false, signal }), [queueId, version])
   const records = useRecords()
   const d = data.data && data.data.queue.id === queueId ? data.data : null
   const state = route.query.state

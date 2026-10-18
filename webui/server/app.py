@@ -77,6 +77,27 @@ def _steps(body) -> list[dict]:
     return [s.model_dump() for s in body.steps]
 
 
+class _RequestClock:
+    """AR (the speed pass): when a page last read from the bridge and how many reads are in flight, so the start-up
+    warm computes the corpus maps between page reads (`corpus.wait_for_quiet`) instead of competing with them. A
+    plain ASGI wrapper: it touches nothing in the request or the response, and a streamed response counts until its
+    last byte."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        corpus.REQUEST_CLOCK["inflight"] += 1
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            corpus.REQUEST_CLOCK["inflight"] -= 1
+            corpus.REQUEST_CLOCK["last"] = time.monotonic()
+
+
 def create_app(rt: Runtime) -> FastAPI:
     app = FastAPI(title="Underground Brains — web UI bridge", docs_url="/api/docs", openapi_url="/api/openapi.json")
     manager = JobManager(rt.db_path, meta_dir=getattr(rt, "meta_dir", None))
@@ -119,6 +140,8 @@ def create_app(rt: Runtime) -> FastAPI:
                 log.warning("stumpy warm-up skipped: %s", e)
         import threading
         threading.Thread(target=_warm, daemon=True, name="stumpy-warm").start()
+
+    app.add_middleware(_RequestClock)
 
     @app.exception_handler(Exception)
     async def _loud(request: Request, exc: Exception):

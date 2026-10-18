@@ -552,15 +552,26 @@ def _read_channel_rows(conn, rec_id):
     ]
 
 
-def channels_fingerprint(conn, recording_ids, memo=None):
+def channels_fingerprint(conn, recording_ids, memo=None, *, settings_keys=None, stable=False):
     """Every row a read over **whole channels** takes in — the corpus map's
     divergence pools every run on each channel — or a digest of it: the
     channel's human rows as `inputs_fingerprint` reads them, every run on it,
     and each run's detection id range (append-only, see there). Same rule:
     a read added to such a reader and not here is served stale. ``memo``: as
-    `inputs_fingerprint`'s."""
+    `inputs_fingerprint`'s.
+
+    AR (the speed pass): ``settings_keys`` — ``[(page, key), ...]`` — narrows
+    the settings part to the settings the reader actually reads, so changing
+    any other setting does not throw its results away (every corpus map was
+    recomputed after any settings save). ``stable=True`` returns a digest that
+    is the same in every process (a SHA-1 of the rows' repr; Python's `hash`
+    of a string is salted per process), for a result kept on disk."""
     memo = {} if memo is None else memo
-    parts = [_settings_rows(conn, memo)]
+    if settings_keys is not None:
+        keys = sorted({(str(p), str(k)) for p, k in settings_keys})
+        parts = [tuple(r for r in _settings_rows(conn, memo) if (r[0], r[1]) in keys)]
+    else:
+        parts = [_settings_rows(conn, memo)]
     for rec_id in sorted({int(r) for r in recording_ids}):
         parts += _channel_rows(conn, rec_id, memo)
         # each run with its recipe's hash (a method filter reads the recipe), whether it is a stitched
@@ -570,6 +581,9 @@ def channels_fingerprint(conn, recording_ids, memo=None):
                                  "(SELECT MIN(d.id) FROM detections d WHERE d.run_id = r.id), "
                                  "(SELECT MAX(d.id) FROM detections d WHERE d.run_id = r.id) "
                                  "FROM runs r WHERE r.recording_id = ? ORDER BY r.id", (rec_id,)))
+    if stable:
+        import hashlib
+        return hashlib.sha1(repr(tuple(parts)).encode("utf-8")).hexdigest()
     return hash(tuple(parts))
 
 
@@ -590,6 +604,19 @@ def score_runs_cached(conn, run_ids, *, rule=None, span=None, memo=None, copy_ou
         _SCORE_CACHE.pop(next(iter(_SCORE_CACHE)))
     _SCORE_CACHE[key] = (fp, copy.deepcopy(out))
     return out
+
+
+def score_runs_peek(conn, run_ids, *, rule=None, span=None, memo=None):
+    """What `score_runs_cached` holds for these runs, WITHOUT scoring (AR, the speed pass): ``(score, fresh)`` —
+    the remembered score and whether its inputs still stand (`inputs_fingerprint` unchanged). ``(None, False)``
+    when nothing was ever scored for them. A reader that must answer now (the template picker) serves a stale
+    score marked as such and leaves the scoring to a background job; it never waits on one. The score is shared:
+    read it, never change it."""
+    key = (tuple(int(r) for r in run_ids), repr(rule), repr(span))
+    hit = _SCORE_CACHE.get(key)
+    if hit is None:
+        return None, False
+    return hit[1], hit[0] == inputs_fingerprint(conn, run_ids, memo)
 
 
 def group_score(conn, run_group_id, *, rule=None, span=None):

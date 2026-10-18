@@ -82,6 +82,9 @@ export interface TemplateStage { index: string; name: string; signature: string;
 export interface DiscoveryTemplate {
   name: string; kind: 'template' | 'seed'; signature: string; fits: boolean; fitsReason?: string | null
   lastScore: string; savedAt: string; lastUsed: number; stages: TemplateStage[]
+  /** AR: the score is not current — `lastScore` is the last known one (or the bridge's placeholder) and the bridge
+   *  is scoring it in the background; the picker re-reads until it lands. The picker never waits on a scoring. */
+  scoring?: boolean
   /* null until a real Preview has been run on a sample — `previewNote` is the server's reason */
   perChannelMin: number | null; complexity: string; diskGB: number | null
   preview: { spans: number; hours: number; channel: string; nullGives: number } | null

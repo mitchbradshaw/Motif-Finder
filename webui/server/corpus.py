@@ -328,9 +328,13 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
     rec_ids = [int(x["id"]) for x in q.list_recordings(conn, source_file)]
     if not rec_ids:
         raise KeyError(source_file)
+    # AR: the held-out answer is part of the map (`held_out`), so the lock's state is part of the key
     key = (source_file, int(bins), tuple(verdicts) if verdicts else None,
-           tuple(int(i) for i in run_ids) if run_ids is not None else None, method)
-    fp = SB.channels_fingerprint(conn, rec_ids)
+           tuple(int(i) for i in run_ids) if run_ids is not None else None, method,
+           bool(is_held_out(conn, source_file)))
+    # AR: only the settings the map reads (COVERAGE_SETTINGS). Memory compares the in-process digest (cheap); a miss
+    # there computes the digest stable across restarts, which keys the copy kept on disk
+    fp = SB.channels_fingerprint(conn, rec_ids, settings_keys=COVERAGE_SETTINGS)
     hit = _COVERAGE_CACHE.get(key)
     if hit is not None and hit[0] == fp:
         out = copy.deepcopy(hit[1])
@@ -343,12 +347,83 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
             if hit is not None and hit[0] == fp:
                 out = copy.deepcopy(hit[1])
             else:
-                out = _coverage(conn, source_file, bins=bins, verdicts=verdicts, run_ids=run_ids, method=method)
+                disk_fp = SB.channels_fingerprint(conn, rec_ids, settings_keys=COVERAGE_SETTINGS, stable=True)
+                out = _disk_read(key, disk_fp)
+                if out is None:
+                    out = _coverage(conn, source_file, bins=bins, verdicts=verdicts, run_ids=run_ids, method=method)
+                    _disk_write(key, disk_fp, out)
                 if len(_COVERAGE_CACHE) >= _COVERAGE_CACHE_MAX:
                     _COVERAGE_CACHE.pop(next(iter(_COVERAGE_CACHE)))
                 _COVERAGE_CACHE[key] = (fp, copy.deepcopy(out))
     out["compute_ms"] = (time.perf_counter() - t0) * 1e3
     return out
+
+
+#: AR (the speed pass): the settings `_coverage` reads, and only these, go into its fingerprint — the matching
+#: rule's two halves (`matching.rule_from_settings`) and the containment mode
+#: (`divergence.containment_from_settings`). A setting added to the divergence must be added here, or a map is
+#: served stale after it changes (tests/test_webui_ar_speed.py changes one of these and expects a recompute, and
+#: changes another setting and expects none).
+COVERAGE_SETTINGS = (("analysis-defaults", "iou"), ("analysis-defaults", "onset"),
+                     ("analysis-defaults", "containment"))
+
+#: AR: where computed maps are kept between restarts — `<runtime root>/cache/coverage/`, set by `Runtime.setup`;
+#: None (memory only) for a caller that never set it. A file per key, holding its fingerprint: read back on a
+#: miss in memory before recomputing; a path on disk, never a blob in the database (CLAUDE.md rule 4).
+DISK_CACHE_DIR: str | None = None
+
+
+def _disk_path(key) -> str | None:
+    if not DISK_CACHE_DIR:
+        return None
+    import hashlib
+    return os.path.join(DISK_CACHE_DIR, "coverage", hashlib.sha1(repr(key).encode("utf-8")).hexdigest() + ".json")
+
+
+def _disk_read(key, fp):
+    path = _disk_path(key)
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            held = json.load(fh)
+    except (OSError, ValueError):
+        logging.getLogger("webui.corpus").warning("unreadable corpus-map cache file %s; recomputing", path)
+        return None
+    if held.get("fp") != fp or held.get("key") != repr(key):
+        return None
+    return held.get("payload")
+
+
+def _disk_write(key, fp, out):
+    path = _disk_path(key)
+    if not path:
+        return
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump({"fp": fp, "key": repr(key), "payload": out}, fh)
+        os.replace(tmp, path)
+    except (OSError, TypeError, ValueError):
+        # the map is still served from memory; only the restart cache misses it
+        logging.getLogger("webui.corpus").exception("could not keep the corpus map for %s on disk", key[0])
+
+
+#: AR: when the bridge last finished serving a request and how many are in flight — kept by `app.py`'s
+#: middleware, read by the start-up warm so it computes between page reads, not under them
+REQUEST_CLOCK = {"last": 0.0, "inflight": 0}
+
+
+def wait_for_quiet(quiet_s: float = 2.0, max_wait_s: float = 30.0) -> float:
+    """Wait until no request is in flight and none has finished for `quiet_s`, or `max_wait_s` passes (a page
+    that polls must not hold the warm off for ever). Returns the seconds waited."""
+    t0 = time.monotonic()
+    while time.monotonic() - t0 < max_wait_s:
+        if REQUEST_CLOCK["inflight"] <= 0 and time.monotonic() - REQUEST_CLOCK["last"] >= quiet_s:
+            break
+        time.sleep(0.1)
+    return time.monotonic() - t0
 
 
 #: what the Corpus page — the home page — asks first (`CorpusPage.tsx`'s default bins and verdicts)
@@ -366,6 +441,11 @@ def warm_coverage(conn, first: str | None = None) -> list:
         files.insert(0, first)
     log = logging.getLogger("webui.corpus")
     for i, sf in enumerate(files, 1):
+        if i > 1:
+            # AR: the first file (the home page's) at once; each after it between page reads
+            waited = wait_for_quiet()
+            if waited >= 1.0:
+                log.info("corpus map warm waited %.1f s for the pages to go quiet", waited)
         t0 = time.perf_counter()
         coverage(conn, sf, **HOME_COVERAGE)
         # ux-1018: a line per file, so a 462 s warm (2026-10-18) can be watched and the slow file named

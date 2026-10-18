@@ -8,7 +8,7 @@ import { useSourced } from '../api/seam'
 import { useSize } from '../charts/useSize'
 import { useToast } from '../shell/Toast'
 import { plotPx } from './axis'
-import { VOCABULARY, getItem, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
+import { VOCABULARY, getItem, peekItem, prefetchItem, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
 import { goUnit, nextUnjudgedAfter, relTime, step } from './queue'
@@ -34,6 +34,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const { queue } = data
   const q = queue.id, id = row.id
   const version = useReviewVersion()
+  const peaks = useQueuePeaks(data)      // fix round B1: the reference bar's ends, worked out off the rows read
   const [pad, setPad] = usePad()
   // The traces are fetched at the width of the column that will draw them (fixup-g): measured, never guessed,
   // so the bridge serves at least one point per device pixel; and over the padding shown, so the context is
@@ -61,7 +62,20 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   // the refusal card belongs to the item it was raised on: moving on clears it, a new failure re-raises it
   useEffect(() => { setOverlay(''); clearWriteError() }, [id])
 
-  const d = det.data && det.data.entry.id === id ? det.data : null
+  // AR: a step paints from the item cache (prefetched below) in the same frame, before the read resolves; the
+  // read itself is then answered from the same cache entry
+  const peeked = px ? peekItem(q, id, { px, padS: +pad }) : null
+  const d = (det.data && det.data.entry.id === id ? det.data : null) ?? (peeked && peeked.entry.id === id ? peeked : null)
+  // AR: the moment this item is on screen, read the ones a key press can go to next (auto-advance's next unjudged
+  // item, J/K's either side), at the width and padding this card asks for, so the step is a cache hit
+  useEffect(() => {
+    if (!d || !px) return
+    const u0 = { kind: 'item' as const, id }
+    for (const u of [nextUnjudgedAfter(data, getRecords(), u0), step(data, u0, 1), step(data, u0, -1)]) {
+      if (u && u.kind === 'item') prefetchItem(q, u.id, { px, padS: +pad })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d?.entry.id, px, pad, q])
   const rec = effective(records, row)
   const k = key(q, id)
   const draft: Draft = drafts[k] ?? { tags: rec?.tags ?? row.tags, note: rec?.note ?? '' }
@@ -101,7 +115,10 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
         return ack
       })
       : postVerdict(q, id, v, { note, tags })
-    const w = await commitWrite(send, { queueId: q, items: [id], kind, verdict: v, className, label: `${id} · ${VERDICT_LABEL[v]}`, before: { [k]: before }, after: { [k]: next } })
+    const w = await commitWrite(send, { queueId: q, items: [id], kind, verdict: v, className, label: `${id} · ${VERDICT_LABEL[v]}`, before: { [k]: before }, after: { [k]: next } },
+      // AR: a verdict on a queue that does not write annotations changes one row's judged state and nothing else, so only
+      // the counts are re-read; a promotion, or a write that makes a human span (which can change any queue's set), re-reads the rows
+      { light: kind !== 'promotion' && queue.writes !== 'annotations' })
     if (!w) { refused(); return null }
     // P21: the seed verdict itself creates the Library exemplar (the bridge wrote it); the panel only chooses its family
     if (v === 'seed') return next
@@ -240,7 +257,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
       {!d && !det.error && <Loading />}
       {d?.refused && <div className="error-card" data-testid="held-out-refusal"><h3><Icon name="lock" /> {id} is refused</h3><p>{d.refused}</p></div>}
       {d && !d.refused && (
-        <div className={cx('rv-stack', det.loading && 'stale')} data-testid="inspector" data-item={id} data-blind={blind ? '1' : '0'}>
+        <div className={cx('rv-stack', det.loading && det.data?.entry.id === id && 'stale')} data-testid="inspector" data-item={id} data-blind={blind ? '1' : '0'}>
           <div className="rv-title" data-testid="title-row">
             <h1 className="mono">{id}</h1>
             {row.unit === 'detection' && <Chip size="sm" tone="blue">detection</Chip>}
@@ -271,7 +288,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
             bandLabel={isWindow ? `${id} · ${row.durationS} s` : `${id} · ${row.durationS.toFixed(1)} s`} canEdit={!isWindow && !d.suspectedArtifact} />
 
           <div className="rv-row2">
-            <ShapeCard d={d} family={masked ? null : (d.nearest.find(f => f.id === overlay) ?? d.nearest[0] ?? null)} blind={masked || isWindow} rows={data.rows} />
+            <ShapeCard d={d} family={masked ? null : (d.nearest.find(f => f.id === overlay) ?? d.nearest[0] ?? null)} blind={masked || isWindow} rows={data.rows} peaks={peaks} />
             {promoted && rec
               ? <PromotionPanel d={d} rec={rec} onUndo={undo} onConfirm={confirmPromotion} confirmRef={confirmRef} />
               : isWindow && blind ? <RevealCard data={data} current={row} now={now} />
@@ -330,8 +347,14 @@ function RevealCard({ data, current, now }: { data: QueueData; current: QueueRow
   const stack = useStack()
   const q = data.queue.id
   const last = [...stack].reverse().find(w => w.queueId === q && !w.undone)
-  const lastRow = last ? data.rows.find(r => r.id === last.items[0]) : [...data.rows].reverse().find(r => r.baseVerdict && data.rows.indexOf(r) < data.rows.indexOf(current))
+  // AR: the last row before this one with a verdict, by one backward walk (it was two indexOf per row, per second)
+  const lastRow = last ? data.rows.find(r => r.id === last.items[0]) : (() => {
+    const at = data.rows.indexOf(current)
+    for (let i = at - 1; i >= 0; i--) if (data.rows[i].baseVerdict) return data.rows[i]
+    return undefined
+  })()
   const rec = lastRow ? effective(records, lastRow) : null
+  const thumbOf = useThumbs(lastRow ? [lastRow] : [])      // AR: rows arrive without thumbnails; this one is paged in
   const you = rec ? rec.className ?? VERDICT_LABEL[rec.verdict] : null
   const call = lastRow?.modelCall
   const agree = !rec || !call ? null : rec.className ? rec.className === call.className : rec.verdict === 'artifact' ? call.className === 'electrode artifact' ? true : false : null
@@ -342,7 +365,7 @@ function RevealCard({ data, current, now }: { data: QueueData; current: QueueRow
       {lastRow && rec ? (
         <div className="rv-reveal">
           <div className="rv-reveal-box">
-            <MiniTrace values={lastRow.thumb} width={70} height={48} ground="white" zeroLine={false} />
+            <MiniTrace values={thumbOf(lastRow)} width={70} height={48} ground="white" zeroLine={false} />
             <div className="kv mono">
               <b>{lastRow.id}</b>
               <div><span className="muted">you</span> <b>{you}</b>{last && <span className="muted"> · {relTime(last.at, now)}</span>}</div>
