@@ -214,3 +214,52 @@ Shared-file edits for the merge:
 - `FamilyPage.tsx`: three small hunks (import, render line, placeholder removed).
 - `AtlasPage.tsx`: import, the hook setter, the card in the sequences branch, and the filter in `SequenceAtlas`.
 - No changes to `schema.py`, `smoke.py`, `serialize.py`, `views.py` or the kit.
+
+## Critic round
+
+Verdict: merge after the fixes below. The joiner, the routes and the page meet the prompt. Checks run:
+
+- **Synthetic Library**: 16 channels at 1 Hz and 10 Hz. One channel has 3 000 members of 30 s–20 min, with overlaps,
+  gaps of −20 s to 2 h, 15 % with no family, and an identical-span duplicate every 50 members.
+  - Fixed rule: every adjacent pair was hand-checked against `gap ≤ 0 + 10 % × shorter`, with 0 mismatches.
+  - Adaptive rules: adamatzky and logisi give exactly the trains of `find_trains` on the same onsets.
+  - Gaps are NaN-free.
+  - Timings on 2 550 labelled members: fixed 18 ms; adamatzky 1.9 s (inside `find_trains`); keep of 548 sequences
+    0.26 s; re-keep writes 0 rows.
+  - Preview payload: about 115 KB.
+- **Rule 5**: as built, and judged right.
+  - The sequences are `origin='machine'`, written through `insert_sequence`, which refuses a row with no origin. That
+    is the per-row dispatch `writes.py` asks for.
+  - The label-chain grouping goes through `write_human`, which is the same door `POST /groupings` uses. A grouping is
+    a human table by §3.5 (a person pressed Keep).
+- **The atlas filter lift** applies only when `method == 'label-chain'`. Imported `sequence_csv` groupings are filtered
+  as before.
+
+Fixes:
+
+1. **Should-fix (`9dc6de0`).** `read_sequences` labelled kept sequences under the NEWEST motif grouping. After a motif
+   regroup, family `F-01.F-02` drew its strips, title, medoid labels and nearest family under the new labels. A
+   `library_join` row now reads back its frozen chain (`source_ref`). There is a test, which fails without the fix.
+2. **Should-fix (`8ed53cc`).** The fourth route (`/sequences/{id}/review`) had no test. One was added: three unjudged
+   elements make one queue, a second send reuses it, and an unknown family is a 404.
+3. **Should-fix (`646586a`).** Smoke state 3 waited for any atlas-grid option and clicked *Open all*. On the real DB the
+   sequences unit already holds imported groupings, so the walk could open one of those instead of the kept family.
+   The card now shows what the keep saved and an **open family <chain>** link (`build-sequences-open-kept`) under the
+   saved grouping. The state clicks that link.
+
+Nits left:
+
+- The logISI "refused" reason (fewer than 10 gaps) shows as the fixed rule's "widen the gap" note.
+- Under the fixed rule, a member nested inside a long one is compared with its predecessor's end, not with the run's
+  latest end.
+- Strip colours come from the newest motif grouping, so frozen labels from an older grouping can be coloured by
+  another grouping's palette.
+- The atlas card's `compositionLabel` (`_compositions`, read live) can still disagree with a frozen family id.
+- The min-members control still shows its number while it is ignored for a label-chain grouping.
+
+Gate after the fixes:
+
+- conda: `test_library_sequences` 13 passed; `test_library_import_sequences` 9 passed; `test_import_boundaries` 4
+  passed.
+- venv: `test_webui_library_sequences` 8 passed; `test_webui_library` 59 passed, 3 xpassed.
+- `tsc -b` clean; `vite build` built.
