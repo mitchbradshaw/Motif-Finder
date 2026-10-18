@@ -371,17 +371,20 @@ def keep_sequences(conn, seqs, provenance) -> list:
 
 
 def read_sequences(conn, sequence_ids, *, grouping_id=None) -> list:
-    """Stored sequences as `Sequence`s, in the order asked, their elements
-    labelled under the motif grouping (`labelled_members`' rule) — `'?'` for an
-    element whose member has no family there (or no member row). A sequence id
-    that is not there, or has no members, is skipped."""
+    """Stored sequences as `Sequence`s, in the order asked. A sequence this
+    module kept (`library_join`) keeps the labels it was kept under — its
+    family identity, frozen in `source_ref` — so its page never names it with
+    labels a later motif regroup gave its elements. Any other sequence's
+    elements are labelled under the motif grouping (`labelled_members`' rule)
+    — `'?'` for an element whose member has no family there (or no member
+    row). A sequence id that is not there, or has no members, is skipped."""
     ids = [int(i) for i in sequence_ids]
     if not ids:
         return []
     gid = motif_grouping_id(conn, grouping_id)
     marks = ",".join("?" * len(ids))
     heads = {int(r["id"]): r for r in conn.execute(
-        f"SELECT s.id, s.recording_id, r.fs FROM sequences s LEFT JOIN recordings r ON r.id = s.recording_id "
+        f"SELECT s.id, s.recording_id, s.source_kind, s.source_ref, r.fs FROM sequences s LEFT JOIN recordings r ON r.id = s.recording_id "
         f"WHERE s.id IN ({marks})", ids)}
     labels = {}
     if gid is not None:
@@ -400,8 +403,11 @@ def read_sequences(conn, sequence_ids, *, grouping_id=None) -> list:
         if head is None or not ms or head["recording_id"] is None:
             continue
         fs = float(head["fs"] or 1.0)
-        els = tuple(Element(int(m["member_id"] or 0), int(m["start_idx"]), int(m["end_idx"]),
-                            labels.get(int(m["member_id"] or 0), "?")) for m in ms)
+        frozen = (key_labels(head["source_ref"] or "") if head["source_kind"] == SOURCE_KIND else [])
+        if len(frozen) != len(ms):
+            frozen = [labels.get(int(m["member_id"] or 0), "?") for m in ms]
+        els = tuple(Element(int(m["member_id"] or 0), int(m["start_idx"]), int(m["end_idx"]), lab)
+                    for m, lab in zip(ms, frozen))
         out.append(Sequence(int(head["recording_id"]), fs, els, _gaps(els, fs), sequence_id=sid))
     return out
 

@@ -246,3 +246,25 @@ def test_label_chain_families_group_kept_sequences_by_their_labels(tmp_path):
     assert sum(r["is_medoid"] for r in by_key[S.label_key(["F-01", "F-02"])]) == 1
     near = S.nearest_family(S.label_key(["F-01", "F-02"]), list(by_key))
     assert near == (S.label_key(["F-02", "F-01"]), 2)
+
+
+def test_a_kept_sequence_keeps_its_labels_after_the_motifs_are_regrouped(tmp_path):
+    """critic: the family IS the label chain at keep time (`source_ref`). A later
+    motif regroup that renames the elements must not rename the family's page —
+    the strips, the title and the nearest family would otherwise disagree with
+    the family id they were opened under."""
+    conn, rid, _, gid = _db(tmp_path)
+    a = _member(conn, gid, rid, 100, 160, "F-01")
+    b = _member(conn, gid, rid, 160, 220, "F-02")
+    kept = S.keep_sequences(conn, S.join_members(conn, rid, "fixed", 0.0, 0.1), {"rule": "fixed"})
+    newer = conn.execute(
+        "INSERT INTO groupings (name, unit, basis, method, params_json, n_families, n_assigned, n_omitted, "
+        "created_at) VALUES ('regrouped', 'single_motifs', 'shape-distance', 'ward', '{}', 2, 0, 0, "
+        "'2026-10-19T09:00:00')").lastrowid
+    for mid, label in ((a, "F-07"), (b, "F-03")):
+        conn.execute("INSERT INTO grouping_assignments (grouping_id, unit, member_ref, family_id, family_label, "
+                     "distance) VALUES (?, 'single_motifs', ?, 1, ?, 0.1)", (newer, mid, label))
+    conn.commit()
+    back = S.read_sequences(conn, [kept[0]["id"]])
+    assert back[0].labels == ("F-01", "F-02")
+    assert S.label_key(back[0]) == kept[0]["key"]
