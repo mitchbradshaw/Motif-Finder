@@ -167,3 +167,45 @@ Modified:
     8aba7ab ux-1019: Launch's setup line shows the anchor and names the drop-work setting (AM)
     3be210e ux-1019: test - Launch's B.2 setup names the anchor and the drop default (red)
     (+ this report's commit)
+
+## Critic round
+
+Verdict: merge after the critic's fixes. Every item was checked against the prompt and BACKLOG §1/§5 on `32bef5b`.
+
+Findings and what was done:
+
+1. **Should-fix, fixed (`bb712ab`): item 1 could reload forever.** `chunkReload.ts` cleared the flag on the first
+   chunk that loaded. On a route whose workspace loads but whose nested lazy page (Analyse › Interrogation or
+   Training) is genuinely missing, the loop was: workspace loads, flag cleared, nested chunk fails, reload, and round
+   again. Now the flag holds the reload's time and counts for 30 s. A chunk that loads inside those 30 s does not
+   clear it. A rebuild later than that still gets its one reload. A non-chunk import error still rejects and reaches
+   the red card. Every `lazy(` in `webui/client/src` now goes through `lazyNamed` (grep: none left outside
+   `chunkReload.ts`).
+2. **Should-fix, fixed (`bb712ab`): grey available actions on Discovery.** The per-run eye buttons were
+   `var(--muted)` and *show all* / *hide all* were ghost buttons. Both now use the muted blue: the eyes are
+   `--blue-muted`, and the two buttons are link buttons like the card's *Open the map*.
+3. **Should-fix, fixed (`97378a9`): the generated manual had gone stale.** The new `anchor_frac` wording made
+   `scripts/manual_tables.py --check` report `generated/blocks/preprocessing/trace_shape.tex` stale. I regenerated
+   that table and left `version.tex` alone so its stamp does not clash with the wave's other branches.
+4. **Minor, fixed (`bb712ab`): BACKLOG §1 said "None open"** even though item 3 leaves a question for the researcher.
+   It now has one open row, the AM follow-up, with options (a) and (b).
+5. **Item 3's deviation stands.** The Window pool block is a source: the validator refuses it anywhere but step 01,
+   so no detector can come before it. A pool is built from grid or labelled window sets, and the `templates` table
+   holds only `name` + `steps_json`, with no kind or tag. So nothing that both Analyse and Launch read says "drop
+   work". The prompt's rule would have to be keyed on something only Launch sees. The plain-language question and the
+   (a)/(b) options are in "Open questions" above.
+6. **No change needed.**
+   - Item 2: the shown set lives in `useDemoState` (an in-memory store), like `discovery.picks` and the other keys.
+     It survives moves between pages but not a reload, which matches those keys. The fires read and its row loop
+     both take `shown`. The scoreboard and run list do not depend on it. The `smoke.py` insertion is safe: the human
+     row's bins are `fires-cell` too.
+   - Item 4: the caption is the same `paramCaption` channel the Detrend block uses for its `window_s`. Once the block
+     has run, the card shows the run summary instead, and the baseline layer's label still names the window.
+   - Item 5: `getCrossChannel`'s new argument comes last and defaults to null, so existing callers are unchanged.
+     The AQ selectors are unchanged.
+
+Gate after the fixes:
+- venv: `test_webui_shape_b2` 6 passed, `test_webui_cross_window` 7 passed, `test_webui_cross_channel` 9 passed.
+- conda: `test_shape_forest` 8 passed, `test_training_shape_align` 20 passed, `test_import_boundaries` 4 passed,
+  `test_manual_tables` 28 passed. `manual_tables.py --check`: 0 stale.
+- `tsc -b` and `vite build` are clean.
