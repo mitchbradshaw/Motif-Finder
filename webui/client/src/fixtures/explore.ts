@@ -273,47 +273,4 @@ export function crossDemo(referenceId: number, pad = 20): CrossDemo | null {
   }
 }
 
-/* ------------------------------------------------------------------ span edit ---- */
-export interface Revision { rev: number; kind: 'detection' | 'annotation'; ref: string; detail: string; origin: 'machine' | 'human'; status: 'kept' | 'current' | 'pending' }
-export type SnapRule = 'steepest sample' | 'trough' | 'zero crossing' | 'free'
-export interface SpanEditDemo {
-  memberId: string; familyId: string; recordingKey: string; recordingLabel: string; file: string; channelId: number; channelName: string
-  heldOut: boolean; fs: number; nSamples: number; durationH: number
-  original: { start: number; end: number }; edited: { start: number; end: number }
-  onsetRule: string; snap: SnapRule; snapCandidates: Record<Exclude<SnapRule, 'free'>, number[]>
-  trace: { t0Sample: number; mv: number[] }; overview: number[]
-  handoff: { queueId: string; candidate: number; of: number; runLabel: string }
-  revisions: Revision[]
-}
-export function spanEditDemo(memberId: string): SpanEditDemo | null {
-  const common = {
-    familyId: 'F-03', fs: 1, onsetRule: 'walk back from steepest while descending', snap: 'steepest sample' as SnapRule,
-    handoff: { queueId: 'q-12', candidate: 12, of: 50, runLabel: 'drop_motifs9 run 128' },
-    revisions: [{ rev: 1, kind: 'detection' as const, ref: 'd-0412', detail: 'run 128 · machine', origin: 'machine' as const, status: 'current' as const }],
-  }
-  if (memberId === 'm-1846') {
-    const t0Sample = 534977 - 125
-    return {
-      ...common, memberId, recordingKey: 'M2_aug_fs1', recordingLabel: 'M2_aug fs1', file: 'M2_aug_concat_fs1.mat', channelId: 4, channelName: 'CH4_A2',
-      heldOut: false, nSamples: 2595600, durationH: 721,
-      original: { start: 534971, end: 534983 }, edited: { start: 534967, end: 534985 },
-      snapCandidates: {
-        'steepest sample': [534955, 534961, 534967, 534971, 534975, 534979, 534983, 534985, 534990, 534996],
-        trough: [534948, 534963, 534978, 534988, 535004],
-        'zero crossing': [534958, 534969, 534981, 534992, 535001],
-      },
-      trace: { t0Sample, mv: syntheticTrace({ n: 250, seed: 1846, baseline: 0.05, noise: 0.02, events: [{ at: 60, depth: 0.2, width: 18, shape: 'spike' }, { at: 119, depth: 0.32, width: 21, shape: 'sharkfin' }, { at: 200, depth: 0.22, width: 30, shape: 'plateau' }] }) },
-      overview: syntheticTrace({ n: 1442, seed: 721, baseline: 0, noise: 0.004, events: [{ at: 210, depth: 0.05, width: 60, shape: 'spike' }, { at: 700, depth: 0.04, width: 120, shape: 'plateau' }, { at: 1100, depth: 0.06, width: 40, shape: 'spike' }] }),
-    }
-  }
-  if (memberId === 'm-0917') {
-    return {
-      ...common, memberId, recordingKey: HELD_OUT_KEY, recordingLabel: 'M4_aug', file: 'M4_aug_concat_fs1.mat', channelId: 52, channelName: 'CH4_A2',
-      heldOut: true, nSamples: 1080000, durationH: 300, original: { start: 0, end: 0 }, edited: { start: 0, end: 0 },
-      snapCandidates: { 'steepest sample': [], trough: [], 'zero crossing': [] }, trace: { t0Sample: 0, mv: [] }, overview: [],
-    }
-  }
-  return null
-}
-
 export const FAMILY_TEAL = FAMILY_COLOURS['F-03']

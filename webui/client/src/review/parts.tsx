@@ -102,7 +102,7 @@ export function ContextCard({ d, title, pad, setPad, bandLabel, canEdit, testid 
         <ResolutionNote tr={d.context} testid="context-resolution" />
         <span className="grow" />
         <Button ref={ocRef} variant={open ? 'primary' : 'default'} icon="list" aria-expanded={open} onClick={() => setPop(open ? null : 'other-channels')} testid="other-channels-button">Other channels</Button>
-        {canEdit && <Button icon="pencil" onClick={() => editInExplore(d)} testid="edit-span-button">Edit span in Explore</Button>}
+        {canEdit && <Button icon="pencil" onClick={() => editInExplore(d)} disabled={!spanEditRef(d).ref} disabledReason={spanEditRef(d).reason} testid="edit-span-button">Edit span in Explore</Button>}
       </div>
       <div className="rv-plot">
         <Trace t={ctx.t} values={ctx.v} xDomain={[ctx.t0, ctx.t1]} timeUnit="none" height={170} crosshair unitLabel={false}
@@ -114,8 +114,19 @@ export function ContextCard({ d, title, pad, setPad, bandLabel, canEdit, testid 
   )
 }
 
+/** edit-span: what the live editor is opened on — a detection item by its detection id, a Library member as
+ *  `m-<id>`; null (with the reason the button shows) for a unit that has neither: a human span, a sequence, a window. */
+export function spanEditRef(d: ItemDetail): { ref: string | null; reason?: string } {
+  const unit = String(d.entry.unit)
+  if (unit === 'detection') return { ref: String(d.entry.detectionId ?? d.entry.id).replace(/^d-/, '') }
+  if (unit === 'member') return { ref: `m-${String(d.entry.id).replace(/^m-/, '')}` }
+  return { ref: null, reason: `a ${unit} has no detection or Library member behind it to redraw` }
+}
+
 export function editInExplore(d: ItemDetail) {
-  navigate(`explore/span-edit/${d.entry.detectionId ?? d.entry.id}?from=review&queue=${d.entry.queueId}&item=${d.entry.id}`)
+  const { ref } = spanEditRef(d)
+  if (!ref) return
+  navigate(`explore/span-edit/${encodeURIComponent(ref)}?from=review&queue=${encodeURIComponent(d.entry.queueId)}&item=${encodeURIComponent(d.entry.id)}`)
 }
 
 function useQueryPop() { return useQueryState<string>('pop', '') }
