@@ -246,3 +246,40 @@ def test_the_queue_table_learns_the_kind_and_keeps_its_rows():
             assert len([f for f in os.listdir(tmp) if "review-queues" in f]) == len(backups)
         finally:
             conn.close()
+
+
+def _redraw(conn, member_id, rec, start, end):
+    """edit-span: a human extent edit, as the span-edit route writes it — an annotation (the
+    claim) and a human revision pointing at it, made current. Rev 1 (the machine's) first,
+    when the member has none."""
+    from Working.library import revisions as rev
+
+    if rev.current_revision(conn, member_id) is None:
+        m = conn.execute("SELECT start_idx, end_idx FROM motif_member WHERE id = ?", (member_id,)).fetchone()
+        rev.add_revision(conn, member_id, origin="machine", start_idx=m[0], end_idx=m[1], commit=False)
+    aid = q.insert_annotation(conn, rec, start, end, "unsure", "review-span-edit", commit=False)
+    rev.add_revision(conn, member_id, origin="human", start_idx=start, end_idx=end, annotation_id=aid,
+                     commit=False)
+    conn.commit()
+
+
+def test_an_extent_edit_moves_the_drawn_span_and_keeps_the_verdict(fam):
+    """edit-span work item 3: after a member's extent is redrawn, Review's item draws the CURRENT
+    revision's span, while the verdict stays keyed on the member's own span (moving the key would
+    un-judge the member and make the next verdict write a second row)."""
+    conn, (m0, m1, m2), recs = fam
+    qid = _queue(conn, [m0, m1, m2])
+    first = V.write_verdict(conn, qid, m0, "interesting")
+    _redraw(conn, m0, recs[0], 985, 1080)
+    it = next(i for i in Q.queue_items(conn, qid, include_judged=True) if i["target_id"] == m0)
+    assert (it["start_idx"], it["end_idx"]) == (985, 1080)
+    assert it["judged"] is True and it["verdict"] == "interesting"
+    assert Q.queue_counts(conn, qid) == {"total": 3, "judged": 1, "remaining": 2}
+    # a second verdict re-describes the SAME row, over the member's own span
+    again = V.write_verdict(conn, qid, m0, "not_interesting")
+    assert again["row_id"] == first["row_id"]
+    ann = q.get_annotation(conn, again["row_id"])
+    assert (ann["start_idx"], ann["end_idx"]) == (990, 1070)
+    # an unedited member draws its own span
+    it1 = next(i for i in Q.queue_items(conn, qid) if i["target_id"] == m1)
+    assert (it1["start_idx"], it1["end_idx"]) == (2000, 2080)

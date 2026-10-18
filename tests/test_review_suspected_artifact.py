@@ -218,3 +218,22 @@ def test_the_queue_table_learns_the_new_kind_and_keeps_its_rows():
             assert len([f for f in os.listdir(tmp) if "review-queues" in f]) == len(backups)
         finally:
             conn.close()
+
+
+def test_an_extent_edit_moves_the_drawn_span_and_keeps_the_verdict(fam):
+    """edit-span work item 3: a flagged member whose extent was redrawn is drawn at its CURRENT
+    revision; the verdict stays keyed on the member's own span."""
+    from Working.library import revisions as rev
+
+    conn, (m0, m1, m2), recs = fam
+    qid = _queue(conn, [m0, m1, m2])
+    V.write_verdict(conn, qid, m0, "artifact")
+    if rev.current_revision(conn, m0) is None:
+        rev.add_revision(conn, m0, origin="machine", start_idx=990, end_idx=1070, commit=False)
+    aid = q.insert_annotation(conn, recs[0], 980, 1075, "unsure", "review-span-edit", commit=False)
+    rev.add_revision(conn, m0, origin="human", start_idx=980, end_idx=1075, annotation_id=aid, commit=False)
+    conn.commit()
+    it = next(i for i in Q.queue_items(conn, qid, include_judged=True) if i["target_id"] == m0)
+    assert (it["start_idx"], it["end_idx"]) == (980, 1075)
+    assert it["judged"] is True and it["verdict"] == "artifact"
+    assert Q.queue_counts(conn, qid) == {"total": 2, "judged": 1, "remaining": 1}

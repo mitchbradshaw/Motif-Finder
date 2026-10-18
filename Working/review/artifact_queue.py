@@ -51,14 +51,23 @@ def queue_name(family):
 
 
 def _members(conn, member_ids):
+    """`{member_id: row}`. `start_idx`/`end_idx` are the member's OWN span — the
+    key every verdict here is matched on, and must stay so: a verdict row sits
+    over that span, and keying on a redrawn extent would un-judge the member.
+    `shown_start_idx`/`shown_end_idx` are its CURRENT revision's span (edit-span,
+    2026-10-18), what Review draws; the own span when it has no revision."""
     ids = sorted({int(m) for m in member_ids or []})
     out = {}
     for i in range(0, len(ids), _CHUNK):
         part = ids[i:i + _CHUNK]
         marks = ",".join("?" * len(part))
         for r in conn.execute(
-                f"SELECT mm.id, mm.recording_id, mm.start_idx, mm.end_idx, r.source_file, r.channel, r.fs "
-                f"FROM motif_member mm JOIN recordings r ON r.id = mm.recording_id WHERE mm.id IN ({marks})",
+                f"SELECT mm.id, mm.recording_id, mm.start_idx, mm.end_idx, r.source_file, r.channel, r.fs, "
+                f"COALESCE(cr.start_idx, mm.start_idx) AS shown_start_idx, "
+                f"COALESCE(cr.end_idx, mm.end_idx) AS shown_end_idx "
+                f"FROM motif_member mm JOIN recordings r ON r.id = mm.recording_id "
+                f"LEFT JOIN motif_member_revision cr ON cr.id = mm.current_revision_id "
+                f"WHERE mm.id IN ({marks})",
                 tuple(part)):
             out[int(r["id"])] = dict(r)
     return out
@@ -237,7 +246,8 @@ def resolve_items(conn, q):
         items.append({
             "target_id": mid, "unit": q["unit"], "member_id": mid,
             "recording_id": int(m["recording_id"]), "channel": int(m["channel"]),
-            "start_idx": int(m["start_idx"]), "end_idx": int(m["end_idx"]),
+            # drawn at the current revision (edit-span); the verdict is keyed on the member's own span
+            "start_idx": int(m["shown_start_idx"]), "end_idx": int(m["shown_end_idx"]),
             "judged": verdict is not None, "verdict": verdict, "family": family,
             "flags": flags.get(mid, []), "tags": [],
             "artifact": {"computed": True, "level": "high", "p": None,
