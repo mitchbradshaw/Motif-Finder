@@ -221,3 +221,64 @@ listed there, and `zz_analyse_run.json`, `fixup-h-features-not-spans` and `fixup
 ## 9. Commits
 
 See `git log --oneline 9504e38..HEAD`. This report is the last commit.
+
+## Critic round (2026-10-18)
+
+**In plain words first.** The pages do what the researcher decided: each one opens on its two or three main figures
+and folds the rest under one "more" button. Three things were wrong underneath and are fixed. One event whose start
+the Event-shape block could not find would have broken the whole Intervals page (the server sent a "not a number"
+the browser connection refuses). If every event had the same depth, all of them were called "large". And the two
+smoke states that run a chain did not first pick the example span, which the walk needs by the time this file runs.
+
+**Verdict:** merge after the fixes below (commit `ig-pages fix:` d11798d).
+
+### Findings
+
+1. **Blocker, fixed.** `webui/server/serialize.py::_interval_classes` shipped `event_t_s` as raw floats. Event
+   shape writes `onset_idx = NaN` for an event whose fall it could not measure (`Working/interrogation/event_shape.py`,
+   `UNLIT`), so `event_t_s` held NaN and the bridge's JSON response (`allow_nan=False`) would refuse the whole step.
+   Reproduced: `json.dumps(payload, allow_nan=False)` -> `ValueError: Out of range float values are not JSON
+   compliant: nan`. Now null; the timeline skips the event and the legend counts it (`interval-untimed`). Test:
+   `test_an_event_with_no_onset_has_no_time_and_the_payload_stays_json_safe` (red before the fix).
+2. **Should-fix, fixed.** All-equal depths: edges `[2, 2, 2, 2]`, every event "large", legend "range 2 to 2". Now
+   one class, "every measured event has the same depth". Test: `test_all_equal_depths_are_one_class_not_all_large`.
+3. **Should-fix, fixed.** Per-class timing called `measure(groups=...)`, whose loop scans all events per key:
+   10 000 events in 1 000 trains (Trains `write_group` -> Intervals) took 4.3 s in the serializer. Now the same
+   `measure` runs once per key on its own events (2.3 s; the remainder is the core's `interval_statistics`, 3 000
+   calls). `test_the_per_class_timing_is_exactly_the_blocks_measure_over_those_groups` pins it to the block's own
+   numbers key for key (NaN onsets included). The statistics are still the core's; nothing re-implemented.
+4. **Should-fix, fixed.** Smoke `ig-pages-event-trains-chain-runs` and `ig-pages-cycle-shapes-chain-runs` imported
+   their template without first setting the example span through the source chip; by the time a `zzzzzzzzzzz_*`
+   file runs the source may be a window pool. Both now click `source-chip` -> `use-example` first (the AK/AO
+   pattern).
+5. **Nit, fixed.** On a shared lane (more than six groups) gap labels of different groups could overprint; labels
+   are now written left to right and skipped where one already sits (counted in `interval-unwritten`).
+6. **Nit, fixed.** A class picked in "intervals within" that a re-run no longer has left an empty table; it falls
+   back to "all".
+7. **Nit, fixed.** The Slope page's new readout card reused `readout-card`, the testid of fixup-ak's block readout
+   (other page, no live collision); renamed `event-readout-card`. No smoke state used it.
+8. **Nit, not fixed.** Payload size: 10 000 events in one group ship ~160 KB of `interval_classes` (per-event lists
+   capped at 5 000 like the spans); 1 000 train-groups ship ~680 KB because `stats[class][group]` carries one stats
+   dict per group per class. Reasonable for now; trim to the classes' pooled-over-groups view if it shows up slow.
+9. **Nit, not fixed.** "LZ complexity of the sizes" sits on the face of the train-size card with no InfoTip;
+   polish-pass can add one.
+10. **Noted, not a defect.** Depth thirds of the range are skewed by one deep outlier (10 000 gamma depths: 8 561
+    small, 1 166 medium, 73 large). That is rule (c) as decided; Q43 is still open.
+
+Checked and fine: the first commits (3f7585d, 2109ad3) touch only `tests/`; the adapter change is one meta key
+(`train_sizes`, a list that already existed); the class statistics are `Working.interrogation.intervals.
+interval_statistics` through the block's `measure`; zero / one / two events, a uniform-gap trains run (no valley),
+per-group trains and an old meta without `train_sizes` all serialise; the BLOCK_INTEGRATION row is accurate;
+`serialize.py`, `api.ts`, `kit/index.ts`, `kit.css` changes are append-only or local; the three `<Rose …/>` call
+expressions are intact for library-family-actions. Every `click_if` added to `interrogation.json` (14) and
+`zz_analyse_run.json` (2) precedes an expectation that is now inside a fold (readout, rules card, per-event table,
+parameters card, measure rules, feature table); the states left untouched expect only lead elements.
+
+### Gate after the fixes
+
+- conda: `test_serialize_trains.py` 5 passed; `test_serialize_interval_classes.py` 11 passed (8 + 3 new);
+  `test_adapter_trains.py` 16 passed; `test_webui_serialize.py` 41 passed; `test_block_standard.py` 222 passed;
+  `test_import_boundaries.py` 4 passed.
+- webui venv: `test_webui_block_readout.py` 14 passed.
+- `tsc -b` clean; `vite build` clean (the existing Gallery `INEFFECTIVE_DYNAMIC_IMPORT` warning only).
+- No browser smoke run (the manager walks `zzzzzzzzzzz_ig_pages`, `interrogation`, `zz_analyse_run`).
