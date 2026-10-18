@@ -133,3 +133,30 @@ toolbar); `discovery` 34 failures = **a `--pages-only` artifact, not a regressio
 smoke runs the CORE FLOWS create (`smoke.py:1395`), and `--pages-only` skips the flows, so every state after
 `runs--running` fails with "the state names a smoke run the walk could not find". The discovery unit can only be judged
 in a walk that runs the flows (a full walk, or `--only discovery` without `--pages-only`).
+
+## changes/integration (de3f472) — gate result 2026-10-19 03:25–04:40, merge ABORTED, for the Prompt manager session
+
+Eight prompts (span-plot, explore-review, ig-pages, sequences, datasets, edit-span, site-fixes, review-carry) on top
+of AR. Tests, tsc and build were green on the merged tree (conda 356, venv 253 + 3 xpassed). The flows passed once the
+walker followed the new defaults (committed on main after 1ba7fef: runs hidden until chosen → the signal flow switches
+them on through `detection-runs-chip` → `picker-all`; carried verdict rows accepted; an honest "Send 0 unjudged"
+accepted; the routes prelude starts from `#/jobs`; `Refreshing` takes a `testid`). The FULL page walk is not clean:
+**735 screenshots, 91 failures, 61 not in the 18 Oct baseline** — Analyse block pages (`fixup-h-*` block views
+missing; every `ig-pages-*` state 60 s timeout), Analyse chain (insert-modal clicks timing out), the interrogation
+slope page (`slope--default` missing anatomy-card / rose / per-event-table: the fold moved them, the old states were not
+updated), Explore (`signal--default`, `--live-channel`, `--motif` missing `signal-overview`; four cross-channel states
+missing `scale-note` / `cross-axis`), Library (`sequence-family-renders` expects the placeholder;
+`sequences-keep-then-the-family-page-draws` 120 s), review-carry's and edit-span's own states timing out,
+`ar-templates-open-under-a-second`, a2_p2 / a2_p3 states, `settings.datasets--discovery-scope-names-its-dataset`.
+Full log kept by the WEBSITE CHANGES session (`smoke_full_integration4_keep.log`); the merge was aborted, main is
+untouched by the branch.
+
+**Caveat:** that walk took 75 min on a quiet box (norm 40), so part of the 61 may be the merged tree's own load (the AR
+background scorer, the flows' runs). A full walk of MAIN alone (AR + the walker fixes) is running as the new baseline;
+the diff of the integration walk against it — the branch's OWN regressions — will be appended below. Fix on the
+branch after merging main into it (fd8cdfa and the walker commit are needed under it), prompt by prompt, and re-gate
+with a full walk, not units: the discovery states need the flows' smoke runs.
+
+**Product defect found by the walker, for the speed second pass:** after any run finishes, the home page's corpus map
+recomputes (~100 s on the post-RQ4 database) and the heatmap does not paint for minutes; serve the last map at once
+and recompute behind it (the pattern AR gave the picker).
