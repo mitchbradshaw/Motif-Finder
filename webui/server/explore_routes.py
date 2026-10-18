@@ -262,6 +262,8 @@ def take_span_for_review(request: Request, body: SeedBody):
 #     makes it the member's current revision (rev 1, the matcher's, is kept);
 #   * a plain DETECTION -> a human `annotations` row with the corrected span
 #     and the item's verdict (``seed`` when it has none).
+#   A member's annotation carries its verdict, ``unsure`` when it has none: it
+#   backs the revision and is not itself a judgement (critic round).
 # The `detections` row is never written, on either path.
 #
 # Its imports live here, with the block, so a sibling prompt appending routes
@@ -292,17 +294,24 @@ def _span_edit_target(c, ref: str) -> dict:
             mid = int(text[2:])
         except ValueError:
             raise HTTPException(404, f"{ref!r} is not a member ref (m-<id>)") from None
-        row = c.execute("SELECT id, recording_id FROM motif_member WHERE id = ?", (mid,)).fetchone()
+        row = c.execute("SELECT id, recording_id, start_idx, end_idx FROM motif_member WHERE id = ?",
+                        (mid,)).fetchone()
         if row is None:
             raise HTTPException(404, f"no Library member {text}")
         # the member's own detection, when one stands behind it: the latest machine revision's, else its entry's
+        # — but the entry's only when this member IS that detection (same channel, overlapping): the entry's
+        # detection is where the ENTRY came from, and another member of it, elsewhere, must not borrow its span,
+        # its verdict, or write it as its rev 1's provenance (critic round, 2026-10-18)
         det = c.execute("SELECT detection_id FROM motif_member_revision WHERE member_id = ? AND detection_id "
                         "IS NOT NULL ORDER BY revision DESC LIMIT 1", (mid,)).fetchone()
-        if det is None:
-            det = c.execute("SELECT me.detection_id FROM motif_member mm JOIN motif_entry me ON me.id = mm.entry_id "
-                            "WHERE mm.id = ? AND me.detection_id IS NOT NULL", (mid,)).fetchone()
         did = int(det[0]) if det is not None else None
         bounds = _detection_bounds(c, did) if did is not None else None
+        if did is None:
+            ent = c.execute("SELECT me.detection_id FROM motif_member mm JOIN motif_entry me ON me.id = mm.entry_id "
+                            "WHERE mm.id = ? AND me.detection_id IS NOT NULL", (mid,)).fetchone()
+            cand = _detection_bounds(c, int(ent[0])) if ent is not None else None
+            if cand is not None and cand[0] == int(row["recording_id"])                     and cand[1] < int(row["end_idx"]) and cand[2] > int(row["start_idx"]):
+                did, bounds = int(ent[0]), cand
         return {"recording_id": int(row["recording_id"]), "detection_id": did,
                 "det": bounds[1:] if bounds else None, "member_id": mid}
     try:
@@ -445,10 +454,17 @@ def post_span_edit(request: Request, ref: str, body: SpanEditBody):
     c = _conn(request)
     try:
         verdict = _span_edit_verdict(c, t)
-        word = verdict if verdict in q.VERDICTS else "seed"
+        # a plain detection: the item's verdict, `seed` when it has none (the prompt's rule). A member: its
+        # verdict, `unsure` when it has none — the annotation there only backs the revision, a redrawn extent is
+        # not a verdict, and `seed` is not a member's question (family_queue): it would count the member judged
+        # "yes" by extent in Review and the Library, and put it in the Explore spans queue (critic round)
+        fallback = "seed" if t["member_id"] is None else "unsure"
+        word = verdict if verdict in q.VERDICTS else fallback
         note = body.note
         if verdict and word != verdict:
             note = f"{note + ' · ' if note else ''}item verdict {verdict!r} is not an annotation verdict"
+        elif not verdict and t["member_id"] is not None:
+            note = f"{note + ' · ' if note else ''}span correction only: no verdict given"
         if t["member_id"] is None:
             aid = q.insert_annotation(c, t["recording_id"], s, e, word, SPAN_EDIT_SOURCE, note=note,
                                       created_at=now, commit=False)

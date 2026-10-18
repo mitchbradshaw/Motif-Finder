@@ -188,9 +188,11 @@ def test_post_on_member_writes_a_revision_and_never_the_detection(seeded):
         assert revisions_mod.matching_revision(conn, info["member"])["start_idx"] == 5000  # rev 1 kept
     finally:
         conn.close()
-    # the human claim behind the revision is an annotation (rule 5), seed: the member had no verdict
+    # the human claim behind the revision is an annotation (rule 5). The member had no verdict, and a span
+    # correction is not one: `unsure` (seed is not a member's question, and would judge it "yes" by extent)
     ann = _q(rt, "SELECT start_idx, end_idx, verdict, source, note FROM annotations ORDER BY id DESC LIMIT 1")[0]
-    assert ann == (4995, 5060, "seed", "review-span-edit", "onset was late")
+    assert ann[:4] == (4995, 5060, "unsure", "review-span-edit")
+    assert ann[4].startswith("onset was late")
     assert _q(rt, "SELECT COUNT(*) FROM annotations")[0][0] == n_ann + 1
     assert _detections(rt) == before, "rule 5: a span edit must never touch the detections row"
 
@@ -253,3 +255,89 @@ def test_post_member_span_not_overlapping_rev1_is_refused_and_writes_nothing(see
     assert r.status_code == 422, r.text
     assert _q(rt, "SELECT COUNT(*) FROM annotations")[0][0] == n_ann
     assert _q(rt, "SELECT COUNT(*) FROM motif_member_revision")[0][0] == n_rev
+
+
+# ── critic round (2026-10-18) ────────────────────────────────────────────────
+
+def _write(rt, sql, args=()):
+    conn = sqlite3.connect(rt.db_path)
+    try:
+        cur = conn.execute(sql, args)
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def test_an_unjudged_member_edit_leaves_the_member_unjudged(seeded):
+    """Redrawing a span is not a verdict: the member the Library and Review counted unjudged stays so."""
+    from Working.library import verdicts as LV
+
+    client, rt, info = seeded
+    r = client.post(f"/api/explore/span-edit/m-{info['member']}", json={"start_idx": 4998, "end_idx": 5052})
+    assert r.status_code == 200, r.text
+    assert r.json()["annotation"]["verdict"] == "unsure"
+    conn = sqlite3.connect(rt.db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        got = LV.member_verdicts(conn, [{"member_id": info["member"], "recording_id": info["rec"],
+                                         "start_idx": 5000, "end_idx": 5050}])
+    finally:
+        conn.close()
+    assert got[info["member"]]["judged"] is False
+    # no seed row: nothing enters the Explore spans queue
+    assert _q(rt, "SELECT COUNT(*) FROM annotations WHERE verdict = 'seed'")[0][0] == 0
+
+
+def test_a_member_of_an_entry_is_not_given_the_entrys_detection(seeded):
+    """`motif_entry.detection_id` is the detection the ENTRY came from. Another member of that entry,
+    somewhere else on the channel, is not that detection: it must not borrow its span, its verdict, or
+    write it as the provenance of its machine rev 1."""
+    client, rt, info = seeded
+    _write(rt, "INSERT INTO adjudications (detection_id, verdict, note, created_at) "
+               "VALUES (?, 'not_interesting', NULL, '2026-10-18T09:00:00')", (info["member_det"],))
+    entry = _q(rt, "SELECT entry_id FROM motif_member WHERE id = ?", (info["member"],))[0][0]
+    other = _write(rt, "INSERT INTO motif_member (entry_id, recording_id, start_idx, end_idx) "
+                       "VALUES (?, ?, 12000, 12050)", (entry, info["rec"]))
+    d = client.get(f"/api/explore/span-edit/m-{other}").json()
+    assert d["detection_id"] is None and d["detection"] is None
+    assert d["verdict"] is None
+    assert d["member"]["current"] == {"start_idx": 12000, "end_idx": 12050, "revision_no": 0}
+    r = client.post(f"/api/explore/span-edit/m-{other}", json={"start_idx": 11990, "end_idx": 12060})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["seeded_rev1"] is True and out["revision"]["revision_no"] == 2
+    assert out["annotation"]["verdict"] == "unsure"
+    rev1 = _q(rt, "SELECT origin, detection_id, start_idx, end_idx FROM motif_member_revision "
+                  "WHERE member_id = ? AND revision = 1", (other,))[0]
+    assert rev1 == ("machine", None, 12000, 12050)
+
+
+def test_a_legacy_span_relative_detection_is_read_and_saved_channel_absolute(seeded):
+    """A detection written by a spanned run before 2026-09-21 is span-relative; the editor must open it
+    where Explore and Review draw it."""
+    client, rt, info = seeded
+    cfg = _q(rt, "SELECT id FROM configs LIMIT 1")[0][0]
+    run = _write(rt, "INSERT INTO runs (config_id, recording_id, span_start, span_end, started_at, status) "
+                     "VALUES (?, ?, 10000, 15000, '2026-10-18T09:00:00', 'ok')", (cfg, info["rec"]))
+    det = _write(rt, "INSERT INTO detections (run_id, start_idx, end_idx, score, meta_json) "
+                     "VALUES (?, 500, 540, 0.5, '{}')", (run,))
+    d = client.get(f"/api/explore/span-edit/{det}").json()
+    assert d["detection"] == {"start_idx": 10500, "end_idx": 10540}
+    assert d["context_trace"]["t0_s"] == pytest.approx(10420.0)
+    before = _detections(rt)
+    r = client.post(f"/api/explore/span-edit/{det}", json={"start_idx": 10498, "end_idx": 10545})
+    assert r.status_code == 200, r.text
+    assert _q(rt, "SELECT start_idx, end_idx FROM annotations WHERE id = ?",
+              (r.json()["annotation"]["id"],))[0] == (10498, 10545)
+    assert _detections(rt) == before
+
+
+def test_a_second_member_save_is_revision_three(seeded):
+    client, rt, info = seeded
+    for a, b in ((4995, 5060), (4990, 5055)):
+        r = client.post(f"/api/explore/span-edit/{info['member_det']}", json={"start_idx": a, "end_idx": b})
+        assert r.status_code == 200, r.text
+    assert r.json()["revision"]["revision_no"] == 3
+    got = client.get(f"/api/explore/span-edit/m-{info['member']}").json()["member"]["current"]
+    assert got == {"start_idx": 4990, "end_idx": 5055, "revision_no": 3}
