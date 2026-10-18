@@ -568,3 +568,8 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
   30 min 0.82–0.84; 1 min 0.39–0.51 (AUC < 0.5), whether fed resampled to 600 points or as is. Out-of-sample
   (M2_concat): 10 min 0.63–0.68; 30 min 0.77–0.87. The human's repeat agreement is 94 %. Pooled over scales, every
   CNN's plain accuracy is below the majority baseline, so the reference line must be read per scale.
+- 2026-10-18 · sequences · the Library can now join adjacent members on one channel into sequences (label chains
+  such as F-01 → F-02 → F-01; fixed gap 0 s + 10 % of the shorter member, or the adamatzky / logISI rules), keep
+  them, and group them into label-chain families with their own family page (`docs/prompts/changes/reports/
+  sequences-report.md`). The researcher named this a possible RQ1 precursor: sequence families are a candidate label
+  set beside the single-motif clusters. Nothing in RQ1's classifier path changed.

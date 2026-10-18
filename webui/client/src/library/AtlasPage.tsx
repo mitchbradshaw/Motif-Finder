@@ -35,6 +35,7 @@ import { live } from '../api/seam'
 import { AMP_DOMAIN, FAMILY_COLOURS, UNIT_LABEL, getMotifFamilies, getOmitted, getRecordingGroups, getSequenceFamilies, getViewReport, type Grouping, type MotifFamily, type RecGroup, type SequenceFamily, type Unit } from '../api/library'
 import type { LibFamilyView, LibFitSummary, LibViewReport } from '../api'
 import { FamilyMembersInPlace } from './MemberSlideshow'
+import { BuildSequences } from './BuildSequences'
 import { useToast } from '../shell/Toast'
 import {
   GroupingBar, LoadFailed, Loading, MotifPlot, MotifsActions, OMITTED_SKETCH_NOTE, OmittedDrawer, OmittedThumb, SectionBar, centreTrace, fmtMv,
@@ -83,7 +84,7 @@ export function AtlasPage({ inert, backdrop }: { inert?: boolean; backdrop?: boo
   const [unitQ, setUnitQ] = useQueryState<string>('unit', 'motifs')
   const unit: Unit = unitQ === 'sequences' ? 'sequences' : 'motifs'
   const [motifGid] = useMotifGroupingId()
-  const [seqGid] = useSequenceGroupingId()
+  const [seqGid, setSeqGid] = useSequenceGroupingId()
   const groupings = useAllGroupings()
   const gid = unit === 'sequences' ? seqGid : motifGid
   const grouping = groupings.all.find(g => g.id === gid) ?? null
@@ -114,6 +115,12 @@ export function AtlasPage({ inert, backdrop }: { inert?: boolean; backdrop?: boo
         <GroupingBar unit={unit} grouping={grouping} from="atlas" inert={inert}
           onUnit={u => { setQuery({ unit: u === 'motifs' ? null : u, family: null }, true); setUnitQ(u === 'motifs' ? null : u) }} />
         {unit === 'motifs' && !inert && <ViewFilterBar report={report.data} />}
+        {/* prompt `sequences`: build sequences from adjacent members; a keep saves a label-chain grouping, which the
+            atlas then shows (the URL's ?grouping= is dropped so the new grouping is the one drawn) */}
+        {unit === 'sequences' && !inert && <BuildSequences onKept={r => {
+          if (r.grouping) { setQuery({ grouping: null }, true); setSeqGid(r.grouping) }
+          groupings.reload(); seqs.reload()
+        }} />}
         {error && <LoadFailed what="the atlas" error={error} onRetry={() => { motifs.reload(); seqs.reload(); groupings.reload(); recs.reload() }} />}
         {loading && !error && <Loading height={600} testid="atlas-loading" />}
         {!loading && !error && !grouping && (
@@ -298,7 +305,11 @@ function SequenceAtlas({ families, motifFamilies, grouping }: { families: Sequen
   // measured domain and the page's shared scale as a reference bar, computed once here
   const traces = useMemo(() => centredTraces(families), [families])
   const refScale = useMemo(() => referenceScale([...traces.values()].map(t => t.peak)), [traces])
-  const visible = families.filter(f => f.sequences >= filters.minMembers)
+  // prompt `sequences`: a label-chain grouping's family is one exact chain of labels, and with ~20 sequences each is
+  // usually ONE sequence — the ≥ N members filter would hide all of them, so it does not apply there
+  const labelChain = (grouping as Grouping & { method?: string | null }).method === 'label-chain'
+  const minSeqs = labelChain ? 1 : filters.minMembers
+  const visible = families.filter(f => f.sequences >= minSeqs)
   const selected = visible.find(f => f.id === familyQ) ?? visible[0]
   const onKey = (e: KeyboardEvent) => {
     const i = visible.findIndex(x => x.id === selected?.id)
@@ -341,7 +352,7 @@ function SequenceAtlas({ families, motifFamilies, grouping }: { families: Sequen
             </div>
           ))}
         </div>
-        {!visible.length && <EmptyState title="No sequence families match" caption={`every family has fewer than ${filters.minMembers} sequences`} bordered />}
+        {!visible.length && <EmptyState title="No sequence families match" caption={families.length ? `every family has fewer than ${minSeqs} sequences` : 'this grouping holds no sequence family'} bordered />}
         <div className="k-card" style={{ padding: '12px 14px' }} data-testid="sequences-omitted">
           <div className="row"><Icon name="flag" size={14} style={{ color: 'var(--amber)' }} /><span className="lib-h">Omitted from this round</span>
             <Button variant="link" style={{ marginLeft: 'auto' }} testid="send-omitted" disabled={!omitted.data} disabledReason="still counting what this grouping left out"

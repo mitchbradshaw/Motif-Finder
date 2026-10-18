@@ -1,6 +1,7 @@
 /* Library workspace entry — owned by the Library builder. Three sections (P22): Motifs (recurrence → atlas →
  * family, grouping, import) · Window sets · Templates. Every page reads fixtures through api/library.ts. */
 import './library.css'
+import { useEffect } from 'react'
 import { navigate, useApp } from '../state'
 import { Button, EmptyState, Page } from '../kit'
 import { Header } from '../shell/Header'
@@ -13,6 +14,13 @@ import { WindowSetsPage } from './WindowSetsPage'
 import { TemplatesPage } from './TemplatesPage'
 import { GroupingGate } from './chrome'
 
+function SequencesRedirect() {
+  const { route } = useApp()
+  const q = Object.entries({ ...route.query, unit: 'sequences' }).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&')
+  useEffect(() => { window.location.replace(`#/library/atlas?${q}`) }, [q])
+  return null
+}
+
 export function LibraryPage() {
   const { route } = useApp()
   const page = route.parts[0] || 'recurrence'
@@ -22,6 +30,9 @@ export function LibraryPage() {
     case 'family': return <GroupingGate><FamilyPage /></GroupingGate>
     case 'recurrence': return <GroupingGate><RecurrencePage /></GroupingGate>
     case 'grouping': return <GroupingGate editor><GroupingPage /></GroupingGate>
+    // `library/sequences` is the atlas at `unit=sequences` (prompt `sequences`): the URL is replaced, not pushed,
+    // so Back does not bounce through it
+    case 'sequences': return <SequencesRedirect />
     case 'import': return <ImportPage />
     case 'window-sets': return <WindowSetsPage />
     case 'templates': return <TemplatesPage />
