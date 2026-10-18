@@ -135,8 +135,8 @@ function WhereFires({ dx }: { dx: Discovery }) {
           : (mode === 'spans' ? 'every span in view · grouped by channel' : 'detections per 3 h · grouped by channel')}</span>
         <span className="k-spacer" />
         <span className="muted small" data-testid="fires-shown-count">{nDrawn} of {runKeys.length} runs drawn</span>
-        <Button size="sm" variant="ghost" icon="eye" testid="fires-show-all" onClick={() => dx.setShown(runKeys)}>show all</Button>
-        <Button size="sm" variant="ghost" icon="eye-off" testid="fires-hide-all" onClick={() => dx.setShown([])}>hide all</Button>
+        <Button size="sm" variant="link" icon="eye" testid="fires-show-all" onClick={() => dx.setShown(runKeys)}>show all</Button>
+        <Button size="sm" variant="link" icon="eye-off" testid="fires-hide-all" onClick={() => dx.setShown([])}>hide all</Button>
         <Seg size="sm" value={mode} onChange={v => setMode(v)} options={[{ value: 'density', label: 'density' }, { value: 'spans', label: 'spans' }]} testid="fires-mode" />
         {/* the detection map (2026-10-12): the same rows as columns of channels and datasets, every session — where overall, not when */}
         <Button size="sm" variant="link" icon="grid" onClick={() => navigate(`discovery/map?dataset=${encodeURIComponent(s.recording)}`)} testid="open-map">Open the map</Button>

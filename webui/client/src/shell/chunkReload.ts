@@ -3,15 +3,27 @@
    page asks for answers 404 and React.lazy caches that rejection for good — "Try again" on the red card failed the
    same way. The cure is the page the server now serves: reload ONCE. A sessionStorage flag stops a loop: a chunk
    that still fails after the reload is a real fault and reaches the error card as before (loud, never blank); the
-   flag is cleared as soon as any chunk loads. Vite's own preload failure (`vite:preloadError`) takes the same road. */
+   flag is cleared as soon as any chunk loads. Vite's own preload failure (`vite:preloadError`) takes the same road.
+   ux-1019 fix: the flag holds the reload's time and counts only for RELOAD_GUARD_MS after it, and a chunk that
+   loads inside that window does not clear it. Clearing on the first success let a page whose workspace loads but
+   whose nested page (Analyse › Interrogation) is genuinely missing reload forever: workspace ok → flag cleared →
+   nested fails → reload → … A later rebuild (past the window) still gets its one reload. */
 import { lazy, type ComponentType } from 'react'
 
 const FLAG = 'ub:reloaded-for-chunk'
 const STALE_CHUNK = /dynamically imported module|Failed to fetch|Importing a module script failed/
 
-const readFlag = () => { try { return sessionStorage.getItem(FLAG) !== null } catch { return false } }
+/** How long after a reload-for-chunk a second one is refused: long enough for the reloaded page to ask for every
+ *  chunk its route needs, even on a loaded machine. */
+const RELOAD_GUARD_MS = 30_000
+const flagAge = (): number | null => {
+  try { const v = sessionStorage.getItem(FLAG); return v === null ? null : Date.now() - Number(v) } catch { return null }
+}
+/** A reload for a stale chunk happened within the guard window (a missing or unreadable time counts as fresh). */
+const readFlag = () => { const a = flagAge(); return a !== null && !(a >= RELOAD_GUARD_MS) }
 const setFlag = () => { try { sessionStorage.setItem(FLAG, String(Date.now())); return true } catch { return false } }
-const clearFlag = () => { try { sessionStorage.removeItem(FLAG) } catch { /* storage blocked: nothing to clear */ } }
+/** Cleared only once the guard window is over, so a success inside it cannot re-arm a reload loop. */
+const clearFlag = () => { if (readFlag()) return; try { sessionStorage.removeItem(FLAG) } catch { /* storage blocked: nothing to clear */ } }
 
 /** True when this error is a stale chunk and the page is reloading for it (once per session flag). */
 function reloadOnceFor(err: unknown): boolean {

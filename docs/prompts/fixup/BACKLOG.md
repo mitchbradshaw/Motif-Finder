@@ -15,7 +15,13 @@ Sizes: **M** = a new route or component, one agent, a day; **L** = a design deci
 
 ## 1. Decisions waiting on the researcher
 
-None open. The six that closed rows in `reports/UX-1015-evaluation.md` were all resolved on 2026-10-18 as the
+One open, a follow-up to AM (raised by `ux-1019`, 2026-10-19):
+
+| Decision | Options | Recommendation |
+|---|---|---|
+| AM follow-up: switch drop alignment automatically? A pool chain has no detector in it, so nothing says "drop work" | (a) as built — set trough / 0.333 on the Trace shape block; Launch shows the anchor and names the setting · (b) an explicit "for drops" switch on the Window pool or chain that Analyse and Launch both read | (a) now; (b) if the researcher wants it automatic |
+
+The six that closed rows in `reports/UX-1015-evaluation.md` were all resolved on 2026-10-18 as the
 recommendations stood (built by `ux-1019`, `docs/prompts/changes/site-fixes.md`):
 
 - **AK spike threshold δ:** keep 1 mV; a per-recording noise multiple is a later block.
