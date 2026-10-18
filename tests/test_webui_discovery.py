@@ -401,6 +401,31 @@ def test_the_scoreboard_scores_only_the_channels_in_scope(client, monkeypatch):
     assert one["channels"][0] == next(c for c in both["channels"] if c["channel"] == CH[0])
 
 
+def test_the_start_up_warm_leaves_the_sessions_scoreboard_in_memory(client, monkeypatch):
+    """Every Discovery tab's first read is the scoreboard over the session's
+    done runs. The warm computed only the template picker's whole-run scores —
+    a different entry (no section, no rule) — so the first open after a
+    restart paid the whole cold score (perf, 2026-10-18)."""
+    from Working.discovery import scoreboard as SB
+    out = _apply(client)
+    s = client.get("/api/discovery/session").json()["session"]
+    SB.clear_score_cache()
+    _disc.warm_last_scores(client.app.state.rt.db_path)
+    scored = []
+    real = SB.channel_score
+
+    def counted(conn, run_id, **kw):
+        scored.append(run_id)
+        return real(conn, run_id, **kw)
+
+    monkeypatch.setattr(SB, "channel_score", counted)
+    sb = client.get("/api/discovery/scoreboard", params={
+        "runs": out["run_key"], "channels": ",".join(s["channels"]),
+        "t0": s["section"][0], "t1": s["section"][1]}).json()
+    assert sb[0]["channels"]
+    assert scored == [], f"{len(scored)} channel runs scored on the first open after the warm"
+
+
 def _section_db(n_outside):
     """A whole-channel run and a spanned run with legacy span-relative rows,
     20 detections each in [5000, 9000) — some at the same onset across the two

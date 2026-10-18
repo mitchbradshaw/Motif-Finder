@@ -379,6 +379,10 @@ _EDGES = {
     # a matchable pair far outside the section, which must change nothing
     "far pair": ([(_S1 + 20_000, _S1 + 20_100, "not_interesting", "excel_catalog")],
                  [(_S1 + 20_000, _S1 + 20_090), (_S0 + 900, _S0 + 950)]),
+    # no labels at all (nothing widens the read on), detections at the
+    # section's first and last samples; with the fractional section (hours x
+    # fs) the read must agree with the scope `channel_divergence` states
+    "no labels, fractional end": ([], [(_S1, _S1 + 50), (_S0 - 1, _S0 + 20), (_S0 + 10, _S0 + 20)]),
 }
 
 
@@ -397,16 +401,19 @@ def _edge_channel(case):
     return conn, rec, run
 
 
+@pytest.mark.parametrize("span", [SECTION, (_S0 - 0.5, _S1 + 0.5)], ids=["whole samples", "fractional"])
 @pytest.mark.parametrize("rule", _RULES, ids=["default", "loose", "strict-onset"])
 @pytest.mark.parametrize("case", list(_EDGES))
-def test_the_section_score_is_the_whole_read_at_the_edges(case, rule, monkeypatch):
+def test_the_section_score_is_the_whole_read_at_the_edges(case, rule, span, monkeypatch):
     conn, rec, run = _edge_channel(case)
     try:
-        fast = (SB.channel_score(conn, run, rule=rule, span=SECTION),
-                DIV.channel_divergence(conn, rec, [run], rule=rule, span=SECTION))
+        fast = (SB.channel_score(conn, run, rule=rule, span=span),
+                DIV.channel_divergence(conn, rec, [run], rule=rule, span=span),
+                DIV.breakdown(conn, {rec: [run]}, bins=4, n_samples=N, span=span, rule=rule))
         _whole_reads(monkeypatch)
-        assert fast[0] == SB.channel_score(conn, run, rule=rule, span=SECTION)
-        assert fast[1] == DIV.channel_divergence(conn, rec, [run], rule=rule, span=SECTION)
+        assert fast[0] == SB.channel_score(conn, run, rule=rule, span=span)
+        assert fast[1] == DIV.channel_divergence(conn, rec, [run], rule=rule, span=span)
+        assert fast[2] == DIV.breakdown(conn, {rec: [run]}, bins=4, n_samples=N, span=span, rule=rule)
     finally:
         conn.close()
 
