@@ -133,3 +133,89 @@ ca8c7ca explore-review: span-review and artifact routes
 b8ecf39 explore-review: failing tests for span-review and artifact routes
 (+ this report)
 ```
+
+
+## Critic round (2026-10-18)
+
+**In plain words.** The two new buttons do what they say, and they write to the right tables. The test-first commit was red. There were two problems, both now fixed. First, a big window could pour tens of thousands of motifs into one Review pile and make Review crawl. Second, the toast could count a motif as "added" when Review would never actually ask about it. One merge-time note matters more than it looks: switching the queue's kind to `explore-picked` is a **database migration**, not a one-line change. The recommendation is to keep `discovery-run`.
+
+### Findings
+
+1. **Should-fix, FIXED: no cap on a send.**
+   - Where: `explore_routes.py`, `send_span_to_review`.
+   - Evidence: a synthetic database with 16 channels × 694 h, 52,000 detections, legacy span-relative runs and a discarded run.
+     - A whole-recording send put 49,378 ids into one filter. Review then took **79 s** to open the queue and **8.2 s** to list queues.
+     - A 1,561-id send took 4.4 s to open and 0.7 s to list.
+   - Fix: `SPAN_REVIEW_MAX = 2000` unjudged detections per send. Above it, the route answers 422, writes nothing, and its sentence names the count and asks for a narrower window. The cap applies to both the window form and the ids form. The client shows the sentence as a red toast.
+   - Not capped: the queue's cumulative size over many sends (see "For the manager").
+2. **Should-fix, FIXED: the toast over-counted "added".**
+   - A detection that is the same event as a span a person already judged (`prior_verdict`) goes into the filter, but Review never serves it.
+   - The message now says "N not asked: a human verdict already covers it", the same way Discovery's `_send_picked` reports it. It reads `queue_items(include_prior_judged=True)`.
+   - New response field: `not_asked`.
+3. **Nit, FIXED: the artifact response echoed the requested window.** `start_s`/`end_s` now give the extent actually written, which is clamped at the channel's end.
+4. **Nit, FIXED: the Send tooltip did not name the window.** It now gives the window in hours and, on Signal, says "(the span in view)". The toast already led with the range.
+5. **Verified correct on the synthetic database.**
+   - Counts are exact by hand: 1,822 in the window, 261 judged, 1,561 added. Legacy relative rows are shifted and included; the discarded run's rows are left out.
+   - A second identical send adds 0 and reports 1,561 already queued.
+   - The held-out recording gets 423.
+   - An artifact window crossing a channel's end is clamped.
+6. **Checked, true: "Signal has no brush".**
+   - In `SpanView.tsx`, dragging pans and the wheel zooms. A clicked motif has its own *Take for Review* in `MotifView`.
+   - So the span in view is the only selection on Signal. The tooltip and toast now name it.
+7. **Checked, fine.**
+   - `find_open_queue_by_note` is the shared helper in `queues.py`, not a second copy.
+   - Rule 5 holds: span-review writes only `review_queues` (`writes_to = adjudications`), and the artifact route writes only `annotations` through `write_human`.
+   - The `reloadKey` in `useViewport` only changes on a write, so it cannot loop.
+   - The secondary buttons are `primary`, which is the muted blue.
+   - The smoke unit is valid JSON, uses `explore/signal/4` and `explore/cross-channel/4` as the other smoke files do, and its testids exist.
+8. **Not fixed, outside this prompt's files: the Signal run filter.**
+   - The send reads every run on the channel, not only the runs the picker shows. The toast's counts are true, but they can exceed the bands drawn on screen.
+   - The run filter belongs to `explore-span-plot`. If wanted, it would be an optional `run_ids` on the route plus a strip prop.
+9. **Nit, not fixed: `SpanReviewBody.note` is accepted but unused.** It is harmless.
+
+### Work item 3 (queued/judged bands after a send)
+
+The re-read is done. The queued look is **not** possible inside this prompt's files: the bands are coloured in `SignalPage`'s band memo and in `SpanView`, both owned by `explore-span-plot`, and the spans payload (`corpus.py`) carries no picked state.
+
+What is needed:
+- a per-detection state (`judged` / `waiting` / `not-asked`) read from the open Explore picked queue with `queue_items(include_judged=True, include_prior_judged=True)`, exactly as `discovery._picked_states` does;
+- that state served beside the spans;
+- a band style for "queued".
+
+### For the manager (merge time)
+
+1. **Queue kind: recommend keeping `discovery-run`.** Switching to `explore-picked` is **not** one tuple entry. `review_queues.source_kind` has a SQL CHECK, so the switch needs:
+   - in `schema.py`: the kind added to the `_REVIEW_SCHEMA` CHECK, and `_REVIEW_QUEUES_NEW_KIND` bumped to it, which **rebuilds `review_queues` on the real database** (with a backup);
+   - in `queues.py`: `SOURCE_KINDS`, `_DEFAULTS["explore-picked"] = ("detection", "adjudications", 0)`, and `_DETECTION_KINDS`, which `extend_queue`, `create_queue`'s check and the resolver at :516 read;
+   - in `webui/client/src/api/review.ts`: `ICONS`, `RANKS`, and the `runId` line, plus the `fixtures/review.ts` `QueueSource` type;
+   - in `explore_routes.py`: the two `source_kind="discovery-run"` strings;
+   - in `tests/test_webui_explore_review.py`: nothing, because it asserts `writes_to`, not the kind.
+2. **Compare skip (only while the kind stays `discovery-run`).**
+   - Where: `webui/server/discovery.py`, `send_remainder_to_review`.
+   - Change: `skip_note_prefix=PICKED_NOTE_PREFIX` becomes `skip_note_prefix=(PICKED_NOTE_PREFIX, EXPLORE_PICKED_NOTE)`.
+   - `str.startswith` takes a tuple, so `queues.py` needs no change. Import `EXPLORE_PICKED_NOTE` from `.explore_routes`.
+3. **Cumulative size.** The cap is per send. Repeated sends can still grow the one open picked queue past what Review handles quickly; closing it in Review starts a new one. Recheck after AR's speed pass lands, which changes the timings above.
+4. **Smoke states** (`zzzzzzzzzzz_explore_review.json`, sorted last, writes):
+   - `er-strip-shows-new-buttons`: the strip has Send unjudged (`.primary`), Mark artifact, Open in Analyse and Take span.
+   - `er-send-unjudged-toast`: a toast, not an error. On the real database's channel 4, a 2-hour view should hold far fewer than 2,000 motifs. If it is a dense channel, the toast is a red 422 refusal and this state fails; that means the cap fired, not a bug, so narrow the initial view or raise the cap.
+   - `er-signal-artifact-picker`: the picker with one checkbox, ticked, and a confirm button.
+   - `er-cross-strip-replaces-demo-row`: the strip is under Take it further, there is no `act-review`, and there is no Take span.
+   - `er-cross-artifact-picker`: every checkbox ticked, all/none links, and the confirm button counting channels.
+5. **By hand on real data:**
+   - mark an artifact on Cross-channel and see the artifact band on each channel's Signal page;
+   - send the same span twice: "N already in the queue";
+   - send from a span with a human-judged event: "not asked".
+
+### Gate after fixes
+
+| Check | Interpreter | Result |
+|---|---|---|
+| `test_webui_explore_review.py` | venv | 11 passed |
+| `test_webui_review.py` | venv | 32 passed |
+| `test_webui_review_axis.py` | venv | 7 passed |
+| `test_webui_corpus.py` | venv | 10 passed |
+| `test_import_boundaries.py` | conda | 4 passed |
+| `tsc -b` | — | clean |
+| `vite build` | — | built, with the existing Gallery warning only |
+
+Fix commit: `104bf66`.
