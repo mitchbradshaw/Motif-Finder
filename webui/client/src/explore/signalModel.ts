@@ -42,13 +42,13 @@ export function demoDetectionMotif(d: DetectionRow, fs: number): Motif {
   }
 }
 
-/** Live annotations + live detections (filtered to visible live runs) + demo detections from visible runs. */
-export function buildMotifs(all: Spans | null, demo: SignalDemo | null, runs: PickerRun[], st: PickerState, fs: number): Motif[] {
+/** Live annotations + live detections from visible runs. span-plot (2026-10-18): `demo` is the live read since
+ *  getSignalDemo became getSignalLive, so its detections are the same rows as `all`'s — they were added a second
+ *  time (as `f:` keys) and the run filter was skipped whenever `demo` was set. Run ids are `#<id>` on both paths.
+ *  `demo` and `fs` are kept in the signature for the callers. */
+export function buildMotifs(all: Spans | null, _demo: SignalDemo | null, runs: PickerRun[], st: PickerState, _fs: number): Motif[] {
   const vis = visibleRunIds(runs, st)
-  const liveVis = new Set(runs.filter(r => vis.has(r.id) && r.liveRunId != null).map(r => r.liveRunId!))
-  const live = all ? toMotifs(all).filter(m => m.kind === 'annotated' || demo !== null || !runs.length || liveVis.has(m.run_id ?? -1)) : []
-  const fixture = demo ? demo.detections.filter(d => vis.has(d.runId) && !(st.unadjudicatedOnly && d.adjudication !== 'unadjudicated')).map(d => demoDetectionMotif(d, fs)) : []
-  const out = [...live, ...fixture]
+  const out = all ? toMotifs(all).filter(m => m.kind === 'annotated' || !runs.length || vis.has(`#${m.run_id ?? -1}`)) : []
   out.sort((p, q) => p.start_s - q.start_s || p.end_s - q.end_s || p.key.localeCompare(q.key))
   return out
 }

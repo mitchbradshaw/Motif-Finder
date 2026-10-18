@@ -326,3 +326,19 @@ button.ex-ribbon:hover { border-color: var(--blue-200); }
 .ex-time-err.side { top: 2px; left: calc(100% + 8px); }
 .ex-fgrid .cell.active .k-input:not(.invalid) { background: var(--blue-100); }
 .ex-fgrid .cell.active .k-input:not(.invalid) input { color: var(--blue-600); }
+
+/* span-plot (2026-10-18): the span's edges as fields, and the legend as switches */
+.ex-tier .head .ex-edges { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; position: relative; }
+.ex-edge { display: inline-flex; align-items: center; gap: 4px; position: relative; }
+.ex-edge-input { height: 24px; width: 104px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--card); font-family: var(--font-mono); font-size: 11.5px; color: var(--text); text-align: right; outline: none; }
+.ex-edge-input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-100); }
+.ex-edge-input.invalid { border-color: var(--red); color: var(--red); }
+.ex-edge-unit, .ex-edge-sep, .ex-edge-dur { color: var(--muted); }
+.ex-edge-h { color: var(--muted-2); font-size: 10.5px; }
+.ex-edge-err { position: absolute; top: 27px; left: 0; z-index: 5; white-space: nowrap; background: var(--red-100); color: var(--red); border: 1px solid var(--red); border-radius: 5px; padding: 1px 6px; font-family: var(--font-ui); font-size: 11px; }
+.ex-band-toggles { gap: 6px; flex-wrap: wrap; }
+.ex-band-toggle { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; border: 1px solid var(--border); background: var(--card); font-family: var(--font-mono); font-size: 10.5px; color: var(--text-2); cursor: pointer; }
+.ex-band-toggle:hover { border-color: var(--border-strong); }
+.ex-band-toggle .n { margin-left: 5px; color: var(--muted-2); }
+.ex-band-toggle.off { color: var(--muted-2); background: var(--grey-100); text-decoration: line-through; }
+.ex-band-toggle.off i { opacity: 0.3; }
