@@ -22,8 +22,35 @@ export class ApiError extends Error {
   }
 }
 
+/** AR (the speed pass): how long a READ may take before the page says so. Generous on purpose — a cold corpus map
+ *  on the real database has taken minutes — because the point is that no read hangs for ever with nothing on the
+ *  page; a write is never timed out (it may have landed, and an abandoned POST would lie about that). */
+export const READ_TIMEOUT_MS = 300_000
+
+/** `fetch` with a timeout and the caller's abort. A timed-out read throws an `ApiError` (status 0) that names the
+ *  route and the wait — loud, like every other failure; an aborted one (the page moved on) rejects with the
+ *  browser's AbortError, which `useSourced` drops because its reader is gone. */
+export async function fetchBridge(path: string, init: RequestInit = {}, timeoutMs: number | null = READ_TIMEOUT_MS): Promise<Response> {
+  const ctl = new AbortController()
+  const outer = init.signal
+  const onAbort = () => ctl.abort(outer?.reason)
+  if (outer) { if (outer.aborted) ctl.abort(outer.reason); else outer.addEventListener('abort', onAbort, { once: true }) }
+  let timedOut = false
+  const timer = timeoutMs != null ? window.setTimeout(() => { timedOut = true; ctl.abort() }, timeoutMs) : null
+  try {
+    return await fetch(path, { ...init, signal: ctl.signal })
+  } catch (e) {
+    if (timedOut) throw new ApiError(0, `no answer from the bridge after ${Math.round((timeoutMs ?? 0) / 1000)} s (${path.split('?')[0]}) — the read was abandoned; reload to ask again`)
+    throw e
+  } finally {
+    if (timer != null) window.clearTimeout(timer)
+    outer?.removeEventListener('abort', onAbort)
+  }
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(path, { headers: { 'content-type': 'application/json' }, ...init })
+  const write = !!init?.method && init.method !== 'GET'
+  const r = await fetchBridge(path, { headers: { 'content-type': 'application/json' }, ...init }, write ? null : READ_TIMEOUT_MS)
   if (!r.ok) {
     let body: any = null
     try { body = await r.json() } catch { /* not json */ }

@@ -75,6 +75,11 @@ class Runtime:
         self.log_path = os.path.join(self.dir, "server.log")
         self.exports_dir = os.path.join(self.dir, "exports")
         self.meta_dir = os.path.join(self.dir, "meta")
+        # AR (the speed pass): results kept between server starts (the corpus maps), beside the stamped runtimes
+        # rather than inside one — a project start gets a new stamp every time. Each entry carries the fingerprint
+        # of the rows it was computed from, so a sandbox copy of the same database reuses it and a changed one never
+        # does.
+        self.cache_dir = os.path.join(runtime_root or os.path.join(WEBUI_DIR, "runtime"), "cache")
         if mode == "sandbox":
             self.db_path = os.path.join(self.dir, "annotations.sqlite")
             self.step_cache_root = os.path.join(self.dir, "step_cache")
@@ -148,6 +153,11 @@ class Runtime:
         import Working.library.rose_reference as _rr
         self._originals["rr.DB_PATH"] = _rr.DB_PATH
         _rr.DB_PATH = self.db_path
+        # AR: the corpus maps are kept on disk under this runtime's cache dir
+        os.makedirs(self.cache_dir, exist_ok=True)
+        from . import corpus as _corpus
+        self._originals["corpus.DISK_CACHE_DIR"] = _corpus.DISK_CACHE_DIR
+        _corpus.DISK_CACHE_DIR = self.cache_dir
         return self
 
     def _setup_sandbox(self, cfg, _mp, _wm, _cc):
@@ -271,6 +281,9 @@ class Runtime:
         _wp.POOL_ROOT = o["wp.POOL_ROOT"]
         _tsh.RESULTS_DIR = o["tsh.RESULTS_DIR"]
         _csc.RESULTS_DIR = o["csc.RESULTS_DIR"]
+        if "corpus.DISK_CACHE_DIR" in o:
+            from . import corpus as _corpus
+            _corpus.DISK_CACHE_DIR = o["corpus.DISK_CACHE_DIR"]
         if "rr.DB_PATH" in o:
             import Working.library.rose_reference as _rr
             _rr.DB_PATH = o["rr.DB_PATH"]

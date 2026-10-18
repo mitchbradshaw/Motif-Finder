@@ -614,6 +614,9 @@ def _migrate_runs_columns(conn):
     # after the column exists: a run's paired null draws, looked up per run by the
     # scoreboard and its cache (perf, 2026-10-18)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_runs_surrogate_of ON runs(surrogate_of_run_id)")
+    # AR (the speed pass): a run group's runs — a run-group review queue's fingerprint reads them on every item read,
+    # and `list_run_group_runs` on every Discovery status read; both walked the whole table
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_runs_run_group ON runs(run_group_id)")
     conn.commit()
 
 

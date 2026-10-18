@@ -15,8 +15,31 @@ export function replaceHash(path: string) {
   window.dispatchEvent(new HashChangeEvent('hashchange'))
 }
 
+/* AR (the speed pass): a queue read is immutable once it arrives, so its row index and its unit lists are built once
+ * per read and kept beside it. Every lookup below used to be `data.rows.find`, and `currentUnit`, the queue rail's
+ * filter and the up-next list each did one per unit — quadratic, 10^8 steps a render at 10,000 rows. */
+const ROW_INDEX = new WeakMap<QueueData, Map<string, QueueRow>>()
+export function rowById(data: QueueData, id: string): QueueRow | undefined {
+  let m = ROW_INDEX.get(data)
+  if (!m) { m = new Map(data.rows.map(r => [r.id, r])); ROW_INDEX.set(data, m) }
+  return m.get(id)
+}
+const UNITS = new WeakMap<QueueData, Map<string, UnitRef[]>>()
+const UNIT_AT = new WeakMap<UnitRef[], Map<string, number>>()
+
 /** Units in queue order. With grouping on, the members of a cluster collapse into one unit at the first member's place. */
 export function units(data: QueueData, group: QueueFilters['group'] = 'sequence'): UnitRef[] {
+  const g = group === 'none' ? 'none' : 'grouped'
+  let byGroup = UNITS.get(data)
+  if (!byGroup) { byGroup = new Map(); UNITS.set(data, byGroup) }
+  const hit = byGroup.get(g)
+  if (hit) return hit
+  const built = buildUnits(data, group)
+  byGroup.set(g, built)
+  return built
+}
+
+function buildUnits(data: QueueData, group: QueueFilters['group']): UnitRef[] {
   const out: UnitRef[] = []
   const seen = new Set<number>()
   for (const r of data.rows) {
@@ -43,7 +66,7 @@ export function judged(records: Records, row: QueueRow): boolean {
 
 export function isJudged(data: QueueData, records: Records, u: UnitRef): boolean {
   const ids = u.kind === 'item' ? [u.id] : u.members
-  const rows = ids.map(id => data.rows.find(r => r.id === id)).filter(Boolean) as QueueRow[]
+  const rows = ids.map(id => rowById(data, id)).filter(Boolean) as QueueRow[]
   return u.kind === 'item' ? judged(records, rows[0]) : rows.some(r => judged(records, r))
 }
 
@@ -52,7 +75,21 @@ export function currentUnit(data: QueueData, records: Records): UnitRef | null {
 }
 
 export function indexOf(list: UnitRef[], u: UnitRef | { kind: 'item'; id: string }) {
-  return list.findIndex(x => unitKey(x) === unitKey(u as UnitRef) || (u.kind === 'item' && x.kind === 'cluster' && x.members.includes(u.id)))
+  // AR: the first unit that is `u` or (for an item) the cluster holding it — from an index built once per list
+  let at = UNIT_AT.get(list)
+  if (!at) {
+    at = new Map()
+    list.forEach((x, i) => {
+      const k = unitKey(x)
+      if (!at!.has(k)) at!.set(k, i)
+      if (x.kind === 'cluster') for (const m of x.members) if (!at!.has(`member:${m}`)) at!.set(`member:${m}`, i)
+    })
+    UNIT_AT.set(list, at)
+  }
+  const own = at.get(unitKey(u as UnitRef))
+  const held = u.kind === 'item' ? at.get(`member:${u.id}`) : undefined
+  if (own === undefined) return held ?? -1
+  return held === undefined ? own : Math.min(own, held)
 }
 
 export function nextUnjudgedAfter(data: QueueData, records: Records, u: UnitRef): UnitRef | null {

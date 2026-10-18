@@ -673,10 +673,15 @@ def queue_candidates(conn, run_id=None, run_group_id=None, method=None,
                 "'accepted', 'rejected', got {!r}".format(adjudication_status)
             )
 
+    # AR (the speed pass): over an exact detection set, the detections are read FIRST, by id. Left to itself
+    # SQLite started from `runs` (the surrogate index) and probed every listed id once per run: 8.3 s for a
+    # 10,000-detection queue over 960 runs on the scale fixture, against 0.05 s by id. CROSS JOIN fixes the
+    # order without changing the rows.
+    join = "CROSS JOIN" if detection_ids is not None else "JOIN"
     query = """
         SELECT d.*, r.recording_id, rec.channel, c.config_json
         FROM detections d
-        JOIN runs r ON r.id = d.run_id
+        """ + join + """ runs r ON r.id = d.run_id
         JOIN recordings rec ON rec.id = r.recording_id
         JOIN configs c ON c.id = r.config_id
     """

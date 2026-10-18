@@ -29,9 +29,12 @@ handler.
 from __future__ import annotations
 
 import json
+import logging
+import math
 import os
 import re
 import sqlite3
+import threading
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -269,15 +272,24 @@ def _qid(value) -> int:
         raise HTTPException(status_code=404, detail=f"no review queue {value!r}")
 
 
-def _queue_payload(conn, q: dict, *, exclude_recording_ids=None) -> dict:
+def _queue_payload(conn, q: dict, *, exclude_recording_ids=None, counts=None, filters=True) -> dict:
     """The stored queue columns plus its counts. The client derives icon,
-    order text and rank kind from `source_kind`; nothing is invented here."""
-    counts = q.get("counts") or queues_mod.queue_counts(
-        conn, int(q["id"]),
-        exclude_recording_ids=(exclude_recording_ids
-                               if exclude_recording_ids is not None
-                               else _held_out_ids(conn)))
-    out = dict(q)
+    order text and rank kind from `source_kind`; nothing is invented here.
+
+    AR (the speed pass): `counts` is passed in by a caller that already holds
+    them (one resolve per request, not one per reader). `filters_json` is not
+    served — it is `filters` again as a string, and a Discovery picked queue's
+    filter is its whole detection list (10,000 ids twice over in every queue
+    header). `filters=False` leaves the list itself out too: an item's queue
+    header is read on every step and nothing on the item card reads it; the
+    queue listing still carries it."""
+    if counts is None:
+        counts = q.get("counts") or queues_mod.queue_counts(
+            conn, int(q["id"]),
+            exclude_recording_ids=(exclude_recording_ids
+                                   if exclude_recording_ids is not None
+                                   else _held_out_ids(conn)))
+    out = {k: v for k, v in q.items() if k != "filters_json" and (filters or k != "filters")}
     out["id"] = int(q["id"])
     out.update({"total": int(counts.get("total", 0)),
                 "judged": int(counts.get("judged", 0)),
@@ -308,21 +320,81 @@ def _channel_label(rec: dict | None, item: dict) -> str:
     return (rec or {}).get("name") or str(item.get("channel") or "")
 
 
-def _ranks(conn, queue: dict, held: set | None = None) -> dict:
-    """1-based position of every item in the queue's own order.
+#: AR (the speed pass): a thumbnail is a function of the channel file, its unit and rate, and the span — none of
+#: which a verdict changes — so it is kept, keyed on exactly those (the file by path and mtime, so a re-derived
+#: channel is read again). A 10,000-row queue drew 10,000 thumbnails on every read, each with two queries and a
+#: settings read for its recording row (26 s on the scale fixture). Bounded: an entry is a tuple of ~48 floats,
+#: ~1.8 KB with its key, so 20,000 entries (two 10,000-item queues' rails) are ~36 MB (fix round S4: the first cap
+#: of 100,000 was ~180 MB, not the ~50 MB its comment claimed).
+_THUMB_CACHE: "OrderedDict" = None  # type: ignore[assignment]
+_THUMB_CACHE_MAX = 20_000
+_THUMB_LOCK = threading.Lock()
 
-    The same list `total` counts: resolved, rediscoveries removed, capped,
-    judged included. It is a position IN THE QUEUE, not a ranking by score -
-    `queries.queue_candidates` orders by detection id for stable paging.
-    """
-    items = queues_mod.queue_items(conn, int(queue["id"]), include_judged=True,
-                                   include_prior_judged=False,
-                                   exclude_recording_ids=held)
-    return {str(it.get("target_id", it.get("id"))): i + 1 for i, it in enumerate(items)}
+
+def _thumb_source(conn, rec: dict, memo: dict | None):
+    """(recording row, cache key prefix) for one recording, once per request when the caller passes a memo."""
+    rid = int(rec["recording_id"])
+    if memo is not None and rid in memo:
+        return memo[rid]
+    row = _row_for(conn, rec)
+    prefix = None
+    if row and row.get("npy_path"):
+        try:
+            prefix = (row["npy_path"], os.stat(row["npy_path"]).st_mtime_ns, row.get("units"), float(row["fs"] or 1.0))
+        except OSError:
+            prefix = None                       # missing: drawn empty with its reason, never kept
+    got = (row, prefix)
+    if memo is not None:
+        memo[rid] = got
+    return got
+
+
+def _thumb(conn, item: dict, rec: dict | None, unit: str, memo: dict | None = None) -> list:
+    """A queue row's thumbnail: a bare value list (a sparkline with nothing drawn beside it, so there is no
+    second coordinate system to disagree with). fixup-ah: a blind test queue's rows carry none — a sparkline
+    list would let the eye find the window shown twice (and its first answer) before the card is read."""
+    global _THUMB_CACHE
+    if (rec or {}).get("held_out") or unit == "test window":
+        return []
+    start = int(item.get("start_idx") or 0)
+    end = int(item.get("end_idx") or start)
+    if not rec:
+        return _trace_env(None, start, end, THUMB_PX)["v"]
+    row, prefix = _thumb_source(conn, rec, memo)
+    if prefix is None:
+        return _trace_env(row, start, end, THUMB_PX)["v"]
+    key = prefix + (start, end)
+    with _THUMB_LOCK:
+        if _THUMB_CACHE is None:
+            from collections import OrderedDict
+            _THUMB_CACHE = OrderedDict()
+        hit = _THUMB_CACHE.get(key)
+        if hit is not None:
+            _THUMB_CACHE.move_to_end(key)
+            return list(hit)
+    v = _trace_env(row, start, end, THUMB_PX)["v"]
+    with _THUMB_LOCK:
+        _THUMB_CACHE[key] = tuple(v)
+        while len(_THUMB_CACHE) > _THUMB_CACHE_MAX:
+            _THUMB_CACHE.popitem(last=False)
+    return v
+
+
+def baseline_peak(values) -> float:
+    """`charts/domain.ts::baselinePeak`, the same arithmetic: a trace's largest deviation from its own median,
+    over its finite values. The Shape card's queue-wide reference bar is drawn from every row's, and since rows
+    no longer carry their thumbnails (AR) the bridge sends the two ends of that range (`thumbPeaks`)."""
+    finite = [float(v) for v in (values or ()) if v is not None and math.isfinite(float(v))]
+    if not finite:
+        return 0.0
+    s = sorted(finite)
+    n = len(s)
+    mid = s[(n - 1) // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
+    return max(abs(v - mid) for v in finite)
 
 
 def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUMB_PX,
-                   rank: int | None = None) -> dict:
+                   rank: int | None = None, thumb: bool = True, memo: dict | None = None) -> dict:
     """One queue row in the client's `QueueEntry` shape, with its thumbnail."""
     rid = item.get("recording_id")
     rec = index.get(int(rid)) if rid is not None else None
@@ -354,7 +426,8 @@ def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUM
     # drawn beside it, so there is no second coordinate system to disagree with
     # fixup-ah: a blind test queue's rows carry no thumbnail — a sparkline list would let the eye find the window
     # shown twice (and its first answer) before the card is read
-    row["thumb"] = [] if ((rec or {}).get("held_out") or row["unit"] == "test window")         else _trace_env(_row_for(conn, rec), start, end, px)["v"]
+    # AR: `thumb=False` serves the row without it (`thumbsServed: false` on the read); `/thumbs` pages them
+    row["thumb"] = _thumb(conn, item, rec, row["unit"], memo) if thumb else []
     row["family"] = str(item.get("family") or "")
     # The run that wrote this detection, and where the item sits in the queue.
     # Without them the inspector subtitle read "run undefined - rank undefined"
@@ -368,23 +441,26 @@ def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUM
     return row
 
 
-def _item_or_404(conn, queue: dict, item_id: str) -> dict:
-    """The item, INCLUDING ones the default listing filters out.
+def _item_or_404(conn, queue: dict, item_id: str, held=None) -> dict:
+    """`queues.item_view` for this item: the item, INCLUDING ones the default
+    listing filters out, its position in the served list and the queue's counts.
 
     A rediscovery is excluded from the queue's rows on purpose, but a deep link
     to it must still open — "there must be a way to see what was auto-excluded"
     is the whole point of `include_prior_judged`.
+
+    AR (the speed pass): one read of the queue's remembered structure, where it
+    used to resolve the whole queue once to find the item and again to number it.
     """
-    items = queues_mod.queue_items(conn, int(queue["id"]), include_judged=True,
-                                   include_prior_judged=True)
-    for it in items:
-        if str(it.get("target_id", it.get("id"))) == str(item_id):
-            return it
-    raise HTTPException(status_code=404, detail=f"no item {item_id!r} in queue {queue['id']}")
+    view = queues_mod.item_view(conn, int(queue["id"]), item_id,
+                                exclude_recording_ids=_held_out_ids(conn) if held is None else held)
+    if view["item"] is None:
+        raise HTTPException(status_code=404, detail=f"no item {item_id!r} in queue {queue['id']}")
+    return view
 
 
 def _detail(conn, queue: dict, item: dict, index: dict, *, rank: int | None = None,
-            px=DEFAULT_PX, pad_s=CONTEXT_PAD_S) -> dict:
+            px=DEFAULT_PX, pad_s=CONTEXT_PAD_S, counts=None) -> dict:
     """The `ItemDetail` shape, key for key.
 
     `px` is the width of the plot that will draw the traces and `pad_s` the
@@ -394,7 +470,7 @@ def _detail(conn, queue: dict, item: dict, index: dict, *, rank: int | None = No
     and at a resolution the card can use (fixup-g)."""
     rid = item.get("recording_id")
     rec = index.get(int(rid)) if rid is not None else None
-    qp = _queue_payload(conn, queue)
+    qp = _queue_payload(conn, queue, counts=counts, filters=False)
     entry = _entry_payload(conn, item, queue, index, rank=rank)
     if rec and rec["held_out"]:
         why = refusal(rec["label"])
@@ -647,8 +723,13 @@ def get_counts(request: Request):
 def get_queues(request: Request, include_closed: int = Query(default=0)):
     conn = _conn(request)
     try:
-        return [_queue_payload(conn, q)
-                for q in queues_mod.list_queues(conn, include_closed=bool(include_closed))]
+        held = _held_out_ids(conn)
+        out = []
+        # AR: one count per queue, with the held-out set (it was counted twice, once without it)
+        for q in queues_mod.list_queues(conn, include_closed=bool(include_closed), exclude_recording_ids=held):
+            counts = {k: q[k] for k in ("total", "judged", "remaining")}
+            out.append(_queue_payload(conn, q, counts=counts))
+        return out
     finally:
         conn.close()
 
@@ -669,21 +750,182 @@ def post_queue(request: Request, body: QueueBody):
 
 @router.get("/queues/{qid}")
 def get_queue(request: Request, qid: str, include_judged: int = Query(default=1),
-              include_prior_judged: int = Query(default=0)):
+              include_prior_judged: int = Query(default=0), thumbs: int = Query(default=1)):
+    """The queue's rows. `thumbs=0` (AR, the speed pass) serves them without their thumbnails — a trace per row
+    is most of this read's cost (26 s for 10,000 rows on the scale fixture) — and says so (`thumbsServed`); the
+    page then asks `/thumbs` for the rows it shows. Everything else on a row is what `thumbs=1` serves."""
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
         index = _index(conn)
         held = _held_out_ids(conn)
-        items = queues_mod.queue_items(
-            conn, int(queue["id"]), include_judged=bool(include_judged),
-            include_prior_judged=bool(include_prior_judged),
-            exclude_recording_ids=held)
-        ranks = _ranks(conn, queue, held)
-        rows = [_entry_payload(conn, it, queue, index, rank=ranks.get(str(it.get("target_id", it.get("id")))))
+        resolved = queues_mod.queue_view(conn, int(queue["id"]))
+        served = queues_mod.select_items(queue, resolved, include_judged=True, exclude_recording_ids=held)
+        items = queues_mod.select_items(queue, resolved, include_judged=bool(include_judged),
+                                        include_prior_judged=bool(include_prior_judged),
+                                        exclude_recording_ids=held)
+        ranks = {str(it.get("target_id", it.get("id"))): i + 1 for i, it in enumerate(served)}
+        memo: dict = {}
+        rows = [_entry_payload(conn, it, queue, index, rank=ranks.get(str(it.get("target_id", it.get("id")))),
+                               thumb=bool(thumbs), memo=memo)
                 for it in items]
-        return {"queue": _queue_payload(conn, queue, exclude_recording_ids=held),
-                "rows": rows, "clusters": _clusters(items, queue)}
+        # the Shape card's queue-wide reference bar: the smallest positive and the largest row peak, from every
+        # row's thumbnail (`referenceScale` reads only those two ends). A rows-only read draws NO thumbnail (fix
+        # round B1: it drew all of them to find the two ends, 13-27 s on the first open after a restart): it serves
+        # the ends when they are already known for exactly these rows, else null, and `/peaks` works them out
+        pkey = _peaks_key(conn, items, rows, index, memo)
+        if thumbs:
+            got = _peaks_of(row["thumb"] for row in rows if not row.get("heldOut"))
+            with _THUMB_LOCK:
+                _keep_peaks(pkey, got)
+        else:
+            with _THUMB_LOCK:
+                got = _PEAKS.get(pkey)
+        return {"queue": _queue_payload(conn, queue, counts=queues_mod.counts_of(served)),
+                "rows": rows, "clusters": _clusters(items, queue), "thumbsServed": bool(thumbs),
+                "thumbPeaks": got}
+    finally:
+        conn.close()
+
+
+#: fix round B1: the two ends of a row set's thumbnail peaks, keyed by exactly the rows (recording file, span,
+#: unit) they were drawn from; `None` in a payload means "not worked out yet"
+_PEAKS: dict = {}
+_PEAKS_INFLIGHT: set = set()
+
+
+def _keep_peaks(pkey, got):
+    """Under `_THUMB_LOCK`. Bounded: a key per row set read, a few hundred at most in a session."""
+    if len(_PEAKS) >= 512:
+        _PEAKS.clear()
+    _PEAKS[pkey] = got
+
+
+def _peaks_of(thumbs) -> list:
+    peaks = [p for p in (baseline_peak(v) for v in thumbs) if p > 0]
+    return [min(peaks), max(peaks)] if peaks else []
+
+
+def _peaks_key(conn, items, rows, index, memo):
+    """What the peak range is a function of: every shown row's recording file (path, mtime, unit, rate), span and
+    unit. Two reads of the same rows share it; a re-derived channel or a changed set does not."""
+    parts = []
+    for it, row in zip(items, rows):
+        if row.get("heldOut"):
+            continue
+        rid = it.get("recording_id")
+        rec = index.get(int(rid)) if rid is not None else None
+        prefix = _thumb_source(conn, rec, memo)[1] if rec else None
+        parts.append((prefix, int(it.get("start_idx") or 0), int(it.get("end_idx") or 0), row["unit"]))
+    return hash(tuple(parts))
+
+
+def _work_out_peaks(db_path, qid, include_judged, include_prior_judged, pkey):
+    """Draw the rows' thumbnails (into `_THUMB_CACHE`) and keep the peak range: run in the background by `/peaks`,
+    so the rows read itself never waits on it."""
+    log = logging.getLogger("webui.review")
+    try:
+        conn = corpus.connect(db_path)
+        try:
+            queue = queues_mod.get_queue(conn, int(qid))
+            index, held, memo = _index(conn), _held_out_ids(conn), {}
+            items = queues_mod.select_items(queue, queues_mod.queue_view(conn, int(qid)),
+                                            include_judged=include_judged, include_prior_judged=include_prior_judged,
+                                            exclude_recording_ids=held)
+            thumbs = []
+            for it in items:
+                rid = it.get("recording_id")
+                rec = index.get(int(rid)) if rid is not None else None
+                if rec and rec.get("held_out"):
+                    continue
+                thumbs.append(_thumb(conn, it, rec, queue.get("unit") or it.get("unit") or "detection", memo))
+            with _THUMB_LOCK:
+                _keep_peaks(pkey, _peaks_of(thumbs))
+        finally:
+            conn.close()
+    except Exception:
+        log.exception("working out the thumbnail peaks of queue %s failed", qid)
+    finally:
+        with _THUMB_LOCK:
+            _PEAKS_INFLIGHT.discard(pkey)
+
+
+@router.get("/queues/{qid}/peaks")
+def get_peaks(request: Request, qid: str, include_judged: int = Query(default=1),
+              include_prior_judged: int = Query(default=0), wait_s: float = Query(default=0.0)):
+    """Fix round B1: the Shape card's reference-bar ends for the rows `GET /queues/{qid}` serves with the same
+    parameters — `{"thumbPeaks": [lo, hi] | [] | null, "ready": bool}`. Not known yet: the work is started in the
+    background (once) and `ready` is false; the page asks again. `wait_s` (tests) waits up to that long for it."""
+    conn = _conn(request)
+    try:
+        queue = _queue_or_404(conn, qid)
+        index, held, memo = _index(conn), _held_out_ids(conn), {}
+        items = queues_mod.select_items(queue, queues_mod.queue_view(conn, int(queue["id"])),
+                                        include_judged=bool(include_judged),
+                                        include_prior_judged=bool(include_prior_judged), exclude_recording_ids=held)
+        rows = [{"heldOut": bool((index.get(int(it["recording_id"])) or {}).get("held_out"))
+                 if it.get("recording_id") is not None else False,
+                 "unit": queue.get("unit") or it.get("unit") or "detection"} for it in items]
+        pkey = _peaks_key(conn, items, rows, index, memo)
+    finally:
+        conn.close()
+    with _THUMB_LOCK:
+        got = _PEAKS.get(pkey)
+        start = got is None and pkey not in _PEAKS_INFLIGHT
+        if start:
+            _PEAKS_INFLIGHT.add(pkey)
+    if start:
+        threading.Thread(target=_work_out_peaks, name=f"queue-peaks-{qid}", daemon=True,
+                         args=(request.app.state.rt.db_path, int(queue["id"]), bool(include_judged),
+                               bool(include_prior_judged), pkey)).start()
+    if got is None and wait_s > 0:
+        import time as _time
+        t0 = _time.monotonic()
+        while _time.monotonic() - t0 < min(float(wait_s), 120.0):
+            with _THUMB_LOCK:
+                got = _PEAKS.get(pkey)
+            if got is not None:
+                break
+            _time.sleep(0.05)
+    return {"thumbPeaks": got, "ready": got is not None}
+
+
+@router.get("/queues/{qid}/thumbs")
+def get_thumbs(request: Request, qid: str, ids: str = Query(default="")):
+    """AR: the thumbnails of the rows the page is showing, `{id: [values]}` — the same list a `thumbs=1` row
+    carries. An id that is not in the queue is a 404 naming it, never an empty thumbnail (an empty one draws as
+    a flat line, which is a shape)."""
+    conn = _conn(request)
+    try:
+        queue = _queue_or_404(conn, qid)
+        want = [i for i in (x.strip() for x in ids.split(",")) if i][:200]
+        index = _index(conn)
+        held = _held_out_ids(conn)
+        out, memo = {}, {}
+        found = queues_mod.item_views(conn, int(queue["id"]), want, exclude_recording_ids=held)
+        missing = [t for t in want if found.get(t) is None]
+        if missing:
+            raise HTTPException(status_code=404, detail=f"no item {missing[0]!r} in queue {queue['id']}")
+        for tid in want:
+            item = found[tid]
+            rid = item.get("recording_id")
+            rec = index.get(int(rid)) if rid is not None else None
+            out[tid] = _thumb(conn, item, rec, queue.get("unit") or item.get("unit") or "detection", memo)
+        return {"thumbs": out}
+    finally:
+        conn.close()
+
+
+@router.get("/queues/{qid}/counts")
+def get_queue_counts(request: Request, qid: str):
+    """AR: the queue's counts and pace — what the toolbar and the queue list re-read after a verdict, in place of
+    every row."""
+    conn = _conn(request)
+    try:
+        queue = _queue_or_404(conn, qid)
+        counts = queues_mod.queue_counts(conn, int(queue["id"]), exclude_recording_ids=_held_out_ids(conn))
+        return {"id": int(queue["id"]), **{k: int(counts[k]) for k in ("total", "judged", "remaining")},
+                "pace_s": queues_mod.queue_pace_s(conn, int(queue["id"]))}
     finally:
         conn.close()
 
@@ -713,10 +955,9 @@ def get_item(request: Request, qid: str, item_id: str,
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
-        item = _item_or_404(conn, queue, item_id)
-        ranks = _ranks(conn, queue, _held_out_ids(conn))
-        return _detail(conn, queue, item, _index(conn), rank=ranks.get(str(item_id)),
-                       px=px, pad_s=pad_s)
+        view = _item_or_404(conn, queue, item_id)
+        return _detail(conn, queue, view["item"], _index(conn), rank=view["rank"],
+                       px=px, pad_s=pad_s, counts=view["counts"])
     finally:
         conn.close()
 
@@ -730,7 +971,7 @@ def get_item_channels(request: Request, qid: str, item_id: str,
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
-        item = _item_or_404(conn, queue, item_id)
+        item = _item_or_404(conn, queue, item_id)["item"]
         index = _index(conn)
         rid = item.get("recording_id")
         rec = index.get(int(rid)) if rid is not None else None
@@ -760,6 +1001,8 @@ def get_cluster(request: Request, qid: str, no: int,
     try:
         queue = _queue_or_404(conn, qid)
         index = _index(conn)
+        if queue.get("source_kind") in queues_mod.CLUSTERLESS_KINDS:      # AR S6: nothing to resolve to find none
+            raise HTTPException(status_code=404, detail=_no_clusters(queue, no))
         items = queues_mod.queue_items(conn, int(queue["id"]), include_judged=True)
         clusters = _clusters(items, queue)
         cluster = next((c for c in clusters if int(c["no"]) == int(no)), None)
@@ -768,8 +1011,10 @@ def get_cluster(request: Request, qid: str, no: int,
                                 detail=_no_clusters(queue, no))
         members = [it for it in items
                    if str(it.get("target_id", it.get("id"))) in cluster["members"]]
-        return {"cluster": cluster, "queue": _queue_payload(conn, queue),
-                "members": [_detail(conn, queue, it, index, px=px, pad_s=pad_s) for it in members]}
+        # AR: the queue's counts once for the page, not once more per member card
+        counts = queues_mod.queue_counts(conn, int(queue["id"]), exclude_recording_ids=_held_out_ids(conn))
+        return {"cluster": cluster, "queue": _queue_payload(conn, queue, counts=counts),
+                "members": [_detail(conn, queue, it, index, px=px, pad_s=pad_s, counts=counts) for it in members]}
     finally:
         conn.close()
 
@@ -893,6 +1138,8 @@ def _cluster_batch(request: Request, qid: str, no: int, verdict: str):
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
+        if queue.get("source_kind") in queues_mod.CLUSTERLESS_KINDS:      # AR S6: nothing to resolve to find none
+            raise HTTPException(status_code=404, detail=_no_clusters(queue, no))
         items = queues_mod.queue_items(conn, int(queue["id"]), include_judged=True)
         cluster = next((c for c in _clusters(items, queue) if int(c["no"]) == int(no)), None)
         if cluster is None:

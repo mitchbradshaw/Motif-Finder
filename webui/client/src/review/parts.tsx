@@ -195,7 +195,7 @@ export function drawnFrom(tr: TimeTrace, names: DatasetNames = {}): string {
     : `${datasetName(names, s.source_file ?? s.label)} ${s.channel} · ${rate} · ${samples}`
 }
 
-export function ShapeCard({ d, family, blind, rows }: { d: ItemDetail; family: NearestFamily | null; blind: boolean; rows: QueueRow[] }) {
+export function ShapeCard({ d, family, blind, rows, peaks }: { d: ItemDetail; family: NearestFamily | null; blind: boolean; rows: QueueRow[]; peaks?: number[] }) {
   const names = useDatasetNames()
   const showMedoid = !blind && family
   const [wantSource, setWantSource] = useSourceResolution()
@@ -210,7 +210,9 @@ export function ShapeCard({ d, family, blind, rows }: { d: ItemDetail; family: N
   const medoid = useMemo(() => showMedoid ? centreTrace(d.medoids[family.id] ?? []) : [], [showMedoid, family, d.medoids])
   const peak = baselinePeak(drawn.v)
   // the queue's shared scale: every candidate in it, by the same measure, computed once per queue read
-  const scale = useMemo(() => referenceScale([...rows.map(r => baselinePeak(r.thumb)), peak]), [rows, peak])
+  // AR: the bridge sends the two ends of the rows' peaks (`thumbPeaks`) — all `referenceScale` reads — since the rows
+  // no longer carry their thumbnails; a read that did carry them still computes them here
+  const scale = useMemo(() => referenceScale([...(peaks ?? rows.map(r => baselinePeak(r.thumb))), peak]), [rows, peaks, peak])
   const what = d.entry.unit === 'window' ? 'this window' : 'this candidate'
   const staircase = !drawn.decimated && drawn.n_source > 0 && drawn.n_source <= 200
   return (

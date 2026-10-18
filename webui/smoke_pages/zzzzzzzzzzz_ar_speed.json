@@ -1,0 +1,40 @@
+[
+ {
+  "page": "review.inspector",
+  "state": "ar-step-paints-from-the-prefetch",
+  "_why": "AR: the items either side of the one on screen are read ahead at the card's width and padding, so a step (here the right arrow) paints the next item from the cache - no review-loading card in between",
+  "hash": "review/queue/2/100",
+  "actions": [
+   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"100\"]", 30000]},
+   {"wait": 2500},
+   {"press": "ArrowRight"},
+   {"wait": 100}
+  ],
+  "expect": ["[data-testid=\"inspector\"]:not([data-item=\"100\"])", "[data-testid=\"context-card\"]"],
+  "expect_absent": ["[data-testid=\"review-loading\"]", "[data-testid=\"item-error\"]"],
+  "settle_ms": 50
+ },
+ {
+  "page": "discovery.runs",
+  "state": "ar-first-paint-no-placeholder",
+  "_why": "AR: the first paint is the page's own layout in grey (the toolbar row where the toolbar will be), never the 600 px 'loading the session' card that the real layout then replaced",
+  "hash": "discovery/runs",
+  "actions": [{"wait": 150}],
+  "expect": [".dsc-toolbar", "[data-testid=\"discovery-refreshing\"]"],
+  "expect_absent": ["[data-testid=\"discovery-loading\"]"],
+  "settle_ms": 50
+ },
+ {
+  "page": "discovery.runs",
+  "state": "ar-templates-open-under-a-second",
+  "_why": "AR: the template picker never scores on open; a template whose score is not current shows its last known score (or 'scoring...') and the list re-reads until the background scoring lands",
+  "hash": "discovery/runs",
+  "actions": [
+   {"wait_for": ["[data-testid=\"apply-template\"]", 30000]},
+   {"click": "[data-testid=\"apply-template\"]"},
+   {"wait_for": ["[data-testid=\"add-template-modal\"] [data-testid^=\"template-score-\"]", 1500]}
+  ],
+  "expect": ["[data-testid=\"add-template-modal\"]", "[data-testid^=\"template-score-\"]"],
+  "settle_ms": 300
+ }
+]

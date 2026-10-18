@@ -14,7 +14,7 @@ import {
   ROLES, getChannelSignal, getCompare, getDisagreementWindow,
   type CompareData, type CompareSide, type Disagreement, type Role, type RoleCell,
 } from '../api/discovery'
-import { DiscoveryToolbar, LoadFailed, Loading, NullChip, Refreshing, RunsCard, ScopeCard, sideRun } from './chrome'
+import { DiscoverySkeleton, DiscoveryToolbar, LoadFailed, Loading, NullChip, Refreshing, RunsCard, ScopeCard, sideRun } from './chrome'
 import { sendDiscoveryRemainderToReview, type DiscRemainderSent, type DiscVerdictSplit } from '../api'
 import { useToast } from '../shell/Toast'
 import { RunGlyph } from './glyphs'
@@ -94,9 +94,9 @@ export function ComparePage() {
       <div className="k-page dsc-page" data-testid="discovery-compare-page">
         <div className="k-page-inner" style={{ maxWidth: 1376, gap: 12 }}>
           {dx.error && <LoadFailed what="the Discovery session" error={dx.error} onRetry={dx.reload} />}
-          {dx.firstLoad && !dx.error && <Loading height={600} label="loading the comparison" />}
+          {dx.firstLoad && !dx.error && <DiscoverySkeleton label="loading the comparison" />}
           {!dx.firstLoad && !dx.error && <Refreshing on={dx.refreshing} label="re-reading the runs" />}
-          {dx.scope && (
+          {dx.scope && !dx.firstLoad && (
             <>
               <DiscoveryToolbar dx={dx}
                 left={<Button variant="link" icon="chevron-left" onClick={() => navigate('discovery/runs')} testid="all-runs">all runs</Button>}

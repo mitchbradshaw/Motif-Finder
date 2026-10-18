@@ -32,14 +32,23 @@ export interface SourcedState<T> { data: T | null; source: Source | null; loadin
 
 /** Load a Sourced read in a component. Errors are returned (render them loudly), never swallowed. */
 export function useSourced<T>(fn: () => Promise<Sourced<T>>, deps: DependencyList): SourcedState<T> {
+  return useAbortableSourced(() => fn(), deps)
+}
+
+/** `useSourced` for a read that takes an AbortSignal (AR, the speed pass): the signal fires when the read is
+ *  superseded — its deps changed, the page went away — so a read that hands it to `fetch` stops instead of
+ *  finishing for nobody. Kept apart from `useSourced` so no existing read is handed an argument it would
+ *  mistake for one of its own. */
+export function useAbortableSourced<T>(fn: (signal: AbortSignal) => Promise<Sourced<T>>, deps: DependencyList): SourcedState<T> {
   const [state, setState] = useState<{ data: T | null; source: Source | null; loading: boolean; error: Error | null }>({ data: null, source: null, loading: true, error: null })
   const [nonce, setNonce] = useState(0)
   useEffect(() => {
     let alive = true
+    const ctl = new AbortController()
     setState(s => ({ ...s, loading: true, error: null }))
-    fn().then(r => { if (alive) setState({ data: r.data, source: r.source, loading: false, error: null }) },
+    fn(ctl.signal).then(r => { if (alive) setState({ data: r.data, source: r.source, loading: false, error: null }) },
       e => { if (alive) { console.error('read failed', e); setState(s => ({ ...s, loading: false, error: e instanceof Error ? e : new Error(String(e)) })) } })
-    return () => { alive = false }
+    return () => { alive = false; ctl.abort() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, nonce])
   return { ...state, reload: () => setNonce(n => n + 1) }
