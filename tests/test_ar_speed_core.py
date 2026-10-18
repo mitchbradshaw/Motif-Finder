@@ -173,6 +173,45 @@ def test_the_cached_resolver_answers_exactly_what_a_fresh_resolve_does(tmp_path)
                 f"after '{name}', queue {qid} {views[i]}: the cached resolve served a stale queue")
         for qid in qids:
             assert got_counts[qid] == Q.queue_counts(conn, qid, exclude_recording_ids=held)
+            # and the counts' own fast path against the item-by-item count it replaces
+            assert got_counts[qid] == Q.counts_of(Q.select_items(
+                Q.get_queue(conn, qid), Q.queue_view(conn, qid), include_judged=True, exclude_recording_ids=held))
+
+
+def test_concurrent_cold_reads_build_the_structure_once(tmp_path, monkeypatch):
+    """Fix round S2: the Review page opens with several reads of one queue at once; they must not each build the
+    same structure. The second waits for the first and takes its answer."""
+    import sqlite3
+    import threading
+    import time
+    conn, info = _db(tmp_path)
+    qid = _queues(conn, info)[1]
+    conn.close()
+    Q.clear_resolver_cache()
+    calls = {"n": 0}
+    real = Q._detection_structure
+
+    def slow(*a, **kw):
+        calls["n"] += 1
+        time.sleep(0.4)
+        return real(*a, **kw)
+    monkeypatch.setattr(Q, "_detection_structure", slow)
+    out = []
+
+    def read():
+        c = sqlite3.connect(str(tmp_path / "q.sqlite"), check_same_thread=False)
+        c.row_factory = sqlite3.Row
+        try:
+            out.append(Q.queue_items(c, qid, include_judged=True))
+        finally:
+            c.close()
+    threads = [threading.Thread(target=read) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert calls["n"] == 1, f"four concurrent cold reads built the structure {calls['n']} times"
+    assert len(out) == 4 and all(o == out[0] for o in out)
 
 
 def test_two_databases_never_share_a_remembered_queue(tmp_path):

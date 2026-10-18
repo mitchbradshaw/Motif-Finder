@@ -8,7 +8,7 @@ import { useSourced } from '../api/seam'
 import { useSize } from '../charts/useSize'
 import { useToast } from '../shell/Toast'
 import { plotPx } from './axis'
-import { VOCABULARY, getItem, peekItem, prefetchItem, useThumbs, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
+import { VOCABULARY, getItem, peekItem, prefetchItem, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
 import { goUnit, nextUnjudgedAfter, relTime, step } from './queue'
@@ -34,6 +34,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const { queue } = data
   const q = queue.id, id = row.id
   const version = useReviewVersion()
+  const peaks = useQueuePeaks(data)      // fix round B1: the reference bar's ends, worked out off the rows read
   const [pad, setPad] = usePad()
   // The traces are fetched at the width of the column that will draw them (fixup-g): measured, never guessed,
   // so the bridge serves at least one point per device pixel; and over the padding shown, so the context is
@@ -287,7 +288,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
             bandLabel={isWindow ? `${id} · ${row.durationS} s` : `${id} · ${row.durationS.toFixed(1)} s`} canEdit={!isWindow && !d.suspectedArtifact} />
 
           <div className="rv-row2">
-            <ShapeCard d={d} family={masked ? null : (d.nearest.find(f => f.id === overlay) ?? d.nearest[0] ?? null)} blind={masked || isWindow} rows={data.rows} peaks={data.thumbPeaks} />
+            <ShapeCard d={d} family={masked ? null : (d.nearest.find(f => f.id === overlay) ?? d.nearest[0] ?? null)} blind={masked || isWindow} rows={data.rows} peaks={peaks} />
             {promoted && rec
               ? <PromotionPanel d={d} rec={rec} onUndo={undo} onConfirm={confirmPromotion} confirmRef={confirmRef} />
               : isWindow && blind ? <RevealCard data={data} current={row} now={now} />

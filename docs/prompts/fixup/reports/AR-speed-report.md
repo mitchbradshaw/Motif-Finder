@@ -75,19 +75,39 @@ discount the small ratios by that much. The big ones are structural.
 
 **Query and complexity counts** (the tests, not wall-clock):
 - Two item reads cost 3,044 vs 19,412 ×100 SQLite VM steps at 150 vs 1,500 items on the base. That is 6.4× for 10×
-  the items: the read scanned the queue. The branch passes `big <= 2·small + 50`
-  (`test_an_item_read_does_not_grow_with_the_queue`).
+  the items: the read scanned the queue. After the fix round, the pin is `big <= 1.1·small + 20` at 150 vs 6,000 items
+  (`test_an_item_read_does_not_grow_with_the_queue`). The critic measured the branch at 376 / 378 / 378 ×100 steps at
+  150 / 1,500 / 6,000 items.
 - A repeated queue read runs the candidate query **once**, not once per read.
-- The thumbnail-less rows read draws 0 traces, where the base drew 532.
+- The thumbnail-less rows read draws 0 traces, where the base drew 532. Since the fix round (B1) this holds **cold**,
+  after a restart, with nothing remembered: the pin clears the thumbnail and peak caches before the read. Before the
+  fix, the read drew every thumbnail to find the reference bar's two ends, so it was 0 only when warm.
 - `/runs` calls `group_status` 0 times, where the base called it 6 times (its light replacement makes a fixed handful of
   queries per Discovery run).
 - The picker scores 0 templates on open, where the base scored 6.
 - `/fires` builds 0 detection dicts for plain runs, where the base built them 18 times.
 - The scoreboard scores 6 channels to show 6, where it used to score every channel of every run.
 
-One unexplained outlier: in the first after-run, the very first `GET /api/review/queues` took 52 s, right as the warm
-ended. Every later read, and the whole final run, took 76–330 ms. A cold structure build measures 0.6–1.6 s directly.
-I could not reproduce it. Please watch the first queue-list read on the gate.
+**The 52 s first `GET /api/review/queues` in the first after-run is explained (the critic's diagnosis).** Several cold
+reads of the same queue built the same 10 k structure side by side, the rows-only read drew every thumbnail (B1), and
+the warm scorer was on the GIL. The fix round adds one flight per queue structure (S2) and drops the thumbnail drawing
+from the rows read (B1).
+
+**Twenty open queues (fix round S3).** I added 19 queues to a copy of the fixture: 10 exact detection sets of about 490
+items and 9 run-set queues of 4 k–38 k items, about 180 k items in all. The page re-reads `GET /api/review/queues` and
+`GET /api/review/counts` after every verdict.
+
+| read | during the template-scoring warm | warm finished |
+|---|---|---|
+| `/queues` | 1.4–2.3 s | **0.35–0.38 s** |
+| `/counts` | 1.9–3.2 s | **0.34–0.37 s** |
+
+- The first cold read built all 20 structures and took 22 s (four concurrent cold reads finished together, one flight
+  each).
+- Counting now runs on the remembered structure without building an item per row (`queue_counts` fast path, pinned
+  against the item-by-item count).
+- `get_queues` no longer counts each queue twice when a held-out set is locked.
+- Non-detection queue kinds are still resolved on every count; they are small today.
 
 ## Per item of the work list
 
@@ -139,6 +159,21 @@ I could not reproduce it. Please watch the first queue-list read on the gate.
   - `queue.ts` builds a row index and unit lists once per read. They were `data.rows.find` per unit, which is
     quadratic at 10 k.
   - RevealCard's walk is linear.
+
+- **Fix round:**
+  - **B1.** `?thumbs=0` draws no thumbnail. `thumbPeaks` is `null` until known. The new `GET /queues/{qid}/peaks`
+    works the range out in the background, once per row set, and the Inspector asks every 2 s until it lands
+    (`useQueuePeaks`); the Shape card falls back meanwhile.
+  - **S2.** One flight per queue structure, with a per-key lock as in `corpus._coverage_lock`. Pinned:
+    `test_concurrent_cold_reads_build_the_structure_once`.
+  - **S3.** As in the twenty-queue table above.
+  - **S4.** `_THUMB_CACHE` is capped at 20 k entries, ~36 MB at ~1.8 KB each (100 k was ~180 MB).
+  - **S6.** `get_cluster` and the cluster accept/reject answer "no clusters" for detection kinds without resolving.
+    No resolver emits a cluster number, so the 404 is identical.
+  - **S7.** Two new pins: `test_the_request_clock_advances_on_a_request` and
+    `test_the_warm_waits_for_the_pages_to_go_quiet`.
+  - **Paged thumbnails.** A failed chunk is retried one id at a time, so one refused id no longer blanks its chunk; a
+    row that still fails is drawn blank and not asked for again.
 
 ### 2. Discovery (done)
 
@@ -199,18 +234,19 @@ I could not reproduce it. Please watch the first queue-list read on the gate.
 ## Tests and interpreters
 
 - **Red commit `7629d44`:**
-  - conda `tests/test_ar_speed_core.py`: 4 failed.
+  - conda `tests/test_ar_speed_core.py`: 3 failed, 1 passed, as the critic re-ran it on the commit. An earlier draft
+    of this report said 4 failed; that count came from a working-tree run, not from the commit.
   - venv `tests/test_webui_ar_speed.py`: 8 failed, 1 passed (the rank pin).
 - **webui/.venv** (FastAPI):
   - `tests/test_webui_ar_speed.py`: 10 tests.
   - `tests/test_webui_review.py`, `tests/test_webui_review_axis.py`, `tests/test_webui_corpus.py`.
   - `tests/test_webui_discovery.py`, `tests/test_webui_discovery_windows.py`, `tests/test_webui_heldout_switch.py`:
     101 passed plus the 2 updated tests passing, on `6bc2775`.
-  - Final run at the branch head: `test_webui_ar_speed.py`, `test_webui_review.py`, `test_webui_review_axis.py` and
-    `test_webui_corpus.py`: **59 passed**.
-- **conda, final run at the branch head:** `test_ar_speed_core.py`, `test_perf_scoring_reads.py`,
+  - Fix-round run at the branch head: `test_webui_ar_speed.py` (12 tests), `test_webui_review.py`,
+    `test_webui_review_axis.py`, `test_webui_corpus.py` and `test_webui_discovery.py`: **129 passed**.
+- **conda, fix-round run at the branch head:** `test_ar_speed_core.py` (8 tests), `test_perf_scoring_reads.py`,
   `test_import_boundaries.py`, all eight `test_review_*` files and `test_surrogate_never_a_detection.py`:
-  **269 passed, 1 skipped** (the skip is `test_webui_ar_speed.py`, which needs FastAPI).
+  **270 passed, 1 skipped** (the skip is `test_webui_ar_speed.py`, which needs FastAPI).
 - **conda:** `tests/test_ar_speed_core.py` (7), `tests/test_perf_scoring_reads.py` (69), `tests/test_import_boundaries.py`,
   and the review core files (`test_review_*`, `test_surrogate_never_a_detection.py`): 197 passed at `f75575c`.
   `test_webui_*` files skip under conda.
@@ -237,6 +273,13 @@ On real data, please check:
   them without a browser);
 - the first `GET /api/review/queues` after a restart;
 - that the picker's "rescoring…" clears once the warm finishes.
+
+## Notes from the critic, recorded
+
+- **The template score fingerprint is not narrowed.** Any settings save marks every template "rescoring" until the
+  background scorer catches up. The prompt asked for narrowing only on the coverage map.
+- **`/fires` histograms SQL-read starts with `np.histogram`** rather than binning with SQL `GROUP BY`. It is identical
+  by construction and measured 724 ms.
 
 ## Left for a later pass
 

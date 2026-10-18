@@ -347,7 +347,18 @@ export async function loadThumbs(queueId: string, ids: string[]): Promise<void> 
       const d = await req<{ thumbs: Record<string, number[]> }>(`/queues/${encodeURIComponent(queueId)}/thumbs?ids=${chunk.map(encodeURIComponent).join(',')}`)
       for (const [id, v] of Object.entries(d.thumbs ?? {})) THUMBS.set(thumbKey(queueId, id), Array.isArray(v) ? v : [])
     } catch (e) {
+      // fix round: one id the bridge refuses (a 404 names it) must not blank the other rows of its chunk — ask for
+      // them one at a time; a row that still fails is drawn without a thumbnail and is not asked for again
       console.error('queue thumbnails failed to load', e)
+      if (chunk.length > 1) {
+        for (const id of chunk) {
+          try {
+            const d = await req<{ thumbs: Record<string, number[]> }>(`/queues/${encodeURIComponent(queueId)}/thumbs?ids=${encodeURIComponent(id)}`)
+            const v = d.thumbs?.[id]
+            THUMBS.set(thumbKey(queueId, id), Array.isArray(v) ? v : [])
+          } catch { THUMBS.set(thumbKey(queueId, id), []) }
+        }
+      } else chunk.forEach(id => THUMBS.set(thumbKey(queueId, id), []))
     } finally {
       chunk.forEach(id => thumbInflight.delete(thumbKey(queueId, id)))
     }
@@ -373,6 +384,26 @@ export function useThumbs(rows: QueueRow[]): (row: QueueRow) => number[] {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
   return cachedThumb
+}
+
+/** Fix round B1: the Shape card's reference-bar ends. A rows-only read carries them only when the bridge already
+ *  knows them for those rows; otherwise this asks `/peaks` (which works them out in the background) every 2 s until
+ *  they land. `undefined` until then — the card falls back to the thumbnails it holds. */
+export function useQueuePeaks(data: QueueData): number[] | undefined {
+  const [peaks, setPeaks] = useState<number[] | undefined>(data.thumbPeaks ?? undefined)
+  useEffect(() => {
+    if (data.thumbPeaks != null) { setPeaks(data.thumbPeaks); return }
+    let alive = true
+    let timer = 0
+    const ask = () => {
+      req<{ thumbPeaks: number[] | null; ready: boolean }>(`/queues/${encodeURIComponent(data.queue.id)}/peaks`).then(
+        r => { if (!alive) return; if (r.ready && r.thumbPeaks) setPeaks(r.thumbPeaks); else timer = window.setTimeout(ask, 2000) },
+        e => { console.error('the queue peak range failed to load', e) })
+    }
+    ask()
+    return () => { alive = false; window.clearTimeout(timer) }
+  }, [data])
+  return peaks
 }
 
 /* ---------------- item reads: a small cache, and the next item fetched before it is asked for (AR) ----------------

@@ -29,6 +29,7 @@ handler.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import re
@@ -322,9 +323,11 @@ def _channel_label(rec: dict | None, item: dict) -> str:
 #: AR (the speed pass): a thumbnail is a function of the channel file, its unit and rate, and the span — none of
 #: which a verdict changes — so it is kept, keyed on exactly those (the file by path and mtime, so a re-derived
 #: channel is read again). A 10,000-row queue drew 10,000 thumbnails on every read, each with two queries and a
-#: settings read for its recording row (26 s on the scale fixture). Bounded; ~0.5 KB an entry.
+#: settings read for its recording row (26 s on the scale fixture). Bounded: an entry is a tuple of ~48 floats,
+#: ~1.8 KB with its key, so 20,000 entries (two 10,000-item queues' rails) are ~36 MB (fix round S4: the first cap
+#: of 100,000 was ~180 MB, not the ~50 MB its comment claimed).
 _THUMB_CACHE: "OrderedDict" = None  # type: ignore[assignment]
-_THUMB_CACHE_MAX = 100_000
+_THUMB_CACHE_MAX = 20_000
 _THUMB_LOCK = threading.Lock()
 
 
@@ -722,10 +725,9 @@ def get_queues(request: Request, include_closed: int = Query(default=0)):
     try:
         held = _held_out_ids(conn)
         out = []
-        for q in queues_mod.list_queues(conn, include_closed=bool(include_closed)):
-            # list_queues counted without the held-out set; the payload counts with it (one count, not two)
-            counts = (queues_mod.queue_counts(conn, int(q["id"]), exclude_recording_ids=held) if held
-                      else {k: q[k] for k in ("total", "judged", "remaining")})
+        # AR: one count per queue, with the held-out set (it was counted twice, once without it)
+        for q in queues_mod.list_queues(conn, include_closed=bool(include_closed), exclude_recording_ids=held):
+            counts = {k: q[k] for k in ("total", "judged", "remaining")}
             out.append(_queue_payload(conn, q, counts=counts))
         return out
     finally:
@@ -768,22 +770,124 @@ def get_queue(request: Request, qid: str, include_judged: int = Query(default=1)
                                thumb=bool(thumbs), memo=memo)
                 for it in items]
         # the Shape card's queue-wide reference bar: the smallest positive and the largest row peak, from every
-        # row's thumbnail, whether or not the thumbnails ride along (`referenceScale` reads only those two ends)
-        peaks = []
-        for it, row in zip(items, rows):
-            if row.get("heldOut"):
-                continue
-            v = row["thumb"] if thumbs else _thumb(conn, it, index.get(int(it["recording_id"]))
-                                                   if it.get("recording_id") is not None else None,
-                                                   row["unit"], memo)
-            p = baseline_peak(v)
-            if p > 0:
-                peaks.append(p)
+        # row's thumbnail (`referenceScale` reads only those two ends). A rows-only read draws NO thumbnail (fix
+        # round B1: it drew all of them to find the two ends, 13-27 s on the first open after a restart): it serves
+        # the ends when they are already known for exactly these rows, else null, and `/peaks` works them out
+        pkey = _peaks_key(conn, items, rows, index, memo)
+        if thumbs:
+            got = _peaks_of(row["thumb"] for row in rows if not row.get("heldOut"))
+            with _THUMB_LOCK:
+                _keep_peaks(pkey, got)
+        else:
+            with _THUMB_LOCK:
+                got = _PEAKS.get(pkey)
         return {"queue": _queue_payload(conn, queue, counts=queues_mod.counts_of(served)),
                 "rows": rows, "clusters": _clusters(items, queue), "thumbsServed": bool(thumbs),
-                "thumbPeaks": [min(peaks), max(peaks)] if peaks else []}
+                "thumbPeaks": got}
     finally:
         conn.close()
+
+
+#: fix round B1: the two ends of a row set's thumbnail peaks, keyed by exactly the rows (recording file, span,
+#: unit) they were drawn from; `None` in a payload means "not worked out yet"
+_PEAKS: dict = {}
+_PEAKS_INFLIGHT: set = set()
+
+
+def _keep_peaks(pkey, got):
+    """Under `_THUMB_LOCK`. Bounded: a key per row set read, a few hundred at most in a session."""
+    if len(_PEAKS) >= 512:
+        _PEAKS.clear()
+    _PEAKS[pkey] = got
+
+
+def _peaks_of(thumbs) -> list:
+    peaks = [p for p in (baseline_peak(v) for v in thumbs) if p > 0]
+    return [min(peaks), max(peaks)] if peaks else []
+
+
+def _peaks_key(conn, items, rows, index, memo):
+    """What the peak range is a function of: every shown row's recording file (path, mtime, unit, rate), span and
+    unit. Two reads of the same rows share it; a re-derived channel or a changed set does not."""
+    parts = []
+    for it, row in zip(items, rows):
+        if row.get("heldOut"):
+            continue
+        rid = it.get("recording_id")
+        rec = index.get(int(rid)) if rid is not None else None
+        prefix = _thumb_source(conn, rec, memo)[1] if rec else None
+        parts.append((prefix, int(it.get("start_idx") or 0), int(it.get("end_idx") or 0), row["unit"]))
+    return hash(tuple(parts))
+
+
+def _work_out_peaks(db_path, qid, include_judged, include_prior_judged, pkey):
+    """Draw the rows' thumbnails (into `_THUMB_CACHE`) and keep the peak range: run in the background by `/peaks`,
+    so the rows read itself never waits on it."""
+    log = logging.getLogger("webui.review")
+    try:
+        conn = corpus.connect(db_path)
+        try:
+            queue = queues_mod.get_queue(conn, int(qid))
+            index, held, memo = _index(conn), _held_out_ids(conn), {}
+            items = queues_mod.select_items(queue, queues_mod.queue_view(conn, int(qid)),
+                                            include_judged=include_judged, include_prior_judged=include_prior_judged,
+                                            exclude_recording_ids=held)
+            thumbs = []
+            for it in items:
+                rid = it.get("recording_id")
+                rec = index.get(int(rid)) if rid is not None else None
+                if rec and rec.get("held_out"):
+                    continue
+                thumbs.append(_thumb(conn, it, rec, queue.get("unit") or it.get("unit") or "detection", memo))
+            with _THUMB_LOCK:
+                _keep_peaks(pkey, _peaks_of(thumbs))
+        finally:
+            conn.close()
+    except Exception:
+        log.exception("working out the thumbnail peaks of queue %s failed", qid)
+    finally:
+        with _THUMB_LOCK:
+            _PEAKS_INFLIGHT.discard(pkey)
+
+
+@router.get("/queues/{qid}/peaks")
+def get_peaks(request: Request, qid: str, include_judged: int = Query(default=1),
+              include_prior_judged: int = Query(default=0), wait_s: float = Query(default=0.0)):
+    """Fix round B1: the Shape card's reference-bar ends for the rows `GET /queues/{qid}` serves with the same
+    parameters — `{"thumbPeaks": [lo, hi] | [] | null, "ready": bool}`. Not known yet: the work is started in the
+    background (once) and `ready` is false; the page asks again. `wait_s` (tests) waits up to that long for it."""
+    conn = _conn(request)
+    try:
+        queue = _queue_or_404(conn, qid)
+        index, held, memo = _index(conn), _held_out_ids(conn), {}
+        items = queues_mod.select_items(queue, queues_mod.queue_view(conn, int(queue["id"])),
+                                        include_judged=bool(include_judged),
+                                        include_prior_judged=bool(include_prior_judged), exclude_recording_ids=held)
+        rows = [{"heldOut": bool((index.get(int(it["recording_id"])) or {}).get("held_out"))
+                 if it.get("recording_id") is not None else False,
+                 "unit": queue.get("unit") or it.get("unit") or "detection"} for it in items]
+        pkey = _peaks_key(conn, items, rows, index, memo)
+    finally:
+        conn.close()
+    with _THUMB_LOCK:
+        got = _PEAKS.get(pkey)
+        start = got is None and pkey not in _PEAKS_INFLIGHT
+        if start:
+            _PEAKS_INFLIGHT.add(pkey)
+    if start:
+        threading.Thread(target=_work_out_peaks, name=f"queue-peaks-{qid}", daemon=True,
+                         args=(request.app.state.rt.db_path, int(queue["id"]), bool(include_judged),
+                               bool(include_prior_judged), pkey)).start()
+    if got is None and wait_s > 0:
+        import time as _time
+        t0 = _time.monotonic()
+        while _time.monotonic() - t0 < min(float(wait_s), 120.0):
+            with _THUMB_LOCK:
+                got = _PEAKS.get(pkey)
+            if got is not None:
+                break
+            _time.sleep(0.05)
+    return {"thumbPeaks": got, "ready": got is not None}
 
 
 @router.get("/queues/{qid}/thumbs")
@@ -897,6 +1001,8 @@ def get_cluster(request: Request, qid: str, no: int,
     try:
         queue = _queue_or_404(conn, qid)
         index = _index(conn)
+        if queue.get("source_kind") in queues_mod.CLUSTERLESS_KINDS:      # AR S6: nothing to resolve to find none
+            raise HTTPException(status_code=404, detail=_no_clusters(queue, no))
         items = queues_mod.queue_items(conn, int(queue["id"]), include_judged=True)
         clusters = _clusters(items, queue)
         cluster = next((c for c in clusters if int(c["no"]) == int(no)), None)
@@ -1032,6 +1138,8 @@ def _cluster_batch(request: Request, qid: str, no: int, verdict: str):
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
+        if queue.get("source_kind") in queues_mod.CLUSTERLESS_KINDS:      # AR S6: nothing to resolve to find none
+            raise HTTPException(status_code=404, detail=_no_clusters(queue, no))
         items = queues_mod.queue_items(conn, int(queue["id"]), include_judged=True)
         cluster = next((c for c in _clusters(items, queue) if int(c["no"]) == int(no)), None)
         if cluster is None:

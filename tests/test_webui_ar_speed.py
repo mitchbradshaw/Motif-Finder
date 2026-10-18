@@ -105,10 +105,11 @@ def _item_steps(tmp_path, monkeypatch, size):
 
 
 def test_an_item_read_does_not_grow_with_the_queue(tmp_path, monkeypatch):
+    # fix round S1: 40x the items, within 10 % (+20) - an O(N) read at even a few VM ops an item fails this
     small = _item_steps(tmp_path / "s", monkeypatch, 150)
-    big = _item_steps(tmp_path / "b", monkeypatch, 1500)
-    assert big <= 2 * small + 50, (
-        f"two item reads cost {small} x100 VM steps at 150 items and {big} at 1,500: the read scans the queue")
+    big = _item_steps(tmp_path / "b", monkeypatch, 6000)
+    assert big <= 1.1 * small + 20, (
+        f"two item reads cost {small} x100 VM steps at 150 items and {big} at 6,000: the read scans the queue")
 
 
 def test_rows_without_thumbnails_read_no_channel_and_lose_nothing_else(bridge, monkeypatch):
@@ -122,6 +123,10 @@ def test_rows_without_thumbnails_read_no_channel_and_lose_nothing_else(bridge, m
         calls["n"] += 1
         return real(*a, **kw)
     monkeypatch.setattr(review, "_trace_env", counted)
+    # fix round B1: a COLD read, as after a restart - nothing remembered about thumbnails or their peaks
+    if review._THUMB_CACHE is not None:
+        review._THUMB_CACHE.clear()
+    review._PEAKS.clear() if hasattr(review, "_PEAKS") else None
     lean = client.get(f"/api/review/queues/{qid}?thumbs=0").json()
     assert calls["n"] == 0, f"{calls['n']} traces drawn for a rows-only read"
     assert lean["thumbsServed"] is False and full.get("thumbsServed", True) is True
@@ -131,7 +136,15 @@ def test_rows_without_thumbnails_read_no_channel_and_lose_nothing_else(bridge, m
         assert {**a, "thumb": None} == {**b, "thumb": None}, "a rows-only read must differ only by the thumbnail"
     # the Shape card's queue-wide reference bar reads only the two ends of every row's peak: both reads carry them
     peaks = [p for p in (review.baseline_peak(r["thumb"]) for r in full["rows"] if not r.get("heldOut")) if p > 0]
-    assert lean["thumbPeaks"] == full["thumbPeaks"] == [min(peaks), max(peaks)]
+    assert full["thumbPeaks"] == [min(peaks), max(peaks)]
+    # cold, the rows-only read does not know them yet (null) and /peaks works them out in the background
+    assert lean["thumbPeaks"] is None
+    first = client.get(f"/api/review/queues/{qid}/peaks").json()
+    assert calls["n"] == 0 or first["ready"] is False
+    done = client.get(f"/api/review/queues/{qid}/peaks?wait_s=60").json()
+    assert done == {"thumbPeaks": [min(peaks), max(peaks)], "ready": True}
+    # and once known, the next rows-only read carries them
+    assert client.get(f"/api/review/queues/{qid}?thumbs=0").json()["thumbPeaks"] == [min(peaks), max(peaks)]
 
 
 def test_thumbnails_are_paged_and_equal_the_full_reads(bridge):
@@ -171,6 +184,32 @@ def test_an_items_rank_is_its_place_in_the_listing(bridge):
         assert d["entry"]["rank"] == r["rank"]
         assert d["queue"]["total"] == len(rows)
         assert {**d["entry"], "thumb": None} == {**r, "thumb": None}
+
+
+def test_the_request_clock_advances_on_a_request(bridge):
+    """Fix round S7: the start-up warm waits on this clock; it must move when a page reads."""
+    client, rt, info = bridge
+    before = corpus.REQUEST_CLOCK["last"]
+    assert client.get("/api/health").status_code == 200
+    assert corpus.REQUEST_CLOCK["last"] > before
+    assert corpus.REQUEST_CLOCK["inflight"] == 0
+
+
+def test_the_warm_waits_for_the_pages_to_go_quiet(monkeypatch):
+    """Fix round S7: a request inside the quiet window delays the warm; a quiet bridge does not; a page that never
+    stops reading holds it at most `max_wait_s`."""
+    import threading
+    import time
+    monkeypatch.setitem(corpus.REQUEST_CLOCK, "inflight", 0)
+    monkeypatch.setitem(corpus.REQUEST_CLOCK, "last", time.monotonic() - 10)
+    assert corpus.wait_for_quiet(quiet_s=0.5, max_wait_s=5) < 0.3            # quiet already: no wait
+    corpus.REQUEST_CLOCK["last"] = time.monotonic()                          # a request just finished
+    waited = corpus.wait_for_quiet(quiet_s=0.5, max_wait_s=5)
+    assert 0.4 <= waited < 2.0, f"waited {waited:.2f} s after a request inside the quiet window"
+    corpus.REQUEST_CLOCK["inflight"] = 1                                     # a read in flight the whole time
+    stop = threading.Event()
+    assert corpus.wait_for_quiet(quiet_s=0.1, max_wait_s=0.6) >= 0.55        # capped, never for ever
+    stop.set()
 
 
 # ── Discovery ───────────────────────────────────────────────────────────────

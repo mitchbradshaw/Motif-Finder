@@ -103,6 +103,10 @@ _DEFAULTS = {
 }
 
 _DETECTION_KINDS = ("discovery-run", "seed-search")
+
+#: AR, fix round S6: kinds whose resolver never puts a cluster number on an item (`_detection_item` has no such
+#: key), so a cluster read over one can answer "no clusters" without resolving 10,000 items to find none
+CLUSTERLESS_KINDS = _DETECTION_KINDS
 _WINDOW_KINDS = ("training-windows", "model-verification")
 
 
@@ -186,8 +190,10 @@ def get_queue(conn, queue_id):
     return q
 
 
-def list_queues(conn, *, include_closed=False):
-    """Every queue, newest last, each carrying its live total/judged/remaining."""
+def list_queues(conn, *, include_closed=False, exclude_recording_ids=None):
+    """Every queue, newest last, each carrying its live total/judged/remaining.
+    `exclude_recording_ids` as `queue_counts` takes it (AR: the bridge counted
+    each queue twice, once here and again with the held-out set)."""
     sql = "SELECT * FROM review_queues"
     if not include_closed:
         sql += " WHERE closed_at IS NULL"
@@ -196,7 +202,7 @@ def list_queues(conn, *, include_closed=False):
     for row in conn.execute(sql).fetchall():
         q = _row_to_dict(row)
         q["filters"] = json.loads(q["filters_json"]) if q["filters_json"] else {}
-        q.update(queue_counts(conn, q["id"]))
+        q.update(queue_counts(conn, q["id"], exclude_recording_ids=exclude_recording_ids))
         out.append(q)
     return out
 
@@ -407,6 +413,14 @@ def queue_counts(conn, queue_id, *, exclude_recording_ids=None):
     # Counted only if it could be served. A row nobody can be shown is not part
     # of the question the queue is putting, so counting it inflates `total` and
     # "N need you" and breaks total == judged + remaining for every reader.
+    if q["source_kind"] in _DETECTION_KINDS:
+        # AR, fix round S3: from the remembered structure, without building an item per row — the queue list and
+        # the header re-count every open queue after each verdict (1.4-3 s with 20 queues on the scale fixture)
+        structure = _cached_structure(conn, q)
+        served = _structure_views(q, structure, exclude_recording_ids)["served_ids"]
+        adjudicated = {r[0] for r in conn.execute("SELECT detection_id FROM adjudications").fetchall()}
+        judged = sum(1 for did in served if did in adjudicated)
+        return {"total": len(served), "judged": judged, "remaining": len(served) - judged}
     return _counts_of(select_items(q, _resolve(conn, q), include_judged=True,
                                    exclude_recording_ids=exclude_recording_ids))
 
@@ -753,26 +767,58 @@ def _cached_structure(conn, q):
         conn.execute("BEGIN")
     try:
         key = (db, int(q["id"]))
-        with _STRUCTURE_LOCK:
-            hit = _STRUCTURE_CACHE.get(key)
-        if hit is not None and _structure_fingerprint(conn, q, hit[1], hit[2]) == hit[0]:
-            return hit[3]
-        structure = _detection_structure(conn, q)
-        det_ids = _detection_filters(q).get("detection_ids")
-        # an exact set's runs are those of ALL its detections, live or not: un-discarding one must be seen
-        run_ids = ({int(r[0]) for r in conn.execute(
-            "SELECT DISTINCT run_id FROM detections WHERE id IN (" + _in(det_ids) + ")")}
-            if det_ids is not None else {s[1] for s in structure})
-        rec_ids = {s[2] for s in structure}
-        fp = _structure_fingerprint(conn, q, run_ids, rec_ids)
-        with _STRUCTURE_LOCK:
-            if len(_STRUCTURE_CACHE) >= _STRUCTURE_CACHE_MAX and key not in _STRUCTURE_CACHE:
-                _STRUCTURE_CACHE.pop(next(iter(_STRUCTURE_CACHE)))
-            _STRUCTURE_CACHE[key] = (fp, run_ids, rec_ids, structure)
-        return structure
+
+        def held():
+            with _STRUCTURE_LOCK:
+                hit = _STRUCTURE_CACHE.get(key)
+            if hit is not None and _structure_fingerprint(conn, q, hit[1], hit[2]) == hit[0]:
+                return hit[3]
+            return None
+
+        got = held()
+        if got is not None:
+            return got
+        # AR, fix round (S2): one flight per queue. The Review page opens with several reads of one queue at
+        # once; each built the same 10,000-item structure side by side. The second waits and takes the first's.
+        with _build_lock(key):
+            got = held()
+            if got is not None:
+                return got
+            return _build_structure(conn, q, key)
     finally:
         if own:
             conn.rollback()            # a read transaction: nothing to keep
+
+
+_BUILD_LOCKS: dict = {}
+
+
+def _build_lock(key):
+    with _STRUCTURE_LOCK:
+        lock = _BUILD_LOCKS.get(key)
+        if lock is None:
+            if len(_BUILD_LOCKS) >= 4 * _STRUCTURE_CACHE_MAX:
+                for k in [k for k, lk in _BUILD_LOCKS.items() if not lk.locked()][:_STRUCTURE_CACHE_MAX]:
+                    del _BUILD_LOCKS[k]
+            lock = _BUILD_LOCKS[key] = threading.Lock()
+        return lock
+
+
+def _build_structure(conn, q, key):
+    """Build the structure and remember it with the fingerprint of the rows it was read from."""
+    structure = _detection_structure(conn, q)
+    det_ids = _detection_filters(q).get("detection_ids")
+    # an exact set's runs are those of ALL its detections, live or not: un-discarding one must be seen
+    run_ids = ({int(r[0]) for r in conn.execute(
+        "SELECT DISTINCT run_id FROM detections WHERE id IN (" + _in(det_ids) + ")")}
+        if det_ids is not None else {s[1] for s in structure})
+    rec_ids = {s[2] for s in structure}
+    fp = _structure_fingerprint(conn, q, run_ids, rec_ids)
+    with _STRUCTURE_LOCK:
+        if len(_STRUCTURE_CACHE) >= _STRUCTURE_CACHE_MAX and key not in _STRUCTURE_CACHE:
+            _STRUCTURE_CACHE.pop(next(iter(_STRUCTURE_CACHE)))
+        _STRUCTURE_CACHE[key] = (fp, run_ids, rec_ids, structure)
+    return structure
 
 
 def _judged_overlay(conn):
