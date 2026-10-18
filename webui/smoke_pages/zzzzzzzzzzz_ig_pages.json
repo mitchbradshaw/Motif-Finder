@@ -154,6 +154,12 @@
     "wait": 400
    },
    {
+    "click": "[data-testid=\"template-group-toggle-interrogation\"]"
+   },
+   {
+    "wait": 250
+   },
+   {
     "click": "[data-testid=\"template-event_trains\"]"
    },
    {
@@ -458,6 +464,12 @@
    },
    {
     "wait": 400
+   },
+   {
+    "click": "[data-testid=\"template-group-toggle-detection\"]"
+   },
+   {
+    "wait": 250
    },
    {
     "click": "[data-testid=\"template-noise_threshold\"]"

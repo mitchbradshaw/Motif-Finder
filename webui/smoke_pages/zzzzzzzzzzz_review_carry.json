@@ -44,10 +44,10 @@
  {
   "page": "review.inspector",
   "state": "review-carry-verdict-is-written-and-carried",
-  "_why": "review-carry: a verdict (U, unsure) on item 102 is written to every detection of its set and carried to the same event found by other runs on CH14. Whether anything is carried depends on the database (another run must have found the same event), so the state asserts the write was accepted; when the ack's `carried` is above 0 the toast reads 'carried to N other detection(s) of the same event' (visible in the screenshot) and the rows are re-read.",
+  "_why": "review-carry: a verdict (U, unsure) on item 102 is written to every detection of its set and carried (102 may itself be a member of an earlier set - on the real database it is in item 100's set, so the page opens item 100 and the wait is for any item, not data-item=102) to the same event found by other runs on CH14. Whether anything is carried depends on the database (another run must have found the same event), so the state asserts the write was accepted; when the ack's `carried` is above 0 the toast reads 'carried to N other detection(s) of the same event' (visible in the screenshot) and the rows are re-read.",
   "hash": "review/queue/2/102",
   "actions": [
-   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"102\"]", 30000]},
+   {"wait_for": ["[data-testid=\"inspector\"][data-item]", 30000]},
    {"wait": 1500},
    {"press": "u"},
    {"wait": 1200}
