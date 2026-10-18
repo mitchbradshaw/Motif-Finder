@@ -24,9 +24,11 @@ export function Loading({ height = 200, label = 'loading', testid }: { height?: 
 /** The reload indicator. Always in the layout, whatever it is doing: only its
  *  opacity changes, so a reload can never move the content under it. `Loading`
  *  is for a first load -- there is nothing to shove down then. */
-export function Refreshing({ on, label = 'refreshing' }: { on: boolean; label?: string }) {
+export function Refreshing({ on, label = 'refreshing', testid = 'discovery-refreshing' }: { on: boolean; label?: string; testid?: string }) {
+  // ux-1019: a second indicator on the same page (the fires card, the map levels) takes its own testid — the smoke's
+  // discovery flow counts exactly one `discovery-refreshing`, the page's own
   return (
-    <div className="dsc-refreshing" data-testid="discovery-refreshing" data-on={on ? '1' : '0'} aria-hidden={!on}
+    <div className="dsc-refreshing" data-testid={testid} data-on={on ? '1' : '0'} aria-hidden={!on}
          style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--muted)', opacity: on ? 1 : 0, transition: 'opacity 140ms' }}>
       <ProgressBar indeterminate size="sm" width={90} labelPosition="none" /><span>{label}</span>
     </div>
