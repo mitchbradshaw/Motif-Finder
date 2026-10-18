@@ -174,6 +174,8 @@ interface SrvQueue {
   unit?: string | null; writes_to?: string | null; blind?: number | boolean | null; cap?: number | null
   verdict_options?: string[] | null; filters?: unknown; note?: string | null; closed?: number | boolean | null
   total?: number; judged?: number; remaining?: number; pace_s?: number | null
+  /** review-carry: a detection queue's items are overlap sets; this many detections stand behind its `total` */
+  detections?: number | null
 }
 interface SrvQueueData { queue: SrvQueue; rows?: unknown[]; items?: unknown[]; clusters?: unknown[] }
 
@@ -206,10 +208,12 @@ function queueOf(q: SrvQueue): ReviewQueue {
   const writes = WRITES[String(q.writes_to ?? '')] ?? 'adjudications'
   const ref = q.source_ref ? String(q.source_ref) : undefined
   const subtitleParts = [ref, `${unit}s`, writes].filter(Boolean) as string[]
+  // review-carry: overlapping detections of one run on one channel are one item, so the count is of events
+  const events = eventsLine(q)
   return {
     id: String(q.id), source: kind as QueueSource, icon: ICONS[kind] ?? 'target',
-    title: q.name, subtitle: subtitleParts.join(' · '), toolbarLabel: q.name,
-    headerSubtitle: `queue ${kind.replace('-', ' ')}${ref ? ` · ${ref}` : ''}`,
+    title: q.name, subtitle: [...subtitleParts, events].filter(Boolean).join(' · '), toolbarLabel: q.name,
+    headerSubtitle: `queue ${kind.replace('-', ' ')}${ref ? ` · ${ref}` : ''}${events ? ` · ${events}` : ''}`,
     runId: kind === 'discovery-run' || kind === 'seed-search' ? ref : undefined,
     template: kind === 'training-windows' ? ref : undefined,
     exemplar: kind === 'seed-search' ? ref : undefined,
@@ -502,7 +506,12 @@ async function post<T>(path: string, body: unknown = {}): Promise<T> {
 
 /** The live counts the bridge returns with every write, straight off the resolved source. */
 export interface QueueCounts { total: number; judged: number; remaining: number }
-export interface WriteAck { verdict?: unknown; batch?: unknown; undone?: unknown; written?: unknown[]; counts?: QueueCounts }
+export interface WriteAck {
+  verdict?: unknown; batch?: unknown; undone?: unknown; written?: unknown[]; counts?: QueueCounts
+  /** review-carry: how many OTHER detections (other runs, same channel, the same event by the scoreboard's
+   *  matching rule) the verdict was also written to, as carried rows; and which */
+  carried?: number; carriedIds?: number[]
+}
 export interface PromoteAck { entry_id?: number; member_id?: number; created?: boolean; verdict?: unknown; audit_id?: number }
 export interface ExtractEvent { start_idx: number; end_idx: number }
 
@@ -511,13 +520,15 @@ export interface ExtractEvent { start_idx: number; end_idx: number }
  *  names — `adjudication_tags` for a detection, `annotation_tags` for a human span (rule 5). A term
  *  outside `tag_vocabulary` is a 400 that refuses the WHOLE verdict, which is why the Annotate card
  *  offers `useTagVocabulary()` and refuses an unknown term itself. */
-export interface VerdictOpts { note?: string; tags?: string[]; windowIndex?: number }
+export interface VerdictOpts { note?: string; tags?: string[]; windowIndex?: number; classLabel?: string }
 
 const qp = (queueId: string) => `/queues/${encodeURIComponent(queueId)}`
 const opt = (o: VerdictOpts) => ({
   ...(o.note ? { note: o.note } : {}),
   ...(o.tags && o.tags.length ? { tags: o.tags } : {}),
   ...(o.windowIndex != null ? { window_index: o.windowIndex } : {}),
+  // review-carry (R3): the class name, stored on a detection's adjudication row
+  ...(o.classLabel ? { class_label: o.classLabel } : {}),
 })
 
 /** One verdict on one target. `targetId` is the row's `id`, which IS the core's `target_id`. */
@@ -579,4 +590,21 @@ export function useTagVocabulary(): { terms: TagTerm[] | null; error: string | n
     return () => { alive = false }
   }, [])
   return state
+}
+
+/* ---------------- review-carry (2026-10-18): one judgement per event ---------------- */
+
+/** One detection of an item's overlap set, in the same seconds as the context trace's axis. */
+export interface MemberBand { id: string; t0_s: number; t1_s: number }
+/** What the bridge adds to a detection item: the overlap set it stands for, the class stored with its verdict,
+ *  and — for a verdict carried from another run's detection — that detection's id. */
+export interface CarryFields { members?: number[]; memberBands?: MemberBand[]; classLabel?: string; carriedFrom?: number }
+export const carryOf = (e: unknown): CarryFields => (e ?? {}) as CarryFields
+
+/** "312 events from 340 detections" — only when sets merged something (a queue of single detections says nothing). */
+function eventsLine(q: SrvQueue): string {
+  const n = q.detections == null ? null : Number(q.detections)
+  const total = Number(q.total ?? 0)
+  if (n == null || !(n > total)) return ''
+  return `${total.toLocaleString('en-GB')} events from ${n.toLocaleString('en-GB')} detections`
 }

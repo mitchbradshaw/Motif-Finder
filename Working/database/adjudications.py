@@ -31,7 +31,7 @@ def _now():
 
 
 def insert_adjudication(conn, detection_id, verdict, note=None, tags=None,
-                        commit=True):
+                        commit=True, class_label=None, carried_from=None):
     """Record a human verdict against a machine detection.
 
     One adjudication per detection. Re-adjudicating the same detection updates
@@ -49,6 +49,14 @@ def insert_adjudication(conn, detection_id, verdict, note=None, tags=None,
         `adjudication_tags` join table against `tag_vocabulary`. Existing tags
         in a category are replaced when that category is passed; categories not
         passed are left untouched.
+    class_label : str, optional
+        The class given with the verdict in Review (review-carry, R3). The row
+        holds what the latest write said: a write without one clears it.
+    carried_from : int, optional
+        The adjudication this row was carried from
+        (`Working.review.overlap.carry_verdict`). None — every human write —
+        also clears it on an existing row: a person's verdict over a carried
+        row makes the row theirs, so undoing the source no longer touches it.
 
     Returns
     -------
@@ -58,13 +66,17 @@ def insert_adjudication(conn, detection_id, verdict, note=None, tags=None,
         raise ValueError(f"verdict must be one of {VERDICTS}, got {verdict!r}")
     now = _now()
     conn.execute(
-        """INSERT INTO adjudications (detection_id, verdict, note, created_at)
-           VALUES (?, ?, ?, ?)
+        """INSERT INTO adjudications (detection_id, verdict, note, created_at,
+                                      class_label, carried_from)
+           VALUES (?, ?, ?, ?, ?, ?)
            ON CONFLICT(detection_id) DO UPDATE SET
                verdict = excluded.verdict,
                note = excluded.note,
-               created_at = excluded.created_at""",
-        (detection_id, verdict, note, now),
+               created_at = excluded.created_at,
+               class_label = excluded.class_label,
+               carried_from = excluded.carried_from""",
+        (detection_id, verdict, note, now, class_label,
+         None if carried_from is None else int(carried_from)),
     )
     row = conn.execute(
         "SELECT id FROM adjudications WHERE detection_id = ?", (detection_id,)

@@ -219,5 +219,6 @@ export function resend(queueId: string, w: SessionWrite): Promise<unknown> {
     }
     return postBatch(queueId, w.items, v)
   }
-  return postVerdict(queueId, w.items[0], v)
+  // review-carry (R3): a redo re-sends the class the write carried, so the stored class comes back with it
+  return postVerdict(queueId, w.items[0], v, w.className ? { classLabel: w.className } : {})
 }

@@ -374,7 +374,12 @@ def _reverse_verdict(conn, payload):
         "window_verdicts": getattr(verdicts, "_restore_window", None),
     }.get(writes_to)
 
-    if callable(restorer) and target_id is not None:
+    if writes_to == "adjudications" and record.get("targets") and callable(restorer):
+        # review-carry: the verdict was written to every detection of the item's overlap set and carried to the
+        # same event in other runs; each member is put back with what it carried, newest first
+        for t in reversed(record["targets"]):
+            restorer(conn, t.get("row_id", t.get("target_id")), t.get("prior"), t.get("carried"))
+    elif callable(restorer) and target_id is not None:
         if writes_to == "window_verdicts":
             restorer(conn, target_id, record.get("window_index"), prior)
         else:

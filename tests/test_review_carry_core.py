@@ -306,3 +306,16 @@ def test_a_carried_interesting_raises_the_second_runs_precision_as_a_hand_writte
 
     assert prec(carried, info["rb"]) == prec(by_hand, info2["rb"])
     assert prec(carried, info["rb"]) != prec(untouched, info3["rb"])
+
+
+def test_a_seed_is_the_named_detection_only_its_set_and_carried_rows_take_interesting(tmp_path):
+    """`seed` is the one detection promoted to the Library (P21: it implies interesting). The rest of its set and
+    the rows it carries are the same event but not the exemplar: they are written `interesting`, never a sixth
+    word and never a seed with no Library entry behind it."""
+    conn, info = _db(tmp_path)
+    d = info["d"]
+    qa = Q.create_queue(conn, name="A", source_kind="discovery-run", filters={"run_ids": [info["ra"]]})
+    V.write_verdict(conn, qa, d["a1"], "seed")
+    assert _adj(conn, d["a1"])["verdict"] == "seed"
+    assert _adj(conn, d["a2"])["verdict"] == "interesting"
+    assert _adj(conn, d["b1"])["verdict"] == "interesting"

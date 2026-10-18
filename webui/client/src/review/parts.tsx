@@ -87,7 +87,9 @@ export function ResolutionNote({ tr, testid }: { tr: TimeTrace; testid?: string 
   )
 }
 
-export function ContextCard({ d, title, pad, setPad, bandLabel, canEdit, testid = 'context-card' }: { d: ItemDetail; title: string; pad: '30' | '120' | '300'; setPad: (p: '30' | '120' | '300') => void; bandLabel: string; canEdit: boolean; testid?: string }) {
+export function ContextCard({ d, title, pad, setPad, bandLabel, canEdit, testid = 'context-card', memberBands = [] }: { d: ItemDetail; title: string; pad: '30' | '120' | '300'; setPad: (p: '30' | '120' | '300') => void; bandLabel: string; canEdit: boolean; testid?: string
+  /** review-carry: the item's overlap set, one small band per detection, drawn over the item's own band */
+  memberBands?: { start_s: number; end_s: number; label: string }[] }) {
   // by TIME, not by index: the served points are an envelope — fewer than the samples, not evenly spaced — and
   // the band beside them is in seconds. Slicing points as seconds is what made ±120 s look one-sided (U3).
   const ctx = useMemo(() => sliceContext(d.context, itemBand(d), +pad), [d, pad])
@@ -106,7 +108,8 @@ export function ContextCard({ d, title, pad, setPad, bandLabel, canEdit, testid 
       </div>
       <div className="rv-plot">
         <Trace t={ctx.t} values={ctx.v} xDomain={[ctx.t0, ctx.t1]} timeUnit="none" height={170} crosshair unitLabel={false}
-          bands={[{ start_s: ctx.bandStart, end_s: ctx.bandEnd, kind: 'detected', label: bandLabel }]} testid="context-trace" />
+          bands={[{ start_s: ctx.bandStart, end_s: ctx.bandEnd, kind: 'detected', label: bandLabel },
+            ...memberBands.map(b => ({ ...b, kind: 'grey' as const }))]} testid="context-trace" />
         <TimeTicks t0={ctx.t0} t1={ctx.t1} testid="context-ticks" />
       </div>
       <OtherChannelsPopover d={d} pad={+pad} open={open} onClose={() => setPop(null)} anchorRef={ocRef} />

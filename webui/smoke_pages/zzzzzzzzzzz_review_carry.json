@@ -1,0 +1,59 @@
+[
+ {
+  "page": "review.inspector",
+  "state": "review-carry-one-item-per-event",
+  "_why": "review-carry: overlapping detections of one run on one channel are ONE Review item. Queue 2 (run 32, Mushroom CH14) is read first: when its item 100 is a single detection (members == [100]) the card shows no 'covers' line; when 100 is the first of an overlap set the card says 'covers N detections' and draws one grey band per member on the context trace. Both arms assert something the page draws.",
+  "hash": "review/queue/2/100",
+  "branch_on": {
+   "api": "/api/review/queues/2?thumbs=0",
+   "items": "rows",
+   "where": {"id": "100", "members": [100]},
+   "populated": {
+    "expect": ["[data-testid=\"inspector\"][data-item=\"100\"]", "[data-testid=\"meta-line\"]"],
+    "expect_absent": ["[data-testid=\"covers-line\"]"]
+   },
+   "empty": {
+    "expect": ["[data-testid=\"inspector\"][data-item=\"100\"]", "[data-testid=\"covers-line\"]", "[data-testid=\"context-trace\"] svg"],
+    "expect_absent": []
+   }
+  },
+  "actions": [{"wait_for": ["[data-testid=\"inspector\"]", 30000]}],
+  "expect": ["[data-testid=\"context-card\"]"],
+  "expect_absent": ["[data-testid=\"item-error\"]"],
+  "settle_ms": 800
+ },
+ {
+  "page": "review.inspector",
+  "state": "review-carry-class-label-is-stored",
+  "_why": "review-carry (R3): a class key (2 = burst) writes the verdict WITH the class, and the class is stored on the adjudication row. After a reload (the session's in-memory records are gone) the Annotate card still shows burst pressed, read back from the row. Writes a verdict on the sandbox, so this file sorts last.",
+  "hash": "review/queue/2/101",
+  "actions": [
+   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"101\"]", 30000]},
+   {"wait": 1500},
+   {"press": "2"},
+   {"wait": 2000},
+   {"hash": "#/review/queue/2/101"},
+   {"reload": true},
+   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"101\"]", 30000]},
+   {"wait": 1000}
+  ],
+  "expect": ["[data-testid=\"annotate-card\"] [data-testid=\"class-2\"][aria-pressed=\"true\"]"],
+  "expect_absent": ["[data-testid=\"write-refused\"]", "[data-testid=\"item-error\"]"],
+  "settle_ms": 500
+ },
+ {
+  "page": "review.inspector",
+  "state": "review-carry-verdict-is-written-and-carried",
+  "_why": "review-carry: a verdict (U, unsure) on item 102 is written to every detection of its set and carried to the same event found by other runs on CH14. Whether anything is carried depends on the database (another run must have found the same event), so the state asserts the write was accepted; when the ack's `carried` is above 0 the toast reads 'carried to N other detection(s) of the same event' (visible in the screenshot) and the rows are re-read.",
+  "hash": "review/queue/2/102",
+  "actions": [
+   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"102\"]", 30000]},
+   {"wait": 1500},
+   {"press": "u"},
+   {"wait": 1200}
+  ],
+  "expect": ["[data-testid=\"inspector\"]", "[data-testid=\"toasts\"]"],
+  "expect_absent": ["[data-testid=\"write-refused\"]", "[data-testid=\"item-error\"]"],
+  "settle_ms": 300
+ }
+]
