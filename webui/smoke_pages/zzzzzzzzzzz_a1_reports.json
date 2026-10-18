@@ -1,0 +1,57 @@
+[
+ {
+  "page": "reports.detection-run",
+  "state": "report-from-a-run",
+  "_why": "reports (2026-10-19): Report on a finished run's row opens its report - the server's HTML with the figures as <img> (matplotlib PNGs inline) and the scoreboard as a table. A report on the real database reads the scoreboard, the fires, the map and twelve detection windows: allow three minutes",
+  "hash": "discovery/runs",
+  "actions": [
+   {"wait_for": [".dsc-run [data-testid^=\"report-\"]", 60000]},
+   {"click": ".dsc-run [data-testid^=\"report-\"]"},
+   {"wait_for": ["[data-testid=\"report-body\"] img", 180000]}
+  ],
+  "expect": [
+   "[data-testid=\"report-body\"] img[data-figure=\"fig-01-map.png\"]",
+   "[data-testid=\"report-body\"] table[data-table=\"scoreboard\"]",
+   "[data-testid=\"report-body\"] table[data-table=\"examples\"]",
+   "[data-testid=\"report-save\"]",
+   "[data-testid=\"report-print\"]"
+  ],
+  "expect_absent": ["[data-testid=\"reports-load-failed\"]"],
+  "expect_hash": ["reports/detection-run/"],
+  "settle_ms": 900
+ },
+ {
+  "page": "reports.detection-run",
+  "state": "save-snapshot-adds-a-row",
+  "_why": "reports: Save snapshot writes report.html, report.md and the PNGs under the sandbox's results folder and records the path; the Reports page then lists it",
+  "hash": "discovery/runs",
+  "actions": [
+   {"wait_for": [".dsc-run [data-testid^=\"report-\"]", 60000]},
+   {"click": ".dsc-run [data-testid^=\"report-\"]"},
+   {"wait_for": ["[data-testid=\"report-body\"] img", 180000]},
+   {"fill": ["[data-testid=\"report-note\"]", "smoke walk"]},
+   {"click": "[data-testid=\"report-save\"]"},
+   {"wait_for": ["[data-testid=\"report-toolbar\"][data-saved]", 180000]},
+   {"hash": "#/reports"},
+   {"wait_for": ["[data-testid^=\"report-row-\"]", 30000]}
+  ],
+  "expect": ["[data-testid=\"reports-table\"]", "[data-testid^=\"report-row-\"]", "[data-testid^=\"report-folder-\"]"],
+  "expect_absent": ["[data-testid=\"reports-load-failed\"]"],
+  "settle_ms": 900
+ },
+ {
+  "page": "reports.saved",
+  "state": "default",
+  "_why": "reports: the Reports workspace from the nav rail lists every snapshot (the state above saved one)",
+  "hash": "explore/corpus",
+  "actions": [
+   {"wait_for": ["[data-testid=\"nav-reports\"]", 30000]},
+   {"click": "[data-testid=\"nav-reports\"]"},
+   {"wait_for": ["[data-testid=\"reports-table\"], [data-testid=\"reports-empty\"]", 30000]}
+  ],
+  "expect": ["[data-testid=\"reports-table\"]"],
+  "expect_absent": ["[data-testid=\"reports-load-failed\"]"],
+  "expect_hash": ["reports"],
+  "settle_ms": 600
+ }
+]
