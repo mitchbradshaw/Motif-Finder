@@ -1,6 +1,8 @@
 # RQ1b — Can a CNN trained on the Library's verified families find those motifs across whole recordings?
 
 **Status (2026-10-17): not started; the data are not ready and the training path needs code.** This is the "new RQ1".
+*2026-10-18: the candidate-event table and its stratified review sample are built (branch `a2/rq1b-event-table`,
+not merged): `findings/rq1b-candidate-events.md`. The next step is yours: merge, build, judge the 800-item queue.*
 Round A's RQ1 (`../rq_roundA/RQ1-cluster-vs-manual-labels.md`) asked whether cluster labels beat manual labels for an
 interesting / not classifier. RQ1b asks for a classifier of **motif families**, about 10 named classes plus a background
 class, trained on the HPC and loaded back into the website to sift recordings.
@@ -56,6 +58,22 @@ train a CNN on window-pool clusters but not yet on Library families.
 
   They are 10–30× longer than family members, so they would be cut to member length. No `noise` class exists, and the
   `quality:noisy` tag is used 0 times.
+- **Candidate events from the RQ4b sweep** (a2-rq1b, 2026-10-18, `findings/rq1b-candidate-events.md`; code
+  `Working/discovery/candidate_events.py`, `scripts/rq1b_candidate_events.py`):
+  - **The table.** M2_aug's 2,015,081 sweep detections (41 settings; the 1-minute CNNs left out) merge into
+    1,502,319 candidate events under §4.6. Each event carries which families found it and which agree with it.
+  - **What carries the information.** 97 % of events hold one detection, so the loose agreement does: AUC 0.874
+    against the labels the table carries (0.847 on event-level labels alone). The interesting share runs from 0.3 %
+    at one agreeing family to 99 % at twelve.
+  - **Your verdicts, carried over:** 24,911 interesting, 108,645 not interesting, 3,758 artifact, 1,721 conflicts.
+    Most come from the old 10-minute windows, so they are window-level judgements.
+  - **The sample:** 800 unjudged events (100 per agreement level, 50 per selective detector), one blind queue served
+    shuffled. Checked on a sandbox bridge.
+  - **The estimate:** precision per agreement level, family and setting, with your earlier verdicts counted as a
+    census.
+- **Your misses, measured roughly** (same findings file): the blind repeats imply you miss about 11.5 % of
+  interesting windows per look (95 % range 4.6–23 %). The better a queue's detections, the more of your "no"s are
+  misses: about half of them at 90 % precision.
 
 ## Decisions already made
 
@@ -76,6 +94,11 @@ train a CNN on window-pool clusters but not yet on Library families.
     - Turn the lock back on after the demos.
 - **2026-10-18 (the researcher): training data first.** Upload the further datasets, run the existing detectors on
   them, and review as many motifs as possible (up to about 10,000) to fill RQ1b's training data.
+- **2026-10-18 (the researcher): what is already judged is training data and is never asked again.** A new sample
+  draws only from events nobody has judged (`findings/rq1b-candidate-events.md`).
+- **2026-10-18 (the researcher): your errors lean to misses.** You are more likely to call an interesting event not
+  interesting than the reverse. So the plan is one look for a yes and two for a no, before a "no" becomes a training
+  negative.
 
 ## What is still needed
 
@@ -89,6 +112,13 @@ train a CNN on window-pool clusters but not yet on Library families.
 | The four training-path pieces above (exporter, import branch, multi-class scorer, window-length rule) | an agent (prompt to write when the class list exists) |
 | HPC training (the B.2 job's self-resubmitting script is the pattern) and import | researcher |
 | A held-out pack and a blind check; calibrated confidences | as RQ1 v2 |
+| ~~The candidate-event table over the RQ4b sweep, your verdicts carried over, a stratified blind sample and its estimator~~ built 2026-10-18 (a2-rq1b, not merged) | ~~agent~~ |
+| Merge `a2/rq1b-event-table`, restart the bridge, `build --real`, then `queue --real --apply` | researcher |
+| Judge the 800-item sample in Review (unsure freely; a shape tag can ride along); then `estimate --real` | researcher |
+| The label model: P(real \| families agreeing), fitted on the sample's answers and the census, giving every unjudged event a probability | an agent, after the answers |
+| The second look for "no"s: a new Review queue kind (a `review_queues` rebuild, as fixup-FQ did) | an agent |
+| Accepted proposals merged into physical events, each with one extent and one class (the fragments question) | an agent, when training starts |
+| The same table for M2_concat and L_LM once their sweeps are imported (`build --file …`) | researcher |
 
 ## How it gets answered
 
@@ -102,6 +132,12 @@ train a CNN on window-pool clusters but not yet on Library families.
 - **Which classes?** The ten reviewed families include near-duplicates of one shape at different lengths (troughs
   154 / 164 / 165). Merging by shape rather than by family id is the likely answer.
 - **Window length per class:** fixed (resample every event to 600, as W4-A does), or per-class scale.
+- **From the candidate-event table** (`findings/rq1b-candidate-events.md` › *Open decisions*, each with a
+  recommendation):
+  - the first sample's size (800, or 400 first);
+  - which spans speak for an event (the shortest that hold it, as built);
+  - what the 21,362 window-inherited "interesting" labels are worth (recommended: event-versus-background only, not
+    shape classes).
 - ~~**Is M4_aug still the held-out exam?** The researcher is using it for demos from 2026-10-17 (see P1). Once it is
   looked at, it is no longer an untouched exam for RQ1 or RQ1b. Choose another held-out pack (a whole M2 pack) before
   training.~~ Decided 2026-10-18: yes, M4_aug stays the exam (*Decisions already made*).
@@ -114,3 +150,6 @@ train a CNN on window-pool clusters but not yet on Library families.
   the open decision on the held-out exam above now matters before any RQ1b training.
 - 2026-10-18 · the researcher · M4_aug stays the held-out exam (the Library holds no M4 motifs); the next step is
   training data: new datasets uploaded, the existing detectors run on them, and up to ~10,000 motifs reviewed.
+- 2026-10-18 · a2-rq1b · candidate events built over the RQ4b sweep (M2_aug: 1.50 M events from 2.0 M detections;
+  your verdicts carried over; a stratified 800-item blind sample; the precision estimator). The table was checked on
+  a copy of the real database, the queue on a sandbox bridge. Not merged. `findings/rq1b-candidate-events.md`.
