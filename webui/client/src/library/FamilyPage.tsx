@@ -51,6 +51,8 @@ import { EmptyMotifsPage } from './EmptyLibrary'
 import { EdgeList, MatchedMembers, ScaleReadout, memberEdges, type EdgeDetailExtras, type EdgeFamilyExtras } from './Edges'
 import { CrossChannelCard } from './CrossChannel'
 import { SequenceFamilyPage } from './SequenceFamilyPage'
+import { FamilyOverlay, PickCaption } from './FamilyOverlay'
+import { FamilyMembersInPlace } from './MemberSlideshow'
 import { deleteLibraryHandEdit, postLibraryHandEdit, sendFamilyUnjudged, type LibCrossChannel, type LibFamilyCoherence, type LibFamilyFlags, type LibFamilyView, type LibFitSummary, type LibHandEditBody, type LibMember, type LibUnjudgedQueue, type LibViewReport } from '../api'
 
 /** fixup-ae: a member as the bridge sends it now — its hand edits (with their ids, so one can be undone), the rule
@@ -327,7 +329,7 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
   }
   // nothing is selected until someone selects it — the three-id preselection named fixture rows
   const [sel, setSel] = useDemoState<string[]>(`library.family.${f.id}.sel`, () => [])
-  const { route } = useApp()
+  const { route, setExplore } = useApp()
   const selQ = route.query.sel
   useEffect(() => { if (selQ !== undefined) setSel(selQ ? selQ.split(',') : []) }, [selQ, setSel])
   const [sort, setSort] = useQueryState<SortKey>('sort', 'distance')
@@ -377,6 +379,21 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
   const handExemplar = !!members.find(m => m.id === f.exemplar)?.handEdits?.some(e => e.kind === 'make_exemplar')
   const selInList = sel.filter(s => members.some(m => m.id === s))
   const overlayWaves = useMemo(() => pageItems.map(memberWave).filter(v => v.length > 0), [pageItems])
+  // library-family-actions: the overlay's traces keep their member ids, so a click names one
+  const overlayTraces = useMemo(() => pageItems.map(m => ({ id: m.id, values: memberWave(m) })).filter(t => t.values.length > 0), [pageItems])
+  const [pickQ, setPickQ] = useQueryState('pick', '')
+  const picked = (members.find(m => m.id === pickQ) ?? null) as LiveMember | null
+  // a cluster click: the family's members in place, in H's slideshow (Q-L6/Q-E6), linkable as ?slides=1
+  const [slidesQ, setSlidesQ] = useQueryState('slides', '')
+  const sendOne = (m: LiveMember) => { void sendSelection([m.id]) }
+  /** Explore's own view state (`explore.channelId`/`view`, which the Signal page opens on) at the member's span,
+   *  with context either side; the Analyse source (`ub-proto-a:source`) is left alone. */
+  const openInExplore = (m: LiveMember) => {
+    if (m.recordingId == null || m.startS == null || m.endS == null) return
+    const pad = Math.max(30, 2 * (m.endS - m.startS))
+    setExplore({ channelId: m.recordingId, view: [Math.max(0, m.startS - pad), m.endS + pad] })
+    navigate(`explore/signal/${m.recordingId}`)
+  }
   const pageIds = pageItems.map(m => m.id)
   const pageTicked = pageIds.filter(x => sel.includes(x)).length
 
@@ -451,7 +468,8 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
           {(detail as LiveDetail).unjudgedQueue && <Button size="sm" variant="link" icon="external" testid="open-unjudged-queue" data-queue={(detail as LiveDetail).unjudgedQueue!.id} onClick={() => navigate(`review/queue/${(detail as LiveDetail).unjudgedQueue!.id}`)}>Open its queue in Review</Button>}</div>}
 
         <div className="k-card" style={{ padding: 12, display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr) 222px', gap: 14, alignItems: 'start' }} data-testid="family-summary">
-          <div>
+          <div role="button" tabIndex={-1} style={{ cursor: 'pointer' }} title="show every member in place, as a slideshow" data-testid="family-summary-plot"
+            onClick={() => setSlidesQ(slidesQ ? null : '1')}>
             <MotifPlot exemplar={exemplarTrace} medoid={realTraces.me} colour={f.colour} height={108} testid="summary-exemplar-medoid" unitNote={f.unitNote}
               reference={{ scale: refScale, peak: tracePeakMv, what: `${f.id}'s exemplar and medoid` }} />
             <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 38, paddingRight: 15 }}><span>0</span><span>{f.durationS} s</span></div>
@@ -511,11 +529,18 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
                 on this page are overlaid for real — each centred on its own baseline and stretched to one width,
                 on one domain measured from all of them, the medoid on top in the family colour. */}
             <div className="row lib-cap" style={{ fontSize: 10.5, gap: 4 }}><span>medoid {f.medoid} · the {overlayWaves.length} members on this page</span>
-              <InfoTip title="The overlay">Members read off the recording, each centred on its own baseline, on one measured scale.</InfoTip></div>
-            <MiniTrace values={realTraces.me} overlays={overlayWaves.map(v => ({ values: v, stroke: 'rgba(107,114,128,0.45)', width: 1 }))} width="100%" height={104} strokeWidth={1.8} stroke={f.colour} testid="summary-overlay"
-              title={`the medoid of ${f.id} over the ${overlayWaves.length} members on this page, each read off the recording and centred on its own baseline, stretched to one width, on one measured mV scale — not normalised`} />
+              <InfoTip title="The overlay">Members read off the recording, each centred on its own baseline, on one measured scale. Click a trace to pick it (↑ ↓ move the pick, Esc clears it), then remove it, send it to Review or open it in Explore.</InfoTip></div>
+            <FamilyOverlay medoid={realTraces.me} members={overlayTraces} colour={f.colour} height={104} testid="summary-overlay"
+              picked={picked?.id ?? null} onPick={id => setPickQ(id)}
+              title={`the medoid of ${f.id} over the ${overlayWaves.length} members on this page, each read off the recording and centred on its own baseline, stretched to one width, on one measured mV scale — not normalised; click a trace to pick it`} />
+            {picked ? <PickCaption m={picked} busy={busy} onClear={() => setPickQ(null)}
+              onRemove={() => { setMemberQ(picked.id); setModal('remove-member') }} onSend={() => sendOne(picked)} onExplore={() => openInExplore(picked)} />
+              : <div className="lib-cap" style={{ fontSize: 10 }} data-testid="overlay-pick-hint">click a trace to pick it</div>}
+            <Button size="sm" variant="link" icon="grid" testid="family-open-slideshow" aria-pressed={!!slidesQ} onClick={() => setSlidesQ(slidesQ ? null : '1')}>{slidesQ ? 'Hide the slideshow' : `Every member as a slideshow`}</Button>
           </div>
         </div>
+
+        {slidesQ && <FamilyMembersInPlace familyId={f.id} grouping={gidBody ?? undefined} colour={f.colour} onClose={() => setSlidesQ(null)} onFamilyPage testid="family-members" />}
 
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }} data-testid="family-sort-row">
           <span className="lib-muted-label">sort</span>

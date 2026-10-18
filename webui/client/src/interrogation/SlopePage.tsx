@@ -20,6 +20,7 @@ import { AddStagePopover, ChainCard, InterrogationToolbar, LoadFailed, Loading, 
 import { SourcePicker } from './SourcePicker'
 import { inScopeIds, interrogationHref, markSimForced, useFamilyQuery, useInterrogationDraft, useUpstreamQuery, wasSimForced } from './draft'
 import { fmtMeasure } from './features'
+import { useRoseReferenceLine } from '../library/roseReference'
 
 const STRIP = 10
 const TABLE_PAGE = 4
@@ -136,6 +137,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
   /* the angle of an event is the core's (`gradients.rose_data`, served per member); the page derives none */
   const fmtAngle = (m: InterrogationMember, digits = 1) => (m.angle_deg == null ? '—' : `${m.angle_deg.toFixed(digits).replace('-', '−')}°`)
   const rose = block.rose
+  const roseRef = useRoseReferenceLine()   // library-family-actions: the accepted-motif reference line
   const memberIndex = useMemo(() => new Map(block.members.map((m, i) => [m.id, i])), [block.members])
   const depths = events.map(e => e.depth_mV)
   const dLo = Math.min(...depths), dHi = Math.max(...depths)
@@ -150,7 +152,7 @@ function SlopeBody({ block }: { block: SlopeBlock }) {
   }
   const roseLegend = colourQ === 'depth' ? `dot colour = depth, ${dLo.toFixed(2)} (violet) to ${dHi.toFixed(2)} mV (amber)` : colourQ === 'recording' ? `dot colour = recording: ${recordings.join(', ')}` : 'dot colour = verdict'
   const theRose = (
-    <Rose rose={rose} testid="rose" highlight={event ? memberIndex.get(event.id) ?? null : null} colourOf={roseColour} legend={roseLegend}
+    <Rose rose={rose} reference={roseRef} testid="rose" highlight={event ? memberIndex.get(event.id) ?? null : null} colourOf={roseColour} legend={roseLegend}
       labelOf={i => block.members[i]?.id ?? `event ${i + 1}`} onSelect={i => { const m = block.members[i]; if (m) pick(m.id) }} />
   )
   const storeRules = block.storeRules
