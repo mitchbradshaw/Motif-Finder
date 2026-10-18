@@ -21,7 +21,8 @@ is merged (two of them touch the Discovery pages AR reshaped).
    other `useDemoState` keys. Smoke: the existing `discovery.runs--default` expects `fires-cell` — seed one shown
    run in that state's actions or update its expectation; say which.
 3. **AM default alignment:** drop-detector templates default to `trough` at an anchor of ⅓; everything else keeps
-   `centre` at 0.5 (`decided 2026-10-18`, BACKLOG §1). Where the default is chosen (the Models › Launch setup and
+   `centre` at 0.5 (`decided 2026-10-18`, BACKLOG §1; refined 2026-10-19: the choice is AUTOMATIC from the template
+   kind, with an explicit "for drops" switch on the card that forces the drop setting either way). Where the default is chosen (the Models › Launch setup and
    the block's parameter defaults — `grep -rn "anchor" Working/ Adapters/ webui/server`), make the default depend
    on the template kind, show the chosen default on Launch's setup line (which also still omits the anchor —
    BACKLOG §5), and add a test that a drop template's launch body carries `trough, 0.333`.
