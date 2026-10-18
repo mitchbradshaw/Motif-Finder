@@ -4260,6 +4260,22 @@ _ROSE_LINE_CACHE: dict = {}
 ROSE_LINE_UNITS = ("motifs",)
 
 
+def _verdict_checksum(conn) -> tuple:
+    """critic round: Review re-judges by UPDATE in place (`UPDATE annotations SET verdict = ?` in family_queue,
+    review/verdicts, artifact_queue; `UPDATE adjudications SET verdict = ?`), which moves neither a count nor a max
+    id, so `_view_fingerprint` alone would keep a stale line after a changed verdict. One aggregate per table over
+    the verdict text and the span — cheap, and moved by any in-place change the resolver reads."""
+    def one(sql):
+        try:
+            return tuple(conn.execute(sql).fetchone())
+        except sqlite3.OperationalError:
+            return ()
+    mix = "(unicode(verdict) * 131 + LENGTH(verdict) * 7 + COALESCE(unicode(substr(verdict, 3)), 0))"
+    return (one(f"SELECT TOTAL((id % 1000003) * {mix}), TOTAL(start_idx % 1000003), TOTAL(end_idx % 1000003) "
+                "FROM annotations WHERE deleted_at IS NULL"),
+            one(f"SELECT TOTAL((detection_id % 1000003) * {mix}) FROM adjudications"))
+
+
 def _rose_reference_line(conn, unit: str) -> dict:
     """The line every rose draws (library-family-actions, 2026-10-19): the median steepest slope over the
     human-accepted Library motifs of `unit` — resolved *interesting* or *seed* by the one verdict resolver — with
@@ -4271,7 +4287,7 @@ def _rose_reference_line(conn, unit: str) -> dict:
         raise HTTPException(400, f"the rose reference line is computed over Library motifs only: unit must be "
                                  f"one of {', '.join(ROSE_LINE_UNITS)}, not {unit!r}")
     db = conn.execute("PRAGMA database_list").fetchone()[2]
-    finger = _view_fingerprint(conn, 0)
+    finger = (_view_fingerprint(conn, 0), _verdict_checksum(conn))
     hit = _ROSE_LINE_CACHE.get((db, unit))
     if hit is not None and hit[0] == finger:
         return hit[1]

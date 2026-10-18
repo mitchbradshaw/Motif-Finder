@@ -540,7 +540,7 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
           </div>
         </div>
 
-        {slidesQ && <FamilyMembersInPlace familyId={f.id} grouping={gidBody ?? undefined} colour={f.colour} onClose={() => setSlidesQ(null)} testid="family-members" />}
+        {slidesQ && <FamilyMembersInPlace familyId={f.id} grouping={gidBody ?? undefined} colour={f.colour} onClose={() => setSlidesQ(null)} onFamilyPage testid="family-members" />}
 
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }} data-testid="family-sort-row">
           <span className="lib-muted-label">sort</span>

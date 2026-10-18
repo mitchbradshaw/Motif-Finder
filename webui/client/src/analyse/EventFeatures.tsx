@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import type { FeatureTable as FeatureTableT, IntervalStats, MeasureRule, SpansetPayload } from '../api'
 import { Rose } from '../kit'
+import { useRoseReferenceLine } from '../library/roseReference'
 
 const UNIT: [RegExp, string][] = [[/_mv_s$/, 'mV/s'], [/_mv$/, 'mV'], [/_s$/, 's']]
 export function unitOf(col: string): string { for (const [re, u] of UNIT) if (re.test(col)) return u; return '' }
@@ -83,6 +84,7 @@ export function IntervalStatsTable({ stats, testid = 'interval-stats' }: { stats
 
 /** The whole block-page view of a SpanSet that carries features. */
 export function EventFeaturesPanel({ p }: { p: SpansetPayload }) {
+  const roseRef = useRoseReferenceLine()   // family fix: every rose carries the accepted-motif reference line (a hook, before the early return)
   if (!p.features) return null
   return (
     <div className="stack" style={{ gap: 12, marginTop: 12 }} data-testid="event-features">
@@ -91,7 +93,7 @@ export function EventFeaturesPanel({ p }: { p: SpansetPayload }) {
         <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Per-event measures</h3><span className="sg">{p.n} events · {p.features.n_columns} columns · one row per span</span></div>
         <FeatureTable table={p.features} />
       </div>
-      {p.rose && <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Steepest slope, each event as one angle</h3></div><Rose rose={p.rose} testid="rose-fan" /></div>}
+      {p.rose && <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Steepest slope, each event as one angle</h3></div><Rose rose={p.rose} reference={roseRef} testid="rose-fan" /></div>}
       {p.interval_stats && <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Inter-event intervals</h3><span className="sg">per group, never pooled</span></div><IntervalStatsTable stats={p.interval_stats} /></div>}
       {p.rules && <RulesList rules={p.rules} />}
     </div>

@@ -50,8 +50,10 @@ const load = (recordingId: number) => (e: SlideEvent): Promise<SlideTrace> => {
 }
 
 /** One family's members (or one cell's: `cell = "recKey:channel"`), in place. */
-export function FamilyMembersInPlace({ familyId, grouping, colour, cell, cellLabel, onClose, testid = 'members-in-place' }: {
-  familyId: string; grouping?: string; colour?: string; cell?: string | null; cellLabel?: string; onClose?: () => void; testid?: string
+export function FamilyMembersInPlace({ familyId, grouping, colour, cell, cellLabel, onClose, onFamilyPage = false, testid = 'members-in-place' }: {
+  familyId: string; grouping?: string; colour?: string; cell?: string | null; cellLabel?: string; onClose?: () => void
+  /** family fix: hosted ON the family page, so "Open family page" would navigate to where the reader already is */
+  onFamilyPage?: boolean; testid?: string
 }) {
   const [view] = useLibraryView()
   const fam = useSourced(() => (familyId ? getFamily(familyId, grouping, 'motifs', view) : live(Promise.resolve(null))), [familyId, grouping, view.floor, view.fallMin, view.fallMax, view.pure])
@@ -76,6 +78,9 @@ export function FamilyMembersInPlace({ familyId, grouping, colour, cell, cellLab
     if (!onClose) return
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[aria-modal="true"]')) return
+      // family fix: Esc inside a text field belongs to the field (clearing it, leaving it), not to the slideshow
+      const t = e.target as HTMLElement | null
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
       onClose()
     }
     window.addEventListener('keydown', onKey)
@@ -88,7 +93,7 @@ export function FamilyMembersInPlace({ familyId, grouping, colour, cell, cellLab
         <span style={{ fontWeight: 600, fontSize: 13 }}>{d ? `${members.length} member${members.length === 1 ? '' : 's'}${where}` : `members${where}`}</span>
         {!!hidden?.family?.hidden && <span className="lib-cap" data-testid={`${testid}-hidden`}>{hidden.family.hidden} hidden by the view</span>}
         <span style={{ marginLeft: 'auto' }} />
-        <Button variant="primary" size="sm" iconRight="arrow-right" testid="open-family-page" onClick={() => navigate(`library/family/${familyId}`)}>Open family page</Button>
+        {!onFamilyPage && <Button variant="primary" size="sm" iconRight="arrow-right" testid="open-family-page" onClick={() => navigate(`library/family/${familyId}`)}>Open family page</Button>}
         {onClose && <Button variant="link" size="sm" testid={`${testid}-close`} onClick={onClose} title="Esc closes it too">close</Button>}
       </div>
       {fam.error && <LoadFailed what={`the members of ${familyId}`} error={fam.error} onRetry={fam.reload} />}

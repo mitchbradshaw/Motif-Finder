@@ -113,5 +113,36 @@ def test_the_stored_45_degree_read_is_unchanged_without_a_unit(lib):
     assert "median_slope" not in r
 
 
+def test_a_verdict_changed_in_place_moves_the_line(lib):
+    """Review re-judges by UPDATE in place (family_queue / verdicts / artifact_queue: `UPDATE annotations SET
+    verdict = ?`), so the row count and max id do not move. The line must still move (critic round)."""
+    client, rt = lib
+    _accept(rt, "hash1")
+    assert _ok(client.get("/api/library/rose-reference?unit=motifs"))["n"] == 1
+    conn = sqlite3.connect(rt.db_path)
+    try:
+        conn.execute("UPDATE annotations SET verdict = 'artifact'")
+        conn.commit()
+    finally:
+        conn.close()
+    r = _ok(client.get("/api/library/rose-reference?unit=motifs"))
+    assert r["n"] == 0 and r["median_slope"] is None, "a verdict changed in place left the cached line stale"
+
+
+def test_the_line_is_cached_until_the_adjudications_move(lib, monkeypatch):
+    client, rt = lib
+    import server.library as L
+    calls = []
+    real = L.rose_mod.compute
+    monkeypatch.setattr(L.rose_mod, "compute", lambda *a, **k: calls.append(1) or real(*a, **k))
+    L._ROSE_LINE_CACHE.clear()
+    for _ in range(3):
+        _ok(client.get("/api/library/rose-reference?unit=motifs"))
+    assert len(calls) == 1, "three reads with nothing judged in between must compute once"
+    _accept(rt, "hash2")
+    assert _ok(client.get("/api/library/rose-reference?unit=motifs"))["median_slope"] == pytest.approx(3.0)
+    assert len(calls) == 2
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
