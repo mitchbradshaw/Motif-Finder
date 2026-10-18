@@ -350,6 +350,27 @@ def test_the_fires_grid_has_one_row_per_run_and_the_reviewed_underlay(client):
             assert len(row["counts"]) == fires["nBins"]
 
 
+def test_the_fires_grid_reads_a_runs_status_once_per_run_not_once_per_channel(client, monkeypatch):
+    """ux-1018: the fires route asked `fanout.group_status` for every run on EVERY channel, though a run's status
+    does not depend on the channel — and group_status itself reads several rows per member run. On the real
+    session (16 channels, 52 runs, 721 h) three channels took 147 s on 2026-10-18, so the card never visibly
+    followed the channel pager. The status is read once per run key."""
+    out = _apply(client)
+    calls = {"n": 0}
+    real = _disc.fanout.group_status
+
+    def counted(*a, **kw):
+        calls["n"] += 1
+        return real(*a, **kw)
+
+    monkeypatch.setattr(_disc.fanout, "group_status", counted)
+    fires = client.get("/api/discovery/fires", params={
+        "channels": ",".join([CH[0], CH[1]]), "t0": 0.0, "t1": N / 3600.0,
+        "runs": f"human,{out['run_key']}"}).json()
+    assert [c["channel"] for c in fires["channels"]] == [CH[0], CH[1]]
+    assert calls["n"] == 1, f"group_status was read {calls['n']} times for one run over two channels"
+
+
 def test_the_scoreboard_cells_are_the_tables_own_numbers(client):
     out = _apply(client)
     sb = client.get("/api/discovery/scoreboard", params={

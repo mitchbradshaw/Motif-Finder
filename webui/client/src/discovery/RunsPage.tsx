@@ -108,10 +108,12 @@ function WhereFires({ dx }: { dx: Discovery }) {
   const [, setAt] = useQueryState('at', '')
   const shown = dx.runs.filter(r => r.kind === 'reference' || hasResults(r) || r.status === 'on cluster' || r.status === 'running')
   const notShown = dx.runs.filter(r => !shown.includes(r) && r.status !== 'draft')
-  /* ux-1018: every channel in the scope, not the strips' page of three. The card followed the scope pager, so with
-   * four or more channels it showed the first three and a page label, whatever the researcher did with the plots
-   * (2026-10-18); the groups scroll inside the card past three or four, the axis stays below them */
-  const fires = useSourced(() => getFires(s.channels, s.section, shown), [s.channels.join(','), s.section.join(','), shown.map(r => r.key + r.status).join(',')])
+  /* ux-1018: the card pages with the strips (three channels at a time), and a page turn is now VISIBLE: the old
+   * groups dim under a refreshing line until the next page's counts land. The researcher saw "the table still only
+   * shows the first three" after paging because the re-read took minutes on the real session (16 channels, 52 runs,
+   * 721 h: the fires route read every run's status once per channel — now once per run) and nothing on the card said
+   * a read was out. Asking for every channel at once made the same read five times heavier, so it stays paged. */
+  const fires = useSourced(() => getFires(dx.visibleChannels, s.section, shown), [dx.visibleChannels.join(','), s.section.join(','), shown.map(r => r.key + r.status).join(',')])
   const sectionH = s.section[1] - s.section[0]
   const ticks = useMemo(() => Array.from({ length: 7 }, (_, i) => Math.round(s.section[0] + (i * sectionH) / 6)), [s.section, sectionH])
   const browserMarker = useBrowserMarker(dx)
@@ -119,8 +121,10 @@ function WhereFires({ dx }: { dx: Discovery }) {
     <section className="k-card dsc-fires" data-testid="where-fires" aria-label="Where each run fires">
       <div className="dsc-card-head">
         <h3>Where each run fires</h3>
-        <InfoTip title="Where each run fires">Small multiples by channel, one row per run, on one time axis. At section scale a span is thinner than a pixel, so rows show detections per 3 h bin — colour by run, opacity by count. The human row shows reviewed hours as a grey underlay: recall exists only there. Every channel in the scope is drawn here; past three or four the groups scroll inside the card (the strips above page three at a time, this card does not).</InfoTip>
-        <span className="muted small" data-testid="fires-channel-count">{mode === 'spans' ? 'every span in view' : 'detections per 3 h'} · {s.channels.length} channel{s.channels.length === 1 ? '' : 's'}</span>
+        <InfoTip title="Where each run fires">Small multiples by channel, one row per run, on one time axis. At section scale a span is thinner than a pixel, so rows show detections per 3 h bin — colour by run, opacity by count. The human row shows reviewed hours as a grey underlay: recall exists only there. With more than three channels the rows page with the strips' arrows; while the next page is being read the old rows dim under a refreshing line.</InfoTip>
+        <span className="muted small" data-testid="fires-channel-count">{dx.pageCount > 1
+          ? `${dx.visibleChannels[0]}–${dx.visibleChannels[dx.visibleChannels.length - 1]} of ${s.channels.length} channels · page with the strips' arrows`
+          : (mode === 'spans' ? 'every span in view · grouped by channel' : 'detections per 3 h · grouped by channel')}</span>
         <span className="k-spacer" />
         <Seg size="sm" value={mode} onChange={v => setMode(v)} options={[{ value: 'density', label: 'density' }, { value: 'spans', label: 'spans' }]} testid="fires-mode" />
         {/* the detection map (2026-10-12): the same rows as columns of channels and datasets, every session — where overall, not when */}
@@ -137,8 +141,9 @@ function WhereFires({ dx }: { dx: Discovery }) {
       {mode === 'spans' && sectionH > 24 && <div className="dsc-note small" data-testid="spans-note">spans are thinner than a pixel at this scale · zoom the section below 24 h</div>}
       {fires.error && <LoadFailed what="where each run fires" error={fires.error} onRetry={fires.reload} />}
       {!fires.data && !fires.error && <Loading height={200} />}
+      {fires.data && <div style={{ padding: '0 14px 4px' }}><Refreshing on={fires.loading} label={`re-reading ${dx.visibleChannels.join(', ')} · ${shown.length} run${shown.length === 1 ? '' : 's'}`} /></div>}
       {fires.data && (
-        <div className="dsc-fires-body">
+        <div className="dsc-fires-body" data-stale={fires.loading ? '1' : '0'} style={{ opacity: fires.loading ? 0.55 : 1, transition: 'opacity 140ms' }}>
           <div className="dsc-fires-scroll" data-testid="fires-scroll">
           {fires.data.channels.map(ch => (
             <div key={ch.channel} className="dsc-fires-group" data-testid={`fires-group-${ch.channel}`}>

@@ -885,6 +885,19 @@ def get_fires(request: Request, channels: str = "", t0: float = 0.0, t1: float =
         span = (int(round(t0 * 3600 * fs)), int(round(t1 * 3600 * fs)))
         edges = np.array([(first_bin + i) * bin_h * 3600 * fs for i in range(n_bins + 1)])
 
+        # ux-1018: a run's status does not depend on the channel, so it is read once per key, not once per key per
+        # channel — `group_status` reads several rows per member run, and on the real session (16 channels, 52 runs,
+        # 721 h) three channels took 147 s on 2026-10-18 with it inside the channel loop. The rest of that time is
+        # the per-channel span reads; the speed pass (BACKLOG.md) owns those.
+        unfinished_from = {}
+        for key in keys:
+            if key == "human":
+                continue
+            ids = _run_ids(c, _dr_by_key(c, s["id"], key))
+            if ids:
+                st = fanout.group_status(c, run_ids=ids)
+                if st["status"] in ("running", "queued"):
+                    unfinished_from[key] = int(n_bins * st["progress"])
         out_channels = []
         for ch in chans:
             rev = c.execute(
@@ -900,13 +913,8 @@ def get_fires(request: Request, channels: str = "", t0: float = 0.0, t1: float =
                 starts = np.array([sp["start"] for sp in spans], dtype=float)
                 counts = np.histogram(starts, bins=edges)[0].tolist() if len(starts) else [0] * n_bins
                 row = {"run": key, "counts": [int(v) for v in counts]}
-                if key != "human":
-                    dr = _dr_by_key(c, s["id"], key)
-                    ids = _run_ids(c, dr)
-                    if ids:
-                        st = fanout.group_status(c, run_ids=ids)
-                        if st["status"] in ("running", "queued"):
-                            row["unfinishedFrom"] = int(n_bins * st["progress"])
+                if key in unfinished_from:
+                    row["unfinishedFrom"] = unfinished_from[key]
                 rows.append(row)
             out_channels.append({
                 "channel": ch["name"],
