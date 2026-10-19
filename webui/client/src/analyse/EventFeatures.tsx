@@ -7,19 +7,14 @@ import { useState } from 'react'
 import type { FeatureTable as FeatureTableT, IntervalStats, MeasureRule, SpansetPayload } from '../api'
 import { Rose } from '../kit'
 import { useRoseReferenceLine } from '../library/roseReference'
+import { fmtNum } from './fmtNum'
 
 const UNIT: [RegExp, string][] = [[/_mv_s$/, 'mV/s'], [/_mv$/, 'mV'], [/_s$/, 's']]
 export function unitOf(col: string): string { for (const [re, u] of UNIT) if (re.test(col)) return u; return '' }
 export function labelOf(col: string): string {
   return col.replace(/_(mv_s|mv|s)$/, '').replace(/_idx$/, ' (sample in span)').replace(/_/g, ' ')
 }
-export function fmtNum(v: number | null | undefined, col = ''): string {
-  if (v === null || v === undefined || !Number.isFinite(v)) return '—'
-  if (col === 'polarity') return v < 0 ? 'drop' : 'spike'
-  if (col.endsWith('_idx')) return String(Math.round(v))
-  const a = Math.abs(v)
-  return a >= 1000 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : a >= 0.01 ? v.toFixed(3) : v.toExponential(2)
-}
+export { fmtNum } from './fmtNum'
 
 /** One row per event; a column per measure, its unit in the header. Capped at `maxRows` shown. */
 export function FeatureTable({ table, rowLabel, maxRows = 60, testid = 'feature-table' }: {
@@ -77,7 +72,7 @@ export function IntervalStatsTable({ stats, testid = 'interval-stats' }: { stats
   return (
     <table className="mono" data-testid={testid} style={{ borderCollapse: 'collapse', fontSize: 11.5 }}>
       <thead><tr><th style={th}>group</th>{cols.map(([, l]) => <th key={l} style={th}>{l}</th>)}</tr></thead>
-      <tbody>{Object.entries(stats).map(([g, s]) => <tr key={g}><td style={td}>{g}</td>{cols.map(([k]) => <td key={k} style={{ ...td, textAlign: 'right' }} title={(k === 'lv' || k === 'cv2') && s.local_note ? s.local_note : undefined}>{fmtNum(s[k] as number | null)}</td>)}</tr>)}</tbody>
+      <tbody>{Object.entries(stats).map(([g, s]) => <tr key={g}><td style={td}>{g}</td>{cols.map(([k]) => <td key={k} style={{ ...td, textAlign: 'right' }} title={(k === 'lv' || k === 'cv2') && s.local_note ? s.local_note : undefined}>{fmtNum(s[k] as number | null, k)}</td>)}</tr>)}</tbody>
     </table>
   )
 }

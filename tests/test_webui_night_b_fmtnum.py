@@ -30,7 +30,7 @@ def _fmt(cases):
     script = (f"import {{ fmtNum }} from {json.dumps(url)};\n"
               f"const cases = {json.dumps(cases)};\n"
               "process.stdout.write(JSON.stringify(cases.map(([v, c]) => fmtNum(v, c))));\n")
-    r = subprocess.run([node, "--no-warnings", "--input-type=module", "-e", script], capture_output=True, text=True, timeout=60)
+    r = subprocess.run([node, "--no-warnings", "--input-type=module", "-e", script], capture_output=True, text=True, encoding="utf-8", timeout=60)
     assert r.returncode == 0, r.stderr
     return json.loads(r.stdout)
 
