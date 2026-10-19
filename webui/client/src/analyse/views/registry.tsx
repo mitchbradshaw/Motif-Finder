@@ -230,7 +230,7 @@ function SpanSetProcess({ q, lead, featuresFirst, fold }: { q: ProcessProps; lea
     </>
   )
   if (fold) return (
-    <Headline page={fold.page} leads={fold.leads} folded={[
+    <Headline key={fold.page} page={fold.page} leads={fold.leads} folded={[
       ...fold.extra,
       { key: 'spans', node: <div><div className="bp-card-title" style={{ marginTop: 2 }}><h3 style={{ fontSize: 13 }}>The spans that were measured</h3><span className="sg">passed through unchanged from the stage before</span></div>{spans}</div> },
       funnel && { key: 'funnel', node: <DetectorFunnel funnel={funnel} /> },
