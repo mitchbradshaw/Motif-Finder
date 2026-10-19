@@ -29,6 +29,7 @@ import { RunGlyph } from './glyphs'
 import { useDiscovery, type Discovery } from './session'
 import { StepStrip, openingStep, type SeedStep, type StepStatus } from './seed/StepStrip'
 import { ImportResultButton, KeepCard } from './seed/KeepCard'
+import { extentOf, maxOf, minOf } from '../kit/extent'
 
 const SEED_COLOUR = '#AF52DE', KEPT_LIGHT = '#E6CCF5', THRESH = '#E8900C'
 /** How many matches the run keeps before the cut filters them. Generous on
@@ -467,7 +468,7 @@ const fmtCount = (n: number | undefined) => (n ?? 0).toLocaleString('en-US')
 function padDomain(values: number[]): [number, number] {
   const f = values.filter(Number.isFinite)
   if (!f.length) return [-1, 1]
-  const lo = Math.min(...f), hi = Math.max(...f), m = (hi - lo) * 0.12 || 0.05
+  const [lo, hi] = extentOf(f), m = (hi - lo) * 0.12 || 0.05
   return [lo - m, hi + m]
 }
 function SeedThumb({ values, yDomain, width = 132, height = 78, overlay, unit }: { values: number[]; yDomain: [number, number]; width?: number; height?: number; overlay?: number[]; unit?: 'mV' | null }) {
@@ -573,8 +574,10 @@ function CutCard({ seed, setParams, results, kept, nullKept, cut, cutIsRecommend
   /** the null's recommended cut (the green line), drawn whatever the cut in force is */
   recommended: number | null
 }) {
-  const dMax = Math.max(8, Math.ceil(Math.max(0, ...results.candidates.map(c => c.d), ...results.nullDistances) * 1.05))
-  const closest = +(Math.ceil(Math.min(Infinity, ...results.candidates.map(c => c.d)) * 10) / 10).toFixed(1)
+  // a loop (kit/extent.ts), not a spread: a cut sweep on the October database is ~10^5 distances, and spreading
+  // them into Math.max's argument list is a RangeError - the workspace's red card
+  const dMax = Math.max(8, Math.ceil(Math.max(0, maxOf(results.candidates.map(c => c.d), results.nullDistances)) * 1.05))
+  const closest = +(Math.ceil(minOf(results.candidates.map(c => c.d)) * 10) / 10).toFixed(1)
   const [thrRaw, setThrRaw] = useState<string | null>(null)
   return (
     <section className="k-card dsc-params dsc-cut-card" data-testid="cut-card" aria-label="Choose the cut">
@@ -654,13 +657,13 @@ function CutHistogram({ candidates, nullDistances, threshold, recommended, kept,
    * the slider could not reach a cut that kept anything. */
   const dMax = useMemo(() => {
     const all = [...candidates.map(c => c.d), ...nullDistances].filter(Number.isFinite)
-    return Math.max(1, Math.ceil((all.length ? Math.max(...all) : 8) * 1.05))
+    return Math.max(1, Math.ceil((all.length ? maxOf(all) : 8) * 1.05))
   }, [candidates, nullDistances])
   const bins = 40, bw = dMax / bins
   const count = (xs: number[]) => { const c = new Array(bins).fill(0); xs.forEach(d => { const i = Math.min(bins - 1, Math.floor(d / bw)); if (i >= 0) c[i]++ }); return c }
   const cand = useMemo(() => count(candidates.map(c => c.d)), [candidates, dMax])
   const nul = useMemo(() => count(nullDistances), [nullDistances, dMax])
-  const maxC = Math.max(1, ...cand, ...nul)
+  const maxC = Math.max(1, maxOf(cand, nul))
   const x = (d: number) => padL + (d / dMax) * (W - padL - padR)
   const y = (c: number) => H - padB - (c / maxC) * (H - padT - padB)
   const toD = (px: number) => Math.max(0.1, Math.min(dMax, Math.round(((px - padL) / (W - padL - padR)) * dMax * 10) / 10))
@@ -756,8 +759,9 @@ function DistanceProfile({ dx, seed, candidates, threshold }: { dx: Discovery; s
           // on this data run 16-52, and a fixed 7 pinned every one of them to the
           // same y and drew the profile as a dead straight line
           const dFin = distance.filter(Number.isFinite)
-          const dLo = dFin.length ? Math.min(...dFin) : 0
-          const dHi = Math.max(dFin.length ? Math.max(...dFin) : 1, threshold ?? 0) * 1.05
+          const [dFinLo, dFinHi] = extentOf(dFin)
+          const dLo = dFin.length ? dFinLo : 0
+          const dHi = Math.max(dFin.length ? dFinHi : 1, threshold ?? 0) * 1.05
           const dy = (d: number) => 86 + ((Math.min(dHi, Math.max(dLo, d)) - dLo) / Math.max(1e-9, dHi - dLo)) * 56
           const step = Math.max(1, Math.floor(n / (W - labelW)))
           /* The distance array is SHORTER than the signal by m - 1: a profile has
