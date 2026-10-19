@@ -55,8 +55,9 @@ function DetectionRunReportPage({ runKey }: { runKey: string }) {
       <Page maxWidth={1100}>
         <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }} data-testid="report-toolbar" data-saved={saved ?? undefined}>
           <Button size="sm" variant="primary" icon="arrow-left" onClick={() => navigate(`discovery/runs?run=${encodeURIComponent(runKey)}`)} testid="report-back">Back to the run</Button>
-          <span className="muted small">The figures and tables behind this run, drawn by the server from the live database each time you open it.</span>
+          {/* polish: the toolbar's grey sentence is the ⓘ's first paragraph now */}
           <InfoTip title="What this report is">
+            <p>The figures and tables behind this run, drawn by the server from the live database each time you open it.</p>
             <p>Every figure is a PNG drawn with matplotlib from the same numbers Discovery shows; every table is also in the Markdown.</p>
             <p><b>Save snapshot</b> writes report.html, report.md and the figures (fig-01-map.png …) into a dated folder (the sandbox’s results folder, or DATA/derived/reports in a project start), and lists it on the Reports page. <b>Print</b> opens the report in a tab and prints it (choose “Save as PDF”).</p>
           </InfoTip>
@@ -107,8 +108,9 @@ function ReportsList() {
       <Header workspace="Reports" page="Saved reports" subtitle="every snapshot, newest first" />
       <Page maxWidth={1300}>
         <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-          <span className="muted small">A snapshot is a report frozen on disk: its figures (PNG), its tables (report.md) and the page (report.html), ready to paste into a chapter.</span>
-          <InfoTip title="Where reports come from">Open a run in Discovery and press <b>Report</b>, then <b>Save snapshot</b>. The database keeps only each snapshot's folder; the files live there.</InfoTip>
+          {/* polish: what a snapshot is, behind the ⓘ with where they come from */}
+          <b className="small">Snapshots</b>
+          <InfoTip title="Where reports come from"><p>A snapshot is a report frozen on disk: its figures (PNG), its tables (report.md) and the page (report.html), ready to paste into a chapter.</p>Open a run in Discovery and press <b>Report</b>, then <b>Save snapshot</b>. The database keeps only each snapshot's folder; the files live there.</InfoTip>
           <span className="k-spacer" />
           <Button size="sm" variant="primary" icon="refresh" onClick={rows.reload} testid="reports-reload">Reload</Button>
         </div>
