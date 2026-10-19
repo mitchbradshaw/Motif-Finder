@@ -52,7 +52,7 @@ export function B2Launch({ template, pool }: { template: number; pool: number })
     tick()
   }, [jobId])   // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (err) return <div className="error-card" data-testid="b2-error"><h3>arm B.2 could not be set up</h3><div className="mono small">{err}</div><Button size="sm" onClick={() => navigate('analyse/chain')}>Open Analyse › Chain</Button></div>
+  if (err) return <div className="error-card" data-testid="b2-error"><h3>arm B.2 could not be set up</h3><div className="mono small">{err}</div><Button variant="primary" size="sm" onClick={() => navigate('analyse/chain')}>Open Analyse › Chain</Button></div>
   if (!setup) return <div className="muted mono small" data-testid="b2-loading">reading the template and the pool…</div>
   const errors = setup.checks.filter(c => c.level === 'error')
   const train = async () => {
@@ -86,8 +86,12 @@ export function B2Launch({ template, pool }: { template: number; pool: number })
         <div className="mono small">{setup.template.steps.map(s => `${s.stage}.${s.algorithm}`).join(' → ')}</div>
         <div className="muted small" data-testid="b2-shape-line" data-align={setup.shape.align} data-anchor={setup.shape.anchor_frac == null ? '' : setup.shape.anchor_frac.toFixed(3)}>
           shapes: align {setup.shape.align}{setup.shape.anchor_frac != null ? ` · anchor ${setup.shape.anchor_frac.toFixed(2)}${setup.shape.anchor_frac === 0.5 ? ' (the middle)' : ''}` : ''} · detrend {setup.shape.detrend} · {setup.shape.resample_length} points · noise floor {setup.shape.noise_floor ? 'on' : 'off'} · Ward on {setup.cluster.sample.toLocaleString()} training windows, seed {setup.cluster.seed}
-          {setup.shape.drop_default && <InfoTip title="Align and anchor" testid="b2-anchor-rule">The anchor is where in each re-cut window the aligned sample lands, as a share of its length. For drop work the setting is align <b>{setup.shape.drop_default.align}</b> at anchor <b>{setup.shape.drop_default.anchor_frac}</b> — the bottom of the drop a third of the way in, so the recovery fits inside the window (decided 2026-10-18). A pool chain does not say whether it is drop work, so it is not switched for you: set it on the Trace shape block (<i>Open in Analyse</i>), and the windows, the tree and the model all follow.</InfoTip>}
+          {setup.shape.drop_default && <InfoTip title="Align and anchor" testid="b2-anchor-rule">The anchor is where in each re-cut window the aligned sample lands, as a share of its length. For drop work the <b>for drops</b> switch on the Trace shape block gives align <b>{setup.shape.drop_default.align}</b> at anchor <b>{setup.shape.drop_default.anchor_frac}</b> — the bottom of the drop a third of the way in, so the recovery fits inside the window (the researcher, 2026-10-19). On <i>auto</i> (its default) it is on when every window set in the pool was made from drop detections, and <i>on</i> / <i>off</i> force it. The switch rides in the chain, so Analyse and this page cut the windows at the same place; an align or anchor set on the card wins over it. Change it with <i>Open in Analyse</i>, and the windows, the tree and the model all follow.</InfoTip>}
         </div>
+        {setup.shape.alignment_from && <div className="row small" style={{ gap: 6, alignItems: 'center', marginTop: 4 }} data-testid="b2-for-drops" data-for-drops={setup.shape.for_drops ? 'on' : 'off'}>
+          <span className={`chip ${setup.shape.for_drops ? 'amber' : 'blue'}`}>{setup.shape.for_drops ? 'for drops · on' : 'for drops · off'}</span>
+          <span className="muted">{setup.shape.alignment_from}</span>
+        </div>}
       </SectionCard>
 
       <SectionCard title="2 · Sources · the pool" testid="b2-sources">
@@ -114,14 +118,14 @@ export function B2Launch({ template, pool }: { template: number; pool: number })
 
       <SectionCard title="4 · The model" testid="b2-model">
         <div className="row" style={{ gap: 6, marginBottom: 6 }}>
-          <button className={`btn sm ${model === 'forest' ? 'primary' : ''}`} onClick={() => setModel('forest')} data-testid="b2-model-forest" aria-pressed={model === 'forest'}>Random forest</button>
-          <button className={`btn sm ${model === 'cnn' ? 'primary' : ''}`} onClick={() => setModel('cnn')} disabled={!cnn} title={cnn ? undefined : 'the bridge offered no CNN arm'} data-testid="b2-model-cnn" aria-pressed={model === 'cnn'}>CNN (fusion / GASF / GADF / recurrence)</button>
+          <button className={`btn sm ${model === 'forest' ? 'primary' : 'ghost'}`} onClick={() => setModel('forest')} data-testid="b2-model-forest" aria-pressed={model === 'forest'}>Random forest</button>
+          <button className={`btn sm ${model === 'cnn' ? 'primary' : 'ghost'}`} onClick={() => setModel('cnn')} disabled={!cnn} title={cnn ? undefined : 'the bridge offered no CNN arm'} data-testid="b2-model-cnn" aria-pressed={model === 'cnn'}>CNN (fusion / GASF / GADF / recurrence)</button>
         </div>
         {model === 'forest' ? <>
           <div className="small"><b>Random forest</b> on the cluster categories of every training window · inputs: <b>{setup.inputs.features}</b> ({setup.inputs.stages.join(' + ')}) <InfoTip title="Inputs" testid="b2-inputs-rule">{setup.inputs.rule}</InfoTip></div>
           <div className="row" style={{ gap: 8, alignItems: 'center', marginTop: 6 }}>
             <span className="small">trees</span><NumberField value={nTrees} integer min={10} onValid={v => setNTrees(Math.max(10, Math.round(Number(v) || 300)))} testid="b2-trees" />
-            <span className="muted small">class weight {setup.defaults.class_weight} · seed {setup.defaults.random_state}</span>
+            <InfoTip title="Fixed settings">class weight {setup.defaults.class_weight} · seed {setup.defaults.random_state}</InfoTip>
           </div>
         </> : cnn && <ErrorBoundary label="the CNN settings"><CnnSettings cnn={cnn} enc={enc} setEnc={setEnc} epochs={epochs} setEpochs={setEpochs} withNull={withNull} setWithNull={setWithNull} /></ErrorBoundary>}
       </SectionCard>
@@ -132,9 +136,9 @@ export function B2Launch({ template, pool }: { template: number; pool: number })
           {model === 'forest'
             ? <Button variant="primary" icon="play" onClick={train} disabled={!!errors.length || busy || !!running} disabledReason={errors[0]?.detail ?? 'a job is running'} loading={busy} testid="b2-train-locally">Train locally</Button>
             : <Button variant="primary" icon="play" onClick={smoke} disabled={!!errors.length || busy || !!running} disabledReason={errors[0]?.detail ?? 'a job is running'} loading={busy} testid="b2-cnn-smoke">Run the local smoke ({cnn?.smoke_defaults.n_train} + {(cnn?.smoke_defaults.n_predict ?? 0) * 2} windows · 1 epoch · this CPU)</Button>}
-          <Button icon="file" onClick={slurm} disabled={model === 'forest' || !!errors.length || busy || !!running} disabledReason={model === 'forest' ? setup.slurm : (errors[0]?.detail ?? 'a job is running')} testid="b2-slurm">Create SLURM script</Button>
+          <Button variant="primary" icon="file" onClick={slurm} disabled={model === 'forest' || !!errors.length || busy || !!running} disabledReason={model === 'forest' ? setup.slurm : (errors[0]?.detail ?? 'a job is running')} testid="b2-slurm">Create SLURM script</Button>
         </div>
-        {model === 'cnn' && cnn && <div className="muted small" style={{ marginTop: 6 }} data-testid="b2-cnn-returns">{cnn.returns}</div>}
+        {model === 'cnn' && cnn && <div className="small row" style={{ marginTop: 6, gap: 4 }} data-testid="b2-cnn-returns">how results return <InfoTip title="How results return">{cnn.returns}</InfoTip></div>}
         {job && (() => { const pr = (job.progress ?? {}) as { done?: number; total?: number | null; message?: string }; return <div style={{ marginTop: 8 }} data-testid="b2-job" data-status={job.status}><ProgressBar value={job.status === 'completed' ? 1 : (pr.done ?? 0) / Math.max(1, pr.total ?? 1)} />
           <div className="mono small">{job.status} · {pr.message ?? ''}{job.status === 'failed' ? ` · ${(job.error as { message?: string } | null)?.message ?? ''}` : ''}</div></div> })()}
         {smokeDone && <div className="small" style={{ marginTop: 6 }} data-testid="b2-cnn-smoke-done">local smoke → run #{smokeDone.run_id} ({smokeDone.n_windows} windows, {fmtSecs(smokeDone.total_s)} in all: encode {fmtSecs(smokeDone.timings?.encode)}, diagnostic {fmtSecs(smokeDone.timings?.diagnostic)}, final {fmtSecs(smokeDone.timings?.final)}, predict {fmtSecs(smokeDone.timings?.predict)}) · listed below and in Models › Results{' '}
@@ -183,7 +187,7 @@ function CnnSettings({ cnn, enc, setEnc, epochs, setEpochs, withNull, setWithNul
           {cnn.encodings.map(e => <option key={e} value={e}>{e}{e === 'fusion' ? ' (GASF + GADF + recurrence as RGB)' : ''}</option>)}
         </select>
         <span className="small">epochs</span><NumberField value={epochs ?? d.epochs} integer min={1} onValid={v => setEpochs(Math.max(1, Math.round(Number(v) || d.epochs)))} testid="b2-cnn-epochs" />
-        <span className="muted small">batch {d.batch_size} · Adam lr {d.lr} · cosine · class weight {d.class_weight} · seed {d.random_state} · {d.img_size} px · refit on every training window</span>
+        <InfoTip title="Fixed settings">batch {d.batch_size} · Adam lr {d.lr} · cosine · class weight {d.class_weight} · seed {d.random_state} · {d.img_size} px · refit on every training window</InfoTip>
       </div>
       <div className="row small" style={{ gap: 6 }}>how the images are made
         <InfoTip title="The images" testid="b2-cnn-images-rule">

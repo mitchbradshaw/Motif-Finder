@@ -77,7 +77,8 @@ def _recipe(request: Request, body: CnnBody, smoke=None):
         try:
             recipe = sc.make_recipe({"id": int(row["id"]), "name": row["name"], "version": int(row["version"] or 1),
                                      "key": p.key}, {"id": int(t["id"]), "name": t["name"], "steps": t["steps"]},
-                                    encoding=body.encoding, cnn=body.cnn, smoke=smoke)
+                                    encoding=body.encoding, cnn=body.cnn, smoke=smoke,
+                                    drop_source=sf.pool_drop_source(c, p))
         except ValueError as e:
             raise HTTPException(422, str(e))
         try:

@@ -23,7 +23,7 @@ export function ModelsPage() {
       <>
         <Header workspace="Models" page="Not found" subtitle={`#/models/${page}`} />
         <Page><EmptyState icon="alert-triangle" bordered testid="models-unknown-page" title={`No Models page called “${page}”`} caption="Models has four tabs: Launch, Results, Compare and Registry"
-          action={<Button onClick={() => navigate('models/launch')}>Open Launch</Button>} /></Page>
+          action={<Button variant="primary" onClick={() => navigate('models/launch')}>Open Launch</Button>} /></Page>
       </>
     )
   }

@@ -615,7 +615,7 @@ def _pool_windowset(value, meta, ctx):
         shp = {k: _clean(meta.get(k)) for k in ("resample_length", "noise_floor", "floors", "n_in", "n_kept", "under_floor",
                                                  "unmeasured", "method", "seconds", "shape_file", "shape_key", "align",
                                                  "detrend", "align_rule", "detrend_rule", "swing_rule", "recut",
-                                                 "anchor_frac", "anchor_rule")}
+                                                 "anchor_frac", "anchor_rule", "for_drops", "alignment_from")}
         if "shape_raw_range_mv" in f.columns:
             rr = pd.to_numeric(f["shape_raw_range_mv"], errors="coerce").to_numpy(dtype=float)
             shp["raw_range_hist"] = _hist(rr, 40, log=True)

@@ -12,7 +12,7 @@
  *    there is none). Nothing here re-bins or re-counts: the numbers are the core's (`matching.family_recurrence`).
  *  - `useCrossChannelJob`: start the job and follow it by polling the same row the Jobs workspace reads. */
 import { useEffect, useRef, useState } from 'react'
-import { Badge, Button, InfoTip, ProgressBar } from '../kit'
+import { About, Badge, Button, InfoTip, ProgressBar } from '../kit'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
 import { useLibraryView } from './chrome'
@@ -39,12 +39,12 @@ function SendToReview({ familyId, grouping, flagged, queue }: { familyId: string
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   if (queue) {
-    return <Button size="sm" icon="external" testid="open-suspected-queue" data-queue={queue.id} onClick={() => navigate(`review/queue/${queue.id}`)}>
+    return <Button size="sm" variant="primary" icon="external" testid="open-suspected-queue" data-queue={queue.id} onClick={() => navigate(`review/queue/${queue.id}`)}>
       Open in Review · {queue.judged} of {queue.total} judged</Button>
   }
   return (
     <span className="row" style={{ gap: 6 }}>
-      <Button size="sm" icon="flag" testid="send-suspected-artifacts" disabled={busy || flagged === 0}
+      <Button size="sm" variant="primary" icon="flag" testid="send-suspected-artifacts" disabled={busy || flagged === 0}
         disabledReason={flagged === 0 ? 'no member is flagged as a suspected artifact' : 'sending'}
         onClick={async () => {
           setBusy(true); setErr(null)
@@ -63,7 +63,7 @@ function SendToReview({ familyId, grouping, flagged, queue }: { familyId: string
 export function FlagLine({ f, testid = 'xc-flag-line' }: { f: Partial<LibFlagLine>; testid?: string }) {
   if (f.flagged == null) return null
   return (
-    <span className="row lib-cap" style={{ gap: 4, alignItems: 'center' }} data-testid={testid}
+    <span className="row lib-meta" style={{ gap: 4, alignItems: 'center' }} data-testid={testid}
       data-flagged={f.flagged} data-confirmed={f.confirmed} data-rejected={f.rejected} data-unjudged={f.unjudged}>
       machine-flagged {f.flagged} · confirmed {f.confirmed} · rejected {f.rejected}{f.unsure ? ` · unsure ${f.unsure}` : ''} · unjudged {f.unjudged}
       {f.flagRule && <InfoTip title="flagged, confirmed, rejected">{f.flagRule}</InfoTip>}
@@ -142,7 +142,7 @@ export function CrossChannelCard({ familyId, grouping, cc, onReload }: { familyI
         {!cc.classified && <Badge tone="grey" testid="cross-channel-unclassified">not classified yet</Badge>}
         {cc.stale && <Badge status="stale" title={`stored bins were computed under ${cc.computedUnder.map(ruleWords).join(' / ')}; Settings now says ${ruleWords(cc.rule)}. Classify again to bring them up to date.`} testid="cross-channel-stale">computed under a different rule</Badge>}
         <span style={{ marginLeft: 'auto' }} />
-        <Button size="sm" icon="compare" testid="classify-across-channels" disabled={busy} disabledReason="a classification of this family is running"
+        <Button size="sm" variant="primary" icon="compare" testid="classify-across-channels" disabled={busy} disabledReason="a classification of this family is running"
           onClick={() => start(familyId, grouping)}>Classify across channels</Button>
         {cc.classified && <SendToReview familyId={familyId} grouping={grouping} flagged={flags.flagged ?? 0} queue={cc.suspectedQueue ?? null} />}
         <Button size="sm" variant="link" iconRight="arrow-right" testid="cross-channel-settings" onClick={() => navigate('settings/analysis-defaults')}>rule</Button>
@@ -179,12 +179,15 @@ export function CrossChannelCard({ familyId, grouping, cc, onReload }: { familyI
         ))}
         <FlagLine f={flags} />
       </div>
-      {cc.chanceRule && <div className="lib-cap" data-testid="cross-channel-chance-rule">every bin {cc.chanceRule}; the percentile each pair reached is on its edge</div>}
-      <div className="lib-cap" data-testid="cross-channel-null">
+      {/* polish: the chance rule and the null's two numbers are how the counts above were made — one click away */}
+      <About label="how this is classified" testid="cross-channel-about">
+      {cc.chanceRule && <div data-testid="cross-channel-chance-rule">every bin {cc.chanceRule}; the percentile each pair reached is on its edge</div>}
+      <div data-testid="cross-channel-null">
         {n.drawsTotal > 0
           ? <>null: these members came from {n.runs} run{n.runs === 1 ? '' : 's'}, which found {n.realDetections} detection{n.realDetections === 1 ? '' : 's'}; their paired surrogates ({n.draws} draw{n.draws === 1 ? '' : 's'} per run) found {n.perDraw == null ? '—' : n.perDraw.toFixed(1)} per draw. Both numbers are printed; nothing here is tested against the other.</>
           : <>null: {n.reason}</>}
       </div>
+      </About>
     </section>
   )
 }

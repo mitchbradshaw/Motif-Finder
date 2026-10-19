@@ -219,10 +219,10 @@ export function BlindTracePlot({ w, width, testid = 'blind-plot' }: { w: BlindSh
       {ticks.map(v => (
         <g key={v}>
           <line x1={PAD_L} x2={width - 8} y1={y(v)} y2={y(v)} stroke="var(--line, #e6e6e6)" strokeWidth={0.5} />
-          <text x={PAD_L - 5} y={y(v) + 3} textAnchor="end" style={{ fontSize: 10 }}>{v.toFixed(dec)}</text>
+          <text x={PAD_L - 5} y={y(v) + 3} textAnchor="end" style={{ fontSize: 10.5 }}>{v.toFixed(dec)}</text>
         </g>
       ))}
-      <text x={4} y={14} style={{ fontSize: 10 }}>{w.unit ?? ''}</text>
+      <text x={4} y={14} style={{ fontSize: 10.5 }}>{w.unit ?? ''}</text>
       <EnvelopePath t={t} v={w.trace.v} x={x} y={y} stroke="var(--text, #111)" width={1.3} testid="blind-trace" />
       <RelAxis x={x} y={H - PAD_B} t0={w.trace.t0_s - t0} t1={w.trace.t1_s - t0} />
     </svg>
@@ -242,7 +242,7 @@ function RelAxis({ x, y, t0, t1 }: { x: ReturnType<typeof scaleLinear<number, nu
       {s.ticks(8).map(v => (
         <g key={v}>
           <line x1={x(v * k)} x2={x(v * k)} y1={y} y2={y + 4} stroke="var(--border)" />
-          <text x={x(v * k)} y={y + 15} textAnchor="middle" style={{ fontSize: 10 }}>{v > 0 ? '+' : v < 0 ? '−' : ''}{Math.abs(v)} {mins ? 'min' : 's'}</text>
+          <text x={x(v * k)} y={y + 15} textAnchor="middle" style={{ fontSize: 10.5 }}>{v > 0 ? '+' : v < 0 ? '−' : ''}{Math.abs(v)} {mins ? 'min' : 's'}</text>
         </g>
       ))}
     </g>

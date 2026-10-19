@@ -68,7 +68,7 @@ export const hasView = (type: string): boolean => type in VIEWS
 
 /* ============================== settings-tier pieces ============================== */
 /* fixup-ap: "run the chain" is a next step, so it is the button (rule 2); the run itself starts on the chain page */
-const OpenChain = () => <Button size="sm" iconRight="arrow-right" onClick={() => navigate('analyse/chain')}>Open the chain to run it</Button>
+const OpenChain = () => <Button size="sm" variant="primary" iconRight="arrow-right" onClick={() => navigate('analyse/chain')}>Open the chain to run it</Button>
 const NoResult = ({ what = 'this stage' }: { what?: string }) =>
   <EmptyState size="sm" icon="layers" title={`no result for ${what} yet`} caption="run the chain and its work is drawn here" action={<OpenChain />} testid="no-result" />
 const NotLoaded = ({ what, shows }: { what: string; shows: string }) =>

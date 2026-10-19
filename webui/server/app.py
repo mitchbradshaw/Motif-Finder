@@ -40,6 +40,7 @@ from .blind_routes import router as blind_router
 from .cnn_routes import router as cnn_router
 from .jobs_routes import router as jobs_router   # fixup-aj
 from .registration import router as registration_router
+from .reports import router as reports_router   # reports (2026-10-19)
 
 log = logging.getLogger("webui")
 
@@ -595,6 +596,10 @@ def create_app(rt: Runtime) -> FastAPI:
     # stage-3 prompt 05: Review — queues, verdicts, undo, promotion, clusters
     # and event extraction (server/review.py). Before the /api guard.
     app.include_router(review_router)
+
+    # reports (2026-10-19): a detection run's figures and tables, saved snapshots (server/reports.py). Before the
+    # /api guard.
+    app.include_router(reports_router)
 
     # ------------------------------------------------- /api never falls through --
     # Registered after every real /api route and before the SPA catch-all: an

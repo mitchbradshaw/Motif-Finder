@@ -45,7 +45,7 @@ export function B2RunsStrip() {
             <tr key={r.run_id} data-testid={`b2-results-run-${r.run_id}`} data-model={r.kind === 'shape_cluster_cnn' ? 'cnn' : 'forest'}>
               <td className="mono">#{r.run_id}</td><td className="small">{r.model ?? 'random forest'}</td><td>{r.pool?.name} v{r.pool?.version}</td><td>{r.k}</td><td>{r.status}</td>
               <td>{r.scored ? 'labelling / scored' : 'not yet labelled'}</td>
-              <td>{r.status === 'completed' && <Button size="sm" icon="eye" testid={`open-b2-blind-${r.run_id}`} onClick={() => navigate(`models/results/b2/${r.run_id}`)}>against a blind human</Button>}
+              <td>{r.status === 'completed' && <Button variant="primary" size="sm" icon="eye" testid={`open-b2-blind-${r.run_id}`} onClick={() => navigate(`models/results/b2/${r.run_id}`)}>against a blind human</Button>}
                 {/* fixup-ai: the same template and pool on Launch, the CNN chosen — same windows, same cut, another model */}
                 {r.template?.id != null && r.pool?.id != null && <Button size="sm" variant="link" testid={`b2-launch-cnn-${r.run_id}`} onClick={() => navigate(`models/launch?arm=b2&template=${r.template.id}&pool=${r.pool.id}&model=cnn`)}>train a CNN on this</Button>}</td>
             </tr>))}</tbody>
@@ -273,7 +273,7 @@ function Reference({ data, runId, onDone }: { data: BlindScores; runId: number; 
       subtitle="one row per model per scale, never pooled — trained on 10-minute windows of manual labels"
       info="Each model sees the raw window AS IT IS: its n samples become an n × n image that the network's transform resizes to 224 × 224; nothing is resampled. Whether a confidence means anything away from the 10-minute windows they were trained on is what the 1- and 30-minute rows ask.">
       <div className="row" style={{ gap: 8, alignItems: 'center', marginBottom: 6 }}>
-        <Button icon="play" onClick={start} disabled={!!running} disabledReason="scoring" testid="score-reference">{ref.status === 'computed' ? 'Score again' : 'Score the comparison line'}</Button>
+        <Button variant="primary" icon="play" onClick={start} disabled={!!running} disabledReason="scoring" testid="score-reference">{ref.status === 'computed' ? 'Score again' : 'Score the comparison line'}</Button>
         {running && <div style={{ width: 260 }}><ProgressBar value={(pr.done ?? 0) / Math.max(1, pr.total ?? 1)} label={pr.message ?? job?.status} /></div>}
         {job?.status === 'failed' && <span className="mono small" style={{ color: 'var(--red)' }}>{(job.error as { message?: string } | null)?.message}</span>}
         {ref.status === 'computed' && <span className="mono small muted">computed {ref.computed_at} · {ref.n_overlapping_earlier_label ?? 0} of {ref.n_labelled ?? 0} answered windows overlap an earlier human label</span>}
@@ -315,8 +315,8 @@ function Disagreements({ runId, queueId }: { runId: number; queueId: number }) {
         <Seg value={exam} onChange={v => setExam(v)} ariaLabel="exam" testid="dis-exam" options={BLIND_EXAMS.map(e => ({ value: e, label: SHORT[e] }))} />
         <Seg value={kind} onChange={v => setKind(v)} ariaLabel="direction" testid="dis-kind" options={[{ value: 'model_yes_human_no', label: 'model yes · you no' }, { value: 'model_no_human_yes', label: 'model no · you yes' }]} />
         {rows && <span className="mono small">{rows.length ? `${Math.min(i, rows.length - 1) + 1} of ${rows.length}` : 'none'}</span>}
-        <Button size="sm" onClick={() => setI(Math.max(0, i - 1))} disabled={!rows || i <= 0} disabledReason="the first" testid="dis-prev">← previous</Button>
-        <Button size="sm" onClick={() => setI(i + 1)} disabled={!rows || i + 1 >= rows.length} disabledReason="the last" testid="dis-next">next →</Button>
+        <Button variant="primary" size="sm" onClick={() => setI(Math.max(0, i - 1))} disabled={!rows || i <= 0} disabledReason="the first" testid="dis-prev">← previous</Button>
+        <Button variant="primary" size="sm" onClick={() => setI(i + 1)} disabled={!rows || i + 1 >= rows.length} disabledReason="the last" testid="dis-next">next →</Button>
       </div>
       {err && <div className="error-card"><h3>The disagreements failed to load</h3><p className="mono">{err}</p></div>}
       {rows && !rows.length && <div className="m-foot-line" data-testid="dis-none">no window of this exam disagrees this way (among the answered ones)</div>}

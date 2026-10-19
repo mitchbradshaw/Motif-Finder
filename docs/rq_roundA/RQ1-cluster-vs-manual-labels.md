@@ -221,7 +221,17 @@ which one does better on the exam.
     that *Train model* reads; HDBSCAN has no tree to cut.
   - Running it after Window pool → Trace shape on the 60,000-window pool is untested.
 
+- **For drops, one switch** (2026-10-19, `docs/prompts/changes/reports/for-drops-report.md`): Trace shape has a
+  *for drops* switch (off by default). On, every window is lined up on the bottom of its drop a third of the way in
+  (trough, anchor 0.333); off, centred on its largest swing at the middle. One core resolver
+  (`shape.resolve_alignment`) is read by the Analyse run, the B.2 recipe and Models › Launch, so the tree and the
+  model are cut alike; an align or anchor set on the card wins. It is not switched for you: nothing a pool chain
+  holds says it is drop work.
+
 ## Decisions already made (`docs/prompts/fixup/QUESTIONS.md`)
+
+- **Drop alignment (the researcher, 2026-10-18 and 2026-10-19; site-fixes item 3):** drop work lines windows up on
+  the trough a third of the way in, with a *for drops* switch that forces it either way.
 
 - **Seam (iii) and the model's inputs (the researcher, 2026-10-06, `AG` report Part 3):** (1) the noise floor is one
   number per dataset in mV (Settings › Datasets), no scale-aware rule for now; (2) centre + linear detrend stays the
@@ -573,3 +583,5 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
   them, and group them into label-chain families with their own family page (`docs/prompts/changes/reports/
   sequences-report.md`). The researcher named this a possible RQ1 precursor: sequence families are a candidate label
   set beside the single-motif clusters. Nothing in RQ1's classifier path changed.
+- 2026-10-19 · for-drops (ux-1019) · Trace shape's *for drops* switch (trough, 0.333) read alike by Analyse, the
+  B.2 recipe and Launch; off by default (no automatic signal in a pool chain).

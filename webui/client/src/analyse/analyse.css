@@ -67,7 +67,7 @@
 .an-progress .bar::after { content: ''; position: absolute; top: 0; bottom: 0; width: 35%; border-radius: 999px; background: var(--blue); animation: an-indet 1.1s ease-in-out infinite; }
 @keyframes an-indet { from { left: -35%; } to { left: 100%; } }
 .an-progress .txt { font-family: var(--font-mono); font-size: 11px; color: var(--blue-600); }
-.an-progress .note { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+.an-progress .note { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
 .an-fail { border: 1.5px solid var(--red); background: #fff7f7; border-radius: 8px; padding: 10px 14px; display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: start; min-height: 92px; }
 .an-fail .t { font-weight: 600; font-size: 13px; color: #b3262b; margin-bottom: 2px; }
 .an-fail .m { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; }
@@ -131,7 +131,7 @@
 .ins-card .sg { font-family: var(--font-mono); font-size: 10.5px; color: var(--blue-600); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ins-card.nofit .sg { color: var(--muted); }
 .ins-card .chips { display: flex; gap: 4px 6px; flex-wrap: wrap; }
-.ins-card .chips span { font-family: var(--font-mono); font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--grey-100); color: var(--text-2); }
+.ins-card .chips span { font-family: var(--font-mono); font-size: 10.5px; padding: 1px 6px; border-radius: 4px; background: var(--grey-100); color: var(--text-2); }
 .ins-card .chips span.g { background: var(--green-100); color: #15794f; }
 /* the reason is load-bearing (spec §6.4): it wraps instead of ellipsising (critique r1) */
 .ins-card .fit { font-family: var(--font-mono); font-size: 10.5px; color: #15794f; white-space: normal; line-height: 1.3; overflow-wrap: anywhere; }
@@ -196,7 +196,7 @@
 .bp-readout-row.error .k, .bp-readout-row.error .v { color: #b3262b; }
 .bp-readout-note { font-family: var(--font-mono); font-size: 11px; color: var(--muted); padding: 10px 12px; border: 1px dashed var(--border-strong); border-radius: 8px; margin-top: 8px; }
 .bp-null { padding: 12px 14px; }
-.bp-null .e { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); padding: 18px; text-align: center; border: 1px dashed var(--border-strong); border-radius: 8px; margin-top: 8px; }
+.bp-null .e { font-size: 11px; white-space: normal; height: auto; min-height: 22px; text-align: right; }
 .bp-foot { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
 .bp-foot .st { font-weight: 600; font-size: 12.5px; display: flex; gap: 8px; align-items: center; }
 .bp-foot .st .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); display: inline-block; }
@@ -220,7 +220,7 @@
 .pp-ctl select { width: 100%; }
 .pp-ctl .seg { flex-wrap: wrap; }
 .pp-rec { font-family: var(--font-mono); font-size: 10.5px; color: #15794f; }
-.pp-rec.no { color: var(--muted-2); }
+.pp-rec.no { color: var(--text-2); }
 .pp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
 .pp-grid .pp-row.wide { grid-column: 1 / -1; }
 
@@ -258,3 +258,6 @@
 .bp-next .s { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); margin-top: 4px; }
 /* fixup-h: a strip's label never spills onto the row beneath it */
 .bp-strip .lbl { overflow: hidden; max-height: 100%; }
+
+/* polish (2026-10-19): the About strip in the add-block detail panel carries the glyph and the tiles */
+.ins-detail .k-about-body .glyph { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px; display: flex; justify-content: center; }

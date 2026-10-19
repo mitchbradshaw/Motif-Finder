@@ -62,7 +62,7 @@ export function AllPage() {
       <Header workspace="Jobs" page="All jobs" subtitle={subtitle} search="Search jobs, scripts, queues" />
       <Page maxWidth={1420}>
         <PageTitle title="Jobs"
-          actions={<Button icon="inbox" testid="open-inbox" onClick={() => setDrawer('inbox')}>Manifest inbox · import results</Button>}>
+          actions={<Button variant="primary" icon="inbox" testid="open-inbox" onClick={() => setDrawer('inbox')}>Manifest inbox · import results</Button>}>
           <Chip tone={running ? 'blue' : 'grey'} dot={running ? 'var(--blue)' : undefined} testid="chip-local" onClick={() => go('local')} title="this bridge's jobs, live">{running} in progress here</Chip>
           <Chip tone={counts?.waiting ? 'purple' : 'grey'} testid="chip-cluster" onClick={() => go('cluster')} title="scripts the site wrote whose results are not back yet">{counts ? counts.waiting : '…'} waiting on the cluster</Chip>
           <Chip tone={counts?.to_import ? 'amber' : 'grey'} dot={counts?.to_import ? 'var(--amber)' : undefined} testid="chip-to-import" onClick={() => go('cluster')} title="results copied back and not imported yet">{counts ? counts.to_import : '…'} results to import</Chip>

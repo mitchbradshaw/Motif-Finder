@@ -2,7 +2,11 @@
    then a grid of every registered block — incompatible ones stay visible and disabled with
    their reason — and a detail panel for the selected block.
    fixup-ap: the detail panel used to end with "ⓘ inserting at the end changes the terminal type" on every block;
-   the header note says exactly that when the stage goes at the end, so the line (and the bare icon it became) left. */
+   the header note says exactly that when the stage goes at the end, so the line (and the bare icon it became) left.
+   polish (2026-10-19, rule 6): the detail panel shows ONLY the block's name, its one-line purpose (the description's first
+   sentence), its inputs → outputs and its parameters. The rest of the description, the glyph and the cost / null /
+   side-input tiles are an "About this block" expander, closed by default. The "null · not declared" chip said the same
+   thing on every card; it left the cards for the About. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, compatibleAt, validateChain, validateParams, TYPE_LABEL, type AdapterCard, type Compatible, type Step } from '../api'
 import { useDismiss } from '../shell/useDismiss'
@@ -11,7 +15,16 @@ import { Glyph } from './glyphs'
 import { fmtParam } from './ParamsPanel'
 import { pad2, type AdapterIndex } from './useAdapters'
 import { spanOf } from './useValidation'
-import { EmptyState } from '../kit'
+import { About, EmptyState, InfoTip } from '../kit'
+
+/** polish: a block's one-line purpose is its description's first sentence; the rest is "About this block". A sentence
+ *  ends at ". " / "; " followed by more text (an abbreviation like "e.g. " is rare enough in the registry to accept). */
+export function splitPurpose(desc: string): { purpose: string; rest: string } {
+  const d = (desc ?? '').trim()
+  const m = /^([\s\S]{20,}?[.;])\s+(?=\S)/.exec(d)
+  if (!m) return { purpose: d, rest: '' }
+  return { purpose: m[1], rest: d.slice(m[0].length).trim() }
+}
 
 interface Props {
   steps: Step[]; position: number; adapters: AdapterIndex; source: SourceSpan | null
@@ -91,7 +104,7 @@ export function InsertStageModal({ steps, position, adapters, source, onClose, o
     return (
       <button className={`ins-card${ok ? '' : ' nofit'}${selected === a.name ? ' selected' : ''}`} onClick={() => ok && setSelected(a.name)} disabled={!ok} data-testid={`modal-card-${a.name}`} title={ok ? a.description : row?.reason}>
         <div className="hd"><Glyph adapter={a} /><div style={{ minWidth: 0 }}><div className="nm">{a.page_name}</div><div className="sg">{a.signature}</div></div></div>
-        <div className="chips"><span>{estText(a)}</span><span title="the core's null is a paired surrogate run of the whole chain, not a per-adapter declaration · the toolbar's surrogate toggle draws it">null · not declared</span>{a.side_inputs.some(s => s.required !== false) && <span className="purple" style={{ background: 'var(--purple-100)', color: '#6a3ecf' }}>needs {a.side_inputs.filter(s => s.required !== false).map(s => s.name).join(', ')}</span>}{a.side_inputs.some(s => s.required === false) && <span title="an optional side input: the block runs without it">optional {a.side_inputs.filter(s => s.required === false).map(s => s.name).join(', ')}</span>}</div>
+        <div className="chips"><span>{estText(a)}</span>{a.side_inputs.some(s => s.required !== false) && <span className="purple" style={{ background: 'var(--purple-100)', color: '#6a3ecf' }}>needs {a.side_inputs.filter(s => s.required !== false).map(s => s.name).join(', ')}</span>}{a.side_inputs.some(s => s.required === false) && <span title="an optional side input: the block runs without it">optional {a.side_inputs.filter(s => s.required === false).map(s => s.name).join(', ')}</span>}</div>
         <div className={`fit${ok ? '' : ' no'}`}>{ok ? '✓ fits here' : `⊘ ${row?.reason ?? 'not evaluated'}`}</div>
         {a.known_broken && <div className="broken" title={a.known_broken}>⚠ known broken · {a.known_broken}</div>}
       </button>
@@ -128,7 +141,7 @@ export function InsertStageModal({ steps, position, adapters, source, onClose, o
         <div className="ins-controls">
           <input className="input" placeholder="search blocks" value={q} onChange={e => setQ(e.target.value)} data-testid="modal-search" autoFocus aria-label="search blocks" />
           <div className="seg">{CATS.map(c => <button key={c} className={cat === c ? 'on' : ''} onClick={() => setCat(c)}>{c}</button>)}</div>
-          <button className={`btn sm${sortFits ? '' : ' ghost'}`} onClick={() => setSortFits(s => !s)} title="fitting blocks first">sort {sortFits ? 'fits first' : 'by registry'}</button>
+          <button className="btn sm ghost" onClick={() => setSortFits(s => !s)} title="fitting blocks first">sort {sortFits ? 'fits first' : 'by registry'}</button>
           <span style={{ flex: 1 }} />
           <button className={`toggle${showIncompat ? ' on' : ''}`} style={{ border: 0, background: 'transparent' }} onClick={() => setShowIncompat(s => !s)} data-testid="modal-show-incompatible"><span className="knob" /> show incompatible</button>
         </div>
@@ -147,29 +160,33 @@ export function InsertStageModal({ steps, position, adapters, source, onClose, o
             {sel ? (
               <>
                 <h3>{sel.page_name}</h3>
-                <div className="sg">{sel.signature}</div>
-                <div className="glyph"><Glyph adapter={sel} width={272} height={96} /></div>
-                <div className="desc">{sel.description || 'no description registered'}</div>
+                <div className="desc" data-testid="modal-purpose">{splitPurpose(sel.description).purpose || 'no description registered'}</div>
+                <div className="sg" data-testid="modal-signature">{sel.signature}{sel.side_inputs.length ? ` · + ${sel.side_inputs.map(s => s.name).join(', ')}` : ''}</div>
                 <div className="defaults">
-                  <div className="k">defaults</div>
+                  <div className="k">parameters</div>
                   {sel.params.length ? <div className="kv">{sel.params.map(p => <span key={p.name} style={{ display: 'contents' }}><span className="k">{p.name}</span><span style={{ textAlign: 'right' }}>{fmtParam(p.default)}</span></span>)}</div> : <div className="muted mono small">no parameters</div>}
                 </div>
+                <About label="About this block" testid="modal-about">
+                {splitPurpose(sel.description).rest && <div>{splitPurpose(sel.description).rest}</div>}
+                <div className="glyph"><Glyph adapter={sel} width={272} height={96} /></div>
                 <div className="tiles">
                   <div className="tile"><div className="k">est. cost</div><div className="v">{estimates[sel.name] != null ? `${estimates[sel.name]! < 0.05 ? '<0.1' : estimates[sel.name]!.toFixed(1)} s` : sel.has_estimate ? (source ? '…' : 'no source') : '—'}</div></div>
                   <div className="tile"><div className="k">null</div><div className="v">{sel.input_kind === 'signal' ? 'yes' : 'no'}</div></div>
                   <div className="tile"><div className="k">side-inputs</div><div className="v" style={{ fontSize: 13 }}>{sel.side_inputs.length ? sel.side_inputs.map(s => s.name).join(', ') : 'none'}</div></div>
                 </div>
-                {!atEnd && <div className="amber">⏱ {pad2(position + 1)} goes stale · 00–{pad2(position)} stay cached</div>}
+                <div>null · not declared — the core's null is a paired surrogate run of the whole chain, not a per-adapter declaration · the toolbar's surrogate toggle draws it</div>
+                {!atEnd && <div>{pad2(position + 1)} goes stale · 00–{pad2(position)} stay cached</div>}
+                </About>
                 {sel.max_span_samples !== null && source && (source.end_idx - source.start_idx) > sel.max_span_samples && <div className="amber">⚠ this span ({source.end_idx - source.start_idx} samples) exceeds the block's local ceiling ({sel.max_span_samples}) → HPC</div>}
               </>
             ) : <EmptyState size="sm" icon="layers" title="no block selected" caption="pick a block that fits to see its defaults and cost" />}
           </div>
         </div>
         <div className="ins-foot">
-          <span className="n">{adapters.list.length} blocks in the registry · a new technique is one adapter file</span>
+          <span className="n">{adapters.list.length} blocks in the registry <InfoTip title="The registry">a new technique is one adapter file</InfoTip></span>
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn" disabled={!sel || busy} onClick={() => doInsert(false)} data-testid="modal-insert">+ Insert</button>
-          <button className="btn primary" disabled={!sel || busy} onClick={() => doInsert(true)} data-testid="modal-insert-open">→ Insert and open settings</button>
+          <button className="btn primary" disabled={!sel || busy} title={!sel ? 'pick a block that fits' : busy ? 'inserting…' : undefined} onClick={() => doInsert(false)} data-testid="modal-insert">+ Insert</button>
+          <button className="btn next" disabled={!sel || busy} title={!sel ? 'pick a block that fits' : busy ? 'inserting…' : undefined} onClick={() => doInsert(true)} data-testid="modal-insert-open">→ Insert and open settings</button>
         </div>
       </div>
     </div>

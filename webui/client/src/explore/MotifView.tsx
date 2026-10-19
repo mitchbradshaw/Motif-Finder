@@ -123,7 +123,7 @@ export function MotifView({ ch, motif, label, onSend, onReview, medoid, compact 
           {motif?.demo && <DemoTag />}
         </span>
         <span className="row">
-          <Button iconRight="arrow-right" disabled={!motif} disabledReason="select a motif first" onClick={() => motif && onSend(motif)} testid="send-motif">Send motif to Analyse</Button>
+          <Button variant="primary" iconRight="arrow-right" disabled={!motif} disabledReason="select a motif first" onClick={() => motif && onSend(motif)} testid="send-motif">Send motif to Analyse</Button>
           <Button variant="primary" iconRight="arrow-right" disabled={!!reviewReason} disabledReason={reviewReason} onClick={() => motif && onReview(motif)} testid="review-motif">Review this motif</Button>
         </span>
       </div>

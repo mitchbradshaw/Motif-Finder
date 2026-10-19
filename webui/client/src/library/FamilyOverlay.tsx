@@ -127,15 +127,15 @@ export function PickCaption({ m, busy, onRemove, onSend, onExplore, onClear }: {
     <div className="k-card" style={{ padding: '8px 10px', marginTop: 6, fontSize: 11.5 }} data-testid="overlay-pick-card" data-member={m.id}>
       <div className="row" style={{ gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
         <b data-testid="overlay-pick-id">{m.id}</b>
-        <span className="lib-cap" data-testid="overlay-pick-where">{m.recording} · {m.channel} · {m.onsetH.toFixed(1)} h{!noSpan ? ` (${fmtS(m.startS!)}–${fmtS(m.endS!)} s)` : ''}</span>
+        <span className="lib-meta" data-testid="overlay-pick-where">{m.recording} · {m.channel} · {m.onsetH.toFixed(1)} h{!noSpan ? ` (${fmtS(m.startS!)}–${fmtS(m.endS!)} s)` : ''}</span>
         <span className="lib-cap" data-testid="overlay-pick-verdict" style={{ color: judged ? undefined : '#c27400' }}>{m.verdict}</span>
         <span style={{ marginLeft: 'auto' }} />
         <Button size="sm" variant="link" testid="overlay-pick-clear" onClick={onClear}>clear</Button>
       </div>
       <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-        <Button size="sm" icon="minus" testid="overlay-pick-remove" disabled={busy} disabledReason="writing…" onClick={onRemove}>Remove from family</Button>
-        <Button size="sm" icon="checklist" testid="overlay-pick-review" disabled={busy || judged} disabledReason={busy ? 'writing…' : `already judged (${m.verdict}): Review holds its verdict`} onClick={onSend}>Send to Review</Button>
-        <Button size="sm" icon="external" testid="overlay-pick-explore" disabled={noSpan} disabledReason="this member carries no recording span" onClick={onExplore}>Open in Explore</Button>
+        <Button size="sm" variant="danger" icon="minus" testid="overlay-pick-remove" disabled={busy} disabledReason="writing…" onClick={onRemove}>Remove from family</Button>
+        <Button size="sm" variant="primary" icon="checklist" testid="overlay-pick-review" disabled={busy || judged} disabledReason={busy ? 'writing…' : `already judged (${m.verdict}): Review holds its verdict`} onClick={onSend}>Send to Review</Button>
+        <Button size="sm" variant="primary" icon="external" testid="overlay-pick-explore" disabled={noSpan} disabledReason="this member carries no recording span" onClick={onExplore}>Open in Explore</Button>
       </div>
     </div>
   )

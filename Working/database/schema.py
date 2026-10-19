@@ -1749,6 +1749,8 @@ def init_db(db_path=None):
     _migrate_windowed_tables(conn)
     # review-carry (2026-10-18): a carried verdict's source row, and the class label given in Review (additive)
     _migrate_adjudications_columns(conn)
+    # reports (2026-10-19): a saved report snapshot's path (additive)
+    _migrate_reports_table(conn)
     return conn
 
 
@@ -1805,4 +1807,29 @@ CREATE INDEX IF NOT EXISTS idx_runs_config ON runs(config_id, recording_id, span
 
 def _migrate_windowed_tables(conn):
     conn.executescript(_WINDOWED_SCHEMA)
+    conn.commit()
+
+
+# reports (2026-10-19, docs/prompts/changes/reports.md). One row per saved report snapshot: what it reports on
+# (`kind` "detection-run" with the Discovery `run_key` and its session, or "chain-run" with the job id in `run_id`),
+# when, and the PATH of the directory holding its report.html, report.md and PNGs — never the bytes (rule 4).
+# Not a rule-5 table: a report is neither a detection nor a verdict. Additive: CREATE TABLE IF NOT EXISTS only.
+_REPORTS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS reports (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind        TEXT    NOT NULL,
+    run_key     TEXT,
+    run_id      INTEGER,
+    session_id  INTEGER,
+    title       TEXT,
+    created_at  TEXT    NOT NULL,
+    path        TEXT    NOT NULL,
+    note        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_reports_run ON reports(kind, run_key);
+"""
+
+
+def _migrate_reports_table(conn):
+    conn.executescript(_REPORTS_SCHEMA)
     conn.commit()

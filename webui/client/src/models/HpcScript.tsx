@@ -26,7 +26,7 @@ export function ScriptBlock({ script, path, testid }: { script: string; path: st
     <div style={{ marginTop: 6 }}>
       <div className="row" style={{ gap: 8, alignItems: 'baseline' }}>
         <span className="mono small" data-testid={`${testid}-path`}>{path}</span>
-        <button className="btn sm" onClick={copy} data-testid={`${testid}-copy`}>{copied ? 'copied' : 'copy the script'}</button>
+        <button className="btn sm primary" onClick={copy} data-testid={`${testid}-copy`}>{copied ? 'copied' : 'copy the script'}</button>
       </div>
       <pre className="mono small" data-testid={testid} style={{ maxHeight: 320, overflow: 'auto', background: 'var(--bg-2, #f6f6f6)', padding: 8, borderRadius: 6, whiteSpace: 'pre' }}>{script}</pre>
     </div>

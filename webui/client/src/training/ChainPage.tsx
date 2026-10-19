@@ -178,14 +178,14 @@ function ChainBody({ data, source }: { data: TrainingChain; source: SourceKind }
           <span className="sub" data-testid="footer-sub">{human ? data.human.footer.sub : `blocked split ${WINDOWS.params.split} · gap ${WINDOWS.params.gap_min} min · ${fmtInt(WINDOWS.unreviewed)} windows never human-reviewed`}</span>
         </span>
         <span className="k-spacer" />
-        {human && <Chip tone="amber" icon="alert-triangle" testid="illustrative-chip">illustrative · out of scope</Chip>}
+        {human && <Chip tone="amber" icon="info" testid="illustrative-chip">illustrative · out of scope</Chip>}
         {!human && (
-          <Button icon="inbox" onClick={() => setModal('send-review')} testid="send-review"
+          <Button variant="primary" icon="inbox" onClick={() => setModal('send-review')} testid="send-review"
             disabled={draft.queuedToReview > 0} disabledReason={draft.queuedToReview > 0 ? `${fmtInt(draft.queuedToReview)} windows are already queued this session` : undefined}>
             Send {fmtInt(WINDOWS.unreviewed)} unseen windows to Review
           </Button>
         )}
-        <Button icon="download" onClick={() => notWired('export this run as a manifest + recipe bundle')} testid="export-run">Export run</Button>
+        <Button variant="primary" icon="download" onClick={() => notWired('export this run as a manifest + recipe bundle')} testid="export-run">Export run</Button>
       </div>
 
       <SaveTemplateModal open={modal === 'save-template'} onClose={() => setModal(null)} defaultName={draft.name} stages={stages}
@@ -217,7 +217,7 @@ function ChainRow({ block, status, bypassed, human, invalid, onOpen, onBypass, o
         {broken && (
           <span className="acts" data-testid={`row-fix-${block.id}`}>
             <Button size="sm" variant="primary" icon="undo" onClick={onRestore} testid={`row-restore-${block.id}`}>Put the stage back</Button>
-            <Button size="sm" icon="sliders" onClick={onOpen} testid={`row-rebind-${block.id}`}>Open 05 and rebind its input</Button>
+            <Button variant="primary" size="sm" icon="sliders" onClick={onOpen} testid={`row-rebind-${block.id}`}>Open 05 and rebind its input</Button>
           </span>
         )}
         <span className="acts">
@@ -283,7 +283,7 @@ function RowPlot({ block, human, data, invalid }: { block: TrainingBlock; human:
       </span>
       {/* 0b has no backlog to trial and no local channel to trial it on: only the hand-off stays. */}
       {!human && (
-        <Button icon="flask" onClick={() => navigate('analyse/training/block/5?focus=trial')} testid="trial-job"
+        <Button variant="primary" icon="flask" onClick={() => navigate('analyse/training/block/5?focus=trial')} testid="trial-job"
           disabled={invalid} disabledReason={invalid ? 'the chain has an invalid junction · put the deleted stage back first' : undefined}>
           Trial job on this channel
         </Button>

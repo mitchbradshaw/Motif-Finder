@@ -35,7 +35,7 @@
  *    the bridge returns no distribution for those bases, so the panel says there is none. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Button, Callout, Checkbox, Icon, InfoTip, Modal, NumberField, ProgressBar, Seg, SelectField, Slider, TextField, fmtInt, useQueryState,
+  About, Button, Callout, Checkbox, Icon, InfoTip, Modal, NumberField, ProgressBar, Seg, SelectField, Slider, TextField, fmtInt, useQueryState,
   type IconName,
 } from '../kit'
 import { useToast } from '../shell/Toast'
@@ -544,12 +544,12 @@ function GroupingEditor({ from }: { from: string }) {
         </>}
       <span style={{ marginLeft: 'auto' }} />
       {failed
-        ? <><Button onClick={() => { job.reset(); setStateQ(null) }}>Back to settings</Button><Button variant="primary" icon="refresh" testid="regroup-retry" onClick={() => { setStateQ(null); job.reset(); runPreview() }}>Retry</Button></>
-        : <Button testid="regroup-cancel" disabled={writing} disabledReason="the grouping is being written" onClick={() => { job.cancel(); setStateQ(null); push({ text: 'Regroup cancelled · nothing was written' }) }}>Cancel job</Button>}
+        ? <><Button variant="primary" onClick={() => { job.reset(); setStateQ(null) }}>Back to settings</Button><Button variant="primary" icon="refresh" testid="regroup-retry" onClick={() => { setStateQ(null); job.reset(); runPreview() }}>Retry</Button></>
+        : <Button variant="danger" testid="regroup-cancel" disabled={writing} disabledReason="the grouping is being written" onClick={() => { job.cancel(); setStateQ(null); push({ text: 'Regroup cancelled · nothing was written' }) }}>Cancel job</Button>}
     </div>
   ) : (
     <>
-      <Button icon="save" testid="save-grouping" disabled={!!saveReason} disabledReason={saveReason ?? undefined} onClick={onSave}>{pv ? 'Save as a grouping' : 'Compute and save'}</Button>
+      <Button variant="primary" icon="save" testid="save-grouping" disabled={!!saveReason} disabledReason={saveReason ?? undefined} onClick={onSave}>{pv ? 'Save as a grouping' : 'Compute and save'}</Button>
       {overLimit
         ? <Button variant="cluster" icon="server" testid="apply-grouping" disabled={!!applyReason} disabledReason={applyReason ?? undefined} onClick={onApply}>Create SLURM script</Button>
         : <Button variant="primary" icon="check" testid="apply-grouping" disabled={!!applyReason} disabledReason={applyReason ?? undefined} onClick={onApply}>{pv ? 'Apply grouping' : 'Compute and apply'}</Button>}
@@ -646,7 +646,7 @@ function GroupingEditor({ from }: { from: string }) {
             <span className="row mono small muted" style={{ gap: 8 }} data-testid="preview-uncomputed">
               <Icon name="info" size={11} style={{ verticalAlign: -1 }} />
               {stale ? 'the settings changed since the last preview' : 'the preview is measured, not estimated'} — {unitCount == null ? 'the catalogue' : `${fmtInt(unitCount)} ${UNIT_LABEL[d.unit]}`} are grouped without writing anything
-              <Button size="sm" icon="play" testid="compute-preview" disabled={busy} disabledReason="already running" onClick={() => runPreview()}>Compute preview</Button>
+              <Button variant="primary" size="sm" icon="play" testid="compute-preview" disabled={busy} disabledReason="already running" onClick={() => runPreview()}>Compute preview</Button>
             </span>
           )}
 
@@ -667,7 +667,8 @@ function GroupingEditor({ from }: { from: string }) {
             </span>
           )}
 
-          <span className="mono small" style={{ color: '#c27400' }} data-testid="apply-clears-scope"><Icon name="alert-triangle" size={11} style={{ verticalAlign: -1 }} /> applying regroups the whole catalogue and clears the current scope{current ? `; ${current.id} stays saved` : ''}</span>
+          {/* polish: what Apply does is a consequence to know, not a call to act — ⓘ, text-2 (not an amber ⚠) */}
+          <span className="mono small" style={{ color: 'var(--text-2)' }} data-testid="apply-clears-scope"><Icon name="info" size={11} style={{ verticalAlign: -1 }} /> applying regroups the whole catalogue and clears the current scope{current ? `; ${current.id} stays saved` : ''}</span>
           {overLimit && <span className="mono small" style={{ color: '#c27400' }}><Icon name="hourglass" size={11} style={{ verticalAlign: -1 }} /> over the core's local limit — the regroup is exported as a cluster job</span>}
           {pv && job.view.result?.treeNote && <span className="mono small muted" data-testid="preview-tree-note"><Icon name="info" size={11} style={{ verticalAlign: -1 }} /> the tree: {job.view.result.treeNote}</span>}
           {savedId && <span className="mono small" style={{ color: 'var(--green)' }} data-testid="grouping-saved"><Icon name="check" size={11} style={{ verticalAlign: -1 }} /> saved as {savedId}</span>}
@@ -680,7 +681,7 @@ function GroupingEditor({ from }: { from: string }) {
             <div className="mono small">{job.view.refusal.message}</div>
             {job.view.refusal.cheaper.length
               ? <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 6 }}>{job.view.refusal.cheaper.map((c, i) => (
-                <Button key={i} size="sm" icon="play" testid={`cheaper-${i}`} disabled={busy} disabledReason="already running" onClick={() => runCheaper(c)}>{c.change} · ~{fmtSeconds(c.seconds)}</Button>
+                <Button variant="primary" key={i} size="sm" icon="play" testid={`cheaper-${i}`} disabled={busy} disabledReason="already running" onClick={() => runCheaper(c)}>{c.change} · ~{fmtSeconds(c.seconds)}</Button>
               ))}</div>
               : <div className="mono small muted">the method names no cheaper setting that fits; reduce the members grouped</div>}
           </Callout>
@@ -749,7 +750,7 @@ function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onBuild, bus
     return (
       <section className="lib-ge-sec" data-testid="ge-tree">{head}
         <Callout tone="amber" title="No tree to draw" testid="tree-missing" action={tree.canBuild
-          ? <Button size="sm" icon="play" testid="tree-build" disabled={busy} disabledReason="a regroup is running" onClick={onBuild}>Build the tree</Button> : undefined}>
+          ? <Button variant="primary" size="sm" icon="play" testid="tree-build" disabled={busy} disabledReason="a regroup is running" onClick={onBuild}>Build the tree</Button> : undefined}>
           {tree.reason}{tree.canBuild ? ' — it computes the grouping again at the settings below and keeps its tree; Apply saves it as a new grouping.' : ''}
         </Callout>
       </section>
@@ -765,7 +766,7 @@ function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onBuild, bus
           <Icon name="info" size={11} style={{ verticalAlign: -1 }} /> built by the regroup just run and kept on disk — not saved to {gid}. Apply saves it with the new grouping; {gid} stays as it is.
         </span>
       )}
-      <span className="lib-cap">Drag the amber line to cut the tree somewhere else; the families below follow at once, read from the kept tree.</span>
+      <span className="lib-cap row" style={{ gap: 4 }}>drag the amber line to cut <InfoTip title="Cutting the tree">Drag the amber line to cut the tree somewhere else; the families below follow at once, read from the kept tree.</InfoTip></span>
       <Dendrogram t={{ dendrogram: d }} k={k} cutHeight={cut} leafWord="members" heightScale="sqrt"
         cutLabel={`cut ${fmtCut(cut)} · ${k} branch${k === 1 ? '' : 'es'} before the size and distance rules · drag`}
         onK={kk => onCut(+heightFor(d.heights, d.max_height, kk).toFixed(4))} />
@@ -824,7 +825,7 @@ function Params({ d, set, basis, dist, extent, clusterings, invalid, methods, cu
     return (
       <div className="lib-params">
         <div className="stack" style={{ gap: 6 }}>
-          <span className="lib-cap" style={{ fontSize: 11 }}>feature</span>
+          <span className="lib-key">feature</span>
           {/* one basis, one measurement: `bases.py` computes exactly one number per feature basis, so there is
               no feature to choose and the old two-option select was a choice that did not exist */}
           <div className="mono small">{axis?.label ?? basis}{axis?.unit ? ` · ${axis.unit}` : ''}</div>
@@ -837,8 +838,8 @@ function Params({ d, set, basis, dist, extent, clusterings, invalid, methods, cu
           </span></div>}
           {err('range')}
           {d.bins === 'fixed' && <><div className="lib-param-row"><span>edges</span><TextField size="sm" value={d.edges} onChange={v => set({ edges: v })} invalid={invalid?.field === 'edges'} testid="param-edges" width={190} suffix={axis?.unit} /></div>{err('edges')}</>}
-          {d.bins === 'quantiles' && <span className="lib-cap">edges at the quantiles; every member falls in a bin</span>}
-          {extent && <span className="lib-cap">measured range {extent[0].toPrecision(3)} – {extent[1].toPrecision(3)} {axis?.unit}</span>}
+          {d.bins === 'quantiles' && <span className="lib-cap row" style={{ gap: 4 }}>quantile edges <InfoTip title="Quantile bins">edges at the quantiles; every member falls in a bin</InfoTip></span>}
+          {extent && <span className="lib-meta">measured range {extent[0].toPrecision(3)} – {extent[1].toPrecision(3)} {axis?.unit}</span>}
         </div>
         {dist && dist.length
           ? <FeatureHistogram bins={dist} edges={invalid ? [] : edges} scale={axis?.scale ?? 'linear'} unit={axis?.unit ?? ''} lo={lo} hi={hi}
@@ -859,7 +860,7 @@ function Params({ d, set, basis, dist, extent, clusterings, invalid, methods, cu
         <div className="lib-params">
           <div className="stack" style={{ gap: 6 }}>
             {methodRow}
-            {spec?.description && <span className="lib-cap" data-testid="method-description">{spec.description}</span>}
+            {spec?.description && <About label="about this method" testid="method-about"><span data-testid="method-description">{spec.description}</span></About>}
             {spec ? <MethodParams spec={spec} values={d.mparams[method] ?? {}} onChange={(k, v) => set({ mparams: { ...d.mparams, [method]: { ...(d.mparams[method] ?? {}), [k]: v } } })} />
               : <span className="lib-cap">the editor read carries no parameters for {method}</span>}
             <span className="row small" style={{ gap: 6 }}>how many families<InfoTip title="How many families">How many families this gives, and whether each beats noise of the same colour, is measured by the preview.</InfoTip></span>
@@ -895,9 +896,9 @@ function Params({ d, set, basis, dist, extent, clusterings, invalid, methods, cu
         {basis === 'provenance' && <div className="lib-param-row"><span>by</span><Seg size="sm" value={d.provBy} onChange={v => set({ provBy: v })} testid="param-prov" options={[{ value: 'recording', label: 'recording' }, { value: 'run', label: 'run' }, { value: 'spike_train', label: 'spike train' }]} /></div>}
         {basis === 'custom' && (clusterings.length
           ? <>
-            <span className="lib-cap" style={{ fontSize: 11 }}>clustering</span>
+            <span className="lib-key">clustering</span>
             <SelectField value={d.clustering} onChange={v => set({ clustering: v })} options={clusterings.map(c => ({ value: c.value, label: c.label }))} testid="param-clustering" />
-            <Callout tone="amber" icon="info">{clusterings.find(c => c.value === d.clustering)?.scope ?? 'registered clustering'}</Callout>
+            <Callout tone="grey" icon="info">{clusterings.find(c => c.value === d.clustering)?.scope ?? 'registered clustering'}</Callout>
           </>
           : <Callout tone="amber" icon="info" testid="no-clusterings">No clustering is registered. Export one from Analyse and register it before grouping by it.</Callout>)}
       </div>

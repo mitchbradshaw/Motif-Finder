@@ -22,6 +22,7 @@ const WORKSPACES: Record<string, ComponentType> = {
   review: lazyNamed(() => import('./review'), 'ReviewPage'),
   library: lazyNamed(() => import('./library'), 'LibraryPage'),
   jobs: lazyNamed(() => import('./jobs'), 'JobsPage'),
+  reports: lazyNamed(() => import('./reports'), 'ReportsPage'),   // reports (2026-10-19)
   settings: lazyNamed(() => import('./settings'), 'SettingsPage'),
   kit: lazyNamed(() => import('./kit/Gallery'), 'KitGallery'),
 }

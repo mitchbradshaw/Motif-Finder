@@ -66,10 +66,10 @@ export function SuspectedArtifactCard({ p }: { p: SuspectedArtifactPanel }) {
           {yt.map(v => (
             <g key={v}>
               <line x1={PAD_L} x2={width - 6} y1={y(v)} y2={y(v)} stroke="var(--line, #e6e6e6)" strokeWidth={0.5} />
-              <text x={PAD_L - 4} y={y(v) + 3} textAnchor="end" style={{ fontSize: 9 }}>{v}</text>
+              <text x={PAD_L - 4} y={y(v) + 3} textAnchor="end" style={{ fontSize: 10.5 }}>{v}</text>
             </g>
           ))}
-          <text x={4} y={12} style={{ fontSize: 9 }}>{p.unit ?? ''}</text>
+          <text x={4} y={12} style={{ fontSize: 10.5 }}>{p.unit ?? ''}</text>
           {drawn.filter(l => !l.member).map(l => (
             <EnvelopePath key={l.recording_id} t={l.trace.t} v={l.v} x={x} y={y} stroke={l.colour}
               width={l.flagging ? 1.4 : 0.8} opacity={l.flagging ? 1 : 0.45} testid={`sa-trace-${l.channel_index}`} />

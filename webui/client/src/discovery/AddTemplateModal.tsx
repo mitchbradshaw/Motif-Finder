@@ -3,7 +3,7 @@
  * Cost decides the primary action (§7.5): within the 20 min local limit Add and run; above it Create SLURM script. */
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, Seg, StatTile, TextField, cx, useNotWired, useQueryState,
+  Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Gauge, Icon, InfoTip, Modal, Seg, StatTile, TextField, cx, useNotWired, useQueryState,
 } from '../kit'
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
@@ -11,6 +11,24 @@ import { useToast } from '../shell/Toast'
 import { getRebindExemplars, getBands, getBandsFor, getTemplates, previewRun, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryTemplate, type MeasuredPreview } from '../api/discovery'
 import { applyDiscoveryTemplates, applyDiscoveryTemplatesWithBands, applyDiscoveryTemplatesWindowed, type DiscBand } from '../api'
 import { RunGlyph } from './glyphs'
+import type { DiscVerdictCounts } from '../api'
+
+/** discovery-coverage (Q44): the template's verdict gauge — green interesting + seed, red not interesting + artifact,
+ *  grey unsure, over every human verdict on the template's detections (every run, every session, carried ones too).
+ *  Counts in the tooltip, never a percentage on the face. */
+export function VerdictGauge({ name, v, size = 22 }: { name: string; v?: DiscVerdictCounts; size?: number }) {
+  const c = v ?? { seed: 0, interesting: 0, not_interesting: 0, artifact: 0, unsure: 0, total: 0 }
+  const title = c.total > 0
+    ? `${name}: human verdicts on its detections, every run, every session
+`
+      + `green · interesting ${c.interesting} + seed ${c.seed}
+red · not interesting ${c.not_interesting} + artifact ${c.artifact}
+`
+      + `grey · unsure ${c.unsure}
+total ${c.total}`
+    : `${name}: no verdicts yet — nobody has judged a detection of this template in Review`
+  return <Gauge good={c.interesting + c.seed} bad={c.not_interesting + c.artifact} total={c.total} title={title} size={size} testid={`template-gauge-${name}`} />
+}
 import { LoadFailed, Loading } from './chrome'
 import { WindowScope, windowScopeOf } from './WindowScope'
 import type { Discovery } from './session'
@@ -198,10 +216,10 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
               : `${fmtMin(estimate)}${nBands ? ` (${nBands} bands × the sweep)` : ''} · ${over ? 'cluster' : 'local'}${unpriced > 0 ? ` · ${unpriced} not previewed` : ''}`}
           </span>}
           <Button onClick={onClose}>Cancel</Button>
-          <Button icon="plus" onClick={() => add(false)} disabled={!!blockReason || busy} disabledReason={blockReason ?? (busy ? 'adding the run…' : undefined)} testid="add-runs">Add {chosen.length * bandMult || ''} run{chosen.length * bandMult === 1 ? '' : 's'}</Button>
+          <Button variant="primary" icon="plus" onClick={() => add(false)} disabled={!!blockReason || busy} disabledReason={blockReason ?? (busy ? 'adding the run…' : undefined)} testid="add-runs">Add {chosen.length * bandMult || ''} run{chosen.length * bandMult === 1 ? '' : 's'}</Button>
           {over ? (
             <>
-              <DisabledReason reason={blockReason ?? `above the ${DISCOVERY_LIMIT_MIN} min local limit · create a SLURM script`}><Button icon="play" disabled disabledReason={blockReason ?? `above the ${DISCOVERY_LIMIT_MIN} min local limit · create a SLURM script`} testid="add-and-run">Add and run</Button></DisabledReason>
+              <DisabledReason reason={blockReason ?? `above the ${DISCOVERY_LIMIT_MIN} min local limit · create a SLURM script`}><Button variant="next" icon="play" disabled disabledReason={blockReason ?? `above the ${DISCOVERY_LIMIT_MIN} min local limit · create a SLURM script`} testid="add-and-run">Add and run</Button></DisabledReason>
               <Button variant="cluster" icon="file" onClick={slurm} disabled={!!blockReason || busy} disabledReason={blockReason ?? (busy ? 'adding the run…' : undefined)} testid="add-slurm">Create SLURM script</Button>
             </>
           ) : (
@@ -234,7 +252,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                     <Checkbox checked={checked} onChange={v => { setSel(v ? [...sel, t.name] : sel.filter(x => x !== t.name)); setFocusQ(t.name) }} disabled={!!reason} disabledReason={reason ?? undefined} ariaLabel={`select ${t.name}`} testid={`template-check-${t.name}`} />
                     <button type="button" className="dsc-tpl-body" onClick={() => setFocusQ(t.name)} aria-pressed={focus?.name === t.name}>
                       <b>{t.name}</b>
-                      <span className="row" style={{ gap: 6 }}><span className={cx('k-badge', t.kind === 'seed' ? 't-purple' : 't-blue')}>{t.kind}</span><span className="mono muted small">{t.signature}</span>{t.hasModel && <span className="k-badge t-grey" title="a model reaches Discovery only as a stage inside a detection template (P16)">model stage</span>}</span>
+                      <span className="row" style={{ gap: 6 }}><VerdictGauge name={t.name} v={t.verdicts} size={16} /><span className={cx('k-badge', t.kind === 'seed' ? 't-purple' : 't-blue')}>{t.kind}</span><span className="mono muted small">{t.signature}</span>{t.hasModel && <span className="k-badge t-grey" title="a model reaches Discovery only as a stage inside a detection template (P16)">model stage</span>}</span>
                       <span className="muted small" data-testid={`template-score-${t.name}`} data-scoring={t.scoring ? '1' : '0'}>{t.fits && inSessionNote(t) ? `${inSessionNote(t)} · ${t.lastScore}` : t.lastScore}{t.scoring && !t.lastScore.startsWith('scoring') ? ' · rescoring…' : ''}</span>
                     </button>
                     <span className="dsc-tpl-glyphs">{t.stages.slice(1).map((st, i) => <span key={i} className="row" style={{ gap: 3 }}>{i > 0 && <span className="muted">›</span>}<RunGlyph kind={st.glyph} width={38} height={24} /></span>)}</span>
@@ -349,7 +367,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                       <span className="muted small">{focusPreview ? `${focusPreview.sample_hours.toFixed(1)} h of ${focusPreview.channel}` : '4 h of one channel'}</span>
                       <span className="k-spacer" />
                       <span className={cx('k-badge', focusPreview ? 't-green' : 't-grey')}>{focusPreview ? 'measured' : 'not previewed'}</span>
-                      <Button size="sm" icon="flask" onClick={() => preview(focus)} disabled={previewing !== null} disabledReason={previewing ? `previewing ${previewing}` : undefined} testid="run-preview">
+                      <Button variant="primary" size="sm" icon="flask" onClick={() => preview(focus)} disabled={previewing !== null} disabledReason={previewing ? `previewing ${previewing}` : undefined} testid="run-preview">
                         {focusPreview ? 'Preview again' : 'Preview on a 4 h sample'}
                       </Button>
                     </div>

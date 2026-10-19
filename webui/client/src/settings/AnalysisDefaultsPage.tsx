@@ -59,21 +59,21 @@ function Body({ data }: { data: Data }) {
       <SectionCard title="Matching rule" subtitle="what counts as the same event · §4.6" testid="matching-card">
         <Row label="reciprocal overlap (IoU)" info="Two spans are the same event when their overlap divided by their union is at least this."
           dot={s.differs('iou')} unsaved={s.dirty('iou')} testid="iou-row" id="f-reciprocal-overlap-iou-"
-          caption="every precision and recall figure is a function of this">
+          tip="every precision and recall figure is a function of this">
           <Slider value={s.num('iou')} onChange={v => s.set('iou', v)} min={0.05} max={1} step={0.05} width={170} format={v => v.toFixed(2)} testid="iou" />
         </Row>
         <Row label="onset tolerance" dot={s.differs('onset')} unsaved={s.dirty('onset')} testid="onset-row"
-          caption="a detection whose onset is inside this counts as matched">
+          tip="a detection whose onset is inside this counts as matched">
           <Slider value={s.num('onset')} onChange={v => s.set('onset', v)} min={0} max={1} step={0.05} width={170} format={v => `${v.toFixed(2)} × duration`} testid="onset" />
         </Row>
         <Row label="window-label containment" info="Q-D2's containment figure scores a detection by the 600-sample review windows it falls in. Centre: the windows its middle lies in — does the detector fire where a human saw something. Wholly inside: only windows that contain all of it (Q41's rule, mirrored) — stricter, and a detection longer than a window, or sticking out past one, gets no verdict. Every containment figure prints the mode it was computed under."
           dot={s.differs('containment')} unsaved={s.dirty('containment')} testid="containment-row"
-          caption="like the IoU, changing it is a versioned act — every precision · containment figure already shown was computed under the old mode">
+          tip="like the IoU, changing it is a versioned act — every precision · containment figure already shown was computed under the old mode">
           <SelectField value={s.str('containment') || 'centre'} onChange={v => s.set('containment', v)} width={190} testid="containment"
             options={[{ value: 'centre', label: 'centre in the window' }, { value: 'whole', label: 'wholly inside' }]} />
         </Row>
         <Row label="seed-search exclusion zone" dot={s.differs('exclusion')} unsaved={s.dirty('exclusion')} testid="exclusion-row"
-          caption="the trivial-match guard">
+          tip="the trivial-match guard">
           <SelectField value={s.str('exclusion')} onChange={v => s.set('exclusion', v)} width={110} testid="exclusion"
             options={['m / 4', 'm / 2', 'm'].map(o => ({ value: o, label: o }))} />
         </Row>
@@ -88,26 +88,26 @@ function Body({ data }: { data: Data }) {
       <SectionCard title="Cross-channel classification" subtitle="lag on the same absolute window · seconds, converted with each recording's fs" testid="cross-channel-card">
         <Row label="artifact: |lag| at most" info="Events on two electrodes at the same time are contamination (a shared ground, common-mode pickup), whatever the sign of r — the researcher's rule, Q40b. A sub-second propagation is out of reach at 1 Hz."
           dot={s.differs('cross_channel.artifact_max_lag_s')} unsaved={s.dirty('cross_channel.artifact_max_lag_s')} testid="xc-artifact-row"
-          caption="and |r| at least the artifact test's own floor below (fixup-AD)">
+          tip="and |r| at least the artifact test's own floor below (fixup-AD)">
           <NumberField value={s.num('cross_channel.artifact_max_lag_s')} min={0} max={60} step={0.5} unit="s" width={110}
             validate={v => v > s.num('cross_channel.propagation_max_lag_s') ? 'above the propagation ceiling' : null}
             onValid={v => s.set('cross_channel.artifact_max_lag_s', v)} testid="xc-artifact-lag" />
         </Row>
         <Row label="artifact: |r| at least" info="A suspected artifact must be a near-copy: |r| at least this at |lag| within the artifact line (the researcher raised it from 0.5 to 0.98, Round 12). Under it, a simultaneous pair is independent — not propagation."
           dot={s.differs('cross_channel.artifact_min_abs_r')} unsaved={s.dirty('cross_channel.artifact_min_abs_r')} testid="xc-artifact-r-row"
-          caption="the machine only flags; a human confirms in Review">
+          tip="the machine only flags; a human confirms in Review">
           <NumberField value={s.num('cross_channel.artifact_min_abs_r')} min={0} max={1} step={0.01} width={100}
             onValid={v => s.set('cross_channel.artifact_min_abs_r', v)} testid="xc-artifact-min-r" />
         </Row>
         <Row label="propagation: r floor (|r|)" info="Below this |r| a pair is independent whatever its lag — two windows that do not look alike are not one event on two electrodes. Tested on |r|: the sign is stored on the edge, never binned."
           dot={s.differs('cross_channel.min_abs_r')} unsaved={s.dirty('cross_channel.min_abs_r')} testid="xc-floor-row"
-          caption="the artifact test has its own floor, above">
+          tip="the artifact test has its own floor, above">
           <NumberField value={s.num('cross_channel.min_abs_r')} min={0} max={1} step={0.05} width={100}
             onValid={v => s.set('cross_channel.min_abs_r', v)} testid="xc-min-r" />
         </Row>
         <Row label="propagation: |lag| at most" info="Above the artifact line and up to this many seconds, a pair at or above the r floor is the event travelling to the other electrode. Past it, independent recurrence."
           dot={s.differs('cross_channel.propagation_max_lag_s')} unsaved={s.dirty('cross_channel.propagation_max_lag_s')} testid="xc-prop-row"
-          caption="bins already stored keep the rule they were computed under — the Family page says when it differs">
+          tip="bins already stored keep the rule they were computed under — the Family page says when it differs">
           <NumberField value={s.num('cross_channel.propagation_max_lag_s')} min={0} max={3600} step={5} unit="s" width={110}
             validate={v => v < s.num('cross_channel.artifact_max_lag_s') ? 'below the artifact line' : null}
             onValid={v => s.set('cross_channel.propagation_max_lag_s', v)} testid="xc-prop-lag" />
@@ -115,20 +115,20 @@ function Body({ data }: { data: Data }) {
         {/* fixup-AD (Rounds 11-12): every bin must beat chance — the same sibling at K random other times */}
         <Row label="chance test: random windows (K)" info="Each pair's |r| is compared with the same sibling at K random other times — windows of the member's length, at least 60 s from it, inside the recording, never over a human-marked artifact. Seeded from the member id, so a re-run draws the same windows. Short clips of slow drift correlate with anything; this is what tells a copy from a coincidence (Q40d)."
           dot={s.differs('cross_channel.null_k')} unsaved={s.dirty('cross_channel.null_k')} testid="xc-null-k-row"
-          caption="the percentile and K are stored with every result">
+          tip="the percentile and K are stored with every result">
           <NumberField value={s.num('cross_channel.null_k')} min={1} max={10000} step={10} width={110}
             onValid={v => s.set('cross_channel.null_k', Math.round(v))} testid="xc-null-k" />
         </Row>
         <Row label="chance test: percentile" info="A match counts only if its |r| is above this percentile of its own pair's random |r|. At 95, one pair in twenty passes by chance — and a member is tested against every sibling channel, so a human looks at every flag."
           dot={s.differs('cross_channel.null_percentile')} unsaved={s.dirty('cross_channel.null_percentile')} testid="xc-null-pct-row"
-          caption="strictly above">
+          tip="strictly above">
           <NumberField value={s.num('cross_channel.null_percentile')} min={50} max={99.9} step={0.5} width={110}
             validate={v => v <= 0 || v >= 100 ? 'between 0 and 100' : null}
             onValid={v => s.set('cross_channel.null_percentile', v)} testid="xc-null-pct" />
         </Row>
         <Row label="too short to tell: under" info="A member shorter than this is not classified: counted as too short to tell, never binned, never padded (padding adds shared drift, which correlates on its own). Most Fig2A members are 10–16 samples."
           dot={s.differs('cross_channel.min_samples')} unsaved={s.dirty('cross_channel.min_samples')} testid="xc-min-samples-row"
-          caption="the noise floor on both swings is Settings › Datasets' (0.1 mV where empty)">
+          tip="the noise floor on both swings is Settings › Datasets' (0.1 mV where empty)">
           <NumberField value={s.num('cross_channel.min_samples')} min={4} max={10000} step={1} unit="samples" width={130}
             onValid={v => s.set('cross_channel.min_samples', Math.round(v))} testid="xc-min-samples" />
         </Row>
@@ -171,22 +171,22 @@ function Body({ data }: { data: Data }) {
 
       <SectionCard title="Artifact likelihood" subtitle="shown in Review, never blinded" testid="artifact-card">
         <Row label="cross-channel coherence flag" dot={s.differs('coherence')} unsaved={s.dirty('coherence')} testid="coherence-row"
-          caption="coherence in the span across channels sharing a clock">
+          tip="coherence in the span across channels sharing a clock">
           <span className="mono small">≥</span>
           <NumberField value={s.num('coherence')} min={0} max={1} step={0.05} width={100} onValid={v => s.set('coherence', v)} testid="coherence" />
         </Row>
-        <Row label="clipping" dot={s.differs('clipping')} unsaved={s.dirty('clipping')} testid="clipping-row" caption="samples at the rail">
+        <Row label="clipping" dot={s.differs('clipping')} unsaved={s.dirty('clipping')} testid="clipping-row" tip="samples at the rail">
           <span className="mono small">≥</span>
           <NumberField value={s.num('clipping')} min={50} max={100} integer unit="% range" width={130} onValid={v => s.set('clipping', v)} testid="clipping" />
         </Row>
-        <Row label="step change" dot={s.differs('step_x')} unsaved={s.dirty('step_x')} testid="step-row" caption="a jump this big is read as an electrode event">
+        <Row label="step change" dot={s.differs('step_x')} unsaved={s.dirty('step_x')} testid="step-row" tip="a jump this big is read as an electrode event">
           <span className="mono small">&gt;</span>
           <NumberField value={s.num('step_x')} min={1} max={50} width={90} onValid={v => s.set('step_x', v)} testid="step-x" />
           <span className="mono small">× floor within</span>
           <NumberField value={s.num('step_within')} min={0.1} max={60} step={0.1} unit="s" width={100} onValid={v => s.set('step_within', v)} testid="step-within" />
         </Row>
         <Row label="bands" sub="likelihood from the weighted factors" dot={s.differs('band_low')} unsaved={s.dirty('band_low') || s.dirty('band_medium')} testid="bands-row"
-          caption="low green · medium amber · high red">
+          tip="low green · medium amber · high red">
           <span className="s-swatch" style={{ background: 'var(--green)' }} /><span className="mono small">low &lt;</span>
           <NumberField value={s.num('band_low')} min={0.01} max={0.99} step={0.05} width={90} testid="band-low"
             onValid={v => { s.set('band_low', v); s.markInvalid('band_low', v >= s.num('band_medium') ? 'low must be below medium' : null) }} />
@@ -199,17 +199,17 @@ function Body({ data }: { data: Data }) {
 
       <SectionCard title="Step cache" testid="cache-card">
         <Row label="write stage artifacts slower than" dot={s.differs('cache_min_s')} unsaved={s.dirty('cache_min_s')} testid="cache-min-row"
-          caption="faster stages re-run instead of being cached">
+          tip="faster stages re-run instead of being cached">
           <Slider value={s.num('cache_min_s')} onChange={v => s.set('cache_min_s', v)} min={0} max={30} step={0.5} width={170} format={v => `${v.toFixed(1)} s`} testid="cache-min" />
         </Row>
         <Row label="keep stale artifacts for" id="f-keep-stale-artifacts-for" dot={s.differs('cache_keep_days')} unsaved={s.dirty('cache_keep_days')} testid="cache-keep-row"
-          caption="a stale artifact is one whose recipe changed">
+          tip="a stale artifact is one whose recipe changed">
           <NumberField value={s.num('cache_keep_days')} min={1} max={365} integer unit="days" width={120} onValid={v => s.set('cache_keep_days', v)} testid="cache-keep" />
         </Row>
         <Row label="location" dot={s.differs('cache_location')} unsaved={s.dirty('cache_location')} testid="cache-location-row"
           caption={<>{cacheGb.toFixed(1)} GB in use · <button type="button" className="k-link" onClick={() => navigate('settings/storage-backups')}>Storage</button></>}>
           <TextField value={s.str('cache_location')} onChange={v => s.set('cache_location', v)} width={220} testid="cache-location" />
-          <Button icon="trash" testid="clear-cache" onClick={() => setModal('clear-cache')}>Clear cache</Button>
+          <Button variant="danger" icon="trash" testid="clear-cache" onClick={() => setModal('clear-cache')}>Clear cache</Button>
         </Row>
       </SectionCard>
 
@@ -248,7 +248,7 @@ function RoseCard({ s }: { s: ReturnType<typeof useSettingsPage> }) {
         testid="rose-reference-row" caption={r ? (r.stored ? `stored ${r.computed_at?.slice(0, 10) ?? ''} · recomputed only when you press Recompute` : 'not stored yet: the roses read this computed value until you store it') : 'reading…'}>
         {ref.error && <span className="small" style={{ color: 'var(--red)' }}>{ref.error.message}</span>}
         <span className="mono" data-testid="rose-reference-value" data-population={r?.population ?? ''} data-stored={r?.stored ? '1' : '0'}>{r ? r.text : '…'}</span>
-        <Button size="sm" icon="refresh" testid="rose-recompute" loading={busy} disabled={busy} disabledReason="recomputing…"
+        <Button variant="primary" size="sm" icon="refresh" testid="rose-recompute" loading={busy} disabled={busy} disabledReason="recomputing…"
           onClick={() => { setBusy(true); setErr(null); recomputeRoseReference().then(x => { setDone(x); ref.reload() }, e => setErr(String(e?.message ?? e))).finally(() => setBusy(false)) }}>Recompute and store</Button>
         {err && <span className="small" style={{ color: 'var(--red)' }} data-testid="rose-recompute-error">{err}</span>}
       </Row>
@@ -281,7 +281,7 @@ function BandsCard({ s }: { s: ReturnType<typeof useSettingsPage> }) {
       footer={<Button variant="link" size="sm" icon="plus" testid="add-band"
         onClick={() => { const last = bands[bands.length - 1]; const lo = last ? last.high_hz : 0.01; write([...bands, { kind: 'bandpass', label: `band ${bands.length + 1}`, low_hz: lo, high_hz: +(lo * 4).toPrecision(3) }]) }}>Add a band</Button>}>
       <Row label="named bands" dot={s.differs('bands')} unsaved={s.dirty('bands')} testid="bands-row"
-        caption="seeded with three log-spaced bands for a 1 Hz recording; the last stops at 0.45 Hz because 0.5 Hz is its Nyquist">
+        tip="seeded with three log-spaced bands for a 1 Hz recording; the last stops at 0.45 Hz because 0.5 Hz is its Nyquist">
         <div className="s-band-list" data-testid="band-list">
           {bands.map((b, i) => (
             <div key={i} className="s-band" data-testid={`band-${i}`}>

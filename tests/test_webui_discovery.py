@@ -1421,3 +1421,205 @@ def test_the_map_refuses_the_held_out_recording_and_bad_arguments(client):
     assert client.get("/api/discovery/map/channel", params={"recording": "syn", "channel": "CH9", "binH": 3}).status_code == 404
     assert client.get("/api/discovery/map/dataset", params={"recording": "syn", "chunks": 3}).status_code == 422, "chunks is 1, 2, 4 or 8"
     assert client.get("/api/discovery/map/channel", params={"recording": "syn", "channel": "CH1", "binH": 0}).status_code == 422
+
+
+# ── seed-search (2026-10-18): the preview's matches kept as a run, with no second search ──────────
+
+def _seed_preview(client, channels=(CH[0], CH[1]), k=20):
+    """The page's preview for one query, finished; returns (query, result)."""
+    s = _seed(client)
+    q = {"seedId": s["id"], "channels": list(channels), "t0": 0.0, "t1": N / 3600.0, "k": k}
+    started = client.post("/api/discovery/seed/results", json=q)
+    assert started.status_code == 200, started.text
+    st = started.json()
+    if not st.get("ready"):
+        snap = _wait_job(client, st["job_id"])
+        assert snap["status"] == "completed", snap.get("error")
+    res = client.get("/api/discovery/seed/results", params={
+        "seedId": q["seedId"], "channels": ",".join(channels), "t0": 0.0, "t1": N / 3600.0, "k": k}).json()
+    assert res["ready"] is True, res
+    return q, res
+
+
+def _cut_between(res, nth=4):
+    """A cut halfway between two distinct distances, so rounding never decides a match."""
+    ds = sorted({c["d"] for c in res["candidates"]})
+    assert len(ds) > nth + 1, "the synthetic search returns enough distinct distances"
+    return round((ds[nth] + ds[nth + 1]) / 2.0, 6)
+
+
+def _keep(client, q, cut, **extra):
+    return client.post("/api/discovery/seed/keep", json={**q, "cut": cut, **extra})
+
+
+def _kept_done(client, r):
+    assert r.status_code == 200, r.text
+    out = r.json()
+    if out.get("job_id") and not out.get("done"):
+        snap = _wait_job(client, out["job_id"])
+        assert snap["status"] == "completed", snap.get("error")
+    return out
+
+
+def _refusal(r):
+    body = r.json()
+    return (body.get("detail") or body).get("message", "")
+
+
+def test_keep_writes_the_previews_matches_at_or_below_the_cut_without_a_second_search(client, monkeypatch):
+    import json
+    q, res = _seed_preview(client)
+    cut = _cut_between(res)
+    want = {}
+    for c in res["candidates"]:
+        if c["d"] <= cut:
+            want.setdefault(c["channel"], []).append(c)
+    assert want, "the cut keeps something"
+    # the preview IS the search: a keep that matched the seed again would reach one of these
+    from Adapters import detection_seed_matches as block
+
+    def no_search(*a, **k):
+        raise AssertionError("the keep searched again")
+    monkeypatch.setattr(block, "match_exemplar", no_search)
+    monkeypatch.setattr(_disc.seeded_search, "candidates", no_search)
+    artifacts_before = _counts(client, "step_artifacts")
+    out = _kept_done(client, _keep(client, q, cut, label="kept"))
+    assert out["reused"] is False and out["nullFrom"] == "preview"
+    row = _db_rows(client, "SELECT * FROM discovery_runs WHERE run_key = ?", (out["run_key"],))[0]
+    assert row["kind"] == "seed" and row["status"] == "done"
+    params = json.loads(row["params_json"])
+    assert params["null"]["source"] == "preview" and params["null"]["paired"] is False
+    assert params["null"]["draws"] == res["null"]["draws"], "the preview's null is the run's null"
+    ids = params["run_ids"]
+    assert len(ids) == len(q["channels"]), "one run per channel"
+    marks = ",".join("?" * len(ids))
+    assert not _db_rows(client, f"SELECT id FROM runs WHERE surrogate_of_run_id IN ({marks})", ids)
+    by_rec = {r["id"]: r for r in _db_rows(client, "SELECT * FROM recordings")}
+    n_total = 0
+    for rid in ids:
+        run = _db_rows(client, "SELECT * FROM runs WHERE id = ?", (rid,))[0]
+        assert run["status"] == "completed" and run["run_group_id"] == row["run_group_id"]
+        ch = f"CH{by_rec[run['recording_id']]['channel'] + 1}"
+        dets = _db_rows(client, "SELECT start_idx, end_idx, score FROM detections WHERE run_id = ? "
+                                "ORDER BY start_idx", (rid,))
+        exp = sorted(want.get(ch, []), key=lambda c: c["index"])
+        assert [d["start_idx"] for d in dets] == [c["index"] for c in exp], f"{ch}: exactly the matches under the cut"
+        assert [d["end_idx"] for d in dets] == [c["index"] + c["length"] for c in exp]
+        assert [d["score"] for d in dets] == pytest.approx([c["d"] for c in exp], abs=1e-3)
+        n_total += len(dets)
+    assert set(out["detectionIds"]) == {d["id"] for d in _db_rows(
+        client, f"SELECT id FROM detections WHERE run_id IN ({marks})", ids)}
+    assert _counts(client, "step_artifacts") == artifacts_before, \
+        "nothing the block did not compute is left in the step cache"
+    assert _counts(client, "adjudications") == 0, "a keep writes detections, never verdicts"
+    # the next reads see it: the runs list (AR's light status), the fires grid and the scoreboard
+    runs = {r["key"]: r for r in client.get("/api/discovery/runs").json()}
+    assert runs[out["run_key"]]["status"] == "done" and runs[out["run_key"]]["found"] == n_total
+    assert runs[out["run_key"]]["nullSource"] == "preview"
+    fires = client.get("/api/discovery/fires", params={"channels": ",".join(q["channels"]), "t0": 0.0,
+                                                        "t1": N / 3600.0, "runs": out["run_key"]}).json()
+    assert sum(sum(r["counts"]) for ch in fires["channels"] for r in ch["rows"]
+               if r["run"] == out["run_key"]) == n_total
+    sb = client.get("/api/discovery/scoreboard", params={"runs": out["run_key"], "channels": ",".join(q["channels"]),
+                                                         "t0": 0.0, "t1": N / 3600.0}).json()
+    assert sb[0]["total"]["found"] == n_total
+
+
+def test_a_keep_with_no_preview_is_a_409_that_says_so_and_writes_nothing(client):
+    s = _seed(client)
+    q = {"seedId": s["id"], "channels": [CH[0]], "t0": 0.0, "t1": N / 3600.0, "k": 33}
+    before = (_counts(client, "discovery_runs"), _counts(client, "runs"), _counts(client, "detections"))
+    r = _keep(client, q, 3.0)
+    assert r.status_code == 409, r.text
+    assert "preview" in _refusal(r), "a plain sentence naming what is missing"
+    assert r.json().get("detail", {}).get("needsPreview") is True
+    assert (_counts(client, "discovery_runs"), _counts(client, "runs"), _counts(client, "detections")) == before
+
+
+def test_a_second_keep_with_the_same_identity_returns_the_same_row(client):
+    q, res = _seed_preview(client)
+    cut = _cut_between(res)
+    first = _kept_done(client, _keep(client, q, cut))
+    n_rows, n_dets = _counts(client, "discovery_runs"), _counts(client, "detections")
+    again = _keep(client, q, cut)
+    assert again.status_code == 200, again.text
+    a = again.json()
+    assert a["reused"] is True and a["run_key"] == first["run_key"]
+    assert sorted(a["detectionIds"]) == sorted(first["detectionIds"])
+    assert (_counts(client, "discovery_runs"), _counts(client, "detections")) == (n_rows, n_dets)
+    # the preview gone (a restart that lost it, another query since): the keep that happened is still answered
+    with _disc._results_lock:
+        _disc._results.clear()
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    try:
+        conn.execute("UPDATE discovery_sessions SET state_json = '{}'")
+        conn.commit()
+    finally:
+        conn.close()
+    gone = _keep(client, q, cut)
+    assert gone.status_code == 200, gone.text
+    assert gone.json()["reused"] is True and gone.json()["run_key"] == first["run_key"]
+
+
+def test_a_keep_after_a_restart_reads_the_preview_back_from_the_session(client):
+    # the process dict outlives one test's database (its key names the file, not the database), so an earlier
+    # test's preview of this query would be served from memory and never stored in THIS session's row
+    with _disc._results_lock:
+        _disc._results.clear()
+    q, res = _seed_preview(client)
+    cut = _cut_between(res)
+    with _disc._results_lock:
+        _disc._results.clear()          # the process dict is gone after a restart; state_json is not
+    out = _kept_done(client, _keep(client, q, cut))
+    assert len(out["detectionIds"]) == sum(1 for c in res["candidates"] if c["d"] <= cut)
+
+
+def test_the_null_mode_off_is_gone_and_an_old_page_asking_for_it_reads_preview(client):
+    s = _seed(client)
+    r = client.post("/api/discovery/seed/run", json={"seedId": s["id"], "channels": [CH[0]], "t0": 0.0,
+                                                     "t1": N / 3600.0, "k": 20, "nullMode": "off"})
+    assert r.status_code == 422, r.text
+    assert "off" in _refusal(r)
+    e = client.get("/api/discovery/seed/estimate", params={"channels": CH[0], "t0": 0.0, "t1": N / 3600.0,
+                                                          "seedId": s["id"], "k": 20, "nullMode": "off"})
+    assert e.status_code == 200, e.text
+    assert e.json()["run"]["nullMode"] == "preview"
+
+
+# ── seed-search critic round: what a keep leaves behind, and a channel the cut empties ──────────────
+
+def test_a_keep_whose_take_back_never_ran_is_cleaned_up_by_the_next_keep(client, monkeypatch):
+    # a keep lays the preview's matches in the step cache for its own sweep; a server stopped mid-sweep never runs
+    # the take-back, and the entry would then be served to any later run of that recipe as if a block computed it
+    q, res = _seed_preview(client)
+    before = _counts(client, "step_artifacts")
+    real_take_back = _disc._take_back
+    monkeypatch.setattr(_disc, "_take_back", lambda *a, **k: None)
+    _kept_done(client, _keep(client, q, _cut_between(res, 2)))
+    assert _counts(client, "step_artifacts") > before, "the lost keep's entries are still there"
+    monkeypatch.setattr(_disc, "_take_back", real_take_back)
+    _disc._kept_live.clear()                                    # the restart: no keep of this process is running
+    _kept_done(client, _keep(client, q, _cut_between(res, 5)))
+    assert _counts(client, "step_artifacts") == before, "the next keep takes back what a lost keep laid"
+
+
+def test_a_cut_that_keeps_nothing_on_a_channel_still_writes_that_channels_run(client):
+    q, res = _seed_preview(client)
+    lowest = {}
+    for c in res["candidates"]:
+        lowest[c["channel"]] = min(lowest.get(c["channel"], 1e9), c["distance"])
+    (a, da), (b, db) = sorted(lowest.items(), key=lambda kv: kv[1])
+    assert db > da, "the two channels' closest matches differ"
+    above = min(c["distance"] for c in res["candidates"] if c["distance"] > da)
+    cut = (da + min(above, db)) / 2.0
+    out = _kept_done(client, _keep(client, q, cut))
+    row = _db_rows(client, "SELECT params_json FROM discovery_runs WHERE run_key = ?", (out["run_key"],))[0]
+    import json
+    ids = json.loads(row["params_json"])["run_ids"]
+    assert len(ids) == 2, "a channel the cut empties is still a run, as a real run would be"
+    per = {r["run_id"]: r["n"] for r in _db_rows(
+        client, f"SELECT run_id, COUNT(*) AS n FROM detections WHERE run_id IN ({','.join('?' * len(ids))}) "
+                "GROUP BY run_id", ids)}
+    assert sorted(per.get(i, 0) for i in ids)[0] == 0
+    runs = _db_rows(client, f"SELECT status FROM runs WHERE id IN ({','.join('?' * len(ids))})", ids)
+    assert all(r["status"] == "completed" for r in runs)

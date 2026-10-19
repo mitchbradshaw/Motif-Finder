@@ -302,7 +302,7 @@ export function ClusterJobsCard({ q, imp, seedImp }: { q: LiveRead<ClusterList>;
       {data && !rows.length && <EmptyState size="sm" bordered testid="exported-empty" icon="server"
         title={data.jobs.length ? 'No cluster job in this state' : 'Nothing is waiting on the cluster'}
         caption="Models › Launch (model: CNN) · Create SLURM script, the Shape clustering page's Ward over every training window, or the Seed page over the ceiling writes one"
-        action={<Button size="sm" icon="external" onClick={() => navigate('models/launch')}>Models › Launch</Button>} />}
+        action={<Button variant="primary" size="sm" icon="external" onClick={() => navigate('models/launch')}>Models › Launch</Button>} />}
       {!!rows.length && (
         <table className="jb-table jb-live" data-testid="exported-table">
           <colgroup><col /><col style={{ width: 92 }} /><col style={{ width: 150 }} /><col style={{ width: 120 }} /><col style={{ width: 230 }} /><col style={{ width: 150 }} /></colgroup>

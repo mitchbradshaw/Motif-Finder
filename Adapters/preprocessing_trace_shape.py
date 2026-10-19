@@ -23,6 +23,11 @@ the highest point for peak, the lowest for trough) and `shape_row`.
 fixup-am: `align` also offers `peak` / `trough` (signed maximum / minimum of the
 swing rule's guarded departure) and `anchor_frac` places the aligned sample at a
 fraction of the window (0.5, the middle, by default — AG's centring unchanged).
+
+ux-1019 (the researcher, 2026-10-19): `for_drops` (auto / on / off) picks the drop setting — `trough`, a third
+in — without touching align / anchor: auto when every window set in the pool was made from drop detections, on / off
+force it; a value set on align / anchor (anything but their default) wins.
+`Working.training.shape.resolve_alignment` is the one place this is decided (Launch reads it too).
 """
 
 import os
@@ -44,8 +49,8 @@ def _resample_default():
     return RESAMPLE_LENGTH
 
 
-def _run(x, t, fs, resample_length=None, noise_floor=True, align=None, detrend=None, anchor_frac=None, value=None,
-         conn=None, recording=None):
+def _run(x, t, fs, resample_length=None, noise_floor=True, align=None, detrend=None, anchor_frac=None, for_drops="auto",
+         value=None, conn=None, recording=None):
     from Working.training import shape as tshape
     if conn is None:
         raise ValueError("the Trace shape block reads each window's trace and its dataset's noise floor from the "
@@ -54,9 +59,14 @@ def _run(x, t, fs, resample_length=None, noise_floor=True, align=None, detrend=N
         raise ValueError("Trace shape needs the windows of a Window pool before it")
     frame = tshape.pool_frame(value)
     n = int(resample_length or _resample_default())
+    # ux-1019: the one resolver Launch and the B.2 recipe read too, so this chain is cut alike everywhere
+    p_how = {"align": align, "anchor_frac": anchor_frac, "for_drops": for_drops}
+    src = (tshape.drop_source(conn, frame["set_id"].unique().tolist())
+           if tshape._mode(for_drops) == "auto" and "set_id" in frame.columns else None)
+    how = tshape.resolve_alignment(p_how, src)
     shapes = tshape.trace_shapes(conn, frame, resample_length=n, noise_floor=bool(noise_floor),
-                                 align=align or tshape.DEFAULT_ALIGN, detrend=detrend or tshape.DEFAULT_DETREND,
-                                 anchor_frac=tshape.DEFAULT_ANCHOR_FRAC if anchor_frac is None else float(anchor_frac))
+                                 align=how["align"], detrend=detrend or tshape.DEFAULT_DETREND,
+                                 anchor_frac=how["anchor_frac"])
     d = os.path.join(RESULTS_DIR, shapes.key)
     path = os.path.join(d, "shapes.npz")
     if not os.path.isfile(path):
@@ -64,7 +74,8 @@ def _run(x, t, fs, resample_length=None, noise_floor=True, align=None, detrend=N
     meta = {k: shapes.meta[k] for k in ("resample_length", "noise_floor", "floors", "n_in", "n_kept", "under_floor",
                                         "unmeasured", "method", "seconds", "align", "detrend", "align_rule",
                                         "detrend_rule", "swing_rule", "recut", "anchor_frac", "anchor_rule")}
-    meta.update({"shape_file": os.path.abspath(path), "shape_key": shapes.key})
+    meta.update({"shape_file": os.path.abspath(path), "shape_key": shapes.key, "for_drops": how["for_drops"],
+                 "alignment_from": how["from"]})
     return AdapterResult(output_kind="windowset", value=tshape.frame_windowset(shapes.frame, os.path.abspath(path)),
                          meta=meta)
 
@@ -84,6 +95,13 @@ SPEC = register(AdapterSpec(
         ParamSpec("resample_length", int, _resample_default(),
                   "Points every window is resampled to before z-normalising — the Library's own length, so a "
                   "distance here means what it means in the Library.", min=8),
+        ParamSpec("for_drops", str, "auto",
+                  "For drops: line every window up on the bottom of its drop, a third of the way in (align trough, "
+                  "anchor 0.333 — the researcher's drop setting, 2026-10-19), so the recovery fits inside the window; "
+                  "otherwise centred on the largest swing, at the middle. auto: the drop setting when every window "
+                  "set in the pool was made from drop detections (saved from a chain with Drop detection), else "
+                  "centred. on / off force it either way. An align or anchor set below (anything but its default) "
+                  "wins over this switch. Models › Launch reads the same switch.", choices=["auto", "on", "off"]),
         ParamSpec("align", str, _default("DEFAULT_ALIGN"),
                   "grid: the window as the pool cut it. centre: re-cut, the same length, centred on its largest swing "
                   "either way (trend removed, a running median so a glitch cannot be it). peak: centred on its highest "
@@ -94,7 +112,7 @@ SPEC = register(AdapterSpec(
         ParamSpec("anchor_frac", float, _default("DEFAULT_ANCHOR_FRAC"),
                   "Where in the re-cut window the aligned sample lands, as a fraction of its length: 0.5 = the middle "
                   "(the default); 0.33 = a third in, so the recovery after a drop fits inside the window. For drop "
-                  "work set align trough with anchor 0.333 (the researcher's setting, 2026-10-18). Ignored on grid.",
+                  "work turn on 'for drops' (trough, anchor 0.333). Ignored on grid.",
                   min=0.0, max=1.0),
         ParamSpec("detrend", str, _default("DEFAULT_DETREND"),
                   "off: the trace as it is. linear: the window's straight line removed before the resample and "

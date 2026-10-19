@@ -261,57 +261,16 @@
  },
  {
   "page": "discovery.seed",
-  "state": "default",
-  "hash": "discovery/seed",
+  "state": "source-medoid",
+  "hash": "discovery/seed?step=1",
   "actions": [
    {
     "wait_for": [
-     "[data-testid=\"match-grid\"]",
+     "[data-testid=\"seed-provenance\"]",
      30000
     ]
    }
   ],
-  "expect": [
-   "[data-testid=\"seed-card\"]",
-   "[data-testid=\"cut-histogram\"]",
-   "[data-testid=\"match-grid\"]"
-  ],
-  "settle_ms": 900,
-  "_timing": "fixup-smoke2: the page reads in a waterfall (setup 1.6 s, then the seed's result 1.1 s, warm and alone; 3 s to the match grid) against a fixed 900 ms; the walk's precomputed result is now under the page's own key (Smoke.seed_page_query). Wait for the match grid, then assert the card and the cut histogram beside it"
- },
- {
-  "page": "discovery.seed",
-  "state": "source-explore",
-  "hash": "discovery/seed?source=explore",
-  "actions": [],
-  "expect": [
-   "[data-testid=\"apply-bar\"]"
-  ],
-  "settle_ms": 900,
-  "branch_on": {
-   "api": "/api/discovery/seeds?source=explore&offset=0&limit=8",
-   "items": "seeds",
-   "empty": {
-    "expect": [
-     "[data-testid=\"seed-explore-empty\"]"
-    ]
-   },
-   "populated": {
-    "expect": [
-     "[data-testid=\"seed-picker-explore\"]",
-     "[data-testid^=\"seed-option-explore:\"]"
-    ],
-    "expect_absent": [
-     "[data-testid=\"seed-explore-empty\"]"
-    ]
-   }
-  }
- },
- {
-  "page": "discovery.seed",
-  "state": "source-medoid",
-  "hash": "discovery/seed",
-  "actions": [],
   "expect": [
    "[data-testid=\"seed-provenance\"]"
   ],
@@ -320,8 +279,14 @@
  {
   "page": "discovery.seed",
   "state": "change-seed",
-  "hash": "discovery/seed",
+  "hash": "discovery/seed?step=1",
   "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"change-seed\"]",
+     30000
+    ]
+   },
    {
     "click": "[data-testid=\"change-seed\"]"
    },
@@ -337,8 +302,14 @@
  {
   "page": "discovery.seed",
   "state": "view-popover",
-  "hash": "discovery/seed",
+  "hash": "discovery/seed?step=3&profile=1",
   "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"profile-view\"]",
+     60000
+    ]
+   },
    {
     "click": "[data-testid=\"profile-view\"]"
    },
@@ -350,52 +321,8 @@
    "[data-testid=\"view-popover\"]",
    "[data-testid=\"view-apply\"]"
   ],
-  "settle_ms": 900
- },
- {
-  "page": "discovery.seed",
-  "state": "running",
-  "hash": "discovery/seed?state=running",
-  "actions": [
-   {
-    "wait": 300
-   }
-  ],
-  "expect": [
-   "[data-testid=\"seed-progress\"]",
-   "[data-testid=\"seed-cancel\"]"
-  ],
-  "settle_ms": 900
- },
- {
-  "page": "discovery.seed",
-  "state": "done",
-  "hash": "discovery/seed?state=done",
-  "actions": [
-   {
-    "wait": 400
-   }
-  ],
-  "expect": [
-   "[data-testid=\"seed-done\"]",
-   "[data-testid=\"seed-open-runs\"]"
-  ],
-  "settle_ms": 900
- },
- {
-  "page": "discovery.seed",
-  "state": "failed",
-  "hash": "discovery/seed?state=failed",
-  "actions": [
-   {
-    "wait": 300
-   }
-  ],
-  "expect": [
-   "[data-testid=\"seed-failed\"]",
-   "[data-testid=\"seed-retry\"]"
-  ],
-  "settle_ms": 900
+  "settle_ms": 900,
+  "_why": "seed-search: the distance profile is behind 'show the distance profile' in step 3 (?profile=1); needs the preview held (the walk's Smoke.seed_page_query)"
  },
  {
   "page": "discovery.seed",

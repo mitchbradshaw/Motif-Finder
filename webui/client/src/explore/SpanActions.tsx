@@ -89,7 +89,7 @@ export function SpanActions({ channelKey, channelName, recordingId, fs, initial,
       </div>
       <div>
         <div className="row" style={{ justifyContent: 'flex-end' }}>
-          <Button onClick={save} testid="save-span">Save span</Button>
+          <Button variant="primary" onClick={save} testid="save-span">Save span</Button>
           <SpanActionStrip window={view} windowWhat="the span in view" reviewChannels={[recordingId]} artifactChannels={[{ id: recordingId, name: channelName }]} referenceId={recordingId}
             origin="signal" note={draft.note.trim() || undefined} onOpenInAnalyse={onSend} onTake={take} taking={taking}
             onSent={() => onWritten?.()} onMarked={() => onWritten?.()} />
@@ -196,7 +196,7 @@ export function SpanActionStrip(p: SpanActionStripProps) {
   const nCh = p.reviewChannels.length
   return (
     <span className="row" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }} data-testid={p.testid ?? 'span-action-strip'}>
-      {p.onZoom && <Button size="sm" icon="search" onClick={p.onZoom} disabled={!!off} disabledReason={off ?? undefined} testid="strip-zoom">Zoom</Button>}
+      {p.onZoom && <Button size="sm" variant="primary" icon="search" onClick={p.onZoom} disabled={!!off} disabledReason={off ?? undefined} testid="strip-zoom">Zoom</Button>}
       <Button variant="primary" onClick={send} disabled={!!off || sending || !nCh} disabledReason={off ?? (sending ? 'sending…' : 'no channel to read')} testid="strip-send-unjudged"
         title={`every machine detection in ${range}${p.windowWhat ? ` (${p.windowWhat})` : ''} on ${nCh} channel${nCh === 1 ? '' : 's'} that has no verdict yet goes to one Review queue, “picked from Explore” (at most 2,000 at once)`}>
         Send unjudged to Review
