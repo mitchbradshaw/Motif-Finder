@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "0d1949e2f530",
+  "tasks": 4,
+  "label": "OASIS_Deconvolution__threshold_5",
+  "spec": "HPC/Detection/generated/rq4_batch3/CO_fs2/OASIS_Deconvolution__threshold_5_4ch_0-3456000_0d1949.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

@@ -1,0 +1,365 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "drop_detection_v1",
+  "runKey": null,
+  "sessionId": null,
+  "template": "drop_detection_v1",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "detrend",
+      "params": {
+        "mode": "rolling_mean_nearest",
+        "window_s": 4916.67
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "stage_encoding",
+      "params": {
+        "same_fraction": 0.6,
+        "segment_seconds": 98.33,
+        "slope_sigma": 8.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "drop_detection",
+      "params": {},
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    4578553
+  ],
+  "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 5,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 645,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH0.npy",
+      "npySha1": "c1f19f59587c0a926e79934f415b755665dc4e91",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 645,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "bb98fc4c",
+      "prefixHashes": [
+        "5d8feb3600ac407bda0a524a386d67dbf70637f820291281fd048f422b777270",
+        "a22e6716eaacea19c1b521cb766ab6359c9bb8ecc124ad13ee00b1af7cf3b00a",
+        "bdcaf2631521e75c901f6bf41193bdfc666e6cce2f01a0ca8ec956b808635017"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 646,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH1.npy",
+      "npySha1": "6eec1ece5e0e0da5917747eeffd0f79b0b6c9a9f",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 646,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "6eecae08",
+      "prefixHashes": [
+        "2d6cb91955e0ad4b9a9093cb787f2c7c732b8bb2d8a7cc07cb1ac4df0dc25652",
+        "2cebaf500815613088e4ced0c3c447159b5e7a48f135f25e6b7249270edfa3f6",
+        "a5da553347f6a05529ede917493e1e0aec8f638b093ce9693c18827f73dc7624"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 647,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH2.npy",
+      "npySha1": "ae2e975cbd9fa1a51a280ba5801f60e759d80921",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 647,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "8a09f8f1",
+      "prefixHashes": [
+        "5d446b5e12811d4021527787772fc8e84d1a87a5c27dc32e7f46f019cf8c3659",
+        "c9b29c4918191f3d91bfb5f4ecc08095e13bb7fe98912abc0d72ac0658ecbad1",
+        "1e6e68bbb1fb00483bba6ac622e2d8b59495a4e88bfd3615693b2632567368e8"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 648,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH3.npy",
+      "npySha1": "ce82bea0513563911aae946584013aef6c40a1d4",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 648,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "7c80abae",
+      "prefixHashes": [
+        "81ce4fa38fa1b9c2b1e72d4d1242bab63bc46ce7b5b98c246b6a4ca3a6e80636",
+        "b7cf5814529f3e4ca0c9d1ae82389f88b0339d0f0c527bfa7c0145c2ffe3f4ae",
+        "6684d644d8120294ed708085aceeb9c76741dff8db8e1faedd0faabb791bf88f"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 649,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH4.npy",
+      "npySha1": "7d7fd9b3081bc3b3de763d37683c6cc810094ef2",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 649,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "811c667e",
+      "prefixHashes": [
+        "2daba7b9fa9932bc4ab630b32581c13f6a795031b203c7f6043ce624cee7d549",
+        "24268a9770aa4670cc7350f86c22af848b8a96bf1143db26b41de723fd122381",
+        "4ff484e13cfda5037e412db2b1a2609997612e812e1d2b8d63bb7eeab842da58"
+      ],
+      "chunks": []
+    }
+  ]
+}

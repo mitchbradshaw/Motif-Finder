@@ -1,0 +1,377 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "cnn_fusion3_60min",
+  "runKey": null,
+  "sessionId": null,
+  "template": "cnn_fusion3_60min",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "sliding_windows",
+      "params": {
+        "gap_s": 0.0,
+        "window_s": 3600.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "catalogue",
+      "algorithm": "cnn_window_scores",
+      "params": {
+        "image_type": "fusion",
+        "model_path": "MODELS/fusion_cnn_3.pth",
+        "resample_to": 600
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "threshold",
+      "params": {
+        "threshold": 0.5
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    4578553
+  ],
+  "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 5,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 645,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH0.npy",
+      "npySha1": "c1f19f59587c0a926e79934f415b755665dc4e91",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 645,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "d0cd983a",
+      "prefixHashes": [
+        "ae80a8d6e1949ed97d89dd28ec54503a4248d9c8bf269e4aad000890476ff4e3",
+        "8bf4e5c64176f1c0c6bf610693e9f7df3f646d6d6eae0a923965e2551403f815",
+        "d0cd983a5b5492d8fe27ea0e8f21f31dd197e8f0bdd5f17ec53ebcbacdf0c2d0"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 646,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH1.npy",
+      "npySha1": "6eec1ece5e0e0da5917747eeffd0f79b0b6c9a9f",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 646,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "21342784",
+      "prefixHashes": [
+        "480bbf72cd5059dd10aff77c1af675f5835b85bbb74528a5d48ec57b686cfad5",
+        "8feae2a591a250eea26129f92292280ce8c03ca8bed7f1a43c8213d49e55d0f2",
+        "21342784fc91558bb7cee62c5ecfb5c88c6507bb5d0c8f95d4b44d16035deed9"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 647,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH2.npy",
+      "npySha1": "ae2e975cbd9fa1a51a280ba5801f60e759d80921",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 647,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "789e3721",
+      "prefixHashes": [
+        "4dd2873d5a1ca7ef16d63623b7ff01bc822b043cd6d4b2f5ca0d829951e6c9bf",
+        "54c336a67192aacad05f89616993af5f52da2555f7058e9ce105a7f11cf1b98e",
+        "789e372146e145f250008b783dc3eb0d907d5549c66e41351b10aefc699d0fe1"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 648,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH3.npy",
+      "npySha1": "ce82bea0513563911aae946584013aef6c40a1d4",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 648,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "c49e29cf",
+      "prefixHashes": [
+        "6ff0abf7dd55a93604c7637283d22c6dff0317ef0a3a373411d893385689cd6c",
+        "f118892578627f40fb80b5901a5d0e7673860bf15a5d9ad18b494a6877ae6cd1",
+        "c49e29cf29c8a1b01f415fd3ef1b5cd5b456363f5ef60d498cb204d7effa0c09"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 649,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH4.npy",
+      "npySha1": "7d7fd9b3081bc3b3de763d37683c6cc810094ef2",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 649,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "fusion",
+              "model_path": "MODELS/fusion_cnn_3.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "6e065631",
+      "prefixHashes": [
+        "5dac2818784ce1d0d2702d55f0b622dbbc7d7b9d9f016e1232786634eb1ce2fe",
+        "a86d3882af5ab0a734f3af0252d4570af1682a99a6ff273235954696f634f04b",
+        "6e065631a9b1571bd602e879b8017c6efff34c9e0d62b13d9a14688a0a726129"
+      ],
+      "chunks": []
+    }
+  ]
+}

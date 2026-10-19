@@ -1,0 +1,314 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "cnn_gadf_10min",
+  "runKey": null,
+  "sessionId": null,
+  "template": "cnn_gadf_10min",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "sliding_windows",
+      "params": {
+        "gap_s": 0.0,
+        "window_s": 600.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "catalogue",
+      "algorithm": "cnn_window_scores",
+      "params": {
+        "image_type": "GADF",
+        "model_path": "MODELS/GADF_cnn.pth",
+        "resample_to": 600
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "threshold",
+      "params": {
+        "threshold": 0.5
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    3456000
+  ],
+  "sourceFile": "LM_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 4,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 637,
+      "sourceFile": "LM_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "from manifest.json: V as stored in the source (volts: values about -0.7..0.3, the scale of MJu26a, the raw parent of L_LM); nothing is rescaled",
+      "npy": "DATA/derived/channels/LM_fs2/CH0.npy",
+      "npySha1": "89ec0f196d64a2731b5393a67bad80ec787d130b",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 637,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "GADF",
+              "model_path": "MODELS/GADF_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "9f157a62",
+      "prefixHashes": [
+        "4082b49f7a25c3e20eceed1cd058b713ed9d3ef9af71a4b36aa56b5c2a7cb645",
+        "0541a15f16213da3542b25ff3b8bd86faa77aa40636116c0c7ce3ea257a95c35",
+        "9f157a6291c7ea82cc1e4ca84b828d42abf4d09b95ea2a92e7718d1431e8d8d1"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 638,
+      "sourceFile": "LM_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "from manifest.json: V as stored in the source (volts: values about -0.7..0.3, the scale of MJu26a, the raw parent of L_LM); nothing is rescaled",
+      "npy": "DATA/derived/channels/LM_fs2/CH1.npy",
+      "npySha1": "d5dac858e50f1882c44924ede6e69f83257f49e5",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 638,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "GADF",
+              "model_path": "MODELS/GADF_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "a130dfb1",
+      "prefixHashes": [
+        "d1e986fdeb1927c1b544c490dbc25288457abaae2c671c215d397a5efbce00d5",
+        "ed7cf289046a1739bbd9249d3db9259e9d783c6a3e08631ecea9dbf414966b9e",
+        "a130dfb1eca2433fefe2011e4f6d845563f1f99718dd696a9cc5e4cb0c1b6e7e"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 639,
+      "sourceFile": "LM_fs2.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "from manifest.json: V as stored in the source (volts: values about -0.7..0.3, the scale of MJu26a, the raw parent of L_LM); nothing is rescaled",
+      "npy": "DATA/derived/channels/LM_fs2/CH2.npy",
+      "npySha1": "497272c4c69b525a053d6a38ab1a768b6fced194",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 639,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "GADF",
+              "model_path": "MODELS/GADF_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b426c6aa",
+      "prefixHashes": [
+        "74d5a3dd61178db486f1b2db5507dfd72e2c21e16484575214ac6b4835421184",
+        "3b138dfc57ea90983d13ec9329a9bae7366651f6f5afba6647110851aa4a038a",
+        "b426c6aa7316b247d8f4d3945c3e098441e5372868e657e27bfce150cd55fa1f"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 640,
+      "sourceFile": "LM_fs2.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "from manifest.json: V as stored in the source (volts: values about -0.7..0.3, the scale of MJu26a, the raw parent of L_LM); nothing is rescaled",
+      "npy": "DATA/derived/channels/LM_fs2/CH3.npy",
+      "npySha1": "74fa6e790c8832e3b83772f77ae366fa72b88ab5",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 640,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "GADF",
+              "model_path": "MODELS/GADF_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "111737ab",
+      "prefixHashes": [
+        "a6ca36734b0e3c6d8063e88a626ba06ced3d3287d4f23802bb8167d349f83f99",
+        "fef8e0c639a6a3ca15bd8d0b235c6c8bb5a0761f41e36dec3f6a3b88961ae74d",
+        "111737ab0d62c82cb7b2fde25090fec5e67c12fc0419e9918dd83852f72a55fb"
+      ],
+      "chunks": []
+    }
+  ]
+}

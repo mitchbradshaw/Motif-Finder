@@ -1,0 +1,447 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "deconvolved_troughs__recovery_half_s_60",
+  "runKey": null,
+  "sessionId": null,
+  "template": "deconvolved_troughs__recovery_half_s_60",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "detrend",
+      "params": {
+        "mode": "rolling_mean",
+        "window_s": 3600.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "deconvolve",
+      "params": {
+        "baseline_window_s": 1800.0,
+        "noise_scale": "level",
+        "recovery_half_s": 60.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "impulse_events",
+      "params": {},
+      "side_inputs": {}
+    },
+    {
+      "stage": "interrogation",
+      "algorithm": "event_shape",
+      "params": {},
+      "side_inputs": {}
+    },
+    {
+      "stage": "interrogation",
+      "algorithm": "intervals",
+      "params": {},
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    4578553
+  ],
+  "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 5,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 645,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH0.npy",
+      "npySha1": "c1f19f59587c0a926e79934f415b755665dc4e91",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 645,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "33053229",
+      "prefixHashes": [
+        "8c2d828a12971abcdad8414107fdc0644d0eec7aedd2badfb70e68e85de3a9e4",
+        "0a9711197342d663c2f95d881b5edfe18faabf87c562c61ad1998f0aacd90a7f",
+        "c88d195eb66d912362026e4ccffc3b66c75337ef9d56b0cef08d05580db0d669",
+        "d45b0d535b1cac326e4c3397b3b73b812c3c5c20d53669e45873fad2caafea86",
+        "315dd61db63a130e1003ff470641f476c2741b420a93f0e9281f501339ca1fbc"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 646,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH1.npy",
+      "npySha1": "6eec1ece5e0e0da5917747eeffd0f79b0b6c9a9f",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 646,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "daab5f5f",
+      "prefixHashes": [
+        "2f827f842a3c57e80e2500ddb32e16492627a328520a47254a50cdf33f53f8dc",
+        "9396cb1b880a4c395952da0033579af206739e8fccec05d1492bb604a2c36b67",
+        "2c6a7db8821f74119ef0e5b8781004b0aa371c4719e056e2a0afb9a675872660",
+        "9531fdeb18b3893ff00ddd1cc8a7cc0d1889142cdf4ea176e11b536f7dc64233",
+        "609ab19db84b53ec49fabf5f2a8413c4ea3a05925c3391a90cfd4424ab376cd7"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 647,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH2.npy",
+      "npySha1": "ae2e975cbd9fa1a51a280ba5801f60e759d80921",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 647,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b719a1df",
+      "prefixHashes": [
+        "2cb55586a3c041b3eaf5efeece0d88a2ff33f49cfae125c183fd1e0fb253d590",
+        "331c78a1b9815e0d98e57e8bbb845f46b14c6a1cb0b86bd3284e322e3aa2da4c",
+        "b0f7ab5611357f183137854cf2cb37107a64eed7c6aecd2792eb5bc1baeddd33",
+        "699864601613a815df5125f939f25d48bed82cb1168a53e95fa2d9466b71822d",
+        "77491d73d352e286adab59bd8d88277476ab76f0aa958768f8213f19db4fe789"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 648,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH3.npy",
+      "npySha1": "ce82bea0513563911aae946584013aef6c40a1d4",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 648,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "dd7c3651",
+      "prefixHashes": [
+        "73a73f5d6d866529acb0cdccb3dc7cdd47a7e0969a6e9540baa96b07b02b8de1",
+        "85fc537c6f6ea169fccfa5a2c3a89fd169317152a6f247275ed413a0cba7196d",
+        "7509e6d7259cadab96a69d50caadaffa230331ba5c0d6616422e0c134aaf6168",
+        "72bdbbb1b1eeb377b6a437661dddf5d928c354664a457cd876dfb615f79b9caa",
+        "83cb8f4270cfc1cd3839d4cb1b37abfa242137c9bad145391a67eaa62c5d31b4"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 649,
+      "sourceFile": "L_LM_Jul_26_J_raw_fs2.mat",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "from manifest.json: mV as stored in the source (millivolts: x1000 of MJu26a, verified 2026-09-23); nothing is rescaled",
+      "npy": "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH4.npy",
+      "npySha1": "7d7fd9b3081bc3b3de763d37683c6cc810094ef2",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 649,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "8c5f0816",
+      "prefixHashes": [
+        "858cd7104b547bb17ec465a71703814c6ceb8da316b1d918608cefb6615901a3",
+        "228da544dbb06d89f0f2254f53837b1829641a8897e91de450391bfc4664591e",
+        "302c754083a45225ed3043cb39f8552987eea615d88e90655503afb75d28410c",
+        "be82b8a5c8693dfba8655a6033c0c55c45835d7e09147651c11b24ded8d8e5b9",
+        "e9f15e9a25b3fa5a004e47c864d377a1fecdb5e0e4e7517d0f6ab3fe7126aa1b"
+      ],
+      "chunks": []
+    }
+  ]
+}

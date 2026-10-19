@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "5aeb5174e1a5",
+  "tasks": 4,
+  "label": "noise_threshold__k_sigma_6",
+  "spec": "HPC/Detection/generated/rq4_batch3/LM_fs2/noise_threshold__k_sigma_6_4ch_0-3456000_5aeb51.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

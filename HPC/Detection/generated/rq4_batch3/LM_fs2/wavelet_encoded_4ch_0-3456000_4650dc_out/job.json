@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "4650dc7e86e6",
+  "tasks": 4,
+  "label": "wavelet_encoded",
+  "spec": "HPC/Detection/generated/rq4_batch3/LM_fs2/wavelet_encoded_4ch_0-3456000_4650dc.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

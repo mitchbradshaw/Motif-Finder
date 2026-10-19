@@ -1,0 +1,280 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "Wavelet_detection_prototype__epsilon_factor_0p02",
+  "runKey": null,
+  "sessionId": null,
+  "template": "Wavelet_detection_prototype__epsilon_factor_0p02",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "wavelet_bands",
+      "params": {
+        "level": 2,
+        "levels": 0,
+        "wavelet": "db4"
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "dehshibi_spikes",
+      "params": {
+        "epsilon_factor": 0.02,
+        "min_roi_wavelet": 30,
+        "min_spike_duration": 60,
+        "n_p": 60
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    3456000
+  ],
+  "sourceFile": "LM_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 4,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 637,
+      "sourceFile": "LM_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "from manifest.json: V as stored in the source (volts: values about -0.7..0.3, the scale of MJu26a, the raw parent of L_LM); nothing is rescaled",
+      "npy": "DATA/derived/channels/LM_fs2/CH0.npy",
+      "npySha1": "89ec0f196d64a2731b5393a67bad80ec787d130b",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 637,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.02,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "57a83bc3",
+      "prefixHashes": [
+        "391acb21f18757565deea6ff8e57450ce8ca812081d03f0fe5594914ae0305aa",
+        "57a83bc33cb24133dfc0c3b2ab7cf312769edf9b44ffba4c4deeaf7ed3a9d943"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 638,
+      "sourceFile": "LM_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "from manifest.json: V as stored in the source (volts: values about -0.7..0.3, the scale of MJu26a, the raw parent of L_LM); nothing is rescaled",
+      "npy": "DATA/derived/channels/LM_fs2/CH1.npy",
+      "npySha1": "d5dac858e50f1882c44924ede6e69f83257f49e5",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 638,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.02,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "f07839e6",
+      "prefixHashes": [
+        "034fe9446c8ca6cad7667a315b570715cf5220403938624c78731718d0329f44",
+        "f07839e63746d7a5079c6a2dd9dd171aa015c7e4070bc7c4fedca68cb8eefb70"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 639,
+      "sourceFile": "LM_fs2.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "from manifest.json: V as stored in the source (volts: values about -0.7..0.3, the scale of MJu26a, the raw parent of L_LM); nothing is rescaled",
+      "npy": "DATA/derived/channels/LM_fs2/CH2.npy",
+      "npySha1": "497272c4c69b525a053d6a38ab1a768b6fced194",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 639,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.02,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "9d239181",
+      "prefixHashes": [
+        "603495d28c797b7491293c3e726750c3bd4af737a27013025fd0e7afbb567677",
+        "9d239181ed75261fa07e6ada01b08efa8f9d0684c4d38abb04dff2cd8af767e3"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 640,
+      "sourceFile": "LM_fs2.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "from manifest.json: V as stored in the source (volts: values about -0.7..0.3, the scale of MJu26a, the raw parent of L_LM); nothing is rescaled",
+      "npy": "DATA/derived/channels/LM_fs2/CH3.npy",
+      "npySha1": "74fa6e790c8832e3b83772f77ae366fa72b88ab5",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 640,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.02,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "10ac3bb7",
+      "prefixHashes": [
+        "3724a85d577d553514230f05967bde3bb1f452137967f3f56bff9df9636ee31c",
+        "10ac3bb754290059223b39f3756b50ffdc437ca0c9107d312cdfa56b0f56764c"
+      ],
+      "chunks": []
+    }
+  ]
+}

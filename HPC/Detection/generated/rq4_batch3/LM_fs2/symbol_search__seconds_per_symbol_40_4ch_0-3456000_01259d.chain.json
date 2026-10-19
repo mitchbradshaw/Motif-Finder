@@ -1,0 +1,309 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "symbol_search__seconds_per_symbol_40",
+  "runKey": null,
+  "sessionId": null,
+  "template": "symbol_search__seconds_per_symbol_40",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "detrend",
+      "params": {
+        "mode": "rolling_mean",
+        "window_s": 600.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "sax_dsax",
+      "params": {
+        "alphabet_size": 3,
+        "seconds_per_symbol": 40.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "symbol_search",
+      "params": {
+        "pattern": "c+a+"
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    3456000
+  ],
+  "sourceFile": "LM_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 4,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 637,
+      "sourceFile": "LM_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "from manifest.json: V as stored in the source (volts: values about -0.7..0.3, the scale of MJu26a, the raw parent of L_LM); nothing is rescaled",
+      "npy": "DATA/derived/channels/LM_fs2/CH0.npy",
+      "npySha1": "89ec0f196d64a2731b5393a67bad80ec787d130b",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 637,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "sax_dsax",
+            "params": {
+              "alphabet_size": 3,
+              "seconds_per_symbol": 40.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "symbol_search",
+            "params": {
+              "pattern": "c+a+"
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b1773611",
+      "prefixHashes": [
+        "65aebeaaa3bff00600d0513cf46944bc57c03f8b38fbe1767510f4d64619ebfa",
+        "3bdd9f0d8e1db5c48867d47d89be7e17200080d251f35df85108ebe70a6467e8",
+        "b1773611a3cec3bef856b938e2aed14bd4461619dafc816f287fab50e9a290d9"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 638,
+      "sourceFile": "LM_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "from manifest.json: V as stored in the source (volts: values about -0.7..0.3, the scale of MJu26a, the raw parent of L_LM); nothing is rescaled",
+      "npy": "DATA/derived/channels/LM_fs2/CH1.npy",
+      "npySha1": "d5dac858e50f1882c44924ede6e69f83257f49e5",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 638,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "sax_dsax",
+            "params": {
+              "alphabet_size": 3,
+              "seconds_per_symbol": 40.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "symbol_search",
+            "params": {
+              "pattern": "c+a+"
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "88e1e247",
+      "prefixHashes": [
+        "68d03dbc4e517eeafba359a706329256f682c3559397d5d028960af7dc92feaa",
+        "7fe139ad698bd26009ec2d7789543ba343d2f494c5667898ec8402632a1a469a",
+        "88e1e247cefdc3ea704da72ab7596123ccdfb3238a0f26888f465672d93fb517"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 639,
+      "sourceFile": "LM_fs2.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "from manifest.json: V as stored in the source (volts: values about -0.7..0.3, the scale of MJu26a, the raw parent of L_LM); nothing is rescaled",
+      "npy": "DATA/derived/channels/LM_fs2/CH2.npy",
+      "npySha1": "497272c4c69b525a053d6a38ab1a768b6fced194",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 639,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "sax_dsax",
+            "params": {
+              "alphabet_size": 3,
+              "seconds_per_symbol": 40.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "symbol_search",
+            "params": {
+              "pattern": "c+a+"
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "831a24c6",
+      "prefixHashes": [
+        "973f99998f672df8055ea48f28d614c12a57992a1aa2c664e20e97aa6042b36e",
+        "02e0830741ef68b7d25a3a38c04818741dcdb91897c3f4b56e1646cabf227bd4",
+        "831a24c6495700d25dd54fce58b051d4d4879e3a91985dd88145f2e9852d6693"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 640,
+      "sourceFile": "LM_fs2.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "from manifest.json: V as stored in the source (volts: values about -0.7..0.3, the scale of MJu26a, the raw parent of L_LM); nothing is rescaled",
+      "npy": "DATA/derived/channels/LM_fs2/CH3.npy",
+      "npySha1": "74fa6e790c8832e3b83772f77ae366fa72b88ab5",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 640,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "sax_dsax",
+            "params": {
+              "alphabet_size": 3,
+              "seconds_per_symbol": 40.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "symbol_search",
+            "params": {
+              "pattern": "c+a+"
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "0bb0706e",
+      "prefixHashes": [
+        "f5d8cf8926d6949ab4dbf0caa6003a484084bdb49d1505a562042c3b5aff2439",
+        "45e8250aca3b36b1d6288ff2417d8b88e26d83650dd44a54fd836c798b8b3e76",
+        "0bb0706e14a69d32257cb8fd77e85d62bc4886e84b45e19e10f51adf725ebfd7"
+      ],
+      "chunks": []
+    }
+  ]
+}

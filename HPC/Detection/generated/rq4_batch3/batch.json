@@ -1,0 +1,99 @@
+{
+  "prefix": "rq4c",
+  "datasets": [
+    {
+      "source": "LM_fs2.mat",
+      "folder": "HPC/Detection/generated/rq4_batch3/LM_fs2",
+      "jobs": 43,
+      "tasks": 170,
+      "refused": [],
+      "leftOut": [],
+      "heavy": false,
+      "unit": "V",
+      "mpChannels": [
+        "CH1",
+        "CH2"
+      ],
+      "mpLeftOut": null
+    },
+    {
+      "source": "CO_fs2.mat",
+      "folder": "HPC/Detection/generated/rq4_batch3/CO_fs2",
+      "jobs": 43,
+      "tasks": 170,
+      "refused": [],
+      "leftOut": [],
+      "heavy": false,
+      "unit": "V",
+      "mpChannels": [
+        "CH1",
+        "CH2"
+      ],
+      "mpLeftOut": null
+    },
+    {
+      "source": "L_LM_Jul_26_J_raw_fs2.mat",
+      "folder": "HPC/Detection/generated/rq4_batch3/L_LM_Jul_26_J_raw_fs2",
+      "jobs": 43,
+      "tasks": 212,
+      "refused": [],
+      "leftOut": [],
+      "heavy": false,
+      "unit": "mV",
+      "mpChannels": [
+        "CH1",
+        "CH2"
+      ],
+      "mpLeftOut": null
+    }
+  ],
+  "inputs": [
+    "DATA/derived/channels/LM_fs2/CH0.npy",
+    "DATA/derived/channels/LM_fs2/CH1.npy",
+    "DATA/derived/channels/LM_fs2/CH2.npy",
+    "DATA/derived/channels/LM_fs2/CH3.npy",
+    "DATA/derived/channels/CO_fs2/CH0.npy",
+    "DATA/derived/channels/CO_fs2/CH1.npy",
+    "DATA/derived/channels/CO_fs2/CH2.npy",
+    "DATA/derived/channels/CO_fs2/CH3.npy",
+    "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH0.npy",
+    "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH1.npy",
+    "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH2.npy",
+    "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH3.npy",
+    "DATA/derived/channels/L_LM_Jul_26_J_raw_fs2/CH4.npy",
+    "MODELS/GADF_cnn.pth",
+    "MODELS/GASF_cnn.pth",
+    "MODELS/fusion_cnn_3.pth",
+    "MODELS/recurrence_cnn.pth"
+  ],
+  "packs": [
+    {
+      "name": "rq4c_cpu1",
+      "script": "HPC/Detection/generated/rq4_batch3/rq4c_cpu1.sh",
+      "tasks": 351,
+      "parallel": 8,
+      "estimateCoreS": 50821
+    },
+    {
+      "name": "rq4c_cpu2",
+      "script": "HPC/Detection/generated/rq4_batch3/rq4c_cpu2.sh",
+      "tasks": 39,
+      "parallel": 3,
+      "estimateCoreS": 12267
+    },
+    {
+      "name": "rq4c_gpuA",
+      "script": "HPC/Detection/generated/rq4_batch3/rq4c_gpuA.sh",
+      "tasks": 81,
+      "parallel": 8,
+      "estimateCoreS": 92354
+    },
+    {
+      "name": "rq4c_gpuB",
+      "script": "HPC/Detection/generated/rq4_batch3/rq4c_gpuB.sh",
+      "tasks": 81,
+      "parallel": 8,
+      "estimateCoreS": 92383
+    }
+  ]
+}

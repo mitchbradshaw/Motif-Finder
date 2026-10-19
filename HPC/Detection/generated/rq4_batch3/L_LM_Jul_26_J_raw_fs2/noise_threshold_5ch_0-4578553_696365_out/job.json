@@ -1,0 +1,14 @@
+{
+  "kind": "detection_chain",
+  "specHash": "696365b4a398",
+  "tasks": 5,
+  "label": "noise_threshold",
+  "spec": "HPC/Detection/generated/rq4_batch3/L_LM_Jul_26_J_raw_fs2/noise_threshold_5ch_0-4578553_696365.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5"
+  ]
+}

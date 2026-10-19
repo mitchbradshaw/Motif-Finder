@@ -231,6 +231,9 @@ MP_MAX_PROFILE_S = 60 * 60
 #: recording where the array alone would pass this size, and waits for windowed runs
 DEHSHIBI_SCALES = 99
 MAX_ARRAY_GB = 4.0
+#: over this (GB) a dehshibi task goes in the few-at-a-time CPU pack: M2_aug's 2.0 GB ran 8 at a time (batch 1);
+#: 2.6-3.4 GB (the 2 Hz recordings of batch 3) are not risked eight at once
+DEHSHIBI_HEAVY_GB = 2.2
 #: a recording this long (samples per channel) gets its CPU tasks in their own pack, few at a time: on L_LM
 #: (22.9 M) one deconvolved_troughs task peaked at 3.75 GB and a wavelet one passed 7.4 GB, against about 1 GB on
 #: M2_aug, and the jobs ask for no memory (HPC/README.md: explicit amounts were refused)
@@ -308,7 +311,15 @@ def build_batch(db, sources, *, out_rel, prefix, units=None, only=None, null_dra
         with open(os.path.join(REPO, sub_rel, "manifest.json"), "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2)
         tasks["gpu"] += t["gpu"]
-        heavy_cpu.extend(t["cpu"]) if heavy else light_cpu.extend(t["cpu"])
+        # a long recording's CPU tasks, and any dehshibi task whose 99-scale array passes DEHSHIBI_HEAVY_GB, go in
+        # the few-at-a-time pack (memory); the rest run 8 at a time
+        dehshibi_labels = {e[0] for e in entries if any((s.get("algorithm") or "") == "dehshibi_spikes" for s in e[2])}
+        for task in t["cpu"]:
+            label = task[4].split("/")[1]
+            if heavy or (label in dehshibi_labels and dehshibi_gb > DEHSHIBI_HEAVY_GB):
+                heavy_cpu.append(task)
+            else:
+                light_cpu.append(task)
         batch["datasets"].append({"source": source, "folder": sub_rel.replace(os.sep, "/"), "jobs": len(manifest["jobs"]),
                                   "tasks": len(t["cpu"]) + len(t["gpu"]), "refused": manifest["refused"],
                                   "leftOut": left_out, "heavy": heavy,

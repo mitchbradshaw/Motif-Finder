@@ -4,3 +4,5 @@
 # SLURM scripts: sbatch refuses DOS line breaks (HPC/README.md), so a .sh is always checked out with LF,
 # whatever core.autocrlf says on the machine
 *.sh text eol=lf
+# task and cleanup lists the SLURM packs read line by line on the cluster
+HPC/Detection/generated/**/*.txt text eol=lf

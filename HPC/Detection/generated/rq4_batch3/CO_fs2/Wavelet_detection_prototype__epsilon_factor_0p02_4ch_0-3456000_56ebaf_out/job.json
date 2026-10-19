@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "56ebaf1bf3ea",
+  "tasks": 4,
+  "label": "Wavelet_detection_prototype__epsilon_factor_0p02",
+  "spec": "HPC/Detection/generated/rq4_batch3/CO_fs2/Wavelet_detection_prototype__epsilon_factor_0p02_4ch_0-3456000_56ebaf.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

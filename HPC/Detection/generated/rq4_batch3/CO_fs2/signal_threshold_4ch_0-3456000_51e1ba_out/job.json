@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "51e1ba984e45",
+  "tasks": 4,
+  "label": "signal_threshold",
+  "spec": "HPC/Detection/generated/rq4_batch3/CO_fs2/signal_threshold_4ch_0-3456000_51e1ba.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

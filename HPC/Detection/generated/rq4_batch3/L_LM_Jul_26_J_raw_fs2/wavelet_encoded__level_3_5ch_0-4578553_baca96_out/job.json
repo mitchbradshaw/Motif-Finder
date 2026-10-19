@@ -1,0 +1,14 @@
+{
+  "kind": "detection_chain",
+  "specHash": "baca96141330",
+  "tasks": 5,
+  "label": "wavelet_encoded__level_3",
+  "spec": "HPC/Detection/generated/rq4_batch3/L_LM_Jul_26_J_raw_fs2/wavelet_encoded__level_3_5ch_0-4578553_baca96.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "kind": "detection_chain",
+  "specHash": "57caa11c7808",
+  "tasks": 2,
+  "label": "mp_threshold__backend_auto",
+  "spec": "HPC/Detection/generated/rq4_batch3/L_LM_Jul_26_J_raw_fs2/mp_threshold__backend_auto_2ch_0-4578553_57caa1.chain.json",
+  "channels": [
+    "CH1",
+    "CH2"
+  ]
+}

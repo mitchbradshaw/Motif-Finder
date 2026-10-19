@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "0d4758cf753f",
+  "tasks": 4,
+  "label": "drop_detection_v5__same_fraction_0p7",
+  "spec": "HPC/Detection/generated/rq4_batch3/CO_fs2/drop_detection_v5__same_fraction_0p7_4ch_0-3456000_0d4758.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

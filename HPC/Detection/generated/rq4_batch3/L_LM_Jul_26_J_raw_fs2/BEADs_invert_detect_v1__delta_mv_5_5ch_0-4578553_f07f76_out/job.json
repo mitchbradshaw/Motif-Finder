@@ -1,0 +1,14 @@
+{
+  "kind": "detection_chain",
+  "specHash": "f07f7643e63d",
+  "tasks": 5,
+  "label": "BEADs_invert_detect_v1__delta_mv_5",
+  "spec": "HPC/Detection/generated/rq4_batch3/L_LM_Jul_26_J_raw_fs2/BEADs_invert_detect_v1__delta_mv_5_5ch_0-4578553_f07f76.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5"
+  ]
+}

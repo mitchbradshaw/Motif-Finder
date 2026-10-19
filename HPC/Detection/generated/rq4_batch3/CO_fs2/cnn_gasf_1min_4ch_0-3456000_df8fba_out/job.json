@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "df8fbadfbf00",
+  "tasks": 4,
+  "label": "cnn_gasf_1min",
+  "spec": "HPC/Detection/generated/rq4_batch3/CO_fs2/cnn_gasf_1min_4ch_0-3456000_df8fba.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

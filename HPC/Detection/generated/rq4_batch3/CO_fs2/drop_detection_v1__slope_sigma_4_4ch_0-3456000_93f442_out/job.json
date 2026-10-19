@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "93f4428c3713",
+  "tasks": 4,
+  "label": "drop_detection_v1__slope_sigma_4",
+  "spec": "HPC/Detection/generated/rq4_batch3/CO_fs2/drop_detection_v1__slope_sigma_4_4ch_0-3456000_93f442.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

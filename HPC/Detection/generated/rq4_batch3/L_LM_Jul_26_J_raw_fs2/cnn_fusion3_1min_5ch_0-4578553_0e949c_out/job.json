@@ -1,0 +1,14 @@
+{
+  "kind": "detection_chain",
+  "specHash": "0e949c7f37ae",
+  "tasks": 5,
+  "label": "cnn_fusion3_1min",
+  "spec": "HPC/Detection/generated/rq4_batch3/L_LM_Jul_26_J_raw_fs2/cnn_fusion3_1min_5ch_0-4578553_0e949c.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5"
+  ]
+}

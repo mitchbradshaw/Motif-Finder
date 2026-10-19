@@ -613,3 +613,24 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
   - `cleanup_copied.sh` frees 15 GB on the cluster: batch 1, already imported, and batch 2's finished tasks, each
     checked here file by file.
   - `resume_rq4b.sh [packs]` resubmits the chosen packs.
+- 2026-10-19 · batch 2, second return · 1,369 of 1,543 tasks complete, none refused or crashed:
+  - rq4b_cpu1 complete (960) and rq4b_gpuA complete (225);
+  - rq4b_gpuB 166 of 223: it ran 10:39–13:25 UTC and stopped mid-launch with no error, the full-disk signature
+    again. CNN tasks on L_LM bring back about 145 MB each (full-length window data), not the few KB seen on M2_aug.
+  - Left: 57 short 60-minute-window CNN tasks (gpuB, about 0.6 GB) and L_LM's CPU pack (cpu2, 117 tasks, about
+    39 GB), held for space.
+  - `cleanup_copied.txt` rebuilt: 2,824 paths, 26.7 GB this PC holds, verified file by file.
+- 2026-10-19 · batch 3 · the researcher's new round, sized for a 30 GB cluster allocation:
+  - **Recordings:** LM and CO (the best two of the five new 10 Hz files for detection: many sharp drops and bursts),
+    and L_LM, all at 2 Hz: `LM_fs2`, `CO_fs2` and `L_LM_Jul_26_J_raw_fs2`.
+  - **Derivation:** `scripts/derive_fs2.py`, non-overlapping block means of 5. Each source's own MATLAB `duration`
+    vector steps exactly 100 ms. That also confirms L_LM's 10 Hz, which was inferred until now, and L_R's 10 Hz.
+  - **Registered** through the registry route: ids 637–640, 641–644 and 645–649. Registering L_LM_fs2 re-pointed
+    the Mushroom excerpt (id 385) at the 2 Hz copy; by the researcher's choice it was put back to its 10 Hz parent
+    (542, offset 15,777,590, decimation 10).
+  - **The batch:** 129 chain jobs and 552 tasks (`HPC/Detection/generated/rq4_batch3/submit_rq4c.sh`), uploaded
+    as one archive (`rq4_batch3_upload.tar.gz`, untracked).
+  - **What runs:** all templates, including dehshibi (a 2.6–3.4 GB array; those 39 tasks run 3 at a time), and the
+    matrix profile on two channels each.
+  - **Expected return:** about 14 GB.
+  - Not yet run on the cluster.
