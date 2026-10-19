@@ -99,3 +99,14 @@ def test_two_identical_scoreboard_reads_score_each_run_once(bridge, monkeypatch)
     assert [r.status_code for r in out] == [200, 200], [r.text[:200] for r in out]
     assert out[0].json() == out[1].json()
     assert len(calls) == len(set(calls)) == len(keys), f"{len(calls)} scorings for {len(keys)} runs"
+
+
+def test_the_queue_list_does_not_carry_every_detection_id(bridge):
+    """GET /api/review/queues served each queue's whole `filters.detection_ids` (9,743 ids, 78 kB at scale) and
+    the client reads none of it. The list carries how many there are; the queue's own read is unchanged."""
+    client, rt, info = bridge
+    r = client.get("/api/review/queues")
+    assert r.status_code == 200, r.text
+    q = next(x for x in r.json() if int(x["id"]) == int(info["queue_id"]))
+    assert "detection_ids" not in (q.get("filters") or {}), "the listing still carries the id list"
+    assert (q.get("filters") or {}).get("detection_ids_count") == len(info["queue_ids"])

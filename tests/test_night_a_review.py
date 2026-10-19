@@ -46,3 +46,53 @@ def test_a_finished_queue_says_done_and_an_empty_one_says_empty():
     # the end view is reached through ?state=exhausted on live data: it must name both real ends
     assert "queue-done" in code, "the end view has no 'every item judged' state for a live queue"
     assert "queue-no-items" in code, "a queue with no items says nothing of the kind"
+
+
+# ── from agent C's site-wide walk (2026-10-19 night), in A's files ──────────
+
+DISCOVERY = os.path.join(PROJECT_ROOT, "webui", "client", "src", "discovery")
+
+
+def _disc(name):
+    return io.open(os.path.join(DISCOVERY, name), encoding="utf-8").read()
+
+
+def _rule(css, selector):
+    m = re.search(r"(^|\n)" + re.escape(selector) + r"\s*\{([^}]*)\}", css)
+    assert m, f"no rule for {selector}"
+    return m.group(2)
+
+
+def test_run_rows_keep_their_height_in_a_long_runs_list():
+    """With 60 runs the list (a flex column with a max-height) squashed every row to 18 px: names cut, the
+    Report button over the name. A row does not shrink; the list scrolls."""
+    assert "flex: none" in _rule(_disc("discovery.css"), ".dsc-run")
+
+
+def test_the_review_toolbar_wraps_at_1024_px():
+    """At 1024 px the toolbar did not wrap: the queue picker collapsed under 'machine opinion visible' and
+    Shortcuts was clipped."""
+    rule = _rule(_src("review.css"), ".rv-toolbar")
+    assert "flex-wrap: wrap" in rule and "min-height" in rule and "height: 54px" not in rule.replace("min-height: 54px", "")
+
+
+def test_an_unknown_queue_is_decided_from_its_own_read():
+    """A bad queue id waited 5-14 s behind the whole queue list, then showed a red card flush to the window edge.
+    The queue's own read (a 404) decides it, the blind-test page is chosen from that read too, and the red cards sit
+    inside the page padding."""
+    code = _code(_src("index.tsx"))
+    assert "!live && queues.loading" not in code, "the queue route still waits for the queue list"
+    assert "status === 404" in code, "a 404 on the queue's own read is not taken as 'no such queue'"
+    assert "d.queue.source" in code, "the blind-test page is still chosen off the queue list"
+    assert code.count("rv-pad") >= 2, "the queue error cards are not inside the page padding"
+
+
+def test_the_scoreboard_says_when_it_has_no_rows():
+    code = _code(_disc("RunsPage.tsx"))
+    assert "scoreboard-empty" in code
+
+
+def test_an_unknown_run_link_is_an_info_note_not_a_warning():
+    code = _code(_disc("RunsPage.tsx"))
+    line = next(l for l in code.splitlines() if "run-missing-callout" in l)
+    assert 'tone="amber"' not in line and "alert-triangle" not in line
