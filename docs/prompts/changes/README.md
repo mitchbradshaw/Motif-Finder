@@ -47,6 +47,11 @@ not-interesting + artifact, grey unsure) and Q46 (F2B included), so the three pr
 5d02ab4; corpus-map (row 14) as 43ee443 before it). Reports are in `reports/`. Still to run on the real data:
 `datasets-derive`'s scripts (the Prompt manager session, 2026-10-19 night: MJu26a_fs10 without the L_LM link, SH, SO,
 F2B, L_R at 10 Hz; CO and LM skipped). Owed: the first clean post-wave full walk on 2026-10-20 morning.
+**The night pass (2026-10-19 → 20, `night-pass-2026-10-19.md`) merged as 293a8fc (C: the app fits 1024 px, the header
+never wraps, one need-you read), d1bf8e4 (B: one groupings read, one span read, a family's cold open from 44 s, thirteen
+fixes) and e668995 (A: the bridge's judged flag decides a row, fast stepping, one scoreboard read at a time), each
+critic-reviewed; the seed page's `Math.max(...)` stack overflow it uncovered is fixed as 8dff9b0. Reports in `reports/
+night-{a,b,c}-report.md`; what they could not fix is the 2026-10-20 table in `../fixup/BACKLOG.md`.**
 **AR (the speed pass) merged 2026-10-18 as 5a20070** — the "AR merged" dependencies above are satisfied; base on
 5a20070 or later. A second session ("Prompt manager and examiner") runs these prompts; the two sessions agreed on
 2026-10-18: at most three implementer agents at once on this machine (six saturated it and made every smoke unit and
