@@ -96,3 +96,48 @@ def test_an_unknown_run_link_is_an_info_note_not_a_warning():
     code = _code(_disc("RunsPage.tsx"))
     line = next(l for l in code.splitlines() if "run-missing-callout" in l)
     assert 'tone="amber"' not in line and "alert-triangle" not in line
+
+
+# ── a span queue read as finished while 622 were left (agent B's drive, Explore → Take span → Open Review) ──
+
+JUDGED_TS = os.path.join(REVIEW, "judged.ts")
+
+
+def _node_judged(rows):
+    import json
+    import shutil
+    import subprocess
+    import pytest
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not on PATH")
+    assert os.path.isfile(JUDGED_TS), "webui/client/src/review/judged.ts does not exist"
+    url = "file:///" + JUDGED_TS.replace("\\", "/").lstrip("/")
+    script = (f"import * as J from {json.dumps(url)};\n"
+              f"process.stdout.write(JSON.stringify({json.dumps(rows)}.map(r => J.baseJudged(r))));\n")
+    r = subprocess.run([node, "--no-warnings", "--input-type=module", "-e", script], capture_output=True, text=True,
+                       timeout=60)
+    assert r.returncode == 0, r.stderr
+    return json.loads(r.stdout)
+
+
+def test_a_row_the_bridge_calls_unjudged_is_unjudged_whatever_verdict_it_carries():
+    """An explore-spans queue serves human spans already marked `seed` (`verdict: 'seed'`) that THIS queue has not
+    judged (`judged: false`). The client counted any row with a verdict as judged, so the page opened on "No more
+    items" while the counter said 622 left. The bridge's flag decides; the verdict is shown as a prefilled prior."""
+    got = _node_judged([
+        {"baseVerdict": "seed", "judged": False, "servedJudged": False},
+        {"baseVerdict": "interesting", "judged": True, "servedJudged": True},
+        {"judged": True, "servedJudged": True},
+        {"baseVerdict": "interesting"},          # a fixture row with no bridge flag: its verdict says judged
+        {},
+    ])
+    assert got == [False, True, True, True, False]
+
+
+def test_every_judged_count_in_the_queue_uses_the_one_rule():
+    code = _code(_src("queue.ts"))
+    assert "baseJudged" in code
+    assert "r.baseVerdict || r.judged" not in code and "!!row.baseVerdict || row.judged" not in code
+    api = _code(io.open(os.path.join(PROJECT_ROOT, "webui", "client", "src", "api", "review.ts"), encoding="utf-8").read())
+    assert "servedJudged" in api, "rowOf does not keep the bridge's own judged flag"
