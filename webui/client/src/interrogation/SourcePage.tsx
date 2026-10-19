@@ -364,7 +364,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
           </SectionCard>
 
           <SectionCard testid="provenance-card" title="Where this family came from"
-            actions={<Button variant="link" icon="external" onClick={() => navigate(`library/family?family=${fam.id}`)} testid="open-in-library">Open in Library →</Button>}>
+            actions={<Button variant="link" icon="external" onClick={() => navigate(`library/family/${encodeURIComponent(fam.id)}`)} testid="open-in-library">Open in Library →</Button>}>
             <div className="ig-prov">
               <div><Icon name="branch" size={13} />promoted from {fam.promotedFrom} · {fam.promotedOn}</div>
               {fam.exemplar && <div><Icon name="flag" size={13} />seeded by exemplar {fam.exemplar}</div>}
