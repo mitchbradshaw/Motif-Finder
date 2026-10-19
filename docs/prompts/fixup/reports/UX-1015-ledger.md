@@ -427,3 +427,8 @@ check should open on the kept preview.
 corpus maps 24 current, 1 on the worker). Both peer sessions told "walk done"; the HPC session's RQ4 batch 2 import
 runs through this 8765 from here — no further restart today without telling it. The three night worktrees removed
 (no junctions; branches kept), tonight's sandbox copies under `webui/runtime/` deleted bar the walk's.
+**07:48 — RQ4 batch 2 imported through 8765** (HPC session, e884cab the RQ4b log): 93 complete jobs into sessions 6
+(M2_concat_fs1_rq4), 7 (M4_aug_concat_fs1_rq4) and 8 (L_LM_Jul_26_J_raw_rq4); Discovery back on session 2. DB 736 MB,
+step cache 15 GB, C: 58 GB free. **The Map overview now 17–21 s per call, uncached (16.7 / 17.6 / 20.7 s), growing
+with the run count (289 across 8 sessions) — a demo risk; prompt written: `docs/prompts/changes/map-overview-cache.md`
+(the corpus-map worker pattern).** Per-recording routes 0.2–6 s; no tracebacks in the 06:58 bridge's log.
