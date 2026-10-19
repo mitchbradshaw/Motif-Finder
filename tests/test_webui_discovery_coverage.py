@@ -216,3 +216,40 @@ def test_the_template_gauge_counts_every_human_verdict_on_its_detections(client)
         conn.close()
     got = _gauge(client, "mp_threshold")
     assert got == want and got["interesting"] == 2 and got["total"] == 6
+
+    # coverage critic round: Review re-judges IN PLACE (`UPDATE adjudications SET verdict = ?`), which moves neither a
+    # count nor a max id. The gauge's digest must still see it.
+    conn = _db(client)
+    try:
+        conn.execute("UPDATE adjudications SET verdict = 'artifact' WHERE detection_id = ?", (dets[0],))
+        conn.commit()
+        want = _hand_count(conn, "mp_threshold")
+    finally:
+        conn.close()
+    got = _gauge(client, "mp_threshold")
+    assert got == want and got["interesting"] == 1 and got["artifact"] == 2
+
+
+def test_extend_refuses_a_run_with_no_group_rather_than_replace_its_runs(client):
+    """coverage critic round: `_start_sweep(extend_group=None)` is the FIRST-sweep path, which writes
+    ``run_ids = <the new channels>`` — an extend of a row whose `run_group_id` is NULL would have dropped the
+    channels the run already had. It is refused instead, and the row is untouched."""
+    out = _apply(client, channels=(CH[0],))
+    key = out["run_key"]
+    conn = _db(client)
+    try:
+        conn.execute("UPDATE discovery_runs SET run_group_id = NULL WHERE run_key = ?", (key,))
+        conn.commit()
+        before = json.loads(conn.execute("SELECT params_json FROM discovery_runs WHERE run_key = ?",
+                                         (key,)).fetchone()[0])["run_ids"]
+    finally:
+        conn.close()
+    r = client.post(f"/api/discovery/runs/{key}/extend", json={"channels": [CH[1]]})
+    assert r.status_code == 422, r.text
+    conn = _db(client)
+    try:
+        after = json.loads(conn.execute("SELECT params_json FROM discovery_runs WHERE run_key = ?",
+                                        (key,)).fetchone()[0])
+    finally:
+        conn.close()
+    assert after["run_ids"] == before and "extending" not in after
