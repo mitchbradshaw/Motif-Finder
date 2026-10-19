@@ -77,6 +77,14 @@ def test_the_app_fits_a_1024_px_window():
     assert mw is None or int(mw.group(1)) <= 1024
 
 
+def test_a_key_cap_never_shrinks_below_its_label():
+    # kit gallery at 1024x700: "Ctrl Z" spilled out of its kbd (34 px of text in a 30 px box) - a flex row squeezed
+    # it; the same Kbd sits in Review's verdict bar and every shortcut hint
+    css = _read("kit", "kit.css")
+    m = re.search(r"\.k-kbd\s*\{([^}]*)\}", css)
+    assert m and re.search(r"flex:\s*none", m.group(1))
+
+
 def test_header_search_label_folds_away_on_a_narrow_window():
     css = _read("shell", "Header.tsx")
     m = re.search(r"@media\s*\(max-width:\s*(\d+)px\)\s*\{([^@]*?)\}\s*\}", css, re.S)
