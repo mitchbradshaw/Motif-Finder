@@ -58,7 +58,7 @@ function DetectionRunReportPage({ runKey }: { runKey: string }) {
           <span className="muted small">The figures and tables behind this run, drawn by the server from the live database each time you open it.</span>
           <InfoTip title="What this report is">
             <p>Every figure is a PNG drawn with matplotlib from the same numbers Discovery shows; every table is also in the Markdown.</p>
-            <p><b>Save snapshot</b> writes report.html, report.md and the figures (fig-01-map.png …) into a dated folder under the results folder, and lists it on the Reports page. <b>Print</b> opens the report in a tab and prints it (choose “Save as PDF”).</p>
+            <p><b>Save snapshot</b> writes report.html, report.md and the figures (fig-01-map.png …) into a dated folder (the sandbox’s results folder, or DATA/derived/reports in a project start), and lists it on the Reports page. <b>Print</b> opens the report in a tab and prints it (choose “Save as PDF”).</p>
           </InfoTip>
           <span className="k-spacer" />
           <TextField size="sm" value={note} onChange={setNote} placeholder="note for the snapshot (optional)" width={240} testid="report-note" />

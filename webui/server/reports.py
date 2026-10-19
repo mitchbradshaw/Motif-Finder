@@ -19,7 +19,8 @@ Routes:
 * ``GET  /api/reports/detection-run/{run_key}/html`` — the same as a whole
   page, to open in a tab and print;
 * ``POST /api/reports/detection-run/{run_key}/snapshot`` — writes report.html,
-  report.md and the PNGs under the results folder and records the PATH;
+  report.md and the PNGs under the results folder (a
+  sandbox) or `DATA/derived/reports` (a project start) and records the PATH;
 * ``GET  /api/reports`` — every snapshot; ``GET /api/reports/{id}/files/{name}``
   serves one of its files; ``POST /api/reports/{id}/open-folder`` opens its
   folder on this machine.
@@ -59,9 +60,14 @@ _render_lock = threading.Lock()
 
 
 def _results_root(rt) -> str:
-    """Where snapshots live: the sandbox's own results folder, or the repository's
-    `Results/` in a project start (where the adapters' results already go)."""
-    return os.path.join(rt.results_dir or os.path.join(REPO_ROOT, "Results"), "reports")
+    """Where snapshots live: the sandbox's own results folder, or, in a project
+    start, `DATA/derived/reports` — NOT the repository's `Results/`, which is a
+    TRACKED folder: snapshots there would sit in `git status` as untracked files
+    and risk being committed. `DATA/*` is git-ignored, and `DATA/derived/` is
+    where a project start already keeps what it derives (`window_sets`)."""
+    if rt.results_dir:
+        return os.path.join(rt.results_dir, "reports")
+    return os.path.join(REPO_ROOT, "DATA", "derived", "reports")
 
 
 def _hours(fs, samples):
@@ -219,11 +225,15 @@ def post_detection_run_snapshot(request: Request, run_key: str, body: dict = Bod
     report, extra = _gather(request, run_key, body.get("channels") or "", body.get("t0"), body.get("t1"))
     stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     root = os.path.join(_results_root(request.app.state.rt), DR.KIND, run_key)
-    out_dir = os.path.join(root, stamp)
-    n = 1
-    while os.path.exists(out_dir):           # two saves in one second are two snapshots, never one overwritten
-        n += 1
-        out_dir = os.path.join(root, f"{stamp}-{n}")
+    os.makedirs(root, exist_ok=True)
+    out_dir, n = os.path.join(root, stamp), 1
+    while True:                              # two saves in one second are two snapshots, never one overwritten:
+        try:                                 # `mkdir` claims the folder atomically, so two concurrent saves
+            os.mkdir(out_dir)                # cannot both pass an exists() check and share it
+            break
+        except FileExistsError:
+            n += 1
+            out_dir = os.path.join(root, f"{stamp}-{n}")
     paths = RD.write_report(report, out_dir)
     c = D._conn(request)
     try:
