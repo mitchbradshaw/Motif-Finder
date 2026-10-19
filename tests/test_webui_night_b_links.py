@@ -42,3 +42,12 @@ def test_the_signal_page_does_not_call_its_live_read_demo():
             tag = src[m.start():src.index("/>", m.start())]
             assert "demo={!!demo}" not in tag, f"{el.strip()} is told the live read is demo"
     assert "demoRead.source === 'demo'" in src
+
+
+def test_a_block_pages_fold_is_its_own():
+    """night-b: `Headline` reads its open/closed state once, when it mounts. Moving between block pages in the app
+    (intervals → trains by the ribbon) reuses the mounted one, so trains drew the fold intervals had opened, then
+    folded on a reload (driven: intervals open → trains in-app open, reloaded closed, storage held intervals only).
+    The block page's Headline is keyed by its page, so each page mounts its own."""
+    src = io.open(os.path.join(CLIENT_SRC, "analyse", "views", "registry.tsx"), encoding="utf-8").read()
+    assert "<Headline key={fold.page} page={fold.page}" in src
