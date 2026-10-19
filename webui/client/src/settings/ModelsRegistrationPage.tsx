@@ -50,17 +50,17 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
           <NumberField value={val} min={5} max={40} integer unit="%" width={100} onValid={v => s.set('validation_pct', v)} testid="validation-pct" />
           {splitBad && <span className="small" style={{ color: 'var(--red)' }} data-testid="split-error">test + validation must leave 40 % for training</span>}
         </Row>
-        <Row label="split" testid="split-locked-row" caption="never a random sample of windows">
+        <Row label="split" testid="split-locked-row" tip="never a random sample of windows">
           <LockedChip reason="blocked by time within each channel (P12)" testid="split-locked">blocked by time within each channel</LockedChip>
         </Row>
         <Row label="gap between blocks" dot={s.differs('gap_extra')} unsaved={s.dirty('gap_extra')} testid="gap-row"
-          caption="the minimum is one window and cannot go lower">
+          tip="the minimum is one window and cannot go lower">
           <span className="mono small">≥ window +</span>
           <NumberField value={s.num('gap_extra')} min={0} max={86400} integer unit="s" width={110} testid="gap-extra"
             onValid={v => { s.set('gap_extra', v); s.markInvalid('gap_extra', null) }}
             onChange={(_r, reason) => s.markInvalid('gap_extra', reason ? 'The gap cannot go below one window' : null)} />
         </Row>
-        <Row label="linked recordings" testid="linked-row" caption="an excerpt and its parent stay on one side">
+        <Row label="linked recordings" testid="linked-row" tip="an excerpt and its parent stay on one side">
           <LockedChip reason="linked recordings (an excerpt and its parent) are never split across sides" testid="linked-locked">never split across sides</LockedChip>
         </Row>
         <Row label="warn below N test windows per class" dot={s.differs('warn_below')} unsaved={s.dirty('warn_below')} testid="warn-row"
@@ -71,34 +71,34 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
 
       <SectionCard title="Training" testid="training-card">
         <Row label="label arms" dot={s.differs('arm.manual') || s.differs('arm.cluster')} unsaved={s.dirty('arm.manual') || s.dirty('arm.cluster')}
-          testid="arms-row" caption="the random-forest baseline is always trained">
+          testid="arms-row" tip="the random-forest baseline is always trained">
           <Chip tone={armManual ? 'green' : 'grey'} selected={armManual} onClick={() => s.set('arm.manual', !armManual)} testid="arm-manual">manual</Chip>
           <Chip tone={armCluster ? 'purple' : 'grey'} selected={armCluster} onClick={() => s.set('arm.cluster', !armCluster)} testid="arm-cluster">cluster</Chip>
           <LockedChip reason="the random-forest baseline is always trained" testid="arm-rf">RF baseline</LockedChip>
           {noArm && <span className="small" style={{ color: 'var(--red)' }} data-testid="arms-error">A training job needs at least one label arm</span>}
         </Row>
         <Row label="train on windows labelled in every arm" dot={s.differs('intersect_labelled')} unsaved={s.dirty('intersect_labelled')} testid="intersect-row"
-          caption="keeps the arm comparison paired">
+          tip="keeps the arm comparison paired">
           <Toggle checked={s.bool('intersect_labelled')} onChange={v => s.set('intersect_labelled', v)} testid="intersect-labelled" />
         </Row>
         {!s.bool('intersect_labelled') && <Callout tone="amber" testid="intersect-warning">arms would train on different windows; the comparison is no longer paired</Callout>}
         <Row label="repeat with different seeds" dot={s.differs('repeats_on')} unsaved={s.dirty('repeats_on') || s.dirty('repeats_n')} testid="repeats-row"
-          caption="a repeat is a full retrain">
+          tip="a repeat is a full retrain">
           <Toggle checked={s.bool('repeats_on')} onChange={v => s.set('repeats_on', v)} testid="repeats-on" />
           <NumberField value={s.num('repeats_n')} min={2} max={10} integer unit="repeats" width={130} testid="repeats-n"
             disabled={!s.bool('repeats_on')} disabledReason="turn on seed repeats to set a count" onValid={v => s.set('repeats_n', v)} />
         </Row>
-        <Row label="early stopping patience" dot={s.differs('patience')} unsaved={s.dirty('patience')} testid="patience-row" caption="epochs without improvement">
+        <Row label="early stopping patience" dot={s.differs('patience')} unsaved={s.dirty('patience')} testid="patience-row" tip="epochs without improvement">
           <NumberField value={s.num('patience')} min={1} max={100} integer unit="epochs" width={130} onValid={v => s.set('patience', v)} testid="patience" />
         </Row>
       </SectionCard>
 
       <SectionCard title="Calibration" subtitle="per class, on the validation block" testid="calibration-card">
         <Row label="suggested threshold at precision" dot={s.differs('precision')} unsaved={s.dirty('precision')} testid="precision-row"
-          caption="shown in the Threshold stage as its recommended value">
+          tip="shown in the Threshold stage as its recommended value">
           <NumberField value={s.num('precision')} min={0.5} max={0.99} step={0.01} width={110} onValid={v => s.set('precision', v)} testid="precision" />
         </Row>
-        <Row label="reliability bins" dot={s.differs('bins')} unsaved={s.dirty('bins')} testid="bins-row" caption="bins in the reliability diagram">
+        <Row label="reliability bins" dot={s.differs('bins')} unsaved={s.dirty('bins')} testid="bins-row" tip="bins in the reliability diagram">
           <NumberField value={s.num('bins')} min={5} max={50} integer width={100} onValid={v => s.set('bins', v)} testid="bins" />
         </Row>
       </SectionCard>
@@ -123,7 +123,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
                 : <Badge tone={g.on_fail === 'blocks registration' || g.on_fail === 'required' ? 'red' : 'amber'}>{g.on_fail}</Badge>,
             },
           ]} />
-        <Row label="retiring a model a template still uses" testid="retire-row" caption="the list of templates is shown instead">
+        <Row label="retiring a model a template still uses" testid="retire-row" tip="the list of templates is shown instead">
           <LockedChip reason="a template's model cannot be retired under it" testid="retire-locked">blocked</LockedChip>
         </Row>
       </SectionCard>

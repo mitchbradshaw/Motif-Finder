@@ -1,18 +1,20 @@
 /* Tier 2 — SPAN 276.4 – 278.4 h · 2.0 h (frame explore-2): the viewport. The envelope is
    re-fetched per viewport (see useViewport); while a fetch is in flight the previous path is kept
    under a translate/scale transform. Pan = pointer drag, zoom = wheel about the cursor or the
-   −/+/fit buttons, ‹ N / M › walks the motif list. Tinted bands + caps mark annotations (green),
-   detections (blue), the selected motif (orange) and artifacts (red). Real mV on the y axis. */
+   −/+/fit buttons, ‹ N / M › walks the motif list. Tinted bands + caps mark detections and annotations by
+   verdict (span-plot, 2026-10-18: six kinds, each its own colour and each a switch in the legend — bandModel.ts),
+   and the selected motif (amber). The span's edges are typeable fields (seconds, three decimals). Real mV. */
 import { useEffect, useRef, useState } from 'react'
 import type { Channel } from '../api'
-import { EnvelopePath, TimeGrid, type BandKind } from '../charts/primitives'
+import { EnvelopePath, TimeGrid } from '../charts/primitives'
+import { BAND_KINDS, bandGeometry, parseEdge, stepEdge, type SpanKind, type ToggleKind, type Toggles } from './bandModel'
 import { Icon, InfoTip, Popover } from '../kit'
 import { LegendRow } from './bits'
 import { makeX, makeY } from '../charts/scale'
 import { fmtDuration } from '../state'
 import { ErrorCard } from './ErrorCard'
 import { MvLabels } from './MvLabels'
-import { envelopeOk, fmtInt, fmtMs, fmtRangeH, MALFORMED_WINDOW, mvDigits, viewportHourTicks, vRange, type Motif } from './util'
+import { envelopeOk, fmtInt, fmtMs, MALFORMED_WINDOW, MIN_SPAN_S, mvDigits, viewportHourTicks, vRange, type Motif } from './util'
 import type { Viewport } from './useViewport'
 
 const H = 150, TOP = 18, AXIS_H = 20
@@ -27,24 +29,27 @@ const labelGutter = (lo: number, hi: number) => {
   return Math.max(64, 12 + chars * 6.2)
 }
 
-export interface Band { start_s: number; end_s: number; kind: BandKind; id: string; title: string; motif: Motif; colour?: string; capOnly?: boolean }
+/** A drawn band. `kind` is what it draws as (`selected` for the open motif); `toggle` is the legend kind that
+ *  switches it — an annotation's verdict, or `detected` — so the selected motif still knows what it is. */
+export interface Band { start_s: number; end_s: number; kind: SpanKind; toggle: ToggleKind; id: string; title: string; motif: Motif; colour?: string; capOnly?: boolean }
 
-const FILL: Record<string, string> = { detected: 'var(--band-detected)', annotated: 'var(--band-annotated)', selected: 'var(--band-selected)', artifact: 'var(--band-artifact)', grey: 'rgba(107,114,128,0.12)' }
-const CAP: Record<string, string> = { detected: 'var(--blue)', annotated: 'var(--green)', selected: 'var(--amber)', artifact: 'var(--red)', grey: 'var(--muted-2)' }
+const KIND_DEF = new Map(BAND_KINDS.map(k => [k.key, k]))
+const FILL = (k: SpanKind) => (k === 'selected' ? 'var(--band-selected)' : KIND_DEF.get(k)?.fill ?? 'rgba(107,114,128,0.12)')
+const CAP = (k: SpanKind) => (k === 'selected' ? 'var(--amber)' : KIND_DEF.get(k)?.cap ?? 'var(--muted-2)')
 /** Per-span full-height translucent fill + a cap above (spec 5.2). `colour` = colour by run; `capOnly` = the
- *  detection already has a verdict (frame 2a legend). Keeps testid span-bands (smoke counts its rects). */
-function BandLayer({ bands, x, height, capY, capH, onClick }: { bands: Band[]; x: (t: number) => number; height: number; capY: number; capH: number; onClick: (b: Band) => void }) {
+ *  detection already has a verdict (frame 2a legend). Keeps testid span-bands (smoke counts its rects); each
+ *  rect carries its kind (`data-kind`, the verdict for an annotation) and the second it starts at. */
+function BandLayer({ bands, view, width, height, capY, capH, onClick }: { bands: Band[]; view: [number, number]; width: number; height: number; capY: number; capH: number; onClick: (b: Band) => void }) {
   return (
     <g className="span-bands" data-testid="span-bands">
       {bands.map(b => {
-        const x0 = x(b.start_s), x1 = x(b.end_s)
-        const w = Math.max(2, x1 - x0)
+        const { x: x0, w } = bandGeometry(b.start_s, b.end_s, view[0], view[1], width)   // the checked map: t → px on [a, b]
         const sel = b.kind === 'selected'
-        const cap = sel ? CAP.selected : b.colour ?? CAP[b.kind]
-        const fill = sel ? FILL.selected : b.capOnly ? 'transparent' : b.colour ? hexToFill(b.colour) : FILL[b.kind]
+        const cap = sel ? CAP('selected') : b.colour ?? CAP(b.kind)
+        const fill = sel ? FILL('selected') : b.capOnly ? 'transparent' : b.colour ? hexToFill(b.colour) : FILL(b.kind)
         return (
-          <g key={b.id} onClick={e => { e.stopPropagation(); onClick(b) }} onPointerDown={e => e.stopPropagation()} style={{ cursor: 'pointer' }} data-kind={b.kind} data-cap-only={b.capOnly ? '1' : '0'}>
-            <rect x={x0} y={0} width={w} height={height} fill={fill} stroke={sel ? 'var(--amber)' : 'none'} strokeWidth={sel ? 1.2 : 0} data-kind={b.kind}><title>{b.title}</title></rect>
+          <g key={b.id} onClick={e => { e.stopPropagation(); onClick(b) }} onPointerDown={e => e.stopPropagation()} style={{ cursor: 'pointer' }} data-kind={b.kind} data-toggle={b.toggle} data-cap-only={b.capOnly ? '1' : '0'}>
+            <rect x={x0} y={0} width={w} height={height} fill={fill} stroke={sel ? 'var(--amber)' : 'none'} strokeWidth={sel ? 1.2 : 0} data-kind={b.kind} data-start-s={b.start_s.toFixed(3)} data-in-view={b.end_s > view[0] && b.start_s < view[1] ? '1' : '0'}><title>{b.title}</title></rect>
             <rect x={x0} y={capY} width={w} height={capH} rx={2} fill={cap} opacity={b.kind === 'detected' && !b.colour ? 0.35 : 1} />
           </g>
         )
@@ -52,20 +57,78 @@ function BandLayer({ bands, x, height, capY, capH, onClick }: { bands: Band[]; x
     </g>
   )
 }
+
+/** One edge of the span as a number field (seconds, three decimals, hours beside). Typing moves the view live
+ *  (debounced 150 ms); the view's own changes show here whenever the field is not being typed in; ↑ ↓ step by
+ *  the last digit typed; a value the view cannot take shows why, in place, and moves nothing. */
+function EdgeField({ side, value, other, dur, minSpan, onCommit }: { side: 'left' | 'right'; value: number; other: number; dur: number; minSpan: number; onCommit: (v: number) => void }) {
+  const [text, setText] = useState<string | null>(null)   // null = mirroring the view
+  const shown = text ?? value.toFixed(3)
+  const parsed = text === null ? value : parseEdge(text, side, other, dur, minSpan)
+  const bad = typeof parsed === 'string' ? parsed : null
+  const commit = useRef(onCommit)
+  commit.current = onCommit
+  useEffect(() => {
+    if (text === null || typeof parsed !== 'number') return
+    const id = window.setTimeout(() => commit.current(parsed), 150)
+    return () => window.clearTimeout(id)
+  }, [text, parsed])
+  const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      const next = stepEdge(shown, e.key === 'ArrowUp' ? 1 : -1)
+      if (next !== null) { e.preventDefault(); setText(next) }
+    } else if (e.key === 'Enter') {
+      if (typeof parsed === 'number') { commit.current(parsed); setText(null) }
+    } else if (e.key === 'Escape') { e.stopPropagation(); setText(null) }
+  }
+  const label = side === 'left' ? 'left edge' : 'right edge'
+  return (
+    <span className="ex-edge" data-testid={`span-${side}`}>
+      <input className={`ex-edge-input${bad ? ' invalid' : ''}`} value={shown} inputMode="decimal" spellCheck={false}
+        onChange={e => setText(e.target.value)} onKeyDown={onKey} onBlur={() => { if (typeof parsed === 'number' && text !== null) commit.current(parsed); setText(null) }}
+        aria-label={`${label} of the span, seconds (↑ ↓ step by the last digit)`} aria-invalid={!!bad} title={bad ?? `${label}, seconds from the channel start · ↑ ↓ step by the last digit`} data-testid={`span-${side}-input`} />
+      <span className="ex-edge-unit">s</span>
+      <span className="ex-edge-h" data-testid={`span-${side}-h`}>{(((typeof parsed === 'number' ? parsed : value)) / 3600).toFixed(4)} h</span>
+      {bad && <span className="ex-edge-err" role="alert" data-testid={`span-${side}-error`}>{bad}</span>}
+    </span>
+  )
+}
+
+/** The legend as a row of switches, one per band kind, each with its own colour and how many are in view. */
+function BandToggles({ toggles, onToggle, counts }: { toggles: Toggles; onToggle: (k: ToggleKind) => void; counts: Record<ToggleKind, number> }) {
+  return (
+    <span className="legend ex-band-toggles" role="group" aria-label="band kinds shown on the span" data-testid="band-toggles">
+      {BAND_KINDS.map(k => (
+        <button key={k.key} type="button" className={`ex-band-toggle${toggles[k.key] ? '' : ' off'}`} aria-pressed={toggles[k.key]} onClick={() => onToggle(k.key)}
+          title={`${toggles[k.key] ? 'hide' : 'show'} ${k.label} bands — ${k.tip}`} data-testid={`band-toggle-${k.key}`} data-on={toggles[k.key] ? '1' : '0'}>
+          <i style={{ background: k.cap }} />{k.label}<span className="n">{counts[k.key]}</span>
+        </button>
+      ))}
+    </span>
+  )
+}
 function hexToFill(hex: string) {
   const n = parseInt(hex.replace('#', ''), 16)
   return Number.isNaN(n) ? 'var(--band-detected)' : `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, 0.16)`
 }
 
-export function SpanView({ ch, vp, plotRef, width, bands, selected, selectedLabel, onBandClick, nav, legendOpen, setLegendOpen, demo }: {
+export function SpanView({ ch, vp, plotRef, width, bands: allBands, selected, selectedLabel, onBandClick, nav, legendOpen, setLegendOpen, demo, toggles, onToggle, bandNote }: {
   ch: Channel; vp: Viewport; plotRef: React.Ref<HTMLDivElement>; width: number
   bands: Band[]; selected: Motif | null; selectedLabel: string | null; onBandClick: (m: Motif) => void
   nav: { index: number; total: number; capped: boolean; prev: () => void; next: () => void }
   legendOpen: boolean; setLegendOpen: (o: boolean) => void; demo: boolean
+  toggles: Toggles; onToggle: (k: ToggleKind) => void
+  /** span-plot critic: why fewer detections draw than are in view (no runs picked; a thinned read), in words */
+  bandNote?: string | null
 }) {
   const legendRef = useRef<HTMLButtonElement>(null)
   const W = Math.max(0, width)
   const [a, b] = vp.view
+  // the legend switches what draws; the open motif draws whatever its kind
+  const bands = allBands.filter(bd => bd.kind === 'selected' || toggles[bd.toggle])
+  const counts = { detected: 0, interesting: 0, not_interesting: 0, unsure: 0, artifact: 0, seed: 0 } as Record<ToggleKind, number>
+  for (const bd of allBands) counts[bd.toggle]++
+  const minSpan = Math.min(ch.duration_s, MIN_SPAN_S)
   const x = makeX(a, b, W)
   const win = vp.win
   const envOk = !win || envelopeOk(win.data?.envelope)   // shape guard: a malformed 200 draws an ErrorCard, not a throw
@@ -136,7 +199,12 @@ export function SpanView({ ch, vp, plotRef, width, bands, selected, selectedLabe
     <div className="card ex-tier" data-testid="signal-span-card">
       <div className="head">
         <span className="card-title">Span</span>
-        <span className="range" data-testid="span-range">{fmtRangeH(a, b)} · {fmtDuration(b - a)}</span>
+        <span className="range ex-edges" data-testid="span-range" data-left={a.toFixed(3)} data-right={b.toFixed(3)}>
+          <EdgeField side="left" value={a} other={b} dur={ch.duration_s} minSpan={minSpan} onCommit={v => setView([v, viewRef.current[1]])} />
+          <span className="ex-edge-sep">–</span>
+          <EdgeField side="right" value={b} other={a} dur={ch.duration_s} minSpan={minSpan} onCommit={v => setView([viewRef.current[0], v])} />
+          <span className="ex-edge-dur" data-testid="span-duration">· {fmtDuration(b - a)}</span>
+        </span>
         {vp.fetching && <span className="stat">fetching…</span>}
         <span className="grow" />
         <span className="ex-nav" data-testid="motif-nav">
@@ -160,7 +228,7 @@ export function SpanView({ ch, vp, plotRef, width, bands, selected, selectedLabe
             <rect x={0} y={0} width={W} height={H + AXIS_H} fill="#fff" />
             <g transform={`translate(0,${TOP})`}><TimeGrid x={x} t0={a} t1={b} height={H - TOP} /></g>
             <g transform={`translate(0,${TOP})`}>
-              <BandLayer bands={bands} x={x} height={H - TOP} capY={-13} capH={6} onClick={bd => onBandClick(bd.motif)} />
+              <BandLayer bands={bands} view={vp.view} width={W} height={H - TOP} capY={-13} capH={6} onClick={bd => onBandClick(bd.motif)} />
             </g>
             {selected && selected.end_s > a && selected.start_s < b && (
               // starts at the band, but never inside the y-label gutter (critique r1: MOTIF_744 overprinted "−0.23 mV")
@@ -173,14 +241,18 @@ export function SpanView({ ch, vp, plotRef, width, bands, selected, selectedLabe
             ) : <rect className="skeleton" x={0} y={TOP + 8} width={W} height={H - TOP - 16} fill="var(--grey-100)" data-testid="span-skeleton" data-reason={!win ? 'no-data' : !envOk ? 'malformed' : 'stale-transform'} />}
             <MvLabels y={y} lo={range[0]} hi={range[1]} dim={dim || stale} unit={win?.data.unit} />
             <line x1={0} x2={W} y1={H} y2={H} stroke="var(--border)" />
-            <g className="time-axis" transform={`translate(0,${H})`}>
+            <g className="time-axis" transform={`translate(0,${H})`} data-testid="span-axis" data-t0={a.toFixed(3)} data-t1={b.toFixed(3)}>
               {ticks.map(k => { const px = x(k.t); return <g key={k.t} transform={`translate(${px},0)`}><line y1={0} y2={4} stroke="var(--border-strong)" /><text x={px < 24 ? 2 : 0} y={14} textAnchor={px < 24 ? 'start' : px > W - 24 ? 'end' : 'middle'}>{k.label}</text></g> })}
             </g>
           </svg>
         )}
       </div>
+      {bandNote && <div className="ex-band-note" data-testid="span-band-note">{bandNote}</div>}
       <div className="row between" style={{ marginTop: 6 }}>
-        <span className="legend"><span><i style={{ background: 'var(--blue)' }} />detected</span><span><i style={{ background: 'var(--green)' }} />annotated</span><span><i style={{ background: 'var(--amber)' }} />selected</span><span><i style={{ background: 'var(--red)' }} />artifact</span>{demo && <span className="ex-demo" title="detections, runs and adjudications on this channel are demo canon">demo</span>}</span>
+        <span className="row" style={{ gap: 10 }}>
+          <BandToggles toggles={toggles} onToggle={onToggle} counts={counts} />
+          <span className="legend"><span><i style={{ background: 'var(--amber)' }} />selected</span>{demo && <span className="ex-demo" title="detections, runs and adjudications on this channel are demo canon">demo</span>}</span>
+        </span>
         <InfoTip title="Span viewport" testid="span-info">
           Drag to pan, wheel to zoom, or click the plot and use ← → and + −. The peak-preserving min/max envelope is re-fetched for every viewport; real mV, never normalised. Click a band to open that motif.
           {st && <span className="mono" style={{ display: 'block', marginTop: 6, fontSize: 11 }} data-testid="zoom-stat" data-dim={dim ? '1' : '0'}>{fmtInt(st.n_points)} pts · server {fmtMs(st.decimate_ms)} · round trip {fmtMs(st.round_trip_ms)} · paint {fmtMs(st.paint_ms)}</span>}
@@ -188,10 +260,8 @@ export function SpanView({ ch, vp, plotRef, width, bands, selected, selectedLabe
       </div>
       <Popover open={legendOpen} onClose={() => setLegendOpen(false)} anchorRef={legendRef} placement="bottom-end" width={330} title="Reading the span" testid="span-legend">
         <div className="ex-legend-pop">
-          <LegendRow swatch={<i className="cap" style={{ background: 'var(--blue)' }} />}>detected — a machine detection from a checked run; colour follows the run when ‘colour by run’ is on</LegendRow>
-          <LegendRow swatch={<i className="cap" style={{ background: 'var(--green)' }} />}>annotated — a human span from the annotation store</LegendRow>
-          <LegendRow swatch={<i className="cap" style={{ background: 'var(--amber)' }} />}>selected — the motif opened in the tier below</LegendRow>
-          <LegendRow swatch={<i className="cap" style={{ background: 'var(--red)' }} />}>artifact — a human span marked artifact</LegendRow>
+          {BAND_KINDS.map(k => <LegendRow key={k.key} swatch={<i className="cap" style={{ background: k.cap }} />}>{k.label} — {k.tip}</LegendRow>)}
+          <LegendRow swatch={<i className="cap" style={{ background: 'var(--amber)' }} />}>selected — the motif opened in the tier below, whatever its kind</LegendRow>
           <LegendRow swatch={<i className="cap" style={{ background: '#4b5563' }} />}>cap only, no fill — detection already has a verdict in Review</LegendRow>
           <div className="foot" style={{ fontStyle: 'normal' }}>Coverage ribbon: green reviewed · amber partly reviewed · red artifact-dense · grey never reviewed. Live, this database colours it by the verdict per bucket.</div>
         </div>

@@ -150,7 +150,7 @@ function Body({ data }: { data: WindowsBlock }) {
     >
       {leaking && (
         <Callout tone="red" icon="alert-triangle" title="a random split leaks (P12)" testid="leak-callout"
-          action={<Button size="sm" onClick={() => { setSplitQ(null); setP({ splitKind: 'blocked' }) }} testid="back-to-blocked">Back to blocked by time</Button>}>
+          action={<Button variant="primary" size="sm" onClick={() => { setSplitQ(null); setP({ splitKind: 'blocked' }) }} testid="back-to-blocked">Back to blocked by time</Button>}>
           {data.randomWarning}
         </Callout>
       )}
@@ -264,7 +264,7 @@ function Body({ data }: { data: WindowsBlock }) {
               return { id: c.id, label: c.label, state: c.state }
             })} />
             <div style={{ marginTop: 10 }}>
-              <Button icon="inbox" block onClick={() => setModal('send-review')} testid="send-review"
+              <Button variant="primary" icon="inbox" block onClick={() => setModal('send-review')} testid="send-review"
                 disabled={draft.queuedToReview > 0} disabledReason={draft.queuedToReview > 0 ? `${fmtInt(draft.queuedToReview)} windows are already queued this session` : undefined}>
                 Send {fmtInt(WINDOWS.unreviewed)} unseen windows to Review
               </Button>
@@ -274,7 +274,7 @@ function Body({ data }: { data: WindowsBlock }) {
 
           <SectionCard title="Window set" subtitle="P18 · reusable in Models across channels" testid="window-set-card">
             <div className="tr-row-flex">
-              <Button icon="save" onClick={() => setModal('save-window-set')} testid="save-window-set">Save window set</Button>
+              <Button variant="primary" icon="save" onClick={() => setModal('save-window-set')} testid="save-window-set">Save window set</Button>
               {draft.savedWindowSets.length > 0 && <Badge status="new">{draft.savedWindowSets[0]}</Badge>}
             </div>
             <div className="tr-muted tr-small tr-mono" style={{ marginTop: 6 }}>

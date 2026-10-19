@@ -8,20 +8,22 @@
  *   - getCrossChannel: every sibling channel's window with lag / r / classification from GET /api/cross/{id}
  *     (Working.cross_channel), anchored on the channel's first human span or its first ten minutes;
  *   - lookupChannel: GET /api/channels/{id} (423 = held out).
- * Only the two things nothing computes yet stay demo and say so: the Span-edit page and the keyboard map. */
+ *   - getSpanEdit / saveSpanEdit: GET/POST /api/explore/span-edit/{ref} (edit-span, 2026-10-18).
+ * Only the keyboard map stays demo and says so. */
 import {
   getChannel, getCrossWindow, getRecordings, getRunsForFile, getSpans, getTags, type Annotation, type CrossAsRecorded, type CrossDetrend,
   type Detection, type FileRun, type Spans,
 } from '../api'
 import { ANCHOR_RANK, CROSS_MAX_SPAN_S, anchorIndex, crossDetrendFor, orderSpans, resolveCrossWindow, spanLabel, windowParam, type CrossWindow } from '../explore/crossModel'
 import { demo, live, type Sourced } from './seam'
+import { ApiError } from '../api'   // edit-span: the span-edit routes' error contract
 import {
-  SHORTCUTS, spanEditDemo, type AnnotationRow, type CanonChannelRef, type CorpusDemo, type CrossDemo, type DemoRun, type DetectionRow,
-  type SignalDemo, type SpanEditDemo, type Verdict, type XRow,
+  SHORTCUTS, type AnnotationRow, type CanonChannelRef, type CorpusDemo, type CrossDemo, type DemoRun, type DetectionRow,
+  type SignalDemo, type Verdict, type XRow,
 } from '../fixtures/explore'
 
 export type {
-  AnnotationRow, CorpusDemo, CrossDemo, DemoRun, DetectionRow, Revision, SignalDemo, SnapRule, SpanEditDemo, Verdict, XBin, XRow,
+  AnnotationRow, CorpusDemo, CrossDemo, DemoRun, DetectionRow, SignalDemo, Verdict, XBin, XRow,
 } from '../fixtures/explore'
 export { FILTER_VOCAB, METHODS, RAIL_TAGS, VERDICT_KEYS } from '../fixtures/explore'
 import { VERDICTS } from '../fixtures/canon'
@@ -155,13 +157,15 @@ const OPTION_CAP = 40
  *  human span, else its first ten minutes — each ± `padS` — or, when `explicit` is given (fixup-W: an edge's own
  *  window, opened from Library › Family), exactly that window, unpadded and as recorded, so the lag, r and bin
  *  recomputed here are the ones the edge stores. Every other window is classified detrended (fixup-AQ, X3). */
-export async function getCrossChannel(referenceId: number, padS = 20, explicit?: { t0: number; t1: number } | null, windowSel = '', edge = false): Promise<Sourced<CrossRead | null>> {
+export async function getCrossChannel(referenceId: number, padS = 20, explicit?: { t0: number; t1: number } | null, windowSel = '', edge = false,
+  /** ux-1019 (AQ): the page's raw · linear · cubic control; null keeps the window's own default (crossDetrendFor) */
+  detrendSel: CrossDetrend | null = null): Promise<Sourced<CrossRead | null>> {
   if ((await locate(referenceId)).state !== 'ok') return { data: null, source: 'live' }
   const ch = await getChannel(referenceId)
   const raw = await getSpans(referenceId, 0, ch.duration_s)
   const spans = orderSpans(raw.annotations, raw.detections)
   const w = resolveCrossWindow({ spans, durationS: ch.duration_s, sel: windowSel, padS, explicit: explicit ?? null, edge })
-  const detrend: CrossDetrend = crossDetrendFor(!!explicit, edge)
+  const detrend: CrossDetrend = detrendSel ?? crossDetrendFor(!!explicit, edge)
   const x = await getCrossWindow(referenceId, w.t0, w.t1, 600, detrend)
   // the envelope verbatim: t stays absolute (and non-uniform once decimated), a null stays a null so the
   // line breaks at a gap instead of writing NaN into the path and truncating the rest of the trace
@@ -209,7 +213,9 @@ export async function getCrossChannel(referenceId: number, padS = 20, explicit?:
       ].slice(0, 6),
       sharedGround: [], openQuestions: [
         'lag is the peak of the z-normalised cross-correlation over this window (Working.cross_channel); a shared-ground flag needs the montage, which is not registered yet',
-        'the window is detrended by a straight line before it is correlated; a curved drift survives a line, so a strong r at lag 0 on every pair can still be drift — such rows are marked “may be curved drift”; compare the as-recorded r in each row’s r tip',
+        detrend === 'cubic'
+          ? 'the window is detrended by a cubic before it is correlated; a cubic also takes out a slow event that fills the window, so a weak r here may be the trend treatment — compare linear and the as-recorded r in each row’s r tip'
+          : 'the window is detrended by a straight line before it is correlated; a curved drift survives a line, so a strong r at lag 0 on every pair can still be drift — such rows are marked “may be curved drift”; compare the cubic detrend and the as-recorded r in each row’s r tip',
         'lag is searched over the whole window: on independent random walks over 640 s about 1 pair in 6 bins as propagation (49 of 300 detrended, 47 as recorded; 14 of 300 on AR(1) noise), and the median |lag| between unrelated drifting channels was 114 s — a propagation badge here is a lead to check, not evidence',
       ],
       rules: x.rules, explicitWindow: !!explicit,
@@ -221,5 +227,83 @@ export async function getCrossChannel(referenceId: number, padS = 20, explicit?:
   }
 }
 
-/** The motif member being edited, its revisions and the trace around it (§4.2) — still demo: span editing lands with Prompt 05. */
-export const getSpanEdit = (memberId: string): Promise<Sourced<SpanEditDemo | null>> => demo(spanEditDemo(memberId))
+
+/* ---------------------------------------------------------- explore-review ---- */
+/* explore-review (2026-10-18), appended: the shared action strip's two writes (webui/server/explore_routes.py).
+ *   - sendSpanToReview: the unjudged detections in a window on these channels (or the drawer's named ids) go to
+ *     Explore's ONE picked queue, "Unjudged motifs · picked from Explore", created once and appended to after;
+ *   - markArtifact: one `annotations` row with verdict `artifact` per channel over the window (never a sixth verdict). */
+import { ApiError as ExploreApiError } from '../api'
+
+async function explorePost<T>(path: string, body: unknown): Promise<T> {
+  const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  if (!r.ok) {
+    let b: any = null   // eslint-disable-line @typescript-eslint/no-explicit-any
+    try { b = await r.json() } catch { /* not json */ }
+    const msg = b?.error ?? (typeof b?.detail === 'string' ? b.detail : b?.detail?.message) ?? `${r.status} ${r.statusText}`
+    throw new ExploreApiError(r.status, msg, b?.detail ?? b, b?.traceback)
+  }
+  return r.json() as Promise<T>
+}
+
+/* ---------------- edit-span (2026-10-18): Review's "Edit span in Explore" ---------------- */
+
+/** The channel around the span, as Review's context card gets it: `t` in absolute seconds beside `v` in mV. */
+export interface SpanEditTrace {
+  t: number[]; v: (number | null)[]; t0_s: number; t1_s: number; fs: number
+  n_source: number; n_points: number; decimated: boolean; unit: string | null; reason: string | null
+}
+/** GET /api/explore/span-edit/{ref}: `ref` is a detection id, or `m-<member id>` for a Library member. */
+export interface SpanEdit {
+  recording_id: number; channel: string; source_file: string; fs: number; n_samples: number; unit: string | null
+  detection_id: number | null
+  /** The detection's own span (channel-absolute samples); null for a member with no detection behind it. */
+  detection: { start_idx: number; end_idx: number } | null
+  /** The Library member this item IS, with its current revision; null for a plain detection. */
+  member: { ref: string; current: { start_idx: number; end_idx: number; revision_no: number } } | null
+  verdict: string | null
+  context_trace: SpanEditTrace
+}
+/** POST's answer: `revision` for a member (with the human annotation behind it), `annotation` for a plain detection. */
+export interface SpanEditSaved {
+  kind: 'revision' | 'annotation'; member: string | null
+  revision?: { id: number; revision_no: number; start_idx: number; end_idx: number; annotation_id: number }
+  annotation: { id: number; verdict: string; source: string }
+  stale_edges?: number[]; seeded_rev1?: boolean
+}
+
+/** One request against the span-edit routes. Non-2xx throws `ApiError` with the server's message — never a blank. */
+async function spanEditReq<T>(ref: string, init?: RequestInit): Promise<T> {
+  const r = await fetch(`/api/explore/span-edit/${encodeURIComponent(ref)}`, { headers: { 'content-type': 'application/json' }, ...init })
+  if (!r.ok) {
+    let body: any = null
+    try { body = await r.json() } catch { /* not json */ }
+    const msg = body?.error ?? (typeof body?.detail === 'string' ? body.detail : body?.detail?.message) ?? `${r.status} ${r.statusText}`
+    throw new ApiError(r.status, msg, body?.detail ?? body, body?.traceback)
+  }
+  return r.json() as Promise<T>
+}
+
+/** What a send to Explore's picked queue did. `added` new ids went in; `already_queued` were in it already;
+ *  `already_judged` carry a verdict and were not added; `total` is every detection the window (or selection) held.
+ *  `queue_id` is null only when nothing was ever sent from Explore and this send had nothing to add. */
+export interface SpanReviewResult {
+  queue_id: number | null; queue: string; added: number; added_ids: number[]; already_queued: number
+  already_judged: number; total: number; unjudged_in_queue: number | null; message: string; note: string
+  /** of `added`, the ones Review will not ask about: the same event as a span a person already judged */
+  not_asked: number
+}
+export const sendSpanToReview = (recordingIds: number[], t0S: number, t1S: number, note?: string) =>
+  explorePost<SpanReviewResult>('/api/explore/span-review', { recording_ids: recordingIds, t0_s: t0S, t1_s: t1S, note })
+export const sendDetectionIdsToReview = (detectionIds: number[]) =>
+  explorePost<SpanReviewResult>('/api/explore/span-review', { detection_ids: detectionIds })
+
+export interface ArtifactResult { ids: number[]; recording_ids: number[]; start_s: number; end_s: number; verdict: 'artifact'; source: string; message: string }
+export const markArtifact = (recordingIds: number[], t0S: number, t1S: number, origin: 'cross-channel' | 'signal', note?: string) =>
+  explorePost<ArtifactResult>('/api/explore/artifact', { recording_ids: recordingIds, t0_s: t0S, t1_s: t1S, origin, note })
+
+/** The span a Review item names, live: the detection, the member it is (or null), the item's verdict, the channel around it. */
+export const getSpanEdit = (ref: string): Promise<Sourced<SpanEdit>> => live(spanEditReq<SpanEdit>(ref))
+/** Save a corrected span: a new revision for a member, a human annotation for a plain detection — never the detection. */
+export const saveSpanEdit = (ref: string, body: { start_idx: number; end_idx: number; note?: string | null }) =>
+  spanEditReq<SpanEditSaved>(ref, { method: 'POST', body: JSON.stringify(body) })

@@ -137,13 +137,14 @@ def test_the_pages_read_peeks_and_only_run_preview_posts():
 
 
 def test_the_seed_page_has_run_preview_cancel_and_says_what_a_run_without_a_cut_keeps():
-    page = _src("discovery", "SeedPage.tsx")
+    # seed-search (2026-10-18): the apply bar is gone; step 4 (`seed/KeepCard.tsx`) says what a run with no cut keeps
+    page = _src("discovery", "SeedPage.tsx") + _src("discovery", "seed", "KeepCard.tsx")
     for testid in ("seed-not-previewed", "seed-preview-cancelled", "preview-estimate", "apply-no-cut"):
         assert re.search(rf"""['"]{testid}['"]""", page), f"{testid} is not on the page"
     for testid in ("run-preview", "seed-preview-cancel"):
         assert f'testid="{testid}"' in page, f"no {testid} control"
     assert "runSeedPreview(" in page and "cancelJob(" in page
-    assert "matches per channel kept" in page, "the apply bar says what a run with no cut keeps"
+    assert "matches per channel kept" in page, "step 4 says what a run with no cut keeps"
 
 
 def test_the_picker_reaches_every_family_and_names_the_catalogue_spans():

@@ -52,7 +52,7 @@ function Body({ data }: { data: Data }) {
   return (
     <>
       <SectionCard title="This machine" testid="machine-card"
-        actions={<Button icon="refresh" testid="run-benchmark" loading={benchRunning} disabled={benchRunning}
+        actions={<Button variant="primary" icon="refresh" testid="run-benchmark" loading={benchRunning} disabled={benchRunning}
           disabledReason={benchRunning ? 'benchmark running…' : undefined}
           onClick={() => { setState('benchmark'); bench.start({ steps: ['fft', 'matrix profile', 'window matrix', 'image encode', 'cnn forward'], stepMs: 600 }) }}>Run benchmark</Button>}>
         <Row label="detected" caption={`estimates calibrated ${calibrated}`} testid="detected-row">
@@ -95,7 +95,7 @@ function Body({ data }: { data: Data }) {
       </SectionCard>
 
       <SectionCard title="Clusters" testid="clusters-card"
-        actions={<Button icon="plus" testid="add-cluster" onClick={() => setModal('add-cluster')}>Add cluster</Button>}>
+        actions={<Button variant="primary" icon="plus" testid="add-cluster" onClick={() => setModal('add-cluster')}>Add cluster</Button>}>
         <Table rows={clusters} rowKey={c => c.name} testid="clusters-table" dense highlighted={current.name} onRowClick={c => setCluster(c.name)}
           columns={[
             { key: 'name', header: 'name', width: '18%', render: c => <span className="mono" style={{ fontWeight: 600 }}>● {c.name}</span> },
@@ -132,16 +132,16 @@ function Body({ data }: { data: Data }) {
             {profile && <ProfileEditor profile={profile} store={s} editor={editor} setEditor={setEditor} raw={raw} setRaw={setRaw} script={script} />}
           </>
         ) : <EmptyState size="sm" title={`No profiles on ${current.name}`} caption="add one before submitting"
-          action={<Button size="sm" onClick={() => notWired(`POST /api/clusters/${current.name}/profiles`)}>Add profile</Button>} testid="profiles-empty" />}
+          action={<Button variant="primary" size="sm" onClick={() => notWired(`POST /api/clusters/${current.name}/profiles`)}>Add profile</Button>} testid="profiles-empty" />}
       </SectionCard>
 
       <SectionCard title="Job status" testid="job-status-card">
-        <Row label="cluster job status" caption="the site cannot see the queue · the researcher marks submitted, running, finished" testid="marked-by-hand-row">
+        <Row label="cluster job status" tip="the site cannot see the queue · the researcher marks submitted, running, finished" testid="marked-by-hand-row">
           <LockedChip reason="the site cannot see the cluster queue; job status is marked by hand in Jobs" testid="marked-by-hand">marked by hand</LockedChip>
           <Button variant="link" size="sm" icon="external" onClick={() => navigate('jobs')}>Jobs</Button>
         </Row>
         <Row label="remind to check a running job after" dot={s.differs('remind_x')} unsaved={s.dirty('remind_x')} testid="remind-row"
-          caption="j-0214 is 3.3× its estimate">
+          tip="j-0214 is 3.3× its estimate">
           <NumberField value={s.num('remind_x')} min={1} max={20} width={90} onValid={v => s.set('remind_x', v)} testid="remind-x" />
           <span className="mono small">× estimate</span>
         </Row>
@@ -173,7 +173,7 @@ function ProfileEditor({ profile, store: s, editor, setEditor, raw, setRaw, scri
       </div>
       {editor === 'guided' ? (
         <>
-          <Row label="environment setup" dot={s.differs('env_setup')} unsaved={s.dirty('env_setup')} testid="env-row" caption="runs before the job">
+          <Row label="environment setup" dot={s.differs('env_setup')} unsaved={s.dirty('env_setup')} testid="env-row" tip="runs before the job">
             <TextField value={s.str('env_setup')} onChange={v => s.set('env_setup', v)} width={340} testid="env-setup" />
           </Row>
           <Row label="working directory" dot={s.differs('workdir')} unsaved={s.dirty('workdir')} testid="workdir-row" caption={workdirError ?? 'cd here before running'}>
@@ -181,13 +181,13 @@ function ProfileEditor({ profile, store: s, editor, setEditor, raw, setRaw, scri
               width={260} invalid={!!workdirError} testid="workdir" />
           </Row>
           <Row label="results come back from" dot={s.differs('return_remote')} unsaved={s.dirty('return_remote') || s.dirty('return_local')} testid="return-row"
-            caption="copied into Jobs › Manifest inbox · path in Storage">
+            tip="copied into Jobs › Manifest inbox · path in Storage">
             <TextField value={s.str('return_remote')} onChange={v => s.set('return_remote', v)} width={220} testid="return-remote" />
             <span className="mono small">→</span>
             <TextField value={s.str('return_local')} onChange={v => s.set('return_local', v)} width={150} testid="return-local" />
           </Row>
           <Row label="email on finish" dot={s.differs('email_on_finish')} unsaved={s.dirty('email_on_finish')} testid="email-row"
-            caption="adds #SBATCH --mail-type=END">
+            tip="adds #SBATCH --mail-type=END">
             <Toggle checked={s.bool('email_on_finish')} onChange={v => s.set('email_on_finish', v)} testid="email-on-finish" />
           </Row>
         </>

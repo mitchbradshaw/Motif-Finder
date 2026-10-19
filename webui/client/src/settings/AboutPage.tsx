@@ -13,7 +13,7 @@ export function AboutPage() {
   const { push } = useToast()
   return (
     <SettingsShell slug="about" demo={rd.source === 'demo'} noReset
-      actions={<Button icon="copy" testid="copy-diagnostics"
+      actions={<Button variant="primary" icon="copy" testid="copy-diagnostics"
         onClick={() => copyToClipboard(rd.data?.diagnostics ?? '').then(ok => push({ text: ok ? 'Diagnostics copied' : 'Could not reach the clipboard', kind: ok ? 'info' : 'error' }))}>Copy diagnostics</Button>}>
       {rd.loading && <Loading />}
       {rd.error && <LoadFailed what="the installation details" error={rd.error} onRetry={rd.reload} />}
@@ -55,7 +55,7 @@ function Body({ data }: { data: Data }) {
           <InfoTip title={`${a.mode} mode`}>{a.mode === 'project' ? `The real database, backed up first to ${a.db_backup ?? '?'}.` : 'A throwaway copy of the database; nothing here reaches the project.'}</InfoTip>
         </Row>
         <Row label="database" testid="db-row" wide><span className="mono small">{a.db_path}</span></Row>
-        <Row label="settings" testid="settings-file-row" wide caption="project settings travel with the database backup">
+        <Row label="settings" testid="settings-file-row" wide tip="project settings travel with the database backup">
           <span className="mono small">{a.settings_file}</span>
         </Row>
       </SectionCard>

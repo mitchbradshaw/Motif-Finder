@@ -96,6 +96,92 @@ DETRENDS = ("off", "linear")
 DEFAULT_ALIGN = "centre"     # the researcher chose centring (2026-10-05); measured: every pile an event shape (report part 2)
 DEFAULT_ANCHOR_FRAC = 0.5    # the middle: AG's centring, bit for bit (and the shape key does not change at it)
 DEFAULT_DETREND = "linear"  # with the straight line removed, the drift is no longer the shape
+#: ux-1019 (the researcher, 2026-10-18; BACKLOG §1 "AM"): for DROP work the bottom of the drop, a third of the way
+#: in, so the recovery fits inside the window. A pool chain carries nothing that says it is drop work (no detector
+#: can precede a Window pool), so the Trace shape block's `for_drops` switch (2026-10-19) reads where the pool's
+#: window sets came from (`drop_source`: auto) or is forced on / off; `resolve_alignment` decides. DEFAULT_ALIGN / DEFAULT_ANCHOR_FRAC
+#: stay the block's defaults and every cached shape key with the switch off is unchanged.
+DROP_ALIGN = "trough"
+DROP_ANCHOR_FRAC = 0.333
+
+
+FOR_DROPS_MODES = ("auto", "on", "off")
+#: a step whose algorithm names this made its windows from a drop detector's detections
+DROP_DETECTOR = "drop_detection"
+
+
+def drop_source(conn, set_ids):
+    """ux-1019 critic round: of the saved window sets `set_ids` (a pool's windows carry theirs), how many were MADE
+    FROM DROP DETECTIONS — a set saved from an Analyse step keeps the chain that made it in its manifest
+    (`recipe.steps`), so a chain ... -> Drop detection -> Event windows -> Save window set says so on disk. A grid
+    (unlabelled) set, a hand-labelled set or a pool keeps no such chain and counts as not. Returns
+    `{n_sets, n_drop, sets: [names made from drops]}`."""
+    import json as _json
+    ids = sorted({int(i) for i in set_ids})
+    drops = []
+    for i in ids:
+        row = conn.execute("SELECT name, version, path FROM window_sets WHERE id = ?", (i,)).fetchone()
+        if row is None or not row["path"]:
+            continue
+        try:
+            with open(os.path.join(row["path"], "manifest.json"), encoding="utf-8") as f:
+                steps = ((_json.load(f) or {}).get("recipe") or {}).get("steps") or []
+        except (OSError, ValueError):
+            continue
+        if any(DROP_DETECTOR in str((s or {}).get("algorithm", "")) for s in steps):
+            drops.append(f"{row['name']} v{int(row['version'] or 1)}")
+    return {"n_sets": len(ids), "n_drop": len(drops), "sets": drops}
+
+
+def _mode(v):
+    if isinstance(v, bool):          # a chain saved while the switch was a bool (this branch only)
+        return "on" if v else "off"
+    v = str(v if v is not None else "auto").strip().lower()
+    return v if v in FOR_DROPS_MODES else "auto"
+
+
+def resolve_alignment(params, source=None):
+    """ux-1019 (the researcher, 2026-10-19): the ONE place a Trace shape step's `for_drops` switch, `align` and
+    `anchor_frac` become the alignment it is cut at — read by the block (an Analyse run), the B.2 recipe (the model's
+    identity) and Models › Launch, so one chain is cut alike everywhere.
+
+    `for_drops`: `auto` (the default) turns the drop setting on when EVERY window set in the pool was made from drop
+    detections (`source`, from `drop_source`), else off; `on` / `off` force it either way. Drop setting → `trough` a
+    third in (DROP_ALIGN, DROP_ANCHOR_FRAC); otherwise `centre` at the middle (the defaults). A value other than the
+    block's own default is the researcher's, set on the card, and wins over the switch (a default value is what every
+    chain carries unasked — Analyse fills every parameter — so it cannot mean "chosen"; for centre at the middle on a
+    drop pool, set the switch off). Returns `{align, anchor_frac (None on the grid), for_drops, mode, from}`, `from`
+    in words for the card and Launch."""
+    p = dict(params or {})
+    mode = _mode(p.get("for_drops", "auto"))
+    if mode == "auto":
+        src = source or {}
+        n, k = int(src.get("n_sets") or 0), int(src.get("n_drop") or 0)
+        on = n > 0 and k == n
+        if on:
+            words = [f"for drops: auto — on: every window set in the pool ({n}) was made from drop detections"]
+        elif k:
+            words = [f"for drops: auto — off: only {k} of {n} window sets in the pool were made from drop detections"]
+        else:
+            words = ["for drops: auto — off: no window set in the pool was made from drop detections"]
+    else:
+        on = mode == "on"
+        words = [f"for drops: {mode} — set on the card"]
+    a_in = str(p.get("align") or DEFAULT_ALIGN)
+    f_in = DEFAULT_ANCHOR_FRAC if p.get("anchor_frac") is None else float(p["anchor_frac"])
+    a_set, f_set = a_in != DEFAULT_ALIGN, f_in != DEFAULT_ANCHOR_FRAC
+    align = a_in if a_set else (DROP_ALIGN if on else DEFAULT_ALIGN)
+    anchor = f_in if f_set else (DROP_ANCHOR_FRAC if on else DEFAULT_ANCHOR_FRAC)
+    if a_set:
+        words.append(f"align {a_in} set on the card")
+    if f_set and align != "grid":
+        words.append(f"anchor {f_in:g} set on the card")
+    if on and (a_set or (f_set and align != "grid")):
+        words.append("the card's setting wins over the switch")
+    return {"align": align, "anchor_frac": None if align == "grid" else float(anchor), "for_drops": on, "mode": mode,
+            "from": " · ".join(words)}
+
+
 SWING_RULE = ("the largest swing: the window's straight-line (least-squares) trend is removed, a running median of k "
               "samples is taken (k odd, at least 5, about a sixtieth of the window: 5 at 1 min, 11 at 10 min, 31 at "
               "30 min, so a glitch of a sample or two cannot be it), and the swing is the sample where that departs "

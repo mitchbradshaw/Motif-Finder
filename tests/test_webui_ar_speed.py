@@ -165,11 +165,16 @@ def test_the_counts_read_is_the_queue_reads_counts(bridge):
     c = client.get(f"/api/review/queues/{qid}/counts").json()
     assert {k: c[k] for k in ("total", "judged", "remaining", "pace_s")} == \
         {k: head[k] for k in ("total", "judged", "remaining", "pace_s")}
-    row = next(r for r in client.get(f"/api/review/queues/{qid}?thumbs=0").json()["rows"] if not r.get("judged"))
+    rows = client.get(f"/api/review/queues/{qid}?thumbs=0").json()["rows"]
+    row = next(r for r in rows if not r.get("judged"))
     ack = client.post(f"/api/review/queues/{qid}/verdict", json={"target_id": row["id"], "verdict": "unsure"})
     assert ack.status_code == 200, ack.text
     after = client.get(f"/api/review/queues/{qid}/counts").json()
-    assert after["judged"] == c["judged"] + 1 and after["total"] == c["total"]
+    # review-carry: the verdict is also carried to the same event in other runs, which can judge other items of
+    # this queue; exactly those, and the one asked about, are newly judged
+    carried = set(ack.json()["carriedIds"])
+    reached = sum(1 for r in rows if r is not row and not r.get("judged") and carried & set(r["members"]))
+    assert after["judged"] == c["judged"] + 1 + reached and after["total"] == c["total"]
     assert ack.json()["counts"] == {k: after[k] for k in ("total", "judged", "remaining")}
     assert client.post(f"/api/review/queues/{qid}/undo").status_code == 200
     assert client.get(f"/api/review/queues/{qid}/counts").json()["judged"] == c["judged"]

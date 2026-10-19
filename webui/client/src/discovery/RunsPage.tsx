@@ -47,7 +47,7 @@ export function RunsPage() {
     }
   }
   const primary = dx.pending.length === 0
-    ? <DisabledReason reason="nothing to run — every run in this session has results or is on the cluster"><Button icon="play" disabled disabledReason="nothing to run — every run in this session has results or is on the cluster" testid="toolbar-run">Run</Button></DisabledReason>
+    ? <DisabledReason reason="nothing to run — every run in this session has results or is on the cluster"><Button variant="primary" icon="play" disabled disabledReason="nothing to run — every run in this session has results or is on the cluster" testid="toolbar-run">Run</Button></DisabledReason>
     : dx.overLimit
       ? <Button variant="cluster" icon="file" onClick={() => { setSlurmKeys(null); setModal('slurm') }} testid="toolbar-slurm">Create SLURM script for {dx.pending.length}</Button>
       : <Button variant="next" icon="play" onClick={runLocal} testid="toolbar-run">Run {dx.pending.length}</Button>
@@ -70,12 +70,12 @@ export function RunsPage() {
                 <div className="dsc-cols">
                   <RunsCard dx={dx} mode="runs" selected={selected?.key} onSelect={k => setRunQ(k)} onAddTemplate={() => setModal('add-template')} />
                   <div className="dsc-right">
-                    {missingRun && <Callout tone="amber" icon="alert-triangle" title={`No run named ${missingRun} in this session`} testid="run-missing-callout" action={<Button size="sm" onClick={() => setRunQ(null)}>Clear</Button>}>Showing {selected?.label ?? 'nothing'} instead. Past runs can be brought in from History.</Callout>}
+                    {missingRun && <Callout tone="amber" icon="alert-triangle" title={`No run named ${missingRun} in this session`} testid="run-missing-callout" action={<Button variant="primary" size="sm" onClick={() => setRunQ(null)}>Clear</Button>}>Showing {selected?.label ?? 'nothing'} instead. Past runs can be brought in from History.</Callout>}
                     {stateQ === 'failed' && (() => { const f = dx.runs.find(r => r.status === 'failed'); return f ? <Callout tone="red" icon="alert-triangle" title={`${f.label} failed`} testid="run-failed-callout" action={<Button size="sm" icon="refresh" onClick={() => navigate('discovery/runs')}>Dismiss</Button>}>{f.error}</Callout> : null })()}
                     {dx.runs.filter(hasResults).length === 0 ? (
                       <div className="k-card dsc-empty-results" data-testid="results-empty">
                         <EmptyState icon="target" title="No run has results yet" caption="Apply a template or set up a seed search; results fill in here as runs finish"
-                          action={<div className="row" style={{ gap: 8 }}><Button icon="layers" onClick={() => setModal('add-template')}>Apply template</Button><Button icon="target" onClick={() => navigate('discovery/seed')}>Seed search</Button></div>} />
+                          action={<div className="row" style={{ gap: 8 }}><Button variant="primary" icon="layers" onClick={() => setModal('add-template')}>Apply template</Button><Button variant="primary" icon="target" onClick={() => navigate('discovery/seed')}>Seed search</Button></div>} />
                       </div>
                     ) : (
                       <>
@@ -108,8 +108,14 @@ function WhereFires({ dx }: { dx: Discovery }) {
   const [, setRunQ] = useQueryState('run', 'drop_motifs9')
   const [chQ, setChQ] = useQueryState('ch', 'CH4_A2')
   const [, setAt] = useQueryState('at', '')
-  const shown = dx.runs.filter(r => r.kind === 'reference' || hasResults(r) || r.status === 'on cluster' || r.status === 'running')
-  const notShown = dx.runs.filter(r => !shown.includes(r) && r.status !== 'draft')
+  const drawable = dx.runs.filter(r => r.kind === 'reference' || hasResults(r) || r.status === 'on cluster' || r.status === 'running')
+  const notShown = dx.runs.filter(r => !drawable.includes(r) && r.status !== 'draft')
+  /* ux-1019 (the researcher, 2026-10-18): a run is drawn — and read — only once its eye is on; a new session draws
+   * the human row alone. The hidden ones sit on one line under the rows, each a button that turns it on. */
+  const shown = drawable.filter(dx.isShown)
+  const hidden = drawable.filter(r => !dx.isShown(r))
+  const runKeys = drawable.filter(r => r.kind !== 'reference').map(r => r.key)
+  const nDrawn = shown.filter(r => r.kind !== 'reference').length
   /* ux-1018: the card pages with the strips (three channels at a time), and a page turn is now VISIBLE: the old
    * groups dim under a refreshing line until the next page's counts land. The researcher saw "the table still only
    * shows the first three" after paging because the re-read took minutes on the real session (16 channels, 52 runs,
@@ -123,11 +129,14 @@ function WhereFires({ dx }: { dx: Discovery }) {
     <section className="k-card dsc-fires" data-testid="where-fires" aria-label="Where each run fires">
       <div className="dsc-card-head">
         <h3>Where each run fires</h3>
-        <InfoTip title="Where each run fires">Small multiples by channel, one row per run, on one time axis. At section scale a span is thinner than a pixel, so rows show detections per 3 h bin — colour by run, opacity by count. The human row shows reviewed hours as a grey underlay: recall exists only there. With more than three channels the rows page with the strips' arrows; while the next page is being read the old rows dim under a refreshing line.</InfoTip>
+        <InfoTip title="Where each run fires">Small multiples by channel, one row per run, on one time axis. At section scale a span is thinner than a pixel, so rows show detections per 3 h bin — colour by run, opacity by count. The human row shows reviewed hours as a grey underlay: recall exists only there. A run is drawn only once its eye is on — a new session draws the human row alone; the hidden runs wait on the line under the rows (a hollow swatch), and <i>show all</i> / <i>hide all</i> switch every run at once. With more than three channels the rows page with the strips' arrows; while the next page is being read the old rows dim under a refreshing line.</InfoTip>
         <span className="muted small" data-testid="fires-channel-count">{dx.pageCount > 1
           ? `${dx.visibleChannels[0]}–${dx.visibleChannels[dx.visibleChannels.length - 1]} of ${s.channels.length} channels · page with the strips' arrows`
           : (mode === 'spans' ? 'every span in view · grouped by channel' : 'detections per 3 h · grouped by channel')}</span>
         <span className="k-spacer" />
+        <span className="muted small" data-testid="fires-shown-count">{nDrawn} of {runKeys.length} runs drawn</span>
+        <Button size="sm" variant="link" icon="eye" testid="fires-show-all" onClick={() => dx.setShown(runKeys)}>show all</Button>
+        <Button size="sm" variant="link" icon="eye-off" testid="fires-hide-all" onClick={() => dx.setShown([])}>hide all</Button>
         <Seg size="sm" value={mode} onChange={v => setMode(v)} options={[{ value: 'density', label: 'density' }, { value: 'spans', label: 'spans' }]} testid="fires-mode" />
         {/* the detection map (2026-10-12): the same rows as columns of channels and datasets, every session — where overall, not when */}
         <Button size="sm" variant="link" icon="grid" onClick={() => navigate(`discovery/map?dataset=${encodeURIComponent(s.recording)}`)} testid="open-map">Open the map</Button>
@@ -136,7 +145,7 @@ function WhereFires({ dx }: { dx: Discovery }) {
         <span className="dsc-ramp small" aria-label="legend">
           <i className="sw" style={{ background: 'var(--grey-200)' }} /> reviewed hours
           {mode === 'spans'
-            ? <><i className="sw" style={{ background: '#374151' }} /><span className="muted">one mark per span · at this scale several may share a pixel</span></>
+            ? <><i className="sw" style={{ background: '#374151' }} /><span className="k-meta">one mark per span</span><InfoTip title="Span marks">at this scale several may share a pixel</InfoTip></>
             : <><span className="muted">0</span>{[1, 2, 3, 4].map(n => <i key={n} className="sw" style={{ background: '#374151', opacity: opacityFor(n) }} />)}<span className="muted">4+ per 3 h</span></>}
         </span>
       </div>
@@ -158,10 +167,15 @@ function WhereFires({ dx }: { dx: Discovery }) {
                   const isHuman = run.kind === 'reference'
                   return (
                     <div key={row.run} className="dsc-fires-row">
-                      <span className="dsc-fires-label"><i className="sw" style={{ background: run.colour }} />{isHuman ? 'human' : run.label}</span>
+                      <span className="dsc-fires-label">
+                        {isHuman ? <i className="sw" style={{ background: run.colour }} />
+                          : <button type="button" className="dsc-fires-eye" onClick={() => dx.toggleShown(run.key)} title={`hide ${run.label}`} aria-label={`hide ${run.label}`} aria-pressed data-testid={`fires-eye-${run.key}`} data-shown="1">
+                              <i className="sw" style={{ background: run.colour }} /><Icon name="eye" size={10} /></button>}
+                        {isHuman ? 'human' : run.label}</span>
                       <div className="dsc-fires-cells">
-                        <FiresCells data={fires.data!} channel={ch.channel} counts={row.counts} reviewed={isHuman ? ch.reviewed : null} colour={run.colour} mode={mode} unfinishedFrom={row.unfinishedFrom}
-                          label={isHuman ? 'human' : run.label} onCell={(bin) => { if (isHuman) return; setRunQ(run.key); setChQ(ch.channel); setAt(String(bin * fires.data!.binH)) }} />
+                        {/* discovery-coverage: a channel the run never ran on says so; zeros would read "ran, found nothing" */}
+                        {row.ran === false ? <div className="dsc-fires-notrun" data-testid={`fires-notrun-${run.key}-${ch.channel}`} title={`${run.label} never ran on ${ch.channel} — Run on the missing on its row adds it`}>not run here</div> : <FiresCells data={fires.data!} channel={ch.channel} counts={row.counts} reviewed={isHuman ? ch.reviewed : null} colour={run.colour} mode={mode} unfinishedFrom={row.unfinishedFrom}
+                          label={isHuman ? 'human' : run.label} onCell={(bin) => { if (isHuman) return; setRunQ(run.key); setChQ(ch.channel); setAt(String(bin * fires.data!.binH)) }} />}
                         {isHuman && ch.reviewedH === 0 && <span className="dsc-fires-none">no reviewed hours in this section</span>}
                         {row.unfinishedFrom != null && <span className="dsc-fires-unfinished" style={{ left: `${(row.unfinishedFrom / fires.data!.nBins) * 100}%` }}>{run.status === 'running' ? 'running locally' : 'on cluster'} · {Math.round((run.progress ?? 0) * 100)} %</span>}
                       </div>
@@ -177,6 +191,16 @@ function WhereFires({ dx }: { dx: Discovery }) {
           </div>
           <div className="dsc-fires-axis mono">{ticks.map((t, i) => <span key={i} style={{ left: `calc(${(i / 6) * 100}%)` }}>{i === 0 || i === 6 ? `${t} h` : t}</span>)}</div>
           {notShown.length > 0 && <div className="muted small dsc-fires-foot">not drawn: {notShown.map(r => `${r.label} (${r.status === 'paused' ? `paused ${r.pausedAt?.stage}/${r.pausedAt?.of}` : r.status})`).join(' · ')} — nothing to draw in this section</div>}
+        </div>
+      )}
+      {hidden.length > 0 && (
+        <div className="dsc-fires-hidden small" data-testid="fires-hidden">
+          <span className="muted">{nDrawn ? 'hidden' : 'no run drawn yet · press a run to draw it'}:</span>
+          {hidden.map(r => (
+            <button key={r.key} type="button" className="dsc-fires-eye off" onClick={() => dx.toggleShown(r.key)} title={`draw ${r.label}`} aria-label={`draw ${r.label}`} aria-pressed={false} data-testid={`fires-eye-${r.key}`} data-shown="0">
+              <i className="sw" style={{ borderColor: r.colour }} /><Icon name="eye-off" size={10} />{r.label}
+            </button>
+          ))}
         </div>
       )}
     </section>
@@ -468,10 +492,12 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
       <b>{run.label}</b>
       {total && results ? <span className="muted small">{total.found} detections · {run.channelsDone ? `${run.channelsDone} channels` : `${dx.scope!.channels.length} channels`} · {total.judged} already judged</span> : <span className="muted small">{reason}</span>}
       <span className="k-spacer" />
-      <Button icon="trash" onClick={() => setConfirm('discard')} disabled={!!reason} disabledReason={reason ?? undefined} testid="discard-run">Discard run</Button>
-      <Button icon="branch" onClick={() => { recordDemoWrite('analyse', 'import-spanset', { run: run.key }); notWired(`send SpanSet of ${run.label} to Analyse`); navigate('analyse/chain') }} disabled={!!reason} disabledReason={reason ?? undefined} testid="analyse-events">Analyse events</Button>
+      {/* reports (2026-10-19): this run's report — figures and tables drawn by the server */}
+      <Button variant="primary" icon="file" onClick={() => navigate(`reports/detection-run/${encodeURIComponent(run.key)}`)} disabled={!!reason} disabledReason={reason ?? undefined} testid="report-run">Report</Button>
+      <Button variant="danger" icon="trash" onClick={() => setConfirm('discard')} disabled={!!reason} disabledReason={reason ?? undefined} testid="discard-run">Discard run</Button>
+      <Button variant="primary" icon="branch" onClick={() => { recordDemoWrite('analyse', 'import-spanset', { run: run.key }); notWired(`send SpanSet of ${run.label} to Analyse`); navigate('analyse/chain') }} disabled={!!reason} disabledReason={reason ?? undefined} testid="analyse-events">Analyse events</Button>
       {sent[run.key] != null
-        ? <Button icon="check" onClick={() => navigate(`review/queue/${sent[run.key].queueId}`)} testid="send-to-review" data-queue={sent[run.key].queueId}>Sent {sent[run.key].n} · open in Review · then refresh</Button>
+        ? <Button variant="primary" icon="check" onClick={() => navigate(`review/queue/${sent[run.key].queueId}`)} testid="send-to-review" data-queue={sent[run.key].queueId}>Sent {sent[run.key].n} · open in Review · then refresh</Button>
         : <Button variant="next" icon="arrow-right" onClick={send} disabled={!!reason || unjudged === 0} disabledReason={reason ?? 'nothing unjudged'} testid="send-to-review">Send {unjudged} unjudged to Review</Button>}
       {/* fixup-v: a seed run's accepted matches become members of the entry it searched for, with their edges */}
       {run.kind === 'seed' && results && <AddMatchesButton run={run} />}

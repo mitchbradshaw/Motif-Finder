@@ -147,9 +147,9 @@ function StepThrough({ runId, exam, filter, counts, setFilter }: { runId: number
           </div>
           <Trace values={w.trace} fs={w.trace.length / Math.max(1, (w.window.end - w.window.start) / w.window.fs)} timeUnit="s" height={150} testid="step-trace" unitLabel />
           <div className="m-foot-line" data-testid="step-pager">
-            <Button size="sm" icon="chevron-left" disabled={i <= 1} disabledReason="the first window" onClick={() => setI(String(i - 1))}>Prev</Button>
+            <Button variant="primary" size="sm" icon="chevron-left" disabled={i <= 1} disabledReason="the first window" onClick={() => setI(String(i - 1))}>Prev</Button>
             <span>{Math.min(i, n)} of {fmtInt(n)}</span>
-            <Button size="sm" iconRight="chevron-right" disabled={i >= n} disabledReason="the last window" onClick={() => setI(String(i + 1))}>Next</Button>
+            <Button variant="primary" size="sm" iconRight="chevron-right" disabled={i >= n} disabledReason="the last window" onClick={() => setI(String(i + 1))}>Next</Button>
             <span className="k-spacer" />
             <Button size="sm" variant="link" icon="external" onClick={() => navigate(`explore/signal/${w.window.recording_id}`)} testid="open-in-explore">Open the channel in Explore</Button>
             <InfoTip title="Re-checking">Re-checking a verdict goes through Review.</InfoTip>

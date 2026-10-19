@@ -40,6 +40,7 @@ from .blind_routes import router as blind_router
 from .cnn_routes import router as cnn_router
 from .jobs_routes import router as jobs_router   # fixup-aj
 from .registration import router as registration_router
+from .reports import router as reports_router   # reports (2026-10-19)
 
 log = logging.getLogger("webui")
 
@@ -236,7 +237,7 @@ def create_app(rt: Runtime) -> FastAPI:
         return resp
 
     @app.get("/api/channels/{recording_id}/spans")
-    def get_spans(recording_id: int, t0: float = 0.0, t1: float | None = None):
+    def get_spans(recording_id: int, t0: float = 0.0, t1: float | None = None, spread: bool = False):
         rec = rec_or_423(recording_id)
         if t1 is None:
             t1 = rec["duration_s"]
@@ -244,7 +245,7 @@ def create_app(rt: Runtime) -> FastAPI:
             raise HTTPException(422, f"window must satisfy 0 <= t0 < t1 <= {rec['duration_s']:.0f} s; got t0={t0}, t1={t1}")
         c = conn()
         try:
-            return corpus.spans(c, recording_id, t0, t1, rec["fs"])
+            return corpus.spans(c, recording_id, t0, t1, rec["fs"], spread=spread)   # span-plot: the span view thins, never truncates
         finally:
             c.close()
 
@@ -598,6 +599,10 @@ def create_app(rt: Runtime) -> FastAPI:
     # stage-3 prompt 05: Review — queues, verdicts, undo, promotion, clusters
     # and event extraction (server/review.py). Before the /api guard.
     app.include_router(review_router)
+
+    # reports (2026-10-19): a detection run's figures and tables, saved snapshots (server/reports.py). Before the
+    # /api guard.
+    app.include_router(reports_router)
 
     # ------------------------------------------------- /api never falls through --
     # Registered after every real /api route and before the SPA catch-all: an

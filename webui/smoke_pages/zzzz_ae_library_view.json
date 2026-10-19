@@ -1,7 +1,7 @@
 [
  {"page": "library.atlas", "state": "fixup-ae-floor-on-by-default", "grouping": {"motifs": "g-05"}, "hash": "library/atlas?floor=1", "settle_ms": 6000, "traces_in_box": true,
-  "_why": "fixup-ae (Q21): the noise floor is a view filter, on by default; the bar says how many sub-floor members it hides, by store, and how many families are entirely under it; a card carries what the view hid of it (and its scale band as provenance once the backfill has stored scale_band — not yet in the real database)",
-  "actions": [{"wait_for": ["[data-testid=\"view-by-store\"]", 60000]}, {"wait": 1500}],
+  "_why": "fixup-ae (Q21): the noise floor is a view filter, on by default; the bar says how many sub-floor members it hides, by store, and how many families are entirely under it; a card carries what the view hid of it (and its scale band as provenance once the backfill has stored scale_band — not yet in the real database). Integration fix (2026-10-19): the bar's view report and the atlas's families are two requests; the loaded wave walk drew the bar while the grid was still loading (0 traces, no badge), so the state also waits for a card's hidden badge in the grid",
+  "actions": [{"wait_for": ["[data-testid=\"view-by-store\"]", 60000]}, {"wait_for": ["[data-testid=\"atlas-grid\"] [data-testid^=\"hidden-badge-\"]", 90000]}, {"wait": 1500}],
   "expect": ["[data-testid=\"view-filter-bar\"][data-floor=\"on\"]", "[data-testid=\"view-by-store\"]", "[data-testid=\"show-sub-floor\"]", "[data-testid=\"view-families-under\"]", "[data-testid^=\"hidden-badge-\"]", "[data-testid=\"view-rule\"]"]},
  {"page": "library.atlas", "state": "fixup-ae-show-sub-floor", "grouping": {"motifs": "g-05"}, "hash": "library/atlas?floor=1", "settle_ms": 4000,
   "_why": "fixup-ae: 'show sub-floor (n)' brings them back — nothing was deleted",

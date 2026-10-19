@@ -12,7 +12,10 @@ export interface Route { workspace: string; page: string; params: Record<string,
 export function parseHash(hash: string): Route {
   const h = hash.replace(/^#\/?/, '')
   const [path, qs = ''] = h.split('?')
-  const segs = path.split('/').filter(Boolean)
+  // a path segment arrives percent-encoded (location.hash encodes a space, an en dash): decode it like the query,
+  // or an id such as a label-chain sequence family ("0_0612 – 0_0756033.…") is encoded twice on its way to the
+  // bridge and read as missing (integration fix). A segment that is not valid percent-encoding is kept as it is.
+  const segs = path.split('/').filter(Boolean).map(s => { try { return decodeURIComponent(s) } catch { return s } })
   const query: Record<string, string> = {}
   for (const kv of qs.split('&')) { if (!kv) continue; const [k, v = ''] = kv.split('='); query[decodeURIComponent(k)] = decodeURIComponent(v) }
   return {

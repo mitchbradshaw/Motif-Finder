@@ -25,20 +25,24 @@ export function LoadFailed({ what, error, onRetry }: { what: string; error: Erro
     <div className="error-card" data-testid="settings-load-failed" role="alert">
       <h3>Could not read {what}</h3>
       <div className="mono small" style={{ color: 'var(--red)' }}>{error.message}</div>
-      {onRetry && <div style={{ marginTop: 8 }}><Button size="sm" icon="refresh" onClick={onRetry}>Retry</Button></div>}
+      {onRetry && <div style={{ marginTop: 8 }}><Button variant="primary" size="sm" icon="refresh" onClick={onRetry}>Retry</Button></div>}
     </div>
   )
 }
 
-/** A settings form row: mono label (with its amber diff dot and ⓘ), the control, the consequence caption. */
-export function Row({ label, sub, info, children, caption, dot, unsaved, id, testid, wide }: {
-  label: ReactNode; sub?: ReactNode; info?: ReactNode; children: ReactNode; caption?: ReactNode
+/** A settings form row: mono label (with its amber diff dot and ⓘ), the control, the consequence caption.
+ *  polish (2026-10-19): `tip` is an explanation fixed in the source (what changing the field does, where it is read);
+ *  it sits behind the label's ⓘ with `info`. `caption` stays on the face and is for what is LIVE — a size, a count,
+ *  an error, a calibration date. Every literal `caption="…"` on a settings page became `tip="…"`. */
+export function Row({ label, sub, info, tip, children, caption, dot, unsaved, id, testid, wide }: {
+  label: ReactNode; sub?: ReactNode; info?: ReactNode; tip?: ReactNode; children: ReactNode; caption?: ReactNode
   dot?: boolean; unsaved?: boolean; id?: string; testid?: string; wide?: boolean
 }) {
+  const more = info && tip ? <>{info}<div style={{ marginTop: 6 }}>{tip}</div></> : (info ?? tip)
   return (
     <div className={`s-row${wide ? ' wide' : ''}`} id={id} data-testid={testid}>
       <div className="s-row-label">
-        <span className="s-label mono">{dot && <span className="s-dot" aria-label="differs from default" />}{label}{info && <InfoTip>{info}</InfoTip>}</span>
+        <span className="s-label mono">{dot && <span className="s-dot" aria-label="differs from default" />}{label}{more && <InfoTip>{more}</InfoTip>}</span>
         {sub && <span className="s-sub mono">{sub}</span>}
       </div>
       <div className={`s-row-control${unsaved ? ' unsaved' : ''}`}>{children}</div>
@@ -219,7 +223,7 @@ export function SettingsShell({ slug, demo, children, chips, actions, noReset }:
               <b>{store.changes.length} unsaved change{store.changes.length === 1 ? '' : 's'}</b>
               <span className="s-consequence mono" data-testid="save-consequence">{store.sentence}</span>
               <span className="k-spacer" />
-              <Button testid="discard" onClick={store.discard}>Discard</Button>
+              <Button variant="danger" testid="discard" onClick={store.discard}>Discard</Button>
               <Button variant="primary" testid="save-changes" disabled={invalidCount > 0}
                 disabledReason={invalidCount > 0 ? `Fix ${invalidCount} invalid value${invalidCount === 1 ? '' : 's'} first` : undefined}
                 onClick={store.save}>Save changes</Button>
@@ -232,7 +236,7 @@ export function SettingsShell({ slug, demo, children, chips, actions, noReset }:
         size="sm" testid="leave-guard"
         footerNote="from Keyboard & behaviour · confirm before leaving unsaved settings (turn it off there to leave without asking)"
         footer={<>
-          <Button onClick={() => setLeaveTo(null)}>Stay</Button>
+          <Button variant="primary" onClick={() => setLeaveTo(null)}>Stay</Button>
           <Button variant="danger" testid="discard-and-leave" onClick={() => { const to = leaveTo!; store.discard(); setLeaveTo(null); navigate(`settings/${to}`) }}>Discard and leave</Button>
         </>}>
         <div className="small">{store.sentence || 'The edits are held in this browser and are not written anywhere yet.'}</div>

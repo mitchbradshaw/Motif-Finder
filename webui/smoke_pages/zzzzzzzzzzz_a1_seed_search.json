@@ -1,0 +1,59 @@
+[
+  {
+    "page": "discovery.seed",
+    "state": "seed-search-the-strip-shows-four-steps",
+    "hash": "discovery/seed",
+    "settle_ms": 1500,
+    "_why": "seed-search (2026-10-18): the page is four steps walked in order, a strip across the top, one card open at a time. The null Seg, the apply bar and the disabled '+ seed' are gone",
+    "actions": [{"wait_for": ["[data-testid=\"seed-steps\"]", 30000]}, {"wait": 800}],
+    "expect": ["[data-testid=\"seed-steps\"]", "[data-testid=\"seed-step-1\"]:has-text(\"Pick the exemplar\")", "[data-testid=\"seed-step-2\"]:has-text(\"Run the preview\")", "[data-testid=\"seed-step-3\"]:has-text(\"Choose the cut\")", "[data-testid=\"seed-step-4\"]:has-text(\"Keep the matches\")"],
+    "expect_absent": ["[data-testid=\"null-mode-seg\"]", "[data-testid=\"apply-bar\"]", "button.dsc-add-channel:has-text(\"seed\")"]
+  },
+  {
+    "page": "discovery.seed",
+    "state": "seed-search-advanced-is-hidden-by-default",
+    "hash": "discovery/seed?step=2",
+    "settle_ms": 1500,
+    "_why": "seed-search: algorithm, window, scale bank, exclusion zone, overlap, the null's draw count and Revert to recommended sit behind one 'advanced' toggle in step 2, closed by default",
+    "actions": [{"wait_for": ["[data-testid=\"seed-advanced-toggle\"]", 30000]}, {"wait": 500}],
+    "expect": ["[data-testid=\"seed-steps\"][data-step=\"2\"]", "[data-testid=\"params-card\"][data-open=\"0\"]", "[data-testid=\"seed-advanced-toggle\"]"],
+    "expect_absent": ["[data-testid=\"param-algorithm\"]", "[data-testid=\"param-window\"]", "[data-testid=\"param-scale-bank\"]", "[data-testid=\"param-exclusion\"]", "[data-testid=\"param-overlap\"]", "[data-testid=\"seed-advanced\"] [data-testid=\"null-chip\"]", "[data-testid=\"revert-recommended\"]"]
+  },
+  {
+    "page": "discovery.seed",
+    "state": "seed-search-advanced-opens-the-six-controls",
+    "hash": "discovery/seed?step=2",
+    "settle_ms": 1200,
+    "actions": [{"wait_for": ["[data-testid=\"seed-advanced-toggle\"]", 30000]}, {"click": "[data-testid=\"seed-advanced-toggle\"]"}, {"wait": 500}],
+    "expect": ["[data-testid=\"seed-advanced\"]", "[data-testid=\"param-algorithm\"]", "[data-testid=\"param-window\"]", "[data-testid=\"param-scale-bank\"]", "[data-testid=\"param-exclusion\"]", "[data-testid=\"param-overlap\"]", "[data-testid=\"seed-advanced\"] [data-testid=\"null-chip\"]", "[data-testid=\"revert-recommended\"]"]
+  },
+  {
+    "page": "discovery.seed",
+    "state": "seed-search-after-the-preview-the-cut-card-is-open",
+    "hash": "discovery/seed?step=2",
+    "settle_ms": 1500,
+    "_why": "seed-search: the preview runs (or is already held), then step 3 opens: the histogram with its draggable handle and the recommended cut line, the matches below it",
+    "actions": [{"wait_for": ["[data-testid=\"run-preview\"], [data-testid=\"seed-preview-in\"], [data-testid=\"cut-card\"]", 60000]}, {"click_if": "[data-testid=\"run-preview\"]"}, {"wait_for": ["[data-testid=\"seed-next-3\"], [data-testid=\"cut-card\"]", 240000]}, {"click_if": "[data-testid=\"seed-next-3\"]"}, {"wait_for": ["[data-testid=\"cut-card\"]", 30000]}, {"wait": 800}],
+    "expect": ["[data-testid=\"seed-steps\"][data-step=\"3\"]", "[data-testid=\"cut-card\"]", "[data-testid=\"cut-histogram\"]", "[data-testid=\"cut-threshold\"]", "[data-testid=\"matches-card\"]"],
+    "expect_absent": ["[data-testid=\"seed-keep-card\"]", "[data-testid=\"seed-card\"]"]
+  },
+  {
+    "page": "discovery.seed",
+    "state": "seed-search-use-these-as-detections-makes-a-run-row",
+    "hash": "discovery/seed?step=3",
+    "settle_ms": 1500,
+    "_why": "seed-search: 'Use these as detections' writes the preview's matches at or below the cut as a run with NO second search (POST /seed/keep, seconds); the done state offers Send unjudged to Review and Open in Runs, and the row is on Runs. Writes rows, so it is in a file sorted last. Runs after the cut state above, so the preview is held",
+    "actions": [{"wait_for": ["[data-testid=\"cut-card\"], [data-testid=\"run-preview\"]", 60000]}, {"click_if": "[data-testid=\"run-preview\"]"}, {"wait_for": ["[data-testid=\"cut-card\"], [data-testid=\"seed-next-3\"]", 240000]}, {"click_if": "[data-testid=\"seed-next-3\"]"}, {"wait_for": ["[data-testid=\"cut-card\"]", 30000]}, {"click_if": "[data-testid=\"choose-cut\"]"}, {"wait": 500}, {"click": "[data-testid=\"seed-next-4\"]"}, {"wait_for": ["[data-testid=\"seed-keep-card\"]", 30000]}, {"click_if": "[data-testid=\"seed-keep\"]:not([disabled])"}, {"wait_for": ["[data-testid=\"seed-send-review\"]", 120000]}, {"wait": 800}],
+    "expect": ["[data-testid=\"seed-steps\"][data-step=\"4\"]", "[data-testid=\"seed-done\"]", "[data-testid=\"seed-send-review\"]", "[data-testid=\"seed-open-runs\"]", "[data-testid=\"save-as-template\"]", "[data-testid=\"save-as-template-line\"]"],
+    "expect_absent": ["[data-testid=\"null-mode-seg\"]"]
+  },
+  {
+    "page": "discovery.runs",
+    "state": "seed-search-the-kept-run-is-on-runs",
+    "hash": "discovery/seed?step=4",
+    "settle_ms": 1500,
+    "_why": "seed-search: the kept run is an ordinary Discovery run — Open in Runs lands on its row, done, its null from the preview",
+    "actions": [{"wait_for": ["[data-testid=\"seed-open-runs\"]", 60000]}, {"click": "[data-testid=\"seed-open-runs\"]"}, {"wait_for": ["[data-testid^=\"run-row-\"].selected", 30000]}, {"wait": 800}],
+    "expect": ["[data-testid^=\"run-row-\"].selected[data-status=\"done\"]", "[data-testid^=\"run-row-\"].selected:has-text(\"null from the preview\")"]
+  }
+]

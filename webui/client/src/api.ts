@@ -1681,3 +1681,111 @@ export const applyDiscoveryTemplatesWindowed = (templates: string[], channels: s
     { templates, channels, t0, t1, run, windows, bands: bands && bands.length ? bands : undefined, exemplars })
 /** A Map row of a windowed application (`detection_map._row_meta`): its scope and its scale in words. */
 export interface DiscMapRow { windows?: { scope: DiscPlanWindows['scope']; label: string } | null }
+
+/* span-plot (2026-10-18, appended): the spans read's extra fields, and the span view's own read. A capped read is the
+ * window's first 5 000 detections by start; `spread` thins it evenly across the window instead, so the span view's
+ * bands show where the detections are rather than piling into the view's opening hours. */
+export interface Spans { detections_total?: number; detections_spread?: boolean; detections_complete_to_s?: number | null }
+export const getViewSpans = (id: number, t0: number, t1: number) => req<Spans>(`/api/channels/${id}/spans?t0=${t0}&t1=${t1}&spread=1`)
+/* ------------------------------------------------------------------ ig-pages: trains and interval classes
+ * (declaration merging; serialize.py `_trains`, `_interval_classes`). Payload conventions, never a block's name. */
+/** An `interrogation.trains` SpanSet's three figures: the log-interval density (`edges` = log10 seconds) and its cut
+ *  (seconds; null = no valley), the train sizes (time order), the LZ complexity. `log_isi` is null for per-group
+ *  trains or a non-valley rule, and `log_isi_note` says why. */
+export interface TrainsPayload {
+  n_trains: number; sizes: number[]; lz: number | null; rule: string | null
+  log_isi: { edges: number[]; density: number[]; cut: number | null } | null; log_isi_note: string | null
+}
+/** The intervals timeline's colour classes and every number it writes (the bridge's, never the browser's):
+ *  per event (capped as the spans) its class, time (s, absolute), group, gap to the previous event in its group and
+ *  to the previous event of its class; `stats[class][group]` = the core's interval statistics within the class. */
+export interface IntervalClasses {
+  rule: 'family' | 'depth' | 'none'; rule_words: string; column: string | null; edges: number[] | null
+  classes: { key: string; label: string; n: number }[]
+  event_class: string[]; event_t_s: (number | null)[]; event_group: string[] | null
+  gap_s: (number | null)[]; within_gap_s: (number | null)[]
+  stats: Record<string, Record<string, IntervalStats>>
+}
+export interface SpansetPayload { trains?: TrainsPayload; interval_classes?: IntervalClasses }
+/* ---------------- library · Build sequences (prompt `sequences`, 2026-10-18) ---------------- */
+/** One element of a sequence: a Library member with its family label; times in seconds from the sequence's start. */
+export interface LibSeqElement { memberId: number; label: string; colour: string; startS: number; endS: number; verdict?: string }
+/** One sequence as a strip: its elements in order, gaps (end to start, seconds) between them. */
+export interface LibSeqStrip {
+  key: string; name: string; labels: string[]; memberIds: number[]
+  recording: string; recordingKey: string | null; channel: string
+  startS: number; endS: number; startH: number; durationS: number; gapsS: number[]; elements: LibSeqElement[]
+  /** preview only: already kept */
+  kept?: boolean
+  /** family page only */
+  id?: string; sequenceId?: number; contentHash?: string
+}
+export interface LibSeqCandidate { recordingId: number; recording: string; recordingKey: string; channel: string; members: number }
+export type LibSeqRule = 'fixed' | 'adamatzky' | 'logisi'
+export interface LibSeqJoinBody { recording_id?: number | null; rule: LibSeqRule; gap_s: number; tol_frac: number; min_len?: number; grouping?: string | null; candidates_only?: boolean }
+export interface LibSeqPreview {
+  recordingId: number | null; recording: string | null; recordingKey: string | null; channel: string | null; fs: number | null
+  rule: LibSeqRule; gapS: number; tolFrac: number; minLen: number; ruleWords: string; rules: LibSeqRule[]
+  motifGrouping: string | null; nMembers: number; sequences: LibSeqStrip[]
+  families: { key: string; name: string; count: number }[]; colours: Record<string, string>
+  candidates: LibSeqCandidate[]; note: string | null
+}
+export interface LibSeqKeep {
+  kept: { id: string; sequenceId: number; sequenceKey: string; key: string; created: boolean }[]
+  created: number; already: number; grouping: string | null; families: number
+}
+export interface LibSeqBin { x0: number; x1: number; count: number }
+export interface LibSeqFamily {
+  id: string; name: string; labels: string[]; grouping: string; groupingMethod: string; motifGrouping: string | null
+  colours: Record<string, string>; sequences: LibSeqStrip[]
+  removed: { sequenceId: number; id: string; editId: number }[]
+  medoids: { position: number; label: string; colour: string; n: number; trace: number[]; memberId: number | null; drawnFrom?: number }[]
+  examples: { sequenceId: number; durationS: number; trace: number[]; bands: LibSeqElement[] }[]
+  gaps: number[]; gapBins: LibSeqBin[]; lengths: number[]; lengthBins: LibSeqBin[]
+  nearest: { id: string; name: string; distance: number } | null
+  judged: number; judgedOf: number; byVerdict: Record<string, number>; recordings: number
+  unit: string | null; unitNote: string | null
+}
+export const previewLibrarySequences = (body: LibSeqJoinBody) => post<LibSeqPreview>('/api/library/sequences/preview', body)
+export const keepLibrarySequences = (body: LibSeqJoinBody) => post<LibSeqKeep>('/api/library/sequences/keep', body)
+export const getLibrarySequenceFamily = (id: string, grouping?: string) =>
+  req<LibSeqFamily>(`/api/library/sequences/${encodeURIComponent(id)}${dq({ grouping })}`)
+export const sendSequenceFamilyReview = (id: string, grouping?: string) =>
+  post<{ queueId: number; name: string; sent: number; total: number; judged: number; remaining: number }>(
+    `/api/library/sequences/${encodeURIComponent(id)}/review${dq({ grouping })}`, {})
+
+/* ---------------- library-family-actions: the rose reference LINE (server/library.py `_rose_reference_line`) ----------------
+   The median steepest slope over the human-accepted Library motifs (interesting or seed), live — a verdict moves it —
+   with its n; `median_slope: null, n: 0` when none is accepted (no line). Not the stored 45° (`getRoseReference`).
+   Append-only (shared file). */
+export interface LibRoseReferenceLine { unit: string; median_slope: number | null; n: number; field: string; computed_from: string }
+export const getRoseReferenceLine = (unit: 'motifs' = 'motifs') =>
+  req<LibRoseReferenceLine>(`/api/library/rose-reference?unit=${unit}`)
+/* ---------------- seed-search (2026-10-18): the preview's matches kept as a run (server/discovery.py) ----------------
+ * Appended. *Use these as detections*: the preview IS the search, so `POST /api/discovery/seed/keep` writes its matches
+ * at or below the cut as a run (one per channel, the preview's null as its null) and searches nothing again. 409 with
+ * `needsPreview` when no preview of the query is held; a second press with the same identity answers the same row. */
+export interface DiscSeedKeepAck {
+  run_key: string; label: string; job_id: number | null; reused: boolean; started: boolean; status: string
+  /** the rows are written (the bridge waits for its own short sweep); `detectionIds` are then the run's own */
+  done: boolean; found: number | null; detectionIds: number[]; nullFrom: 'preview'; note: string
+}
+export const keepDiscoverySeedMatches = (body: DiscSeedQuery & { cut?: number | null; label?: string }) =>
+  post<DiscSeedKeepAck>('/api/discovery/seed/keep', body)
+/** seed-search critic round: the block's own distance, unrounded (`d` is it to 4 places) — what a keep cuts by. */
+export interface DiscSeedMatch { distance?: number }
+
+/* ------------------------------------------------------------------ discovery-coverage (2026-10-19) */
+/** What a run is on each scope channel (`/runs` row `coverage`): the detection map's cell states, per run. */
+export type DiscCoverageState = 'covered' | 'not_run' | 'running' | 'failed' | 'discarded'
+export interface DiscRun { coverage?: Record<string, DiscCoverageState>; extendError?: string; windowed?: boolean }
+/** A fires row on a channel the run never ran on: `ran: false` and no counts (never a row of zeros). */
+export interface DiscFiresRow { ran?: boolean }
+/** The template card's gauge: every human verdict on the template's detections, every run, every session. */
+export interface DiscVerdictCounts { seed: number; interesting: number; not_interesting: number; artifact: number; unsure: number; total: number }
+export interface DiscTemplate { verdicts?: DiscVerdictCounts }
+export interface DiscExtendAck { run_key: string; job_id: number; channels: string[]; extended: boolean; estimate_s: number | null; note: string }
+/** *Run on the missing N*: the run gains the channels (same key). A 409 with `detail.code === 'params_differ'` means the
+ *  template changed since the run ran; the page then offers *apply as a new run*. */
+export const extendDiscoveryRun = (runKey: string, channels: string[]) =>
+  post<DiscExtendAck>(`/api/discovery/runs/${encodeURIComponent(runKey)}/extend`, { channels })

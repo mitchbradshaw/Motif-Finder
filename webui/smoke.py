@@ -411,7 +411,7 @@ class Smoke:
         return True, f" · {fall} sits at the same time on the {len(carriers)} layers that carry it ({', '.join(L['layer'] for L in carriers)})"
 
     def goto(self, page, hash_: str, settle_ms=600):
-        page.goto(f"{self.url}/#/{hash_}", wait_until="networkidle")
+        page.goto(f"{self.url}/#/{hash_}", wait_until="networkidle", timeout=90000)   # 2026-10-19: pages that poll or read a 12 s scoreboard reach idle after 30 s
         page.wait_for_timeout(settle_ms)
 
     # --------------------------------------------------------------- views --
@@ -791,6 +791,10 @@ class Smoke:
         self.evidence["discovery_strip_paths"] = strips
         self.check(len(strips) >= 1 and max(strips or [0]) > 200,
                    f"the scope strips painted real overviews (path lengths {strips})")
+        # ux-1019: runs are hidden in where-each-run-fires until their eye is on; turn every run on first
+        if page.locator('[data-testid="fires-show-all"]').count():
+            page.locator('[data-testid="fires-show-all"]').click()
+            page.wait_for_timeout(1500)
         cells = page.locator('[data-testid="fires-cell"]').count()
         self.evidence["discovery_fires_cells"] = cells
         self.check(cells > 0, f"where-each-run-fires painted {cells} bins")
@@ -1282,7 +1286,7 @@ class Smoke:
             read = "k => (window.__demoStore && window.__demoStore.get(k)) || ''"
             if page.evaluate(read, key) == gid:
                 continue
-            page.goto(f"{self.url}/#/library/atlas{'?unit=sequences' if unit == 'sequences' else ''}", wait_until="networkidle")
+            page.goto(f"{self.url}/#/library/atlas{'?unit=sequences' if unit == 'sequences' else ''}", wait_until="networkidle", timeout=90000)
             page.wait_for_selector('[data-testid="basis-chip"]', timeout=30000)
             page.locator('[data-testid="basis-chip"]').first.click()
             opt = page.locator(f'[data-testid="grouping-option-{gid}"]')
@@ -1460,7 +1464,7 @@ class Smoke:
                     branch_msg = f" [grouping {', '.join(e['grouping'].values())}]" + branch_msg
                 # a2-p4: a state flagged `jobs_unchanged` reads the bridge's job count before it opens its page
                 jobs_before = self._jobs_count() if e.get("jobs_unchanged") else None
-                page.goto(f"{self.url}/#/{e['hash'].lstrip('#/')}", wait_until="networkidle")
+                page.goto(f"{self.url}/#/{e['hash'].lstrip('#/')}", wait_until="networkidle", timeout=90000)
                 # fixup-grouping-url: a state flagged `cold` opens its hash the way a pasted or audit-trail link
                 # does: in a document that has just loaded, with an empty in-memory store. A hash `goto` in the
                 # walk's shared tab is a same-document navigation, so every grouping an earlier state picked is

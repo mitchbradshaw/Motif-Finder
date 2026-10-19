@@ -1747,7 +1747,29 @@ def init_db(db_path=None):
     _migrate_review_queues_kinds(conn, db_path)
     # round A_2, P3: a windowed run's provenance and what each window fitted (additive)
     _migrate_windowed_tables(conn)
+    # review-carry (2026-10-18): a carried verdict's source row, and the class label given in Review (additive)
+    _migrate_adjudications_columns(conn)
+    # reports (2026-10-19): a saved report snapshot's path (additive)
+    _migrate_reports_table(conn)
     return conn
+
+
+# review-carry (2026-10-18). `carried_from`: a human verdict on detection A is written, as a row of its own, to
+# every other detection on the channel that is the same event by the scoreboard's matching rule
+# (`Working.review.overlap.carry_verdict`); the carried row names A's adjudication here, so undoing A's verdict
+# takes back exactly the rows it carried, and a human verdict written over a carried row clears it (the row is
+# then the human's own). NULL on every row a person wrote. A plain INTEGER, not a REFERENCES: an undo deletes the
+# source row after its carried rows, and a foreign key would make the order a constraint failure rather than a
+# choice. `class_label`: the class (spike-train, burst, ...) given with the verdict in Review (R3), stored rather
+# than held in the browser session. Both nullable and additive.
+_ADJUDICATIONS_NEW_COLUMNS = [("carried_from", "INTEGER"), ("class_label", "TEXT")]
+
+
+def _migrate_adjudications_columns(conn):
+    _migrate_columns(conn, "adjudications", _ADJUDICATIONS_NEW_COLUMNS)
+    # undo finds a source's carried rows, and the review structure's fingerprint counts them, by this
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_adjudications_carried_from ON adjudications(carried_from)")
+    conn.commit()
 
 
 # Round A_2, P3 (windowed detection, `Working/discovery/windowed.py`). A windowed application stitches its windows'
@@ -1785,4 +1807,29 @@ CREATE INDEX IF NOT EXISTS idx_runs_config ON runs(config_id, recording_id, span
 
 def _migrate_windowed_tables(conn):
     conn.executescript(_WINDOWED_SCHEMA)
+    conn.commit()
+
+
+# reports (2026-10-19, docs/prompts/changes/reports.md). One row per saved report snapshot: what it reports on
+# (`kind` "detection-run" with the Discovery `run_key` and its session, or "chain-run" with the job id in `run_id`),
+# when, and the PATH of the directory holding its report.html, report.md and PNGs — never the bytes (rule 4).
+# Not a rule-5 table: a report is neither a detection nor a verdict. Additive: CREATE TABLE IF NOT EXISTS only.
+_REPORTS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS reports (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind        TEXT    NOT NULL,
+    run_key     TEXT,
+    run_id      INTEGER,
+    session_id  INTEGER,
+    title       TEXT,
+    created_at  TEXT    NOT NULL,
+    path        TEXT    NOT NULL,
+    note        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_reports_run ON reports(kind, run_key);
+"""
+
+
+def _migrate_reports_table(conn):
+    conn.executescript(_REPORTS_SCHEMA)
     conn.commit()

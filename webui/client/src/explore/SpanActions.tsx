@@ -2,10 +2,15 @@
    range, tags and note only), Send span to Analyse (live), Take span for Review (live since fixup-y: an
    `annotations` row with verdict `seed`, in Review's Explore spans queue and offered as a seed in Discovery ›
    Seed search › Explore selection). Verdicts are never given here — the ⓘ beside the buttons says so (fixup-ap: the caption moved behind it). Tags are removable chips; a
-   click toggles a chip selected; `+ tag` opens an inline input with suggestions and validation. */
-import { useEffect, useId, useState } from 'react'
-import { Button, Chip, InfoTip, recordDemoWrite, useDemoState } from '../kit'
+   click toggles a chip selected; `+ tag` opens an inline input with suggestions and validation.
+
+   explore-review (2026-10-18): the buttons are now `SpanActionStrip` (below), the props-driven strip shared by
+   Signal and Cross-channel — Zoom · Send unjudged to Review · Mark artifact (channels…) · Open in Analyse · Take span,
+   each shown only when its page passes the callback or the channels it acts on. */
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Button, Checkbox, Chip, InfoTip, Popover, recordDemoWrite, useDemoState } from '../kit'
 import { takeSpanForReviewInQueue } from '../api'
+import { markArtifact, sendSpanToReview, type ArtifactResult, type SpanReviewResult } from '../api/explore'
 import { useToast } from '../shell/Toast'
 import { fmtDuration, navigate } from '../state'
 import { fmtRangeH } from './util'
@@ -15,8 +20,10 @@ const SUGGEST = ['sharkfin', 'spike-train', 'slow-drift', 'burst', 'plateau', 'b
 
 export interface SpanDraft { tags: string[]; selected: string[]; note: string }
 
-export function SpanActions({ channelKey, channelName, recordingId, fs, initial, view, nInView, onSend, tagSignal }: {
+export function SpanActions({ channelKey, channelName, recordingId, fs, initial, view, nInView, onSend, tagSignal, onWritten }: {
   channelKey: string; channelName: string; recordingId: number; fs: number; initial: SpanDraft; view: [number, number]; nInView: number; onSend: () => void; tagSignal: number
+  /** explore-review: after a send or an artifact mark, so the page re-reads its spans */
+  onWritten?: () => void
 }) {
   const toast = useToast()
   const [draft, setDraft] = useDemoState<SpanDraft>(`explore.signal.span.${channelKey}`, () => initial)
@@ -82,10 +89,11 @@ export function SpanActions({ channelKey, channelName, recordingId, fs, initial,
       </div>
       <div>
         <div className="row" style={{ justifyContent: 'flex-end' }}>
-          <Button onClick={save} testid="save-span">Save span</Button>
-          <Button variant="next" iconRight="arrow-right" onClick={onSend} testid="send-span">Send span to Analyse</Button>
-          <Button variant="primary" iconRight="arrow-right" onClick={take} disabled={taking} disabledReason="writing the span…" testid="take-span">Take span for Review</Button>
-          <InfoTip title="Span actions" placement="bottom-end">Saving stores tags and note only. Taking writes the span for Review. Verdicts are given in Review.</InfoTip>
+          <Button variant="primary" onClick={save} testid="save-span">Save span</Button>
+          <SpanActionStrip window={view} windowWhat="the span in view" reviewChannels={[recordingId]} artifactChannels={[{ id: recordingId, name: channelName }]} referenceId={recordingId}
+            origin="signal" note={draft.note.trim() || undefined} onOpenInAnalyse={onSend} onTake={take} taking={taking}
+            onSent={() => onWritten?.()} onMarked={() => onWritten?.()} />
+          <InfoTip title="Span actions" placement="bottom-end">Saving stores tags and note only. Taking writes the span for Review as a seed. Send unjudged puts the machine&rsquo;s unjudged motifs in this span into Review; Mark artifact writes an artifact verdict over the span. Other verdicts are given in Review.</InfoTip>
         </div>
       </div>
     </div>
@@ -98,4 +106,124 @@ export function takeSpanForReview(recordingId: number, fs: number, spanS: [numbe
   const a = Math.max(0, Math.round(spanS[0] * fs)), b = Math.round(spanS[1] * fs)
   if (!(b > a)) return Promise.reject(new Error('the span is empty'))
   return takeSpanForReviewInQueue(recordingId, a, b, note)
+}
+
+/* ------------------------------------------------------------ the shared strip ---- */
+export interface StripChannel { id: number; name: string }
+
+/** Props of the shared action strip (explore-review, 2026-10-18). Every button but the two writes is shown only
+ *  when its callback is passed, so a page mounts exactly the actions it has; `extra` is where a page adds its own
+ *  (cross-channel-overlay's *Open in Signal*) without editing this file. */
+export interface SpanActionStripProps {
+  /** the selected window, in seconds on the recording's clock */
+  window: [number, number]
+  /** what the window is, in the page's words, for the Send button's tooltip (Signal: "the span in view") */
+  windowWhat?: string
+  /** the channels *Send unjudged to Review* reads (Signal: its channel; Cross-channel: the rows shown) */
+  reviewChannels: number[]
+  /** the channels the artifact picker offers — every channel of the recording on Cross-channel */
+  artifactChannels: StripChannel[]
+  /** pre-ticked and listed first in the picker */
+  referenceId: number
+  /** what the picker starts with ticked; default every channel in `artifactChannels` (the reference always) */
+  defaultArtifactIds?: number[]
+  /** the page that marks it: becomes the annotation's `source` (explore-signal / explore-cross-channel) */
+  origin: 'signal' | 'cross-channel'
+  /** kept with an artifact mark */
+  note?: string
+  onZoom?: () => void
+  onOpenInAnalyse?: () => void
+  onTake?: () => void
+  taking?: boolean
+  /** after a send that reached the bridge (even one that added nothing) */
+  onSent?: (r: SpanReviewResult) => void
+  /** after an artifact mark was written */
+  onMarked?: (r: ArtifactResult) => void
+  /** further buttons, drawn after *Open in Analyse* */
+  extra?: ReactNode
+  /** a reason every action is off (e.g. no window yet); null when the strip is live */
+  disabledReason?: string | null
+  testid?: string
+}
+
+export function SpanActionStrip(p: SpanActionStripProps) {
+  const toast = useToast()
+  const [t0, t1] = p.window
+  const empty = !(t1 > t0)
+  const off = p.disabledReason ?? (empty ? 'the selection is empty' : null)
+  const [sending, setSending] = useState(false)
+  const [marking, setMarking] = useState(false)
+  const [pickOpen, setPickOpen] = useState(false)
+  const pickRef = useRef<HTMLButtonElement>(null)
+  const channels = useMemo(() => {
+    const ref = p.artifactChannels.find(c => c.id === p.referenceId)
+    return ref ? [ref, ...p.artifactChannels.filter(c => c.id !== p.referenceId)] : p.artifactChannels
+  }, [p.artifactChannels, p.referenceId])
+  const defaults = useMemo(() => {
+    const base = p.defaultArtifactIds ?? channels.map(c => c.id)
+    return [...new Set([p.referenceId, ...base])].filter(id => channels.some(c => c.id === id))
+  }, [p.defaultArtifactIds, channels, p.referenceId])
+  const [ticked, setTicked] = useState<number[]>(defaults)
+  // a new channel list (another reference, another recording) resets the picker to its defaults
+  const defaultsKey = defaults.join(',')
+  useEffect(() => { setTicked(defaults) }, [defaultsKey])  // eslint-disable-line react-hooks/exhaustive-deps
+  const range = fmtRangeH(t0, t1)
+  const openReview = (qid: number | null) => (qid == null ? undefined : { label: 'Open Review →', onClick: () => navigate(`review/queue/${qid}`) })
+
+  const send = () => {
+    if (sending || off) return
+    setSending(true)
+    sendSpanToReview(p.reviewChannels, t0, t1)
+      .then(r => {
+        toast.push({ text: `${range} · ${r.message}`, action: r.added > 0 || r.already_queued > 0 ? openReview(r.queue_id) : undefined })
+        p.onSent?.(r)
+      })
+      .catch(e => toast.push({ kind: 'error', text: `the span's motifs were not sent to Review: ${e instanceof Error ? e.message : String(e)}` }))
+      .finally(() => setSending(false))
+  }
+  const mark = () => {
+    if (marking || off || !ticked.length) return
+    setMarking(true)
+    markArtifact(ticked, t0, t1, p.origin, p.note)
+      .then(r => {
+        setPickOpen(false)
+        toast.push({ text: `${range} · ${r.message} · verdict artifact`, action: { label: 'Open Review →', onClick: () => navigate('review') } })
+        p.onMarked?.(r)
+      })
+      .catch(e => toast.push({ kind: 'error', text: `the artifact was not marked: ${e instanceof Error ? e.message : String(e)}` }))
+      .finally(() => setMarking(false))
+  }
+  const nCh = p.reviewChannels.length
+  return (
+    <span className="row" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }} data-testid={p.testid ?? 'span-action-strip'}>
+      {p.onZoom && <Button size="sm" variant="primary" icon="search" onClick={p.onZoom} disabled={!!off} disabledReason={off ?? undefined} testid="strip-zoom">Zoom</Button>}
+      <Button variant="primary" onClick={send} disabled={!!off || sending || !nCh} disabledReason={off ?? (sending ? 'sending…' : 'no channel to read')} testid="strip-send-unjudged"
+        title={`every machine detection in ${range}${p.windowWhat ? ` (${p.windowWhat})` : ''} on ${nCh} channel${nCh === 1 ? '' : 's'} that has no verdict yet goes to one Review queue, “picked from Explore” (at most 2,000 at once)`}>
+        Send unjudged to Review
+      </Button>
+      <Button ref={pickRef} variant="primary" iconRight="chevron-down" onClick={() => setPickOpen(o => !o)} disabled={!!off || !channels.length} disabledReason={off ?? 'no channel to mark'}
+        aria-haspopup="dialog" aria-expanded={pickOpen} testid="strip-mark-artifact">
+        Mark artifact ({ticked.length === channels.length && channels.length > 1 ? 'all channels' : `${ticked.length} channel${ticked.length === 1 ? '' : 's'}`}…)
+      </Button>
+      {p.onOpenInAnalyse && <Button variant="next" iconRight="arrow-right" onClick={p.onOpenInAnalyse} disabled={!!off} disabledReason={off ?? undefined} testid="send-span">Open in Analyse</Button>}
+      {p.extra}
+      {p.onTake && <Button variant="primary" iconRight="arrow-right" onClick={p.onTake} disabled={!!off || !!p.taking} disabledReason={off ?? 'writing the span…'} testid="take-span">Take span for Review</Button>}
+      <Popover open={pickOpen} onClose={() => setPickOpen(false)} anchorRef={pickRef} width={300} placement="bottom-end" testid="artifact-picker"
+        title={<span className="row" style={{ justifyContent: 'space-between', width: '100%' }}>Mark artifact on<span className="ex-links">
+          <button type="button" onClick={() => setTicked(channels.map(c => c.id))} data-testid="artifact-all">all</button> · <button type="button" onClick={() => setTicked([])} data-testid="artifact-none">none</button></span></span>}>
+        <div className="muted small" style={{ marginBottom: 6 }}>One artifact verdict per ticked channel over {range}. It is a human verdict, kept in annotations like Review&rsquo;s.</div>
+        <div className="ex-pick-list">
+          {channels.map(c => (
+            <Checkbox key={c.id} checked={ticked.includes(c.id)} label={c.id === p.referenceId ? `${c.name} · reference` : c.name}
+              onChange={v => setTicked(t => (v ? [...new Set([...t, c.id])] : t.filter(x => x !== c.id)))} testid={`artifact-channel-${c.name}`} />
+          ))}
+        </div>
+        <div className="row" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+          <Button variant="primary" size="sm" onClick={mark} disabled={marking || !ticked.length} disabledReason={marking ? 'writing…' : 'tick at least one channel'} testid="artifact-confirm">
+            Mark artifact on {ticked.length} channel{ticked.length === 1 ? '' : 's'}
+          </Button>
+        </div>
+      </Popover>
+    </span>
+  )
 }

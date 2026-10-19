@@ -272,7 +272,8 @@ def _qid(value) -> int:
         raise HTTPException(status_code=404, detail=f"no review queue {value!r}")
 
 
-def _queue_payload(conn, q: dict, *, exclude_recording_ids=None, counts=None, filters=True) -> dict:
+def _queue_payload(conn, q: dict, *, exclude_recording_ids=None, counts=None, filters=True,
+                   detections=None) -> dict:
     """The stored queue columns plus its counts. The client derives icon,
     order text and rank kind from `source_kind`; nothing is invented here.
 
@@ -297,6 +298,12 @@ def _queue_payload(conn, q: dict, *, exclude_recording_ids=None, counts=None, fi
                 # measured off `review_audit`, None until there are two
                 # gestures to measure between (fixup-a item 8)
                 "pace_s": queues_mod.queue_pace_s(conn, int(q["id"]))})
+    # review-carry: a detection queue's item is an overlap set, so `total` counts events; `detections` is how many
+    # detections stand behind them ("312 events from 340 detections"). Passed in by a caller that holds it.
+    if detections is None:
+        detections = q.get("detections")
+    if detections is not None:
+        out["detections"] = int(detections)
     return out
 
 
@@ -438,6 +445,16 @@ def _entry_payload(conn, item: dict, queue: dict, index: dict, *, px: int = THUM
         row["runId"] = str(item["run_id"])
     if rank is not None:
         row["rank"] = int(rank)
+    # review-carry: the overlap set behind a detection item — each member's band in the same seconds as the
+    # context trace's axis (absolute in the recording), for the context card; the class label stored with the
+    # verdict (R3); and, for a carried verdict, the detection whose human verdict it was carried from
+    if item.get("members") is not None and item.get("member_spans") is not None:
+        row["memberBands"] = [{"id": str(m), "t0_s": round(a / fs, 6), "t1_s": round(b / fs, 6)}
+                              for m, (a, b) in zip(item["members"], item["member_spans"])]
+    if item.get("class_label"):
+        row["classLabel"] = item["class_label"]
+    if item.get("carried_from_detection") is not None:
+        row["carriedFrom"] = int(item["carried_from_detection"])
     return row
 
 
@@ -460,7 +477,7 @@ def _item_or_404(conn, queue: dict, item_id: str, held=None) -> dict:
 
 
 def _detail(conn, queue: dict, item: dict, index: dict, *, rank: int | None = None,
-            px=DEFAULT_PX, pad_s=CONTEXT_PAD_S, counts=None) -> dict:
+            px=DEFAULT_PX, pad_s=CONTEXT_PAD_S, counts=None, detections=None) -> dict:
     """The `ItemDetail` shape, key for key.
 
     `px` is the width of the plot that will draw the traces and `pad_s` the
@@ -470,7 +487,7 @@ def _detail(conn, queue: dict, item: dict, index: dict, *, rank: int | None = No
     and at a resolution the card can use (fixup-g)."""
     rid = item.get("recording_id")
     rec = index.get(int(rid)) if rid is not None else None
-    qp = _queue_payload(conn, queue, counts=counts, filters=False)
+    qp = _queue_payload(conn, queue, counts=counts, filters=False, detections=detections)
     entry = _entry_payload(conn, item, queue, index, rank=rank)
     if rec and rec["held_out"]:
         why = refusal(rec["label"])
@@ -679,6 +696,8 @@ class VerdictBody(BaseModel):
     note: str | None = None
     tags: list[str] | None = None
     window_index: int | None = None
+    # review-carry (R3): the class key's name (spike-train, burst, ...), stored on a detection's adjudication row
+    class_label: str | None = None
 
 
 class BatchBody(BaseModel):
@@ -686,6 +705,7 @@ class BatchBody(BaseModel):
     verdict: str
     note: str | None = None
     tags: list[str] | None = None
+    class_label: str | None = None
 
 
 class PromoteBody(BaseModel):
@@ -728,7 +748,7 @@ def get_queues(request: Request, include_closed: int = Query(default=0)):
         # AR: one count per queue, with the held-out set (it was counted twice, once without it)
         for q in queues_mod.list_queues(conn, include_closed=bool(include_closed), exclude_recording_ids=held):
             counts = {k: q[k] for k in ("total", "judged", "remaining")}
-            out.append(_queue_payload(conn, q, counts=counts))
+            out.append(_queue_payload(conn, q, counts=counts, detections=q.get("detections")))
         return out
     finally:
         conn.close()
@@ -781,7 +801,9 @@ def get_queue(request: Request, qid: str, include_judged: int = Query(default=1)
         else:
             with _THUMB_LOCK:
                 got = _PEAKS.get(pkey)
-        return {"queue": _queue_payload(conn, queue, counts=queues_mod.counts_of(served)),
+        detections = (sum(len(it.get("members") or ()) for it in served)
+                      if queue.get("source_kind") in queues_mod.CLUSTERLESS_KINDS else None)
+        return {"queue": _queue_payload(conn, queue, counts=queues_mod.counts_of(served), detections=detections),
                 "rows": rows, "clusters": _clusters(items, queue), "thumbsServed": bool(thumbs),
                 "thumbPeaks": got}
     finally:
@@ -923,9 +945,14 @@ def get_queue_counts(request: Request, qid: str):
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
-        counts = queues_mod.queue_counts(conn, int(queue["id"]), exclude_recording_ids=_held_out_ids(conn))
-        return {"id": int(queue["id"]), **{k: int(counts[k]) for k in ("total", "judged", "remaining")},
-                "pace_s": queues_mod.queue_pace_s(conn, int(queue["id"]))}
+        held = _held_out_ids(conn)
+        counts = queues_mod.queue_counts(conn, int(queue["id"]), exclude_recording_ids=held)
+        out = {"id": int(queue["id"]), **{k: int(counts[k]) for k in ("total", "judged", "remaining")},
+               "pace_s": queues_mod.queue_pace_s(conn, int(queue["id"]))}
+        detections = queues_mod.served_detections(conn, int(queue["id"]), exclude_recording_ids=held)
+        if detections is not None:          # review-carry: the detections behind the events
+            out["detections"] = int(detections)
+        return out
     finally:
         conn.close()
 
@@ -957,7 +984,7 @@ def get_item(request: Request, qid: str, item_id: str,
         queue = _queue_or_404(conn, qid)
         view = _item_or_404(conn, queue, item_id)
         return _detail(conn, queue, view["item"], _index(conn), rank=view["rank"],
-                       px=px, pad_s=pad_s, counts=view["counts"])
+                       px=px, pad_s=pad_s, counts=view["counts"], detections=view.get("detections"))
     finally:
         conn.close()
 
@@ -1021,6 +1048,12 @@ def get_cluster(request: Request, qid: str, no: int,
 
 # ── writes (every one through Working.review) ───────────────────────────────
 
+def _carry_free(result: dict) -> dict:
+    """The verdict record without its per-member audit detail (`targets`: each member's prior and what it carried,
+    which the core keeps for undo and promotion); everything else as the core returned it."""
+    return {k: v for k, v in result.items() if k != "targets"}
+
+
 @router.post("/queues/{qid}/verdict")
 def post_verdict(request: Request, qid: str, body: VerdictBody):
     conn = _conn(request)
@@ -1029,9 +1062,14 @@ def post_verdict(request: Request, qid: str, body: VerdictBody):
         _refuse_held_out(conn, queue, [body.target_id])
         result = _core_call(verdicts_mod.write_verdict, conn, int(queue["id"]),
                             body.target_id, body.verdict, note=body.note,
-                            tags=body.tags, window_index=body.window_index)
+                            tags=body.tags, window_index=body.window_index,
+                            class_label=body.class_label)
         conn.commit()
-        return {"verdict": result, "counts": queues_mod.queue_counts(
+        # review-carry: `carried` — how many other detections (other runs, same channel, the same event by the
+        # scoreboard's rule) the verdict was written to; the page's toast says "carried to N other detections"
+        carried = list(result.get("carried") or [])
+        return {"verdict": _carry_free(result), "carried": len(carried), "carriedIds": carried,
+                "counts": queues_mod.queue_counts(
                     conn, int(queue["id"]),
                     exclude_recording_ids=_held_out_ids(conn))}
     finally:
@@ -1046,9 +1084,11 @@ def post_batch(request: Request, qid: str, body: BatchBody):
         _refuse_held_out(conn, queue, list(body.target_ids))
         result = _core_call(verdicts_mod.write_batch, conn, int(queue["id"]),
                             list(body.target_ids), body.verdict, note=body.note,
-                            tags=body.tags)
+                            tags=body.tags, class_label=body.class_label)
         conn.commit()
-        return {"batch": result, "counts": queues_mod.queue_counts(
+        carried = list(result.get("carried") or [])
+        return {"batch": result, "carried": len(carried), "carriedIds": carried,
+                "counts": queues_mod.queue_counts(
                     conn, int(queue["id"]),
                     exclude_recording_ids=_held_out_ids(conn))}
     finally:

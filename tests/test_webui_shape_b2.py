@@ -147,6 +147,17 @@ def test_a_mapping_that_does_not_cover_the_cut_is_refused_before_training(ran):
     assert r.status_code == 422
 
 
+def test_launch_setup_names_the_anchor_and_the_drop_default(ran):
+    """ux-1019 (site-fixes item 3, BACKLOG §5 and §1 AM): Launch's setup line showed align and detrend but not
+    where in the window the aligned sample lands. The setup carries the anchor, and the researcher's default for
+    drop work (trough a third in, decided 2026-10-18) travels as data from the core, so the page never restates
+    it; this pool chain is not drop work and keeps centre at the middle."""
+    c, pool, tpl, _steps = ran
+    s = c.get("/api/models/b2/setup", params={"template": tpl["id"], "pool": pool["window_set_id"]}).json()
+    assert s["shape"]["align"] == "centre" and s["shape"]["anchor_frac"] == 0.5
+    assert s["shape"]["drop_default"] == {"align": "trough", "anchor_frac": 0.333}
+
+
 def test_a_window_set_is_renamed_its_key_and_version_kept_and_audited(ran):
     c, _pool, _tpl, _steps = ran
     sets = c.get("/api/windowsets/library").json()["sets"]
@@ -185,3 +196,32 @@ def test_the_cluster_cards_follow_the_cut_one_per_cluster_from_the_kept_tree(ran
         sizes = sizes or total
         assert total == sizes                      # every training window, at every cut
     assert c.get(f"/api/shape/trees/{c.tree_key}/cards", params={"k": 10_000}).status_code == 422
+
+
+def test_a_drop_chain_carries_trough_a_third_in_on_launch_and_in_the_analyse_run_alike(ran):
+    """ux-1019 (the researcher, 2026-10-19: "line windows on trough third, automatically, with a 'for drops'
+    switch"). The switch lives on the Trace shape block, so the chain carries it: Launch's setup and an Analyse run
+    of the same chain resolve it through the one core resolver and cut at the same place. A non-drop chain keeps
+    centre at the middle; forcing the switch either way overrides the default."""
+    c, pool, _tpl, steps = ran
+    drop = json.loads(json.dumps(steps))
+    drop[1]["params"] = {"for_drops": "on"}
+    tpl = c.post("/api/templates", json={"name": "shape_clusters_drops", "steps": drop}).json()
+    s = c.get("/api/models/b2/setup", params={"template": tpl["id"], "pool": pool["window_set_id"]}).json()
+    assert (s["shape"]["align"], s["shape"]["anchor_frac"], s["shape"]["for_drops"]) == ("trough", 0.333, True)
+    assert "for drops: on" in s["shape"]["alignment_from"]
+    plain = c.get("/api/models/b2/setup", params={"template": _tpl["id"], "pool": pool["window_set_id"]}).json()
+    assert (plain["shape"]["align"], plain["shape"]["anchor_frac"], plain["shape"]["for_drops"]) == ("centre", 0.5, False)
+    assert "for drops: auto" in plain["shape"]["alignment_from"]
+    # the Analyse run of the same chain (pool re-opened, shape step only) is cut where Launch says
+    con = sqlite3.connect(c.rt.db_path)
+    rid = con.execute("SELECT id FROM recordings WHERE source_file = ? AND channel = 0", (AUG,)).fetchone()[0]
+    con.close()
+    run = [{"stage": "preprocessing", "algorithm": "window_pool", "params": {"pool": str(pool["window_set_id"])}},
+           {"stage": "preprocessing", "algorithm": "trace_shape", "params": {"for_drops": "on"}}]
+    job = c.post("/api/runs", json={"recording_id": rid, "span": [0, 1], "steps": run}).json()["job_id"]
+    st = _wait(c, f"/api/runs/{job}")
+    assert st["status"] == "completed", st.get("error")
+    shp = c.get(f"/api/runs/{job}/steps/1").json()["shape"]
+    assert shp["align"] == s["shape"]["align"] and shp["anchor_frac"] == pytest.approx(s["shape"]["anchor_frac"])
+    assert shp["for_drops"] is True and "for drops: on" in shp["alignment_from"]

@@ -133,7 +133,7 @@ function Toolbar({ data, judged, blind, setBlind, paused }: { data: QueueData; j
         <div className="rv-pop-row"><Toggle checked={blind} onChange={onBlindToggle} label="blind for this queue" tone="blue" testid="blind-toggle" /></div>
       </Popover>
       <Modal open={modal === 'unblind'} onClose={() => setModal(null)} size="sm" title={`See machine opinion in ${queue.title}?`} testid="unblind-modal"
-        footer={<><Button onClick={() => { setBlind(false); setModal(null) }} testid="unblind-confirm">Show machine opinion</Button><Button variant="primary" onClick={() => setModal(null)} testid="unblind-keep">Keep blind</Button></>}>
+        footer={<><Button variant="primary" onClick={() => { setBlind(false); setModal(null) }} testid="unblind-confirm">Show machine opinion</Button><Button variant="next" onClick={() => setModal(null)} testid="unblind-keep">Keep blind</Button></>}>
         <p style={{ margin: 0 }}>Verdicts from now on are stored as sighted. {queue.source === 'model-verification' ? 'The registration sample expects blind verdicts.' : 'The manual-label arm expects blind verdicts.'}</p>
       </Modal>
 
@@ -151,7 +151,7 @@ function Toolbar({ data, judged, blind, setBlind, paused }: { data: QueueData; j
       <span className={cx('rv-auto', paused && 'paused')} data-testid="auto-advance">
         <Toggle checked={auto && !paused} onChange={v => paused ? toast.push({ text: 'auto-advance is paused until you confirm (Enter) or undo (Ctrl Z)' }) : setAuto(v)} label="auto-advance" testid="auto-advance-toggle" />
       </span>
-      <Button ref={sRef} icon="keyboard" onClick={() => setPop(pop === 'shortcuts' ? null : 'shortcuts')} aria-expanded={pop === 'shortcuts'} testid="shortcuts-button">Shortcuts</Button>
+      <Button ref={sRef} variant="primary" icon="keyboard" onClick={() => setPop(pop === 'shortcuts' ? null : 'shortcuts')} aria-expanded={pop === 'shortcuts'} testid="shortcuts-button">Shortcuts</Button>
       <Popover open={pop === 'shortcuts'} onClose={close} anchorRef={sRef} placement="bottom-end" title="Shortcuts" subtitle="Review" width={380} className="rv-pop" testid="shortcuts-popover">
         <table className="rv-keys"><tbody>
           {SHORTCUTS.map(s => <tr key={s.action}><td>{s.keys.map(k => <Kbd key={k} size="sm">{k}</Kbd>)}</td><td>{s.action}</td></tr>)}

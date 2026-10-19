@@ -176,7 +176,10 @@ function Recurrence({ recordings, rows, coverage, sharedGround, unit, groupingId
   const queue = useQueueToast()
   const omitted = useSourced(() => getOmitted(groupingId), [groupingId])
   const pageCount = Math.max(1, Math.ceil(recordings.length / RECORDINGS_PER_PAGE))
-  const page = Math.min(pageCount, Math.max(1, Number(recQ) || 1))
+  // ?rec= is a page number, or a recording's key — the page that holds it. A key keeps a link to one recording
+  // pointing at it when a newly registered recording shifts the pages (the 2 Hz CO/LM did, 2026-10-19).
+  const keyAt = recordings.findIndex(r => r.key === recQ)
+  const page = keyAt >= 0 ? Math.floor(keyAt / RECORDINGS_PER_PAGE) + 1 : Math.min(pageCount, Math.max(1, Number(recQ) || 1))
   const groups = recordings.slice((page - 1) * RECORDINGS_PER_PAGE, page * RECORDINGS_PER_PAGE)
   const firstShown = recordings.length ? (page - 1) * RECORDINGS_PER_PAGE + 1 : 0
   const lastShown = Math.min(recordings.length, page * RECORDINGS_PER_PAGE)

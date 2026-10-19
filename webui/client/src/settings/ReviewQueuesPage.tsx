@@ -86,7 +86,7 @@ function Body({ data }: { data: Data }) {
       <SectionCard title="Clusters" subtitle="batch verdicts in Review" testid="clusters-card">
         <Row label="cohesion limit" id="f-cohesion-limit" info="A member farther than this from the medoid is left out of the batch unless it is picked."
           dot={s.differs('cohesion')} unsaved={s.dirty('cohesion')} testid="cohesion-row"
-          caption="a member farther than this from the medoid is excluded from the batch by default">
+          tip="a member farther than this from the medoid is excluded from the batch by default">
           <NumberField value={s.num('cohesion')} min={0.05} max={1} step={0.05} width={100} testid="cohesion"
             onValid={v => { s.set('cohesion', v); s.markInvalid('cohesion', null) }}
             onChange={(_r, reason) => s.markInvalid('cohesion', reason ? 'Enter 0.05–1.00' : null)} />
@@ -99,16 +99,16 @@ function Body({ data }: { data: Data }) {
           <span className="mono small">at least</span>
           <NumberField value={s.num('seq_events')} min={2} max={100} integer unit="events" width={120} onValid={v => s.set('seq_events', v)} testid="seq-events" />
         </Row>
-        <Row label="largest batch" dot={s.differs('largest_batch')} unsaved={s.dirty('largest_batch')} testid="batch-row" caption="a batch beyond this is split">
+        <Row label="largest batch" dot={s.differs('largest_batch')} unsaved={s.dirty('largest_batch')} testid="batch-row" tip="a batch beyond this is split">
           <NumberField value={s.num('largest_batch')} min={2} max={500} integer unit="members" width={130} onValid={v => s.set('largest_batch', v)} testid="largest-batch" />
         </Row>
-        <Row label="undo reverses the whole batch" testid="undo-row" caption="a mis-keyed batch must be reversible in one step">
+        <Row label="undo reverses the whole batch" testid="undo-row" tip="a mis-keyed batch must be reversible in one step">
           <LockedToggle reason="undo reverses a whole batch" testid="undo-batch" />
         </Row>
       </SectionCard>
 
       <SectionCard title="Promotion" subtitle="the seed verdict" testid="promotion-card">
-        <Row label="S promotes to the Library" testid="promote-row" caption="a separate promote step would duplicate the seed key">
+        <Row label="S promotes to the Library" testid="promote-row" tip="a separate promote step would duplicate the seed key">
           <LockedToggle reason="pressing S is the promotion (P21)" testid="s-promotes" />
         </Row>
         <Row label="suggest the nearest family when d ≤" dot={s.differs('suggest_d')} unsaved={s.dirty('suggest_d')} testid="suggest-row"

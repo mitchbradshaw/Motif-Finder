@@ -334,27 +334,55 @@ def _write_sequence(conn, report, *, key, row, members, gaps, n_claimed,
     if dry_run:
         return outcome, f"would write {len(members)} member(s)"
 
+    sequence_id = insert_sequence(
+        conn,
+        dict(sequence_key=key, origin=ORIGIN, recording_id=recording_id, channel=channel,
+             start_idx=start_idx, end_idx=end_idx, n_events=n_claimed,
+             needs_extraction=needs_extraction, source_kind=SOURCE_KIND,
+             source_store=store_ref, source_ref=key,
+             content_hash=_sequence_hash(gaps) if members else None, created_at=created_at),
+        [dict(member_id=_member_row_id(conn, event["recording_id"],
+                                       event["snippet_start_idx"], event["snippet_end_idx"]),
+              start_idx=int(event["snippet_start_idx"]), end_idx=int(event["snippet_end_idx"]),
+              gap_before=gap)
+         for event, gap in zip(members, gaps)],
+    )
+
+    return outcome, f"sequence {sequence_id}, {len(members)} member(s)"
+
+
+def insert_sequence(conn, row, members):
+    """The one INSERT of a `sequences` row and its `sequence_members`, in order.
+
+    `row` carries the `sequences` columns (`annotation_id` stays NULL — this is
+    not the annotations door); `members` is a list of dicts with `member_id`
+    (may be None), `start_idx`, `end_idx`, `gap_before`, written at positions
+    0, 1, … in the order given. Returns the new sequence id; does not commit.
+
+    Public so `Working.library.sequences` (Build sequences, 2026-10-18) writes
+    its rows exactly the way this importer does, rather than through a second
+    copy of the column list. `origin` is the caller's to state explicitly.
+    """
+    if row.get("origin") not in ("machine", "human"):
+        raise ValueError(f"a sequence row needs an explicit origin, got {row.get('origin')!r}")
     cursor = conn.execute(
         """INSERT INTO sequences
                (sequence_key, origin, recording_id, channel, start_idx, end_idx,
                 n_events, needs_extraction, source_kind, source_store,
                 source_ref, annotation_id, content_hash, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)""",
-        (key, ORIGIN, recording_id, channel, start_idx, end_idx,
-         n_claimed, needs_extraction, SOURCE_KIND, store_ref, key,
-         _sequence_hash(gaps) if members else None, created_at),
+        (row["sequence_key"], row["origin"], row.get("recording_id"), row.get("channel"),
+         row.get("start_idx"), row.get("end_idx"), row.get("n_events"),
+         int(row.get("needs_extraction") or 0), row.get("source_kind"), row.get("source_store"),
+         row.get("source_ref"), row.get("content_hash"), row["created_at"]),
     )
     sequence_id = cursor.lastrowid
-
-    for position, (event, gap) in enumerate(zip(members, gaps)):
+    for position, m in enumerate(members):
         conn.execute(
             """INSERT INTO sequence_members
                    (sequence_id, position, member_id, start_idx, end_idx, gap_before)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (sequence_id, position,
-             _member_row_id(conn, event["recording_id"],
-                            event["snippet_start_idx"], event["snippet_end_idx"]),
-             int(event["snippet_start_idx"]), int(event["snippet_end_idx"]), gap),
+            (sequence_id, position, m.get("member_id"), int(m["start_idx"]), int(m["end_idx"]),
+             m.get("gap_before")),
         )
-
-    return outcome, f"sequence {sequence_id}, {len(members)} member(s)"
+    return sequence_id

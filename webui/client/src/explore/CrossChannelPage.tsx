@@ -3,7 +3,7 @@
    summary, hand-offs and the open design questions. Live since stage-3 prompt 01 (getCrossChannel → GET /api/cross/{id}):
    lag, r and the bin are the core's (Working.cross_channel.classify_waveforms) on the window in view.
    Deep links: ?align=lag · ?window=motif-<n> · ?pad=60 · ?channels=4,3,1 · ?maxlag=10 · ?lag=channel ·
-   ?y=absolute|centred|per-channel · ?popover=channels · ?questions=open · ?state=computing ·
+   ?y=absolute|centred|per-channel · ?view=overlay (every channel on one axis, ./Overlay.tsx) · ?bold=4,3|none · ?popover=channels · ?questions=open · ?state=computing ·
    ?t0=&t1= (fixup-W: an edge's own window, unpadded — Library › Family's *Explore ›*) · ?family=F-xx&grouping=g-NN
    (fixup-W: *Classify every F-xx member in Library* starts that family's cross_channel job)
 
@@ -27,9 +27,9 @@
    1–30 mV, so an absolute domain draws every trace as a flat line; 'centred' is the default for that reason.
    (Those two numbers were written down here 1000x too small, as "~3.9 mV" and "0.001–0.03 mV", before fixup-b:
    the stored volts were printed as mV. The ratio, and so the reason for 'centred', was always right.) */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { DatasetName } from '../naming'
-import { ApiError } from '../api'
+import { ApiError, getSpans, type CrossDetrend } from '../api'
 import { useSourced } from '../api/seam'
 import { getCrossChannel, getSignalDemo, lookupChannel, type CrossRead, type XBin, type XRow } from '../api/explore'
 import { useCrossChannelJob } from '../library/CrossChannel'
@@ -37,11 +37,13 @@ import { EnvelopePath } from '../charts/primitives'
 import { makeX } from '../charts/scale'
 import { unitWords } from '../charts/units'
 import { Y_MODES, Y_MODE_LABEL, Y_MODE_NOTE, fmtMvAt, fmtMvSpan, isYMode, scaleNote, stackGeom, type YMode } from './crossScale'
-import { lagShift, windowParam } from './crossModel'
-import { Badge, Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Popover, ProgressBar, Seg, Tooltip, cx, fmtInt, recordDemoWrite, useDemoState, useQueryState, useSim, type IconName } from '../kit'
+import { crossDetrendFor, lagShift, windowParam } from './crossModel'
+import { Badge, Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Popover, ProgressBar, Seg, Tooltip, cx, fmtInt, useDemoState, useQueryState, useSim, type IconName } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
-import { navigate } from '../state'
+import { navigate, useApp } from '../state'
+import { SpanActionStrip } from './SpanActions'
+import { OVERLAY_NAME_W, Overlay, channelColour, fmtShift, overlayShift, type OverlayChannel } from './Overlay'
 import { DetectionsChip, DetectionsPicker } from './DetectionsPicker'
 import { ErrorCard } from './ErrorCard'
 import { LockedCard } from './LockedCard'
@@ -75,7 +77,10 @@ export function CrossChannelPage({ channelId }: { channelId: number }) {
   const [familyQ] = useQueryState<string>('family', '')
   const [groupingQ] = useQueryState<string>('grouping', '')
   const edge = !!(familyQ || groupingQ)
-  const read = useSourced(() => getCrossChannel(channelId, pad === '60' ? 60 : 20, explicit, windowQ, edge), [channelId, pad, t0Q, t1Q, windowQ, edge])
+  // ux-1019 (AQ): ?detrend=none|linear|cubic — the trend treatment lag and r are measured on; absent, the window's own
+  const [detrendQ] = useQueryState<string>('detrend', '')
+  const detrendSel: CrossDetrend | null = detrendQ === 'none' || detrendQ === 'linear' || detrendQ === 'cubic' ? detrendQ : null
+  const read = useSourced(() => getCrossChannel(channelId, pad === '60' ? 60 : 20, explicit, windowQ, edge, detrendSel), [channelId, pad, t0Q, t1Q, windowQ, edge, detrendSel])
   const header = (subtitle: string, demo = true) => <Header workspace="Explore" page="Cross-channel" subtitle={subtitle} search="Search spans, runs, families" demo={demo} />
   if (look.error || read.error) return <>{header(`channel ${channelId} · error`)}<div className="page"><div className="page-inner"><ErrorCard error={asApiError(look.error ?? read.error)} title="demo read for Cross-channel failed" /></div></div></>
   if (look.loading || read.loading || !look.data) return <>{header(`channel ${channelId} · loading…`)}<div className="page"><div className="page-inner" data-testid="cross-loading"><div className="skeleton" style={{ height: 30, width: 480 }} /><div className="skeleton" style={{ height: 50 }} /><div className="skeleton" style={{ height: 440 }} /></div></div></>
@@ -106,6 +111,7 @@ function CrossBody({ data }: { data: CrossRead }) {
   const toast = useToast()
   const ref = data.referenceId
   const [align, setAlign] = useQueryState<string>('align', 'recorded')
+  const [, setDetrendQ] = useQueryState<string>('detrend', '')
   const [windowQ, setWindowQ] = useQueryState<string>('window', '')
   const [pad, setPad] = useQueryState<string>('pad', '20')
   const [lagMode, setLagMode] = useQueryState<string>('lag', 'window')
@@ -113,6 +119,10 @@ function CrossBody({ data }: { data: CrossRead }) {
   const [channelsQ, setChannelsQ] = useQueryState<string>('channels', '')
   const [yQ, setYQ] = useQueryState<string>('y', 'centred')
   const yMode: YMode = isYMode(yQ) ? yQ : 'centred'
+  // cross-channel-overlay: the plot's view — the stacked rows, or every channel on one tall axis (./Overlay.tsx)
+  const [viewQ, setViewQ] = useQueryState<string>('view', '')
+  const overlay = viewQ === 'overlay'
+  const [boldQ, setBoldQ] = useQueryState<string>('bold', '')
   const [popover, setPopover] = useQueryState<string>('popover', '')
   const [questions, setQuestions] = useQueryState<string>('questions', '')
   const [forced] = useQueryState<string>('state', '')
@@ -194,10 +204,73 @@ function CrossBody({ data }: { data: CrossRead }) {
   const shiftFor = (r: XRow) => lagShift(r.lagS, r.channelId === ref, align, maxLag)
   const pickWindow = (v: string) => { setT0Q(null); setT1Q(null); setWindowQ(v) }
   const at = data.resolved.index
-  const reviewAll = () => {
-    recordDemoWrite('explore', 'stage-window-for-review', { queue: 'Explore spans', window: windowLabel, channels: rows.map(r => r.name) })
-    toast.push({ text: `${rows.length} spans staged for Review`, action: { label: 'Open Review →', onClick: () => navigate('review') } })
+  // explore-review: the window's actions are the shared strip (SpanActions.tsx::SpanActionStrip); the demo
+  // "Review this window on all channels" it replaces staged nothing
+  const { setSource, setExplore } = useApp()
+  const openInAnalyse = () => {
+    const fs = data.window.fs || 1
+    setSource({ recording_id: ref, channel_name: refName, source_file: data.file, fs, start_idx: Math.round(t0 * fs), end_idx: Math.round(t1 * fs), label: `${refName} · ${windowLabel}` })
+    toast.push({ text: `${refName} · ${windowLabel} sent to Analyse as the chain source` })
+    navigate('analyse/chain')
   }
+
+  // ---- cross-channel-overlay ----
+  // a channel's colour is its rank in the recording (CH1 first), the same in both views
+  const colourOf = useMemo(() => new Map(data.channels.map((c, i) => [c.id, channelColour(i)])), [data])
+  // bold = ?bold= (ids, or 'none'); absent, the stack's own selection, so switching views keeps what was being compared
+  const bold = useMemo(() => boldQ === 'none' ? [] : boldQ ? boldQ.split(',').map(Number).filter(n => byId.has(n)) : selected, [boldQ, selected, byId])
+  const setBold = (ids: number[]) => setBoldQ(ids.length ? ids.join(',') : 'none')
+  const [brush, setBrush] = useState<[number, number] | null>(null)
+  useEffect(() => { setBrush(null) }, [t0, t1])   // a box belongs to the window it was drawn on
+  const [ovRef, ovSize] = useElementSize<HTMLDivElement>()
+  // every channel's detections inside the window (the stack draws the reference's only); one /spans read per
+  // channel, only in overlay mode — the envelopes are the rows' own, never refetched
+  const [ovDet, setOvDet] = useState<{ key: string; byId: Map<number, { id: number; t0: number; t1: number }[]>; error: string | null } | null>(null)
+  const detKey = `${data.channels.map(c => c.id).join(',')}@${t0}-${t1}`
+  useEffect(() => {
+    if (!overlay) return
+    let live = true
+    // a window that starts before 0 s (a span near the recording's start, padded) would be refused by /spans
+    const [r0, r1] = [Math.max(0, t0), t1]
+    if (!(r1 > r0)) { setOvDet({ key: detKey, byId: new Map(), error: null }); return }
+    Promise.all(data.channels.map(c => getSpans(c.id, r0, r1).then(sp => [c.id, sp.detections.map(d => ({ id: d.id, t0: d.start_s, t1: d.end_s }))] as const)))
+      .then(all => { if (live) setOvDet({ key: detKey, byId: new Map(all), error: null }) })
+      .catch(e => { if (live) setOvDet({ key: detKey, byId: new Map(), error: `detections could not be read: ${asApiError(e).message}` }) })
+    return () => { live = false }
+  }, [overlay, detKey])  // eslint-disable-line react-hooks/exhaustive-deps
+  const ovChannels: OverlayChannel[] = useMemo(() => data.channels.map(c => byId.get(c.id)).filter((r): r is XRow => !!r).map(r => ({
+    id: r.channelId, name: r.name, colour: colourOf.get(r.channelId)!, t: r.t, v: r.v, lag_s: r.lagS, error: r.error,
+    detections: ovDet?.key === detKey ? ovDet.byId.get(r.channelId) ?? [] : [],
+  })), [data, byId, colourOf, ovDet, detKey])
+  const ovShift = (id: number) => { const c = ovChannels.find(o => o.id === id); return c ? overlayShift(c, align === 'lag', ref, maxLag) : 0 }
+  // the box is on the reference's clock; a lag-aligned channel's own clock is the box plus its shift
+  const topBold = ovChannels.find(c => bold.includes(c.id)) ?? null
+  // overlay critic: Send and Mark write ONE window (the box, on the reference's clock) for every channel they touch.
+  // A channel that align-by-lag has slid is drawn from its own [box + shift], so writing the box for it would put a
+  // verdict on samples the researcher did not see. Under align, the box acts only on the channels drawn unshifted
+  // (the reference, and any channel whose lag is 0, undefined or past max lag); the caption names the rest.
+  const unshifted = (id: number) => ovShift(id) === 0
+  const actBold = bold.filter(unshifted)
+  const shiftedBold = ovChannels.filter(c => bold.includes(c.id) && !unshifted(c.id))
+  const actArtifactChannels = useMemo(() => align === 'lag' ? data.channels.filter(c => { const o = ovChannels.find(x => x.id === c.id); return !o || overlayShift(o, true, ref, maxLag) === 0 }) : data.channels,
+    [align, data, ovChannels, ref, maxLag])
+  const openOneInSignal = (id: number) => {
+    if (!brush) return
+    const sh = ovShift(id)
+    setExplore({ channelId: id, view: [brush[0] + sh, brush[1] + sh] })
+    navigate(`explore/signal/${id}`)
+  }
+  const openBoldInAnalyse = () => {
+    if (!brush || !topBold) return
+    const fs = data.window.fs || 1
+    const sh = ovShift(topBold.id)
+    const [a, b] = [brush[0] + sh, brush[1] + sh]
+    const label = `${topBold.name} · ${(b - a).toFixed(1)} s box`
+    setSource({ recording_id: topBold.id, channel_name: topBold.name, source_file: data.file, fs, start_idx: Math.round(a * fs), end_idx: Math.round(b * fs), label })
+    toast.push({ text: `${label} sent to Analyse as the chain source` })
+    navigate('analyse/chain')
+  }
+  const zoomToBrush = () => { if (!brush) return; setT0Q(brush[0].toFixed(3)); setT1Q(brush[1].toFixed(3)); setBrush(null) }
 
   return (
     <>
@@ -212,8 +285,12 @@ function CrossBody({ data }: { data: CrossRead }) {
           <span className="ex-topbar-seg"><Seg size="sm" value="cross" onChange={v => { if (v === 'signal') navigate(`explore/signal/${ref}${windowQ.startsWith('motif-') ? `?motif=${windowQ.slice(6)}` : ''}`) }}
             options={[{ value: 'signal', label: 'Signal' }, { value: 'cross', label: 'Cross-channel' }]} ariaLabel="mode" testid="mode-seg" /></span>
           <DetectionsChip ref={pickerAnchor} label={chipLabel(runs, st)} open={popover === 'detections'} onClick={() => setPopover(popover === 'detections' ? null : 'detections')} />
-          <Dropdown variant="outline" prefix="display" value="raw" onChange={() => {}} testid="display-chip"
-            options={[{ value: 'raw', label: 'raw' }, { value: 'detrended', label: 'detrended (display only)', disabled: true, reason: 'the bridge serves raw mV — no display transform yet. The y control moves each row’s drawing origin; it does not change a value.' }]} />
+          {/* ux-1019 (AQ): the trend treatment lag and r are measured on, passed to the read — it was a disabled
+              "detrended (display only)" option while the bridge already served linear and cubic */}
+          <span className="lbl">detrend</span>
+          <Seg size="sm" value={data.detrend} onChange={v => setDetrendQ(v === crossDetrendFor(!!data.explicitWindow, data.edge) ? null : v)} ariaLabel="detrend" testid="detrend-seg"
+            options={[{ value: 'none', label: 'raw' }, { value: 'linear', label: 'linear' }, { value: 'cubic', label: 'cubic' }]} />
+          <InfoTip title="Detrend">What lag and r are measured on: <b>raw</b> — the window as recorded; <b>linear</b> — each channel&rsquo;s straight-line trend over the window taken out first; <b>cubic</b> — a cubic taken out, which also removes a curved drift a line leaves (and a slow event that fills the window). The traces are drawn as recorded either way. The default is linear, or raw for a Library edge&rsquo;s window, so it recomputes what the edge stores.</InfoTip>
           <InfoTip title="Cross-channel">The same window drawn on every selected channel. The detections chip filters the reference row only.</InfoTip>
           <span className="grow" />
           <a className="ex-back" onClick={() => navigate('explore/corpus')} data-testid="back-to-corpus">‹ back to corpus</a>
@@ -225,7 +302,7 @@ function CrossBody({ data }: { data: CrossRead }) {
             <span className="pre">channels</span><span className="val">{rows.length} of {data.channels.length}</span><Icon name="chevron-down" size={12} className="chev" />
           </button>
           {data.explicitWindow
-            ? <Button size="sm" iconRight="x" testid="edge-window" onClick={() => { setT0Q(null); setT1Q(null) }} title={data.edge ? 'the window a Library edge was measured on, unpadded and as recorded — click to return to the channel’s own window' : 'this exact window, unpadded (?t0=&t1=) and detrended — click to return to the channel’s own window'}>{windowLabel}</Button>
+            ? <Button size="sm" variant="primary" iconRight="x" testid="edge-window" onClick={() => { setT0Q(null); setT1Q(null) }} title={data.edge ? 'the window a Library edge was measured on, unpadded and as recorded — click to return to the channel’s own window' : 'this exact window, unpadded (?t0=&t1=) and detrended — click to return to the channel’s own window'}>{windowLabel}</Button>
             : data.options.length
               ? <>
                 <Button size="sm" variant="ghost" icon="chevron-left" testid="window-prev" disabled={at <= 0} disabledReason="this is the channel's first span"
@@ -242,14 +319,14 @@ function CrossBody({ data }: { data: CrossRead }) {
             <Dropdown prefix="pad" variant="outline" value={pad === '60' ? '60' : '20'} onChange={v => setPad(v === '20' ? null : v)} testid="pad-select"
               options={[{ value: '20', label: '20 s each side' }, { value: '60', label: '60 s each side' }]} />
           )}
-          <span className="lbl">align</span>
-          <Seg value={align === 'lag' ? 'lag' : 'recorded'} onChange={v => setAlign(v === 'recorded' ? null : v)} options={[{ value: 'recorded', label: 'as recorded' }, { value: 'lag', label: 'lag-aligned' }]} ariaLabel="align" testid="align-seg" />
+          {!overlay && <><span className="lbl">align</span>
+          <Seg value={align === 'lag' ? 'lag' : 'recorded'} onChange={v => setAlign(v === 'recorded' ? null : v)} options={[{ value: 'recorded', label: 'as recorded' }, { value: 'lag', label: 'lag-aligned' }]} ariaLabel="align" testid="align-seg" /></>}
           <Dropdown prefix="lag" variant="outline" value={lagMode} onChange={v => { setLagMode(v === 'window' ? null : v); recompute() }} testid="lag-select" menuWidth={220}
             options={[{ value: 'window', label: 'computed on window' }, { value: 'channel', label: 'computed on whole channel · not available yet', disabled: true, reason: 'the bridge computes lag on the window in view; a whole-channel lag is a longer job (Prompt 04)' }]} />
           <Dropdown prefix="max lag" variant="outline" value={String(maxLag)} onChange={v => { setMaxLag(v === '30' ? null : v); recompute() }} testid="maxlag-select"
             options={[10, 30, 60].map(n => ({ value: String(n), label: `±${n} s` }))} />
-          <Dropdown prefix="y" variant="outline" value={yMode} onChange={v => setYQ(v === 'centred' ? null : v)} testid="y-select" menuWidth={300}
-            options={Y_MODES.map(m => ({ value: m, label: Y_MODE_LABEL[m], description: Y_MODE_NOTE[m] }))} />
+          {!overlay && <Dropdown prefix="y" variant="outline" value={yMode} onChange={v => setYQ(v === 'centred' ? null : v)} testid="y-select" menuWidth={300}
+            options={Y_MODES.map(m => ({ value: m, label: Y_MODE_LABEL[m], description: Y_MODE_NOTE[m] }))} />}
           <span className="grow" />
           <InfoTip title="Lag, r and the y scale" placement="bottom-end">
             Every selected channel over the reference's window. Lag is where the cross-correlation peaks; r is its height. Both are
@@ -267,21 +344,63 @@ function CrossBody({ data }: { data: CrossRead }) {
 
         <div className="card ex-stack" data-testid="channel-stack">
           <div className="ex-stack-head">
-            <span className="card-title">Same window, every selected channel</span>
+            <span className="card-title">{overlay ? 'Same window, every channel on one axis' : 'Same window, every selected channel'}</span>
+            <Seg size="sm" value={overlay ? 'overlay' : 'stacked'} onChange={v => { setViewQ(v === 'overlay' ? 'overlay' : null); setBrush(null) }} ariaLabel="view" testid="view-seg"
+              options={[{ value: 'stacked', label: 'stacked' }, { value: 'overlay', label: 'overlay' }]} />
             <span className="range mono" data-testid="window-phrase" data-t0={data.window.t0S} data-t1={data.window.t0S + data.window.durS}>{windowLabel} · {data.window.startH.toFixed(3)} – {data.window.endH.toFixed(3)} h</span>
-            <span className="muted mono small" data-testid="scale-note" data-gain={geom.fullScaleMv !== null ? fmtMvSpan(geom.fullScaleMv) : undefined}>{scaleNote(geom, setByName)}</span>
+            {!overlay && <span className="muted mono small" data-testid="scale-note" data-gain={geom.fullScaleMv !== null ? fmtMvSpan(geom.fullScaleMv) : undefined}>{scaleNote(geom, setByName)}</span>}
             <span className="muted mono small" data-testid="detrend-note" data-detrend={data.detrend}
-              title={data.detrend === 'linear' ? 'each channel’s straight-line trend over the window is taken out before lag and r are measured; the traces are drawn as recorded' : 'an edge’s window is measured as recorded, as the edge stores it'}>
-              lag · r {data.detrend === 'linear' ? 'on the detrended window' : 'as recorded'}</span>
-            {yMode === 'per-channel' && <Badge tone="amber" testid="normalised-badge">normalised</Badge>}
+              title={data.detrend === 'linear' ? 'each channel’s straight-line trend over the window is taken out before lag and r are measured; the traces are drawn as recorded'
+                : data.detrend === 'cubic' ? 'each channel’s cubic trend over the window is taken out before lag and r are measured — a curved drift a line leaves goes too; the traces are drawn as recorded'
+                : data.edge ? 'an edge’s window is measured as recorded, as the edge stores it' : 'lag and r are measured on the window as recorded, trend left in'}>
+              lag · r {data.detrend === 'linear' ? 'on the detrended window' : data.detrend === 'cubic' ? 'on the cubic-detrended window' : 'as recorded'}</span>
+            {!overlay && yMode === 'per-channel' && <Badge tone="amber" testid="normalised-badge">normalised</Badge>}
             {/* every lag on this corpus is either 0 or past the max-lag cut, so lag-aligned routinely moves
                 nothing — leaving it looking applied would be a claim the drawing does not support */}
-            {align === 'lag' && !rows.some(r => shiftFor(r)) && <span className="muted mono small" data-testid="nothing-to-align">no row has a non-zero lag within ±{maxLag} s — nothing to move</span>}
+            {!overlay && align === 'lag' && !rows.some(r => shiftFor(r)) && <span className="muted mono small" data-testid="nothing-to-align">no row has a non-zero lag within ±{maxLag} s — nothing to move</span>}
             {computing && <ProgressBar indeterminate width={220} size="sm" label={`computing lag · ${rows.length} channels`} testid="computing" />}
             <span className="grow" />
-            <span className="cols mono"><span>lag</span><span>r</span><span>bin</span></span>
+            {!overlay && <span className="cols mono"><span>lag</span><span>r</span><span>bin</span></span>}
           </div>
           {data.resolved.selError && <div className="ex-warn" data-testid="window-sel-error"><Icon name="alert-triangle" size={13} /><span>{data.resolved.selError}</span></div>}
+          {overlay ? (
+            <div className="ex-ov-wrap" ref={ovRef} data-testid="overlay-wrap">
+              <div className="ex-ov-head" data-testid="overlay-head">
+                <span className="grow" />
+                <button type="button" className={cx('ex-ov-toggle', align === 'lag' && 'on')} aria-pressed={align === 'lag'} onClick={() => setAlign(align === 'lag' ? null : 'lag')} data-testid="ov-align"
+                  title="shift each channel by the lag measured against the reference, so a wave that travels across the electrodes lines up (A)">align by lag{align === 'lag' ? ' · on' : ''}</button>
+                <button type="button" className="ex-ov-toggle" onClick={() => setBrush([Math.max(t0, data.window.motifStartS), Math.min(t1, data.window.motifEndS)])} data-testid="ov-box-span"
+                  title="draw the box over the window's own span (the shaded region) — the same as dragging across it">box the span</button>
+                <span className="ex-links"><button type="button" onClick={() => setBold(ovChannels.map(c => c.id))} data-testid="ov-all">all</button> · <button type="button" onClick={() => setBold([])} data-testid="ov-none">none</button></span>
+                <span className="muted mono small" data-testid="ov-bold-count">{bold.length} bold</span>
+                <InfoTip title="Overlay" placement="bottom-end">Click a name or a trace to make it bold (shift-click for several); drag across the plot for a box to act on. Every channel of the recording over the same window, on one axis. Each trace is drawn about its own mean over the window (the electrodes sit volts apart in DC offset, so drawn as recorded they would not share a screen), in equal lanes by channel order, at <b>one shared gain</b> so a bigger wiggle still looks bigger; a trace that runs past the block is clipped, never rescaled. <b>Align by lag</b> slides each channel by the lag measured against {refName} (the number beside its name; a lag past max lag ±{maxLag} s is left in place). The box is on {refName}&rsquo;s clock: Send and Mark write it for the channels drawn unshifted (with align on, a channel slid by its lag is left out of both, so no verdict lands on samples you did not see; turn align off to act on it); Open in Signal and Open in Analyse add the channel&rsquo;s shift. Keys (click the plot first): ↑ / ↓ move the bold channel, A aligns, Esc clears the box.</InfoTip>
+              </div>
+              {ovDet?.error && <div className="ex-warn" data-testid="ov-det-error"><Icon name="alert-triangle" size={13} /><span>{ovDet.error}</span></div>}
+              {ovSize.width > 0 && <Overlay channels={ovChannels} window={[t0, t1]} selected={bold} onSelect={setBold} brush={brush} onBrush={setBrush}
+                align={align === 'lag'} onAlign={on => setAlign(on ? 'lag' : null)} referenceId={ref} maxLagS={maxLag}
+                band={[data.window.motifStartS, data.window.motifEndS]} ticks={ticks} unitLabel={unitWords(data.unit)} width={ovSize.width} />}
+              <div className="ex-ov-axis mono" data-testid="overlay-axis">
+                <div className="ticks">{ovSize.width > 0 && ticks.map(k => <span key={k.t} style={{ left: ((k.t - t0) / (t1 - t0)) * Math.max(1, ovSize.width - OVERLAY_NAME_W) }}>{k.label}</span>)}</div>
+                <span className="frame">s from onset</span>
+              </div>
+              {brush && (
+                <div className="ex-ov-actions" data-testid="overlay-actions">
+                  <div className="muted small" data-testid="overlay-box-caption">
+                    Box {(brush[0] - data.window.motifStartS).toFixed(1)} s … {(brush[1] - data.window.motifStartS).toFixed(1)} s from onset ({(brush[1] - brush[0]).toFixed(1)} s) on the {actBold.length} bold channel{actBold.length === 1 ? '' : 's'}{align === 'lag' ? `, on ${refName}’s clock` : ''}.
+                    {shiftedBold.length > 0 && <span className="muted" data-testid="overlay-box-shifted" data-shifted={shiftedBold.length}> Send and Mark leave out {shiftedBold.map(c => `${c.name} (${fmtShift(ovShift(c.id))})`).join(', ')}: align slid {shiftedBold.length === 1 ? 'it' : 'them'} off {refName}’s clock, so the box is not the window drawn for {shiftedBold.length === 1 ? 'it' : 'them'} — turn align off to send or mark {shiftedBold.length === 1 ? 'it' : 'them'}.</span>}
+                    <button type="button" className="ex-link" onClick={() => setBrush(null)} data-testid="overlay-box-clear" style={{ marginLeft: 8 }}>clear</button>
+                  </div>
+                  <SpanActionStrip window={brush} reviewChannels={actBold} artifactChannels={actArtifactChannels} referenceId={ref} defaultArtifactIds={actBold}
+                    origin="cross-channel" note="overlay box" windowWhat="the box" onZoom={zoomToBrush} onOpenInAnalyse={topBold ? openBoldInAnalyse : undefined}
+                    disabledReason={bold.length ? undefined : 'make at least one channel bold — the box acts on the bold channels'} testid="overlay-action-strip"
+                    extra={bold.length > 1
+                      ? <Dropdown size="sm" variant="outline" value="" placeholder="Open in Signal…" onChange={v => openOneInSignal(Number(v))} testid="ov-open-signal" menuWidth={200}
+                          options={ovChannels.filter(c => bold.includes(c.id)).map(c => ({ value: String(c.id), label: `${c.name}${ovShift(c.id) ? ` (${fmtShift(ovShift(c.id))})` : ''}` }))} />
+                      : topBold ? <Button size="sm" variant="primary" onClick={() => openOneInSignal(topBold.id)} testid="ov-open-signal">Open {topBold.name} in Signal</Button> : null} />
+                </div>
+              )}
+            </div>
+          ) : <>
           <div className="ex-stack-rows" ref={listRef}>
             {rows.map((r, i) => {
               const bin = binOf(r)
@@ -293,7 +412,7 @@ function CrossBody({ data }: { data: CrossRead }) {
                 <div key={r.channelId} className={cx('ex-xrow', dim && 'dim', dragOver === i && dragFrom !== null && dragFrom !== i && 'over')} data-testid={`xrow-${r.name}`} data-bin={bin}
                   data-shift={shift || undefined} data-sets-gain={yMode === 'centred' && geom.setBy === i ? 'yes' : undefined}
                   onPointerEnter={() => { if (dragFrom !== null) setDragOver(i) }}>
-                  <button type="button" className="nm ex-link-plain" onClick={() => navigate(`explore/signal/${r.channelId}`)} title={`open ${r.name} in Signal`}>{r.name}</button>
+                  <button type="button" className="nm ex-link-plain" onClick={() => navigate(`explore/signal/${r.channelId}`)} title={`open ${r.name} in Signal`} style={{ borderLeft: `3px solid ${colourOf.get(r.channelId)}`, paddingLeft: 4 }}>{r.name}</button>
                   {i === 0 ? <span className="grip locked" data-testid="reference-lock" title="the reference is pinned first: every other row's lag and r is measured against it, so it cannot be dragged. To compare against another channel, change the reference dropdown above the stack."><Icon name="lock" size={11} /></span> : (
                     <button type="button" className={cx('grip', dragFrom === i && 'dragging')} aria-label={`reorder ${r.name} (Alt + ↑ / ↓)`} title="drag to reorder · Alt + ↑ / ↓"
                       onPointerDown={e => { e.preventDefault(); setDragFrom(i); setDragOver(i); const up = () => { window.removeEventListener('pointerup', up); setDragFrom(f => { setDragOver(o => { if (f !== null && o !== null) move(f, o); return null }); return null }) }; window.addEventListener('pointerup', up) }}
@@ -342,7 +461,7 @@ function CrossBody({ data }: { data: CrossRead }) {
                   <span className="r mono">{computing ? '…' : r.channelId === ref ? '' : r.r === null ? '—' : (() => {
                     const raw = data.asRecorded[r.channelId]
                     return raw
-                      ? <Tooltip content={`r ${r.r.toFixed(2)} at ${fmtLag(r.lagS)} on the detrended window; as recorded (trend left in) r ${raw.r.toFixed(2)} at ${fmtLag(raw.lag_s)} — a strong r at lag 0 only as recorded is the shared drift`}>
+                      ? <Tooltip content={`r ${r.r.toFixed(2)} at ${fmtLag(r.lagS)} on the ${data.detrend === 'cubic' ? 'cubic-' : ''}detrended window; as recorded (trend left in) r ${raw.r.toFixed(2)} at ${fmtLag(raw.lag_s)} — a strong r at lag 0 only as recorded is the shared drift`}>
                         <span data-testid={`r-raw-${r.name}`} data-raw-r={raw.r.toFixed(2)} data-raw-lag={raw.lag_s}>{r.r.toFixed(2)}</span></Tooltip>
                       : r.r.toFixed(2)
                   })()}</span>
@@ -355,7 +474,7 @@ function CrossBody({ data }: { data: CrossRead }) {
             })}
             {tooFew && (
               <div className="ex-xrow-empty" data-testid="too-few">
-                <EmptyState size="sm" icon="compare" title={`Pick at least one more channel to compare against ${refName}.`} action={<Button size="sm" onClick={() => setPopover('channels')} testid="choose-channels">Choose channels</Button>} />
+                <EmptyState size="sm" icon="compare" title={`Pick at least one more channel to compare against ${refName}.`} action={<Button size="sm" variant="primary" onClick={() => setPopover('channels')} testid="choose-channels">Choose channels</Button>} />
               </div>
             )}
           </div>
@@ -365,11 +484,12 @@ function CrossBody({ data }: { data: CrossRead }) {
             <div className="ticks" style={{ width: W || undefined }} data-testid="cross-axis">{W > 0 && ticks.map(k => <span key={k.t} style={{ left: px(k.t) }}>{k.label}</span>)}</div>
             <span className="frame">s from onset</span>
           </div>
+          </>}
         </div>
 
         <div className="ex-cross-bottom">
           <div className="card card-pad" data-testid="classification">
-            <div className="ex-card-head"><b>Classification for this window</b><InfoTip title="Classification">Each channel is paired with the reference over the same absolute window{data.detrend === 'linear' ? ', each channel’s straight-line trend taken out first,' : ', as recorded,'} and binned by lag (in seconds) and |r|, the sign of r kept: {data.rules ? <>artifact — {data.rules.artifact}; propagation — {data.rules.propagation}; independent — {data.rules.independent_recurrence}.</> : 'the read carries no rule.'} The numbers are Settings › Analysis defaults. A window gets no chance test and no noise-floor test — Library › Family&rsquo;s <i>Classify across channels</i> runs both on its members. Shared-ground pairs come from Settings › Channels &amp; events.</InfoTip><span className="grow" /><span className="muted mono small">pairs against {refName} reference</span></div>
+            <div className="ex-card-head"><b>Classification for this window</b><InfoTip title="Classification">Each channel is paired with the reference over the same absolute window{data.detrend === 'linear' ? ', each channel’s straight-line trend taken out first,' : data.detrend === 'cubic' ? ', each channel’s cubic trend taken out first,' : ', as recorded,'} and binned by lag (in seconds) and |r|, the sign of r kept: {data.rules ? <>artifact — {data.rules.artifact}; propagation — {data.rules.propagation}; independent — {data.rules.independent_recurrence}.</> : 'the read carries no rule.'} The numbers are Settings › Analysis defaults. A window gets no chance test and no noise-floor test — Library › Family&rsquo;s <i>Classify across channels</i> runs both on its members. Shared-ground pairs come from Settings › Channels &amp; events.</InfoTip><span className="grow" /><span className="muted mono small">pairs against {refName} reference</span></div>
             <div className={cx('ex-tiles', computing && 'dim')}>
               {(['artifact', 'propagation', 'independent', 'no match'] as const).map(b => (
                 <button key={b} type="button" className={cx('ex-tile', `t-${BIN_TONE[b]}`, focusBin === b && 'on')} onClick={() => setFocusBin(focusBin === b ? null : b)} aria-pressed={focusBin === b} data-testid={`tile-${b.replace(' ', '-')}`}
@@ -379,20 +499,25 @@ function CrossBody({ data }: { data: CrossRead }) {
               ))}
             </div>
             {sharedPair && (
-              <div className="ex-warn" data-testid="shared-ground-warning"><Icon name="alert-triangle" size={13} />
+              <div className="ex-warn ex-info" data-testid="shared-ground-warning"><Icon name="info" size={13} />
                 <span>{sharedPair.name} ↔ {sharedPair.sharedGroundWith} is a known shared-ground pair — excluded from recurrence counts · <button type="button" className="ex-link" onClick={() => navigate('settings/channels')}>Settings › Channels &amp; events</button></span>
               </div>
             )}
           </div>
           <div className="card card-pad" data-testid="take-further">
             <b style={{ display: 'block', marginBottom: 8 }}>Take it further</b>
+            {/* polish: the strip's caption sits behind an ⓘ beside the strip (`cross-strip-caption` wraps it) */}
             {/* fixup-W: wired — the family comes from the link that opened this page (Library › Family's edge list) */}
             <ActionRow icon="library" title={familyQ ? `Classify every ${familyQ} member in Library` : 'Classify a Library family across channels'}
               caption={xcJob.busy ? `running · ${xcJob.job?.total ? `${xcJob.job.done} of ${xcJob.job.total} channels · ` : ''}${xcJob.job?.message ?? ''}` : xcJob.job?.status === 'failed' ? `job ${xcJob.job.id} failed · ${xcJob.job.error}` : xcJob.startError ? `could not start: ${xcJob.startError}` : 'runs across all channels and stores bins on edges'}
               testid="act-classify" onClick={() => { if (familyQ) void xcJob.start(familyQ, groupingQ || undefined) }}
               disabled={!familyQ || xcJob.busy} reason={!familyQ ? 'open this page from a Library family (an edge\u2019s Explore › link) to say which family to classify' : 'a classification is running'} />
             <ActionRow icon="target" title={`Apply a template across these ${rows.length} channels`} caption="opens Discovery with a channel scope" testid="act-template" onClick={() => navigate(`discovery/runs?modal=add-template&channels=${selected.join(',')}`)} />
-            <ActionRow icon="checklist" title="Review this window on all channels" caption={`stages ${rows.length} spans in Review`} testid="act-review" onClick={reviewAll} disabled={tooFew} reason="pick at least one more channel first" />
+            <div className="row small" style={{ margin: '10px 2px 6px', gap: 6, alignItems: 'center' }} data-testid="cross-strip-caption">
+              <b>This window</b><InfoTip title="This window">This window on the {rows.length} channel{rows.length === 1 ? '' : 's'} shown: send their unjudged motifs to Review, or mark it an artifact on the channels you pick.</InfoTip>
+            </div>
+            <SpanActionStrip window={[t0, t1]} reviewChannels={selected} artifactChannels={data.channels} referenceId={ref}
+              origin="cross-channel" onOpenInAnalyse={openInAnalyse} testid="cross-action-strip" />
           </div>
         </div>
 
@@ -421,7 +546,7 @@ function CrossBody({ data }: { data: CrossRead }) {
             )
           })}
         </div>
-        <div className="muted mono small" style={{ marginTop: 6 }}>{fmtInt(selected.length)} of {data.channels.length} · cap {CAP}</div>
+        <div className="k-meta mono small" style={{ marginTop: 6 }}>{fmtInt(selected.length)} of {data.channels.length} · cap {CAP}</div>
       </Popover>
       <DetectionsPicker runs={runs} st={st} setSt={setPickerSt} open={popover === 'detections'} setOpen={o => setPopover(o ? 'detections' : null)} demo={!!sig.data} loading={sig.loading} anchor={pickerAnchor} />
     </>

@@ -10,7 +10,7 @@ import { DatasetName } from '../naming'
 import { ApiError, getChannel, getRecordings, getSpans, listRuns, type Channel, type DbRun, type Spans } from '../api'
 import { useSourced } from '../api/seam'
 import { getSignalDemo } from '../api/explore'
-import type { BandKind } from '../charts/primitives'
+import { annotationKind, parseToggles, visibleDetections, type SpanKind, type ToggleKind, type Toggles } from './bandModel'
 import { Callout, Dropdown, InfoTip, Seg, useDemoState, useQueryState } from '../kit'
 import { ErrorBoundary } from '../shell/ErrorBoundary'
 import { Header } from '../shell/Header'
@@ -23,7 +23,7 @@ import { MotifView } from './MotifView'
 import { Overview } from './Overview'
 import { Ribbons, type DrawerTab } from './Ribbons'
 import { SignalDrawer } from './SignalDrawer'
-import { buildMotifs, chipLabel, defaultPicker, demoDetectionMotif, pickerRuns, visibleRunIds, type PickerState } from './signalModel'
+import { buildMotifs, chipLabel, defaultPicker, pickerRuns, visibleRunIds, type PickerState } from './signalModel'
 import { SpanActions, takeSpanForReview } from './SpanActions'
 import { SpanView, type Band } from './SpanView'
 import { useElementSize } from './useElementSize'
@@ -95,6 +95,18 @@ export function SignalPage({ channelId }: { channelId: number }) {
 
 const TAB_LABEL: Record<DrawerTab, string> = { annotations: 'Annotations', detections: 'Detections', shortcuts: 'Shortcuts' }
 
+/** span-plot: which band kinds draw, remembered in this browser for the Explore workspace (every channel). */
+const TOGGLES_KEY = 'ub.explore.span-bands'
+function useBandToggles(): [Toggles, (k: ToggleKind) => void] {
+  const [t, setT] = useState<Toggles>(() => { try { return parseToggles(localStorage.getItem(TOGGLES_KEY)) } catch { return parseToggles(null) } })
+  const flip = useCallback((k: ToggleKind) => setT(prev => {
+    const next = { ...prev, [k]: !prev[k] }
+    try { localStorage.setItem(TOGGLES_KEY, JSON.stringify(next)) } catch { /* not remembered: still applied */ }
+    return next
+  }), [])
+  return [t, flip]
+}
+
 function SignalBody({ ch }: { ch: Channel }) {
   const { explore, setExplore, setSource } = useApp()
   const toast = useToast()
@@ -112,7 +124,11 @@ function SignalBody({ ch }: { ch: Channel }) {
     if (ch.source_file === 'M2_aug_concat_fs1.mat' && ch.name === 'CH4_A2') return [995040, 1002240]  // the frames' example span
     return [0, Math.min(7200, ch.duration_s)]
   }, [])  // eslint-disable-line react-hooks/exhaustive-deps -- initial only
-  const vp = useViewport(ch, initial, plotSize.width)
+  // explore-review: bumped after the action strip or the drawer writes (a send to Review, an artifact mark), so the
+  // viewport and the whole-channel list re-read their spans from the bridge
+  const [spansRev, setSpansRev] = useState(0)
+  const reread = useCallback(() => setSpansRev(n => n + 1), [])
+  const vp = useViewport(ch, initial, plotSize.width, spansRev)
   useEffect(() => {
     const id = window.setTimeout(() => setExplore({ channelId: ch.id, view: vp.view }), 200)
     return () => window.clearTimeout(id)
@@ -125,7 +141,7 @@ function SignalBody({ ch }: { ch: Channel }) {
     let alive = true
     getSpans(ch.id, 0, ch.duration_s).then(s => { if (alive) setAll(s) }).catch(e => { if (alive) setAllErr(asApiError(e)) })
     return () => { alive = false }
-  }, [ch.id, ch.duration_s])
+  }, [ch.id, ch.duration_s, spansRev])
   // live runs feed the picker on channels without demo canon
   const [liveRuns, setLiveRuns] = useState<DbRun[] | null>(null)
   const [runsErr, setRunsErr] = useState<ApiError | null>(null)
@@ -139,7 +155,9 @@ function SignalBody({ ch }: { ch: Channel }) {
   const runs = useMemo(() => pickerRuns(demo, liveRuns), [demo, liveRuns])
   const [pickerSt, setPickerSt] = useDemoState<PickerState | null>(`explore.signal.picker.${ch.id}`, () => null)
   const st = pickerSt ?? defaultPicker(demo, runs)
-  const motifs = useMemo(() => buildMotifs(all, demo, runs, st, ch.fs), [all, demo, runs, st, ch.fs])
+  const [toggles, flipToggle] = useBandToggles()
+  // ‹ N / M › walks what the span draws: a kind switched off in the legend is skipped
+  const motifs = useMemo(() => buildMotifs(all, demo, runs, st, ch.fs).filter(m => toggles[m.kind === 'annotated' ? annotationKind(m.verdict) : 'detected']), [all, demo, runs, st, ch.fs, toggles])
   const capped = !!(all && (all.annotations_capped || all.detections_capped))
   const [sel, setSel] = useState<Motif | null>(null)
   const index = sel ? motifs.findIndex(m => m.key === sel.key) : -1
@@ -167,32 +185,36 @@ function SignalBody({ ch }: { ch: Channel }) {
     else { let last: Motif | undefined; for (const m of motifs) { if (m.start_s <= vp.view[1]) last = m; else break } choose(last ?? motifs[motifs.length - 1]) }
   }
 
-  // bands in the viewport: live spans + demo detections from visible runs
+  // bands in the viewport: the viewport's own spans read (span-plot: once — the whole-channel copy getSignalLive
+  // holds was pushed a second time, and it is capped to the channel's first 5 000 detections)
   const vis = useMemo(() => visibleRunIds(runs, st), [runs, st])
   const runColour = useMemo(() => new Map(runs.map(r => [r.id, r.colour])), [runs])
-  const liveColour = useMemo(() => new Map(runs.filter(r => r.liveRunId != null).map(r => [r.liveRunId!, r.colour])), [runs])
   const [a, b] = vp.view
+  // span-plot critic: say in words why detections in view are not all drawn — none picked, or a thinned read
+  const bandNote = useMemo(() => {
+    if (runs.length && vis.size === 0) return 'No runs are picked in “show detections from”, so no detections are drawn. Pick a run there to see its detections.'
+    const sp = vp.spans
+    if (sp?.detections_spread && sp.detections_total) return `Too many detections in this view to draw each one: ${fmtInt(sp.detections.length)} of the ${fmtInt(sp.detections_total)} here (every run) are drawn, spread evenly across the view. Zoom in to see every one.`
+    return null
+  }, [runs.length, vis, vp.spans])
   const inView = useMemo(() => motifs.filter(m => m.end_s > a && m.start_s < b), [motifs, a, b])
-  const liveInView = useMemo(() => (vp.spans ? vp.spans.detections.filter(d => d && (demo || !runs.length || vis.has(`#${d.run_id}`))) : []), [vp.spans, demo, runs, vis])
+  // in the view as it is NOW: until the new view's read lands, vp.spans is the previous view's (critic round)
+  const liveInView = useMemo(() => (vp.spans ? visibleDetections(vp.spans.detections.filter(d => !!d && d.end_s > a && d.start_s < b), vis, runs.length) : []), [vp.spans, runs, vis, a, b])
   const bands = useMemo<Band[]>(() => {
     const out: Band[] = []
     for (const an of vp.spans?.annotations ?? []) {
-      if (!an) continue
+      if (!an || an.end_s <= a || an.start_s >= b) continue
       const m: Motif = { key: `a:${an.id}`, kind: 'annotated', id: an.id, start_s: an.start_s, end_s: an.end_s, verdict: an.verdict, tag: an.tag, note: an.note, source: an.source }
-      out.push({ start_s: an.start_s, end_s: an.end_s, kind: sel?.key === m.key ? 'selected' : an.verdict === 'artifact' ? 'artifact' : 'annotated', id: m.key, title: `annotation ${an.id} · ${an.verdict}`, motif: m })
+      const toggle = annotationKind(an.verdict)
+      const kind: SpanKind = sel?.key === m.key ? 'selected' : toggle
+      out.push({ start_s: an.start_s, end_s: an.end_s, kind, toggle, id: m.key, title: `annotation ${an.id} · ${an.verdict}`, motif: m })
     }
     for (const d of liveInView) {
       const m: Motif = { key: `d:${d.id}`, kind: 'detected', id: d.id, start_s: d.start_s, end_s: d.end_s, run_id: d.run_id, score: d.score }
-      out.push({ start_s: d.start_s, end_s: d.end_s, kind: sel?.key === m.key ? 'selected' : 'detected', id: m.key, title: `detection ${d.id} · run ${d.run_id}`, motif: m, colour: st.colourByRun ? liveColour.get(d.run_id) : undefined })
-    }
-    if (demo) for (const d of demo.detections) {
-      if (d.end / ch.fs <= a || d.start / ch.fs >= b || !vis.has(d.runId) || (st.unadjudicatedOnly && d.adjudication !== 'unadjudicated')) continue
-      const m = demoDetectionMotif(d, ch.fs)
-      const kind: BandKind = sel?.key === m.key ? 'selected' : 'detected'
-      out.push({ start_s: m.start_s, end_s: m.end_s, kind, id: m.key, title: `detection ${d.id} · ${d.runName} ${d.runId} · score ${d.score.toFixed(2)} · ${d.adjudication} (demo)`, motif: m, colour: st.colourByRun ? runColour.get(d.runId) : undefined, capOnly: d.adjudication !== 'unadjudicated' })
+      out.push({ start_s: d.start_s, end_s: d.end_s, kind: sel?.key === m.key ? 'selected' : 'detected', toggle: 'detected', id: m.key, title: `detection ${d.id} · run ${d.run_id}`, motif: m, colour: st.colourByRun ? runColour.get(`#${d.run_id}`) : undefined })
     }
     return out
-  }, [vp.spans, liveInView, demo, sel, st, vis, runColour, liveColour, a, b, ch.fs])
+  }, [vp.spans, liveInView, sel, st, runColour, a, b])
 
   const send = (t0: number, t1: number, label: string) => {
     setSource({ recording_id: ch.id, channel_name: ch.name, source_file: ch.source_file, fs: ch.fs, start_idx: Math.round(t0 * ch.fs), end_idx: Math.round(t1 * ch.fs), label })
@@ -251,17 +273,21 @@ function SignalBody({ ch }: { ch: Channel }) {
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  // on the canon channel the density ribbon counts the demo detections from visible runs (live has none there)
+  // the density ribbon follows the run picker when the whole-channel read holds every detection. span-plot, the pile
+  // at t = 0: that read is capped at the channel's FIRST 5 000 detections by start, and this ribbon was built from it
+  // whatever its size — every detection of a busy channel drawn in its opening hours. Capped, the ribbon is the
+  // bridge's own count over the whole channel (every run).
   const demoDensity = useMemo(() => {
-    if (!demo) return undefined
+    if (!all || all.detections_capped || !runs.length) return undefined
     const n = ch.ribbons.buckets || 300, w = ch.duration_s / n
     const out = new Array(n).fill(0)
-    for (const d of demo.detections) if (vis.has(d.runId)) out[Math.min(n - 1, Math.floor(d.start / ch.fs / w))]++
+    for (const d of visibleDetections(all.detections, vis, runs.length)) out[Math.max(0, Math.min(n - 1, Math.floor(d.start_s / w)))]++
     return out
-  }, [demo, vis, ch])
+  }, [all, runs, vis, ch])
   const pickerAnchor = useRef<HTMLButtonElement>(null)
   const subtitle = drawer ? `${ch.name} · drawer, ${TAB_LABEL[drawer]}` : `${ch.name} · ${fmtInt(ch.summary.annotations)} annotations · ${fmtInt(ch.summary.detections)} detections`
-  const totals = demo ? { annotations: demo.annotations.length, detections: demo.detections.length } : { annotations: ch.summary.annotations, detections: ch.summary.detections }
+  // span-plot critic: the live read's detections are capped at 5 000 — a capped copy is not the channel's count
+  const totals = demo ? { annotations: demo.annotations.length, detections: all?.detections_capped ? ch.summary.detections : demo.detections.length } : { annotations: ch.summary.annotations, detections: ch.summary.detections }
   const initialDraft = demo ? { tags: demo.spanTags, selected: [demo.spanTags[0]], note: demo.spanNote } : { tags: [], selected: [], note: '' }
   const selLabel = labelOf(sel, index)
 
@@ -296,9 +322,9 @@ function SignalBody({ ch }: { ch: Channel }) {
         ) : drawer ? (
           <>
             <ErrorBoundary label="drawer">
-              <SignalDrawer channelKey={String(ch.id)} channelName={ch.name} fs={ch.fs} demo={demo} live={all} tab={drawer} setTab={t => openDrawer(t)} onClose={() => setDrawerQ(null)} view={vp.view} focusSignal={focusSignal}
+              <SignalDrawer channelKey={String(ch.id)} channelName={ch.name} fs={ch.fs} demo={demo} live={all} tab={drawer} setTab={t => openDrawer(t)} onClose={() => setDrawerQ(null)} view={vp.view} focusSignal={focusSignal} onSent={reread}
                 onOpenRow={r => {
-                  const key = r.kind === 'annotated' ? (demo ? `fa:${r.id}` : `a:${r.id}`) : (demo ? `f:${r.id}` : `d:${r.id}`)
+                  const key = r.kind === 'annotated' ? `a:${r.id}` : `d:${r.id}`   // span-plot: the live keys, on every channel
                   const found = motifs.find(m => m.key === key)
                   const row = r.row as unknown as Record<string, unknown>
                   choose(found ?? { key, kind: r.kind, id: r.id, start_s: r.start_s, end_s: r.end_s, demo: !!demo, verdict: row.verdict as string | undefined, tag: (row.tags as string[] | undefined)?.[0] ?? null,
@@ -313,13 +339,14 @@ function SignalBody({ ch }: { ch: Channel }) {
           <>
             <ErrorBoundary label="span tier">
               <SpanView ch={ch} vp={vp} plotRef={plotRef} width={plotSize.width} bands={bands} selected={sel} selectedLabel={selLabel} onBandClick={m => choose(m, false)}
-                nav={{ index, total: motifs.length, capped, prev, next }} legendOpen={popover === 'span-legend'} setLegendOpen={o => setPopover(o ? 'span-legend' : null)} demo={!!demo} />
+                nav={{ index, total: motifs.length, capped, prev, next }} legendOpen={popover === 'span-legend'} setLegendOpen={o => setPopover(o ? 'span-legend' : null)} demo={!!demo}
+                toggles={toggles} onToggle={flipToggle} bandNote={bandNote} />
             </ErrorBoundary>
             <ErrorBoundary label="motif tier">
               <MotifView key="motif-tier" ch={ch} motif={sel} label={selLabel} medoid={demo?.medoid ?? null} onSend={m => send(m.start_s, m.end_s, `${selLabel ?? `MOTIF ${m.id}`} · ${ch.name}`)} onReview={reviewMotif} />
             </ErrorBoundary>
             <ErrorBoundary label="span actions">
-              <SpanActionsBound actionsRef={actions} channelKey={String(ch.id)} channelName={ch.name} recordingId={ch.id} fs={ch.fs} initial={initialDraft} view={vp.view} nInView={inView.length} tagSignal={tagSignal}
+              <SpanActionsBound actionsRef={actions} channelKey={String(ch.id)} channelName={ch.name} recordingId={ch.id} fs={ch.fs} initial={initialDraft} view={vp.view} nInView={inView.length} tagSignal={tagSignal} onWritten={reread}
                 onSend={() => send(vp.view[0], vp.view[1], `${ch.name} · ${fmtRangeH(vp.view[0], vp.view[1])}`)} />
             </ErrorBoundary>
             <ErrorBoundary label="ribbons">

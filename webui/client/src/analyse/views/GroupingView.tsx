@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FamilyRow, FamilySummary, GroupingPayload } from '../../api'
 import { measuredDomain } from '../../charts/domain'
-import { Bars, EventTrace, InfoTip, ScaleBar, type SlideTrace } from '../../kit'
+import { About, Bars, EventTrace, InfoTip, ScaleBar, type SlideTrace } from '../../kit'
 import { fmtDuration, fmtHours } from '../../state'
 import { CAT9 } from './EncodingView'
 import { Empty, loadWindow, type ViewCtx } from './common'
@@ -227,7 +227,10 @@ export function FamilyTable({ families, summary, unit = 'members' }: { families:
           ))}</tbody>
         </table>}
       {(summary?.warnings ?? []).map((w, i) => <div key={i} className="mono small" style={{ color: 'var(--amber-700, #b76a00)' }} data-testid="family-warning">{w}</div>)}
-      {(summary?.notes ?? []).map((w, i) => <div key={`n${i}`} className="mono small muted" data-testid="family-note">{w}</div>)}
+      {/* polish: the method's notes are how the table was made, one click away; the warnings above stay on the face */}
+      {(summary?.notes ?? []).length > 0 && <About label={`notes on this table (${(summary?.notes ?? []).length})`} testid="family-notes-about">
+        {(summary?.notes ?? []).map((w, i) => <div key={`n${i}`} className="mono small" data-testid="family-note">{w}</div>)}
+      </About>}
     </div>
   )
 }

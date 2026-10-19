@@ -15,13 +15,39 @@ export interface RoseData {
   /** fixup-ae: what 45° is and the population it came from (`Working/library/rose_reference.py`) — printed on
    *  every rose that carries it */
   reference?: RoseReference | null
+  /** the measure the angles are of (`rose_payload`'s `field`); the reference line is a steepest slope, so it is only
+   *  drawn on a rose of `max_slope_mv_s` */
+  field?: string
 }
 export interface RoseReference { value_mv_s: number | null; population: string | null; n: number | null; computed_at: string | null; stored: boolean; text: string }
+/** library-family-actions: the reference LINE (`GET /api/library/rose-reference?unit=motifs`) — the median steepest
+ *  slope over the human-accepted Library motifs (interesting or seed) and its n. `median_slope: null` / `n: 0`: none
+ *  accepted, no line. `error`: the read failed, and the rose says so in place of the label. */
+export interface RoseReferenceLine { median_slope: number | null; n: number; computed_from: string; error?: string | null }
 
-const B = '#0a84ff', BL = '#bfdcff', G = '#9ca3af', AM = '#e8900c'
+/** The slope that sits at 45° on THIS rose, read off the rose's own events (each angle is `arctan(slope / ref)`, so
+ *  `ref = |slope| / tan|angle|`): one value when every event shares it (the raw and pooled scales), `null` when the
+ *  reference differs event by event (the recording and event scales) — then no single angle stands for a slope.
+ *  With no event to read it from, a raw rose's stated reference. Placement only: the slope itself is the bridge's. */
+function fortyFiveOf(rose: RoseData): number | null {
+  if (rose.field && rose.field !== 'max_slope_mv_s') return null
+  const refs: number[] = []
+  rose.angles_deg.forEach((a, k) => {
+    const s = rose.slopes_mv_s?.[k]; const r = Math.abs(a) * Math.PI / 180
+    if (s !== undefined && Number.isFinite(s) && s !== 0 && r > 1e-6 && r < Math.PI / 2 - 1e-6) refs.push(Math.abs(s) / Math.tan(r))
+  })
+  if (!refs.length) return rose.scale === 'raw' && rose.reference?.value_mv_s ? rose.reference.value_mv_s : null
+  const lo = Math.min(...refs), hi = Math.max(...refs)
+  return hi - lo <= 1e-3 * hi ? (lo + hi) / 2 : null
+}
+const fmtSlope = (v: number) => (v >= 100 ? v.toFixed(0) : v.toPrecision(3))
 
-export function Rose({ rose, highlight, onSelect, colourOf, labelOf, legend, testid = 'rose' }: {
+const B = '#0a84ff', BL = '#bfdcff', G = '#9ca3af', AM = '#e8900c', PU = '#7c3aed'
+
+export function Rose({ rose, highlight, onSelect, colourOf, labelOf, legend, reference, testid = 'rose' }: {
   rose: RoseData
+  /** library-family-actions: the accepted-motif reference line, labelled with its value and n */
+  reference?: RoseReferenceLine | null
   /** the event (by `event_index`) drawn large */
   highlight?: number | null
   onSelect?: (eventIndex: number) => void
@@ -45,6 +71,15 @@ export function Rose({ rose, highlight, onSelect, colourOf, labelOf, legend, tes
     ['uniform over the quadrant, KS p', rose.uniformity_p !== null ? rose.uniformity_p.toPrecision(2) : '— (n < 3)'],
   ] : []
   const sel = highlight !== undefined && highlight !== null ? rose.event_index.indexOf(highlight) : -1
+  // the reference line: where the accepted median slope falls on this rose's own 45° — or why it is not drawn
+  const ref45 = reference && reference.median_slope !== null ? fortyFiveOf(rose) : null
+  const refDeg = reference && reference.median_slope !== null && ref45 ? -(Math.atan(reference.median_slope / ref45) * 180) / Math.PI : null
+  const refText = !reference ? null
+    : reference.error ? `reference line not read: ${reference.error}`
+    : reference.median_slope === null ? 'no reference line: no human-accepted Library motif (interesting or seed) has a measured slope yet (n = 0)'
+    : `reference line · accepted median ${fmtSlope(reference.median_slope)} mV/s · n = ${reference.n}${refDeg === null
+      ? ` · not drawn: ${rose.field && rose.field !== 'max_slope_mv_s' ? `this rose is of ${rose.field}, not a slope` : `this rose's scale (${rose.scale}) has no single 45°`}`
+      : ` · at ${refDeg.toFixed(1).replace('-', '−')}°`}`
   return (
     <div data-testid={testid} style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`rose of ${rose.n} steepest-slope angles`} data-render="rose">
@@ -72,10 +107,20 @@ export function Rose({ rose, highlight, onSelect, colourOf, labelOf, legend, tes
           )
         })}
         {rose.mean_deg !== null && (() => { const [x, y] = at(rose.mean_deg, R * 0.9); return <line x1={cx} y1={cy} x2={x} y2={y} stroke={AM} strokeWidth={2} data-testid="rose-mean" /> })()}
+        {refDeg !== null && reference && reference.median_slope !== null && (() => {
+          const [x, y] = at(refDeg, R + 4); const [lx, ly] = at(refDeg, R * 0.55)
+          return <g data-testid="rose-reference-mark" data-angle={refDeg.toFixed(2)}>
+            <line x1={cx} y1={cy} x2={x} y2={y} stroke={PU} strokeWidth={1.4} strokeDasharray="5 3" />
+            <text x={lx + 4} y={ly - 4} fontSize={9.5} fill={PU} style={{ paintOrder: 'stroke', stroke: '#fff', strokeWidth: 3 }}>{`${fmtSlope(reference.median_slope)} mV/s · n ${reference.n}`}</text>
+            <title>{refText}</title>
+          </g>
+        })()}
       </svg>
       <div style={{ fontSize: 12, minWidth: 200, maxWidth: 320 }}>
         <div style={{ fontWeight: 600, marginBottom: 4 }}>{rose.caption || 'no events with a measured fall'}</div>
         {rose.reference && <div className="small" style={{ marginBottom: 6, color: rose.reference.population === 'accepted' ? undefined : '#b56b00' }} data-testid="rose-reference" data-population={rose.reference.population ?? ''}>{rose.reference.text}</div>}
+        {refText && <div className="small" style={{ marginBottom: 6, color: reference?.error ? 'var(--red, #c0392b)' : refDeg !== null ? PU : undefined }} data-testid="rose-reference-line"
+          data-n={reference?.n ?? 0} data-drawn={refDeg !== null ? '1' : '0'}>{refText}</div>}
         {stats.map(([k, v]) => <div key={k} className="mono" style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span className="muted">{k}</span><span>{v}</span></div>)}
         {sel >= 0 && <div className="mono" style={{ marginTop: 4, color: AM }} data-testid="rose-selected">{labelOf ? labelOf(highlight as number) : `event ${(highlight as number) + 1}`} · {rose.angles_deg[sel].toFixed(1).replace('-', '−')}°</div>}
         {Object.keys(rose.groups).length > 1 && (

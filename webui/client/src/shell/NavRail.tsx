@@ -9,6 +9,7 @@ const I = {
   review: <g fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M4 7l2 2 3-3M4 15l2 2 3-3M12 7h8M12 15h8" /></g>,
   library: <g fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="4" y="4" width="4" height="16" rx="1" /><rect x="10" y="4" width="4" height="16" rx="1" /><path d="M16.5 5l3.5 14.5" /></g>,
   jobs: <g fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3.5" y="5.5" width="17" height="13" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M12 8v1.5M12 14.5V16M8 12h1.5M14.5 12H16" /></g>,
+  reports: <g fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M6 3.5h8.5l3.5 3.5v13.5H6z" /><path d="M14.5 3.5V7H18M9 17v-3M12 17v-6M15 17v-4" /></g>,
   settings: <g fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="3" /><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8" /></g>,
 }
 
@@ -40,6 +41,7 @@ export function NavRail() {
       <div className="rail-group">{TOP.map(t => <Item key={t.key} k={t.key} label={t.label} icon={t.icon} to={t.to} />)}</div>
       <div className="rail-foot">
         <Item k="jobs" label={`Jobs · ${liveJobs}`} icon="jobs" to="jobs" />
+        <Item k="reports" label="Reports" icon="reports" to="reports" />
         <div className="rail-sep" />
         <Item k="settings" label="Settings" icon="settings" to="settings/datasets" />
       </div>

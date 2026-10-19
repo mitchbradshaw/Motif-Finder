@@ -108,8 +108,8 @@ function Body({ data }: { data: Data }) {
               <span className="small"><b>{conflict.key}</b> is bound to “{conflict.with}”. A key does one thing.</span>
               {lockedOwner && <span className="small" data-testid="conflict-locked-owner">“{conflict.with}” is set in Vocabulary — change it there, then rebind here.</span>}
               <span className="k-spacer" />
-              {lockedOwner && <Button size="sm" testid="conflict-to-vocab" onClick={() => navigate('settings/vocabulary')}>Open Vocabulary</Button>}
-              <Button size="sm" testid="conflict-cancel" onClick={() => { setConflict(null); setState('') }}>Keep the old binding</Button>
+              {lockedOwner && <Button variant="primary" size="sm" testid="conflict-to-vocab" onClick={() => navigate('settings/vocabulary')}>Open Vocabulary</Button>}
+              <Button variant="primary" size="sm" testid="conflict-cancel" onClick={() => { setConflict(null); setState('') }}>Keep the old binding</Button>
               <Button size="sm" variant="danger" testid="conflict-replace"
                 disabled={lockedOwner} disabledReason={lockedOwner ? `“${conflict.with}” is set in Vocabulary · a verdict or class key cannot be moved from here` : undefined}
                 onClick={() => {

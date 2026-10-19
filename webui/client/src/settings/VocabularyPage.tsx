@@ -84,7 +84,7 @@ function Body({ data }: { data: Data }) {
       </SectionCard>
 
       <SectionCard title="Classes" subtitle="optional class keys in Review · classes for multi-class models" testid="classes-card"
-        actions={<Button icon="plus" testid="add-class" onClick={() => setAdding(adding === 'class' ? '' : 'class')}>Add class</Button>}
+        actions={<Button variant="primary" icon="plus" testid="add-class" onClick={() => setAdding(adding === 'class' ? '' : 'class')}>Add class</Button>}
         footer={<span className="s-note">an informative class implies interesting; a non-informative class names the verdict it implies · renaming a class rewrites its labels, models keep their own snapshot</span>}>
         <Table rows={classes} rowKey={c => c.key} testid="classes-table" dense
           columns={[
@@ -119,7 +119,7 @@ function Body({ data }: { data: Data }) {
       </SectionCard>
 
       <SectionCard title="Morphology tags" subtitle="many-to-many on library entries, never a primary key" testid="tags-card"
-        actions={<Button icon="plus" testid="add-tag" onClick={() => setAdding(adding === 'tag' ? '' : 'tag')}>Add tag</Button>}>
+        actions={<Button variant="primary" icon="plus" testid="add-tag" onClick={() => setAdding(adding === 'tag' ? '' : 'tag')}>Add tag</Button>}>
         <Table rows={tags} rowKey={t => t.name} testid="tags-table" dense
           columns={[
             { key: 'tag', header: 'tag', width: '14%', render: t => <span className="mono" style={{ fontWeight: 600 }}>{t.name}</span> },

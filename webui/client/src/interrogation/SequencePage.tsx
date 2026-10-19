@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getSequenceShape, getSequences, type FeatureTable as FeatureTableT, type SequenceRow, type SequenceShape } from '../api'
 import { FeatureTable, RulesList } from '../analyse/EventFeatures'
 import { Rose } from '../kit'
+import { useRoseReferenceLine } from '../library/roseReference'
 import { datasetName, useDatasetNames } from '../naming'
 import { Header } from '../shell/Header'
 import { navigate, setQuery, useApp } from '../state'
@@ -24,6 +25,7 @@ export function SequencePage() {
   const [listErr, setListErr] = useState<string | null>(null)
   const [shape, setShape] = useState<SequenceShape | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const roseRef = useRoseReferenceLine()   // library-family-actions: the accepted-motif reference line
   const names = useDatasetNames()   // a sequence's recording is printed by its dataset name (fixup-f)
 
   useEffect(() => { getSequences().then(r => setList(r.sequences), e => setListErr(String(e?.message ?? e))) }, [])
@@ -66,7 +68,7 @@ export function SequencePage() {
             {shape.unit_note && <div className="small" data-testid="sequence-unit-note" style={{ padding: '6px 10px', background: '#fff7e6', borderRadius: 6 }}>{shape.unit_note}</div>}
             <div className="card card-pad" data-testid="sequence-rose-card">
               <div className="bp-card-title"><h3>Each event&apos;s steepest slope, as one angle</h3><span className="sg">{shape.rose.n} of {shape.sequence.n_members} events have a measured fall</span></div>
-              <Rose rose={shape.rose} testid="rose-fan" />
+              <Rose rose={shape.rose} reference={roseRef} testid="rose-fan" />
             </div>
             <div className="card card-pad" data-testid="sequence-events-card">
               <div className="bp-card-title"><h3>The events, in order</h3>

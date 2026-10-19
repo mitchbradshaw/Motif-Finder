@@ -2,16 +2,17 @@
    load or render shows a red card for that workspace only (loud, never blank) and the rest of the app stays
    usable. Explore › Corpus/Signal and Analyse › Chain/Block are live against the bridge; every other page
    draws fixture data through src/api/<workspace>.ts and says so with the header's "demo data" chip. */
-import { lazy, Suspense, useEffect, type ComponentType } from 'react'
+import { Suspense, useEffect, type ComponentType } from 'react'
 import { listRuns } from './api'
+import { installChunkReload, lazyNamed } from './shell/chunkReload'
 import { ErrorBoundary } from './shell/ErrorBoundary'
 import { Header } from './shell/Header'
 import { NavRail } from './shell/NavRail'
 import { ToastProvider } from './shell/Toast'
 import { AppProvider, myJobIds, useApp } from './state'
 
-const lazyNamed = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) =>
-  lazy(() => load().then(m => ({ default: m[name] })))
+// ux-1019: a workspace chunk the open page asks for after a rebuild reloads the page once (shell/chunkReload.ts)
+installChunkReload()
 
 const WORKSPACES: Record<string, ComponentType> = {
   explore: lazyNamed(() => import('./explore'), 'ExplorePage'),
@@ -21,6 +22,7 @@ const WORKSPACES: Record<string, ComponentType> = {
   review: lazyNamed(() => import('./review'), 'ReviewPage'),
   library: lazyNamed(() => import('./library'), 'LibraryPage'),
   jobs: lazyNamed(() => import('./jobs'), 'JobsPage'),
+  reports: lazyNamed(() => import('./reports'), 'ReportsPage'),   // reports (2026-10-19)
   settings: lazyNamed(() => import('./settings'), 'SettingsPage'),
   kit: lazyNamed(() => import('./kit/Gallery'), 'KitGallery'),
 }

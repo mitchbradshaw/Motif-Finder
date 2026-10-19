@@ -65,26 +65,26 @@ function Body({ data }: { data: Data }) {
   return (
     <>
       <SectionCard title="Appearance" testid="appearance-card">
-        <Row label="theme" dot={s.differs('theme')} testid="theme-row" caption="dark is not drawn yet — light and system look the same today">
+        <Row label="theme" dot={s.differs('theme')} testid="theme-row" tip="dark is not drawn yet — light and system look the same today">
           {seg('theme', ['system', 'light', 'dark'])}
         </Row>
-        <Row label="density" dot={s.differs('density')} testid="density-row" caption="compact tightens table rows across every page">
+        <Row label="density" dot={s.differs('density')} testid="density-row" tip="compact tightens table rows across every page">
           {seg('density', ['comfortable', 'compact'])}
         </Row>
       </SectionCard>
 
       <SectionCard title="Units and time" subtitle="the format every readout uses — times, amplitudes, indices" testid="units-card">
-        <Row label="time axis" id="f-time-axis" dot={s.differs('time_axis')} testid="time-axis-row" caption="hours since recording start is the canon readout">
+        <Row label="time axis" id="f-time-axis" dot={s.differs('time_axis')} testid="time-axis-row" tip="hours since recording start is the canon readout">
           {seg('time_axis', ['hours since start', 'clock time', 'both'])}
         </Row>
-        <Row label="amplitude" dot={s.differs('amplitude')} testid="amplitude-row" caption="mV is never normalised">
+        <Row label="amplitude" dot={s.differs('amplitude')} testid="amplitude-row" tip="mV is never normalised">
           {seg('amplitude', ['mV', 'µV'])}
         </Row>
-        <Row label="sample indices" dot={s.differs('sample_indices')} testid="sample-indices-row" caption="indices are always into the whole recording">
+        <Row label="sample indices" dot={s.differs('sample_indices')} testid="sample-indices-row" tip="indices are always into the whole recording">
           <Toggle checked={s.bool('sample_indices')} onChange={v => s.set('sample_indices', v)} label="show beside times" testid="sample-indices" />
         </Row>
         <Row label="a readout in this format" testid="readout-row" wide
-          caption="pages pick this up as each is wired · the Explore and Review readouts still read hours · mV today">
+          tip="pages pick this up as each is wired · the Explore and Review readouts still read hours · mV today">
           <span className="mono" data-testid="readout-example" style={{ fontSize: 12 }}>{readout(s)}</span>
         </Row>
       </SectionCard>
@@ -109,18 +109,18 @@ function Body({ data }: { data: Data }) {
       </SectionCard>
 
       <SectionCard title="View sizes" testid="sizes-card">
-        <Row label="channels per page" dot={s.differs('channels_per_page')} testid="channels-row" caption="Discovery scope and where-each-run-fires">
+        <Row label="channels per page" dot={s.differs('channels_per_page')} testid="channels-row" tip="Discovery scope and where-each-run-fires">
           <NumberField value={s.num('channels_per_page')} min={1} max={10} integer width={90} onValid={v => s.set('channels_per_page', v)} testid="channels-per-page" />
         </Row>
-        <Row label="Review context padding" dot={s.differs('review_padding')} testid="padding-row" caption="how much signal sits either side of a candidate">
+        <Row label="Review context padding" dot={s.differs('review_padding')} testid="padding-row" tip="how much signal sits either side of a candidate">
           {seg('review_padding', ['±30 s', '±120 s', '±300 s'])}
         </Row>
-        <Row label="members per page" dot={s.differs('members_per_page')} testid="members-row" caption="Library family and atlas overlays · capped at 10 (P8)">
+        <Row label="members per page" dot={s.differs('members_per_page')} testid="members-row" tip="Library family and atlas overlays · capped at 10 (P8)">
           <NumberField value={s.num('members_per_page')} min={1} max={10} integer width={90} testid="members-per-page"
             onValid={v => { s.set('members_per_page', v); s.markInvalid('members_per_page', null) }}
             onChange={(_r, reason) => s.markInvalid('members_per_page', reason ? 'at most 10 small multiples at once (P8)' : null)} />
         </Row>
-        <Row label="recurrence cells" dot={s.differs('recurrence')} testid="recurrence-row" caption="per hour keeps recordings of different length comparable">
+        <Row label="recurrence cells" dot={s.differs('recurrence')} testid="recurrence-row" tip="per hour keeps recordings of different length comparable">
           {seg('recurrence', ['per hour', 'count'])}
         </Row>
       </SectionCard>

@@ -253,7 +253,7 @@ export function CorpusPage() {
                 <button ref={legendRef} type="button" className="k-icon-btn bordered" aria-label="Reading the coverage map" title="Reading the coverage map" aria-expanded={popover === 'legend'}
                   onClick={() => setPopover(popover === 'legend' ? null : 'legend')} data-testid="map-legend-button"><Icon name="info" size={14} /></button>
               </div>
-              <div className="mono" style={{ fontSize: 10, color: 'var(--muted-2)', marginBottom: 2 }}>channel</div>
+              <div className="mono" style={{ fontSize: 10.5, color: 'var(--muted-2)', marginBottom: 2 }}>channel</div>
               <div className="ex-map-wrap" onKeyDown={e => { if (e.key === 'Escape' && !e.defaultPrevented) { setCleared(true) } }}>
                 {cov && cov.source_file === fileName && cov.stale && !covErr && !showLoading && (
                   <div className="meta" style={{ color: 'var(--muted-2)', marginBottom: 4 }} data-testid="coverage-stale"
@@ -273,7 +273,7 @@ export function CorpusPage() {
                 {nothingShown && !showLoading && (
                   <div className="ex-map-empty" data-testid="nothing-shown">
                     <EmptyState icon="eye-off" title="nothing shown" caption="Tick annotations or detections to colour the map." bordered
-                      action={<Button size="sm" onClick={() => { setShow(s => ({ ...s, annotations: true, detections: true })); if (forced === 'nothing-shown') setForced(null) }} testid="show-both">Show both</Button>} />
+                      action={<Button size="sm" variant="primary" onClick={() => { setShow(s => ({ ...s, annotations: true, detections: true })); if (forced === 'nothing-shown') setForced(null) }} testid="show-both">Show both</Button>} />
                   </div>
                 )}
               </div>
@@ -302,8 +302,8 @@ export function CorpusPage() {
             </span>
           </div>
           <div className="row">
-            <Button icon="grid" disabled={!!selectionReason} disabledReason={selectionReason} onClick={() => selRow && navigate(`explore/cross-channel/${selRow.id}`)} testid="cross-channel-from">Cross-channel from {selRow?.name ?? '…'}</Button>
-            <Button variant="primary" iconRight="arrow-right" disabled={!!selectionReason} disabledReason={selectionReason} onClick={() => selRow && open(selRow.id)} testid="open-channel">Open {selRow?.name ?? '…'}</Button>
+            <Button variant="primary" icon="grid" disabled={!!selectionReason} disabledReason={selectionReason} onClick={() => selRow && navigate(`explore/cross-channel/${selRow.id}`)} testid="cross-channel-from">Cross-channel from {selRow?.name ?? '…'}</Button>
+            <Button variant="next" iconRight="arrow-right" disabled={!!selectionReason} disabledReason={selectionReason} onClick={() => selRow && open(selRow.id)} testid="open-channel">Open {selRow?.name ?? '…'}</Button>
           </div>
         </div>
       </div></div>

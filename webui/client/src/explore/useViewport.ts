@@ -4,7 +4,7 @@
    interaction feels immediate. Every fetch is timed into window.__zoomStats (evidence for the
    stack decision): server decimate_ms, round_trip_ms, and paint_ms (rAF after the state commit). */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getSpans, getWindow, type ApiError, type Channel, type Spans, type WindowData } from '../api'
+import { getViewSpans, getWindow, type ApiError, type Channel, type Spans, type WindowData } from '../api'
 import { asApiError, clampView, envelopeOk, MALFORMED_SPANS, MALFORMED_WINDOW, MIN_SPAN_S, spansOk } from './util'
 
 export interface ZoomStat { seq: number; t0: number; t1: number; px: number; n_points: number; decimate_ms: number; round_trip_ms: number; paint_ms: number }
@@ -14,7 +14,9 @@ export interface Win { data: WindowData & { round_trip_ms: number }; view: [numb
 
 export const DEBOUNCE_MS = 60
 
-export function useViewport(ch: Channel, initial: () => [number, number], width: number) {
+/** `reloadKey` (explore-review): a change re-reads the window's spans and envelope without moving the view — what a
+ *  page bumps after it writes (a send to Review, an artifact mark). */
+export function useViewport(ch: Channel, initial: () => [number, number], width: number, reloadKey = 0) {
   const dur = ch.duration_s
   const [view, setViewState] = useState<[number, number]>(() => clampView(initial(), dur))
   const viewRef = useRef(view)
@@ -47,12 +49,13 @@ export function useViewport(ch: Channel, initial: () => [number, number], width:
           setWin({ data: w, view: [t0, t1], px, tCommit: performance.now(), seq: my }); setError(null)
         })
         .catch(e => { if (my !== seq.current) return; setFetching(false); setError(asApiError(e)) })
-      getSpans(ch.id, t0, t1)
+      // span-plot: thinned evenly across the view when capped, never the view's first 5 000 (the pile at its left edge)
+      getViewSpans(ch.id, t0, t1)
         .then(s => { if (my !== seq.current) return; if (!spansOk(s)) { setError(MALFORMED_SPANS); return } setSpans(s) })
         .catch(e => { if (my === seq.current) setError(asApiError(e)) })
     }, DEBOUNCE_MS)
     return () => window.clearTimeout(id)
-  }, [ch.id, t0, t1, width])
+  }, [ch.id, t0, t1, width, reloadKey])
 
   useEffect(() => {
     if (!win) return

@@ -87,7 +87,9 @@ export function ResolutionNote({ tr, testid }: { tr: TimeTrace; testid?: string 
   )
 }
 
-export function ContextCard({ d, title, pad, setPad, bandLabel, canEdit, testid = 'context-card' }: { d: ItemDetail; title: string; pad: '30' | '120' | '300'; setPad: (p: '30' | '120' | '300') => void; bandLabel: string; canEdit: boolean; testid?: string }) {
+export function ContextCard({ d, title, pad, setPad, bandLabel, canEdit, testid = 'context-card', memberBands = [] }: { d: ItemDetail; title: string; pad: '30' | '120' | '300'; setPad: (p: '30' | '120' | '300') => void; bandLabel: string; canEdit: boolean; testid?: string
+  /** review-carry: the item's overlap set, one small band per detection, drawn over the item's own band */
+  memberBands?: { start_s: number; end_s: number; label: string }[] }) {
   // by TIME, not by index: the served points are an envelope — fewer than the samples, not evenly spaced — and
   // the band beside them is in seconds. Slicing points as seconds is what made ±120 s look one-sided (U3).
   const ctx = useMemo(() => sliceContext(d.context, itemBand(d), +pad), [d, pad])
@@ -101,12 +103,13 @@ export function ContextCard({ d, title, pad, setPad, bandLabel, canEdit, testid 
         <Seg size="sm" value={pad} onChange={setPad} options={[{ value: '30', label: '±30 s' }, { value: '120', label: '±120 s' }, { value: '300', label: '±300 s' }]} testid="padding-seg" />
         <ResolutionNote tr={d.context} testid="context-resolution" />
         <span className="grow" />
-        <Button ref={ocRef} variant={open ? 'primary' : 'default'} icon="list" aria-expanded={open} onClick={() => setPop(open ? null : 'other-channels')} testid="other-channels-button">Other channels</Button>
-        {canEdit && <Button icon="pencil" onClick={() => editInExplore(d)} testid="edit-span-button">Edit span in Explore</Button>}
+        <Button ref={ocRef} variant={open ? 'subtle' : 'primary'} icon="list" aria-expanded={open} onClick={() => setPop(open ? null : 'other-channels')} testid="other-channels-button">Other channels</Button>
+        {canEdit && <Button variant="primary" icon="pencil" onClick={() => editInExplore(d)} disabled={!spanEditRef(d).ref} disabledReason={spanEditRef(d).reason} testid="edit-span-button">Edit span in Explore</Button>}
       </div>
       <div className="rv-plot">
         <Trace t={ctx.t} values={ctx.v} xDomain={[ctx.t0, ctx.t1]} timeUnit="none" height={170} crosshair unitLabel={false}
-          bands={[{ start_s: ctx.bandStart, end_s: ctx.bandEnd, kind: 'detected', label: bandLabel }]} testid="context-trace" />
+          bands={[{ start_s: ctx.bandStart, end_s: ctx.bandEnd, kind: 'detected', label: bandLabel },
+            ...memberBands.map(b => ({ ...b, kind: 'grey' as const }))]} testid="context-trace" />
         <TimeTicks t0={ctx.t0} t1={ctx.t1} testid="context-ticks" />
       </div>
       <OtherChannelsPopover d={d} pad={+pad} open={open} onClose={() => setPop(null)} anchorRef={ocRef} />
@@ -114,8 +117,19 @@ export function ContextCard({ d, title, pad, setPad, bandLabel, canEdit, testid 
   )
 }
 
+/** edit-span: what the live editor is opened on — a detection item by its detection id, a Library member as
+ *  `m-<id>`; null (with the reason the button shows) for a unit that has neither: a human span, a sequence, a window. */
+export function spanEditRef(d: ItemDetail): { ref: string | null; reason?: string } {
+  const unit = String(d.entry.unit)
+  if (unit === 'detection') return { ref: String(d.entry.detectionId ?? d.entry.id).replace(/^d-/, '') }
+  if (unit === 'member') return { ref: `m-${String(d.entry.id).replace(/^m-/, '')}` }
+  return { ref: null, reason: `a ${unit} has no detection or Library member behind it to redraw` }
+}
+
 export function editInExplore(d: ItemDetail) {
-  navigate(`explore/span-edit/${d.entry.detectionId ?? d.entry.id}?from=review&queue=${d.entry.queueId}&item=${d.entry.id}`)
+  const { ref } = spanEditRef(d)
+  if (!ref) return
+  navigate(`explore/span-edit/${encodeURIComponent(ref)}?from=review&queue=${encodeURIComponent(d.entry.queueId)}&item=${encodeURIComponent(d.entry.id)}`)
 }
 
 function useQueryPop() { return useQueryState<string>('pop', '') }
@@ -293,8 +307,8 @@ export function NearestFamiliesCard({ d, overlay, setOverlay }: { d: ItemDetail;
         {d.nearest.map(f => (
           <button key={f.id} type="button" className={cx('rv-fam', overlay === f.id && 'on')} onClick={() => setOverlay(f.id)} aria-pressed={overlay === f.id} data-testid={`family-row-${f.id}`}>
             <MiniTrace values={d.medoids[f.id] ?? []} width={58} height={30} stroke={f.colour} strokeWidth={1.5} ground="white" zeroLine={false} />
-            <span className="id"><b className="mono">{f.id}</b><span className="mono muted">{f.name}</span></span>
-            <span className="mono muted mem">{f.members != null ? `${fmtInt(f.members)} members` : 'members n/a'}</span>
+            <span className="id"><b className="mono">{f.id}</b><span className="mono k-meta">{f.name}</span></span>
+            <span className="mono k-meta mem">{f.members != null ? `${fmtInt(f.members)} members` : 'members n/a'}</span>
             <DistanceBar d={f.d} colour={f.colour} />
             <b className="mono dv">d {f.d.toFixed(2)}</b>
           </button>
@@ -401,7 +415,7 @@ export function AnnotateCard({ draft, setDraft, className, onClass }: { draft: D
         {adding
           ? <span className="rv-tag-input">
               <TextField value={tag} onChange={setTag} placeholder="new-tag" width={130} size="sm" invalid={!!tagErr} autoFocus onEnter={addTag} testid="tag-input" ariaLabel="new tag" />
-              <Button size="sm" onClick={addTag} disabled={!tag || !!tagErr} disabledReason={tagErr ?? 'type a tag first'} testid="tag-add">Add</Button>
+              <Button size="sm" variant="primary" onClick={addTag} disabled={!tag || !!tagErr} disabledReason={tagErr ?? 'type a tag first'} testid="tag-add">Add</Button>
               <IconButton icon="x" label="cancel tag" onClick={() => { setAdding(false); setTag('') }} />
               {tagErr && <span className="mono sm rv-red" data-testid="tag-error">{tagErr}</span>}
             </span>
@@ -446,7 +460,7 @@ export function PromotionPanel({ d, rec, onUndo, onConfirm, confirmRef }: { d: I
         <Callout tone="amber" icon="pause">auto-advance paused until you confirm · Enter confirms and moves on</Callout>
         <div className="row wrap" style={{ gap: 12 }}><PromotedEntryLinks rec={rec} /></div>
         <div className="row">
-          <Button icon="undo" onClick={onUndo} testid="promo-undo">Undo promotion</Button><Kbd size="sm">Ctrl Z</Kbd>
+          <Button variant="primary" icon="undo" onClick={onUndo} testid="promo-undo">Undo promotion</Button><Kbd size="sm">Ctrl Z</Kbd>
           <span className="grow" />
           <Button variant="primary" icon="check" onClick={confirm} disabled={!!nameErr} disabledReason={nameErr ?? undefined} testid="promo-confirm">Confirm and next</Button>
         </div>
@@ -547,7 +561,7 @@ export function EvidenceRail({ d, blind, judged, historyVerdicts }: { d: ItemDet
         {f ? (
           <div className="rv-ev-fam">
             <MiniTrace values={d.medoids[f.id] ?? []} width={70} height={34} stroke={f.colour} strokeWidth={1.5} ground="white" zeroLine={false} />
-            <span><b className="mono">{f.id} · {f.name}</b><br /><span className="mono muted sm">d {f.d.toFixed(2)} · {f.members != null ? `${f.members} members` : 'members n/a'}</span></span>
+            <span><b className="mono">{f.id} · {f.name}</b><br /><span className="mono k-meta sm">d {f.d.toFixed(2)} · {f.members != null ? `${f.members} members` : 'members n/a'}</span></span>
           </div>
         ) : (
           <KV k="nearest">{d.nearestComputed ? 'no family within range' : 'not computed for this queue'}</KV>

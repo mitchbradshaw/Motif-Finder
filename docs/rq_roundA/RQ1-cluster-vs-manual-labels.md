@@ -221,7 +221,17 @@ which one does better on the exam.
     that *Train model* reads; HDBSCAN has no tree to cut.
   - Running it after Window pool → Trace shape on the 60,000-window pool is untested.
 
+- **For drops, one switch** (2026-10-19, `docs/prompts/changes/reports/for-drops-report.md`): Trace shape has a
+  *for drops* switch (off by default). On, every window is lined up on the bottom of its drop a third of the way in
+  (trough, anchor 0.333); off, centred on its largest swing at the middle. One core resolver
+  (`shape.resolve_alignment`) is read by the Analyse run, the B.2 recipe and Models › Launch, so the tree and the
+  model are cut alike; an align or anchor set on the card wins. It is not switched for you: nothing a pool chain
+  holds says it is drop work.
+
 ## Decisions already made (`docs/prompts/fixup/QUESTIONS.md`)
+
+- **Drop alignment (the researcher, 2026-10-18 and 2026-10-19; site-fixes item 3):** drop work lines windows up on
+  the trough a third of the way in, with a *for drops* switch that forces it either way.
 
 - **Seam (iii) and the model's inputs (the researcher, 2026-10-06, `AG` report Part 3):** (1) the noise floor is one
   number per dataset in mV (Settings › Datasets), no scale-aware rule for now; (2) centre + linear detrend stays the
@@ -568,3 +578,10 @@ Q-W1, Q-W2 and Q-W4 were answered 2026-10-03.
   30 min 0.82–0.84; 1 min 0.39–0.51 (AUC < 0.5), whether fed resampled to 600 points or as is. Out-of-sample
   (M2_concat): 10 min 0.63–0.68; 30 min 0.77–0.87. The human's repeat agreement is 94 %. Pooled over scales, every
   CNN's plain accuracy is below the majority baseline, so the reference line must be read per scale.
+- 2026-10-18 · sequences · the Library can now join adjacent members on one channel into sequences (label chains
+  such as F-01 → F-02 → F-01; fixed gap 0 s + 10 % of the shorter member, or the adamatzky / logISI rules), keep
+  them, and group them into label-chain families with their own family page (`docs/prompts/changes/reports/
+  sequences-report.md`). The researcher named this a possible RQ1 precursor: sequence families are a candidate label
+  set beside the single-motif clusters. Nothing in RQ1's classifier path changed.
+- 2026-10-19 · for-drops (ux-1019) · Trace shape's *for drops* switch (trough, 0.333) read alike by Analyse, the
+  B.2 recipe and Launch; off by default (no automatic signal in a pool chain).

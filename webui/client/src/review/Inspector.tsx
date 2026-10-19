@@ -8,7 +8,7 @@ import { useSourced } from '../api/seam'
 import { useSize } from '../charts/useSize'
 import { useToast } from '../shell/Toast'
 import { plotPx } from './axis'
-import { VOCABULARY, getItem, peekItem, prefetchItem, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
+import { VOCABULARY, carryOf, getItem, peekItem, prefetchItem, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
 import { goUnit, nextUnjudgedAfter, relTime, step } from './queue'
@@ -18,15 +18,34 @@ import {
 import { Loading, NotFound, previousLines } from './common'
 import { SuspectedArtifactCard } from './SuspectedArtifact'
 import {
-  VERDICT_LABEL, amendWrite, applyWrite, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive, nextRedo,
+  VERDICT_LABEL, amendWrite, applyWrite, bumpReviewVersion, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive, nextRedo,
   patchRecord, rawRecord, releaseExemplar, resend, useAutoAdvance, useDrafts, usePad, useRecords, useReviewVersion, useStack, useWriteError, type Draft, type VerdictRecord,
 } from './store'
 
 const ADVANCE_MS = 350
 
 export function Inspector({ data, itemId }: { data: QueueData; itemId: string }) {
+  // review-carry: a detection that is one of an item's overlap set opens that item (a link by detection id from
+  // Discovery or Explore names whichever detection it was)
   const row = data.rows.find(r => r.id === itemId)
-  if (!row) return <NotFound data={data} what={itemId} />
+    ?? data.rows.find(r => (carryOf(r).members ?? []).some(m => String(m) === itemId))
+  const [corrected] = useQueryState<string>('corrected', '')
+  if (!row) return corrected ? <CorrectedItem data={data} itemId={itemId} /> : <NotFound data={data} what={itemId} />
+  return <InspectorItem data={data} row={row} />
+}
+
+/** edit-span: the item whose span was just corrected from Review. The correction is a human span over the detection,
+ *  so the queue now counts the detection as already covered by a human and no longer serves it; the editor's Save
+ *  returns with `?corrected=1` and the item is read on its own, so the researcher lands back on what they corrected
+ *  (with the correction's verdict as its prior) instead of on "No 101 in queue 2". Only on that return: a plain link
+ *  to an id the queue does not hold is still the loud not-found card. */
+function CorrectedItem({ data, itemId }: { data: QueueData; itemId: string }) {
+  const read = useSourced(() => getItem(data.queue.id, itemId).catch(() => ({ data: null, source: 'live' as const })),
+    [data.queue.id, itemId])
+  if (read.loading) return <Loading />
+  const entry = read.data?.entry
+  if (!entry) return <NotFound data={data} what={itemId} />
+  const row: QueueRow = { thumb: [], family: '', judged: false, ...entry }
   return <InspectorItem data={data} row={row} />
 }
 
@@ -84,6 +103,12 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const isWindow = row.unit === 'window'
   const masked = blind && !rec
   const unit = { kind: 'item' as const, id }
+  // review-carry: the overlap set this item stands for, the class stored with its verdict, and where a carried
+  // verdict came from — as the bridge serves them on the row (and on the detail, once read)
+  const carry = carryOf(d?.entry ?? row)
+  const members = carry.members ?? []
+  // R3: the class is stored on a detection's adjudication row; elsewhere it stays a session label
+  const storesClass = queue.writes === 'adjudications'
 
   const say = (text: string) => toast.push({ text })
   /** Loud, and never a blank: the bridge's own refusal text, beside the red card the render puts up. */
@@ -109,17 +134,25 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     const tags = draft.tags.length ? draft.tags : undefined
     /* fixup-y: the exemplar is named by what was WRITTEN — the bridge's `entry_id` — and is filled in before
      * the write joins the session stack. It was minted here ("E-0217") while the row was motif_entry 3609. */
+    let carried = 0
     const send = () => v === 'seed'
       ? postPromote(q, id, 'seed', { note, tags }).then(ack => {
         if (ack.entry_id != null) { next.entryId = ack.entry_id; next.memberId = ack.member_id; next.entryCreated = ack.created; next.exemplarId = `entry ${ack.entry_id}` }
         return ack
       })
-      : postVerdict(q, id, v, { note, tags })
+      // review-carry: the class travels with the verdict and is stored (R3); the ack says how many other runs'
+      // detections of the same event the verdict was carried to
+      : postVerdict(q, id, v, { note, tags, classLabel: storesClass ? className : undefined }).then(ack => { carried = ack.carried ?? 0; return ack })
     const w = await commitWrite(send, { queueId: q, items: [id], kind, verdict: v, className, label: `${id} · ${VERDICT_LABEL[v]}`, before: { [k]: before }, after: { [k]: next } },
       // AR: a verdict on a queue that does not write annotations changes one row's judged state and nothing else, so only
       // the counts are re-read; a promotion, or a write that makes a human span (which can change any queue's set), re-reads the rows
       { light: kind !== 'promotion' && queue.writes !== 'annotations' })
     if (!w) { refused(); return null }
+    if (carried > 0) {
+      // a carried row can judge other items of this queue (other runs' detections in it): re-read the rows
+      bumpReviewVersion()
+      say(`${VERDICT_LABEL[v]} · written${members.length > 1 ? ` to the ${members.length} detections of this event` : ''} · carried to ${carried} other detection${carried === 1 ? '' : 's'} of the same event`)
+    }
     // P21: the seed verdict itself creates the Library exemplar (the bridge wrote it); the panel only chooses its family
     if (v === 'seed') return next
     if (opts.flash !== false) { setFlash(v); later(() => setFlash(null), ADVANCE_MS) }
@@ -144,9 +177,10 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     }
   }
 
-  /* A class key carries a VERDICT with it, and THAT is what goes to the database. The class name itself
-   * has no field in any of the contract's write bodies, so it stays a session label; a keypress that
-   * changes only the class therefore posts nothing, adds no audit row, and says so. */
+  /* A class key carries a VERDICT with it, and that verdict goes to the database. review-carry (R3): on a queue
+   * that writes `adjudications` the class goes WITH it and is stored on the row, so a keypress that changes only
+   * the class re-posts the verdict with the new class (one audit row, undone by Ctrl Z). Elsewhere the stores
+   * have no class column and the class stays a session label, as the toast says. */
   const klass = async (ck: string) => {
     const c = VOCABULARY.classes.find(x => x.key === ck)
     if (!c) return
@@ -155,6 +189,14 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
       const v: Verdict = c.informative ? 'interesting' : 'artifact'
       if (!await write(v, c.name, 'class', { advance: true })) return
       return say(`class ${c.name} · implies ${VERDICT_LABEL[v]} · written`)
+    }
+    if (storesClass && rec.verdict !== 'seed') {
+      const clear = rec.className === c.name
+      const v: Verdict = !clear && !c.informative && rec.verdict !== 'artifact' ? 'artifact' : rec.verdict
+      if (!await write(v, clear ? undefined : c.name, 'class', { advance: false, flash: false })) return
+      return say(clear ? `class ${c.name} cleared · verdict stays ${VERDICT_LABEL[v]} · stored`
+        : v !== rec.verdict ? `${c.name} is non-informative — artifact written with the class (Ctrl Z reverts)`
+          : `class ${c.name} stored with the ${VERDICT_LABEL[v]} verdict`)
     }
     if (rec.className === c.name) {
       applyWrite({ queueId: q, items: [id], kind: 'class', verdict: rec.verdict, label: `${id} · class cleared`, before: { [k]: rawRecord(q, id) }, after: { [k]: { ...rec, className: undefined, at: Date.now() } } })
@@ -240,7 +282,10 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
        { value: String(historyCount), label: 'history', section: 'history' },
       ]
 
-  const historyText = stack.filter(w => !w.undone && w.items.includes(id)).map(w => `${VERDICT_LABEL[w.verdict ?? 'interesting']}${w.className ? ` (${w.className})` : ''} · ${relTime(w.at, now)}`).reverse().join('; ') || (row.baseVerdict ? `${VERDICT_LABEL[row.baseVerdict]} · earlier session` : 'none')
+  const earlier = row.baseVerdict
+    ? `${VERDICT_LABEL[row.baseVerdict]}${carry.classLabel ? ` (${carry.classLabel})` : ''} · ${carry.carriedFrom != null ? `carried from detection ${carry.carriedFrom}` : 'earlier session'}`
+    : 'none'
+  const historyText = stack.filter(w => !w.undone && w.items.includes(id)).map(w => `${VERDICT_LABEL[w.verdict ?? 'interesting']}${w.className ? ` (${w.className})` : ''} · ${relTime(w.at, now)}`).reverse().join('; ') || earlier
   const evidence = d ? <EvidenceRail d={d} blind={blind} judged={!!rec} historyVerdicts={historyText} /> : <Loading />
   const narrow = rails.left || rails.right
 
@@ -281,11 +326,19 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
             <ArtifactPill a={d.artifact} short={narrow} />
           </div>
           <div className="rv-meta mono" data-testid="meta-line" title={d.entry.recordingFile ? `source file ${d.entry.recordingFile}` : undefined}>{metaLine(d, narrow)}</div>
+          {members.length > 1 && <div className="rv-meta mono" data-testid="covers-line">
+            covers {members.length} detections · also {members.filter(m => String(m) !== id).join(', ')}
+            <InfoTip label="why one item for several detections">This run's detector found overlapping spans here. They are one event, so Review asks once and writes your verdict to every one of them; each stays in the run exactly as the detector wrote it.</InfoTip>
+          </div>}
+          {carry.carriedFrom != null && row.baseVerdict && <div className="rv-meta mono" data-testid="carried-line">
+            {VERDICT_LABEL[row.baseVerdict]} carried from detection {carry.carriedFrom} — the same event, judged in another run
+          </div>}
 
           {d.suspectedArtifact && <SuspectedArtifactCard p={d.suspectedArtifact} />}
 
           <ContextCard d={d} title={isWindow ? 'Window in context' : row.unit === 'human span' ? 'Span in context' : 'Candidate in context'} pad={pad} setPad={p => { setPad(p); if (padQ) setQuery({ pad: null }, true) }}
-            bandLabel={isWindow ? `${id} · ${row.durationS} s` : `${id} · ${row.durationS.toFixed(1)} s`} canEdit={!isWindow && !d.suspectedArtifact} />
+            bandLabel={isWindow ? `${id} · ${row.durationS} s` : `${id} · ${row.durationS.toFixed(1)} s`} canEdit={!isWindow && !d.suspectedArtifact}
+            memberBands={members.length > 1 ? (carry.memberBands ?? []).map(b => ({ start_s: b.t0_s, end_s: b.t1_s, label: b.id })) : []} />
 
           <div className="rv-row2">
             <ShapeCard d={d} family={masked ? null : (d.nearest.find(f => f.id === overlay) ?? d.nearest[0] ?? null)} blind={masked || isWindow} rows={data.rows} peaks={peaks} />
@@ -298,7 +351,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
 
           <VerdictCard selected={rec?.verdict ?? null} flash={flash} binary={binary} onVerdict={verdict} onSkip={() => goUnit(q, step(data, unit, 1))}
             previous={previousLines(data, promoted ? stack.filter(w => !(w.kind === 'promotion' && w.items[0] === id)) : stack, now)} undo={{ can: !!lastLive(q), run: undo }} />
-          <AnnotateCard draft={draft} setDraft={setDraft} className={rec?.className} onClass={klass} />
+          <AnnotateCard draft={draft} setDraft={setDraft} className={rec?.className ?? (records[k] === undefined ? carry.classLabel : undefined)} onClass={klass} />
         </div>
       )}
     </Shell>

@@ -11,7 +11,7 @@
 .s-row + .s-row { border-top: 1px solid var(--border); }
 .s-row-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .s-label { font-size: 11px; color: var(--text-2); display: inline-flex; align-items: center; gap: 5px; }
-.s-sub { font-size: 10px; color: var(--muted-2); }
+.s-sub { font-size: 10.5px; color: var(--muted-2); }
 .s-row-control { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .s-row-caption { font-size: 10.5px; color: var(--muted); text-align: right; }
 .s-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); flex: none; }

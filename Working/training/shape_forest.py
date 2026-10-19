@@ -95,6 +95,12 @@ def chain_settings(steps):
     return shp, clu, parse_mapping(clu.get("mapping"))
 
 
+def pool_drop_source(conn, pool):
+    """ux-1019: `shape.drop_source` of a loaded `Pool`'s member sets — what `for_drops: auto` reads."""
+    from Working.training import shape as sh
+    return sh.drop_source(conn, pool.table["set_id"].unique().tolist())
+
+
 def mapping_problem(k, mapping):
     """None when the mapping gives every cluster 1..k a class at this cut, else what is wrong."""
     if not k or int(k) < 2:
@@ -108,20 +114,38 @@ def mapping_problem(k, mapping):
     return None
 
 
-def _recipe_shape(shp):
+def _recipe_shape(shp, drop_source=None):
     """The Trace shape settings a recipe rebuilds its windows from. fixup-am: the anchor rides along only off its
     default (AG's recipes are unchanged), so a tree built on windows a third in is not rebuilt on centred ones."""
     from Working.training import shape as sh
-    out = {k2: shp[k2] for k2 in ("align", "detrend", "resample_length", "noise_floor")}
-    a = shp.get("anchor_frac")
+    how = sh.resolve_alignment(shp, drop_source)   # ux-1019: the for-drops switch, resolved as the block resolves it
+    out = {k2: shp[k2] for k2 in ("detrend", "resample_length", "noise_floor")}
+    out = {"align": how["align"], **out}
+    a = how["anchor_frac"]
     if out["align"] != "grid" and a is not None and float(a) != sh.DEFAULT_ANCHOR_FRAC:
         out["anchor_frac"] = float(a)
     return out
 
 
+def launch_shape(shp, drop_source=None):
+    """What Models › Launch shows of a template's Trace shape settings (ux-1019): align, the anchor (where in the
+    window the aligned sample lands; None on the grid, where nothing is re-cut), detrend, the length, the floor —
+    and the researcher's setting for drop work (2026-10-18), so the page names it without restating a number."""
+    from Working.training import shape as sh
+    how = sh.resolve_alignment(shp, drop_source)   # ux-1019: the same resolution the Analyse run cut its windows at
+    out = {"align": how["align"], **{k2: shp[k2] for k2 in ("detrend", "resample_length", "noise_floor")}}
+    out["anchor_frac"] = how["anchor_frac"]
+    out["for_drops"] = how["for_drops"]
+    out["for_drops_mode"] = how["mode"]
+    out["alignment_from"] = how["from"]
+    out["drop_default"] = {"align": sh.DROP_ALIGN, "anchor_frac": sh.DROP_ANCHOR_FRAC}
+    return out
+
+
 def make_recipe(pool_ref, template, *, stages=DEFAULT_STAGES, n_estimators=300, class_weight="balanced",
-                random_state=42, holdback_frac=HOLDBACK_FRAC):
-    """The B.2 recipe: the pool, the template (its steps carry the cut and the mapping), the forest."""
+                random_state=42, holdback_frac=HOLDBACK_FRAC, drop_source=None):
+    """The B.2 recipe: the pool, the template (its steps carry the cut and the mapping), the forest. `drop_source`
+    (`shape.drop_source` of the pool's sets) lets the Trace shape step's `for_drops: auto` resolve as the block does."""
     shp, clu, mapping = chain_settings(template["steps"])
     k = int(clu["k"])
     problem = mapping_problem(k, mapping)
@@ -131,7 +155,7 @@ def make_recipe(pool_ref, template, *, stages=DEFAULT_STAGES, n_estimators=300, 
         "kind": RECIPE_KIND,
         "pool": {k2: pool_ref.get(k2) for k2 in ("id", "name", "version", "key")},
         "template": {"id": template.get("id"), "name": template.get("name"), "steps": template["steps"]},
-        "shape": _recipe_shape(shp),
+        "shape": _recipe_shape(shp, drop_source),
         "cluster": {"sample": int(clu["sample"]), "seed": int(clu["seed"]), "tree_path": clu.get("tree_path") or ""},
         "arm": {"name": "B.2", "label": ARM_LABEL, "k": k, "mapping": mapping, "linkage": "ward"},
         "inputs": {"features": "raw samples at the re-cut bounds", "stages": list(stages), "rule": INPUTS_RULE},

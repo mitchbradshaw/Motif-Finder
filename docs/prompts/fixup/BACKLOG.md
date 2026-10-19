@@ -15,16 +15,24 @@ Sizes: **M** = a new route or component, one agent, a day; **L** = a design deci
 
 ## 1. Decisions waiting on the researcher
 
-These block nothing else but each closes a row in `reports/UX-1015-evaluation.md`.
+One open, a follow-up to AM (raised by `ux-1019`, 2026-10-19):
 
 | Decision | Options | Recommendation |
 |---|---|---|
-| AK: spike threshold δ default | 1 mV (shipped) vs a per-recording noise multiple | keep 1 mV; the noise multiple is a later block |
-| AK: a recording with no declared unit | read as volts (shipped) vs refuse until declared | read as volts, warn once; add the declaration to Datasets |
-| AM: default alignment for drop work | `centre` at 0.5 (shipped) vs `trough` at ⅓ | trough at ⅓ when the template is a drop detector, centre otherwise |
-| AO: baseline window | 600 s (shipped; absorbs drops that recover over 5–10 min) vs longer | expose it on the block card with the 600 s default; no code change until a case needs it |
-| AP: "half the grey per page" | count data lines or only instruction lines | instruction lines only; the 12 pages still over are data-heavy |
-| Header path strip (`ux-1013`) | keep / change / remove | awaiting the researcher's look |
+| AM follow-up: switch drop alignment automatically? A pool chain has no detector in it, so nothing says "drop work" | (a) as built — set trough / 0.333 on the Trace shape block; Launch shows the anchor and names the setting · (b) an explicit "for drops" switch on the Window pool or chain that Analyse and Launch both read | (a) now; (b) if the researcher wants it automatic |
+
+The six that closed rows in `reports/UX-1015-evaluation.md` were all resolved on 2026-10-18 as the
+recommendations stood (built by `ux-1019`, `docs/prompts/changes/site-fixes.md`):
+
+- **AK spike threshold δ:** keep 1 mV; a per-recording noise multiple is a later block.
+- **AK recording with no declared unit:** read as volts, warn once; the declaration belongs in Datasets.
+- **AM alignment for drop work:** trough at ⅓ for drop work, centre at 0.5 otherwise. As built (`ux-1019`): Launch's
+  setup line shows the anchor and names the drop setting; it is not switched automatically, because a B.2 pool chain
+  holds no detector (a Window pool is a source block) and so carries nothing that says it is drop work — set
+  `trough` / 0.333 on the Trace shape block.
+- **AO baseline window:** 600 s stays, shown on the Decompose card with its default; no code change until a case needs it.
+- **AP "half the grey per page":** instruction lines only; the 12 pages still over are data-heavy.
+- **Header path strip (`ux-1013`):** kept as built.
 
 ## 2. From the 2026-10-15 list — no prompt yet
 
@@ -65,8 +73,7 @@ These block nothing else but each closes a row in `reports/UX-1015-evaluation.md
 
 ## 5. Small follow-ups still open (do directly when passing)
 
-- Models › Launch's setup line shows align and detrend but not the anchor fraction (AM).
-- The cubic detrend (`detrend=cubic`) exists on the bridge for Cross-channel and has no page control (AQ).
+None open (the Launch anchor and the Cross-channel cubic control were done by `ux-1019`).
 
 ## 6. Housekeeping
 

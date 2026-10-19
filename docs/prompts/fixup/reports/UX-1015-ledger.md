@@ -284,3 +284,21 @@ and `library.atlas--fixup-ae-floor-on-by-default` (0 traces measured, hidden-cou
 `a2-p4 restore` fail in earlier walks too. Merge aborted; the three states sent to the other session for a branch fix;
 re-gate with the `seed_sources`, `zzzz_ae_library_view`, `explore` and `review` units instead of a fourth full walk,
 unless the fix touches shared code.
+
+## The 2026-10-18 wave — merged 2026-10-19 21:1x (changes/integration 5d02ab4)
+
+Thirteen prompts + site-fixes + the "for drops" switch, each critic-reviewed with one fix round by the Prompt manager
+session; its combined gate on 8b569cf: conda 763 passed, venv 405 + 3 xpassed, tsc, build. Here: tsc and build on the
+merged tree; full walks 16:54 (783 / 60, a VPN network change mid-walk) and 18:56 (790 / 38, idle box, 0 network
+errors) against main's baselines of 62 and 76 — fewer failures than main, every new state passing; the three states
+strictly new against every walk (`explore.signal--fixup-y-take-span-is-a-seed`, `review.inspector--fixup-y-seed-names-
+the-entry`, `library.atlas--fixup-ae-floor-on-by-default`) were fixed sleeps acting before paint and now wait for what
+they act on (5d02ab4, states only; the same code passed them in the 16:54 walk). **Pages-only units cannot judge
+`seed_sources` or `zzzz_ae_library_view` on a fresh sandbox:** for ~10 min after a bridge start the Discovery seed page
+re-reads the templates list while the background scorer works (73 templates, yielding), so it never reaches
+network-idle even at 90 s; the atlas unit's `[grouping g-05]` states need groupings earlier library states create; the
+one console error seen there followed an aborted navigation. Three attempts (20:04 under another session's pytest,
+20:20 and 20:49 quiet) failed the same way; both full walks passed those states. Walker: every network-idle `goto`
+now has a 90 s budget (the per-state one at `smoke.py:1467` was the 30 s that bit). **Owed: tomorrow morning's daily
+full walk on the sealed main (VPN off), compared by set against `wave2_fails.txt` (38) — the first clean post-wave
+baseline.** Pre-existing, filed: the atlas page reads `/api/library/groupings` every 2 s on main too.
