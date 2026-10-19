@@ -99,8 +99,18 @@ export function GroupingGate({ editor, children }: { editor?: boolean; children:
     if (!loaded || named || !shown || shown === newest || !pickIsSaved) return
     setQuery({ grouping: shown }, true)
   }, [loaded, named, shown, newest, pickIsSaved])
+  /* integration fix: this gate reads the groupings once and stays mounted across Library pages, so a grouping saved
+   * since (Build sequences' Keep, then its "open family" link) was "not found". A name the list does not hold is
+   * re-read once before it is called unknown; the card below stays for a name the bridge does not know either. */
+  const [reread, setReread] = useState('')
+  const missing = !!named && loaded && !hit
+  useEffect(() => {
+    if (missing && reread !== named) { setReread(named); g.reload() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missing, named, reread])
   if (!named || !loaded) return <>{children}</>
   const ofUnit = (u: Unit) => g.all.filter(x => x.unit === u).map(x => x.id).join(', ') || 'none saved'
+  if (!hit && (reread !== named || g.loading)) return <Loading height={300} testid="grouping-rereading" />
   if (!hit) {
     return (
       <>

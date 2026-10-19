@@ -91,7 +91,9 @@ function SpanEditBody({ refId, d, returnTo }: { refId: string; d: SpanEdit; retu
           : `annotation ${r.annotation.id} written (${r.annotation.verdict}) · detection ${d.detection_id} untouched`
         const stale = r.stale_edges?.length ? ` · ${r.stale_edges.length} family distance${r.stale_edges.length === 1 ? '' : 's'} now stale` : ''
         toast.push({ text: what + stale })
-        navigate(returnTo)
+        // the corrected item is now covered by a human span, so its queue no longer serves it: say so on the way
+        // back, and the Inspector reads the item on its own instead of calling it absent (integration fix)
+        navigate(/^review\/queue\/[^/?]+\/[^/?]+$/.test(returnTo) ? `${returnTo}?corrected=1` : returnTo)
       })
       .catch(e => { setFailed(asApiError(e)); setBusy(false) })
   }

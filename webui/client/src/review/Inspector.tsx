@@ -29,7 +29,23 @@ export function Inspector({ data, itemId }: { data: QueueData; itemId: string })
   // Discovery or Explore names whichever detection it was)
   const row = data.rows.find(r => r.id === itemId)
     ?? data.rows.find(r => (carryOf(r).members ?? []).some(m => String(m) === itemId))
-  if (!row) return <NotFound data={data} what={itemId} />
+  const [corrected] = useQueryState<string>('corrected', '')
+  if (!row) return corrected ? <CorrectedItem data={data} itemId={itemId} /> : <NotFound data={data} what={itemId} />
+  return <InspectorItem data={data} row={row} />
+}
+
+/** edit-span: the item whose span was just corrected from Review. The correction is a human span over the detection,
+ *  so the queue now counts the detection as already covered by a human and no longer serves it; the editor's Save
+ *  returns with `?corrected=1` and the item is read on its own, so the researcher lands back on what they corrected
+ *  (with the correction's verdict as its prior) instead of on "No 101 in queue 2". Only on that return: a plain link
+ *  to an id the queue does not hold is still the loud not-found card. */
+function CorrectedItem({ data, itemId }: { data: QueueData; itemId: string }) {
+  const read = useSourced(() => getItem(data.queue.id, itemId).catch(() => ({ data: null, source: 'live' as const })),
+    [data.queue.id, itemId])
+  if (read.loading) return <Loading />
+  const entry = read.data?.entry
+  if (!entry) return <NotFound data={data} what={itemId} />
+  const row: QueueRow = { thumb: [], family: '', judged: false, ...entry }
   return <InspectorItem data={data} row={row} />
 }
 
