@@ -262,3 +262,14 @@ paying the 5 min cold warm this removes).
   strip replaced). Merge aborted; list sent to the other session; it re-walks the pages with units, fixes, and I
   re-walk in full before sealing. The warm now reports 20 files: the 2 Hz CO/LM registrations landed in the real
   database today (another agent, the researcher's note) — the datasets-derive run skips CO and LM.
+
+**Data drift marker (from the other session's read-only query):** `LM_fs2.mat` (recordings rows 637–640) and
+`CO_fs2.mat` (from row 641) were registered in the real database at 14:12 local on 2026-10-19 (the 2 Hz work); the
+database now has 21 source files. The 14:00 baseline bridge copied the database before them; the 15:38 wave-gate
+walk was the first sandbox carrying them, so Datasets/Settings states drift from that walk on; 8765 serves them live.
+Datasets dry runs (same session, read-only): MJu26a → 22,892,769 samples at 10 Hz by linear interpolation (`t` in
+seconds, span 635.9 h, dt 0.124/0.138/2.83 s); the **L_LM parent link was REFUSED** — the expected channels (MJu
+10, 13, 14, 15, 16 one-based) sit at offset ≈ 0 but r per window is 0.96/0.77/0.94, 0.97/0.99/0.85, 0.43/0.18/0.38,
+0.73/0.79/0.99, 0.70/0.63/0.51 — L_LM is not a plain ×1000 resample; question Q47 to the researcher. SH/SO at
+17,280,001 × 4 and F2B at 5,184,001 × 5 infer 10 Hz from the sample count (V, V, mV); L_R_Aug_26_PD_raw refused
+(3,851,550 samples, no round rate; the time axis is a MATLAB `duration` object) — question Q48. CO and LM skipped.
