@@ -173,8 +173,9 @@ function WhereFires({ dx }: { dx: Discovery }) {
                               <i className="sw" style={{ background: run.colour }} /><Icon name="eye" size={10} /></button>}
                         {isHuman ? 'human' : run.label}</span>
                       <div className="dsc-fires-cells">
-                        <FiresCells data={fires.data!} channel={ch.channel} counts={row.counts} reviewed={isHuman ? ch.reviewed : null} colour={run.colour} mode={mode} unfinishedFrom={row.unfinishedFrom}
-                          label={isHuman ? 'human' : run.label} onCell={(bin) => { if (isHuman) return; setRunQ(run.key); setChQ(ch.channel); setAt(String(bin * fires.data!.binH)) }} />
+                        {/* discovery-coverage: a channel the run never ran on says so; zeros would read "ran, found nothing" */}
+                        {row.ran === false ? <div className="dsc-fires-notrun" data-testid={`fires-notrun-${run.key}-${ch.channel}`} title={`${run.label} never ran on ${ch.channel} — Run on the missing on its row adds it`}>not run here</div> : <FiresCells data={fires.data!} channel={ch.channel} counts={row.counts} reviewed={isHuman ? ch.reviewed : null} colour={run.colour} mode={mode} unfinishedFrom={row.unfinishedFrom}
+                          label={isHuman ? 'human' : run.label} onCell={(bin) => { if (isHuman) return; setRunQ(run.key); setChQ(ch.channel); setAt(String(bin * fires.data!.binH)) }} />}
                         {isHuman && ch.reviewedH === 0 && <span className="dsc-fires-none">no reviewed hours in this section</span>}
                         {row.unfinishedFrom != null && <span className="dsc-fires-unfinished" style={{ left: `${(row.unfinishedFrom / fires.data!.nBins) * 100}%` }}>{run.status === 'running' ? 'running locally' : 'on cluster'} · {Math.round((run.progress ?? 0) * 100)} %</span>}
                       </div>

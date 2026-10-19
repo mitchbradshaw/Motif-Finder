@@ -1,0 +1,31 @@
+[
+ {
+  "page": "discovery.runs",
+  "state": "coverage-strip-on-every-run-row",
+  "hash": "discovery/runs",
+  "settle_ms": 1500,
+  "_why": "discovery-coverage (the researcher, 2026-10-18): every run row carries one small cell per scope channel - filled where the run has stored results, hatched where it never ran, amber while running, red where it failed - so 'CH1 has results, CH2 does not' is visible at a glance. Populated once a template run is done (the smoke flows make one); the empty arm is the runs list itself",
+  "actions": [
+   {"wait_for": ["[data-testid=\"runs-card\"]", 60000]}
+  ],
+  "branch_on": {"api": "/api/discovery/runs", "items": "", "where": {"status": "done", "kind": "template"},
+                "empty": {"expect": ["[data-testid=\"runs-list\"]"]},
+                "populated": {"expect": ["[data-testid^=\"run-row-\"][data-status=\"done\"] [data-testid^=\"coverage-\"]",
+                                         "[data-testid^=\"run-row-\"][data-status=\"done\"] .dsc-cov-cell[data-state]"]}},
+  "expect": ["[data-testid=\"discovery-runs-page\"]", "[data-testid=\"runs-card\"]"],
+  "expect_absent": ["[data-testid=\"discovery-load-failed\"]"]
+ },
+ {
+  "page": "discovery.runs",
+  "state": "coverage-template-cards-carry-the-verdict-gauge",
+  "hash": "discovery/runs",
+  "settle_ms": 300,
+  "_why": "discovery-coverage (Q44): each template card in Apply template carries a small ring - green interesting + seed, red not interesting + artifact, grey unsure, over every human verdict on its detections; the counts are in the tooltip, never a percentage on the face; an empty ring says 'no verdicts yet'",
+  "actions": [
+   {"wait_for": ["[data-testid=\"apply-template\"]", 30000]},
+   {"click": "[data-testid=\"apply-template\"]"},
+   {"wait_for": ["[data-testid=\"add-template-modal\"] [data-testid^=\"template-gauge-\"]", 5000]}
+  ],
+  "expect": ["[data-testid=\"add-template-modal\"]", "[data-testid^=\"template-gauge-\"] svg"]
+ }
+]

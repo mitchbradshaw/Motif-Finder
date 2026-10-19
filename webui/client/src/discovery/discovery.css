@@ -394,3 +394,16 @@
 .dsc-keep-way { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .dsc-keep-run { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
 .dsc-keep-save { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 10px; }
+
+/* discovery-coverage (2026-10-19): the run row's coverage strip — one cell per scope channel */
+.dsc-cov { display: flex; align-items: center; gap: 2px; margin-top: 3px; font-family: var(--font-mono); font-size: 10px; }
+.dsc-cov > .muted { margin-left: 4px; }
+.dsc-cov-cell { display: inline-block; width: 9px; height: 9px; border-radius: 2px; border: 1px solid var(--run, var(--blue)); box-sizing: border-box; }
+.dsc-cov-cell.covered { background: var(--run, var(--blue)); }
+.dsc-cov-cell.not_run { background: repeating-linear-gradient(45deg, transparent 0 2px, var(--grey-200) 2px 3.5px); border-color: var(--grey-200); }
+.dsc-cov-cell.running { background: var(--amber); border-color: var(--amber); }
+.dsc-cov-cell.failed { background: var(--red); border-color: var(--red); }
+.dsc-cov-cell.discarded { background: var(--grey-100); border-color: var(--grey-200); }
+/* the fires card's "not run here" row: hatched, with the words, never a row of zeros */
+.dsc-fires-notrun { height: 11px; display: flex; align-items: center; padding-left: 6px; font-size: 9.5px; color: var(--muted);
+  background: repeating-linear-gradient(45deg, transparent 0 4px, var(--grey-100) 4px 7px); border-radius: 2px; }
