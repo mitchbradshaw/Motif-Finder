@@ -579,6 +579,8 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
         if (!again) return
         again.then(() => dx.reload()).catch(e => console.error('the run could not be retried', e))
       }} testid={`retry-${run.key}`}>Retry</Button>}
+      {/* reports (2026-10-19): the run's figures and tables, drawn by the server — a finished run only */}
+      {status === 'done' && run.kind !== 'reference' && <Button size="sm" variant="primary" icon="file" style={{ alignSelf: 'center' }} onClick={() => navigate(`reports/detection-run/${encodeURIComponent(run.key)}`)} title={`the report for ${run.label}: the map, the scoreboard, where it fires, twelve examples, the null and its parameters — figures and tables to paste`} testid={`report-${run.key}`}>Report</Button>}
       {status !== 'paused' && status !== 'superseded' && mode !== 'seed' && (
         pickIdx >= 0
           ? <button type="button" className={cx('dsc-pick', pickIdx === 0 ? 'a' : 'b')} onClick={() => dx.togglePick(run.key)} aria-label={`unpick ${run.label} (${pickIdx === 0 ? 'A' : 'B'})`} data-testid={`pick-${run.key}`}>{pickIdx === 0 ? 'A' : 'B'}</button>

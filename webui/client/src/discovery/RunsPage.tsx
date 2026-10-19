@@ -491,6 +491,8 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
       <b>{run.label}</b>
       {total && results ? <span className="muted small">{total.found} detections · {run.channelsDone ? `${run.channelsDone} channels` : `${dx.scope!.channels.length} channels`} · {total.judged} already judged</span> : <span className="muted small">{reason}</span>}
       <span className="k-spacer" />
+      {/* reports (2026-10-19): this run's report — figures and tables drawn by the server */}
+      <Button variant="primary" icon="file" onClick={() => navigate(`reports/detection-run/${encodeURIComponent(run.key)}`)} disabled={!!reason} disabledReason={reason ?? undefined} testid="report-run">Report</Button>
       <Button icon="trash" onClick={() => setConfirm('discard')} disabled={!!reason} disabledReason={reason ?? undefined} testid="discard-run">Discard run</Button>
       <Button icon="branch" onClick={() => { recordDemoWrite('analyse', 'import-spanset', { run: run.key }); notWired(`send SpanSet of ${run.label} to Analyse`); navigate('analyse/chain') }} disabled={!!reason} disabledReason={reason ?? undefined} testid="analyse-events">Analyse events</Button>
       {sent[run.key] != null
