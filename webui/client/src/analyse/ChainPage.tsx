@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { DatasetName } from '../naming'
 import {
-  ApiError, compatibleAt, exportRun, getTemplate, getTemplates, saveTemplate, validateParams, TYPE_LABEL,
+  ApiError, compatibleAt, exportRun, getTemplates, saveTemplate, validateParams, TYPE_LABEL,
   type Compatible, type EnvelopeSeries, type SignalPayload, type SlurmWritten, type SpansetPayload, type Step, type Template,
 } from '../api'
 import { CrosshairProvider, TimeAxis } from '../charts/primitives'
@@ -24,6 +24,7 @@ import { RunLogModal } from './RunLogModal'
 import { useSendRunToReview } from './sendToReview'
 import { attachRun, cancelCurrent, cancelPending, clearStale, dropUndo, markStale, popUndo, pushUndo, resetRun, startRun, stepElapsed, syncToSource, useAnalyseStore, type UndoEntry } from './store'
 import { shortName, TemplatesPopover } from './TemplatesPopover'
+import { pickTemplate } from './pickTemplate'
 import { deleteStepAt } from './deleteStep'
 import { EXAMPLE_CHAIN, loadLastChain } from '../state'
 import { EstimateChip, EXAMPLE_SOURCE, isHeldOut, isPoolSource, NameChip, POOL_SOURCE, Popwrap, RunErrorCard, SourceChip, SurrogateToggle, nullText, t0Of, t1Of, useSourceEnvelope } from './toolbar'
@@ -208,10 +209,9 @@ export function ChainPage() {
         let name = 'shape_clusters'
         if (qp.template) {
           // night-b: a link may name the template rather than number it (GET /api/templates/NaN was a bare 422)
-          const asId = /^\d+$/.test(qp.template) ? Number(qp.template) : null
-          const t = asId !== null ? await getTemplate(asId)
-            : (await getTemplates()).find(x => x.name === qp.template || shortName(x) === qp.template)
+          const { template: t, note } = pickTemplate(await getTemplates(), qp.template)
           if (!t) throw new Error(`no saved template called “${qp.template}”`)
+          if (note) toast.push({ text: note })
           next = t.steps.map(st => ({ ...st, params: { ...st.params } }))
           name = t.name
         } else next = await buildPoolChain()

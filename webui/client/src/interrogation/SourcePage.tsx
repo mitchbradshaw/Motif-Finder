@@ -35,11 +35,11 @@ export function SourcePage() {
         extra={<button className="btn ghost" onClick={() => navigate('analyse/interrogation/sequence')} data-testid="open-sequences" title="the steepest-slope rose across the events of one stored sequence">Sequences · slope rose →</button>} />
       <Page testid="interrogation-source">
         {/* night-b: the read falls back to the first family; a link naming another one says so instead of swapping in silence */}
-        {block.data && familyId !== block.data.family.id && (
+        {block.data && !block.loading && familyId !== block.data.family.id && (
           <div className="error-card" role="alert" data-testid="family-not-found" style={{ marginBottom: 10 }}>
             <h3 style={{ margin: '0 0 4px' }}>No family “{familyId}” in the seed store</h3>
             <div className="mono small">This address names a family the store does not hold; the page below shows {block.data.family.id}, the first family, instead.{' '}
-              <button type="button" className="ex-link" onClick={() => setQuery({ family: null })}>open {block.data.family.id} by name</button></div>
+              <button type="button" className="ex-link" onClick={() => block.data && setQuery({ family: block.data.family.id })}>open {block.data.family.id} by name</button></div>
           </div>
         )}
         {block.error ? <LoadFailed what="the source block" error={block.error} onRetry={block.reload} />

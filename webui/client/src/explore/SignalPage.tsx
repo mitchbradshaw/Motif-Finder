@@ -7,7 +7,7 @@
    ?motif=<ordinal> · ?state=loading|error */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DatasetName } from '../naming'
-import { ApiError, getChannel, getRecordings, listRuns, type Channel, type DbRun, type Spans } from '../api'
+import { ApiError, getChannel, getRecordings, getSpans, listRuns, type Channel, type DbRun, type Spans } from '../api'
 import { useSourced } from '../api/seam'
 import { getSignalDemo, getWholeChannelSpans } from '../api/explore'
 import { annotationKind, parseToggles, visibleDetections, type SpanKind, type ToggleKind, type Toggles } from './bandModel'
@@ -141,8 +141,9 @@ function SignalBody({ ch }: { ch: Channel }) {
   const [allErr, setAllErr] = useState<ApiError | null>(null)
   useEffect(() => {
     let alive = true
-    // night-b: joins the page data's identical read when one is in flight (only then: a re-read is a fresh read)
-    getWholeChannelSpans(ch.id, ch.duration_s).then(s => { if (alive) setAll(s) }).catch(e => { if (alive) setAllErr(asApiError(e)) })
+    // night-b: the first load joins the page data's identical read; a re-read after a write (spansRev) is its own,
+    // so it cannot join a read that started before the write
+    ;(spansRev === 0 ? getWholeChannelSpans(ch.id, ch.duration_s) : getSpans(ch.id, 0, ch.duration_s)).then(s => { if (alive) setAll(s) }).catch(e => { if (alive) setAllErr(asApiError(e)) })
     return () => { alive = false }
   }, [ch.id, ch.duration_s, spansRev])
   // live runs feed the picker on channels without demo canon
