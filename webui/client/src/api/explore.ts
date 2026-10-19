@@ -94,12 +94,14 @@ const wholeSpans = coalesced((k: { id: number; dur: number }) => getSpans(k.id, 
 /** night-b: every span on a channel, the read the Signal page made twice at once (its data and its ‹ N / M › list)
  *  and Cross-channel a third way — one read while one is in flight (`explore/coalesce.ts`), never cached past it. */
 export const getWholeChannelSpans = (id: number, durationS: number): Promise<Spans> => wholeSpans({ id, dur: durationS })
+/** night-b: the channel read, shared the same way (Cross-channel made it twice at once: its window and its chip). */
+export const getChannelShared = coalesced((id: number) => getChannel(id))
 
 /** Runs with methods and colours, plus the annotation / detection rows of the channel — live.
  *  Adjudications, families and the medoid have no live source yet (Prompts 03 and 05) and are empty. */
 export async function getSignalLive(channelId: number): Promise<Sourced<SignalDemo | null>> {
   if ((await locate(channelId)).state !== 'ok') return { data: null, source: 'live' }
-  const ch = await getChannel(channelId)
+  const ch = await getChannelShared(channelId)
   const [runsRes, tags, spans] = await Promise.all([getRunsForFile(ch.source_file), getTags(channelId), getWholeChannelSpans(channelId, ch.duration_s)])
   const mine = runsRes.runs.filter(r => r.recording_id === channelId)
   const runs: DemoRun[] = mine.map((r, i) => ({ id: runId(r), name: runName(r), method: r.method, template: r.algorithms[r.algorithms.length - 1] ?? '', surrogate: isSurrogate(r), colour: RUN_COLOURS[i % RUN_COLOURS.length], count: r.n_detections }))
@@ -167,7 +169,7 @@ export async function getCrossChannel(referenceId: number, padS = 20, explicit?:
   /** ux-1019 (AQ): the page's raw · linear · cubic control; null keeps the window's own default (crossDetrendFor) */
   detrendSel: CrossDetrend | null = null): Promise<Sourced<CrossRead | null>> {
   if ((await locate(referenceId)).state !== 'ok') return { data: null, source: 'live' }
-  const ch = await getChannel(referenceId)
+  const ch = await getChannelShared(referenceId)
   const raw = await getWholeChannelSpans(referenceId, ch.duration_s)
   const spans = orderSpans(raw.annotations, raw.detections)
   const w = resolveCrossWindow({ spans, durationS: ch.duration_s, sel: windowSel, padS, explicit: explicit ?? null, edge })
