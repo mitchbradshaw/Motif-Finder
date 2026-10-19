@@ -60,6 +60,13 @@ def test_header_search_pill_does_not_wrap():
     assert re.search(r"white-space:\s*nowrap", _header_rule(".hdr-search"))
 
 
+def test_header_titles_never_wrap_and_the_subtitle_gives_way():
+    # Jobs at 1440x900: .hdr-left grew 10 px after first paint (a title broke onto two lines) - a layout shift
+    for sel in (".hdr-ws", ".hdr-page"):
+        assert re.search(r"white-space:\s*nowrap", _header_rule(sel)), sel
+    assert re.search(r"min-width:\s*0", _header_rule(".hdr-sub"))
+
+
 def test_header_search_label_folds_away_on_a_narrow_window():
     css = _read("shell", "Header.tsx")
     m = re.search(r"@media\s*\(max-width:\s*(\d+)px\)\s*\{([^@]*?)\}\s*\}", css, re.S)
