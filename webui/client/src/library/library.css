@@ -212,3 +212,7 @@
 .lib-tcard .k-ribbon { margin-top: 2px; }
 .lib-rowlabel .id { white-space: nowrap; }
 .lib-rowlabel .nm { max-width: 112px; overflow: hidden; text-overflow: ellipsis; }
+
+/* polish (2026-10-19): data on a card (where, when, how many) reads as data — mono, text-2, not a grey caption */
+.lib-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-2); }
+.lib-key { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-2); display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }

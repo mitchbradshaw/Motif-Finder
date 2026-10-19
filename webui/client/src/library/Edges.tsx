@@ -12,7 +12,7 @@
  *    pairs' distance under the scale-invariant function beside the native-length control, and the null per length.
  *    Counts and distances only; no test of significance is run, and none is printed. */
 import { useState } from 'react'
-import { Button, EmptyState, Icon, InfoTip, MiniTrace } from '../kit'
+import { About, Button, EmptyState, Icon, InfoTip, MiniTrace } from '../kit'
 import { navigate } from '../state'
 import type { LibEdge, LibMatchedMember, LibReadoutRow, LibReadoutRun, LibScaleReadout, LibSpread } from '../api'
 import { centreTrace } from './chrome'
@@ -120,12 +120,12 @@ export function MatchedMembers({ matched, entryLabel }: { matched: LibMatchedMem
             {m.trace.length
               ? <MiniTrace values={centreTrace(m.trace.filter((v): v is number => v != null))} width={140} height={34} ground="white" stroke="#374151" />
               : <span className="lib-cap">no waveform on disk</span>}
-            <span className="lib-cap">{m.channel} · {m.onsetH.toFixed(2)} h · {m.durationS} s · {m.verdict}</span>
-            <span className="lib-cap">{m.entry} · {m.edges.length} edges</span>
+            <span className="lib-meta">{m.channel} · {m.onsetH.toFixed(2)} h · {m.durationS} s · {m.verdict}</span>
+            <span className="lib-meta">{m.entry} · {m.edges.length} edges</span>
           </button>
         ))}
       </div>
-      {sel && <div style={{ marginTop: 8 }}><div className="lib-cap" style={{ marginBottom: 4 }}>{sel.id} · found by {sel.foundBy}</div><EdgeList edges={sel.edges} testid="matched-edges" /></div>}
+      {sel && <div style={{ marginTop: 8 }}><div className="lib-meta" style={{ marginBottom: 4 }}>{sel.id} · found by {sel.foundBy}</div><EdgeList edges={sel.edges} testid="matched-edges" /></div>}
     </section>
   )
 }
@@ -192,24 +192,28 @@ export function ScaleReadout({ readout }: { readout: LibScaleReadout | null | un
           test of significance.
         </InfoTip>
         <span className="k-spacer" />
-        <Button size="sm" icon="target" iconRight="arrow-right" onClick={() => navigate(`discovery/seed?entry=${readout.entryId}`)} testid="readout-seed-search">Seed search in Discovery</Button>
+        <Button size="sm" variant="primary" icon="target" iconRight="arrow-right" onClick={() => navigate(`discovery/seed?entry=${readout.entryId}`)} testid="readout-seed-search">Seed search in Discovery</Button>
       </div>
-      <div className="lib-cap" style={{ marginTop: 4, color: sharkfin ? 'var(--amber-700, #b76a00)' : undefined }} data-testid="scale-readout-caveat">
-        <Icon name="alert-triangle" size={11} style={{ verticalAlign: -1 }} /> exemplar morphology: <b>{readout.morphology}</b> · {readout.caveat}
-      </div>
+      {/* polish: the morphology caveat is a ⚠ only for a sharkfin exemplar (the read-out is unreliable there); otherwise
+          it is a note about the method, one click away */}
+      {sharkfin
+        ? <div className="lib-cap" style={{ marginTop: 4, color: 'var(--amber-700, #b76a00)' }} data-testid="scale-readout-caveat">
+            <Icon name="alert-triangle" size={11} style={{ verticalAlign: -1 }} /> exemplar morphology: <b>{readout.morphology}</b> · {readout.caveat}
+          </div>
+        : <About label="exemplar morphology" style={{ marginTop: 4 }}><div data-testid="scale-readout-caveat">exemplar morphology: <b>{readout.morphology}</b> · {readout.caveat}</div></About>}
       {!readout.runs.length
         ? <EmptyState size="sm" icon="target" title="No seed search has been run for this exemplar" caption="run one with the scale bank, judge its matches, then Add N matches to this entry in Discovery › Runs" testid="scale-readout-empty" />
         : (
           <div style={{ marginTop: 8 }}>
             {readout.runs.length > 1 && (
               <div className="row" style={{ gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
-                {readout.runs.map((r, i) => <Button key={r.runKey} size="sm" variant={i === pick ? 'subtle' : 'default'} onClick={() => setPick(i)} testid={`readout-run-${r.runKey}`}>{r.label}</Button>)}
+                {readout.runs.map((r, i) => <Button key={r.runKey} size="sm" variant={i === pick ? 'subtle' : 'link'} onClick={() => setPick(i)} testid={`readout-run-${r.runKey}`}>{r.label}</Button>)}
               </div>
             )}
             {run && <>
-              <div className="lib-cap" style={{ marginBottom: 4 }}>{run.label} · bank {run.bank.map(s => `${s}×`).join(' ')} · cut {run.cut == null ? 'none chosen' : `d ≤ ${run.cut}`}</div>
+              <div className="lib-meta row" style={{ marginBottom: 4, gap: 4 }}>{run.label} · bank {run.bank.map(s => `${s}×`).join(' ')} · cut {run.cut == null ? 'none chosen' : `d ≤ ${run.cut}`}
+                {run.note && <InfoTip title="About this run">{run.note}</InfoTip>}</div>
               <ReadoutTable run={run} />
-              <div className="lib-cap" style={{ marginTop: 4 }}>{run.note}</div>
             </>}
           </div>
         )}

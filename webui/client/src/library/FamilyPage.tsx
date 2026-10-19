@@ -32,7 +32,7 @@
  *    and *judged* is the one resolver's (Review verdict, event row, reviewed windows), its rule printed beside it. */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
-  Badge, Button, Checkbox, Chip, EmptyState, Icon, InfoTip, KeyValue, MiniTrace, Modal, Page, Pager, Popover, Seg, SelectField, TextField,
+  About, Badge, Button, Checkbox, Chip, EmptyState, Icon, InfoTip, KeyValue, MiniTrace, Modal, Page, Pager, Popover, Seg, SelectField, TextField,
   fmtInt, recordDemoWrite, useDemoState, useQueryState,
 } from '../kit'
 import { Header } from '../shell/Header'
@@ -142,10 +142,10 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
         {d?.kind !== 'sequence' && <ViewFilterBar report={d?.kind === 'motif' ? (d.detail as LiveDetail).view ?? null : null} />}
         {groupings.error && <LoadFailed what="the saved groupings" error={groupings.error} onRetry={groupings.reload} />}
         {firstFamily.error && <LoadFailed what="the families of this grouping" error={firstFamily.error} onRetry={firstFamily.reload} />}
-        {noFamilies && <EmptyState icon="grid" title={gid ? `Grouping ${gid} has no families` : 'No grouping has been computed yet'} caption="open Edit grouping to compute one" action={<Button onClick={() => navigate('library/grouping?from=atlas')}>Edit grouping…</Button>} bordered testid="family-no-families" />}
+        {noFamilies && <EmptyState icon="grid" title={gid ? `Grouping ${gid} has no families` : 'No grouping has been computed yet'} caption="open Edit grouping to compute one" action={<Button variant="primary" onClick={() => navigate('library/grouping?from=atlas')}>Edit grouping…</Button>} bordered testid="family-no-families" />}
         {fam.error && <LoadFailed what={`family ${id}`} error={fam.error} onRetry={fam.reload} />}
         {!groupings.error && (fam.loading || !unitReady || (!named && firstFamily.loading)) && <Loading height={640} testid="family-loading" />}
-        {d?.kind === 'missing' && <EmptyState icon="alert-triangle" title={`No family ${id} in grouping ${gid || 'the current grouping'}`} caption="the id is not in this grouping" action={<Button onClick={() => navigate('library/atlas')}>‹ back to atlas</Button>} bordered testid="family-missing" />}
+        {d?.kind === 'missing' && <EmptyState icon="alert-triangle" title={`No family ${id} in grouping ${gid || 'the current grouping'}`} caption="the id is not in this grouping" action={<Button variant="primary" onClick={() => navigate('library/atlas')}>‹ back to atlas</Button>} bordered testid="family-missing" />}
         {d?.kind === 'sequence' && <SequenceFamilyPage f={d.family} grouping={seqGid || undefined} />}
         {d?.kind === 'motif' && <MotifFamilyView key={d.detail.family.id} detail={d.detail} grouping={unitGid || undefined} onReload={fam.reload}
           flags={familyFlagsOf(grouping as (typeof grouping & { fitSummary?: LibFitSummary | null }), d.detail.family.id)}
@@ -156,7 +156,7 @@ export function FamilyPage({ familyId }: { familyId?: string } = {}) {
 }
 function ExportEntryBtn({ id }: { id: string }) {
   const { push } = useToast()
-  return <Button icon="upload" testid="export-entry" disabled={!id} disabledReason="no family open" onClick={() => push({ text: `not wired yet: export library entry ${id} (exemplar, medoid, members CSV, provenance)` })}>Export entry</Button>
+  return <Button variant="primary" icon="upload" testid="export-entry" disabled={!id} disabledReason="no family open" onClick={() => push({ text: `not wired yet: export library entry ${id} (exemplar, medoid, members CSV, provenance)` })}>Export entry</Button>
 }
 
 /* ================================================================ motif family ================================================================ */
@@ -188,11 +188,11 @@ function SendUnjudged({ familyId, grouping, unjudged, queue, onSent }: { familyI
     <span className="row" style={{ gap: 6, alignItems: 'center' }}>
       {err && <span className="lib-cap" style={{ color: 'var(--red)' }} data-testid="send-unjudged-error">{err}</span>}
       {queue ? <>
-        <Button className="lib-amber-btn" icon="external" testid="open-unjudged-queue" data-queue={queue.id} onClick={() => navigate(`review/queue/${queue.id}`)}>
+        <Button variant="next" icon="external" testid="open-unjudged-queue" data-queue={queue.id} onClick={() => navigate(`review/queue/${queue.id}`)}>
           Open in Review · {fmtInt(queue.judged)} of {fmtInt(queue.total)} judged</Button>
         <Button size="sm" variant="link" icon="checklist" testid="send-unjudged-queue" disabled={busy} disabledReason="sending" title="widens the open queue to any member not yet in it" onClick={() => { void send() }}>Send again</Button>
       </> : (
-        <Button className="lib-amber-btn" icon="checklist" iconRight="arrow-right" testid="send-unjudged-queue" disabled={busy} disabledReason="sending" onClick={() => { void send() }}>Send {fmtInt(unjudged)} to Review as a queue</Button>
+        <Button variant="next" icon="checklist" iconRight="arrow-right" testid="send-unjudged-queue" disabled={busy} disabledReason="sending" onClick={() => { void send() }}>Send {fmtInt(unjudged)} to Review as a queue</Button>
       )}
     </span>
   )
@@ -214,7 +214,7 @@ export function FamilyCoherence({ c }: { c: LibFamilyCoherence | undefined }) {
     c.notOnDisk ? `${c.notOnDisk} not on disk, left out` : '', c.n_misaligned ? `${c.n_misaligned} shifted more than ${c.misaligned_fraction ?? '?'} of the length to align` : '',
     c.sampled ? 'a seeded sample of the members' : ''].filter(Boolean).join(' · ')
   if (c.reason || c.svd_entropy_norm === null || c.svd_entropy_norm === undefined) {
-    return <div className="lib-cap" data-testid="family-coherence" data-state="reason" style={{ fontSize: 10.5 }}>coherence · not scored: <span data-testid="coherence-reason">{c.reason ?? 'no score was returned'}</span>{counts ? ` · ${counts}` : ''}</div>
+    return <div className="lib-cap" data-testid="family-coherence" data-state="reason">coherence · not scored: <span data-testid="coherence-reason">{c.reason ?? 'no score was returned'}</span>{counts ? ` · ${counts}` : ''}</div>
   }
   const v = c.svd_entropy_norm
   // the core's verdict (main 4db3684): beyond_noise = score < null_margin x null_p05. A bare `v >= p05` called pure
@@ -240,7 +240,7 @@ export function FamilyCoherence({ c }: { c: LibFamilyCoherence | undefined }) {
     <div className="stack" style={{ gap: 2 }} data-testid="family-coherence" data-noise-like={noisy ? '1' : '0'}>
       {sq && (
         <div className="row" style={{ gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }} data-testid="coherence-squared">
-          <span className="lib-cap" style={{ fontSize: 10.5 }}>coherence σ²</span>
+          <span className="lib-key">coherence σ²</span>
           <b className="mono">{f2(sq.score)}</b>
           <span className="mono small" style={{ color: 'var(--text-2)' }} title={sq.note ?? ''}>
             {sq.null_median != null ? `noise ${f2(sq.null_median)} (5th percentile ${f2(sq.null_p05)})` : 'no noise null'}
@@ -249,7 +249,7 @@ export function FamilyCoherence({ c }: { c: LibFamilyCoherence | undefined }) {
         </div>
       )}
       <div className="row" style={{ gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-        <span className="lib-cap" style={{ fontSize: 10.5 }}>{sq ? 'eq. 17 (the verdict)' : 'coherence'}</span>
+        <span className="lib-key">{sq ? 'eq. 17 (the verdict)' : 'coherence'}</span>
         <b className="mono" data-testid="coherence-value">{f2(v)}</b>
         <InfoTip title="Coherence (SVD entropy)" testid="coherence-tip">{COHERENCE_TIP}</InfoTip>
         {c.aligned && <span className="k-chip sm" title="members slid onto the medoid before scoring (the anchor), so a shift is not counted as a different shape">aligned</span>}
@@ -263,14 +263,19 @@ export function FamilyCoherence({ c }: { c: LibFamilyCoherence | undefined }) {
         {noNull && <span className="k-badge t-grey" data-testid="coherence-no-null" title="no surrogate null was drawn for this family, so there is no verdict">no null</span>}
         {!noNull && fellBack && <span className="k-badge t-grey" data-testid="coherence-fallback" title={c.why ?? ''}>judged on trend-kept noise only: {bg?.reason}</span>}
       </div>
-      {ctxBits.length > 0 && <div className="lib-cap" style={{ fontSize: 10 }} data-testid="coherence-context">{ctxBits.join(' · ')}</div>}
-      {!noNull && c.smooth_caveat && <div className="lib-cap" style={{ fontSize: 10, color: noisy ? 'var(--amber-700, #b76a00)' : undefined }} data-testid="coherence-caveat">caveat: {c.smooth_caveat}</div>}
-      <div className="lib-cap" style={{ fontSize: 10 }} data-testid="coherence-extra">
-        σ²-weighted {f2(c.svd_entropy_squared_norm)}{c.null_squared_median !== null && c.null_squared_median !== undefined ? ` (noise ${f2(c.null_squared_median)})` : ''}
-        {c.top_share !== null && c.top_share !== undefined ? ` · main shape ${Math.round(c.top_share * 100)} %${c.top_share_is ? ` of ${c.top_share_is}` : ''}` : ''}
-        {counts ? ` · ${counts}` : ''}
-      </div>
-      <details className="lib-cap" style={{ fontSize: 10 }}><summary style={{ cursor: 'pointer' }}>the rule</summary>{c.rule}</details>
+      {/* polish: a caveat on a family judged no more coherent than noise stays on the face (it says the number is
+          unreliable); the background, the σ²-weighted read, the counts and the rule are one click away */}
+      {!noNull && noisy && c.smooth_caveat && <div className="lib-cap" style={{ color: 'var(--amber-700, #b76a00)' }} data-testid="coherence-caveat">caveat: {c.smooth_caveat}</div>}
+      <About label="how coherence is measured" testid="coherence-about">
+        {ctxBits.length > 0 && <div data-testid="coherence-context">{ctxBits.join(' · ')}</div>}
+        {!noNull && !noisy && c.smooth_caveat && <div data-testid="coherence-caveat">caveat: {c.smooth_caveat}</div>}
+        <div data-testid="coherence-extra">
+          σ²-weighted {f2(c.svd_entropy_squared_norm)}{c.null_squared_median !== null && c.null_squared_median !== undefined ? ` (noise ${f2(c.null_squared_median)})` : ''}
+          {c.top_share !== null && c.top_share !== undefined ? ` · main shape ${Math.round(c.top_share * 100)} %${c.top_share_is ? ` of ${c.top_share_is}` : ''}` : ''}
+          {counts ? ` · ${counts}` : ''}
+        </div>
+        <div><b>the rule</b> · {c.rule}</div>
+      </About>
     </div>
   )
 }
@@ -460,11 +465,11 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
           <div className="lib-ubanner" data-testid="unjudged-banner">
             <span className="dot" />
             <b style={{ fontSize: 13 }}>{unjudged} of {members.length} members have never been judged</b>
-            <span className="lib-cap" style={{ color: '#b56b00', fontSize: 11 }}>a family of unjudged members is a proposal, not a finding</span>
+            <InfoTip title="Why judge them">a family of unjudged members is a proposal, not a finding</InfoTip>
             <span style={{ marginLeft: 'auto' }} />
             <SendUnjudged familyId={f.id} grouping={gidBody ?? undefined} unjudged={unjudged} queue={(detail as LiveDetail).unjudgedQueue ?? null} onSent={onReload} />
           </div>
-        ) : <div className="lib-cap row" data-testid="all-judged" style={{ padding: '4px 2px', gap: 8, alignItems: 'center' }}><span><Icon name="check-circle" size={12} style={{ color: 'var(--green)', verticalAlign: -2 }} /> every member of {f.id} is judged</span>
+        ) : <div className="lib-meta row" data-testid="all-judged" style={{ padding: '4px 2px', gap: 8, alignItems: 'center' }}><span><Icon name="check-circle" size={12} style={{ color: 'var(--green)', verticalAlign: -2 }} /> every member of {f.id} is judged</span>
           {(detail as LiveDetail).unjudgedQueue && <Button size="sm" variant="link" icon="external" testid="open-unjudged-queue" data-queue={(detail as LiveDetail).unjudgedQueue!.id} onClick={() => navigate(`review/queue/${(detail as LiveDetail).unjudgedQueue!.id}`)}>Open its queue in Review</Button>}</div>}
 
         <div className="k-card" style={{ padding: 12, display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr) 222px', gap: 14, alignItems: 'start' }} data-testid="family-summary">
@@ -472,14 +477,15 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
             onClick={() => setSlidesQ(slidesQ ? null : '1')}>
             <MotifPlot exemplar={exemplarTrace} medoid={realTraces.me} colour={f.colour} height={108} testid="summary-exemplar-medoid" unitNote={f.unitNote}
               reference={{ scale: refScale, peak: tracePeakMv, what: `${f.id}'s exemplar and medoid` }} />
-            <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 38, paddingRight: 15 }}><span>0</span><span>{f.durationS} s</span></div>
-            <div className="lib-cap" style={{ fontSize: 10 }} data-testid="summary-trace-note">{f.unit === null
-              ? 'unit undeclared · the exemplar and medoid are not drawn in mV'
-              : `measured · each trace centred on its own baseline, nothing normalised · peak ${fmtMv(tracePeakMv)} mV`}</div>
-            {!!f.unitNote && <div className="lib-cap" style={{ fontSize: 10, color: 'var(--amber-700, #b76a00)' }} data-testid="family-unit-note">{f.unitNote}</div>}
+            <div className="row lib-meta" style={{ justifyContent: 'space-between', paddingLeft: 38, paddingRight: 15 }}><span>0</span>
+              {/* polish: how the plot is drawn is behind this ⓘ; an undeclared unit (the plot is NOT in mV) stays on the face */}
+              {f.unit !== null && <span data-testid="summary-trace-note"><InfoTip title="This plot">measured · each trace centred on its own baseline, nothing normalised · peak {fmtMv(tracePeakMv)} mV</InfoTip></span>}
+              <span>{f.durationS} s</span></div>
+            {f.unit === null && <div className="lib-cap" style={{ color: 'var(--amber-700, #b76a00)' }} data-testid="summary-trace-note">unit undeclared · the exemplar and medoid are not drawn in mV</div>}
+            {!!f.unitNote && <div className="lib-cap" style={{ color: 'var(--amber-700, #b76a00)' }} data-testid="family-unit-note">{f.unitNote}</div>}
           </div>
           <div className="stack" style={{ gap: 10 }}>
-            <div className="row lib-cap" style={{ fontSize: 10.5 }}>
+            <div className="row lib-meta">
               <span><i style={{ display: 'inline-block', width: 12, height: 2, background: '#1f2937', verticalAlign: 'middle', marginRight: 4 }} />exemplar {f.exemplar}{handExemplar ? ` · ${edits.exemplar} chosen by hand, drawn after the next recompute` : ''}</span>
               <span><i style={{ display: 'inline-block', width: 12, height: 2, background: f.colour, verticalAlign: 'middle', marginRight: 4 }} />medoid {f.medoid}</span>
               <span className="k-chip green sm">d {f.exemplarMedoidD.toFixed(2)}</span>
@@ -489,7 +495,7 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
                 ? <span className="k-badge t-green" data-testid="family-passed-by" title={flags.why}>beyond noise ({passedByWords(flags.passed_by)}){flags.background?.reason && !(flags.null_kind ?? '').startsWith('quiet') ? ` · judged on trend-kept noise only: ${flags.background.reason}` : ''}</span>
                 : null)}
               {flags?.tested && (flags.background_s != null || flags.background?.n_borrowed || flags.background?.detection_overlap_share != null) && (
-                <span className="lib-cap" data-testid="family-null-context" title={flags.why}>{[
+                <span className="lib-meta" data-testid="family-null-context" title={flags.why}>{[
                   flags.background_s != null ? `${Math.round(flags.background_s).toLocaleString()} s quiet background` : '',
                   flags.background?.n_borrowed ? `${flags.background.n_borrowed} borrowed` : '',
                   flags.background?.detection_overlap_share != null ? `${Math.round(flags.background.detection_overlap_share * 100)} % overlap a detection` : '',
@@ -501,7 +507,10 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
               <KeyValue align="right" dense items={[
                 { k: 'members', v: fmtInt(members.length), strong: true },
                 { k: 'recordings', v: `${f.recordings} · ${detail.channels} channels` },
-                { k: 'judged', v: <span data-testid="family-judged">{judged} of {members.length}</span>, tone: 'amber', info: <InfoTip title="what judged means" testid="judged-rule-tip">{(detail as LiveDetail).judgedRule ?? 'a human verdict on the member'}</InfoTip> },
+                { k: 'judged', v: <span data-testid="family-judged">{judged} of {members.length}</span>, tone: 'amber', info: <span data-testid="judged-rule"><InfoTip title="what judged means" testid="judged-rule-tip">
+                  <div>{(detail as LiveDetail).judgedRule ?? 'a human verdict on the member'}</div>
+                  <div style={{ marginTop: 6 }}>judged {judged} of {members.length} by the divergence resolver{Object.keys((detail.family as typeof detail.family & { view?: LibFamilyView }).view?.judgedBy ?? {}).length ? ` — ${Object.entries((detail.family as typeof detail.family & { view?: LibFamilyView }).view!.judgedBy).map(([k, n]) => `${k} ${n}`).join(' · ')}` : ''}: a Review verdict, else the event row it matches, else the reviewed windows it falls in · not exact span equality</div>
+                </InfoTip></span> },
                 { k: 'hand edits', v: <button type="button" className="lib-plain mono" style={{ color: 'var(--purple)', fontSize: 11 }} data-testid="hand-edits-link" onClick={() => { setHandQ(handOnly ? null : '1'); setPageQ(null) }}>{added} added · {removedList.length} removed</button> },
               ]} testid="summary-kv-1" />
               <KeyValue align="right" dense items={[
@@ -509,18 +518,18 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
                 { k: 'duration', v: `${f.durationS} s ± ${f.durationSd}` },
                 { k: 'depth', v: detail.depthLabel },
                 // fixup-W: member PAIRS per bin, as `Classify across channels` stored them on the edges
+                { k: 'edges', v: <span className="mono" data-testid="family-edges">{f.edges}</span> },
                 { k: 'cross-channel', v: <span className="mono" data-testid="family-cross-channel-line">{(detail as FamilyDetail & { crossChannel?: LibCrossChannel }).crossChannel?.classified === false ? 'not classified' : `artifact ${f.artifactChannels} · propagation ${f.propChannels} · independent ${f.indChannels}`}</span> },
               ]} testid="summary-kv-2" />
             </div>
             <FamilyCoherence c={(detail as FamilyDetail & { coherence?: LibFamilyCoherence }).coherence} />
-            {/* fixup-ae (L7): the judged figure's rule, beside it — the one resolver, and which rule judged how many */}
-            <div className="lib-cap" style={{ fontSize: 10.5 }} data-testid="judged-rule">judged {judged} of {members.length} by the divergence resolver{Object.keys((detail.family as typeof detail.family & { view?: LibFamilyView }).view?.judgedBy ?? {}).length ? ` — ${Object.entries((detail.family as typeof detail.family & { view?: LibFamilyView }).view!.judgedBy).map(([k, n]) => `${k} ${n}`).join(' · ')}` : ''}: a Review verdict, else the event row it matches, else the reviewed windows it falls in · not exact span equality</div>
+            {/* fixup-ae (L7): the judged figure's rule — polish: it sits behind the ⓘ beside "judged" above
+                (`judged-rule` wraps that ⓘ), with the resolver sentence that used to be a grey line here */}
             {/* fixup-v: §8.5's *Seed search in Discovery →* — the family's exemplar, by its Library entry */}
             <div className="row" style={{ gap: 8 }}>
-              <Button size="sm" icon="target" iconRight="arrow-right" testid="family-seed-search"
+              <Button size="sm" variant="primary" icon="target" iconRight="arrow-right" testid="family-seed-search"
                 disabled={(f as typeof f & EdgeFamilyExtras).exemplarEntryId == null} disabledReason="the exemplar is not a Library entry"
                 onClick={() => navigate(`discovery/seed?entry=${(f as typeof f & EdgeFamilyExtras).exemplarEntryId}`)}>Seed search in Discovery</Button>
-              <span className="lib-cap">edges {f.edges}</span>
             </div>
           </div>
           <div>
@@ -528,14 +537,14 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
                 alone because the read carried no member waveform. It carries them now (fixup-c), so the members
                 on this page are overlaid for real — each centred on its own baseline and stretched to one width,
                 on one domain measured from all of them, the medoid on top in the family colour. */}
-            <div className="row lib-cap" style={{ fontSize: 10.5, gap: 4 }}><span>medoid {f.medoid} · the {overlayWaves.length} members on this page</span>
+            <div className="row lib-cap" style={{ gap: 4 }}><span>medoid {f.medoid} · the {overlayWaves.length} members on this page</span>
               <InfoTip title="The overlay">Members read off the recording, each centred on its own baseline, on one measured scale. Click a trace to pick it (↑ ↓ move the pick, Esc clears it), then remove it, send it to Review or open it in Explore.</InfoTip></div>
             <FamilyOverlay medoid={realTraces.me} members={overlayTraces} colour={f.colour} height={104} testid="summary-overlay"
               picked={picked?.id ?? null} onPick={id => setPickQ(id)}
               title={`the medoid of ${f.id} over the ${overlayWaves.length} members on this page, each read off the recording and centred on its own baseline, stretched to one width, on one measured mV scale — not normalised; click a trace to pick it`} />
             {picked ? <PickCaption m={picked} busy={busy} onClear={() => setPickQ(null)}
               onRemove={() => { setMemberQ(picked.id); setModal('remove-member') }} onSend={() => sendOne(picked)} onExplore={() => openInExplore(picked)} />
-              : <div className="lib-cap" style={{ fontSize: 10 }} data-testid="overlay-pick-hint">click a trace to pick it</div>}
+              : null /* polish: "click a trace to pick it" repeated the ⓘ's first sentence; the ⓘ above keeps it */}
             <Button size="sm" variant="link" icon="grid" testid="family-open-slideshow" aria-pressed={!!slidesQ} onClick={() => setSlidesQ(slidesQ ? null : '1')}>{slidesQ ? 'Hide the slideshow' : `Every member as a slideshow`}</Button>
           </div>
         </div>
@@ -547,7 +556,7 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
           <Seg size="sm" ariaLabel="sort members" testid="member-sort" value={sort} onChange={v => { setSort(v); setPageQ(null) }}
             options={[{ value: 'distance', label: 'distance to medoid' }, { value: 'time', label: 'time' }, { value: 'amplitude', label: 'amplitude' }, { value: 'unjudged', label: 'unjudged first' }]} />
           {sort === 'distance' && <InfoTip title="members past the cut">members kept in {f.id} by hand past the cut ({detail.cut}) are listed at the end of the first page so they get checked; the rest sort by distance to the medoid</InfoTip>}
-          <Button size="sm" icon="user" testid="hand-only" aria-pressed={handOnly} variant={handOnly ? 'subtle' : 'default'} className={handOnly ? 'lib-toggle-on' : undefined} onClick={() => { setHandQ(handOnly ? null : '1'); setPageQ(null) }}>hand edits only</Button>
+          <Button size="sm" icon="user" testid="hand-only" aria-pressed={handOnly} variant={handOnly ? 'subtle' : 'link'} className={handOnly ? 'lib-toggle-on' : undefined} onClick={() => { setHandQ(handOnly ? null : '1'); setPageQ(null) }}>hand edits only</Button>
           <span style={{ marginLeft: 'auto' }} />
           <Checkbox label="select page" testid="select-page" checked={pageIds.length > 0 && pageTicked === pageIds.length} indeterminate={pageTicked > 0 && pageTicked < pageIds.length}
             onChange={v => setSel(s => (v ? [...new Set([...s, ...pageIds])] : s.filter(x => !pageIds.includes(x))))} disabled={!pageIds.length} disabledReason="no members on this page" />
@@ -569,7 +578,7 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
                   {m.addedByHand && <span className="k-badge t-purple">added by hand</span>}
                 </div>
                 <MemberWave m={m} height={48} ground={on ? 'white' : 'grey'} scale={refScale} peak={peakOfMember.get(m.id)} />
-                <span className="lib-cap">{m.channel} · {m.onsetH.toFixed(1)} h</span>
+                <span className="lib-meta">{m.channel} · {m.onsetH.toFixed(1)} h</span>
                 <VerdictLine v={m.verdict} />
               </div>
             )
@@ -588,12 +597,12 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
                       gone (or whose unit is undeclared) has none, and the slot says so */}
                   {(r.trace ?? []).length
                     ? <MiniTrace values={centreTrace(r.trace ?? [])} width={62} height={34} ground="white" stroke="#6b7280" style={{ border: '1px solid var(--border)', borderRadius: 4 }} title={`${r.id} — read off the recording, on its own mV scale`} />
-                    : <span className="lib-cap" style={{ width: 62, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 4, fontSize: 10 }} title="this read carries no waveform for this removal">no waveform</span>}
-                  <span className="lib-cap" style={{ color: 'var(--text-2)', fontSize: 11 }}>{r.id} · d {r.d.toFixed(2)} · {r.channel}{r.onsetH != null ? ` · ${r.onsetH.toFixed(1)} h` : ''} · removed {r.removedAt} · “{r.removedNote}”</span>
+                    : <span className="lib-cap" style={{ width: 62, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 4 }} title="this read carries no waveform for this removal">no waveform</span>}
+                  <span className="lib-meta">{r.id} · d {r.d.toFixed(2)} · {r.channel}{r.onsetH != null ? ` · ${r.onsetH.toFixed(1)} h` : ''} · removed {r.removedAt} · “{r.removedNote}”</span>
                   <Button variant="link" icon="undo" style={{ marginLeft: 'auto' }} testid={`restore-${r.id}`} disabled={busy} disabledReason="writing…" onClick={() => restore([r])}>Restore</Button>
                 </div>
               ))}
-              {removedList.length > 3 && <span className="lib-cap">+ {removedList.length - 3} more removed by hand</span>}
+              {removedList.length > 3 && <span className="lib-meta">+ {removedList.length - 3} more removed by hand</span>}
             </div>
           </div>
         )}
@@ -610,13 +619,13 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
             <InfoTip title="keyboard">← → move the rail member · Space ticks it · Esc clears the selection</InfoTip>
             <span style={{ marginLeft: 'auto' }} />
             <span className="row lib-ui-btn" style={{ gap: 8 }}>
-              <Button icon="checklist" testid="batch-send" disabled={busy} disabledReason="sending…" onClick={() => { void sendSelection(selInList) }}>Send to Review</Button>
-              <Button ref={batchTagRef} icon="tag" testid="batch-tag" onClick={() => setPopover(popover === 'tag' ? null : 'tag')}>Add tag</Button>
+              <Button variant="primary" icon="checklist" testid="batch-send" disabled={busy} disabledReason="sending…" onClick={() => { void sendSelection(selInList) }}>Send to Review</Button>
+              <Button ref={batchTagRef} variant="primary" icon="tag" testid="batch-tag" onClick={() => setPopover(popover === 'tag' ? null : 'tag')}>Add tag</Button>
               <Button ref={batchClassRef} icon="layers" testid="batch-class" disabled disabledReason={CLASS_WAITS} onClick={() => setPopover(popover === 'class' ? null : 'class')}>Assign class</Button>
-              <Button icon="minus" testid="batch-remove" disabled={busy} disabledReason="writing…" onClick={() => setModal('remove')}>Remove from family</Button>
-              <Button icon="upload" testid="batch-export" onClick={() => push({ text: `not wired yet: export ${selInList.length} members (CSV + spans)` })}>Export</Button>
+              <Button variant="danger" icon="minus" testid="batch-remove" disabled={busy} disabledReason="writing…" onClick={() => setModal('remove')}>Remove from family</Button>
+              <Button variant="primary" icon="upload" testid="batch-export" onClick={() => push({ text: `not wired yet: export ${selInList.length} members (CSV + spans)` })}>Export</Button>
             </span>
-          </> : <span className="lib-cap" data-testid="batch-hint">tick members to act on several · send to Review, tag, assign class, remove, export</span>}
+          </> : <span className="lib-cap row" style={{ gap: 4 }} data-testid="batch-hint">tick members to act on several <InfoTip title="What you can do with several">send to Review, tag, assign class, remove, export</InfoTip></span>}
         </div>
       </div>
 
@@ -654,7 +663,7 @@ function MotifFamilyView({ detail, grouping, onReload, flags, noiseMethod }: { d
 function MemberWave({ m, height, ground, scale, peak }: { m: Member; height: number; ground: 'white' | 'grey'; scale: ReferenceScale | null; peak?: number }) {
   const wave = useMemo(() => memberWave(m), [m])
   if (!wave.length) {
-    return <span className="lib-cap" data-testid={`member-nowave-${m.id}`} style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, border: '1px dashed var(--border-strong)', borderRadius: 4 }} title={noWaveNote(m)}>{noWaveNote(m)}</span>
+    return <span className="lib-cap" data-testid={`member-nowave-${m.id}`} style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--border-strong)', borderRadius: 4 }} title={noWaveNote(m)}>{noWaveNote(m)}</span>
   }
   return (
     <div className="lib-thumbcell" data-testid={`member-plot-${m.id}`}>
@@ -739,8 +748,11 @@ function MemberRail({ m, f, detail, refScale, edits, setEdits, busy, onUndoAdd, 
             shared scale as its reference bar */}
         <MotifPlot exemplar={trace} colour={f.colour} height={92} testid="rail-member-plot" title={`${m.id}, read off the recording`}
           reference={{ scale: refScale, peak: tracePeak(trace), what: m.id }} />
-        <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 38, paddingRight: 15 }}><span>0</span><span>{m.durationS.toFixed(1)} s</span></div>
-        <div className="lib-cap" style={{ fontSize: 10 }} data-testid="rail-member-note">{trace.length ? `read off the recording · centred on its own baseline · peak ${fmtMv(tracePeak(trace))} mV` : noWaveNote(m)}</div>
+        <div className="row lib-meta" style={{ justifyContent: 'space-between', paddingLeft: 38, paddingRight: 15 }}><span>0</span>
+          {/* polish: how the plot is drawn is behind the ⓘ; with no waveform the reason stays on the face */}
+          {trace.length > 0 && <span data-testid="rail-member-note"><InfoTip title="This plot">read off the recording · centred on its own baseline · peak {fmtMv(tracePeak(trace))} mV</InfoTip></span>}
+          <span>{m.durationS.toFixed(1)} s</span></div>
+        {!trace.length && <div className="lib-cap" data-testid="rail-member-note">{noWaveNote(m)}</div>}
       </div>
       {/* the ±30 s context strip was `Math.sin(seed)` noise, not signal; open the span in Explore for the
           real thing */}
@@ -758,17 +770,17 @@ function MemberRail({ m, f, detail, refScale, edits, setEdits, busy, onUndoAdd, 
       <div className="lib-kvrow"><span className="k">revisions</span>
         {revisions.length
           ? <button ref={revRef} type="button" className="lib-plain mono v" data-testid="revisions-link" onClick={() => setPopover(popover === 'revisions' ? null : 'revisions')}>{revisions.map(r => `rev ${r.rev} ${r.origin === 'machine' ? `machine ${r.spanId}` : `edited ${r.spanId}`}`).join(' · ')}</button>
-          : <span className="mono v muted" data-testid="revisions-none">no revisions recorded for this member</span>}</div>
+          : <span className="mono v" style={{ color: 'var(--text-2)' }} data-testid="revisions-none">no revisions recorded for this member</span>}</div>
       {/* fixup-v: §8.5's edge provenance — every edge this member carries: distance, value, cut, scale, recipe */}
       <div className="stack" style={{ gap: 3 }} data-testid="rail-edge-provenance">
-        <span className="lib-cap" style={{ fontSize: 11 }}>edges · distance, value, cut, scale, run and recipe</span>
+        <span className="lib-key">edges <InfoTip title="Edges">distance, value, cut, scale, run and recipe</InfoTip></span>
         <EdgeList edges={memberEdges(detail, m.id)} testid="rail-edges" limit={6} family={{ id: f.id, grouping: (detail.family as typeof detail.family & { grouping?: string }).grouping }} />
       </div>
       <div className="lib-kvrow"><span className="k">verdict <InfoTip title="verdicts are read-only here">verdicts are written only in Review and Explore (§4.1, P6)</InfoTip></span>
         <span className="v" data-testid="rail-verdict" data-by={m.verdictBy ?? ''}>{m.verdict === 'unjudged' ? <span style={{ color: '#c27400' }} title={m.verdictWhy ?? undefined}>unjudged</span> : <><span style={{ width: 7, height: 7, borderRadius: '50%', background: VERDICT_COLOUR[m.verdict] ?? 'var(--muted-2)', display: 'inline-block', marginRight: 5 }} />{m.verdict}{m.verdictBy ? ` · by ${m.verdictBy}` : ''}{m.verdictAt ? ` · ${m.verdictAt}` : ''}</>}
           <Button variant="link" size="sm" testid="open-in-review" onClick={() => navigate(`review?item=${m.id}`)}>Open in Review</Button></span></div>
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <span className="lib-cap" style={{ fontSize: 11 }}>tags</span>
+        <span className="lib-key">tags</span>
         <span className="row" style={{ gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }} data-testid="rail-tags">
           {/* a tag written by hand can be taken off (its hand edit undone); a tag the importer wrote is the entry's own */}
           {tags.map((t, i) => <Chip key={t} size="sm" tone={i === 0 ? 'blue' : 'grey'} title={handTags.has(t) ? 'added by hand' : 'from the import: the entry\'s own tag'} onRemove={handTags.has(t) ? () => { recordDemoWrite('library', 'hand-edit.untag', { member: m.id, tag: t }); onUntag(t) } : undefined} removeLabel={`remove tag ${t}`}>{t}</Chip>)}
@@ -776,7 +788,8 @@ function MemberRail({ m, f, detail, refScale, edits, setEdits, busy, onUndoAdd, 
         </span>
       </div>
       <div className="stack" style={{ gap: 4 }}>
-        <span className="lib-cap" style={{ fontSize: 11 }}>class <span data-testid="rail-class-waits">· {CLASS_WAITS}</span></span>
+        {/* polish: "waits for…" is a note about a vocabulary nobody has settled, not a warning: a chip, the sentence on hover */}
+        <span className="lib-key">class <span className="k-chip sm" data-testid="rail-class-waits" title={CLASS_WAITS}>waits</span></span>
         <SelectField value={edits.cls[m.id] ?? ''} testid="rail-class" ariaLabel="class" disabled disabledReason={CLASS_WAITS} onChange={() => undefined}
           options={[{ value: '', label: '— none' }, ...CLASS_OPTIONS.map(c => ({ value: c.name, label: `${c.key} · ${c.name}` }))]} />
       </div>
@@ -786,8 +799,8 @@ function MemberRail({ m, f, detail, refScale, edits, setEdits, busy, onUndoAdd, 
       </div>
       <div className="lib-rail-actions">
         <span className="row" style={{ gap: 8 }}>
-          <Button icon="sparkle" testid="make-exemplar" disabled={!!exemplarReason} disabledReason={exemplarReason ?? undefined} onClick={onMakeExemplar}>Make exemplar</Button>
-          <Button icon="pencil" testid="redraw-in-explore" disabled={!current} disabledReason="this member has no revision to redraw from"
+          <Button variant="primary" icon="sparkle" testid="make-exemplar" disabled={!!exemplarReason} disabledReason={exemplarReason ?? undefined} onClick={onMakeExemplar}>Make exemplar</Button>
+          <Button variant="primary" icon="pencil" testid="redraw-in-explore" disabled={!current} disabledReason="this member has no revision to redraw from"
             onClick={() => { if (current) navigate(`explore/span-edit/${m.id}?from=library/family/${f.id}&span=${current.spanId}`) }}>Redraw in Explore</Button>
         </span>
         <Button variant="danger" icon="minus" testid="rail-remove" disabled={busy} disabledReason="writing…" onClick={onRemove}>Remove from family</Button>
