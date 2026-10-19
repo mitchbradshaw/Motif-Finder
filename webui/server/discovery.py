@@ -167,8 +167,32 @@ def _split(value: str | None) -> list[str]:
 
 # ── the session row ─────────────────────────────────────────────────────────
 
+#: the session's place in the order sessions were opened, in its `state_json`. Scope's change of recording opens
+#: that recording's own session and gives it the next number; Discovery is on the highest. A session never opened
+#: that way has none, and the newest of those is open (as before 2026-10-19, when there was only ever one).
+OPEN_SEQ = "openSeq"
+_OPEN_SEQ_SQL = f"(CASE WHEN json_valid(state_json) THEN json_extract(state_json, '$.{OPEN_SEQ}') END)"
+
+
 def _session_row(conn):
-    return conn.execute("SELECT * FROM discovery_sessions ORDER BY id DESC LIMIT 1").fetchone()
+    return conn.execute(f"SELECT * FROM discovery_sessions ORDER BY COALESCE({_OPEN_SEQ_SQL}, 0) DESC, id DESC "
+                        "LIMIT 1").fetchone()
+
+
+def _open_session_on(conn, rec):
+    """Open ``rec``'s own session: its newest, or a new one built like the first (`_new_session`). It is numbered
+    after every other, so `_session_row` finds it. Runs stay with the session they were made in, so a recording's
+    runs are listed only while Discovery is on that recording."""
+    row = conn.execute("SELECT * FROM discovery_sessions WHERE source_file = ? ORDER BY id DESC LIMIT 1",
+                       (rec["source_file"],)).fetchone()
+    if row is None:
+        row = _new_session(conn, rec)
+    top = conn.execute(f"SELECT MAX({_OPEN_SEQ_SQL}) FROM discovery_sessions").fetchone()[0]
+    state = json.loads(row["state_json"] or "{}")
+    state[OPEN_SEQ] = int(top or 0) + 1
+    conn.execute("UPDATE discovery_sessions SET state_json = ? WHERE id = ?", (json.dumps(state), int(row["id"])))
+    conn.commit()
+    return conn.execute("SELECT * FROM discovery_sessions WHERE id = ?", (int(row["id"]),)).fetchone()
 
 
 def _densest_section(conn, recording_ids, fs, n_samples, hours=DEFAULT_SECTION_H):
@@ -210,12 +234,22 @@ def _default_session(conn):
     if not recs:
         raise HTTPException(404, {"message": "no recording is registered; Discovery has nothing to scope"})
     best, best_cover = recs[0], -1
-    cover_by_id = dict(conn.execute(
-        "SELECT recording_id, SUM(end_idx - start_idx) FROM reviewed_spans GROUP BY recording_id").fetchall())
+    cover_by_id = _cover_by_id(conn)
     for r in recs:
         cover = sum(int(cover_by_id.get(c["id"], 0) or 0) for c in r["channels"])
         if cover > best_cover:
             best, best_cover = r, cover
+    return _new_session(conn, best, cover_by_id)
+
+
+def _cover_by_id(conn):
+    return dict(conn.execute(
+        "SELECT recording_id, SUM(end_idx - start_idx) FROM reviewed_spans GROUP BY recording_id").fetchall())
+
+
+def _new_session(conn, best, cover_by_id=None):
+    """A new session on one recording: its three most-reviewed channels and its most-reviewed section."""
+    cover_by_id = _cover_by_id(conn) if cover_by_id is None else cover_by_id
     channels = sorted(best["channels"], key=lambda c: -int(cover_by_id.get(c["id"], 0) or 0))[:3]
     channels.sort(key=lambda c: c["channel"])
     n_samples = best["n_samples"]
@@ -335,6 +369,9 @@ def put_session(request: Request, body: SessionBody):
         key = body.recording or _stem(s["source_file"])
         rec = _file_for_key(c, key)
         _refuse_held_out(c, rec["source_file"])
+        if rec["source_file"] != s["source_file"]:
+            # another recording is another session: relabelling this one listed its runs under the new recording
+            s = _open_session_on(c, rec)
         names = body.channels if body.channels is not None else json.loads(s["channels_json"])
         chans = _ids_for(c, key, names)
         fs = rec["fs"]
