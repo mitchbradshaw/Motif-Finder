@@ -98,10 +98,38 @@ DEFAULT_ANCHOR_FRAC = 0.5    # the middle: AG's centring, bit for bit (and the s
 DEFAULT_DETREND = "linear"  # with the straight line removed, the drift is no longer the shape
 #: ux-1019 (the researcher, 2026-10-18; BACKLOG §1 "AM"): for DROP work the bottom of the drop, a third of the way
 #: in, so the recovery fits inside the window. A pool chain carries nothing that says it is drop work (no detector
-#: can precede a Window pool), so this is the recommended setting Launch and the block name, not a silent default:
-#: DEFAULT_ALIGN / DEFAULT_ANCHOR_FRAC stay the block's defaults and every cached shape key is unchanged.
+#: can precede a Window pool, and no window set is made from detections), so the Trace shape block's `for_drops`
+#: switch (2026-10-19, off by default) says it; `resolve_alignment` reads it. DEFAULT_ALIGN / DEFAULT_ANCHOR_FRAC
+#: stay the block's defaults and every cached shape key with the switch off is unchanged.
 DROP_ALIGN = "trough"
 DROP_ANCHOR_FRAC = 0.333
+
+
+def resolve_alignment(params):
+    """ux-1019 (the researcher, 2026-10-19): the ONE place a Trace shape step's `for_drops` switch, `align` and
+    `anchor_frac` become the alignment it is cut at — read by the block (an Analyse run), the B.2 recipe (the model's
+    identity) and Models › Launch, so one chain is cut alike everywhere.
+
+    Switch ON → `trough` a third in (DROP_ALIGN, DROP_ANCHOR_FRAC); OFF → `centre` at the middle (the defaults). A
+    value other than the block's own default is the researcher's, set on the card, and wins over the switch (a
+    default value is what every chain carries unasked — Analyse fills every parameter — so it cannot mean "chosen").
+    Returns `{align, anchor_frac (None on the grid), for_drops, from}`, `from` in words for the card and Launch."""
+    p = dict(params or {})
+    on = bool(p.get("for_drops", False))
+    a_in = str(p.get("align") or DEFAULT_ALIGN)
+    f_in = DEFAULT_ANCHOR_FRAC if p.get("anchor_frac") is None else float(p["anchor_frac"])
+    a_set, f_set = a_in != DEFAULT_ALIGN, f_in != DEFAULT_ANCHOR_FRAC
+    align = a_in if a_set else (DROP_ALIGN if on else DEFAULT_ALIGN)
+    anchor = f_in if f_set else (DROP_ANCHOR_FRAC if on else DEFAULT_ANCHOR_FRAC)
+    words = ["for drops: on — set on the card" if on else "for drops: off (the default)"]
+    if a_set:
+        words.append(f"align {a_in} set on the card")
+    if f_set and align != "grid":
+        words.append(f"anchor {f_in:g} set on the card")
+    if on and (a_set or (f_set and align != "grid")):
+        words.append("the card's setting wins over the switch")
+    return {"align": align, "anchor_frac": None if align == "grid" else float(anchor), "for_drops": on,
+            "from": " · ".join(words)}
 SWING_RULE = ("the largest swing: the window's straight-line (least-squares) trend is removed, a running median of k "
               "samples is taken (k odd, at least 5, about a sixtieth of the window: 5 at 1 min, 11 at 10 min, 31 at "
               "30 min, so a glitch of a sample or two cannot be it), and the swing is the sample where that departs "

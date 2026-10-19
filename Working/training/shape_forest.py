@@ -112,8 +112,10 @@ def _recipe_shape(shp):
     """The Trace shape settings a recipe rebuilds its windows from. fixup-am: the anchor rides along only off its
     default (AG's recipes are unchanged), so a tree built on windows a third in is not rebuilt on centred ones."""
     from Working.training import shape as sh
-    out = {k2: shp[k2] for k2 in ("align", "detrend", "resample_length", "noise_floor")}
-    a = shp.get("anchor_frac")
+    how = sh.resolve_alignment(shp)   # ux-1019: the for-drops switch, resolved as the block resolves it
+    out = {k2: shp[k2] for k2 in ("detrend", "resample_length", "noise_floor")}
+    out = {"align": how["align"], **out}
+    a = how["anchor_frac"]
     if out["align"] != "grid" and a is not None and float(a) != sh.DEFAULT_ANCHOR_FRAC:
         out["anchor_frac"] = float(a)
     return out
@@ -124,9 +126,11 @@ def launch_shape(shp):
     window the aligned sample lands; None on the grid, where nothing is re-cut), detrend, the length, the floor —
     and the researcher's setting for drop work (2026-10-18), so the page names it without restating a number."""
     from Working.training import shape as sh
-    out = {k2: shp[k2] for k2 in ("align", "detrend", "resample_length", "noise_floor")}
-    a = shp.get("anchor_frac")
-    out["anchor_frac"] = None if out["align"] == "grid" else float(sh.DEFAULT_ANCHOR_FRAC if a is None else a)
+    how = sh.resolve_alignment(shp)   # ux-1019: the same resolution the Analyse run cut its windows at
+    out = {"align": how["align"], **{k2: shp[k2] for k2 in ("detrend", "resample_length", "noise_floor")}}
+    out["anchor_frac"] = how["anchor_frac"]
+    out["for_drops"] = how["for_drops"]
+    out["alignment_from"] = how["from"]
     out["drop_default"] = {"align": sh.DROP_ALIGN, "anchor_frac": sh.DROP_ANCHOR_FRAC}
     return out
 

@@ -10,6 +10,13 @@ export function paramCaption(step: Step, adapter: AdapterCard | undefined): stri
   switch (name) {
     case 'preprocessing.detrend':
       return p.mode === 'linear' ? 'linear trend subtracted' : `${fmtNum(p.window_s ?? 600)} s ${p.mode === 'rolling_z' ? 'rolling z-score' : 'rolling mean'} subtracted`
+    case 'preprocessing.trace_shape': {
+      // ux-1019: the 'for drops' switch is named on the card; the run (core resolve_alignment) says what it resolved to
+      const def = (k: string) => adapter?.params.find(s => s.name === k)?.default
+      const own = [p.align != null && def('align') != null && p.align !== def('align') ? `align ${String(p.align)}` : '',
+        p.anchor_frac != null && def('anchor_frac') != null && Number(p.anchor_frac) !== Number(def('anchor_frac')) ? `anchor ${fmtNum(p.anchor_frac)}` : ''].filter(Boolean)
+      return `for drops: ${p.for_drops ? 'on — windows on the trough, a third in' : 'off — centred on the largest swing'}${own.length ? ` · ${own.join(', ')} set on the card (wins)` : ''} · detrend ${String(p.detrend ?? 'linear')}`
+    }
     case 'preprocessing.decompose': {
       // ux-1019 (BACKLOG §1 AO): the baseline window is the knob to tune first, so the card names it and its default
       const win = Number(p.baseline_window_s ?? 600)
