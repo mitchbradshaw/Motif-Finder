@@ -140,3 +140,68 @@ I left this out of the file because adding a chip changes the session scope for 
 - 843f95d coverage: which detector ran where, run on the missing, the template verdict gauge
 - 39befce coverage: failing tests for run coverage, extend and the template verdict gauge
 - (this report, committed last)
+
+## Critic round (2026-10-19)
+
+**In plain words.** The work does what the researcher asked: each run row shows which channels it has results on,
+a button adds the missing ones to the same run, the fires card says "not run here", and each template carries a
+verdict ring. Three things were fixed. The ring's "has anything changed?" check read every verdict row on every
+picker open; it now reads one small summary, still updated by a re-judged verdict. An extend of an unusual run row
+with no run group would have wiped the channels the run already had; it is now refused. Two extends of one run at
+the same moment could both start; they now queue, and the second is told the run is running.
+
+**Findings and fixes**
+
+1. *Should-fix, fixed.* `_verdict_fingerprint` read `SELECT id, detection_id, verdict FROM adjudications` whole on
+   every `/templates` read. Measured on a scratch database (100k verdicts, 400k detections, 60 Discovery runs x 16
+   channels; the machine was loaded): 380-550 ms per read. Replaced by `_VERDICT_DIGEST_SQL`, one aggregate scan:
+   `COUNT(*)`, `MAX(id)` and the library critic's verdict-weighted sum of detection ids. A re-judge in place or a
+   swap of two verdicts moves it. Same database, same process: 82-88 ms. The gauge test now also re-judges a verdict
+   in place (`UPDATE adjudications SET verdict = 'artifact'`) and expects the gauge to follow.
+2. *Should-fix, fixed.* An extend of a row whose `run_group_id` is NULL passed `extend_group=None` to `_start_sweep`.
+   That is the first-sweep path, which writes `run_ids = <the new channels>` and drops the run's earlier channels.
+   Now refused with 422 `no_group`, and the row is left untouched. Test:
+   `test_extend_refuses_a_run_with_no_group_rather_than_replace_its_runs` (red on `50fdb00`).
+3. *Should-fix, fixed.* Two racing extends of one run both passed the "still running" check, because the row's
+   `job_id` is written only after the sweep starts. The route body now runs under `_EXTEND_LOCK`, so the second
+   extend sees the first's job and gets 409 `running`. No test: a thread race in TestClient would be flaky.
+4. *Nit, fixed.* The theme has no `--grey-300`. The gauge's unsure arc now uses the theme token `--muted-2`. The
+   smoke unit's gauge wait went from 5 s to 30 s, because the picker's template read can be slow under a walk.
+
+**Checked, sound**
+
+- *Map and scoreboard.* The coverage deviation is sound. The Map is per algorithm, the strip is per run, and for the
+  newest run of an algorithm the strip's `covered` cells are a subset of the Map's.
+- *`/runs` cost.* `/runs` makes no new query. `_run_coverage` for 60 runs x 16 channels costs about 6 ms of Python.
+- *Review queue.* Joining the group invalidates the cached structure, because `_structure_fingerprint` reads the
+  group's runs as they are now.
+- *Template score.* The score cache keys on the tuple of run ids, so the picker re-scores.
+- *Detection map and reports.* Both read `discovery_run_ids`.
+- *Lost extend.* `_fail_lost_runs` turns a lost extend back into `done` with `extendError`. The runs it finished
+  are in the group but not in `run_ids`, so the strip says `not_run` and the button reuses them through the step
+  cache.
+
+**Noted, not changed**
+
+- *Send to Review after an extend.* A queue made before the extend is filtered on the old `run_ids` and does not
+  grow. Sending again makes a second queue over all channels, and earlier verdicts show as judged there.
+- *The extend uses the run's own section*, even when the session's section has changed since. This keeps the added
+  channels the same question as the first ones. The strip says nothing about the section.
+- *The gauge's grouped query costs about 1.5-2.5 s at 100k verdicts* on the loaded machine. It is paid once after
+  each change, on the next picker open. If the real database grows that large, move it off the request, as AR did
+  for `lastScore`.
+- *A discard or remove of a run while it is extending* is still not guarded.
+
+**Gate after the critic's fixes (one file at a time)**
+
+| File or check | Interpreter | Result |
+|---|---|---|
+| `tests/test_webui_discovery_coverage.py` | venv | 7 passed |
+| `tests/test_webui_discovery.py` | venv | 75 passed (420 s) |
+| `tests/test_webui_reports.py` | venv | 7 passed |
+| `tests/test_webui_ar_speed.py` | venv | 13 passed |
+| `tests/test_import_boundaries.py` | conda | 4 passed |
+| `tests/test_webui_seed_on_demand_client.py` | conda | 16 passed |
+| `tests/test_ar_speed_core.py` | conda | 9 passed |
+| `tsc -b` | | passes |
+| `vite build` | | passes |
