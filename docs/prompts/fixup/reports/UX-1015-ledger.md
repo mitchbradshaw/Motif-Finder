@@ -238,3 +238,27 @@ once, gone after 164 s and 177 s — two recomputes of 170–181 s each in the w
 longer blocks on the map. **Owed, after the other session's full walk ends (~15:30): the `explore` unit and the
 daily full walk on this tree as the new baseline** (sealed before them because the other session's bridge keeps
 paying the 5 min cold warm this removes).
+
+### 2026-10-19 afternoon — baseline on main with corpus-map, and the first gate of the whole wave
+
+- **Explore unit on main 43ee443 (13:57, quiet):** 54 screenshots, 9 failures — the three held-out-lock drift states,
+  `signal--default` (span card not painted at 2.5 s — the Signal page's first paint is 3–5 s on this database:
+  89,626 detections on CH4_A2 drawn in the overview; a speed-pass item), `signal--live-channel` (ribbons), four
+  cross-channel states (`as-recorded`, `lag-aligned`, `max-lag-10` data drift, `y-absolute`).
+- **Full walk on main 43ee443 (14:00–15:34): 714 screenshots, 79 failures** (`base_main_0419d.txt`). NOT clean: the
+  other session's 39-min venv pytest and a build ran under its first half; 27 states not in the morning's set, click
+  and wait timeouts in Discovery, Library and Settings; 13 of the morning's failures passed. Rule agreed both ways
+  afterwards: nothing heavy on the box from either session during a full walk — no pytest, no build, no agents.
+- **Wave gate, `changes/integration` 8b569cf** (all thirteen prompts + site-fixes + the "for drops" follow-up, each
+  critic-reviewed, containing main 43ee443; the other session's combined gate: conda 763 passed, venv 405 + 3 xpassed,
+  tsc, build). Merged unsealed, tsc clean, build, **full walk 15:38–16:54: 783 screenshots, 60 failures** — fewer than
+  both baselines, every new state of the wave passing. Not sealed: 16 states fail in the wave walk and in neither
+  baseline. `smoke-result.json` holds 23 browser errors with `net::ERR_NETWORK_CHANGED` and `requestfailed` on review,
+  scoreboard, history, templates and seed reads — the box's network changed during the walk, which explains the review
+  flow writing no verdict row (`[]`) and the discovery flow's timeout, and probably the consecutive Analyse chain demo
+  states (`live`, `1-chain`, `1b-run-history`, `1c-*`). To triage on the branch: Library recurrence (four states) and
+  the family grouping-url link; `settings.models-registration--default`; two `aq_cross_channel` states (bin-rule
+  testid; `nothing-to-align` where shifted rows were expected); `discovery.seed--view-popover` (the old popover the
+  strip replaced). Merge aborted; list sent to the other session; it re-walks the pages with units, fixes, and I
+  re-walk in full before sealing. The warm now reports 20 files: the 2 Hz CO/LM registrations landed in the real
+  database today (another agent, the researcher's note) — the datasets-derive run skips CO and LM.
