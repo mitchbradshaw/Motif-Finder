@@ -216,3 +216,9 @@
 /* polish (2026-10-19): data on a card (where, when, how many) reads as data — mono, text-2, not a grey caption */
 .lib-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-2); }
 .lib-key { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-2); display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+
+/* night-b: a kept label-chain family id is its whole chain, one unbreakable token; the section bar crumb ellipsises it
+   rather than running it over the section tabs (the heading below prints it in full) */
+[data-testid="library-crumbs"] { flex: 0 1 auto; min-width: 0; overflow: hidden; flex-wrap: nowrap; }
+[data-testid="library-crumbs"] .cur { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-testid="library-section-bar"] > [data-testid="library-sections"] { flex: none; }

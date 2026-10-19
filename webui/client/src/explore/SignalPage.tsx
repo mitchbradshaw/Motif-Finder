@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DatasetName } from '../naming'
 import { ApiError, getChannel, getRecordings, getSpans, listRuns, type Channel, type DbRun, type Spans } from '../api'
 import { useSourced } from '../api/seam'
-import { getSignalDemo } from '../api/explore'
+import { getSignalDemo, getWholeChannelSpans } from '../api/explore'
 import { annotationKind, parseToggles, visibleDetections, type SpanKind, type ToggleKind, type Toggles } from './bandModel'
 import { Callout, Dropdown, InfoTip, Seg, useDemoState, useQueryState } from '../kit'
 import { ErrorBoundary } from '../shell/ErrorBoundary'
@@ -118,6 +118,8 @@ function SignalBody({ ch }: { ch: Channel }) {
   const [lastTab, setLastTab] = useDemoState<DrawerTab>('explore.signal.lastTab', () => 'annotations')
   const demoRead = useSourced(() => getSignalDemo(ch.id), [ch.id])
   const demo = demoRead.data ?? null
+  // night-b: `demo` is the LIVE read under its old name; the chips say demo only when the read's source does
+  const fixture = demoRead.source === 'demo'
 
   const initial = useCallback((): [number, number] => {
     if (explore.channelId === ch.id && explore.view) return explore.view
@@ -139,7 +141,9 @@ function SignalBody({ ch }: { ch: Channel }) {
   const [allErr, setAllErr] = useState<ApiError | null>(null)
   useEffect(() => {
     let alive = true
-    getSpans(ch.id, 0, ch.duration_s).then(s => { if (alive) setAll(s) }).catch(e => { if (alive) setAllErr(asApiError(e)) })
+    // night-b: the first load joins the page data's identical read; a re-read after a write (spansRev) is its own,
+    // so it cannot join a read that started before the write
+    ;(spansRev === 0 ? getWholeChannelSpans(ch.id, ch.duration_s) : getSpans(ch.id, 0, ch.duration_s)).then(s => { if (alive) setAll(s) }).catch(e => { if (alive) setAllErr(asApiError(e)) })
     return () => { alive = false }
   }, [ch.id, ch.duration_s, spansRev])
   // live runs feed the picker on channels without demo canon
@@ -293,7 +297,7 @@ function SignalBody({ ch }: { ch: Channel }) {
 
   return (
     <>
-      <Header workspace="Explore" page="Signal" subtitle={subtitle} search="Search spans, runs, families" demo={!!demo} />
+      <Header workspace="Explore" page="Signal" subtitle={subtitle} search="Search spans, runs, families" demo={fixture} />
       <div className="page"><div className="page-inner ex-signal">
         <TopBar channelId={ch.id} file={ch.source_file} name={ch.name} extra={<>
           <span className="ex-topbar-seg"><Seg size="sm" value="signal" onChange={v => { if (v === 'cross') navigate(`explore/cross-channel/${ch.id}${index >= 0 ? `?window=motif-${index + 1}` : ''}`) }}
@@ -339,7 +343,7 @@ function SignalBody({ ch }: { ch: Channel }) {
           <>
             <ErrorBoundary label="span tier">
               <SpanView ch={ch} vp={vp} plotRef={plotRef} width={plotSize.width} bands={bands} selected={sel} selectedLabel={selLabel} onBandClick={m => choose(m, false)}
-                nav={{ index, total: motifs.length, capped, prev, next }} legendOpen={popover === 'span-legend'} setLegendOpen={o => setPopover(o ? 'span-legend' : null)} demo={!!demo}
+                nav={{ index, total: motifs.length, capped, prev, next }} legendOpen={popover === 'span-legend'} setLegendOpen={o => setPopover(o ? 'span-legend' : null)} demo={fixture}
                 toggles={toggles} onToggle={flipToggle} bandNote={bandNote} />
             </ErrorBoundary>
             <ErrorBoundary label="motif tier">
@@ -350,7 +354,7 @@ function SignalBody({ ch }: { ch: Channel }) {
                 onSend={() => send(vp.view[0], vp.view[1], `${ch.name} · ${fmtRangeH(vp.view[0], vp.view[1])}`)} />
             </ErrorBoundary>
             <ErrorBoundary label="ribbons">
-              <Ribbons totals={totals} onOpen={openDrawer} demo={!!demo} />
+              <Ribbons totals={totals} onOpen={openDrawer} demo={fixture} />
             </ErrorBoundary>
           </>
         )}

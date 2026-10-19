@@ -34,6 +34,14 @@ export function SourcePage() {
         subtitle={fam ? `${fam.id} ${fam.name} · ${nScope} of ${fam.within} members in scope` : 'source block'}
         extra={<button className="btn ghost" onClick={() => navigate('analyse/interrogation/sequence')} data-testid="open-sequences" title="the steepest-slope rose across the events of one stored sequence">Sequences · slope rose →</button>} />
       <Page testid="interrogation-source">
+        {/* night-b: the read falls back to the first family; a link naming another one says so instead of swapping in silence */}
+        {block.data && !block.loading && familyId !== block.data.family.id && (
+          <div className="error-card" role="alert" data-testid="family-not-found" style={{ marginBottom: 10 }}>
+            <h3 style={{ margin: '0 0 4px' }}>No family “{familyId}” in the seed store</h3>
+            <div className="mono small">This address names a family the store does not hold; the page below shows {block.data.family.id}, the first family, instead.{' '}
+              <button type="button" className="ex-link" onClick={() => block.data && setQuery({ family: block.data.family.id })}>open {block.data.family.id} by name</button></div>
+          </div>
+        )}
         {block.error ? <LoadFailed what="the source block" error={block.error} onRetry={block.reload} />
           : !block.data ? <Loading what="the family" /> : <SourceBody block={block.data} />}
       </Page>
@@ -364,7 +372,7 @@ function SourceBody({ block }: { block: SourceBlock }) {
           </SectionCard>
 
           <SectionCard testid="provenance-card" title="Where this family came from"
-            actions={<Button variant="link" icon="external" onClick={() => navigate(`library/family?family=${fam.id}`)} testid="open-in-library">Open in Library →</Button>}>
+            actions={<Button variant="link" icon="external" onClick={() => navigate(`library/family/${encodeURIComponent(fam.id)}`)} testid="open-in-library">Open in Library →</Button>}>
             <div className="ig-prov">
               <div><Icon name="branch" size={13} />promoted from {fam.promotedFrom} · {fam.promotedOn}</div>
               {fam.exemplar && <div><Icon name="flag" size={13} />seeded by exemplar {fam.exemplar}</div>}

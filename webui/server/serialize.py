@@ -384,6 +384,9 @@ def _interval_classes(value, meta, fs, ss, sl):
             src = "|event amplitude|" if column == "event_amplitude_mv" else "|detector score|"
             words = (f"coloured by depth ({src}) in thirds of its range {lo:.3g} to {hi:.3g}: small, medium, large"
                      + ("" if fam is None else "; not by family, because not every event is in one"))
+        elif not n:
+            rule, cls, keys = "none", [], ["all"]
+            words = "nothing to colour: the span holds no event"
         else:
             rule, cls, keys = "none", ["all"] * n, ["all"]
             words = "nothing to colour by: no family on every event, and no depth or score measured"
