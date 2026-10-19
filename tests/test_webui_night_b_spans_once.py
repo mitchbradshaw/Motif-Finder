@@ -64,7 +64,7 @@ def test_the_whole_channel_reads_share_one_read():
     api = _src("api", "explore.ts")
     assert "getSpans(channelId, 0, ch.duration_s)" not in api
     assert "getSpans(referenceId, 0, ch.duration_s)" not in api
-    assert "getSpans(ch.id, 0, ch.duration_s)" not in _src("explore", "SignalPage.tsx")
+    # the first load shares; a re-read after a write is its own read (test_webui_night_b_critic.py)
     assert api.count("getWholeChannelSpans(") >= 2 and "export const getWholeChannelSpans" in api
     assert "getWholeChannelSpans" in _src("explore", "SignalPage.tsx")
 
