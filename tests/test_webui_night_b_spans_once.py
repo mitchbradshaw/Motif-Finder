@@ -30,7 +30,7 @@ def _run(body):
     assert os.path.isfile(COALESCE_TS), "webui/client/src/explore/coalesce.ts does not exist"
     url = "file:///" + COALESCE_TS.replace("\\", "/").lstrip("/")
     script = (f"import * as C from {json.dumps(url)};\n"
-              "let n = 0, fail = false; const read = async k => { n++; await null; if (fail) throw new Error('boom'); return k + ':' + n };\n"
+              "let n = 0, fail = false; const read = async k => { const i = ++n; await null; if (fail) throw new Error('boom'); return k + ':' + i };\n"
               "const once = C.coalesced(read);\n" + body + "\nprocess.stdout.write(JSON.stringify(out));\n")
     r = subprocess.run([node, "--no-warnings", "--input-type=module", "-e", script],
                        capture_output=True, text=True, timeout=60)
@@ -65,5 +65,5 @@ def test_the_whole_channel_reads_share_one_read():
     assert "getSpans(channelId, 0, ch.duration_s)" not in api
     assert "getSpans(referenceId, 0, ch.duration_s)" not in api
     assert "getSpans(ch.id, 0, ch.duration_s)" not in _src("explore", "SignalPage.tsx")
-    assert api.count("getWholeChannelSpans(") >= 3, "the shared reader and its two api/explore.ts callers"
+    assert api.count("getWholeChannelSpans(") >= 2 and "export const getWholeChannelSpans" in api
     assert "getWholeChannelSpans" in _src("explore", "SignalPage.tsx")

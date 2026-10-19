@@ -30,8 +30,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { DatasetName } from '../naming'
 import { ApiError, getSpans, type CrossDetrend } from '../api'
-import { useSourced } from '../api/seam'
-import { getCrossChannel, getSignalDemo, lookupChannel, type CrossRead, type XBin, type XRow } from '../api/explore'
+import { useSourced, type SourcedState } from '../api/seam'
+import { getCrossChannel, getSignalDemo, lookupChannel, type CrossRead, type SignalDemo, type XBin, type XRow } from '../api/explore'
 import { useCrossChannelJob } from '../library/CrossChannel'
 import { EnvelopePath } from '../charts/primitives'
 import { makeX } from '../charts/scale'
@@ -81,6 +81,9 @@ export function CrossChannelPage({ channelId }: { channelId: number }) {
   const [detrendQ] = useQueryState<string>('detrend', '')
   const detrendSel: CrossDetrend | null = detrendQ === 'none' || detrendQ === 'linear' || detrendQ === 'cubic' ? detrendQ : null
   const read = useSourced(() => getCrossChannel(channelId, pad === '60' ? 60 : 20, explicit, windowQ, edge, detrendSel), [channelId, pad, t0Q, t1Q, windowQ, edge, detrendSel])
+  // night-b: the detections chip's read starts beside the window's, so their identical whole-channel span reads are
+  // one (api/explore.ts::getWholeChannelSpans) instead of a second 2–5 s read after the page painted
+  const sig = useSourced(() => getSignalDemo(channelId), [channelId])
   const header = (subtitle: string, demo = true) => <Header workspace="Explore" page="Cross-channel" subtitle={subtitle} search="Search spans, runs, families" demo={demo} />
   if (look.error || read.error) return <>{header(`channel ${channelId} · error`)}<div className="page"><div className="page-inner"><ErrorCard error={asApiError(look.error ?? read.error)} title="demo read for Cross-channel failed" /></div></div></>
   if (look.loading || read.loading || !look.data) return <>{header(`channel ${channelId} · loading…`)}<div className="page"><div className="page-inner" data-testid="cross-loading"><div className="skeleton" style={{ height: 30, width: 480 }} /><div className="skeleton" style={{ height: 50 }} /><div className="skeleton" style={{ height: 440 }} /></div></div></>
@@ -104,10 +107,10 @@ export function CrossChannelPage({ channelId }: { channelId: number }) {
       </>
     )
   }
-  return <CrossBody key={channelId} data={read.data} />
+  return <CrossBody key={channelId} data={read.data} sig={sig} />
 }
 
-function CrossBody({ data }: { data: CrossRead }) {
+function CrossBody({ data, sig }: { data: CrossRead; sig: SourcedState<SignalDemo | null> }) {
   const toast = useToast()
   const ref = data.referenceId
   const [align, setAlign] = useQueryState<string>('align', 'recorded')
@@ -161,7 +164,6 @@ function CrossBody({ data }: { data: CrossRead }) {
   const subtitle = align === 'lag' ? `${refName} reference · lag-aligned` : `${refName} reference · ${rows.length} channel${rows.length === 1 ? '' : 's'}`
 
   // detections chip: the reference row's runs (the same picker state as Signal)
-  const sig = useSourced(() => getSignalDemo(ref), [ref])
   const runs = useMemo(() => pickerRuns(sig.data ?? null, null), [sig.data])
   const [pickerSt, setPickerSt] = useDemoState<PickerState | null>(`explore.signal.picker.${ref}`, () => null)
   const st = pickerSt ?? defaultPicker(sig.data ?? null, runs)

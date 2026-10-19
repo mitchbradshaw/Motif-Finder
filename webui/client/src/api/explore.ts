@@ -16,6 +16,7 @@ import {
 } from '../api'
 import { ANCHOR_RANK, CROSS_MAX_SPAN_S, anchorIndex, crossDetrendFor, orderSpans, resolveCrossWindow, spanLabel, windowParam, type CrossWindow } from '../explore/crossModel'
 import { demo, live, type Sourced } from './seam'
+import { coalesced } from '../explore/coalesce'
 import { ApiError } from '../api'   // edit-span: the span-edit routes' error contract
 import {
   SHORTCUTS, type AnnotationRow, type CanonChannelRef, type CorpusDemo, type CrossDemo, type DemoRun, type DetectionRow,
@@ -89,12 +90,17 @@ function detectionRow(d: Detection, fs: number, runs: Map<number, DemoRun>): Det
            score: d.score ?? 0, adjudication: 'unadjudicated', family: null }
 }
 
+const wholeSpans = coalesced((k: { id: number; dur: number }) => getSpans(k.id, 0, k.dur), k => `${k.id}|${k.dur}`)
+/** night-b: every span on a channel, the read the Signal page made twice at once (its data and its ‹ N / M › list)
+ *  and Cross-channel a third way — one read while one is in flight (`explore/coalesce.ts`), never cached past it. */
+export const getWholeChannelSpans = (id: number, durationS: number): Promise<Spans> => wholeSpans({ id, dur: durationS })
+
 /** Runs with methods and colours, plus the annotation / detection rows of the channel — live.
  *  Adjudications, families and the medoid have no live source yet (Prompts 03 and 05) and are empty. */
 export async function getSignalLive(channelId: number): Promise<Sourced<SignalDemo | null>> {
   if ((await locate(channelId)).state !== 'ok') return { data: null, source: 'live' }
   const ch = await getChannel(channelId)
-  const [runsRes, tags, spans] = await Promise.all([getRunsForFile(ch.source_file), getTags(channelId), getSpans(channelId, 0, ch.duration_s)])
+  const [runsRes, tags, spans] = await Promise.all([getRunsForFile(ch.source_file), getTags(channelId), getWholeChannelSpans(channelId, ch.duration_s)])
   const mine = runsRes.runs.filter(r => r.recording_id === channelId)
   const runs: DemoRun[] = mine.map((r, i) => ({ id: runId(r), name: runName(r), method: r.method, template: r.algorithms[r.algorithms.length - 1] ?? '', surrogate: isSurrogate(r), colour: RUN_COLOURS[i % RUN_COLOURS.length], count: r.n_detections }))
   const byId = new Map(mine.map((r, i) => [r.id, runs[i]]))
@@ -162,7 +168,7 @@ export async function getCrossChannel(referenceId: number, padS = 20, explicit?:
   detrendSel: CrossDetrend | null = null): Promise<Sourced<CrossRead | null>> {
   if ((await locate(referenceId)).state !== 'ok') return { data: null, source: 'live' }
   const ch = await getChannel(referenceId)
-  const raw = await getSpans(referenceId, 0, ch.duration_s)
+  const raw = await getWholeChannelSpans(referenceId, ch.duration_s)
   const spans = orderSpans(raw.annotations, raw.detections)
   const w = resolveCrossWindow({ spans, durationS: ch.duration_s, sel: windowSel, padS, explicit: explicit ?? null, edge })
   const detrend: CrossDetrend = detrendSel ?? crossDetrendFor(!!explicit, edge)
