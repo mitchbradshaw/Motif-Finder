@@ -302,8 +302,35 @@
  {
   "page": "discovery.seed",
   "state": "view-popover",
-  "hash": "discovery/seed?step=3&profile=1",
+  "hash": "discovery/seed?step=2&profile=1",
   "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"run-preview\"], [data-testid=\"seed-preview-in\"], [data-testid=\"cut-card\"]",
+     60000
+    ]
+   },
+   {
+    "click_if": "[data-testid=\"run-preview\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"seed-next-3\"], [data-testid=\"cut-card\"]",
+     240000
+    ]
+   },
+   {
+    "click_if": "[data-testid=\"seed-next-3\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"cut-card\"]",
+     30000
+    ]
+   },
+   {
+    "click_if": "[data-testid=\"profile-show\"]"
+   },
    {
     "wait_for": [
      "[data-testid=\"profile-view\"]",
@@ -322,7 +349,7 @@
    "[data-testid=\"view-apply\"]"
   ],
   "settle_ms": 900,
-  "_why": "seed-search: the distance profile is behind 'show the distance profile' in step 3 (?profile=1); needs the preview held (the walk's Smoke.seed_page_query)"
+  "_why": "seed-search: the distance profile is behind 'show the distance profile' in step 3 (?profile=1), and step 3 opens only with the draft's preview in hand. Integration fix: the full wave walk met the smoke draft with no preview for the page's query (step 2 'not run yet'), so the profile never drew; the state now runs the preview itself when it is missing, the way zzzzzzzzzzz_a1_seed_search's cut-card states do, and walks on to step 3"
  },
  {
   "page": "discovery.seed",
