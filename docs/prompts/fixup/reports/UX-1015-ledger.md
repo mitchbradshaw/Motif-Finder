@@ -364,3 +364,38 @@ state's budget.** Improvement: `explore.signal--default`, `explore.signal--live-
 B's one-read-per-open change. Critic on A: merge after three fixes (Ctrl-Z during an in-flight write undoes the
 previous item; a session-only class key on a seed-prior row counts it judged; a late flash on the next item) — sent
 back 01:20.
+
+**Night A merged 02:0x as e668995** (Review and Discovery; report `docs/prompts/changes/reports/night-a-report.md`;
+critic round c8fece9/60944b2: undo and redo refuse while a write is in flight, a prior verdict is shown but never
+counted as judged, the flash stays on its item). Gate on the merged tree: conda `test_night_a_review` + import
+boundaries (19 passed); venv `test_webui_night_a`, `test_webui_review`, `test_webui_discovery`,
+`test_webui_discovery_runlist`, `test_webui_ar_speed`, `test_perf_scoring_reads` (207 passed); tsc; build; eighteen
+units on a fresh 8766 of the final database (01:33–01:54, after `template scores warmed` 32.6 s): `review` 24 shots
+/ 3 fails (all baseline), and `ah_blind_test` 6, `review_carry` 3, `edit_span` 3, `a1_ar_speed` 3,
+`a1_polish_discovery` 2, `a2_p3_windows` 7, `zz_analyse_run_ac` 3, `zzz_surrogates` 5, `polish` 13 — all 0 fails;
+`a2_p4_seed`, `a2_p2_hpc`, `zzz_x_divergence` one baseline fail each. Strictly new, each explained: the four
+"names a smoke run the walk could not find" states (`ux1015_zal_send_one` ×3, `band_scope`) are the pages-only
+cascade (the flows create those runs); `discovery.seed--seed-search-after-the-preview-the-cut-card-is-open`
+(240 s wait) is the sweep budget again (01:38:53 → 01:43:24, 96 steps, then a 3,216-step cut sweep 01:44:10 →
+01:49:12); `discovery.runs--coverage-strip-on-every-run-row` (goto 90 s) **passes on the warm bridge** (cold
+timing; `/api/discovery/runs` 0.37 s warm, the map 3.3 s); `library.family--fixup-ad-classify-against-chance`
+ran while that cut sweep was still going and on the re-run had classified (`data-classified="yes"`) — the send
+button was disabled because the first run had already sent the queue (used sandbox).
+
+**A real defect found by those units, fixed on main (872ac75 red, then the fix): the seed page's cut card threw
+`RangeError: Maximum call stack size exceeded` inside the Discovery workspace** (`discovery.seed--fixup-ad-
+exclusion-zone-settable`, deterministic on the final database). Source-mapped to `SeedPage.tsx:576`:
+`Math.max(0, ...candidates, ...nullDistances)` — a 3,216-step cut sweep holds ~10^5 distances and spreading them
+into an argument list overflows the stack. `kit/extent.ts` (a loop; non-finite skipped) now serves the page's six
+spread sites; `tests/test_seed_page_extent.py` runs it under Node over 300,000 values and forbids a spread on the
+page. The wave's seed-search code, not the night agents' (A touched no seed file). About sixty other
+`Math.max(...xs)` sites remain in the client on bins, counts and per-channel lists (grep in the commit message) —
+a day item, the Discovery and Explore ones first. Browser console errors elsewhere tonight: two
+`net::ERR_INTERNET_DISCONNECTED` during B's `library` unit (a network blip, not code).
+Re-run of `zzzz_ad_suspected_artifact` and `zzzzzzzzzzz_a1_seed_search` on a fresh 8766 with the fix (02:04–02:12):
+**0 browser console errors** in both; the exclusion-zone state passes; `seed-search-the-strip-shows-four-steps` hit
+the 90 s goto budget inside the post-start window (the seed page re-reads the templates while the scorer warms —
+the known `seed_sources` class); `library.family--fixup-ad-classify-against-chance` failed again on the fresh copy
+although its `cross_channel` job completed in 5.5 s (02:06:19 → 02:06:24, 10 pairs across 8 channels, 55 members):
+the state paused a fixed 1.5 s after the flag line. **f21001b (states only): it waits for `data-classified="yes"`.**
+Main for the morning walk: f21001b (C 293a8fc, B d1bf8e4, A e668995, the extent fix 8dff9b0, this state).

@@ -86,3 +86,25 @@ None open (the Launch anchor and the Cross-channel cubic control were done by `u
 - The matrix-profile persist fix `fd0143b` (null draws overwrote the real run's `mp_v2_*.npz`) is on `claude/peaceful-sutherland-22bdf8`, not main — memory `mp-persist-null-collision`.
 - Unmerged local branches from other sessions: `claude/admiring-rubin-6854f1`, `claude/peaceful-sutherland-22bdf8`, `claude/wonderful-engelbart-da8936`.
 - The seven UX-1015 agent worktrees under `.claude/worktrees/` and the 8766 sandbox bridge are still in place (unlink any DATA junction with `cmd /c rmdir` before `git worktree remove`).
+
+## 2026-10-20 — the night pass's findings, reported and not fixed (reports in `docs/prompts/changes/reports/night-{a,b,c}-report.md`)
+
+Three break-it agents (A Review+Discovery, B Explore/Library/Analyse, C polish+load) on the scale fixture (16 channels
+× 721 h, 5.0 M detections, a 10 k queue); their fixes are on main (293a8fc, d1bf8e4, e668995). What they could not
+fix, ranked by how often the researcher's path crosses it; the per-item file:line is in each report.
+
+| item | measured | the fix as proposed | size |
+|---|---|---|---|
+| **Review queue open sends every row** (`GET /api/review/queues/{id}?thumbs=0`: 7.0 MB at 9,743 rows, 8.8–12.5 s cold in process, 7–17 s to the first candidate) | A, C | page the rows around the current item, or a slim row until one is opened (`webui/server/review.py:771`) | M |
+| **Explore › Signal waits for the whole channel's spans** before tier 2 (526 kB, 153 s on a loaded bridge; tier 2 at 33.7 s fresh) and `GET /api/channels/{id}` recomputes its ribbons every call (4.6 s in process) | B, C | read spans for the viewport (`api/explore.ts` `getSignalLive`), cache the ribbons by (recording, detections fingerprint) (`server/app.py:209`, `corpus.py:899`); Cross-channel has the same wait | M |
+| **The template scorer runs on a thread in the bridge**: every request 3–35× slower for the first 6–10 min after a start (`discovery.py` `_drain_scoring`) | A | score in a worker process, like the corpus map (`corpus-map-off-the-request`) | M |
+| **The cold scoreboard is 8 min at scale** (60 runs × 16 channels, ~7 s per run in `Working/discovery/scoreboard.py score_runs`); the warm scorer computes the same scores under a different cache key | A | one cache key for both; a worker | M |
+| `GET /api/discovery/map` (the Map overview) 11–15 s per call on the live bridge; `Working/discovery` levels 2/3 recompute per read | HPC session | the `compute(db_path)` worker pattern | M |
+| ~60 `Math.max(...xs)` / `Math.min(...xs)` spread sites in `webui/client/src` on bins, counts and per-channel lists (the seed page's six are fixed, 8dff9b0 — a 10^5-value spread is a stack overflow) | manager | `kit/extent.ts` at every site that can see a data-sized list: Discovery and Explore first | S |
+| The scale-bank seed preview is a 445 s sweep on the October database (`fixup-v-scale-bank-searches-every-length`); the walk's state waits 240 s | manager | the seed-search redesign's time estimate and the > 10 min SLURM route; the state's budget | S |
+| A family's cold open is still 5–19 s at scale (coherence draw; the library fingerprint counts 5 M detections, ~1 s) | B | — | M |
+| Signal's default run picker shows the three newest runs, so scratch Analyse runs hide the Discovery runs | B | a product decision (`explore/signalModel.ts:24`) | S |
+| `/api/runs?limit=1` is polled every 5 s on every page (`App.tsx`) — the one read that never stops | B, A | poll only while a run is live | S |
+| Review: an item whose prefetch is in flight still waits the 150 ms settle (`Inspector.tsx:69`); the blind-test page is chosen from the general queue read, whose rows carry earlier labels in the payload (`index.tsx:62,80`) | A's critic | `itemHeld()`; drop `verdict` for `source_kind == 'blind-test'` on the bridge | S |
+| Corpus counts read 0 while the map computes; 16 `/api/channels/<n>/tags` reads on open; Library › Templates 30 grey captions; Jobs and Training block 2 shift after first paint; Settings › Channels & events defaults to the fixture recording (a console error per open); the global search pill is dead outside Settings | C, B | each a one-liner in C's table | S |
+| `create_queue` accepts an empty detection set; the "where each run fires" card shrinks 73 px after its read lands | A | — | S |
