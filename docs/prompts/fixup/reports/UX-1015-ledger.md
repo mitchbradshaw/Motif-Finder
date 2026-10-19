@@ -273,3 +273,14 @@ seconds, span 635.9 h, dt 0.124/0.138/2.83 s); the **L_LM parent link was REFUSE
 0.73/0.79/0.99, 0.70/0.63/0.51 — L_LM is not a plain ×1000 resample; question Q47 to the researcher. SH/SO at
 17,280,001 × 4 and F2B at 5,184,001 × 5 infer 10 Hz from the sample count (V, V, mV); L_R_Aug_26_PD_raw refused
 (3,851,550 samples, no round rate; the time axis is a MATLAB `duration` object) — question Q48. CO and LM skipped.
+
+**Wave re-gate, `changes/integration` ddac35f (17:43–18:56, box idle, no network errors): 790 screenshots, 38
+failures** (`wave2_fails.txt`) — against the morning baseline 7 not in it and 32 of its failures passing; against the
+afternoon baseline 3 not in it and 42 passing; against the wave's own first walk 5 new and 25 fixed. Strictly new
+against all three: `explore.signal--fixup-y-take-span-is-a-seed` (no `seed-option-explore:` in the seed picker after a
+span is taken in Explore), `review.inspector--fixup-y-seed-names-the-entry` (no promotion panel naming the seed) — one
+path, the Explore seed → Discovery seed picker → Review promotion, plausibly explore-review's queue/source change —
+and `library.atlas--fixup-ae-floor-on-by-default` (0 traces measured, hidden-count missing). `a2-p3 window card` and
+`a2-p4 restore` fail in earlier walks too. Merge aborted; the three states sent to the other session for a branch fix;
+re-gate with the `seed_sources`, `zzzz_ae_library_view`, `explore` and `review` units instead of a fourth full walk,
+unless the fix touches shared code.
