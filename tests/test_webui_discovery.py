@@ -207,6 +207,51 @@ def test_an_unknown_channel_name_is_a_404_that_lists_the_real_ones(client):
     assert CH[0] in r.json()["detail"]["channels"]
 
 
+def test_another_recording_opens_its_own_session_and_coming_back_finds_the_first(client, tmp_path):
+    """A change of recording in Scope used to relabel the one session in place: every run made on the old
+    recording was then listed under the new one, and the RQ4 adopt (which files a job into the newest session on
+    its recording) could only be reached by moving the M2_aug session and its 52 runs onto another file. Each
+    recording now has its own session: the switch opens it (made on first use), the first keeps its recording and
+    its runs, and switching back opens the first again."""
+    other = tmp_path / "other.npy"
+    np.save(other, _planted(5))
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    conn.execute("INSERT INTO recordings (source_file, channel, fs, n_samples, global_offset, npy_path) "
+                 "VALUES ('other.mat', 0, ?, ?, 0, ?)", (FS, N, str(other)))
+    conn.commit()
+    conn.close()
+    _apply(client)
+    first = client.get("/api/discovery/session").json()["session"]
+    runs_first = [r["key"] for r in client.get("/api/discovery/runs").json()]
+    assert len(runs_first) == 2                                      # the human row and the run
+
+    moved = client.put("/api/discovery/session", json={"recording": "other", "channels": ["CH1"],
+                                                        "section": [0.0, 1.0]})
+    assert moved.status_code == 200, moved.text
+    s = moved.json()["session"]
+    assert s["recording"] == "other" and s["channels"] == ["CH1"] and s["sectionSamples"] == [0, 3600]
+    assert s["id"] != first["id"]
+    assert len(client.get("/api/discovery/runs").json()) == 1        # only the human row: the run is not this one's
+
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    try:
+        assert conn.execute("SELECT source_file FROM discovery_sessions WHERE id = ?",
+                            (first["id"],)).fetchone()[0] == "syn.mat"
+    finally:
+        conn.close()
+
+    back = client.put("/api/discovery/session", json={"recording": "syn"})
+    assert back.status_code == 200, back.text
+    b = back.json()["session"]
+    assert b["id"] == first["id"] and b["name"] == first["name"]
+    assert b["channels"] == first["channels"] and b["sectionSamples"] == first["sectionSamples"]
+    assert [r["key"] for r in client.get("/api/discovery/runs").json()] == runs_first
+    assert client.get("/api/discovery/session").json()["session"]["id"] == first["id"]   # and it stays open
+
+    again = client.put("/api/discovery/session", json={"recording": "other"}).json()["session"]
+    assert again["id"] == s["id"] and again["channels"] == ["CH1"]   # the second is found, not made twice
+
+
 # ── held out, on every door ─────────────────────────────────────────────────
 
 def test_the_held_out_recording_is_refused_by_the_scope(client):
