@@ -119,7 +119,7 @@ export function BuildSequences({ onKept }: { onKept: (r: LibSeqKeep) => void }) 
         <div className="stack" style={{ gap: 8, marginTop: 12 }} data-testid="build-sequences-preview-result">
           <span className="lib-cap" data-testid="build-sequences-summary">
             {preview.recording} · {preview.channel} · {fmtInt(preview.nMembers)} labelled members (labels from grouping {preview.motifGrouping ?? '—'})
-            {' → '}{fmtInt(preview.sequences.length)} sequences in {fmtInt(preview.families.length)} label chains · {preview.ruleWords}
+            {' → '}{fmtInt(preview.sequences.length)} sequence{preview.sequences.length === 1 ? '' : 's'} in {fmtInt(preview.families.length)} label chain{preview.families.length === 1 ? '' : 's'} · {preview.ruleWords}
           </span>
           {preview.note && <span className="lib-cap" data-testid="build-sequences-note">{preview.note}</span>}
           {!!preview.families.length && (
