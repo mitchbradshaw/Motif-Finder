@@ -41,7 +41,7 @@ not-interesting + artifact, grey unsure) and Q46 (F2B included), so the three pr
 | 11 | `library-family-actions.md` — pick a trace; cluster → slideshow in place; the rose reference | M | — | ready |
 | 12 | `datasets-derive.md` — MJu26a_fs10 as L_LM's parent; CO, LM, SH, SO, F2B, L_R_Aug_26_PD_raw into derived | M | manager runs the scripts | ready (L_R rate must be read or stated) |
 | 13 | `polish-pass.md` — less grey, fewer warnings, one palette, the add-block "about" card | L, one commit per page | 6, 7, 10 merged | ready |
-| 14 | `corpus-map-off-the-request.md` — the home page serves its last map at once; the recompute runs in a worker process (speed second pass, item 1) | M | AR merged | running (WEBSITE CHANGES session, 2026-10-19) |
+| 14 | `corpus-map-off-the-request.md` — the home page serves its last map at once; the recompute runs in a worker process (speed second pass, item 1) | M | AR merged | **merged 43ee443 (2026-10-19)**; its state passes on real data; the explore unit + daily walk followed |
 
 **AR (the speed pass) merged 2026-10-18 as 5a20070** — the "AR merged" dependencies above are satisfied; base on
 5a20070 or later. A second session ("Prompt manager and examiner") runs these prompts; the two sessions agreed on
