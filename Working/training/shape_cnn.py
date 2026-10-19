@@ -95,12 +95,12 @@ def model_label(recipe):
     return s + (" · smoke" if recipe.get("smoke") else "")
 
 
-def make_recipe(pool_ref, template, *, encoding=DEFAULT_ENCODING, cnn=None, smoke=None):
+def make_recipe(pool_ref, template, *, encoding=DEFAULT_ENCODING, cnn=None, smoke=None, drop_source=None):
     """The B.2 CNN recipe: the forest's pool, template, shape, cluster, arm and exams; the CNN in place of the forest."""
     from Working.training import shape_forest as sf
     if encoding not in ENCODINGS:
         raise ValueError(f"encoding {encoding!r}: one of {', '.join(ENCODINGS)} (fusion first)")
-    base = sf.make_recipe(pool_ref, template)            # refuses an unmapped cut, as the forest does
+    base = sf.make_recipe(pool_ref, template, drop_source=drop_source)   # refuses an unmapped cut, as the forest does
     bad = set(cnn or {}) - CNN_KEYS
     if bad:
         raise ValueError(f"unknown CNN setting(s) {sorted(bad)}: one of {sorted(CNN_KEYS)}")

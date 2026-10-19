@@ -168,6 +168,7 @@ export function ShapeView({ p }: { p: PoolPayload }) {
       <div className="callout small" data-testid="shape-options" data-align={s.align ?? 'grid'} data-anchor={s.anchor_frac == null ? '' : s.anchor_frac.toFixed(2)}>
         <b>align · {s.align ?? 'grid'}</b> — {s.align_rule ?? 'the window as the pool cut it'} · <b>detrend · {s.detrend ?? 'off'}</b> — {s.detrend_rule ?? 'the trace as it is'}
         {s.align && s.align !== 'grid' && s.swing_rule ? <InfoTip title="The swing">{s.swing_rule}</InfoTip> : null}
+        {s.alignment_from ? <div className="row" style={{ marginTop: 3, gap: 6 }} data-testid="shape-for-drops" data-for-drops={s.for_drops ? 'on' : 'off'}><span className={`chip ${s.for_drops ? 'amber' : 'blue'}`} style={{ height: 20, fontSize: 10 }}>{s.for_drops ? 'for drops · on' : 'for drops · off'}</span><span className="muted">{s.alignment_from}</span></div> : null}
         {s.align && s.align !== 'grid' && s.anchor_frac != null ? <div className="row" style={{ marginTop: 3, gap: 6 }} data-testid="shape-anchor"><b>anchor · {s.anchor_frac.toFixed(2)}</b>{s.anchor_frac === 0.5 ? ' (the middle)' : ''}<InfoTip title="The anchor">{s.anchor_rule ?? 'Where in the re-cut window the aligned sample lands.'}</InfoTip></div> : null}
       </div>
       {s.align && s.align !== 'grid' && s.recut && (

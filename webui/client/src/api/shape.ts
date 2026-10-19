@@ -51,6 +51,8 @@ export interface ShapeInfo {
   align?: 'grid' | 'centre' | 'peak' | 'trough'; detrend?: 'off' | 'linear'; align_rule?: string; detrend_rule?: string; swing_rule?: string
   /** fixup-am: where in the re-cut window the aligned sample lands (0.5 = the middle); null on the grid */
   anchor_frac?: number | null; anchor_rule?: string
+  /** ux-1019: the block's 'for drops' switch and where the alignment came from, in words (core resolve_alignment) */
+  for_drops?: boolean; alignment_from?: string
   recut?: { n_moved: number; n_clamped: number; n_pinned_by_artifact: number; n_near_duplicate: number; n_overlap_within_scale: number
     by_scale: Record<string, { moved: number; clamped: number; near_duplicate: number }>; rule: string }
   peak_frac_hist?: HistData | null; peak_frac_by_scale?: Record<string, HistData | null>
@@ -124,7 +126,9 @@ export interface B2Setup {
   arm: { name: string; label: string; k: number; mapping: { k: number | null; clusters: Record<string, MappingEntry> }; read_only: boolean; mapping_state: string; where: string }
   shape: { align: string; detrend: string; resample_length: number; noise_floor: boolean
     /** ux-1019: where in the window the aligned sample lands (null on the grid) and the researcher's drop-work setting */
-    anchor_frac?: number | null; drop_default?: { align: string; anchor_frac: number } }
+    anchor_frac?: number | null; drop_default?: { align: string; anchor_frac: number }
+    /** ux-1019: the 'for drops' switch as the chain carries it, and where the alignment came from (core resolve_alignment) */
+    for_drops?: boolean; for_drops_mode?: 'auto' | 'on' | 'off'; alignment_from?: string }
   cluster: { sample: number; seed: number }
   inputs: { features: string; stages: string[]; rule: string }
   frozen: Frozen | null; checks: B2Check[]; defaults: { n_estimators: number; class_weight: string; random_state: number }

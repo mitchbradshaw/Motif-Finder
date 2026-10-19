@@ -1,0 +1,16 @@
+[
+ {
+  "page": "models.launch",
+  "state": "ux1019-launch-names-the-for-drops-switch",
+  "hash": "models/results",
+  "settle_ms": 2500,
+  "_why": "ux-1019 (the researcher, 2026-10-19: trough a third in, with a 'for drops' switch): Launch opened on AH's B.2 template and pool (via Results > train a CNN on this, as zzzzzzzz_ai's state) shows the switch as the chain carries it and where the alignment came from. AH's chain leaves the switch off, so it reads off with centre at the middle; walk after zzzzzzz_ah_* and zzzzzzzz_ai_*",
+  "actions": [
+   {"wait_for": ["[data-testid^=\"b2-launch-cnn-\"]", 60000]},
+   {"click": "[data-testid^=\"b2-launch-cnn-\"]"},
+   {"wait_for": ["[data-testid=\"b2-for-drops\"]", 60000]}
+  ],
+  "expect": ["[data-testid=\"b2-for-drops\"][data-for-drops=\"off\"]", "[data-testid=\"b2-shape-line\"][data-align=\"centre\"]",
+             "[data-testid=\"b2-anchor-rule\"]"]
+ }
+]
