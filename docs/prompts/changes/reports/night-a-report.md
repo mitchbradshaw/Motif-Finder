@@ -61,7 +61,6 @@ small ones are fixed; the big ones are listed with a one-line reproduction.
 | 20 | Discovery | The template picker on a fresh bridge shows "scoring…" on 60 templates; ~4 land per 30 s (≈8 min to clear); it never blocks (paints in 55 ms) and re-reads every 3 s meanwhile | reported (by design; see #13) | `discovery/AddTemplateModal.tsx:39` |
 | 21 | Review | `POST /api/review/queues` accepts `detection_ids: []`: a queue that can never hold anything | reported | `Working/review/queues.py` create_queue |
 
-\* #4's commit is `night-a: a scoreboard read shares one fingerprint memo across its runs` (see the commit list).
 
 What held: no card ever showed an item other than the hash's (40 fast presses, sampled every press); a verdict
 on an overlap set wrote every member, the class key stored `burst` on both, and Ctrl Z removed exactly them; undo
