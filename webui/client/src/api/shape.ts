@@ -128,7 +128,7 @@ export interface B2Setup {
     /** ux-1019: where in the window the aligned sample lands (null on the grid) and the researcher's drop-work setting */
     anchor_frac?: number | null; drop_default?: { align: string; anchor_frac: number }
     /** ux-1019: the 'for drops' switch as the chain carries it, and where the alignment came from (core resolve_alignment) */
-    for_drops?: boolean; alignment_from?: string }
+    for_drops?: boolean; for_drops_mode?: 'auto' | 'on' | 'off'; alignment_from?: string }
   cluster: { sample: number; seed: number }
   inputs: { features: string; stages: string[]; rule: string }
   frozen: Frozen | null; checks: B2Check[]; defaults: { n_estimators: number; class_weight: string; random_state: number }

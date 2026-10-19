@@ -148,3 +148,34 @@ everything else, it is the largest swing, placed in the middle.
     52bee1f ux-1019: a "for drops" switch on Trace shape, resolved once in the core for Analyse and Launch (AM)
     643270d ux-1019: smoke state for Launch's for-drops line; RQ1 records the switch
     (+ this report's commit)
+
+## Critic round
+
+**In plain words.** You asked for the drop setting to switch itself on. The build said it could not, because
+nothing in a chain says "this is drop work". There is a clue after all. When you save a window set from an Analyse
+chain, the set remembers the chain that made it. A set cut from Drop detection's events therefore says, on disk,
+"I came from drop detections". Every window in a pool also remembers which set it came from. So the switch now has
+three positions:
+
+- **auto** (the new default): on when every window set in the pool was made from drop detections, otherwise off;
+- **on** / **off**: force it either way, as you asked.
+
+A pool of grid windows reads exactly as before (auto resolves to off, centre at the middle), so nothing already
+built changes. A pool that mixes drop sets with grid sets stays off, and the page says "only 1 of 3 window sets
+were made from drop detections". Today probably no pool is made from drop sets. Auto turns on by itself the first
+time one is (Analyse: ... -> Drop detection -> Event windows -> Save window set, then pool those sets).
+
+**Findings**
+
+| # | Severity | Where | Finding | Status |
+|---|---|---|---|---|
+| 1 | should-fix | `Working/training/shape.py` `resolve_alignment`; report section 1 | "Not automatic" was wrong: a window set saved from an Analyse step keeps its full recipe in `manifest.json` (`webui/server/training_routes.py` `write_window_set`), `catalogue.event_windows` turns Drop detection's spans into a WindowSet, `pool.set_windows` accepts such a one-channel set, and every pool window carries `set_id`. The default could not follow the researcher's "automatically", and a bool switch cannot "force it either way". | FIXED: `for_drops` is now `auto` / `on` / `off` (default auto). The new `shape.drop_source(conn, set_ids)` counts the member sets whose recipe holds `drop_detection`. `resolve_alignment(params, source)` stays the one resolver. The block reads its frame's `set_id`s; Launch, the forest recipe and the CNN recipe read the pool's (`shape_forest.pool_drop_source`). |
+| 2 | note | `resolve_alignment` | The rule "explicit = differs from the default" stays. With a three-way switch, the one case it could not express (centre at 0.5 on a drop pool) is now `off`. The rule is written on the card's description and in the docstring. Making align/anchor read-only would mean a client-side change to the parameter form for little gain. | KEPT |
+| 3 | ok | cache / identity | The shape key and the B.2 recipe carry the resolved align/anchor. Auto on a non-drop pool resolves to centre/0.5, so the key and recipe are bit for bit the same as before. This is pinned: `test_launch_and_the_recipe_follow_the_pool_source_alike` asserts the plain recipe's `shape` dict exactly. The step cache sees the pool key, and the pool key includes its members' keys, so auto is deterministic per pool. | OK |
+| 4 | ok | rules | The first commit (`29f682b`) holds only tests and was red. The ParamSpec is a str with choices. The manual table was regenerated, `--check` is clean and `version.tex` was left alone. The smoke state still holds: AH's grid pool resolves auto to off, so `data-for-drops="off"` and `data-align="centre"` are still true. | OK |
+
+**Files (critic):** `Working/training/shape.py`, `Adapters/preprocessing_trace_shape.py`,
+`Working/training/shape_forest.py`, `Working/training/shape_cnn.py` (a `drop_source` keyword),
+`webui/server/shape_routes.py` and `webui/server/cnn_routes.py` (pass the pool's source),
+`webui/client/src/analyse/captions.ts`, `webui/client/src/models/B2Launch.tsx` and `webui/client/src/api/shape.ts`
+(`for_drops_mode`), the regenerated `trace_shape.tex`, and the tests.
