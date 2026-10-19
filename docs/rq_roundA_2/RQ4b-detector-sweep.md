@@ -670,3 +670,25 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
     live bridge. The Map's overview takes 11–15 s, as it already did on the pre-import backup (14.3 / 10.8 s then,
     14.6 / 11.9 s now).
   - Not yet read for RQ4.
+- 2026-10-20 · batch 2, imported · the complete jobs only, 07:07–07:48, through 8765 (main 548f5fc), the same way:
+  a session per recording, then Discovery back on M2_aug.
+  - **93 of 125 jobs:** M2_concat 39 of 43 and M4_aug 40 of 43 (the 60-minute CNN jobs the full disk cut short are
+    out), and L_LM at 10 Hz 14 of 39 (its CPU pack was held for space and replaced by batch 3's 2 Hz copy). The 32
+    incomplete jobs are not registered, so no half-run job waits in Discovery; their returned caches (4.4 GB) are
+    kept, so they can still be adopted if the cluster finishes them.
+  - **Sessions:** 6 `M2_concat_fs1_rq4` (42 runs: 39 + the three matrix-profile copies), 7 `M4_aug_concat_fs1_rq4`
+    (43), 8 `L_LM_Jul_26_J_raw_rq4` (14; no matrix profile at 10 Hz). No job failed or was refused.
+  - **M4_aug is the held-out exam (RQ1b):** imported with the lock off, as decided for batch 2. Its runs are for
+    the Map and the detector comparison only; keep them out of Review promotions and *Add N matches*.
+  - **Against the cluster:** 90 of 93 jobs have exactly the cluster's detection count; the three BEADs jobs differ
+    by one or two (M2_concat `delta_mv_5` 2,932 against 2,930 and `delta_mv_25` 592 against 593; M4_aug `delta_mv_5`
+    844 against 845), as in batches 1 and 3.
+  - **`mp_threshold` at 10 finds nothing on M2_concat and M4_aug** (0 spans); at 6 it finds 26,434 and 59,560. On the
+    2 Hz batch 3 recordings, 10 finds 23–42 k. As on M2_aug at 8, the threshold sits above the whole-signal
+    profile's distances at 1 Hz.
+  - **Size:** the database grew from 511 MB to 736 MB, and the step cache from 9.2 to 15 GB. The returned copies
+    the step cache now holds (batch 2 20 GB, batch 3 11.7 GB) were deleted here, each checked by byte count; every
+    `result.json` is kept.
+  - **Pages:** every Discovery route on the three new sessions answers 200 in 0.2–6 s. The Map's overview now takes
+    17–21 s on every call (11–15 s before batch 2): it grows with the number of Discovery runs (289).
+  - Not yet read for RQ4.
