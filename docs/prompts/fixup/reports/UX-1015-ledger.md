@@ -399,3 +399,5 @@ the known `seed_sources` class); `library.family--fixup-ad-classify-against-chan
 although its `cross_channel` job completed in 5.5 s (02:06:19 → 02:06:24, 10 pairs across 8 channels, 55 members):
 the state paused a fixed 1.5 s after the flag line. **f21001b (states only): it waits for `data-classified="yes"`.**
 Main for the morning walk: f21001b (C 293a8fc, B d1bf8e4, A e668995, the extent fix 8dff9b0, this state).
+`zzzz_ad_suspected_artifact` with f21001b on a fresh 8766 (02:14–02:15): 7 screenshots, **0 failures**, 0 console
+errors. Box quiet from 02:16; the 8766 sandbox stopped; the full walk starts at ~05:53 on a fresh copy.
