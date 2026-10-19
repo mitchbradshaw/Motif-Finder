@@ -118,6 +118,8 @@ function SignalBody({ ch }: { ch: Channel }) {
   const [lastTab, setLastTab] = useDemoState<DrawerTab>('explore.signal.lastTab', () => 'annotations')
   const demoRead = useSourced(() => getSignalDemo(ch.id), [ch.id])
   const demo = demoRead.data ?? null
+  // night-b: `demo` is the LIVE read under its old name; the chips say demo only when the read's source does
+  const fixture = demoRead.source === 'demo'
 
   const initial = useCallback((): [number, number] => {
     if (explore.channelId === ch.id && explore.view) return explore.view
@@ -294,7 +296,7 @@ function SignalBody({ ch }: { ch: Channel }) {
 
   return (
     <>
-      <Header workspace="Explore" page="Signal" subtitle={subtitle} search="Search spans, runs, families" demo={!!demo} />
+      <Header workspace="Explore" page="Signal" subtitle={subtitle} search="Search spans, runs, families" demo={fixture} />
       <div className="page"><div className="page-inner ex-signal">
         <TopBar channelId={ch.id} file={ch.source_file} name={ch.name} extra={<>
           <span className="ex-topbar-seg"><Seg size="sm" value="signal" onChange={v => { if (v === 'cross') navigate(`explore/cross-channel/${ch.id}${index >= 0 ? `?window=motif-${index + 1}` : ''}`) }}
@@ -340,7 +342,7 @@ function SignalBody({ ch }: { ch: Channel }) {
           <>
             <ErrorBoundary label="span tier">
               <SpanView ch={ch} vp={vp} plotRef={plotRef} width={plotSize.width} bands={bands} selected={sel} selectedLabel={selLabel} onBandClick={m => choose(m, false)}
-                nav={{ index, total: motifs.length, capped, prev, next }} legendOpen={popover === 'span-legend'} setLegendOpen={o => setPopover(o ? 'span-legend' : null)} demo={!!demo}
+                nav={{ index, total: motifs.length, capped, prev, next }} legendOpen={popover === 'span-legend'} setLegendOpen={o => setPopover(o ? 'span-legend' : null)} demo={fixture}
                 toggles={toggles} onToggle={flipToggle} bandNote={bandNote} />
             </ErrorBoundary>
             <ErrorBoundary label="motif tier">
@@ -351,7 +353,7 @@ function SignalBody({ ch }: { ch: Channel }) {
                 onSend={() => send(vp.view[0], vp.view[1], `${ch.name} · ${fmtRangeH(vp.view[0], vp.view[1])}`)} />
             </ErrorBoundary>
             <ErrorBoundary label="ribbons">
-              <Ribbons totals={totals} onOpen={openDrawer} demo={!!demo} />
+              <Ribbons totals={totals} onOpen={openDrawer} demo={fixture} />
             </ErrorBoundary>
           </>
         )}
