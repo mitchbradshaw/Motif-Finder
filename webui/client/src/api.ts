@@ -77,6 +77,12 @@ export interface CoverageRow {
 export interface Coverage {
   source_file: string; fs: number; n_samples: number; duration_h: number; bins: number; bin_h: number; bin_edges_h: number[]
   rows: CoverageRow[]; verdict_counts: Record<string, number>; n_detection_runs: number; held_out: boolean; compute_ms: number
+  /** corpus-map-off-the-request: the last map, served while the worker recomputes it (the state changed since) */
+  stale?: boolean
+  /** when the newer state was first seen (UTC, ISO 8601); set with `stale` */
+  stale_since?: string
+  /** no map was computed for this question yet: the shape with empty layers, while the worker computes the first */
+  pending?: boolean
 }
 export interface Ribbons { buckets: number; bucket_s: number; coverage: (string | null)[]; detection_density: number[] }
 export interface Channel {

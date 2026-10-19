@@ -355,15 +355,23 @@ def test_the_scoreboard_scores_only_the_channels_it_shows(bridge, monkeypatch):
 # ── Corpus ──────────────────────────────────────────────────────────────────
 
 def test_the_coverage_map_survives_a_restart_and_ignores_unrelated_settings(bridge, monkeypatch, tmp_path):
+    """corpus-map-off-the-request changed how a miss shows, not what is kept: the route never computes, so a miss is
+    `pending` (no map yet) or `stale` (the last map, marked) while the worker recomputes; "recomputed" is now counted
+    by the worker (`coverage_status()["computed"]`) instead of by a monkeypatched `_coverage`, which the worker
+    process cannot see."""
     client, rt, info = bridge
     sf = perf_fixture.SOURCE_FILE
     url = f"/api/corpus/{sf}/coverage?bins=57&verdicts=seed,interesting"
+    corpus.reset_coverage_worker()
+    corpus.clear_coverage_cache()
+    for f in os.listdir(rt.cache_dir + "/coverage") if os.path.isdir(rt.cache_dir + "/coverage") else []:
+        os.remove(os.path.join(rt.cache_dir, "coverage", f))
+    assert client.get(url).json().get("pending") is True
+    assert corpus.wait_coverage_idle(300)
     first = client.get(url).json()
+    assert "pending" not in first and "stale" not in first
     corpus._COVERAGE_CACHE.clear()                      # a restart: the memory is gone, the disk is not
-
-    def boom(*a, **kw):
-        raise AssertionError("recomputed: the map was not read back from disk")
-    monkeypatch.setattr(corpus, "_coverage", boom)
+    computed = corpus.coverage_status()["computed"]
     again = client.get(url).json()
     assert {**again, "compute_ms": 0} == {**first, "compute_ms": 0}
     assert any(f.endswith(".json") for f in os.listdir(rt.cache_dir + "/coverage"))
@@ -373,16 +381,87 @@ def test_the_coverage_map_survives_a_restart_and_ignores_unrelated_settings(brid
     c.execute("INSERT OR REPLACE INTO settings (page, key, value_json, updated_at) "
               "VALUES ('appearance', 'theme', '\"dark\"', 'now')")
     c.commit()
-    assert client.get(url).status_code == 200
+    assert "stale" not in client.get(url).json()
     corpus._COVERAGE_CACHE.clear()
-    assert client.get(url).status_code == 200
-    # a setting it does read: a miss
+    assert "stale" not in client.get(url).json()
+    assert corpus.wait_coverage_idle(300)
+    assert corpus.coverage_status()["computed"] == computed, "an unchanged map was recomputed"
+    # a setting it does read: a miss — served stale at once, recomputed behind the read
     c.execute("INSERT OR REPLACE INTO settings (page, key, value_json, updated_at) "
               "VALUES ('analysis-defaults', 'iou', '0.33', 'now')")
     c.commit()
     c.close()
-    with pytest.raises(AssertionError, match="recomputed"):
+    stale = client.get(url).json()
+    assert stale.get("stale") is True and stale.get("stale_since")
+    assert corpus.wait_coverage_idle(300)
+    assert corpus.coverage_status()["computed"] == computed + 1
+    assert "stale" not in client.get(url).json()
+
+
+def _set_iou(rt, value):
+    c = sqlite3.connect(rt.db_path)
+    c.execute("INSERT OR REPLACE INTO settings (page, key, value_json, updated_at) "
+              "VALUES ('analysis-defaults', 'iou', ?, 'now')", (json.dumps(value),))
+    c.commit()
+    c.close()
+
+
+def test_the_coverage_route_answers_at_once_and_never_computes_in_the_bridge(bridge, monkeypatch):
+    """corpus-map-off-the-request: after a change the map reads, the route answers the last map at once, marked
+    stale, and the bridge's own interpreter computes nothing — the worker process does. The read's `compute_ms` is
+    the read's own time."""
+    import time
+
+    from Working.discovery import coverage_map as CM
+    client, rt, info = bridge
+    url = f"/api/corpus/{perf_fixture.SOURCE_FILE}/coverage?bins=57&verdicts=seed,interesting"
+    client.get(url)
+    assert corpus.wait_coverage_idle(300)
+    fresh = client.get(url).json()
+    assert "pending" not in fresh
+
+    def boom(*a, **kw):
+        raise AssertionError("the request computed the corpus map in the bridge")
+    monkeypatch.setattr(corpus, "_coverage", boom)
+    monkeypatch.setattr(CM, "compute_conn", boom)
+    _set_iou(rt, 0.41)
+    try:
+        t0 = time.perf_counter()
+        got = client.get(url)
+        took = time.perf_counter() - t0
+        assert got.status_code == 200, got.text
+        body = got.json()
+        assert body.get("stale") is True and body.get("stale_since")
+        assert {k: v for k, v in body.items() if k not in ("stale", "stale_since", "compute_ms")} == \
+            {k: v for k, v in fresh.items() if k != "compute_ms"}
+        assert took < 5.0, f"a stale read took {took:.1f} s: it waited on something"
+        assert corpus.wait_coverage_idle(300)
+        assert corpus.coverage_status()["mode"] == "process"
+        assert "stale" not in client.get(url).json()
+    finally:
+        _set_iou(rt, 0.5)
         client.get(url)
+        corpus.wait_coverage_idle(300)
+
+
+def test_a_failed_recompute_reaches_the_page_as_a_loud_error(bridge, monkeypatch):
+    client, rt, info = bridge
+    url = f"/api/corpus/{perf_fixture.SOURCE_FILE}/coverage?bins=28"
+    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+    corpus.reset_coverage_worker()
+
+    def broken(*a, **kw):
+        raise ValueError("the divergence could not be read")
+    monkeypatch.setattr(corpus, "_coverage", broken)
+    corpus.clear_coverage_cache()
+    for f in os.listdir(rt.cache_dir + "/coverage") if os.path.isdir(rt.cache_dir + "/coverage") else []:
+        os.remove(os.path.join(rt.cache_dir, "coverage", f))
+    assert client.get(url).json().get("pending") is True
+    assert corpus.wait_coverage_idle(300)
+    # the test client re-raises what the app's loud handler turns into a 500 with the sentence (app.py `_loud`)
+    with pytest.raises(corpus.CoverageFailed, match="could not be computed.*the divergence could not be read"):
+        client.get(url)
+    corpus.reset_coverage_worker()
 
 
 def test_the_background_scorer_yields_to_the_pages_between_templates(monkeypatch):
