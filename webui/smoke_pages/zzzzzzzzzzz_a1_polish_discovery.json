@@ -1,0 +1,3 @@
+[
+ {"page": "discovery.seed", "state": "polish-seed-steps-grey-at-most-12", "hash": "discovery/seed?step=1", "settle_ms": 2500, "_why": "polish (2026-10-19): the four-step Seed page's right column (step strip + the open step's card) shows at most 12 grey (.muted) nodes; the seed card's 'type Signal span' caption moved into its info tip; match and picker metadata read as data (.k-meta), not grey captions", "actions": [{"wait_for": ["[data-testid=\"seed-card\"]", 30000]}], "expect": ["[data-testid=\"seed-card\"]"], "expect_absent": [":nth-match([data-testid=\"discovery-seed-page\"] .dsc-right .muted, 13)"]}
+]

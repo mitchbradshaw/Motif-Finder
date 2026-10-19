@@ -12,7 +12,7 @@ import { axisUnit } from '../charts/units'
 import { DatasetName } from '../naming'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Button, Callout, Checkbox, CodeBlock, Dropdown, EmptyState, Icon, InfoTip, Modal, NumberField, Pager, Popover, ProgressBar, RadioCards, RangeSlider,
+  About, Button, Callout, Checkbox, CodeBlock, Dropdown, EmptyState, Icon, InfoTip, Modal, NumberField, Pager, Popover, ProgressBar, RadioCards, RangeSlider,
   Seg, SelectField, Slider, TextField, cx, recordDemoWrite, useDemoState, useQueryState,
 } from '../kit'
 import { Header } from '../shell/Header'
@@ -323,8 +323,8 @@ function DraftRow({ draft, seed }: { draft: SeedDraft; seed: SeedInfo | null }) 
         <RunGlyph kind="seed" width={40} height={28} />
         <span className="dsc-run-text">
           <b>{draft.label}</b>
-          <span className="dsc-run-meta"><span className="k-badge t-amber">draft</span><span className="muted">{seed ? `${seed.title} · ${seed.role}` : 'no seed'} · MASS</span></span>
-          <span className="dsc-run-line small"><span className="amber">draft · not kept yet</span></span>
+          {/* polish: "draft · not kept yet" was the badge said again in amber; it is the badge's hover now */}
+          <span className="dsc-run-meta"><span className="k-badge t-amber" title="draft · not kept yet">draft</span><span className="k-meta">{seed ? `${seed.title} · ${seed.role}` : 'no seed'} · MASS</span></span>
         </span>
       </div>
     </div>
@@ -351,14 +351,13 @@ function SeedCard({ seed, tab, dx, onTab, onSeed }: {
     <section className="k-card dsc-seed" data-testid="seed-card" aria-label="Seed">
       <div className="dsc-card-head">
         <h3>Exemplar</h3>
-        <InfoTip title="Seed">The shape to search for. Its window is its native length; the card shows provenance — recording, channel, samples and content hash — so a saved template can say exactly what it carried. A Library exemplar names its entry; the researcher's own (promoted in Review, or from an annotation) are listed first. Family medoids are the Library's families, one seed per family, read in the grouping you choose (the newest shape-distance grouping unless you pick another). Catalogue spans are the sixteen spans of the old drop-motif store — not Library families; one whose span is a Library entry's is that entry, so its matches can be added to the Library.</InfoTip>
-        <span className="muted small">type Signal span</span>
+        <InfoTip title="Seed">Type: a Signal span. The shape to search for. Its window is its native length; the card shows provenance — recording, channel, samples and content hash — so a saved template can say exactly what it carried. A Library exemplar names its entry; the researcher's own (promoted in Review, or from an annotation) are listed first. Family medoids are the Library's families, one seed per family, read in the grouping you choose (the newest shape-distance grouping unless you pick another). Catalogue spans are the sixteen spans of the old drop-motif store — not Library families; one whose span is a Library entry's is that entry, so its matches can be added to the Library.</InfoTip>
       </div>
       <div className="dsc-seed-body">
         <Seg value={tab} onChange={onTab} size="sm" testid="seed-source" options={SEED_SOURCES} />
         {showing && seed ? (
           <div className="dsc-seed-row" data-testid="seed-provenance" data-seed-id={seed.id} data-entry-id={seed.entryId ?? ''}>
-            <div className="dsc-seed-thumb"><SeedThumb values={seed.trace} yDomain={yDomain} unit={seed.unit} /><span className="small muted mono">{seed.samples} samples · {seed.lengthS} s</span></div>
+            <div className="dsc-seed-thumb"><SeedThumb values={seed.trace} yDomain={yDomain} unit={seed.unit} /><span className="small k-meta mono">{seed.samples} samples · {seed.lengthS} s</span></div>
             <div className="dsc-seed-kv">
               <b data-testid="seed-title">{seed.title}</b>
               <span>{seed.familyLine}</span>
@@ -435,7 +434,7 @@ function SeedPicker({ source, dx, currentId, onPick, inline }: { source: SeedPic
         : !p ? <Loading height={120} />
           : p.seeds.length === 0 ? (source === 'explore'
             ? <EmptyState size="sm" icon="scan" title="No span taken in Explore" caption="brush a span on Explore › Signal and press Take span for Review; it is offered here at once" testid="seed-explore-empty"
-              action={<Button size="sm" icon="external" onClick={() => navigate('explore/corpus')}>Select a span in Explore</Button>} />
+              action={<Button size="sm" variant="primary" icon="external" onClick={() => navigate('explore/corpus')}>Select a span in Explore</Button>} />
             : source === 'family'
               ? <EmptyState size="sm" icon="search" title={p.grouping ? 'No family under these filters' : 'No Library grouping yet'}
                 caption={p.grouping ? `${fmtCount(p.counts.family ?? 0)} families in ${p.grouping.id} in all` : 'Library › Grouping makes the families a seed can be taken from'} testid="seed-picker-empty" />
@@ -449,7 +448,7 @@ function SeedPicker({ source, dx, currentId, onPick, inline }: { source: SeedPic
                       <SeedThumb values={s.trace} yDomain={padDomain(s.trace)} width={54} height={30} />
                       <span>
                         <b>{s.title}</b>{s.sourceKind && s.sourceKind !== 'event_store' && <span className="k-badge t-green" style={{ marginLeft: 6 }}>{SOURCE_KIND[s.sourceKind] ?? s.sourceKind}</span>}
-                        <span className="muted small mono">{s.recordingLabel ?? s.recording} · {s.channel} · {s.startH.toFixed(2)} h · {s.samples} samples{s.family ? ` · ${s.family}` : ''}</span>
+                        <span className="k-meta small mono">{s.recordingLabel ?? s.recording} · {s.channel} · {s.startH.toFixed(2)} h · {s.samples} samples{s.family ? ` · ${s.family}` : ''}</span>
                         {(source === 'family' || source === 'medoid') && s.familyLine && <span className="muted small">{s.familyLine}</span>}
                       </span>
                     </button>
@@ -594,12 +593,13 @@ function CutCard({ seed, setParams, results, kept, nullKept, cut, cutIsRecommend
       {cut == null && (
         <span className="small mono muted row" style={{ gap: 8, alignItems: 'center' }} data-testid="threshold-none">
           {results.candidates.length
-            ? <><span>no cut: nothing here beats the null</span><Button size="sm" onClick={() => setParams({ threshold: closest })} testid="choose-cut">choose a cut anyway · d ≤ {closest}</Button></>
+            ? <><span>no cut: nothing here beats the null</span><Button size="sm" variant="primary" onClick={() => setParams({ threshold: closest })} testid="choose-cut">choose a cut anyway · d ≤ {closest}</Button></>
             : 'no cut · the recommended cut is read off the null distribution'}
         </span>
       )}
       {/* a statistic whose rule is unstated cannot be falsified (fixup-a item 12) */}
-      {results.cutRule && <span className="small mono muted" data-testid="cut-rule">{results.cutRule.text}</span>}
+      {/* polish: the cut's rule is how the recommended cut was read, one click away (the histogram's legend prints it too) */}
+      {results.cutRule && <About label="how the cut is read" testid="cut-rule-about"><span className="small mono" data-testid="cut-rule">{results.cutRule.text}</span></About>}
       {results.candidates.length && results.nullByScale ? <NullPerLength results={results} cut={cut} m={seed.samples} /> : null}
     </section>
   )
@@ -848,7 +848,7 @@ function SearchProgress({ progress, estimate, onCancel, cancelling = false }: { 
       {/* fix round (F5): a seed run drawing this preview first is that run's job; it is stopped from the run */}
       {progress?.drawnBy && <span className="small" data-testid="seed-preview-drawn-by">drawn by the run {progress.drawnBy.label}, which draws this preview first — stop it from that run (Discovery › Runs)</span>}
       {/* a2-p4: the preview can be stopped from here; the job stops at its next draw and keeps nothing */}
-      {onCancel && <Button size="sm" icon="stop" onClick={onCancel} loading={cancelling} disabled={cancelling || progress?.jobId == null}
+      {onCancel && <Button size="sm" variant="danger" icon="stop" onClick={onCancel} loading={cancelling} disabled={cancelling || progress?.jobId == null}
         disabledReason={cancelling ? 'cancelling — the job stops at its next draw and keeps nothing' : 'no job to cancel'} testid="seed-preview-cancel">{cancelling ? 'Cancelling' : 'Cancel preview'}</Button>}
     </section>
   )
@@ -925,10 +925,10 @@ function MatchesCard({ seed, matches, channels, note = null, nullDraws = null, h
           {shownC.map(mt => (
             <button key={mt.id} type="button" className={cx('dsc-match', selQ === mt.id && 'on')} data-testid={`match-${mt.id}`}
               onClick={() => { setSelQ(mt.id); setChQ(mt.channel); setViewQ(`${Math.max(0, mt.atH - 1).toFixed(1)}-${(mt.atH + 1).toFixed(1)}`) }} title={`show ${mt.id} in the distance profile`}>
-              <span className="row between mono small"><b>{mt.id}</b><span className="muted">d {mt.d.toFixed(2)}</span></span>
+              <span className="row between mono small"><b>{mt.id}</b><span className="k-meta">d {mt.d.toFixed(2)}</span></span>
               <SeedThumb values={seedC} overlay={mt.trace} yDomain={yDomain} width={130} height={40} />
               {mt.trace.length === 0 && <span className="small muted" data-testid="match-no-trace">no trace served for this match</span>}
-              <span className="mono small muted row" style={{ gap: 4 }}>{mt.judged && <span className="dot" style={{ background: 'var(--green)' }} title="already judged" />}{mt.channel} · {mt.atH.toFixed(1)} h{mt.scale != null && <span data-testid="match-scale" title={`found by the seed stretched to ${mt.length} samples`}> · {mt.scale}×</span>}</span>
+              <span className="mono small k-meta row" style={{ gap: 4 }}>{mt.judged && <span className="dot" style={{ background: 'var(--green)' }} title="already judged" />}{mt.channel} · {mt.atH.toFixed(1)} h{mt.scale != null && <span data-testid="match-scale" title={`found by the seed stretched to ${mt.length} samples`}> · {mt.scale}×</span>}</span>
             </button>
           ))}
         </div>
@@ -946,7 +946,7 @@ function SelectedMatch({ seed, match, yDomain }: { seed: number[]; match: SeedMa
     <div className="dsc-selected-match" ref={ref} style={{ marginTop: 10 }} data-testid="selected-match">
       <div className="row between mono small" style={{ marginBottom: 4 }}>
         <b>{match.id}</b>
-        <span className="muted">d {match.d.toFixed(2)} · {match.channel} · {match.atH.toFixed(2)} h · {match.length ?? match.trace.length} samples{match.judged ? ` · already judged${match.verdict ? ` (${match.verdict})` : ''}` : ''}</span>
+        <span className="k-meta">d {match.d.toFixed(2)} · {match.channel} · {match.atH.toFixed(2)} h · {match.length ?? match.trace.length} samples{match.judged ? ` · already judged${match.verdict ? ` (${match.verdict})` : ''}` : ''}</span>
       </div>
       {W > 0 && <SeedThumb values={seed} overlay={match.trace} yDomain={yDomain} width={W} height={180} unit="mV" />}
     </div>

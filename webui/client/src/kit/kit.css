@@ -635,3 +635,6 @@
 .k-about-body { margin-top: 6px; padding: 8px 10px; border-left: 2px solid var(--grey-200); background: var(--grey-100);
   border-radius: 0 6px 6px 0; font-size: 12px; line-height: 1.5; color: var(--text-2); display: flex; flex-direction: column; gap: 6px; }
 .k-about-body .muted { color: var(--text-2); }
+
+/* polish (2026-10-19): data under a title (where, when, how many) reads as data — text-2, not a grey caption */
+.k-meta { color: var(--text-2); }

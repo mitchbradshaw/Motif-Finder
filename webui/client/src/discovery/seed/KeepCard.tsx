@@ -20,7 +20,7 @@ export function ImportResultButton({ onFile, testid = 'import-result' }: { onFil
     <>
       <input ref={ref} type="file" accept=".json,application/json" style={{ display: 'none' }} data-testid={`${testid}-file`}
         onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = '' }} />
-      <Button icon="upload" onClick={() => ref.current?.click()} title="import a seed_job result file computed on the HPC" testid={testid}>Import HPC result</Button>
+      <Button variant="primary" icon="upload" onClick={() => ref.current?.click()} title="import a seed_job result file computed on the HPC" testid={testid}>Import HPC result</Button>
     </>
   )
 }
@@ -133,7 +133,7 @@ export function KeepCard({ dx, seed, label, cut, kept, previewDraws, bank, exclu
         ) : (
           <div className="dsc-keep-way" data-testid="keep-rigorous-way">
             <Button variant="primary" icon="play" onClick={runRigorous} loading={starting} disabled={starting} disabledReason="starting…" testid="run-seed-search">Run with the rigorous null</Button>
-            <span className="small mono muted" data-testid="run-estimate">{rigorousLine}</span>
+            <span className="small mono k-meta" data-testid="run-estimate">{rigorousLine}</span>
             {cut == null && <span className="small mono amber" data-testid="apply-no-cut">no cut · the rigorous run keeps all {k} matches per channel kept by the search</span>}
           </div>
         ))}
@@ -141,7 +141,7 @@ export function KeepCard({ dx, seed, label, cut, kept, previewDraws, bank, exclu
 
       <div className="dsc-keep-save">
         <Button size="sm" variant="primary" icon="save" onClick={onSave} testid="save-as-template">Save as template</Button>
-        <span className="small muted" data-testid="save-as-template-line">saves the recipe — this exemplar, d ≤ {cut ?? 'no cut'}, the scale bank and the exclusion zone — never the matches</span>
+        <span data-testid="save-as-template-line"><InfoTip title="What a template saves">saves the recipe — this exemplar, d ≤ {cut ?? 'no cut'}, the scale bank and the exclusion zone — never the matches</InfoTip></span>
       </div>
     </section>
   )
@@ -189,7 +189,7 @@ function RunState({ run, dx, ids, onImport, importing }: { run: DiscoveryRun; dx
         <ProgressBar value={frac} width={180} labelPosition="none" testid="seed-progress" />
         <b data-testid="seed-running">{run.label} · {run.status === 'queued' ? 'queued · local' : `running · ${Math.round(frac * 100)} %`}{run.progressText ? ` · ${run.progressText}` : ''}</b>
         <span className="k-spacer" />
-        <Button onClick={cancel} disabled={!run.job} disabledReason="no job to cancel" testid="seed-cancel">Cancel</Button>
+        <Button variant="danger" onClick={cancel} disabled={!run.job} disabledReason="no job to cancel" testid="seed-cancel">Cancel</Button>
       </div>
     )
   }
