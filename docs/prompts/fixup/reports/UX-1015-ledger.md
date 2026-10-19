@@ -302,3 +302,28 @@ one console error seen there followed an aborted navigation. Three attempts (20:
 now has a 90 s budget (the per-state one at `smoke.py:1467` was the 30 s that bit). **Owed: tomorrow morning's daily
 full walk on the sealed main (VPN off), compared by set against `wave2_fails.txt` (38) — the first clean post-wave
 baseline.** Pre-existing, filed: the atlas page reads `/api/library/groupings` every 2 s on main too.
+
+## Night of 2026-10-19 → 20 — the break-it pass and the morning walk's base
+
+**Three night agents** (brief `docs/prompts/changes/night-pass-2026-10-19.md`, base 7d2d695, ports 8767/8768/8769,
+each on its own fixture database): A Review+Discovery, B Explore+Library+Analyse, C polish and load site-wide.
+By 00:17 A had 5 commits (scoreboard reads each run and each channel's human rows once; a finished queue says
+"done"), B 18 (the atlas `groupings` read ten-fold → once per open; the Signal page's span list read once; block-page
+folds per page; interval tables print integers; the Library crumb; Interrogation's Open in Library), C 6 (the header's
+titles never wrap or shift; the kit barrel no longer ships the showcase; body min-width 1024). Reports owed in
+`docs/prompts/changes/reports/night-<letter>-report.md`; gates per branch as they hand back.
+
+**The researcher's 8765 died at about 22:47 with no traceback** (their own start of ~22:43). The HPC session
+restarted it detached at 22:48 with `PYTHONFAULTHANDLER=1` (logs `webui/runtime/bridge-8765-20261019-224827.*.log`,
+parent PID 74944); it runs 0ffadd5's code until the morning restart.
+
+**The database is final for the walk at 00:09** (HPC session): batch 3 adopted, 129 jobs, none failed or refused,
+sessions 3 (LM_fs2_rq4), 4 (CO_fs2_rq4) and 5 (L_LM_Jul_26_J_raw_fs2_rq4) with 46 runs each; Discovery back on session
+2 (M2_aug, 52 runs, highest openSeq, so the walk opens there as before). DB 342 → 511 MB; step cache 9.2 GB. Main
+4d3a4d8 (2ed3f49: many legacy-detection refusals are one warning line, schema.py + its test; then docs/HPC lists).
+**Speed, filed:** `GET /api/discovery/map` (the Map overview) takes 11–15 s on every call on the live bridge, the same
+on the pre-import backup (14.3 / 10.8 s) as after (14.6 / 11.9 s) — not the import; the detection map levels 2/3
+recompute per read (BACKLOG speed row). The other pages returned 200 in 0.3–4 s, no tracebacks.
+
+Morning: full walk at ~05:53 on a fresh sandbox copy of this database, compared by set with `wave2_fails.txt` (38);
+then one restart of 8765 (the HPC session needs nothing from the 22:48 process).
