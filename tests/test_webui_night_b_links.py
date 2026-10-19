@@ -74,3 +74,11 @@ def test_a_missing_block_page_names_itself():
     """night-c's walk: a block page past the chain's end titled itself "02 —"."""
     src = io.open(os.path.join(CLIENT_SRC, "analyse", "BlockPage.tsx"), encoding="utf-8").read()
     assert "page={`${pad2(index + 1)} —`}" not in src
+
+
+def test_an_unknown_interrogation_family_is_named_not_swapped_in_silence():
+    """night-c's walk: `#/analyse/interrogation?family=nope` drew id001 with nothing on screen to say the family asked
+    for is not there (api/interrogation.ts falls back to the first family). The page now says so, by name."""
+    src = io.open(os.path.join(CLIENT_SRC, "interrogation", "SourcePage.tsx"), encoding="utf-8").read()
+    assert 'data-testid="family-not-found"' in src
+    assert "familyId !== block.data.family.id" in src
