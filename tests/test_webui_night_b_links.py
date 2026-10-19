@@ -51,3 +51,26 @@ def test_a_block_pages_fold_is_its_own():
     The block page's Headline is keyed by its page, so each page mounts its own."""
     src = io.open(os.path.join(CLIENT_SRC, "analyse", "views", "registry.tsx"), encoding="utf-8").read()
     assert "<Headline key={fold.page} page={fold.page}" in src
+
+
+def test_a_template_link_by_name_is_resolved_or_refused_in_words():
+    """night-c's walk: `#/analyse/chain?template=<name>` called getTemplate(Number(name)) → GET /api/templates/NaN →
+    a red toast reading only "422 Unprocessable Content". A non-numeric value is looked up by name, and a name the
+    database does not hold is refused in words."""
+    src = io.open(os.path.join(CLIENT_SRC, "analyse", "ChainPage.tsx"), encoding="utf-8").read()
+    assert "getTemplate(Number(qp.template))" not in src
+    assert "no saved template called" in src
+
+
+def test_cross_channel_says_demo_only_for_a_demo_read():
+    """night-c's walk: the loading and error headers defaulted to the *demo data* chip on a live page, and a channel
+    the read does not know was "not in the demo data"."""
+    src = io.open(os.path.join(CLIENT_SRC, "explore", "CrossChannelPage.tsx"), encoding="utf-8").read()
+    assert "(subtitle: string, demo = true)" not in src
+    assert "in the demo data" not in src and "no demo data" not in src
+
+
+def test_a_missing_block_page_names_itself():
+    """night-c's walk: a block page past the chain's end titled itself "02 —"."""
+    src = io.open(os.path.join(CLIENT_SRC, "analyse", "BlockPage.tsx"), encoding="utf-8").read()
+    assert "page={`${pad2(index + 1)} —`}" not in src
