@@ -117,9 +117,52 @@ def test_stepping_fast_does_not_queue_a_read_for_every_item_passed():
     code = _code(_src("Inspector.tsx"))
     assert "useAbortableSourced(" in code and "signal.aborted" in code, "a superseded item read is still sent"
     assert "STEP_SETTLE_MS" in code
-    m = re.search(r"prefetchItem\(q, u\.id[^\n]*\n(.*?)\n", code, re.S)
-    assert re.search(r"window\.setTimeout\([^;]*prefetch|const t = window\.setTimeout", code), \
+    # the prefetch loop itself sits inside a timer that the effect clears
+    assert re.search(r"const t = window\.setTimeout\(\(\) => \{\s*for \(const u of \[nextUnjudgedAfter[^\]]*\]\) \{\s*"
+                     r"if \(u && u\.kind === 'item'\) prefetchItem\(q, u\.id, \{ px, padS: \+pad \}\)\s*\}\s*\}, STEP_SETTLE_MS\)\s*"
+                     r"return \(\) => window\.clearTimeout\(t\)", code), \
         "the neighbours are still prefetched from every item passed"
+
+
+# ── the critic's three (2026-10-20 01:20) ──────────────────────────────────
+
+def test_undo_and_redo_wait_for_a_write_in_flight():
+    """DATA RISK: I on item B on a slow bridge, Ctrl Z inside the round trip, undid A's verdict (B's write joins the
+    stack only on its ack) and B's still landed — two rows wrong, the toast naming A. Every commit counts itself in
+    flight; undo and redo refuse while one is."""
+    store = _code(_src("store.ts"))
+    assert "export const writesInFlight" in store
+    for fn in ("commitWrite", "commitUndo", "commitRedo"):
+        body = re.search(r"export async function " + fn + r"\(.*?\n}\n", store, re.S).group(0)
+        assert "inFlight++" in body and "finally" in body and "inFlight--" in body, f"{fn} is not counted in flight"
+    for name in ("Inspector.tsx", "ClusterView.tsx"):
+        code = _code(_src(name))
+        for fn in ("undo", "redo"):
+            body = re.search(r"const " + fn + r" = async \(\) => \{(.*?)\n  \}", code, re.S).group(1)
+            first = body.strip().splitlines()[0]
+            assert "writesInFlight()" in first and "still being written" in first, f"{name} {fn} does not wait"
+
+
+def test_a_class_key_on_a_prior_only_row_writes_instead_of_labelling_the_session():
+    """On an explore-spans queue a span marked `seed` is unjudged here but `effective()` returns its prior, so a
+    class key took the session-label branch: no write, and the row counted judged. The branches read the JUDGED
+    record; the rail, the evidence rail, the cluster batch and the reveal card read it too."""
+    queue = _code(_src("queue.ts"))
+    assert "export function judgedRecord" in queue
+    insp = _code(_src("Inspector.tsx"))
+    klass = re.search(r"const klass = async \(ck: string\) => \{(.*?)\n  \}", insp, re.S).group(1)
+    assert "if (!jrec)" in klass and "if (!rec)" not in klass
+    assert "judged={!!jrec}" in insp
+    assert "data.rows[i].baseVerdict" not in insp, "the reveal card still takes a prior verdict for a judged one"
+    shell = _code(_src("Shell.tsx"))
+    assert shell.count("judgedRecord(records, r)") >= 2 and "const rec = effective(records, r)" not in shell
+    cluster = _code(_src("ClusterView.tsx"))
+    assert "!judgedRecord(getRecords(), r)" in cluster
+
+
+def test_the_verdict_flash_belongs_to_its_item():
+    code = _code(_src("Inspector.tsx"))
+    assert "if (opts.flash !== false && onItem.current === id)" in code
 
 
 # ── a span queue read as finished while 622 were left (agent B's drive, Explore → Take span → Open Review) ──
