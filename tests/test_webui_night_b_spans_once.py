@@ -67,3 +67,12 @@ def test_the_whole_channel_reads_share_one_read():
     assert "getSpans(ch.id, 0, ch.duration_s)" not in _src("explore", "SignalPage.tsx")
     assert api.count("getWholeChannelSpans(") >= 2 and "export const getWholeChannelSpans" in api
     assert "getWholeChannelSpans" in _src("explore", "SignalPage.tsx")
+
+
+def test_the_channel_read_is_shared_too():
+    """night-b: on the scale fixture Cross-channel read `/api/channels/{id}` twice AT ONCE (the window read and the
+    detections chip's, both through api/explore.ts) — 37 s and 30 s on a fresh bridge, the page 45 s to paint. Both
+    go through the same in-flight share as the spans."""
+    api = _src("api", "explore.ts")
+    assert "await getChannel(channelId)" not in api and "await getChannel(referenceId)" not in api
+    assert "getChannelShared(" in api
