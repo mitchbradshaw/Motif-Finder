@@ -3948,10 +3948,16 @@ def _seed_run_for(conn, run_key: str):
     a2-p1 fix round (M1): *Add N matches* reads the run's matches and writes Library members and edges on the
     run's own recordings, so a run on the held-out recording answers 423 while the lock is on — both the summary
     (GET) and the write (POST), which share this read. A search made while it was unlocked leaves no door that
-    writes its matches once the lock is back on."""
+    writes its matches once the lock is back on.
+
+    A key is unique only within a session, and each recording has its own session (2026-10-19): the open
+    session's run comes first, then the newest."""
+    from . import discovery as D
+    open_row = D._session_row(conn)
     row = conn.execute(
         "SELECT dr.* FROM discovery_runs dr JOIN discovery_sessions s ON s.id = dr.session_id "
-        "WHERE dr.run_key = ? ORDER BY s.id DESC, dr.id DESC LIMIT 1", (run_key,)).fetchone()
+        "WHERE dr.run_key = ? ORDER BY (s.id = ?) DESC, s.id DESC, dr.id DESC LIMIT 1",
+        (run_key, int(open_row["id"]) if open_row is not None else -1)).fetchone()
     if row is None:
         raise HTTPException(404, {"message": f"no Discovery run {run_key!r}"})
     params = json.loads(row["params_json"] or "{}")
