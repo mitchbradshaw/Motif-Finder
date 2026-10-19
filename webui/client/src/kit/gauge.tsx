@@ -37,7 +37,7 @@ export function Gauge({ good, bad, total, title, emptyLabel = 'no verdicts yet',
           data-empty={empty ? '1' : '0'} data-good={good} data-bad={bad} data-total={total} title={title}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={title}>
         <title>{title}</title>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={empty ? 'var(--grey-200)' : 'var(--grey-300, #c3c9d1)'} strokeWidth={stroke}
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={empty ? 'var(--grey-200)' : 'var(--muted-2)'} strokeWidth={stroke}
           strokeDasharray={empty ? '2 2' : undefined} />
         {ring(g, 0, 'var(--green)', 'g')}
         {ring(b, g, 'var(--red)', 'b')}

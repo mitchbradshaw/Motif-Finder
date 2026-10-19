@@ -687,15 +687,26 @@ GROUP BY tr.template, a.verdict
 """
 
 
+#: coverage critic round: one aggregate scan of `adjudications` in C — the library critic's `_verdict_checksum` mix
+#: (`library.py`): a count, the max id, and a sum of each detection id weighted by a number that differs for each of
+#: the five verdicts. It moves on an insert, a delete AND an in-place re-judge (`UPDATE adjudications SET verdict = ?`
+#: changes that detection's weight), which is every change `_VERDICTS_SQL` can see; a swap of two verdicts moves it
+#: by (a - b)(w1 - w2), never 0. Reading the rows whole cost about four times as much per `/templates` read (380 ms
+#: at 100k verdicts on the loaded machine, 2026-10-19).
+_VERDICT_DIGEST_SQL = ("SELECT COUNT(*), MAX(id), TOTAL((detection_id % 1000003) * "
+                       "(unicode(verdict) * 131 + LENGTH(verdict) * 7 + COALESCE(unicode(substr(verdict, 3)), 0))) "
+                       "FROM adjudications")
+
+
 def _verdict_fingerprint(conn):
-    """What `_VERDICTS_SQL` reads, in the scoreboard fingerprint's terms (`SB.inputs_fingerprint`): the human rows
-    read whole (verdicts are edited in place and carry no timestamp of the edit), and the template-to-run links (each
-    Discovery run's template, group and recorded runs). Detections are append-only machine rows and a detection never
-    changes run, so they need no part of their own."""
-    adj = tuple(conn.execute("SELECT id, detection_id, verdict FROM adjudications ORDER BY id").fetchall())
+    """What `_VERDICTS_SQL` reads, in digest form: the human rows by `_VERDICT_DIGEST_SQL` (verdicts are edited in
+    place and carry no timestamp of the edit, so a count and a max id alone would miss a re-judge), and the
+    template-to-run links whole (each Discovery run's template, group and recorded runs; a few hundred rows).
+    Detections are append-only machine rows and a detection never changes run, so they need no part of their own."""
+    adj = tuple(conn.execute(_VERDICT_DIGEST_SQL).fetchone())
     drs = tuple(conn.execute("SELECT id, template_name, run_group_id, json_extract(params_json, '$.run_ids') "
                              "FROM discovery_runs WHERE template_name IS NOT NULL ORDER BY id").fetchall())
-    return hash((tuple(tuple(r) for r in adj), tuple(tuple(r) for r in drs)))
+    return hash((adj, tuple(tuple(r) for r in drs)))
 
 
 def _template_verdicts(conn):
@@ -4061,6 +4072,10 @@ class ExtendBody(BaseModel):
 
 #: the refusal code the page turns into "apply as a new run"
 EXTEND_PARAMS_DIFFER = "params_differ"
+#: coverage critic round: the "still running" check reads the row's job, which is written only once the sweep has
+#: started; two extends of one run (two tabs, a double click past the button's own guard) both passed it and ran the
+#: same channels twice. The check and the start are one step under this lock.
+_EXTEND_LOCK = threading.Lock()
 
 
 def _extend_refusal(status, message, code):
@@ -4100,6 +4115,11 @@ def extend_run(request: Request, run_key: str, body: ExtendBody):
     run's (409, ``code: params_differ``; the page offers *apply as a new run*); a band, window or seed run (its
     scope is more than the channels); a run still running; a run with no finished channel to extend from; a
     channel it already has; or a scope over the local ceiling (that goes to the cluster as a new run)."""
+    with _EXTEND_LOCK:
+        return _extend_run(request, run_key, body)
+
+
+def _extend_run(request: Request, run_key: str, body: ExtendBody):
     from . import templates as T
     c = _conn(request)
     try:
@@ -4122,6 +4142,11 @@ def extend_run(request: Request, run_key: str, body: ExtendBody):
         if not ids:
             _extend_refusal(422, f"{row['label']} has no finished channel to extend from; Retry it instead",
                             "no_results")
+        if row["run_group_id"] is None:
+            # coverage critic round: `_start_sweep(extend_group=None)` is the FIRST sweep, which writes the new
+            # channels' runs over `run_ids` — the channels this run already had would be dropped
+            _extend_refusal(422, f"{row['label']} has no run group to add channels to; apply the template as a "
+                                 "new run over the channels you want", "no_group")
         st = fanout.group_status_light(c, run_ids=ids)
         coverage = _run_coverage(row, st, chans, None)
         names = list(body.channels) or [n for n, state in coverage.items() if state == "not_run"]

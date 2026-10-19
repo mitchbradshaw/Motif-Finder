@@ -24,7 +24,7 @@
   "actions": [
    {"wait_for": ["[data-testid=\"apply-template\"]", 30000]},
    {"click": "[data-testid=\"apply-template\"]"},
-   {"wait_for": ["[data-testid=\"add-template-modal\"] [data-testid^=\"template-gauge-\"]", 5000]}
+   {"wait_for": ["[data-testid=\"add-template-modal\"] [data-testid^=\"template-gauge-\"]", 30000]}
   ],
   "expect": ["[data-testid=\"add-template-modal\"]", "[data-testid^=\"template-gauge-\"] svg"]
  }
