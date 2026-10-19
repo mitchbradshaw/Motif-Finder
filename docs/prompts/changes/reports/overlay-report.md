@@ -122,3 +122,37 @@ Cross-channel now has an **overlay** view beside the stacked rows. Every channel
 
 - `7fa6062` overlay: Cross-channel's overlay view (component, page wiring, css, smoke states)
 - (this report)
+
+## Critic round
+
+**Plain version first.** The overlay draws every channel on one axis, and "align by lag" slides some channels left or
+right so a travelling wave lines up. The box you drag is measured on the reference channel's clock. For a channel that
+was slid, what you *see* inside the box is a different stretch of that channel's recording than the box's own times.
+Before this round, *Send unjudged* and *Mark artifact* wrote the box's times for every bold channel, so with align on a
+verdict could land on samples you never looked at — like stamping a photo you had cropped differently from the one
+filed. Options were: (a) write each channel's own shifted window (needs the shared strip to take one window per
+channel — another prompt's file), (b) block every action while align is on, (c) act only on the channels drawn
+unshifted and say which were left out. Chosen: **(c)** — nothing written is ever off-screen, Zoom / Open in Analyse /
+Open in Signal (which already add the shift) keep working, and turning align off brings the rest back.
+
+Findings and fixes (commit `overlay fix:` 2665ec0):
+- **Should-fix, fixed** — Send/Mark under align wrote the reference-clock box for shifted channels. Now the strip's
+  `reviewChannels` / `defaultArtifactIds` are the bold channels with zero shift and its `artifactChannels` the
+  recording's unshifted channels; the caption lists the left-out channels with their shifts (`overlay-box-shifted`);
+  the InfoTip says the same.
+- **Should-fix, fixed** — the per-channel `/spans` read passed `t0` straight through; a padded window starting before
+  0 s gets a 422 and every channel's detections vanish behind the error. Clamped at 0.
+- **Nit, fixed** — the svg `clipPath` id was a fixed string; per-mount via `useId` so a second overlay (Discovery) is safe.
+- **Checked, no change** — geometry (16 ch → 468 px, 28 px lanes; 3 ch → 420 px), colour by rank shared with the stack's
+  name stripe, bold/faded with click / shift-click / all / none, ↑/↓ and A (the overlay holds no inputs, so no key is
+  stolen), detections + band on every channel, the props-only interface. Hover re-renders only the overlay; the paths
+  are memoised on channels × x × geometry × shifts, so a hover rebuilds no path. The 16 `/spans` reads fire only on a
+  window change (navigation, not a continuous pan) and stale answers are dropped by the `live` flag — not aborted,
+  acceptable at this volume.
+- **Smoke unit** — valid JSON; every selector exists; channel 4 as the aq unit; it opens no `discovery/` hash, so its
+  name may sort after the a2-p4 seed manifest.
+
+Gate after fixes: `tsc -b` clean, `vite build` ok; `test_webui_cross_channel.py` 9 passed; `test_webui_cross_window.py`
+7/7 passed (interpreter-exit "lost sys.stderr" noise only); `test_import_boundaries.py` 4 passed;
+`test_webui_seed_on_demand_client.py` 15 passed, 1 failed — `zzzzzzzzzzz_ar_speed.json` sorts after the seed manifest,
+which is on the base `aa62b52` (fixed on main by 685f5e0), not this branch.
