@@ -24,7 +24,8 @@ export { Portal, cx } from './portal'
 export { useDemoState, recordDemoWrite, useDemoWrites, getDemo, setDemo, type DemoWrite } from './store'
 export { useSim, startSim, cancelSim, resetSim, forceSim, getSim, type SimStatus, type SimOptions, type SimState } from './sim'
 export { useNotWired } from './notWired'
-export { KitGallery } from './Gallery'
+// night-c: the kit's showcase page is NOT re-exported here: App.tsx lazy-loads it, and a barrel export put the
+// showcase and its fixture canon into the entry chunk every page loads
 export { Headline, type HeadlineFold, type HeadlineProps } from './Headline'
 export type { RoseReferenceLine } from './Rose'
 export { About, type AboutProps } from './About'
