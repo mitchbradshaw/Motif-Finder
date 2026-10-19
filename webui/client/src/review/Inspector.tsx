@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { navigate, setQuery } from '../state'
 import { Button, Chip, Icon, InfoTip, MiniTrace, cx, fmtInt, recordDemoWrite, useQueryState } from '../kit'
-import { useSourced } from '../api/seam'
+import { useAbortableSourced, useSourced } from '../api/seam'
 import { useSize } from '../charts/useSize'
 import { useToast } from '../shell/Toast'
 import { plotPx } from './axis'
@@ -23,6 +23,9 @@ import {
 } from './store'
 
 const ADVANCE_MS = 350
+/** night-a: an item not yet held is read once it has been on screen this long, so stepping fast through a 10 k queue
+ *  sends no read for the items passed (40 presses left the bridge 25-49 s of item reads behind) */
+const STEP_SETTLE_MS = 150
 
 export function Inspector({ data, itemId }: { data: QueueData; itemId: string }) {
   // review-carry: a detection that is one of an item's overlap set opens that item (a link by detection id from
@@ -60,7 +63,13 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   // exactly the window drawn. Nothing is fetched until the column has a width (one frame).
   const [measureRef, column] = useSize<HTMLDivElement>()
   const px = plotPx(column.width, window.devicePixelRatio || 1)
-  const det = useSourced(() => px ? getItem(q, id, { px, padS: +pad }) : Promise.resolve({ data: null, source: 'live' as const }), [q, id, version, px, pad])
+  const det = useAbortableSourced(signal => {
+    if (!px) return Promise.resolve({ data: null, source: 'live' as const })
+    const opts = { px, padS: +pad }
+    if (peekItem(q, id, opts)) return getItem(q, id, opts)
+    return new Promise<void>(res => window.setTimeout(res, STEP_SETTLE_MS))
+      .then(() => signal.aborted ? Promise.reject(new DOMException('superseded', 'AbortError')) : getItem(q, id, opts))
+  }, [q, id, version, px, pad])
   const records = useRecords()
   const stack = useStack()
   const writeError = useWriteError()
@@ -95,9 +104,13 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   useEffect(() => {
     if (!d || !px) return
     const u0 = { kind: 'item' as const, id }
-    for (const u of [nextUnjudgedAfter(data, getRecords(), u0), step(data, u0, 1), step(data, u0, -1)]) {
-      if (u && u.kind === 'item') prefetchItem(q, u.id, { px, padS: +pad })
-    }
+    // night-a: only from an item the researcher stopped on (see STEP_SETTLE_MS)
+    const t = window.setTimeout(() => {
+      for (const u of [nextUnjudgedAfter(data, getRecords(), u0), step(data, u0, 1), step(data, u0, -1)]) {
+        if (u && u.kind === 'item') prefetchItem(q, u.id, { px, padS: +pad })
+      }
+    }, STEP_SETTLE_MS)
+    return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d?.entry.id, px, pad, q])
   const rec = effective(records, row)
