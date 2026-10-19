@@ -65,6 +65,12 @@ export function judged(records: Records, row: QueueRow): boolean {
   return baseJudged(row)
 }
 
+/** night-a: the record of a verdict the DATABASE holds for this queue (or this session wrote) — `effective()` only when
+ *  `judged()`; a prior or carried verdict on an unjudged row is shown, never treated as given. */
+export function judgedRecord(records: Records, row: QueueRow): VerdictRecord | null {
+  return judged(records, row) ? effective(records, row) : null
+}
+
 export function isJudged(data: QueueData, records: Records, u: UnitRef): boolean {
   const ids = u.kind === 'item' ? [u.id] : u.members
   const rows = ids.map(id => rowById(data, id)).filter(Boolean) as QueueRow[]

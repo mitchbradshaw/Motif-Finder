@@ -11,14 +11,14 @@ import { plotPx } from './axis'
 import { VOCABULARY, carryOf, getItem, peekItem, prefetchItem, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
-import { goUnit, nextUnjudgedAfter, relTime, step } from './queue'
+import { goUnit, judged, judgedRecord, nextUnjudgedAfter, relTime, step } from './queue'
 import {
   AnnotateCard, ArtifactPill, ContextCard, EvidenceRail, NearestFamiliesCard, Pill, PromotionPanel, ShapeCard, VerdictCard, editInExplore, statusDot, statusText, useNow,
 } from './parts'
 import { Loading, NotFound, previousLines } from './common'
 import { SuspectedArtifactCard } from './SuspectedArtifact'
 import {
-  VERDICT_LABEL, amendWrite, applyWrite, bumpReviewVersion, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive, nextRedo,
+  VERDICT_LABEL, amendWrite, applyWrite, bumpReviewVersion, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, writesInFlight, getWriteError, key, lastLive, nextRedo,
   patchRecord, rawRecord, releaseExemplar, resend, useAutoAdvance, useDrafts, usePad, useRecords, useReviewVersion, useStack, useWriteError, type Draft, type VerdictRecord,
 } from './store'
 
@@ -114,6 +114,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d?.entry.id, px, pad, q])
   const rec = effective(records, row)
+  const jrec = judgedRecord(records, row)      // night-a: what the database holds here (a prior is shown, not given)
   const k = key(q, id)
   const draft: Draft = drafts[k] ?? { tags: rec?.tags ?? row.tags, note: rec?.note ?? '' }
   const promoted = state === 'promoted' && rec?.verdict === 'seed' && !!rec.exemplarId
@@ -173,7 +174,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     }
     // P21: the seed verdict itself creates the Library exemplar (the bridge wrote it); the panel only chooses its family
     if (v === 'seed') return next
-    if (opts.flash !== false) { setFlash(v); later(() => setFlash(null), ADVANCE_MS) }
+    if (opts.flash !== false && onItem.current === id) { setFlash(v); later(() => setFlash(null), ADVANCE_MS) }
     if (opts.advance && auto) later(() => { if (onItem.current === id) advance() }, ADVANCE_MS)
     return next
   }
@@ -203,29 +204,29 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     const c = VOCABULARY.classes.find(x => x.key === ck)
     if (!c) return
     if (promoted) return say('confirm or undo the promotion first (Enter / Ctrl Z)')
-    if (!rec) {
+    if (!jrec) {
       const v: Verdict = c.informative ? 'interesting' : 'artifact'
       if (!await write(v, c.name, 'class', { advance: true })) return
       return say(`class ${c.name} · implies ${VERDICT_LABEL[v]} · written`)
     }
-    if (storesClass && rec.verdict !== 'seed') {
-      const clear = rec.className === c.name
-      const v: Verdict = !clear && !c.informative && rec.verdict !== 'artifact' ? 'artifact' : rec.verdict
+    if (storesClass && jrec.verdict !== 'seed') {
+      const clear = jrec.className === c.name
+      const v: Verdict = !clear && !c.informative && jrec.verdict !== 'artifact' ? 'artifact' : jrec.verdict
       if (!await write(v, clear ? undefined : c.name, 'class', { advance: false, flash: false })) return
       return say(clear ? `class ${c.name} cleared · verdict stays ${VERDICT_LABEL[v]} · stored`
-        : v !== rec.verdict ? `${c.name} is non-informative — artifact written with the class (Ctrl Z reverts)`
+        : v !== jrec.verdict ? `${c.name} is non-informative — artifact written with the class (Ctrl Z reverts)`
           : `class ${c.name} stored with the ${VERDICT_LABEL[v]} verdict`)
     }
-    if (rec.className === c.name) {
-      applyWrite({ queueId: q, items: [id], kind: 'class', verdict: rec.verdict, label: `${id} · class cleared`, before: { [k]: rawRecord(q, id) }, after: { [k]: { ...rec, className: undefined, at: Date.now() } } })
-      return say(`class ${c.name} cleared · verdict stays ${VERDICT_LABEL[rec.verdict]} (the class is a session label)`)
+    if (jrec.className === c.name) {
+      applyWrite({ queueId: q, items: [id], kind: 'class', verdict: jrec.verdict, label: `${id} · class cleared`, before: { [k]: rawRecord(q, id) }, after: { [k]: { ...jrec, className: undefined, at: Date.now() } } })
+      return say(`class ${c.name} cleared · verdict stays ${VERDICT_LABEL[jrec.verdict]} (the class is a session label)`)
     }
-    const v: Verdict = !c.informative && rec.verdict !== 'artifact' ? 'artifact' : rec.verdict
-    if (v !== rec.verdict) {
+    const v: Verdict = !c.informative && jrec.verdict !== 'artifact' ? 'artifact' : jrec.verdict
+    if (v !== jrec.verdict) {
       if (!await write(v, c.name, 'class', { advance: false, flash: false })) return
       return say(`${c.name} is non-informative — artifact written (Ctrl Z reverts)`)
     }
-    applyWrite({ queueId: q, items: [id], kind: 'class', verdict: v, className: c.name, label: `${id} · ${c.name}`, before: { [k]: rawRecord(q, id) }, after: { [k]: { ...rec, verdict: v, className: c.name, blind, at: Date.now() } } })
+    applyWrite({ queueId: q, items: [id], kind: 'class', verdict: v, className: c.name, label: `${id} · ${c.name}`, before: { [k]: rawRecord(q, id) }, after: { [k]: { ...jrec, verdict: v, className: c.name, blind, at: Date.now() } } })
     say(`class ${c.name} added to the ${VERDICT_LABEL[v]} verdict (the class is a session label)`)
   }
 
@@ -233,6 +234,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
    * invent a reversal: only `review_audit.payload_json` knows whether this reverses to unjudged or back to
    * the verdict that was there before. The stack is marked undone only once the POST was accepted. */
   const undo = async () => {
+    if (writesInFlight()) return say('a verdict is still being written — try again')
     const w = lastLive(q)
     if (!w) return say('nothing to undo in this queue')
     if (!await commitUndo(() => postUndo(q), w)) return refused()
@@ -246,6 +248,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     if (!w.items.includes(id)) navigate(`review/queue/${q}/${w.items[0]}`)
   }
   const redo = async () => {
+    if (writesInFlight()) return say('a verdict is still being written — try again')
     const w = nextRedo(q)
     if (!w) return say('nothing to redo')
     if (!await commitRedo(() => resend(q, w), w)) return refused()
@@ -304,7 +307,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     ? `${VERDICT_LABEL[row.baseVerdict]}${carry.classLabel ? ` (${carry.classLabel})` : ''} · ${carry.carriedFrom != null ? `carried from detection ${carry.carriedFrom}` : 'earlier session'}`
     : 'none'
   const historyText = stack.filter(w => !w.undone && w.items.includes(id)).map(w => `${VERDICT_LABEL[w.verdict ?? 'interesting']}${w.className ? ` (${w.className})` : ''} · ${relTime(w.at, now)}`).reverse().join('; ') || earlier
-  const evidence = d ? <EvidenceRail d={d} blind={blind} judged={!!rec} historyVerdicts={historyText} /> : <Loading />
+  const evidence = d ? <EvidenceRail d={d} blind={blind} judged={!!jrec} historyVerdicts={historyText} /> : <Loading />
   const narrow = rails.left || rails.right
 
   return (
@@ -421,7 +424,7 @@ function RevealCard({ data, current, now }: { data: QueueData; current: QueueRow
   // AR: the last row before this one with a verdict, by one backward walk (it was two indexOf per row, per second)
   const lastRow = last ? data.rows.find(r => r.id === last.items[0]) : (() => {
     const at = data.rows.indexOf(current)
-    for (let i = at - 1; i >= 0; i--) if (data.rows[i].baseVerdict) return data.rows[i]
+    for (let i = at - 1; i >= 0; i--) if (judged(records, data.rows[i])) return data.rows[i]
     return undefined
   })()
   const rec = lastRow ? effective(records, lastRow) : null
