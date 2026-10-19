@@ -233,3 +233,22 @@ def test_a_report_on_the_held_out_recording_is_refused(client, run_key):
         conn.execute("UPDATE discovery_sessions SET source_file = ?, channels_json = ? WHERE id = ?", (sf, chj, sid))
         conn.commit()
         conn.close()
+
+
+def test_a_project_start_saves_snapshots_in_a_git_ignored_folder_not_the_tracked_results():
+    """critic (2026-10-19): `Results/` is TRACKED in this repository, so a project start's snapshots there would sit
+    in `git status` as untracked files and risk being committed. A project start (no sandbox results folder) writes
+    under `DATA/derived/reports`, which `DATA/*` ignores; a sandbox keeps its own results folder."""
+    from types import SimpleNamespace
+
+    from server.reports import _results_root
+    from server.runtime import REPO_ROOT
+
+    def under(path, root):
+        return os.path.normcase(os.path.abspath(path)).startswith(os.path.normcase(os.path.abspath(root)) + os.sep)
+
+    project = _results_root(SimpleNamespace(results_dir=None))
+    assert under(project, os.path.join(REPO_ROOT, "DATA", "derived")), project
+    assert not under(project, os.path.join(REPO_ROOT, "Results")), project
+    sandbox = _results_root(SimpleNamespace(results_dir=os.path.join("C:\\", "rt", "results")))
+    assert under(sandbox, os.path.join("C:\\", "rt", "results")), sandbox
