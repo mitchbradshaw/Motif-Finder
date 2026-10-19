@@ -414,3 +414,76 @@ Cancel / Dismiss stay the kit default.
 - 49e5410 Merge coverage (7e982b9) — conflict in `kit/index.ts` only (two appended exports; both kept)
 - 7a4cb51 polish: Discovery › Runs
 - (this report)
+
+## Critic round
+
+**In plain words first.** This pass was meant to tidy the screens without changing what any of them does. The critic
+read every changed line against that promise. It does keep it: nothing that counts, saves or navigates was rewired,
+and nothing the researcher needs was deleted. Each grey sentence moved behind an ⓘ or into a closed "about …"
+strip. One real trap turned up. A closed "about" strip still holds its text in the page, only hidden. So four of the
+existing automated checks that look for that text kept passing even though nobody could see it. Those checks now
+open the strip first and require the text to be on screen. **Verdict: ready to merge after the manager's gate**
+(the browser walk could not run here).
+
+### Findings
+
+| # | Severity | Where | Evidence | Status |
+|---|---|---|---|---|
+| 1 | should-fix | `webui/smoke_pages/zzzz_ad_suspected_artifact.json:2`, `zzz_w_cross_channel.json:2`, `library_edges.json:2`, `library.json:59` | `About` keeps its body in the DOM under `hidden`, and smoke `expect` is `locator.count()`. So `cross-channel-chance-rule`, `cross-channel-null`, `scale-readout-caveat` (F-173, a trough exemplar, so it falls in the About) and `method-description` passed while invisible. Those states' `_why` lines claim the text is shown. | FIXED (61115b8): each state opens the About with `click_if` on `<id>-toggle[aria-expanded="false"]` (so a state that inherits an open About does not close it) and expects the node `:visible`. `Edges.tsx` and `GroupingPage.tsx` give their Abouts test ids (`scale-readout-about`, `method-about`) so the toggle can be found. |
+| 2 | minor | `library/FamilyPage.tsx` (the overlay pick hint) | `data-testid="overlay-pick-hint"` was deleted: its text repeated the ⓘ's first sentence. `zzzzzzzzzzz_family_actions.json:6` asserts it ABSENT after a pick, and that assertion is now vacuous because the hint is always absent. No state needs it present. | NOT FIXED (a defensible deletion under rule 1; the pick itself is still asserted by that state's other expects) |
+| 3 | minor | `analyse/InsertStageModal.tsx` (detail panel) | The amber "⏱ NN goes stale · 00–NN stay cached" note moved into the closed "About this block" and lost its amber colour. It tells you a cost, but it is not an unreliable number and needs no action. Rule 2 allows this. The over-the-local-ceiling ⚠ (→ HPC) and the cards' "known broken" ⚠ stay on the face. | NOT FIXED (defensible; flag for the researcher's eye) |
+| 4 | nit | `analyse/InsertStageModal.tsx` sort button | The sort toggle used to show its state through its style (ghost when off). Now it is always ghost, and only the label ("fits first" / "by registry") shows the state. | NOT FIXED |
+| 5 | note | test ids that now wrap an `InfoTip` | `save-as-template-line`, `judged-rule`, `summary-trace-note` (unit declared), `rail-member-note` (with a waveform), `b2-cnn-returns`, `cross-strip-caption`. An `InfoTip`'s text is NOT in the DOM until it is opened (it renders through `Popover`). The wrapper ids still exist, and existing states only check presence (`zzzzzzzzzzz_a1_seed_search.json:47`, and `zzzz_ae_library_view.json:24-25`, which `wait_for`s `judged-rule`; the wrapper span holds a visible ⓘ button, so it passes). No state reads their text. | no change needed |
+
+**Warnings that were demoted (rule 2), each checked.** These were checked for whether any of them is an
+unreliable-number warning:
+- Explore cross-channel shared-ground ⚠→ⓘ: the pair is excluded from the counts, so the numbers are already
+  corrected.
+- Grouping "applying regroups the whole catalogue" ⚠→ⓘ: a consequence of pressing Apply.
+- Custom-clustering scope Callout amber→grey.
+- Training "illustrative · out of scope" chip ⚠→ⓘ.
+- Family "a proposal, not a finding" moved into an ⓘ. The bold amber "N of M members have never been judged" line
+  and the green send stay.
+
+None of these is an unreliable-number warning. The genuine ones stay on the face:
+- the coherence caveat, when the family is judged no more coherent than noise;
+- "unit undeclared · not drawn in mV" and the family unit note;
+- the sharkfin scale-readout caveat (a non-sharkfin caveat goes into an About);
+- the label-leak callouts in Training;
+- the "arms train on different windows" callout;
+- every held-out / lock note (untouched).
+
+**Behaviour (rule "moves and restyles").** The client diff (df58f85..HEAD minus the coverage merge) holds the
+following, and nothing else:
+- variant/class changes;
+- captions moved into `InfoTip` / `About` / `tip`, with `Row.tip` merged into the label ⓘ alongside `info`;
+- text recoloured `.muted`→`.k-meta`/`.lib-meta`;
+- one chip;
+- sizes raised to 10.5 px;
+- `edges N` moved into the summary key-value list;
+- the band-preset "Settings › Analysis defaults" pointer deleted. The presets' own `i` title already says it, so
+  nothing is lost.
+
+No handler, condition, route, label or number changed. Error paths only got louder: band presets and extend errors
+are now red. Disabled buttons keep their reasons, and the pop-up's raw Insert buttons gained a `title`.
+
+**Merge-readiness.** The polish commits touch only `webui/client/src/**`, `webui/smoke_pages/**` and this report. The
+coverage merge brings its own server change. `kit/index.ts` and `kit/kit.css` only gain lines. `docs/manual` and
+`version.tex` are untouched, and no block description changed (the pop-up splits `description` at display time).
+The discovery unit `zzzzzzzzzzz_a1_polish_discovery.json` sorts before `zzzzzzzzzzz_a2_p4_seed.json`.
+`zzzzzzzzzzz_polish.json` opens no Discovery page.
+
+**The count bounds, checked by hand for one page.** The block page's `params-panel` has one `.muted` node, the
+"N declared" count. `ParamsPanel` adds a `.muted` only for a block with no parameters, so the walk's block 1 stays
+at 1. The bound (`:nth-match(..., 2)` absent) is plausible.
+
+### Gates (critic, after 61115b8)
+
+- `tsc -b` clean; `vite build` built (to a scratch outDir, so no served `dist` was rebuilt under a running walk).
+- conda: `test_webui_seed_on_demand_client` 16, `test_import_boundaries` 4, `test_analyse_null_toggle` 6,
+  `test_block_standard` 222 — all passed.
+- venv: `block_views` 11, `cross_page` 21, `decompose_payload` 4, `header_counts` 3, `library` 59 + 3 xpassed,
+  `library_tree` 12, `plot_domain` 19, `review` 32, `review_axis` 7, `slope_anatomy` 7, `template_kind_terminal` 3,
+  `w2f_ui` 10, `w3f_ui` 16 — all passed (`block_views` / `slope_anatomy` print a logging "I/O operation on closed
+  file" at interpreter exit; the summary lines are clean).
+- Six smoke manifests parse as JSON. No browser smoke here.
