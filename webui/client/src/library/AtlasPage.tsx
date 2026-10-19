@@ -185,7 +185,7 @@ function MotifAtlas({ families, grouping, labels }: { families: MotifFamily[]; g
           {scope.length ? scope.map(k => <Chip key={k} tone="blue" size="sm" testid={`scope-chip-${k}`} onRemove={() => removeScope(k)} removeLabel={`remove ${scopeLabel(k, labels)} from scope`}>{scopeLabel(k, labels)}</Chip>)
             : <Chip tone="grey" testid="scope-all">all recordings</Chip>}
           <Button variant="link" testid="back-to-recurrence" onClick={() => navigate('library/recurrence')}>‹ back to recurrence</Button>
-          <span className="lib-cap" style={{ fontSize: 11 }} data-testid="scope-caption">{sorted.length} families · {fmtInt(total)} members {scope.length ? 'in scope' : 'in every recording'}{hidden ? ` · ${hidden} hidden by ≥ ${filters.minMembers} members` : ''}</span>
+          <span className="lib-meta" data-testid="scope-caption">{sorted.length} families · {fmtInt(total)} members {scope.length ? 'in scope' : 'in every recording'}{hidden ? ` · ${hidden} hidden by ≥ ${filters.minMembers} members` : ''}</span>
           <span style={{ marginLeft: 'auto' }}>
             <Dropdown variant="outline" size="sm" prefix="sort:" testid="atlas-sort" value={sort} onChange={v => setSort(v)} menuWidth={220}
               options={[{ value: 'id', label: 'family id' }, { value: 'scope', label: scope.length ? 'members in scope' : 'members' }, { value: 'judged', label: 'judged fraction' }, { value: 'duration', label: 'duration' }, { value: 'hand', label: 'hand edits' }]} />
@@ -246,22 +246,22 @@ function MotifRail({ f, inScope, scoped, refScale, grouping, traces }: { f: Moti
   return (
     <aside className="k-card lib-rail" data-testid="atlas-rail" aria-label={`${f.id}${familyName(f.id, f.name) ? ` ${f.name}` : ''}`}>
       <div className="row"><span className="mono b" style={{ color: f.colour, fontSize: 15 }}>{f.id}</span><span style={{ fontWeight: 700, fontSize: 15 }}>{familyName(f.id, f.name)}</span><span className="k-chip blue sm" style={{ marginLeft: 'auto' }}>{f.recordings} recordings</span></div>
-      <div className="lib-cap" style={{ fontSize: 11, marginTop: -6 }}>{f.members} members · {scoped ? `${inScope} in scope · ` : ''}{f.hand} hand edits</div>
+      <div className="lib-meta" style={{ marginTop: -6 }}>{f.members} members · {scoped ? `${inScope} in scope · ` : ''}{f.hand} hand edits</div>
       <div>
         <MotifPlot exemplar={traces?.ex} medoid={traces?.me} colour={f.colour} height={88} testid="rail-exemplar-medoid" reference={{ scale: refScale, peak: traces?.peak, what: f.id }} />
-        <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 38, paddingRight: 15 }}><span>0</span><span>{f.durationS < 10 ? f.durationS.toFixed(1) : f.durationS} s</span></div>
+        <div className="row lib-meta" style={{ justifyContent: 'space-between', paddingLeft: 38, paddingRight: 15 }}><span>0</span><span>{f.durationS < 10 ? f.durationS.toFixed(1) : f.durationS} s</span></div>
       </div>
-      <div className="row lib-cap" style={{ fontSize: 10.5 }}>
+      <div className="row lib-meta">
         <span><i style={{ display: 'inline-block', width: 12, height: 2, background: '#1f2937', verticalAlign: 'middle', marginRight: 4 }} />exemplar {f.exemplar}</span>
         <span><i style={{ display: 'inline-block', width: 12, height: 2, background: f.colour, verticalAlign: 'middle', marginRight: 4 }} />medoid {f.medoid}</span>
         <span className="k-chip green sm" style={{ marginLeft: 'auto' }} title="distance between exemplar and medoid">d {f.exemplarMedoidD.toFixed(2)}</span>
       </div>
-      <div className="row lib-cap" style={{ fontSize: 10.5, gap: 4 }} data-testid="rail-members-not-drawn">
+      <div className="row lib-meta" style={{ gap: 4 }} data-testid="rail-members-not-drawn">
         {Math.max(0, pool - 2)} other member{pool - 2 === 1 ? '' : 's'} not drawn
         <InfoTip title="Members not drawn">The atlas carries the exemplar and the medoid as real mV. Every member's own waveform is in the slideshow under the grid (click the card), or open the family.</InfoTip>
         ·<Button variant="link" size="sm" style={{ padding: 0 }} testid="rail-open-members" onClick={() => navigate(`library/family/${f.id}`)}>open the family</Button>
       </div>
-      <div className="row lib-cap" style={{ fontSize: 10.5 }}><span>peak-to-peak amplitude · mV</span><span style={{ marginLeft: 'auto' }}>n per bin</span></div>
+      <div className="row lib-cap"><span>peak-to-peak amplitude · mV</span><span style={{ marginLeft: 'auto' }}>n per bin</span></div>
       <Histogram bins={bins} height={66} showCounts={false} colour="#dcc6f1" highlightBin={(_, i) => i === modal} highlightColour={f.colour}
         format={v => String(+v.toFixed(2))} label={`${f.id} peak-to-peak amplitude histogram, ${nBins} bins, ${+ampDomain[0].toFixed(3)}–${+ampDomain[1].toFixed(3)} mV`} testid="rail-amplitude-histogram" />
       <KeyValue align="right" dense items={[
@@ -275,10 +275,10 @@ function MotifRail({ f, inScope, scoped, refScale, grouping, traces }: { f: Moti
       <div className="lib-rail-actions">
         <Button variant="next" iconRight="arrow-right" testid="open-family" onClick={() => navigate(`library/family/${f.id}`)}>Open all {f.members} members</Button>
         {/* fixup-v: the seed is the exemplar's Library entry; `?seed=m-718` named a member id, which no seed id is */}
-        <Button icon="target" iconRight="arrow-right" testid="seed-search" disabled={(f as typeof f & { exemplarEntryId?: number | null }).exemplarEntryId == null} disabledReason="the exemplar is not a Library entry"
+        <Button variant="primary" icon="target" iconRight="arrow-right" testid="seed-search" disabled={(f as typeof f & { exemplarEntryId?: number | null }).exemplarEntryId == null} disabledReason="the exemplar is not a Library entry"
           onClick={() => navigate(`discovery/seed?entry=${(f as typeof f & { exemplarEntryId?: number | null }).exemplarEntryId}`)}>Seed search in Discovery</Button>
-        <Button icon="link" iconRight="arrow-right" testid="interrogate" onClick={() => navigate(`analyse/interrogation?source=family:${encodeURIComponent(f.id)}`)}>Interrogate in Analyse</Button>
-        <Button icon="checklist" iconRight="arrow-right" testid="send-unjudged" disabled={!unjudged} disabledReason="every member is judged" onClick={() => queue(`Library · ${f.id} unjudged`, unjudged)}>Send {unjudged} unjudged to Review</Button>
+        <Button variant="primary" icon="link" iconRight="arrow-right" testid="interrogate" onClick={() => navigate(`analyse/interrogation?source=family:${encodeURIComponent(f.id)}`)}>Interrogate in Analyse</Button>
+        <Button variant="primary" icon="checklist" iconRight="arrow-right" testid="send-unjudged" disabled={!unjudged} disabledReason="every member is judged" onClick={() => queue(`Library · ${f.id} unjudged`, unjudged)}>Send {unjudged} unjudged to Review</Button>
         <ExportEntry id={f.id} grouping={grouping.id} />
       </div>
     </aside>
@@ -362,12 +362,12 @@ function SequenceAtlas({ families, motifFamilies, grouping }: { families: Sequen
           {omitted.data && (
             <div className="lib-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 8 }}>
               <div className="stack" style={{ gap: 8 }}>
-                <span className="lib-cap" style={{ color: 'var(--text-2)' }} data-testid="omitted-singles-label">{singles} single motifs omitted by the current motif grouping</span>
+                <span className="lib-meta" data-testid="omitted-singles-label">{singles} single motifs omitted by the current motif grouping</span>
                 <button type="button" className="lib-thumbrow lib-plain" onClick={() => setDrawer('omitted')} title={`show omitted single motifs · ${OMITTED_SKETCH_NOTE}`}>{omitted.data.singles.slice(0, 7).map(e => <OmittedThumb key={e.id} e={e} />)}</button>
                 <span><Button variant="link" size="sm" testid="switch-to-singles" onClick={() => setUnit(null)}>Switch the unit to single motifs to group these</Button></span>
               </div>
               <div className="stack" style={{ gap: 8 }}>
-                <span className="lib-cap" style={{ color: 'var(--text-2)' }}>{omittedSeqs} sequences omitted by {grouping.id}</span>
+                <span className="lib-meta">{omittedSeqs} sequences omitted by {grouping.id}</span>
                 <button type="button" className="lib-thumbrow lib-plain" onClick={() => setDrawer('omitted')} title={`show omitted sequences · ${OMITTED_SKETCH_NOTE}`}>{omitted.data.sequences.slice(0, 5).map(e => <OmittedThumb key={e.id} e={e} width={86} />)}</button>
                 <span className="lib-cap" data-testid="omitted-sequences-reason">{omittedReasonSummary(omitted.data.sequences)}</span>
               </div>
@@ -390,17 +390,17 @@ function SequenceRail({ f, refScale, grouping, motifFamilies, traces }: { f: Seq
   return (
     <aside className="k-card lib-rail" data-testid="atlas-rail" aria-label={`${f.id}${familyName(f.id, f.name) ? ` ${f.name}` : ''}`}>
       <div className="row"><span className="mono b" style={{ color: f.colour, fontSize: 15 }}>{f.id}</span><span style={{ fontWeight: 700, fontSize: 15 }}>{familyName(f.id, f.name)}</span><span className="k-chip blue sm" style={{ marginLeft: 'auto' }}>{f.recordings} recordings</span></div>
-      <div className="lib-cap" style={{ fontSize: 11, marginTop: -6 }}>{f.sequences} sequences · {f.motifs} motifs · exemplar {f.exemplar}</div>
+      <div className="lib-meta" style={{ marginTop: -6 }}>{f.sequences} sequences · {f.motifs} motifs · exemplar {f.exemplar}</div>
       <div>
         <MotifPlot exemplar={traces?.ex} medoid={traces?.me} colour={f.colour} height={88} testid="rail-exemplar-medoid" reference={{ scale: refScale, peak: traces?.peak, what: f.id }} />
-        <div className="row lib-cap" style={{ justifyContent: 'space-between', paddingLeft: 38, paddingRight: 15 }}><span>0</span><span>{f.durationLabel.replace('~', '')}</span></div>
+        <div className="row lib-meta" style={{ justifyContent: 'space-between', paddingLeft: 38, paddingRight: 15 }}><span>0</span><span>{f.durationLabel.replace('~', '')}</span></div>
       </div>
-      <div className="row lib-cap" style={{ fontSize: 10.5 }}>
+      <div className="row lib-meta">
         <span><i style={{ display: 'inline-block', width: 12, height: 2, background: '#1f2937', verticalAlign: 'middle', marginRight: 4 }} />exemplar</span>
         <span><i style={{ display: 'inline-block', width: 12, height: 2, background: f.colour, verticalAlign: 'middle', marginRight: 4 }} />medoid</span>
         <span className="k-chip green sm" style={{ marginLeft: 'auto' }}>d {f.exemplarMedoidD.toFixed(2)}</span>
       </div>
-      <div className="lib-cap" style={{ fontSize: 10.5 }}>composition</div>
+      <div className="lib-key">composition</div>
       <div className="lib-comp" data-testid="composition-strip" style={{ background: hexA(f.colour, 0.35) }}>
         {f.composition.map((id, i) => (
           <span key={i} style={{ display: 'contents' }}>
@@ -421,18 +421,18 @@ function SequenceRail({ f, refScale, grouping, motifFamilies, traces }: { f: Seq
         { k: 'mean member d', v: f.meanMemberD.toFixed(2) },
         { k: 'judged', v: `${f.judgedMotifs} of ${judgedOf} motifs`, tone: 'amber' },
       ]} testid="rail-stats" />
-      <div className="row lib-cap" style={{ fontSize: 10.5, gap: 4 }} data-testid="rail-members-not-drawn">
+      <div className="row lib-meta" style={{ gap: 4 }} data-testid="rail-members-not-drawn">
         {Math.max(0, f.sequences - 2)} other member{f.sequences - 2 === 1 ? '' : 's'} not drawn
         <InfoTip title="Members not drawn">This read carries the exemplar and the medoid as real mV, and no waveform for the rest.</InfoTip>
       </div>
       <div className="lib-rail-actions">
         <Button variant="next" iconRight="arrow-right" testid="open-family" onClick={() => navigate(`library/family/${f.id}?unit=sequences`)}>Open all {f.sequences} sequences</Button>
         <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
-          <Button icon="target" disabled disabledReason="needs multi-seed — no seed-search algorithm takes several seeds yet (§7.6)" testid="seed-search">Seed search in Discovery</Button>
+          <Button variant="primary" icon="target" disabled disabledReason="needs multi-seed — no seed-search algorithm takes several seeds yet (§7.6)" testid="seed-search">Seed search in Discovery</Button>
           <InfoTip title="needs multi-seed">A sequence family has several events; no seed-search algorithm takes several seeds yet (§7.6), so Discovery cannot search for it.</InfoTip><span className="lib-cap" style={{ whiteSpace: 'nowrap' }}>needs multi-seed</span>
         </span>
-        <Button icon="link" iconRight="arrow-right" testid="interrogate" onClick={() => navigate(`analyse/interrogation?source=family:${encodeURIComponent(f.id)}`)}>Interrogate in Analyse</Button>
-        <Button icon="checklist" iconRight="arrow-right" testid="send-unjudged" disabled={!unjudged} disabledReason={judgedOf ? 'every motif is judged' : 'this read counted no motifs to judge'} onClick={() => queue(`Library · ${f.id} unjudged motifs`, unjudged)}>Send {unjudged} unjudged motifs to Review</Button>
+        <Button variant="primary" icon="link" iconRight="arrow-right" testid="interrogate" onClick={() => navigate(`analyse/interrogation?source=family:${encodeURIComponent(f.id)}`)}>Interrogate in Analyse</Button>
+        <Button variant="primary" icon="checklist" iconRight="arrow-right" testid="send-unjudged" disabled={!unjudged} disabledReason={judgedOf ? 'every motif is judged' : 'this read counted no motifs to judge'} onClick={() => queue(`Library · ${f.id} unjudged motifs`, unjudged)}>Send {unjudged} unjudged motifs to Review</Button>
         <ExportEntry id={f.id} grouping={grouping.id} />
       </div>
     </aside>

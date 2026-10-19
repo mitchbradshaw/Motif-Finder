@@ -109,7 +109,7 @@ export function GroupingGate({ editor, children }: { editor?: boolean; children:
           <div className="error-card" data-testid="grouping-unknown" role="alert">
             <h3>No grouping called {named}</h3>
             <div className="mono small">This address asks for grouping <b>{named}</b>, and it is not among the saved groupings ({UNIT_LABEL.motifs}: {ofUnit('motifs')} · {UNIT_LABEL.sequences}: {ofUnit('sequences')}). Nothing else has been opened in its place. The link may have been made against another database, or the grouping has since been deleted.</div>
-            <div style={{ marginTop: 8 }}><Button size="sm" testid="grouping-unknown-newest" onClick={() => setQuery({ grouping: null })}>Open the current grouping instead</Button></div>
+            <div style={{ marginTop: 8 }}><Button variant="primary" size="sm" testid="grouping-unknown-newest" onClick={() => setQuery({ grouping: null })}>Open the current grouping instead</Button></div>
           </div>
         </Page>
       </>
@@ -126,7 +126,7 @@ export function GroupingGate({ editor, children }: { editor?: boolean; children:
             <div className="mono small">{drawn ? `Nothing has been opened in its place. The ${UNIT_LABEL[pageUnit]} groupings are ${ofUnit(pageUnit)}.` : `No Library page draws a grouping of ${UNIT_LABEL[hit.unit]} yet, and nothing has been opened in its place.`}</div>
             <div className="row" style={{ marginTop: 8, gap: 8 }}>
               {drawn && <Button size="sm" variant="primary" testid="grouping-wrong-unit-open" onClick={() => setQuery({ unit: hit.unit === 'sequences' ? 'sequences' : null })}>Open {named} as {UNIT_LABEL[hit.unit]}</Button>}
-              <Button size="sm" testid="grouping-wrong-unit-newest" onClick={() => setQuery({ grouping: null })}>Open the current {UNIT_LABEL[pageUnit]} grouping instead</Button>
+              <Button variant="primary" size="sm" testid="grouping-wrong-unit-newest" onClick={() => setQuery({ grouping: null })}>Open the current {UNIT_LABEL[pageUnit]} grouping instead</Button>
             </div>
           </div>
         </Page>
@@ -195,7 +195,7 @@ export function LoadFailed({ what, error, onRetry }: { what: string; error: Erro
     <div className="error-card" data-testid="library-load-failed" role="alert">
       <h3 style={{ margin: '0 0 4px' }}>Could not read {what}</h3>
       <div className="mono small" style={{ color: 'var(--red)' }}>{error.message}</div>
-      {onRetry && <div style={{ marginTop: 8 }}><Button size="sm" icon="refresh" onClick={onRetry}>Retry</Button></div>}
+      {onRetry && <div style={{ marginTop: 8 }}><Button variant="primary" size="sm" icon="refresh" onClick={onRetry}>Retry</Button></div>}
     </div>
   )
 }
@@ -246,8 +246,8 @@ export function MotifsActions({ onImport }: { onImport?: () => void }) {
   const { push } = useToast()
   return (
     <>
-      <Button icon="scan" testid="find-by-shape" onClick={() => push({ text: 'not wired yet: shape query (sketch or span → nearest families)' })}>Find by shape</Button>
-      <Button icon="download" testid="library-import" onClick={() => (onImport ? onImport() : navigate('library/import'))}>Import</Button>
+      <Button variant="primary" icon="scan" testid="find-by-shape" onClick={() => push({ text: 'not wired yet: shape query (sketch or span → nearest families)' })}>Find by shape</Button>
+      <Button variant="primary" icon="download" testid="library-import" onClick={() => (onImport ? onImport() : navigate('library/import'))}>Import</Button>
       <ExportButton />
     </>
   )
@@ -255,7 +255,7 @@ export function MotifsActions({ onImport }: { onImport?: () => void }) {
 function ExportButton() {
   const [gid] = useMotifGroupingId()
   const { push } = useToast()
-  return <Button icon="upload" testid="library-export" onClick={() => push({ text: `not wired yet: export grouping ${gid} (families × channels CSV)` })}>Export</Button>
+  return <Button variant="primary" icon="upload" testid="library-export" onClick={() => push({ text: `not wired yet: export grouping ${gid} (families × channels CSV)` })}>Export</Button>
 }
 
 /* ================================================================ grouping bar ================================================================ */
@@ -310,7 +310,7 @@ export function GroupingBar({ unit, grouping, from, inert, onUnit }: { unit: Uni
       {unit === 'motifs' && <button ref={addRef} type="button" className="k-chip outline k-chip-btn" data-testid="filter-add" onClick={() => setOpen(o => o === 'add' ? '' : 'add')}>+ filter</button>}
       <Spacer />
       <button type="button" className="k-chip amber k-chip-btn" data-testid="omitted-chip" onClick={() => setDrawer('omitted')}><Icon name="flag" size={12} />{omittedLabel}</button>
-      <Button icon="sliders" testid="edit-grouping" onClick={() => navigate(`library/grouping?from=${encodeURIComponent(from)}${unit !== 'motifs' ? `&unit=${unit}` : ''}`)}>Edit grouping</Button>
+      <Button variant="primary" icon="sliders" testid="edit-grouping" onClick={() => navigate(`library/grouping?from=${encodeURIComponent(from)}${unit !== 'motifs' ? `&unit=${unit}` : ''}`)}>Edit grouping</Button>
 
       <Popover open={open === 'basis'} onClose={close} anchorRef={basisRef} title="Groupings" subtitle="saved · computed by the Library" width={400} testid="groupings-popover">
         <div className="lib-radio-list" role="radiogroup" aria-label="saved groupings">
@@ -540,7 +540,7 @@ export function OmittedDrawer({ groupingId, unit }: { groupingId: string; unit: 
         <div className="stack" style={{ gap: 10 }}>
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <span className="mono small">{tabs ? `Omitted from ${gLabel} · ${fmtInt(total)} · flagged, not deleted` : ''}</span>
-            <Button size="sm" icon="checklist" testid="omitted-send" onClick={() => queue(`Library · ${gLabel} omitted`, total)}>Send omitted to Review as a queue</Button>
+            <Button variant="primary" size="sm" icon="checklist" testid="omitted-send" onClick={() => queue(`Library · ${gLabel} omitted`, total)}>Send omitted to Review as a queue</Button>
           </div>
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
             {/* the caption is the SET OF REASONS this list actually carries. It used to state the `omit_d`
@@ -559,9 +559,9 @@ export function OmittedDrawer({ groupingId, unit }: { groupingId: string; unit: 
                 {/* the per-entry reason the bridge already sends. `nearest`/`d` are printed only for the one
                     reason they measure; for the rest the bridge carries `—`/`0.0`, and "d 0.00" read as a
                     perfect match that was discarded anyway. */}
-                <div className="mono small"><b>{e.id}</b> {nearestMeansSomething(e) && <span className="muted">d {e.d.toFixed(2)}</span>}</div>
+                <div className="mono small"><b>{e.id}</b> {nearestMeansSomething(e) && <span className="k-meta">d {e.d.toFixed(2)}</span>}</div>
                 <div className="mono small muted" data-testid={`omitted-reason-${e.id}`}>{omittedReasonText(e)}</div>
-                <div className="mono small muted">{e.recording} · {e.channel} · {e.onsetH.toFixed(2)} h</div>
+                <div className="mono small k-meta">{e.recording} · {e.channel} · {e.onsetH.toFixed(2)} h</div>
               </div>
             ))}
           </div>
@@ -634,7 +634,7 @@ export function ViewFilterBar({ report, what = 'members', testid = 'view-filter-
       <b style={{ fontSize: 12, whiteSpace: 'nowrap' }} data-testid="view-floor-count">
         {sub == null ? 'counting…' : view.floor ? `${fmtInt(sub)} sub-floor ${what} hidden` : `${fmtInt(sub)} sub-floor ${what} shown`}
       </b>
-      {stores.length > 0 && <span className="lib-cap" data-testid="view-by-store" style={{ fontSize: 11, whiteSpace: 'nowrap' }} title="sub-floor members per import store">{stores.map(([k, c]) => `${storeName(k)} ${fmtInt(c.sub_floor)} of ${fmtInt(c.n)}`).join(' · ')}</span>}
+      {stores.length > 0 && <span className="lib-meta" data-testid="view-by-store" style={{ whiteSpace: 'nowrap' }} title="sub-floor members per import store">{stores.map(([k, c]) => `${storeName(k)} ${fmtInt(c.sub_floor)} of ${fmtInt(c.n)}`).join(' · ')}</span>}
       {sub != null && sub > 0 && <Button variant="link" size="sm" testid="show-sub-floor" onClick={() => setView({ ...view, floor: !view.floor })}>{view.floor ? `show sub-floor (${fmtInt(sub)})` : `hide sub-floor (${fmtInt(sub)})`}</Button>}
       {view.floor && under > 0 && <Chip tone="amber" size="sm" testid="view-families-under" title={`hidden from the grid: every member is under the floor — ${(report?.familiesAllSubFloor ?? []).join(', ')}`}>{under} famil{under === 1 ? 'y' : 'ies'} entirely under the floor</Chip>}
       {!!report?.unmeasured && <Chip tone="grey" size="sm" testid="view-unmeasured" title="no detector depth and no event-shape depth (or the recording declares no unit): shown, never passed as above the floor">{fmtInt(report.unmeasured)} unmeasured · shown</Chip>}
@@ -643,12 +643,12 @@ export function ViewFilterBar({ report, what = 'members', testid = 'view-filter-
       <TextField size="sm" width={64} value={lo} onChange={setLo} onEnter={applyFall} placeholder="min" ariaLabel="fall duration from, s" invalid={invalid} testid="view-fall-min" />
       <span className="lib-cap">–</span>
       <TextField size="sm" width={64} value={hi} onChange={setHi} onEnter={applyFall} placeholder="max" suffix="s" ariaLabel="fall duration to, s" invalid={invalid} testid="view-fall-max" />
-      <Button size="sm" testid="view-fall-apply" disabled={invalid || (parse(lo) === view.fallMin && parse(hi) === view.fallMax)} disabledReason={invalid ? 'two non-negative numbers of seconds, low to high' : 'already applied'} onClick={applyFall}>Apply</Button>
+      <Button variant="primary" size="sm" testid="view-fall-apply" disabled={invalid || (parse(lo) === view.fallMin && parse(hi) === view.fallMax)} disabledReason={invalid ? 'two non-negative numbers of seconds, low to high' : 'already applied'} onClick={applyFall}>Apply</Button>
       {(view.fallMin != null || view.fallMax != null) && <Button variant="link" size="sm" testid="view-fall-clear" onClick={() => setView({ ...view, fallMin: null, fallMax: null })}>clear</Button>}
       <Chip tone={view.pure ? 'blue' : 'outline'} selected={view.pure} testid="view-pure" title="only windows holding one fall (the detector's is_pure); a window with two or more falls is not one event"
         onClick={() => setView({ ...view, pure: !view.pure })}>pure only</Chip>
       <Spacer />
-      <span className="lib-cap" data-testid="view-rule-line" style={{ fontSize: 11 }}>
+      <span className="lib-cap" data-testid="view-rule-line">
         {report ? `${fmtInt(report.shown)} of ${fmtInt(report.n)} ${what} shown · ${viewWords(view)}${report.fall?.hidden ? ` · fall hid ${fmtInt(report.fall.hidden)}` : ''}${report.pure?.hidden ? ` · impure hid ${fmtInt(report.pure.hidden)}` : ''}` : viewWords(view)}
       </span>
       <InfoTip title="what the view hides" testid="view-rule">
