@@ -66,7 +66,7 @@ export function DiscoverySkeleton({ label, cols = true, testid = 'discovery-skel
   )
 }
 export function LoadFailed({ what, error, onRetry }: { what: string; error: Error; onRetry: () => void }) {
-  return <Callout tone="red" icon="alert-triangle" title={`Could not load ${what}`} action={<Button size="sm" icon="refresh" onClick={onRetry}>Retry</Button>} testid="discovery-load-failed">{error.message}</Callout>
+  return <Callout tone="red" icon="alert-triangle" title={`Could not load ${what}`} action={<Button variant="primary" size="sm" icon="refresh" onClick={onRetry}>Retry</Button>} testid="discovery-load-failed">{error.message}</Callout>
 }
 
 /* ------------------------------------------------------------------ toolbar */
@@ -177,7 +177,7 @@ export function HistoryButton({ dx }: { dx: Discovery }) {
   const toast = useToast()
   return (
     <>
-      <Button ref={ref} icon="clock" onClick={() => setQ(open ? null : 'history')} testid="history-button" aria-expanded={open}>History</Button>
+      <Button variant="primary" ref={ref} icon="clock" onClick={() => setQ(open ? null : 'history')} testid="history-button" aria-expanded={open}>History</Button>
       <Popover open={open} onClose={() => setQ(null)} anchorRef={ref} placement="bottom-end" title="Discovery history" subtitle={dx.recording?.label} width={380} testid="history-popover">
         {hist.error && <LoadFailed what="history" error={hist.error} onRetry={hist.reload} />}
         {hist.data?.map(h => {
@@ -185,7 +185,7 @@ export function HistoryButton({ dx }: { dx: Discovery }) {
           return (
             <div key={h.id} className="dsc-hist-row" data-testid={`history-${h.id}`}>
               <div><b className="mono">{h.id}</b> {h.label}<div className="muted small">{h.when} · {h.status} · {h.detail}</div></div>
-              <Button size="sm" disabled={inSession} disabledReason={inSession ? 'already in this session' : undefined} testid={`history-open-${h.id}`}
+              <Button variant="primary" size="sm" disabled={inSession} disabledReason={inSession ? 'already in this session' : undefined} testid={`history-open-${h.id}`}
                 onClick={() => {
                   /* Adoption is a real write: the row comes back from /runs on
                    * the reload, carrying the run group it actually ran in. It
@@ -286,8 +286,8 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
               {rec.channels.map(ch => <Checkbox key={ch} checked={addSel.includes(ch)} label={ch} testid={`add-channel-${ch}`} onChange={v => setAddSel(v ? [...addSel, ch] : addSel.filter(c => c !== ch))} />)}
             </div>
             <div className="row" style={{ gap: 6, marginTop: 8 }}>
-              <Button size="sm" onClick={() => setAddSel([...rec.channels])} disabled={addSel.length === rec.channels.length} disabledReason="every channel is selected" testid="add-channel-all">Select all</Button>
-              <Button size="sm" onClick={() => setAddSel([])} disabled={addSel.length === 0} disabledReason="nothing is selected" testid="add-channel-none">None</Button>
+              <Button variant="primary" size="sm" onClick={() => setAddSel([...rec.channels])} disabled={addSel.length === rec.channels.length} disabledReason="every channel is selected" testid="add-channel-all">Select all</Button>
+              <Button variant="primary" size="sm" onClick={() => setAddSel([])} disabled={addSel.length === 0} disabledReason="nothing is selected" testid="add-channel-none">None</Button>
             </div>
             <div className="row between" style={{ marginTop: 10 }}>
               <span className="muted small">{addSel.length} selected · {addSel.length > PAGE_SIZE ? `strips page ${PAGE_SIZE} at a time` : 'fits on one page'}</span>
@@ -303,7 +303,7 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
         <SectionPopover open={secOpen} onClose={() => setSecOpen(false)} anchorRef={secRef} section={s.section} hours={hours} onApply={sec => { dx.setScope({ section: sec }); recordDemoWrite('discovery', 'set-section', { section: sec }) }} />
         {previewable && (
           <DisabledReason disabled={runnable.length === 0 || !!refused} reason={refused ? 'held out recording' : 'nothing to preview — every run in this session has results'}>
-            <Button icon="flask" onClick={runPreview} disabled={runnable.length === 0 || !!refused || preview.busy} disabledReason={refused ? 'held out recording' : runnable.length === 0 ? 'nothing to preview — every run in this session has results' : undefined} loading={preview.busy} testid="preview-sample">Preview on a 4 h sample</Button>
+            <Button variant="primary" icon="flask" onClick={runPreview} disabled={runnable.length === 0 || !!refused || preview.busy} disabledReason={refused ? 'held out recording' : runnable.length === 0 ? 'nothing to preview — every run in this session has results' : undefined} loading={preview.busy} testid="preview-sample">Preview on a 4 h sample</Button>
           </DisabledReason>
         )}
       </div>
@@ -314,7 +314,7 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
         </div>
       )}
       {refused ? (
-        <Callout tone="red" icon="lock" title="Held out" testid="scope-refused" action={<Button size="sm" onClick={() => { dx.resetScope(); navigate('discovery/runs') }}>Back to the session's recording</Button>}>{refused}</Callout>
+        <Callout tone="red" icon="lock" title="Held out" testid="scope-refused" action={<Button variant="primary" size="sm" onClick={() => { dx.resetScope(); navigate('discovery/runs') }}>Back to the session's recording</Button>}>{refused}</Callout>
       ) : (
         <div className="dsc-strips-wrap">
           <Strips channels={dx.visibleChannels} traces={traces} hours={hours} section={s.section} onSection={sec => dx.setScope({ section: sec })} />
@@ -468,12 +468,12 @@ export function RunsCard({ dx, mode, selected, onSelect, draft, compareActive, o
       <div className="dsc-runs-foot" data-testid="runs-foot">
         <span className="muted small">{mode === 'seed' ? "drafts can't be compared" : pickedLabel}</span>
         {mode === 'seed' ? (
-          <DisabledReason reason="a draft has no results to compare — run it first"><Button icon="compare" disabled disabledReason="a draft has no results to compare — run it first" testid="compare-button">Compare</Button></DisabledReason>
+          <DisabledReason reason="a draft has no results to compare — run it first"><Button variant="primary" icon="compare" disabled disabledReason="a draft has no results to compare — run it first" testid="compare-button">Compare</Button></DisabledReason>
         ) : compareActive ? (
           <Button icon="compare" variant="primary" aria-pressed onClick={() => navigate('discovery/runs')} testid="compare-button" title="comparing — click to go back to all runs">Comparing</Button>
         ) : (
           <DisabledReason disabled={!canCompare} reason="pick two runs to compare">
-            <Button icon="compare" disabled={!canCompare} disabledReason={canCompare ? undefined : 'pick two runs to compare'} onClick={() => navigate(`discovery/compare?a=${encodeURIComponent(dx.picks[0])}&b=${encodeURIComponent(dx.picks[1])}`)} testid="compare-button">Compare</Button>
+            <Button variant="primary" icon="compare" disabled={!canCompare} disabledReason={canCompare ? undefined : 'pick two runs to compare'} onClick={() => navigate(`discovery/compare?a=${encodeURIComponent(dx.picks[0])}&b=${encodeURIComponent(dx.picks[1])}`)} testid="compare-button">Compare</Button>
           </DisabledReason>
         )}
       </div>
@@ -582,20 +582,20 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
         <RunGlyph kind={run.glyph} width={40} height={28} />
         <span className="dsc-run-text">
           <b>{run.label}</b>
-          <span className="dsc-run-meta">{kindBadge}<span className="muted">{run.detail}</span></span>
+          <span className="dsc-run-meta">{kindBadge}<span className="k-meta">{run.detail}</span></span>
           {line && <span className="dsc-run-line small">{line}</span>}
           {cov && scopeChans.length > 0 && <CoverageStrip runKey={run.key} channels={scopeChans} coverage={cov} />}
-          {run.extendError && <span className="dsc-run-line small amber" title={run.extendError} data-testid={`extend-error-${run.key}`}>{run.extendError}</span>}
+          {run.extendError && <span className="dsc-run-line small" style={{ color: 'var(--red)' }} title={run.extendError} data-testid={`extend-error-${run.key}`}>{run.extendError}</span>}
         </span>
       </button>
       {missing.length > 0 && extendable && (status === 'done' || status === 'failed') && (
-        <Button size="sm" icon="play" className="dsc-run-retry" loading={extending} disabled={extending} onClick={extend} testid={`run-missing-${run.key}`}
+        <Button variant="primary" size="sm" icon="play" className="dsc-run-retry" loading={extending} disabled={extending} onClick={extend} testid={`run-missing-${run.key}`}
           title={`run ${run.label} on ${missing.join(', ')} too — the same run gains the channel${missing.length === 1 ? '' : 's'} (its key stays) while the template is unchanged`}>
           {extending ? 'Starting…' : `Run on the missing ${missing.length}`}</Button>
       )}
       {status === 'paused' && run.id && <Button variant="link" size="sm" icon="external" className="dsc-run-jobs-link" onClick={() => navigate('jobs')} testid={`open-in-jobs-${run.key}`}>Open in Jobs</Button>}
       {/* round A_2 (P2): the chain job's results are back — verified, the cache restored, the run written here */}
-      {status === 'on cluster' && run.hpc?.kind === 'chain' && <Button size="sm" icon="download" className="dsc-run-retry" loading={importing} disabled={importing} onClick={() => {
+      {status === 'on cluster' && run.hpc?.kind === 'chain' && <Button variant="primary" size="sm" icon="download" className="dsc-run-retry" loading={importing} disabled={importing} onClick={() => {
         setImporting(true)   // ux-1018: the button shows the import is under way — the POST verifies and restores every task before it answers
         importDiscoveryChain(run.key)
           .then(ack => { dx.reload(); toast.push({ text: `${run.label}: ${ack.note}`, action: { label: 'Open Jobs', onClick: () => navigate('jobs') } }) })
@@ -605,7 +605,7 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
       {/* a real retry: a seed run is started again from its seed and cut, a template run from its template, over the
           scope. It used to mark the row `new` in the page's memory, which the Seed page then took for a pending run of
           this search and greyed *Run seed search* out. */}
-      {status === 'failed' && <Button size="sm" icon="refresh" className="dsc-run-retry" onClick={() => {
+      {status === 'failed' && <Button variant="primary" size="sm" icon="refresh" className="dsc-run-retry" onClick={() => {
         const s = dx.scope
         if (!s) return
         const again = run.kind === 'seed' && run.seedId

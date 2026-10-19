@@ -47,7 +47,7 @@ export function RunsPage() {
     }
   }
   const primary = dx.pending.length === 0
-    ? <DisabledReason reason="nothing to run — every run in this session has results or is on the cluster"><Button icon="play" disabled disabledReason="nothing to run — every run in this session has results or is on the cluster" testid="toolbar-run">Run</Button></DisabledReason>
+    ? <DisabledReason reason="nothing to run — every run in this session has results or is on the cluster"><Button variant="primary" icon="play" disabled disabledReason="nothing to run — every run in this session has results or is on the cluster" testid="toolbar-run">Run</Button></DisabledReason>
     : dx.overLimit
       ? <Button variant="cluster" icon="file" onClick={() => { setSlurmKeys(null); setModal('slurm') }} testid="toolbar-slurm">Create SLURM script for {dx.pending.length}</Button>
       : <Button variant="next" icon="play" onClick={runLocal} testid="toolbar-run">Run {dx.pending.length}</Button>
@@ -70,12 +70,12 @@ export function RunsPage() {
                 <div className="dsc-cols">
                   <RunsCard dx={dx} mode="runs" selected={selected?.key} onSelect={k => setRunQ(k)} onAddTemplate={() => setModal('add-template')} />
                   <div className="dsc-right">
-                    {missingRun && <Callout tone="amber" icon="alert-triangle" title={`No run named ${missingRun} in this session`} testid="run-missing-callout" action={<Button size="sm" onClick={() => setRunQ(null)}>Clear</Button>}>Showing {selected?.label ?? 'nothing'} instead. Past runs can be brought in from History.</Callout>}
+                    {missingRun && <Callout tone="amber" icon="alert-triangle" title={`No run named ${missingRun} in this session`} testid="run-missing-callout" action={<Button variant="primary" size="sm" onClick={() => setRunQ(null)}>Clear</Button>}>Showing {selected?.label ?? 'nothing'} instead. Past runs can be brought in from History.</Callout>}
                     {stateQ === 'failed' && (() => { const f = dx.runs.find(r => r.status === 'failed'); return f ? <Callout tone="red" icon="alert-triangle" title={`${f.label} failed`} testid="run-failed-callout" action={<Button size="sm" icon="refresh" onClick={() => navigate('discovery/runs')}>Dismiss</Button>}>{f.error}</Callout> : null })()}
                     {dx.runs.filter(hasResults).length === 0 ? (
                       <div className="k-card dsc-empty-results" data-testid="results-empty">
                         <EmptyState icon="target" title="No run has results yet" caption="Apply a template or set up a seed search; results fill in here as runs finish"
-                          action={<div className="row" style={{ gap: 8 }}><Button icon="layers" onClick={() => setModal('add-template')}>Apply template</Button><Button icon="target" onClick={() => navigate('discovery/seed')}>Seed search</Button></div>} />
+                          action={<div className="row" style={{ gap: 8 }}><Button variant="primary" icon="layers" onClick={() => setModal('add-template')}>Apply template</Button><Button variant="primary" icon="target" onClick={() => navigate('discovery/seed')}>Seed search</Button></div>} />
                       </div>
                     ) : (
                       <>
@@ -145,7 +145,7 @@ function WhereFires({ dx }: { dx: Discovery }) {
         <span className="dsc-ramp small" aria-label="legend">
           <i className="sw" style={{ background: 'var(--grey-200)' }} /> reviewed hours
           {mode === 'spans'
-            ? <><i className="sw" style={{ background: '#374151' }} /><span className="muted">one mark per span · at this scale several may share a pixel</span></>
+            ? <><i className="sw" style={{ background: '#374151' }} /><span className="k-meta">one mark per span</span><InfoTip title="Span marks">at this scale several may share a pixel</InfoTip></>
             : <><span className="muted">0</span>{[1, 2, 3, 4].map(n => <i key={n} className="sw" style={{ background: '#374151', opacity: opacityFor(n) }} />)}<span className="muted">4+ per 3 h</span></>}
         </span>
       </div>
@@ -494,10 +494,10 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
       <span className="k-spacer" />
       {/* reports (2026-10-19): this run's report — figures and tables drawn by the server */}
       <Button variant="primary" icon="file" onClick={() => navigate(`reports/detection-run/${encodeURIComponent(run.key)}`)} disabled={!!reason} disabledReason={reason ?? undefined} testid="report-run">Report</Button>
-      <Button icon="trash" onClick={() => setConfirm('discard')} disabled={!!reason} disabledReason={reason ?? undefined} testid="discard-run">Discard run</Button>
-      <Button icon="branch" onClick={() => { recordDemoWrite('analyse', 'import-spanset', { run: run.key }); notWired(`send SpanSet of ${run.label} to Analyse`); navigate('analyse/chain') }} disabled={!!reason} disabledReason={reason ?? undefined} testid="analyse-events">Analyse events</Button>
+      <Button variant="danger" icon="trash" onClick={() => setConfirm('discard')} disabled={!!reason} disabledReason={reason ?? undefined} testid="discard-run">Discard run</Button>
+      <Button variant="primary" icon="branch" onClick={() => { recordDemoWrite('analyse', 'import-spanset', { run: run.key }); notWired(`send SpanSet of ${run.label} to Analyse`); navigate('analyse/chain') }} disabled={!!reason} disabledReason={reason ?? undefined} testid="analyse-events">Analyse events</Button>
       {sent[run.key] != null
-        ? <Button icon="check" onClick={() => navigate(`review/queue/${sent[run.key].queueId}`)} testid="send-to-review" data-queue={sent[run.key].queueId}>Sent {sent[run.key].n} · open in Review · then refresh</Button>
+        ? <Button variant="primary" icon="check" onClick={() => navigate(`review/queue/${sent[run.key].queueId}`)} testid="send-to-review" data-queue={sent[run.key].queueId}>Sent {sent[run.key].n} · open in Review · then refresh</Button>
         : <Button variant="next" icon="arrow-right" onClick={send} disabled={!!reason || unjudged === 0} disabledReason={reason ?? 'nothing unjudged'} testid="send-to-review">Send {unjudged} unjudged to Review</Button>}
       {/* fixup-v: a seed run's accepted matches become members of the entry it searched for, with their edges */}
       {run.kind === 'seed' && results && <AddMatchesButton run={run} />}

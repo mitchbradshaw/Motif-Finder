@@ -216,10 +216,10 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
               : `${fmtMin(estimate)}${nBands ? ` (${nBands} bands × the sweep)` : ''} · ${over ? 'cluster' : 'local'}${unpriced > 0 ? ` · ${unpriced} not previewed` : ''}`}
           </span>}
           <Button onClick={onClose}>Cancel</Button>
-          <Button icon="plus" onClick={() => add(false)} disabled={!!blockReason || busy} disabledReason={blockReason ?? (busy ? 'adding the run…' : undefined)} testid="add-runs">Add {chosen.length * bandMult || ''} run{chosen.length * bandMult === 1 ? '' : 's'}</Button>
+          <Button variant="primary" icon="plus" onClick={() => add(false)} disabled={!!blockReason || busy} disabledReason={blockReason ?? (busy ? 'adding the run…' : undefined)} testid="add-runs">Add {chosen.length * bandMult || ''} run{chosen.length * bandMult === 1 ? '' : 's'}</Button>
           {over ? (
             <>
-              <DisabledReason reason={blockReason ?? `above the ${DISCOVERY_LIMIT_MIN} min local limit · create a SLURM script`}><Button icon="play" disabled disabledReason={blockReason ?? `above the ${DISCOVERY_LIMIT_MIN} min local limit · create a SLURM script`} testid="add-and-run">Add and run</Button></DisabledReason>
+              <DisabledReason reason={blockReason ?? `above the ${DISCOVERY_LIMIT_MIN} min local limit · create a SLURM script`}><Button variant="next" icon="play" disabled disabledReason={blockReason ?? `above the ${DISCOVERY_LIMIT_MIN} min local limit · create a SLURM script`} testid="add-and-run">Add and run</Button></DisabledReason>
               <Button variant="cluster" icon="file" onClick={slurm} disabled={!!blockReason || busy} disabledReason={blockReason ?? (busy ? 'adding the run…' : undefined)} testid="add-slurm">Create SLURM script</Button>
             </>
           ) : (
@@ -367,7 +367,7 @@ export function AddTemplateModal({ open, onClose, dx, onSlurm }: { open: boolean
                       <span className="muted small">{focusPreview ? `${focusPreview.sample_hours.toFixed(1)} h of ${focusPreview.channel}` : '4 h of one channel'}</span>
                       <span className="k-spacer" />
                       <span className={cx('k-badge', focusPreview ? 't-green' : 't-grey')}>{focusPreview ? 'measured' : 'not previewed'}</span>
-                      <Button size="sm" icon="flask" onClick={() => preview(focus)} disabled={previewing !== null} disabledReason={previewing ? `previewing ${previewing}` : undefined} testid="run-preview">
+                      <Button variant="primary" size="sm" icon="flask" onClick={() => preview(focus)} disabled={previewing !== null} disabledReason={previewing ? `previewing ${previewing}` : undefined} testid="run-preview">
                         {focusPreview ? 'Preview again' : 'Preview on a 4 h sample'}
                       </Button>
                     </div>

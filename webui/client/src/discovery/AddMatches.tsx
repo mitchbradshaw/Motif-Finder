@@ -58,7 +58,7 @@ export function AddMatchesButton({ run }: { run: DiscoveryRun }) {
   }
   return (
     <span className="row" style={{ gap: 6, alignItems: 'center' }} data-testid="add-matches">
-      <Button icon="plus" onClick={add} disabled={!!reason || busy} disabledReason={busy ? 'adding' : reason ?? undefined} testid="add-matches-btn">
+      <Button variant="primary" icon="plus" onClick={add} disabled={!!reason || busy} disabledReason={busy ? 'adding' : reason ?? undefined} testid="add-matches-btn">
         Add {n} match{n === 1 ? '' : 'es'} to {entry}
       </Button>
       <InfoTip title="Add matches to the Library">
