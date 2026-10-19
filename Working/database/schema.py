@@ -1525,6 +1525,7 @@ def migrate_legacy_detections(conn):
     plan = plan_legacy_detections(conn)
     log = logging.getLogger(__name__)
     seen_again = 0
+    fresh = []
     for refused in plan["refused"]:
         # `init_db` runs this on every database open and the bridge opens one per request, so a run
         # refused for good was warned about hundreds of times an hour (the researcher, 2026-10-13).
@@ -1533,10 +1534,24 @@ def migrate_legacy_detections(conn):
             seen_again += 1
             continue
         _LEGACY_REFUSALS_REPORTED.add(refused["run_id"])
-        log.warning(
-            "legacy detections: refusing run %d (%s): span [%d, %d) n=%d n_legacy=%d",
-            refused["run_id"], refused["reason"], refused["span_start"], refused["span_end"],
-            refused["n"], refused["n_legacy"])
+        fresh.append(refused)
+    # and many at once are one line, each run at DEBUG: the real database's 306 filled the terminal of a fresh
+    # bridge and of every worker it spawns (the researcher, 2026-10-19)
+    each = log.warning if len(fresh) == 1 else log.debug
+    for refused in fresh:
+        each("legacy detections: refusing run %d (%s): span [%d, %d) n=%d n_legacy=%d",
+             refused["run_id"], refused["reason"], refused["span_start"], refused["span_end"],
+             refused["n"], refused["n_legacy"])
+    if len(fresh) > 1:
+        reasons = {}
+        for r in fresh:
+            reasons[r["reason"]] = reasons.get(r["reason"], 0) + 1
+        ids = sorted(r["run_id"] for r in fresh)
+        more = f" and {len(ids) - 5} more" if len(ids) > 5 else ""
+        log.warning("legacy detections: refusing runs whose rows cannot be placed, left as stored: %d (%s): %s%s "
+                    "(each at DEBUG; plan_legacy_detections lists them)", len(fresh),
+                    ", ".join(f"{n} {why}" for why, n in sorted(reasons.items())),
+                    ", ".join(f"run {i}" for i in ids[:5]), more)
     if seen_again:
         log.debug("legacy detections: %d refused run(s) already reported this process", seen_again)
     if plan["n_rows"] == 0:
