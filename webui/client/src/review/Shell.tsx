@@ -369,7 +369,7 @@ function QueueRailOpen({ data, unit, blind, left, onClose }: { data: QueueData; 
                 })
               })()}
               {paged.pageCount > 1 && <div className="rv-pager"><Pager page={paged.page} pageCount={paged.pageCount} onPage={paged.setPage} format="range" total={paged.total} pageSize={10} testid="up-next-pager" /></div>}
-              {data.queue.total > data.rows.length && <div className="mono muted sm rv-more">… {fmtInt(Math.max(0, left - visible.length))} more in the queue, not in the demo fixture</div>}
+              {data.queue.total > data.rows.length && <div className="mono muted sm rv-more">… {fmtInt(Math.max(0, left - visible.length))} more in the queue, not listed here</div>}
             </>}
       </div>
     </div>

@@ -1,6 +1,6 @@
 /* Helpers shared by the inspector and the cluster page: previous-verdict lines, the queue-end view, loading/not-found. */
 import type { ReactNode } from 'react'
-import { navigate } from '../state'
+import { navigate, setQuery } from '../state'
 import { Button, EmptyState, fmtInt } from '../kit'
 import type { QueueData } from '../api/review'
 import { Shell, useBlind } from './Shell'
@@ -23,24 +23,33 @@ export function previousLines(data: QueueData, stack: SessionWrite[], now: numbe
   return out
 }
 
-/** Frame-less states of a queue: every item judged (?state=empty) or the demo fixture's rows exhausted. */
+/** Frame-less states of a queue: every item judged (?state=empty, or ?state=exhausted with no unjudged unit left),
+ *  a queue that holds no items at all, or no unjudged unit after the one the researcher stepped from.
+ *  night-a: the live end of every queue read "No more items in the demo fixture" (fixture words), and "Pick another
+ *  queue" went to the fixture queue q-12; it now opens the queue picker of the queue on screen. */
 export function QueueEndView({ data, forced }: { data: QueueData; forced: boolean }) {
   const [blind, setBlind] = useBlind(data.queue.id, data.queue.blind)
   const records = useRecords()
   useStack()
   const q = data.queue
   const cur = currentUnit(data, records)
+  const pick = <Button onClick={() => setQuery({ pop: 'queues' })} testid="pick-another-queue">Pick another queue</Button>
+  const toRun = q.runId ? <Button variant="link" iconRight="arrow-right" onClick={() => navigate(`discovery/runs?run=${q.runId}`)}>Open run in Discovery</Button> : null
+  const body = q.total === 0 && !forced
+    ? <EmptyState icon="inbox" title={`Queue ${q.title} holds no items`} bordered testid="queue-no-items"
+        caption="The source it was made from sent nothing to judge (or every item is a held-out recording's). Make a new queue where the items come from."
+        action={<div className="row">{toRun}{pick}</div>} />
+    : forced || !cur
+      ? <EmptyState icon="check-circle" title={`Queue ${q.runId ?? q.title} is done`} bordered testid={forced ? 'queue-empty' : 'queue-done'}
+          caption={`${fmtInt(q.total)} of ${fmtInt(q.total)} judged · ${q.runId ? "return to Discovery to refresh the run's score" : 'the source can send more items'}`}
+          action={<div className="row">{toRun}{pick}</div>} />
+      : <EmptyState icon="inbox" title="No unjudged item after this one" bordered testid="queue-exhausted"
+          caption={`${fmtInt(q.total - q.judged)} of ${fmtInt(q.total)} in ${q.title} are still unjudged, earlier in the queue`}
+          action={<div className="row"><Button onClick={() => navigate(unitHash(q.id, cur))}>Open {cur.kind === 'item' ? cur.id : `Cluster ${cur.no}`}</Button>
+            <Button onClick={() => navigate(`review/queue/${q.id}?rail=queue`)} testid="open-queue-rail">Open the queue rail</Button></div>} />
   return (
     <Shell data={data} unit={null} blind={blind} setBlind={setBlind} micro={[]} evidenceTitle="no item" evidence={<EmptyState size="sm" title="Nothing selected" caption="the queue has no current item" />} forceDone={forced}>
-      {forced
-        ? <EmptyState icon="check-circle" title={`Queue ${q.runId ?? q.title} is done`} bordered testid="queue-empty"
-            caption={`${fmtInt(q.total)} of ${fmtInt(q.total)} judged · ${q.runId ? "return to Discovery to refresh the run's score" : 'the source can send more items'}`}
-            action={<div className="row">{q.runId && <Button variant="link" iconRight="arrow-right" onClick={() => navigate(`discovery/runs?run=${q.runId}`)}>Open run in Discovery</Button>}
-              <Button onClick={() => navigate('review/queue/q-12?rail=queue')} testid="pick-another-queue">Pick another queue</Button></div>} />
-        : <EmptyState icon="inbox" title="No more items in the demo fixture" bordered testid="queue-exhausted"
-            caption={`every materialised item of ${q.title} is judged; the other ${fmtInt(Math.max(0, q.total - q.judged - data.rows.length))} are not in the fixture`}
-            action={<div className="row">{cur && <Button onClick={() => navigate(unitHash(q.id, cur))}>Open {cur.kind === 'item' ? cur.id : `Cluster ${cur.no}`}</Button>}
-              <Button onClick={() => navigate(`review/queue/${q.id}?rail=queue`)} testid="open-queue-rail">Open the queue rail</Button></div>} />}
+      {body}
     </Shell>
   )
 }

@@ -223,7 +223,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
     const j = i + dir
     if (j >= 0 && j < sorted.length) { setMemberQ(sorted[j].id); setPage(Math.floor(j / PAGE) + 1); return }
     const u = step(data, unit, dir)
-    if (u) goUnit(q, u); else say(dir > 0 ? 'this is the last unit in the demo fixture' : 'this is the first unit in the queue fixture')
+    if (u) goUnit(q, u); else say(dir > 0 ? 'this is the last unit in the queue' : 'this is the first unit in the queue')
   }
 
   useReviewKeys({

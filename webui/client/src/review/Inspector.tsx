@@ -261,8 +261,8 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     verdict, klass, undo, redo,
     skip: () => { if (promoted) return say('confirm or undo the promotion first (Enter / Ctrl Z)'); goUnit(q, step(data, unit, 1)) },
     enter: () => { if (promoted && confirmRef.current) { confirmRef.current(); return true } return false },
-    next: () => { const u = step(data, unit, 1); if (u) goUnit(q, u); else say('this is the last item in the demo fixture') },
-    prev: () => { const u = step(data, unit, -1); if (u) goUnit(q, u); else say('this is the first item in the queue fixture') },
+    next: () => { const u = step(data, unit, 1); if (u) goUnit(q, u); else say('this is the last item in the queue') },
+    prev: () => { const u = step(data, unit, -1); if (u) goUnit(q, u); else say('this is the first item in the queue') },
     edit: isWindow ? () => say('windows have no span to edit') : () => d && editInExplore(d),
     rails: rails.toggleBoth,
   })
