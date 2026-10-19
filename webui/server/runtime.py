@@ -284,6 +284,8 @@ class Runtime:
         if "corpus.DISK_CACHE_DIR" in o:
             from . import corpus as _corpus
             _corpus.DISK_CACHE_DIR = o["corpus.DISK_CACHE_DIR"]
+            # corpus-map-off-the-request: stop the corpus-map worker, which holds this runtime's database open
+            _corpus.shutdown_coverage_pool()
         if "rr.DB_PATH" in o:
             import Working.library.rose_reference as _rr
             _rr.DB_PATH = o["rr.DB_PATH"]

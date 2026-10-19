@@ -1499,6 +1499,15 @@ class Smoke:
                     elif "hash" in a: page.evaluate("h => { location.hash = h }", a["hash"]); page.wait_for_timeout(400)
                     # fixup-grouping-url: reload the document where it stands: what the URL carries survives, the in-memory store does not
                     elif "reload" in a: page.reload(wait_until="networkidle"); page.wait_for_timeout(400)
+                    # corpus-map-off-the-request: run a script in the page and wait for it (an API call the state needs,
+                    # e.g. a settings change through PUT /api/settings/<page>); a script that throws fails the state
+                    elif "eval" in a: page.evaluate(a["eval"]); page.wait_for_timeout(200)
+                    # corpus-map-off-the-request: wait until a selector is gone, up to a timeout (ms)
+                    elif "wait_gone" in a:
+                        t_wait = time.time()
+                        page.wait_for_selector(a["wait_gone"][0], state="detached", timeout=int(a["wait_gone"][1]))
+                        if time.time() - t_wait > 1.0:
+                            waited.append(f"{a['wait_gone'][0][:60]} gone after {time.time() - t_wait:.1f} s")
                 main_txt = page.locator(".main").inner_text() if page.locator(".main").count() else ""
                 ok = page.locator('[data-testid="header"]').count() == 1 and len(main_txt.strip()) > 40
                 missing = [s for s in e.get("expect", []) if page.locator(s).count() == 0]

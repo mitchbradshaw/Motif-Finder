@@ -220,3 +220,21 @@ Discovery session and must walk after every other Discovery-opening manifest. Re
 Rule for new units: a manifest that opens any `discovery/` page must sort before `zzzzzzzzzzz_a2_p4_seed.json`
 (and `zzzzzzzzzzz_w3_cancel.json` stays last). The previous full run's one failure (`test_surrogate_never_a_detection`)
 now passes.
+
+## corpus-map-off-the-request — merged 2026-10-19 (speed second pass, item 1)
+
+Branch `worktree-agent-a72dabecf5787addb` (prompt `docs/prompts/changes/corpus-map-off-the-request.md`, report
+`docs/prompts/changes/reports/corpus-map-report.md`). A corpus-map read never computes: fresh / last map with
+`stale: true` / `pending: true`; the recompute runs in one spawned worker process (`Working/discovery/coverage_map.py`),
+byte-identical to the old `_coverage` (sha1-pinned against base 60d8c09, 3 fixtures, 21 questions). Critic: no
+blockers, five should-fixes (orphaned worker, silent freeze on BaseException, red card beside the stale line, the
+smoke state, map stored under the asking state) closed in fb8c655. Branch trailers say Opus 5.5 (the implementer's
+model); the merge commit carries the repo's line.
+Gate: conda 142 passed (coverage_map_compute, perf_scoring_reads, divergence, surrogate, windowed_explore,
+seed_on_demand_client, import boundaries); venv 103 passed (webui_ar_speed, webui_corpus, coverage_map_compute,
+webui_discovery); tsc; build; the `zzzzzzzzzzz_corpus_map` state on the real-database sandbox: PASS (stale line at
+once, gone after 164 s and 177 s — two recomputes of 170–181 s each in the worker, under another session's units;
+0 console errors, 0 tracebacks). Bridge start: "17 files, 16 current, 1 scheduled on the worker" — a restart no
+longer blocks on the map. **Owed, after the other session's full walk ends (~15:30): the `explore` unit and the
+daily full walk on this tree as the new baseline** (sealed before them because the other session's bridge keeps
+paying the 5 min cold warm this removes).
