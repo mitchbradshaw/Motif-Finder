@@ -176,7 +176,7 @@ function Body({ data }: { data: ModelBlock }) {
               options={data.labelSources.map(l => ({ value: l.value, title: l.title, description: l.description }))} />
             {labelsFrom === 'manual' && (
               <Callout tone="amber" icon="alert-triangle" testid="labels-manual-note"
-                action={<Button size="sm" icon="inbox" onClick={() => setModal('send-review')} testid="labels-send-review">Send {fmtInt(WINDOWS.unreviewed)} to Review</Button>}>
+                action={<Button variant="primary" size="sm" icon="inbox" onClick={() => setModal('send-review')} testid="labels-send-review">Send {fmtInt(WINDOWS.unreviewed)} to Review</Button>}>
                 {fmtInt(WINDOWS.reviewed)} reviewed windows · binary interesting / not · {fmtInt(WINDOWS.unreviewed)} windows carry no human verdict and are dropped from this arm
               </Callout>
             )}
@@ -214,8 +214,8 @@ function Body({ data }: { data: ModelBlock }) {
         <SectionCard title="Before this trains" testid="before-trains">
           <Checklist items={data.checks.map(c => ({ label: c.label, state: c.state }))} />
           <div className="tr-row-flex" style={{ marginTop: 10 }}>
-            <Button icon="layers" onClick={() => navigate('analyse/training/block/3?merge=C5,C6')} testid="merge-in-03">Merge C5 + C6 in 03</Button>
-            <Button icon="inbox" onClick={() => setModal('send-review')} testid="send-review">Send {fmtInt(WINDOWS.unreviewed)} to Review</Button>
+            <Button variant="primary" icon="layers" onClick={() => navigate('analyse/training/block/3?merge=C5,C6')} testid="merge-in-03">Merge C5 + C6 in 03</Button>
+            <Button variant="primary" icon="inbox" onClick={() => setModal('send-review')} testid="send-review">Send {fmtInt(WINDOWS.unreviewed)} to Review</Button>
           </div>
         </SectionCard>
 
@@ -226,9 +226,9 @@ function Body({ data }: { data: ModelBlock }) {
           <div className="tr-row-flex" style={{ marginTop: 8 }}>
             <span className="tr-muted tr-small">{TRIAL.returns}</span>
             <span className="k-spacer" />
-            <Button icon="copy" onClick={() => { void navigator.clipboard?.writeText(script); push({ text: 'trial script copied to the clipboard' }) }}
+            <Button variant="primary" icon="copy" onClick={() => { void navigator.clipboard?.writeText(script); push({ text: 'trial script copied to the clipboard' }) }}
               testid="copy-script" disabled={nothingTicked} disabledReason={noStageReason}>Copy script</Button>
-            <Button icon="download" onClick={downloadTrial} testid="download-trial"
+            <Button variant="primary" icon="download" onClick={downloadTrial} testid="download-trial"
               disabled={nothingTicked} disabledReason={noStageReason}>Download trial job</Button>
           </div>
           {trialJob && <Chip tone="blue" icon="check" testid="trial-job-chip" onClick={() => navigate('jobs')}>trial job {trialJob} queued · Jobs</Chip>}

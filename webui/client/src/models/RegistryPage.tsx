@@ -170,13 +170,13 @@ function ModelRow({ m, selected, onSelect, onAct, popover, setPopover, session }
       <td className="m-muted">{used ? `${used} template${used === 1 ? '' : 's'}` : '—'}</td>
       <td onClick={e => e.stopPropagation()}>
         {m.status === 'registered' && (
-          <Button size="sm" testid={`retire-${m.id}`} disabled={used > 0} disabledReason={used ? `used by ${used} template${used === 1 ? '' : 's'} · replace the stage first` : undefined}
+          <Button variant="danger" size="sm" testid={`retire-${m.id}`} disabled={used > 0} disabledReason={used ? `used by ${used} template${used === 1 ? '' : 's'} · replace the stage first` : undefined}
             onClick={() => { onSelect(); onAct('retire') }}>Retire</Button>
         )}
-        {m.status === 'retired' && <Button size="sm" testid={`restore-${m.id}`} onClick={() => { onSelect(); onAct('restore') }}>Restore</Button>}
+        {m.status === 'retired' && <Button variant="primary" size="sm" testid={`restore-${m.id}`} onClick={() => { onSelect(); onAct('restore') }}>Restore</Button>}
         {m.status === 'rejected' && (
           <>
-            <Button size="sm" ref={whyRef} testid={`why-${m.id}`} onClick={() => setPopover(popover === 'why' ? null : 'why')}>Why</Button>
+            <Button variant="primary" size="sm" ref={whyRef} testid={`why-${m.id}`} onClick={() => setPopover(popover === 'why' ? null : 'why')}>Why</Button>
             <Popover open={popover === 'why'} onClose={() => setPopover(null)} anchorRef={whyRef} title="Rejected because" width={340} testid="why-popover">
               <ul className="m-mono m-small" style={{ margin: 0, paddingLeft: 16 }}>
                 {(m.rejectedBecause ?? ['no reason recorded']).map(r => <li key={r} style={{ marginBottom: 4 }}>{r}</li>)}
@@ -247,7 +247,7 @@ function RegisterPanel({ m, simulate, onSimulate, onWrite, push, onConfirm }: {
         ))}
       </StatRow>
       <div className="m-foot-line" style={{ marginTop: 8 }}>
-        <Button size="sm" icon="external" testid="open-sample" onClick={() => { push({ text: `verification sample q-19 opened in Review · ${left} left` }); navigate('review/queue/q-19') }}>Open sample in Review</Button>
+        <Button variant="primary" size="sm" icon="external" testid="open-sample" onClick={() => { push({ text: `verification sample q-19 opened in Review · ${left} left` }); navigate('review/queue/q-19') }}>Open sample in Review</Button>
         <Button size="sm" variant="link" icon="plus" testid="add-20" onClick={() => {
           onWrite(m.id, { verification: { ...v, of: v.of + 20 } })
           recordDemoWrite('review', 'add-queue', { id: 'q-19', source: m.name, kind: 'review', count: 20, blind: true })
@@ -291,7 +291,7 @@ function RegisterPanel({ m, simulate, onSimulate, onWrite, push, onConfirm }: {
       <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
         <Button variant="danger" icon="x-circle" testid="reject" onClick={() => onConfirm('reject')}>Reject</Button>
         <span className="k-spacer" />
-        <Button testid="save-draft" onClick={() => { recordDemoWrite('models', 'save-draft', { id: m.id, name, version, reason }); push({ text: `draft saved for ${m.name} · this session` }) }}>Save draft</Button>
+        <Button variant="primary" testid="save-draft" onClick={() => { recordDemoWrite('models', 'save-draft', { id: m.id, name, version, reason }); push({ text: `draft saved for ${m.name} · this session` }) }}>Save draft</Button>
         <Button variant="primary" testid="register" disabled={!!blocker} disabledReason={blocker ?? undefined}
           onClick={() => {
             onWrite(m.id, {

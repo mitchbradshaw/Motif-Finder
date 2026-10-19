@@ -24,7 +24,7 @@ export function LoadFailed({ what, error, onRetry }: { what: string; error: Erro
     <div className="tr-failed" role="alert" data-testid="load-failed">
       <div className="t"><Icon name="alert-triangle" size={15} />could not load {what}</div>
       <pre>{error.message}</pre>
-      <Button size="sm" icon="refresh" onClick={onRetry} testid="load-retry">Retry</Button>
+      <Button variant="primary" size="sm" icon="refresh" onClick={onRetry} testid="load-retry">Retry</Button>
     </div>
   )
 }
@@ -231,12 +231,12 @@ export function TrainingToolbar(p: ToolbarProps) {
       <NullChip />
       <span className={`tr-estimate ${p.estimateTone ?? 'muted'}`} data-testid="estimate">{p.estimate}</span>
       {!p.minimal && <>
-        <Button ref={histRef} icon="clock" onClick={p.onHistory} testid="history">History</Button>
+        <Button variant="primary" ref={histRef} icon="clock" onClick={p.onHistory} testid="history">History</Button>
         <HistoryPopover open={p.historyOpen} onClose={p.onHistory} anchorRef={histRef} />
-        <Button ref={impRef} icon="download" onClick={p.onImport} testid="import">Import</Button>
+        <Button variant="primary" ref={impRef} icon="download" onClick={p.onImport} testid="import">Import</Button>
         <ImportPopover open={p.importOpen} onClose={p.onImport} anchorRef={impRef} />
       </>}
-      {(!p.minimal || p.showSave) && <Button icon="save" onClick={p.onSaveTemplate} testid="save-template">Save template</Button>}
+      {(!p.minimal || p.showSave) && <Button variant="primary" icon="save" onClick={p.onSaveTemplate} testid="save-template">Save template</Button>}
       {p.primary}
     </div>
   )

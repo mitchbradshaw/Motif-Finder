@@ -80,7 +80,7 @@ export function LoadFailed({ what, error, onRetry, action }: { what: string; err
     <div className="error-card" data-testid="models-load-failed" role="alert">
       <h3>Could not read {what}</h3>
       <div className="mono small" style={{ color: 'var(--red)' }}>{error.message}</div>
-      <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>{onRetry && <Button size="sm" icon="refresh" onClick={onRetry}>Retry</Button>}{action}</div>
+      <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>{onRetry && <Button variant="primary" size="sm" icon="refresh" onClick={onRetry}>Retry</Button>}{action}</div>
     </div>
   )
 }

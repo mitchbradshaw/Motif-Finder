@@ -35,7 +35,7 @@ export function ClusterPage() {
         <div className="callout small" data-testid="training-cluster-live-link" style={{ marginBottom: 10 }}>
           The live dendrogram — a real tree over a window pool, a cut you move, each cluster's medoid and members, the
           interesting / not mapping — is the <b>Shape clustering</b> block's page: Analyse › Chain › Source › <i>Start from a Window pool</i>.{' '}
-          <button className="btn sm" onClick={() => { window.location.hash = '#/analyse/chain' }}>Open Analyse › Chain</button>
+          <button className="btn sm primary" onClick={() => { window.location.hash = '#/analyse/chain' }}>Open Analyse › Chain</button>
         </div>
         {block.error ? <LoadFailed what="the grouping" error={block.error} onRetry={block.reload} />
           : !block.data ? <Loading what="the grouping" /> : <Body data={block.data} chooseK={chooseK} />}
@@ -291,11 +291,11 @@ function Body({ data, chooseK }: { data: ClusterBlock; chooseK: boolean }) {
               </div>
               <Callout tone={draft.criterionLocked ? 'green' : 'amber'} icon="lock" testid="criterion-warning"
                 action={draft.criterionLocked
-                  ? <Button size="sm" icon="eye" testid="unlock-criterion"
+                  ? <Button variant="primary" size="sm" icon="eye" testid="unlock-criterion"
                       onClick={() => { setDraft(d => ({ ...d, criterionLocked: false })); recordDemoWrite('analyse', 'unlock-criterion', { criterion: p.criterion }); push({ text: 'criterion unlocked · changing it now means k is a finding about the rule', kind: 'error' }) }}>
                       Unlock
                     </Button>
-                  : <Button size="sm" icon="lock" testid="lock-criterion-params"
+                  : <Button variant="primary" size="sm" icon="lock" testid="lock-criterion-params"
                       onClick={() => { setDraft(d => ({ ...d, criterionLocked: true })); recordDemoWrite('analyse', 'lock-criterion', { criterion: p.criterion }); push({ text: `criterion locked · ${p.criterion} · k is now a consequence, not a choice` }) }}>
                       Lock
                     </Button>}>
@@ -307,7 +307,7 @@ function Body({ data, chooseK }: { data: ClusterBlock; chooseK: boolean }) {
           <SectionCard title="What each class looks like" subtitle="medoid (white) + 2 sampled members" testid="class-cards"
             actions={
               <span className="tr-row-flex">
-                <Button size="sm" icon="shuffle" testid="resample-members" onClick={() => notWired('resample 2 members per class from the grouping')}>resample</Button>
+                <Button variant="primary" size="sm" icon="shuffle" testid="resample-members" onClick={() => notWired('resample 2 members per class from the grouping')}>resample</Button>
                 <Dropdown value={shows} onChange={setShows} width={230} testid="show-features" options={[
                   { value: 'features', label: 'show distinguishing features' },
                   { value: 'splits', label: 'show split counts' },
@@ -353,7 +353,7 @@ function Body({ data, chooseK }: { data: ClusterBlock; chooseK: boolean }) {
                   <Button size="sm" variant="cluster" icon="branch" testid="merge-classes"
                     disabled={p.merged.length > 1} disabledReason={p.merged.length > 1 ? 'C5 and C6 are already merged in the pending change' : undefined}
                     onClick={() => { setMergeQ('C5,C6'); setP({ merged: ['C5', 'C6'] }) }}>Merge C5 + C6</Button>
-                  <Button size="sm" icon="save" testid="save-grouping" onClick={() => setModal('save-grouping')}>Save grouping</Button>
+                  <Button variant="primary" size="sm" icon="save" testid="save-grouping" onClick={() => setModal('save-grouping')}>Save grouping</Button>
                 </span>
               }>
               <Bars categories={classes.map(c => c.id)} height={168} testid="class-bars"
@@ -454,7 +454,7 @@ function ChooseK({ data, metric, setMetric, locked, criterion, onCriterion, onLo
               reason: locked && c.value !== criterion ? 'the criterion is locked — unlock it in Parameters to change it' : undefined,
             }))} />
           <Callout tone={locked ? 'green' : 'amber'} icon="lock" testid="criterion-lock"
-            action={locked ? <Badge status="done">locked</Badge> : <Button size="sm" icon="lock" onClick={onLock} testid="lock-criterion">Lock</Button>}>
+            action={locked ? <Badge status="done">locked</Badge> : <Button variant="primary" size="sm" icon="lock" onClick={onLock} testid="lock-criterion">Lock</Button>}>
             {locked ? `locked · ${criterion} · k follows from it` : 'not locked — lock it before reporting'}
           </Callout>
         </SectionCard>

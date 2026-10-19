@@ -251,7 +251,7 @@ function LaunchBody({ setup, reload }: { setup: ModelsSetup; reload: () => void 
               </button>
               <Popover open={m4Open} onClose={() => setM4Open(false)} anchorRef={m4Ref} placement="bottom-end" title={`${setup.held_out.name} is held out`} width={320} testid="m4-popover">
                 <div className="m-small" style={{ lineHeight: 1.45 }}>{setup.held_out.reason}</div>
-                <div style={{ marginTop: 8 }}><Button size="sm" icon="lock" onClick={() => navigate('settings/datasets')}>Settings › Datasets</Button></div>
+                <div style={{ marginTop: 8 }}><Button variant="primary" size="sm" icon="lock" onClick={() => navigate('settings/datasets')}>Settings › Datasets</Button></div>
               </Popover>
             </div>
             {!rec ? <Callout tone="amber" testid="no-recordings">No recording has human verdicts yet: Review or import labels first.</Callout> : (
@@ -320,7 +320,7 @@ function LaunchBody({ setup, reload }: { setup: ModelsSetup; reload: () => void 
                 <span className="cnt">{byRole ? `${fmtInt(byRole.train?.n ?? 0)} training windows` : '—'}</span></div>
               <div className="m-arm-row" data-testid="arm-row-b"><ArmBadge letter="B" /><span className="nm">cluster labels</span>
                 <span className="src">{k ? `Ward · k = ${k}${cut ? ` · ${cut.effective_k} real cluster(s)` : ''}` : 'choose a cut'}</span>
-                <Button size="sm" icon="layers" onClick={propose} disabled={!chosen || proposing} disabledReason={!chosen ? 'save or pick a window set first' : 'clustering…'} testid="propose-cuts">{proposing ? 'Clustering…' : 'Propose cuts'}</Button></div>
+                <Button variant="primary" size="sm" icon="layers" onClick={propose} disabled={!chosen || proposing} disabledReason={!chosen ? 'save or pick a window set first' : 'clustering…'} testid="propose-cuts">{proposing ? 'Clustering…' : 'Propose cuts'}</Button></div>
               <div className="m-arm-row" data-testid="arm-row-rf"><ArmBadge letter="RF" /><span className="nm">random forest</span><span className="src">the classifier of both arms (Q42) — so it is also each arm's baseline</span>
                 <span className="cnt" title="the CNN arm is a later cluster job">CNN arm: later</span></div>
               {frozen && <Callout tone="blue" icon="lock" testid="cut-frozen">Run {frozen.run_id} scored this set's test block at k = {frozen.k}. The cut is frozen on this set: another k is refused (that would be tuning on the test block).</Callout>}

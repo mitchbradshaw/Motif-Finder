@@ -148,7 +148,7 @@ function Body({ data }: { data: MatrixBlock }) {
     >
       {leaking.length > 0 && (
         <Callout tone="red" icon="alert-triangle" title={`${leaking.map(g => g.label).join(' and ')} leak manual labels into 03 (P12)`} testid="leak-callout"
-          action={<Button size="sm" onClick={() => setP({ groups: { ...p.groups, ...Object.fromEntries(leaking.map(g => [g.id, false])) } })} testid="drop-label-derived">Exclude them again</Button>}>
+          action={<Button variant="primary" size="sm" onClick={() => setP({ groups: { ...p.groups, ...Object.fromEntries(leaking.map(g => [g.id, false])) } })} testid="drop-label-derived">Exclude them again</Button>}>
           {MATRIX.labelDerivedWarning}
         </Callout>
       )}
@@ -222,7 +222,7 @@ function Body({ data }: { data: MatrixBlock }) {
             <span><b>window {readout.window}</b> · {readout.from_h.toFixed(1)} – {(readout.from_h + WINDOWS.params.length_min / 60).toFixed(1)} h · class {readout.klass} · {readout.feature}</span>
             <span className="k-spacer" />
             <span className="tr-muted">{MATRIX.readout.band.replace('4 of 4', `${included.filter(g => !g.labelDerived).length} of ${included.length}`)}</span>
-            <Button size="sm" icon="arrow-right" onClick={() => navigate(`analyse/training/block/4?window=${readout.window}`)} testid="open-in-encode">Open in Encode</Button>
+            <Button variant="primary" size="sm" icon="arrow-right" onClick={() => navigate(`analyse/training/block/4?window=${readout.window}`)} testid="open-in-encode">Open in Encode</Button>
           </div>
         </SectionCard>
 
@@ -254,8 +254,8 @@ function Body({ data }: { data: MatrixBlock }) {
             </Callout>
             <Callout tone="grey" icon="hourglass" testid="compute-local">{MATRIX.compute.localNote}</Callout>
             <div className="tr-row-flex" style={{ marginTop: 8 }}>
-              <Button icon="terminal" onClick={() => setModal('slurm')} testid="create-slurm">Create SLURM script</Button>
-              <Button icon="upload" onClick={() => setModal('upload')} testid="upload-matrix">Upload matrix</Button>
+              <Button variant="primary" icon="terminal" onClick={() => setModal('slurm')} testid="create-slurm">Create SLURM script</Button>
+              <Button variant="primary" icon="upload" onClick={() => setModal('upload')} testid="upload-matrix">Upload matrix</Button>
             </div>
             <StatTile variant="flat" label="local ceiling" value={MATRIX.compute.localLimit} caption="above it, the work goes to the cluster" tone="amber" />
           </SectionCard>

@@ -11,7 +11,7 @@ export function LoadFailed({ what, error, onRetry }: { what: string; error: Erro
     <div className="error-card" role="alert" data-testid="jobs-load-failed">
       <h3>Could not read {what}</h3>
       <div className="mono small" style={{ color: 'var(--red)' }}>{error.message}</div>
-      {onRetry && <div style={{ marginTop: 8 }}><Button size="sm" icon="refresh" onClick={onRetry}>Retry</Button></div>}
+      {onRetry && <div style={{ marginTop: 8 }}><Button variant="primary" size="sm" icon="refresh" onClick={onRetry}>Retry</Button></div>}
     </div>
   )
 }
