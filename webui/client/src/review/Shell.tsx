@@ -13,8 +13,8 @@ import { useSourced } from '../api/seam'
 import { useToast } from '../shell/Toast'
 import { getQueueCounts, getQueues, useThumbs, VOCABULARY, type QueueData, type QueueRow } from '../api/review'
 import { SHORTCUTS } from './keys'
-import { counts, isJudged, queueCounts, rowById, unitHash, unitKey, units, type UnitRef } from './queue'
-import { effective, useAutoAdvance, useBlindOverrides, useCountsVersion, useFilters, useRecords, useReviewVersion } from './store'
+import { counts, isJudged, judgedRecord, queueCounts, rowById, unitHash, unitKey, units, type UnitRef } from './queue'
+import { useAutoAdvance, useBlindOverrides, useCountsVersion, useFilters, useRecords, useReviewVersion } from './store'
 
 /* The queue thumbnails used to share one hand-set domain, [-0.45, 0.45] (right in volts, served as mV), then ±450 mV after
    fixup-b. Each is drawn on its own measured domain now (charts/domain.ts, fixup-c): at 38 px a thumbnail's job is
@@ -211,7 +211,7 @@ function QueueRailCollapsed({ data, unit, left, onOpen }: { data: QueueData; uni
   // AR: rows arrive without thumbnails; the ones in this strip are paged in
   const thumbOf = useThumbs(shown.flatMap(u => u.kind === 'item' ? [u.id] : u.members).map(row).filter(Boolean))
   const Thumb = ({ r, current }: { r: QueueRow; current: boolean }) => {
-    const rec = effective(records, r)
+    const rec = judgedRecord(records, r)
     return (
       <span className={cx('rv-thumb', current && 'current', rec && !current && 'judged')} title={`${r.id} · ${r.channel}${r.score != null ? ` · ${r.score.toFixed(2)}` : ''}${rec ? ` · ${rec.verdict.replace('_', ' ')}` : ''}`}>
         <MiniTrace values={thumbOf(r)} width={38} height={28} zeroLine={false} />
@@ -272,7 +272,7 @@ function QueueRailOpen({ data, unit, blind, left, onClose }: { data: QueueData; 
   const thumbOf = useThumbs(paged.items.flatMap(unitRows))
 
   const RowBtn = ({ r, inCluster }: { r: QueueRow; inCluster?: boolean }) => {
-    const rec = effective(records, r)
+    const rec = judgedRecord(records, r)
     const current = unit?.kind === 'item' && unit.id === r.id
     return (
       <button type="button" className={cx('rv-next-row', current && 'on', rec && !current && 'judged', inCluster && 'member')} onClick={() => navigate(`review/queue/${queue.id}/${r.id}`)} data-testid={`next-row-${r.id}`}>
@@ -369,7 +369,7 @@ function QueueRailOpen({ data, unit, blind, left, onClose }: { data: QueueData; 
                 })
               })()}
               {paged.pageCount > 1 && <div className="rv-pager"><Pager page={paged.page} pageCount={paged.pageCount} onPage={paged.setPage} format="range" total={paged.total} pageSize={10} testid="up-next-pager" /></div>}
-              {data.queue.total > data.rows.length && <div className="mono muted sm rv-more">… {fmtInt(Math.max(0, left - visible.length))} more in the queue, not in the demo fixture</div>}
+              {data.queue.total > data.rows.length && <div className="mono muted sm rv-more">… {fmtInt(Math.max(0, left - visible.length))} more in the queue, not listed here</div>}
             </>}
       </div>
     </div>

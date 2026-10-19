@@ -67,7 +67,7 @@
 /* ux-1018: about eight rows show at once; a longer list scrolls inside the card instead of growing the page
  * (the researcher, 2026-10-18) */
 .dsc-runs-list { display: flex; flex-direction: column; gap: 8px; flex: 1; max-height: 600px; overflow-y: auto; scrollbar-gutter: stable; padding-right: 2px; }
-.dsc-run { position: relative; display: flex; align-items: flex-start; gap: 6px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); padding: 8px 8px 8px 11px; overflow: hidden; }
+.dsc-run { flex: none; position: relative; display: flex; align-items: flex-start; gap: 6px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); padding: 8px 8px 8px 11px; overflow: hidden; }
 .dsc-run::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--run); }
 .dsc-run.selected { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); background: #f2f8ff; }
 .dsc-run.paused { border-color: var(--amber); background: #fff8ee; }

@@ -173,9 +173,15 @@ const bumpCountsVersion = () => setDemo<number>(COUNTS_VERSION, n => (n ?? 0) + 
 /** Send, then record. Returns the session write on success and `null` on a refusal. `light`: the write changes
  *  one row's verdict and nothing else about the queue (a verdict or class on a queue writing adjudications or
  *  window verdicts), so only the counts are re-read. */
+/** night-a: writes sent and not yet answered. Undo and redo wait for them: a Ctrl Z inside a verdict's round trip
+ *  undid the PREVIOUS item (the new write joins the stack only on its ack) while the new one still landed. */
+let inFlight = 0
+export const writesInFlight = () => inFlight
+
 export async function commitWrite(send: () => Promise<unknown>, w: Omit<SessionWrite, 'id' | 'at' | 'undone'>,
                                   opts: { light?: boolean } = {}): Promise<SessionWrite | null> {
-  try { await send() } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, w.label)); return null }
+  inFlight++
+  try { await send() } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, w.label)); return null } finally { inFlight-- }
   clearWriteError()
   const full = applyWrite(w)
   if (!opts.light) bumpReviewVersion()
@@ -186,7 +192,8 @@ export async function commitWrite(send: () => Promise<unknown>, w: Omit<SessionW
 /** Ctrl-Z. `send` is `postUndo` — the server restores the prior verdict from its audit row; the local
  *  stack is only marked undone once it has. */
 export async function commitUndo(send: () => Promise<unknown>, w: SessionWrite): Promise<boolean> {
-  try { await send() } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, `undo · ${w.label}`)); return false }
+  inFlight++
+  try { await send() } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, `undo · ${w.label}`)); return false } finally { inFlight-- }
   clearWriteError()
   undoWrite(w)
   bumpReviewVersion(); bumpCountsVersion()
@@ -196,7 +203,8 @@ export async function commitUndo(send: () => Promise<unknown>, w: SessionWrite):
 /** Ctrl-Shift-Z. The bridge has no redo route, so a redo re-sends the original write (the core's writers
  *  are upserts) and only then un-marks the stack entry. */
 export async function commitRedo(send: () => Promise<unknown>, w: SessionWrite): Promise<boolean> {
-  try { await send() } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, `redo · ${w.label}`)); return false }
+  inFlight++
+  try { await send() } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, `redo · ${w.label}`)); return false } finally { inFlight-- }
   clearWriteError()
   redoWrite(w)
   bumpReviewVersion(); bumpCountsVersion()

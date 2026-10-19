@@ -12,11 +12,11 @@ import { useToast } from '../shell/Toast'
 import { VOCABULARY, getCluster, postBatch, postClusterVerdict, postPromote, postUndo, type ClusterDetail, type ItemDetail, type QueueData, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
-import { goUnit, nextUnjudgedAfter, relTime, step, type UnitRef } from './queue'
+import { goUnit, judgedRecord, nextUnjudgedAfter, relTime, step, type UnitRef } from './queue'
 import { AnnotateCard, ArtifactPill, ContextCard, EvidenceRail, Pill, PromotionPanel, VerdictCard, editInExplore, useNow, type PreviousLine } from './parts'
 import { Loading, NotFound, previousLines } from './common'
 import {
-  VERDICT_LABEL, amendWrite, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive, nextRedo, patchRecord,
+  VERDICT_LABEL, amendWrite, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, writesInFlight, getWriteError, key, lastLive, nextRedo, patchRecord,
   rawRecord, releaseExemplar, resend, seedUndoneBatch, useAutoAdvance, useDrafts, usePad, useRecords, useReviewVersion, useStack, useWriteError, writeLabel,
   type Draft, type SessionWrite, type VerdictRecord,
 } from './store'
@@ -64,7 +64,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
 
   const rows = cl.members.map(id => data.rows.find(r => r.id === id)!)
   const sorted = [...rows].sort((a, b) => (a.d ?? 0) - (b.d ?? 0))
-  const defaultInclude = (id: string) => { const r = data.rows.find(x => x.id === id)!; return (r.d ?? 0) <= cl.cohesionLimit && !effective(getRecords(), r) }
+  const defaultInclude = (id: string) => { const r = data.rows.find(x => x.id === id)!; return (r.d ?? 0) <= cl.cohesionLimit && !judgedRecord(getRecords(), r) }
   const [inc, setInc] = useDemoState<Record<string, boolean>>(`review.include.${q}.${no}`, () => Object.fromEntries(cl.members.map(id => [id, defaultInclude(id)])))
   useEffect(() => { if (includeQ === 'all') setInc(Object.fromEntries(cl.members.map(id => [id, true]))) }, [includeQ, cl.members, setInc])
   const included = sorted.filter(r => inc[r.id])
@@ -186,6 +186,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
 
   /* The SERVER owns undo: one POST reverses the audit row, restoring each target's prior verdict. */
   const undo = async () => {
+    if (writesInFlight()) return say('a verdict is still being written — try again')
     const w = lastLive(q)
     if (!w) return say('nothing to undo in this queue')
     if (!await commitUndo(() => postUndo(q), w)) return refused()
@@ -199,6 +200,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
     if (!cl.members.includes(w.items[0])) navigate(`review/queue/${q}/${w.items[0]}`)
   }
   const redo = async () => {
+    if (writesInFlight()) return say('a verdict is still being written — try again')
     const w = nextRedo(q)
     if (!w) return say('nothing to redo')
     if (!await commitRedo(() => resend(q, w), w)) return refused()
@@ -223,7 +225,7 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
     const j = i + dir
     if (j >= 0 && j < sorted.length) { setMemberQ(sorted[j].id); setPage(Math.floor(j / PAGE) + 1); return }
     const u = step(data, unit, dir)
-    if (u) goUnit(q, u); else say(dir > 0 ? 'this is the last unit in the demo fixture' : 'this is the first unit in the queue fixture')
+    if (u) goUnit(q, u); else say(dir > 0 ? 'this is the last unit in the queue' : 'this is the first unit in the queue')
   }
 
   useReviewKeys({

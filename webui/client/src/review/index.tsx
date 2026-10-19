@@ -45,12 +45,11 @@ export function ReviewPage() {
   useEffect(() => { if (queueId) setLastQueue(queueId) }, [queueId, setLastQueue])
 
   if (aliasNo != null && !aliasQueue) return <Unknown text={`No cluster ${p[1]} in any review queue`} live={live} />
-  if (queues.error) return <><Header workspace="Review" page="Inspector" /><div className="rv-root"><div className="error-card" data-testid="queues-error"><h3>The review queues failed to load</h3><p className="mono">{queues.error.message}</p></div></div></>
+  if (queues.error) return <><Header workspace="Review" page="Inspector" /><div className="rv-root"><div className="rv-pad"><div className="error-card" data-testid="queues-error"><h3>The review queues failed to load</h3><p className="mono">{queues.error.message}</p></div></div></div></>
   if (!queueId && !queues.loading && live && live.length === 0) return <Unknown text="There are no review queues yet" caption="A queue is made from a Discovery run, a seeded search, an Explore selection, a window set, or Library's extract-events flag." live={live} />
   if (!queueId) return <><Header workspace="Review" page="Inspector" subtitle="opening the queue…" /><div className="rv-root"><Loading /></div></>
-  // fixup-ah: a BLIND test queue has its own page — no queue rail, no evidence rail, nothing that could tip the answer
-  if (!live && queues.loading) return <><Header workspace="Review" page="Inspector" subtitle={`queue ${queueId}`} /><div className="rv-root"><Loading /></div></>
-  if ((live?.find(q => q.id === queueId)?.source as string | undefined) === 'blind-test') return <BlindTestPage queueId={queueId} showingPart={p[2]} />
+  // night-a: the queue route no longer waits for the whole queue list (5-14 s at scale): its own read decides an
+  // unknown queue (a 404) and whether it is a blind test
   return <QueueRoute queueId={queueId} rest={p.slice(2)} />
 }
 
@@ -66,7 +65,7 @@ function QueueRoute({ queueId, rest }: { queueId: string; rest: string[] }) {
   const d = data.data && data.data.queue.id === queueId ? data.data : null
   const state = route.query.state
   const cur = d ? currentUnit(d, records) : null
-  const needsRedirect = !!d && rest.length === 0 && state !== 'empty' && state !== 'exhausted'
+  const needsRedirect = !!d && rest.length === 0 && state !== 'empty' && state !== 'exhausted' && (d.queue.source as string) !== 'blind-test'
   useEffect(() => {
     if (!needsRedirect || !d) return
     const { state: _s, ...query } = route.query
@@ -74,8 +73,11 @@ function QueueRoute({ queueId, rest }: { queueId: string; rest: string[] }) {
     else replaceHash(`review/queue/${queueId}${qs({ ...query, state: 'exhausted' })}`)
   }, [needsRedirect, cur?.kind, queueId])   // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (data.error) return <><Header workspace="Review" page="Inspector" /><div className="rv-root"><div className="error-card" data-testid="queue-error"><h3>Queue {queueId} failed to load</h3><p className="mono">{data.error.message}</p></div></div></>
+  if (data.error && (data.error as { status?: number }).status === 404) return <UnknownQueue queueId={queueId} />
+  if (data.error) return <><Header workspace="Review" page="Inspector" /><div className="rv-root"><div className="rv-pad"><div className="error-card" data-testid="queue-error"><h3>Queue {queueId} failed to load</h3><p className="mono">{data.error.message}</p></div></div></div></>
   if (!data.loading && data.data === null) return <UnknownQueue queueId={queueId} />
+  // fixup-ah: a BLIND test queue has its own page — no queue rail, no evidence rail, nothing that could tip the answer
+  if (d && (d.queue.source as string) === 'blind-test') return <BlindTestPage queueId={queueId} showingPart={rest[0]} />
   if (!d || needsRedirect) return <><Header workspace="Review" page="Inspector" subtitle={`queue ${queueId}`} /><div className="rv-root"><Loading /></div></>
   if (rest.length === 0) return <QueueEndView data={d} forced={state === 'empty'} />
   if (rest[0] === 'cluster') return <ClusterPage data={d} no={Number(rest[1])} />
