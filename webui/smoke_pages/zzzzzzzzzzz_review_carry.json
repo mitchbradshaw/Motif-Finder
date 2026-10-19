@@ -25,16 +25,16 @@
  {
   "page": "review.inspector",
   "state": "review-carry-class-label-is-stored",
-  "_why": "review-carry (R3): a class key (2 = burst) writes the verdict WITH the class, and the class is stored on the adjudication row. After a reload (the session's in-memory records are gone) the Annotate card still shows burst pressed, read back from the row. Writes a verdict on the sandbox, so this file sorts last.",
-  "hash": "review/queue/2/101",
+  "_why": "review-carry (R3): a class key (2 = burst) writes the verdict WITH the class, and the class is stored on the adjudication row. After a reload (the session's in-memory records are gone) the Annotate card still shows burst pressed, read back from the row. Item 106 (a set of its own, unjudged on the real database), not 101: the edit-span unit sorts first and its Save covers 101 with a human span, after which queue 2 no longer serves 101. Writes a verdict on the sandbox, so this file sorts last.",
+  "hash": "review/queue/2/106",
   "actions": [
-   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"101\"]", 30000]},
+   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"106\"]", 30000]},
    {"wait": 1500},
    {"press": "2"},
    {"wait": 2000},
-   {"hash": "#/review/queue/2/101"},
+   {"hash": "#/review/queue/2/106"},
    {"reload": true},
-   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"101\"]", 30000]},
+   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"106\"]", 30000]},
    {"wait": 1000}
   ],
   "expect": ["[data-testid=\"annotate-card\"] [data-testid=\"class-2\"][aria-pressed=\"true\"]"],

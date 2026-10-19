@@ -118,7 +118,7 @@
   "state": "ig-pages-event-trains-chain-runs",
   "hash": "analyse/chain",
   "settle_ms": 900,
-  "_why": "ig-pages: Import event_trains (the drop detector -> Event shape -> Trains (logISI, write_group) -> Intervals) on the example span and run it; the three feature rows draw; the example span is set first through the source chip, because by this file the walk's source may be a window pool left behind by an earlier unit",
+  "_why": "ig-pages: drop_event_features (the drop detector -> Event shape -> Intervals) with Trains (logISI, the default rule) inserted at 4, on the example span, run; the three feature rows draw. integration fix: the state imported `event_trains`, which is EXPERIMENTAL in webui/server/templates.py (never seeded, so never in the picker) - the same chain is built the way the cycle-shapes state builds its own. The example span is set first through the source chip, because by this file the walk's source may be a window pool left behind by an earlier unit",
   "actions": [
    {
     "press": "Escape"
@@ -160,13 +160,40 @@
     "wait": 250
    },
    {
-    "click": "[data-testid=\"template-event_trains\"]"
+    "click": "[data-testid=\"template-drop_event_features\"]"
    },
    {
     "wait": 600
    },
    {
     "click_if": "[data-testid=\"use-example\"]"
+   },
+   {
+    "wait": 900
+   },
+   {
+    "click": "[data-testid=\"insert-4\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"modal-card-interrogation.trains\"]:not([disabled])",
+     20000
+    ]
+   },
+   {
+    "click": "[data-testid=\"modal-card-interrogation.trains\"]:not([disabled])"
+   },
+   {
+    "wait": 300
+   },
+   {
+    "click": "[data-testid=\"modal-insert\"]"
+   },
+   {
+    "wait": 700
+   },
+   {
+    "hash": "analyse/chain"
    },
    {
     "wait": 900
