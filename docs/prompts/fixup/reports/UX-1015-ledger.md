@@ -341,3 +341,26 @@ and forwarded to A and B (their files): the Review queue open sends all rows (7.
 candidate); Explore › Signal awaits the whole channel's spans (526 kB, 153 s on a loaded bridge) before tier 2 and
 `GET /api/channels/{id}` recomputes its ribbons every call (4.6 s in process); Discovery's run rows squash to 18 px
 with 60 runs (`.dsc-run { flex: none; }`). The need-you chip is now at most 15 s stale between pages (assumed).
+
+**Night B merged 01:2x as d1bf8e4** (Explore, Library, Analyse; report `docs/prompts/changes/reports/night-b-report.md`;
+critic round f5a6736/5ff3f3c: a re-read after a span write no longer joins the earlier shared read, Interrogation's
+"no family" card waits for its read to settle, ?template=<name> is an exact match first). Gate on the merged tree:
+conda `test_serialize_interval_classes` + `test_webui_night_b_critic` + import boundaries (23 passed); venv the six
+`test_webui_night_b_*`, `test_webui_library`, `test_webui_library_family_actions`, `test_library_background_null`
+(135 + 3 xpassed on the first tip, 36 on the critic tip); tsc; build; fifteen units on a fresh 8766 sandbox of the
+final database (01:00–01:23): `explore` 45 shots / 4 fails, `library` 61 / 4, `library_edges` 2 / 1, and
+`library_grouping_url` 6, `analyse` 47, `interrogation` 58, `span_plot` 6, `aq_cross_channel` 12, `overlay` 5,
+`sequences` 4, `family_actions` 7, `ig_pages` 14, `an_library_tree` 6, `explore_review` 5, `zzzz_ae_library_view`
+12 — **all 0 fails**. Failures: the held-out drift (`explore.corpus/signal/cross-channel--held-out`,
+`library.recurrence--held-out-recording`: the lock is off in the final database); two baseline states
+(`explore.cross-channel--as-recorded`, `library.templates--model-stage`); and one strictly new one,
+`discovery.seed--fixup-v-scale-bank-searches-every-length`: the scale-bank preview on seed entry 697 ran 01:05:46 →
+01:13:11 (445 s, a 96-step sweep job, completed) against the state's 240 s wait — the final database (25 files, the
+10 Hz multi-day recordings among them) makes the bank search slower; B's code is nowhere near the seed search. The
+re-run in `library_edges` failed at its first wait because that sweep was still running. **Expect it in the morning
+walk; it is a seed-search speed item (the researcher's redesign wanted a time estimate on exactly this) and the
+state's budget.** Improvement: `explore.signal--default`, `explore.signal--live-channel`,
+`explore.cross-channel--lag-aligned` and `--y-absolute` failed in C's run (and in the 18:56 baseline) and pass after
+B's one-read-per-open change. Critic on A: merge after three fixes (Ctrl-Z during an in-flight write undoes the
+previous item; a session-only class key on a seed-prior row counts it judged; a late flash on the next item) — sent
+back 01:20.
