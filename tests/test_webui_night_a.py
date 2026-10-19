@@ -66,3 +66,36 @@ def test_a_scoreboard_read_reads_each_channel_once(bridge, monkeypatch):
     assert again.json() == first.json(), "the cached read must serve exactly what the first one did"
     # one read per channel for the whole request; it was one per run per channel (6 x 4 = 24 here, 960 at scale)
     assert len(reads) <= len(info["channel_names"]), f"{len(reads)} channel reads for {len(info['channel_names'])} channels"
+
+
+def test_two_identical_scoreboard_reads_score_each_run_once(bridge, monkeypatch):
+    """* **Identical scoreboard reads piled up.** Runs, Seed search, Compare and Map each ask for the same
+    scoreboard when they open; cold on the scale fixture one read took 8 min, and every page visit in that window
+    started its own copy (four Discovery pages opened twice kept the bridge busy for half an hour after the browser
+    was gone). A read that arrives while the same read is being worked out waits for it and is answered from the
+    cache: each run is scored once."""
+    import threading
+    import time as _time
+    client, rt, info = bridge
+    keys = [d["key"] for d in info["druns"]][:3]
+    chans = ",".join(info["channel_names"])
+    url = f"/api/discovery/scoreboard?runs={','.join(keys)}&channels={chans}&t0=0&t1=12"
+    SB.clear_score_cache()
+    calls = []
+    real = SB.score_runs
+
+    def slow(conn, run_ids, **kw):
+        calls.append(tuple(run_ids))
+        _time.sleep(0.4)          # long enough that the second read arrives while the first is scoring
+        return real(conn, run_ids, **kw)
+    monkeypatch.setattr(SB, "score_runs", slow)
+    out = []
+    threads = [threading.Thread(target=lambda: out.append(client.get(url))) for _ in range(2)]
+    for t in threads:
+        t.start()
+        _time.sleep(0.1)
+    for t in threads:
+        t.join(120)
+    assert [r.status_code for r in out] == [200, 200], [r.text[:200] for r in out]
+    assert out[0].json() == out[1].json()
+    assert len(calls) == len(set(calls)) == len(keys), f"{len(calls)} scorings for {len(keys)} runs"
