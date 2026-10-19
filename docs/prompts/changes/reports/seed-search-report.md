@@ -120,7 +120,7 @@ detections in your Discovery picked queue.
 - **Created:**
   - `webui/client/src/discovery/seed/StepStrip.tsx`
   - `webui/client/src/discovery/seed/KeepCard.tsx` (also `ImportResultButton`, moved here)
-  - `webui/smoke_pages/zzzzzzzzzzz_seed_search.json`
+  - `webui/smoke_pages/zzzzzzzzzzz_a1_seed_search.json`
   - this report
 - **Shared, append-only:**
   - `webui/client/src/api.ts`: `DiscSeedKeepAck`, `keepDiscoverySeedMatches`, at the end. `DiscNullMode` still
@@ -169,7 +169,7 @@ detections in your Discovery picked queue.
 - The test files above, one at a time.
 - No browser smoke (no database in a worktree).
 
-## Smoke states — `webui/smoke_pages/zzzzzzzzzzz_seed_search.json`
+## Smoke states — `webui/smoke_pages/zzzzzzzzzzz_a1_seed_search.json`
 
 This file sorts last, because one state writes a run.
 
@@ -254,3 +254,110 @@ preview opens step 2) should still pass.
 - `0697060` seed-search: failing tests for keeping the preview's matches as a run
 - `1da420d` seed-search: four steps; keep the preview's matches with no second search; no "no null"
 - (this report)
+
+## Critic round
+
+**In plain words.** The keep is sound. To write the rows without a second search, it leaves a "pre-filled answer"
+in the shared step cache while its own run reads it, then removes it. If the server stopped mid-keep, that
+pre-filled answer could stay behind for good, and a later run of the same recipe could read it as if a block had
+computed it. The keep's entries now sit in a folder of their own, and anything a lost keep left there is cleared
+before the next keep and when the lost run is noticed.
+
+**Verdict: merge after the fixes below.**
+
+### Findings
+
+1. **Should-fix, FIXED (`c2bf7c7`): the keep's step-cache entries could outlive a lost sweep.**
+   - The entries were laid at the block's own cache path, `<root>/<prefix>/0`. When the server stopped mid-sweep,
+     `on_exit` never ran.
+   - A retry then found the entry "already there". `_lay_preview_steps` skipped it, so it was never in `laid` and
+     never taken back.
+   - From then on the entry was permanent. Any later run with that recipe prefix would be served the preview's
+     matches as if a block had computed them, for example an Analyse chain that starts with
+     `detection.seed_matches`, or a forced run.
+   - **How serious.** For a native-length search, or a bank under `lowest` or `all`, the preview's set at or below
+     the cut equals the block's output with `max_distance = cut`. The greedy exclusion picks closest-first, so a
+     cut never changes which closer match survives. Also, `find_completed_run` reuses a finished kept run for an
+     identical recipe anyway. Under a bank with overlap `first` the two sets can differ, and that is where a
+     leftover entry would give a wrong answer.
+   - **The fix.**
+     - Entries are laid under `<root>/_kept_preview/<token>/<prefix>/0`.
+     - The token is live in this process while its keep runs.
+     - `_take_back_lost_keeps` removes any `_kept_preview` entry whose token is not live. It runs before each keep
+       lays, and when `_fail_lost_runs` fails a lost keep.
+     - The take-back no longer deletes a block's own entry for the same prefix written meanwhile (`INSERT OR
+       REPLACE` with a different path).
+   - **Test:** `test_a_keep_whose_take_back_never_ran_is_cleaned_up_by_the_next_keep`, red before the fix.
+   - **Still open, accepted.** While a keep's sweep is in flight (seconds), a concurrent run of the identical recipe
+     would read the laid entry. Its answer would be the same except under bank + `first`.
+2. **Should-fix, FIXED (`c2bf7c7`): the page's kept count and the bridge's cut could disagree.**
+   - The page counted `d` (rounded to 4 places) against the cut, while the bridge cuts by the unrounded `distance`.
+   - So "N matches at d ≤ X" could become N−1 detections for a match within 5e-5 of the cut.
+   - The page now counts by `distance` (`distance ?? d`), carried through `SeedMatch` / `DiscSeedMatch`.
+3. **Should-fix, FIXED (`c2bf7c7`): button colours.**
+   - *Run with the rigorous null* was the grey default, which the researcher reads as "do not click"
+     (2026-10-13).
+   - *Save as template* used a one-off CSS class, `dsc-btn-quiet-blue`.
+   - Now *Use these as detections* is the step's green `next`. The rigorous run and *Save as template* are the
+     kit's quieter blue `primary`. The custom class is removed.
+4. **Checked, no change.**
+   - A cut that keeps nothing on a channel still writes that channel's run, `completed` with 0 detections. This
+     is pinned now by `test_a_cut_that_keeps_nothing_on_a_channel_still_writes_that_channels_run`.
+   - The 5,000-candidate restore cap is sorted by distance, so the refusal "the cut keeps all of them" is the
+     right test.
+   - A scope or section change is a different preview key, so the keep answers 409.
+   - The held-out lock applies (`_ids_for`).
+   - Rule 5 holds: no adjudication is written (tested).
+   - The keep route forces `route = local` and never plans windows, so no windowed fan-out bypasses the laid
+     step.
+   - The cache root is read at request time (`cfg.STEP_CACHE_ROOT`), so the sandbox redirect covers it.
+   - The changed test in `test_webui_seed_hpc_route.py` is a real pin. `off` now gets a 422, the keep over a 1 s
+     ceiling works, the null is the preview's, and the Review send takes it.
+5. **Blocker, FIXED (`seed-search fix: the no-cut sentence…`): `tests/test_webui_seed_on_demand_client.py` was
+   red, and the implementer had not run it.**
+   - `test_the_seed_page_has_run_preview_cancel_and_says_what_a_run_without_a_cut_keeps` looked for `apply-no-cut`
+     and "matches per channel kept" in `SeedPage.tsx`. Both went with the apply bar.
+   - Step 4 now says it: `apply-no-cut` in `KeepCard.tsx`, "no cut · the rigorous run keeps all 200 matches per
+     channel kept by the search". The test reads `SeedPage.tsx` and `KeepCard.tsx`. This deliberately changes the
+     test, because the apply bar is gone.
+   - **The unit's name.** The unit is renamed `zzzzzzzzzzz_a1_seed_search.json`, at the manager's instruction. A
+     manifest that opens `discovery/` must sort before `zzzzzzzzzzz_a2_p4_seed.json`.
+   - That test still fails on this base, but only for AR's `zzzzzzzzzzz_ar_speed.json`. Main renamed that file to
+     `zzzzzzzzzzz_a1_ar_speed.json`, and the manager reconciles it at merge.
+   - Because of the rename, the kept-run state now walks BEFORE the a2-p4 unit. The a2-p4 unit's first state
+     changes the draft (family medoid, zone = m) before it presses anything, and its last state puts back the
+     walk's section and draft, so its states are unaffected.
+6. **Not fixed (low): two keeps racing.**
+   - Two simultaneous presses can both miss `_seed_row_for`'s look-up and make two rows. The same race was
+     already there for `/seed/run`.
+   - The button is disabled while keeping, so only two tabs could do it.
+
+### Smoke states (`c1c7136`)
+
+- **`discovery.json`:**
+  - The seed page's `default`, `source-explore`, `running`, `done` and `failed` states are retired.
+  - `source-medoid` and `change-seed` now open `?step=1`.
+  - `view-popover` now opens `?step=3&profile=1`.
+- **The other units, as the table above listed them:**
+  - `fixup-y-seed-search-from-review` is split into two states: the step it opens on, and
+    `...-provenance`, which clicks step 1 of the strip.
+  - The bank states walk to step 3 for the per-length null.
+  - `a2-p4-not-previewed-runs-nothing` opens advanced before the slider and drops `apply-no-cut`.
+
+### Gate after the fixes
+
+Each file was run alone.
+
+**webui/.venv python:**
+- `test_webui_seed_hpc_route.py`: 14 passed
+- `test_webui_seed_on_demand.py`: 11 passed
+- `test_webui_seed_page_repairs.py`: 9 passed
+- `test_webui_seed_sources.py`: 18 passed
+- `test_webui_discovery.py`: 75 passed (73 before, plus the 2 critic tests)
+
+**conda python:**
+- `test_import_boundaries.py`: 4 passed
+- `test_webui_seed_on_demand_client.py`: 15 passed, 1 failed. The failure is only AR's old unit name, which main's
+  rename fixes.
+
+**Client:** `tsc -b` and `vite build` pass.
