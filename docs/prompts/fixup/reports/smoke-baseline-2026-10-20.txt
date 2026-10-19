@@ -1,0 +1,25 @@
+# Smoke walk baseline — 2026-10-20 05:56–06:5x, main 55e659f, fresh sandbox of the post-batch-3 database (511 MB)
+# 799 screenshots, 23 failures, 0 network errors. Compare by SET (scratchpad/compare_walk.py), never by count.
+  FAIL: the seed page draws its match-distance histogram
+  FAIL: a2_p2_hpc: discovery.map--a2-p2-an-imported-chain-run-is-on-the-map renders [/api/discovery/runs {'hpcImported': True, 'status': 'done'}: 43 rows, so the populated state] — missing ['[data-testid="map-cell"][data-state="covered"]:not([data-row="human"])']
+  FAIL: discovery: discovery.runs--default renders — missing ['[data-testid="browser-trace"] svg']
+  FAIL: discovery: discovery.runs--modal-slurm renders — missing ['[data-testid="slurm-script"]']
+  FAIL: discovery: discovery.seed--save-template-invalid renders — missing ['[data-testid="save-template-error"]']
+  FAIL: explore: explore.signal--live-channel renders — missing ['[data-testid="ribbons"]']
+  FAIL: explore: explore.cross-channel--as-recorded renders — missing ['[data-testid="channel-stack"]', '[data-testid="classification"]', '[data-testid="reference-trace"]']
+  FAIL: explore: explore.cross-channel--max-lag-10 renders — missing ['[data-testid="lag-unaligned-CH5_B1"]']
+  FAIL: explore: explore.cross-channel--y-absolute renders — missing ['[data-testid="scale-note"]', '[data-testid="cross-axis"] span', '[data-testid="cross-motif-region"]']
+  FAIL: library: library.templates--model-stage renders — missing ['[data-testid^="template-card-cnn_"]']
+  EXC: review.inspector--1-candidate (redirect from review root) Page.wait_for_selector: Timeout 15000ms exceeded.
+  FAIL: review: review.inspector--shape card without a parent: the toggle is disabled with the reason renders — missing ['[data-testid="shape-card"][data-source-available="0"]', '[data-disabled-reason]']
+  FAIL: review: review.inspector--extract-events queue (sequence unit, writes annotations) renders — missing ['[data-testid="inspector"]', '[data-testid="verdict-card"]']
+  FAIL: settings: settings.datasets--identity-fields renders — missing ['[data-testid="unnamed-Mushroom_260720_0509_4hrs_CH14_fs1"]']
+  EXC: settings.datasets--import-check-passes-MJu26a Locator.click: Timeout 30000ms exceeded.
+  EXC: settings.channels-events--rows-all-by-click Locator.click: Timeout 30000ms exceeded.
+  EXC: settings.storage-backups--scan-check-a-matrix-profile Locator.click: Timeout 30000ms exceeded.
+  EXC: models.launch--fixup-ab-save-a-window-set-across-channels Locator.click: Timeout 30000ms exceeded.
+  EXC: models.launch--fixup-ab-train-locally Locator.click: Timeout 30000ms exceeded.
+  FAIL: zzz_x_divergence: discovery.compare--fixup-x-human-side-pairs-by-the-divergence-with-the-breakdown renders — missing ['[data-testid="overlap-paired-by"]', '[data-testid="divergence-breakdown"]', '[data-testid="divergence-by-channel"]', '[data-testid="divergence-density"]', '[data-testid="divergence-by-morphology"]', '[data-testid="divergence-no-null"]', '[data-testid="divergence-morph-human-note"]']
+  FAIL: zzzzzzzzzzz_an_library_tree: library.grouping--fixup-an-build-the-tree-then-apply-it renders [grouping g-05] [waited: [data-testid="preview-tree-note"] after 3.4 s] — missing ['[data-testid="atlas-grid"]']
+  EXC: library.grouping--fixup-an-a-cut-in-the-address-moves-the-line-and-the-families Page.reload: Timeout 30000ms exceeded.
+  FAIL: no unexpected server tracebacks (2 unexpected of 4 error lines)

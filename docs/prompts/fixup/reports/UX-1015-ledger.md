@@ -401,3 +401,24 @@ the state paused a fixed 1.5 s after the flag line. **f21001b (states only): it 
 Main for the morning walk: f21001b (C 293a8fc, B d1bf8e4, A e668995, the extent fix 8dff9b0, this state).
 `zzzz_ad_suspected_artifact` with f21001b on a fresh 8766 (02:14–02:15): 7 screenshots, **0 failures**, 0 console
 errors. Box quiet from 02:16; the 8766 sandbox stopped; the full walk starts at ~05:53 on a fresh copy.
+
+## 2026-10-20 morning — the first post-wave full walk: **799 screenshots, 23 failures** (the new baseline)
+
+Main 55e659f (C 293a8fc, B d1bf8e4, A e668995, the seed-page extent fix 8dff9b0, the classify state f21001b). Fresh
+8766 sandbox of the final database, warm (25 files current; template scores 33.5 s), box at 32 % load, 05:56 →
+06:5x, **0 network errors**. Against `wave2_fails.txt` (38): **17 baseline states pass now** (`discovery`, the
+a2-p2 SLURM modal, the a2-p3 window card, `ar-templates-open-under-a-second`, `discovery.runs--discarded`, the
+a2-p4 restore, `explore.signal--default`, `explore.cross-channel--lag-aligned`, both fixup-y seed states, both
+fixup-ae/grouping-url atlas states, `settings.datasets--default`, the a2p1 unlock, the discovery-scope seam, the
+sequence rose, the a2-p2 jobs row) and **3 are strictly new, each explained and none a code regression**:
+`library.grouping--fixup-an-build-the-tree-then-apply-it` — the walk's screenshot shows g-10 applied (bar and
+toast) with the grid empty behind "counting…" (the noise-floor count on the new grouping outlasted the 2.5 s
+settle under the walk's load); `--a-cut-in-the-address-moves-the-line-and-the-families` — the reload after it never
+idled in 30 s (the same count); **the `an_library_tree` unit re-run on the same bridge straight after: 6 / 0**. And
+the flow check `the seed page draws its match-distance histogram` — a fixed 1.5 s after opening `discovery/seed`
+with no preview in hand; the five `a1_seed_search` page states, the cut card and its histogram among them, passed.
+Bridge: one `database is locked` while persisting job 602 at 05:58 (a flow's concurrent writer; the job ran) and the
+deliberate bad-folder import refusal. The held-out states passed (the walk's flows turn the lock on). The 445 s
+scale-bank state passed inside its budget this time. **Baseline file: `reports/smoke-baseline-2026-10-20.txt`
+(also `scratchpad/base_1020.txt`).** Walker items: the tree state should wait for the floor count, the seed flow
+check should open on the kept preview.
