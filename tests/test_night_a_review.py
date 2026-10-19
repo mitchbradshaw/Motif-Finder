@@ -108,6 +108,20 @@ def test_auto_advance_never_moves_a_researcher_who_already_stepped_on():
         "pending timers are not cleared when the item changes"
 
 
+def test_stepping_fast_does_not_queue_a_read_for_every_item_passed():
+    """Forty arrow presses on the scale fixture left the bridge answering item reads for 25-49 s afterwards (every
+    item passed was read, and three neighbours prefetched each time); verdicts pressed meanwhile waited behind them,
+    so a key pressed three times wrote the same item three times. An item not yet held is read only once it has
+    been on screen for a moment, a superseded read is never sent, and the neighbours are prefetched only from an
+    item the researcher stopped on."""
+    code = _code(_src("Inspector.tsx"))
+    assert "useAbortableSourced(" in code and "signal.aborted" in code, "a superseded item read is still sent"
+    assert "STEP_SETTLE_MS" in code
+    m = re.search(r"prefetchItem\(q, u\.id[^\n]*\n(.*?)\n", code, re.S)
+    assert re.search(r"window\.setTimeout\([^;]*prefetch|const t = window\.setTimeout", code), \
+        "the neighbours are still prefetched from every item passed"
+
+
 # ── a span queue read as finished while 622 were left (agent B's drive, Explore → Take span → Open Review) ──
 
 JUDGED_TS = os.path.join(REVIEW, "judged.ts")
