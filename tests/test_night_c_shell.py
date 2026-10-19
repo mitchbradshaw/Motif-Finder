@@ -67,6 +67,16 @@ def test_header_titles_never_wrap_and_the_subtitle_gives_way():
     assert re.search(r"min-width:\s*0", _header_rule(".hdr-sub"))
 
 
+def test_the_app_fits_a_1024_px_window():
+    # theme.css held `body { min-width: 1200px }` from the prototype: at 1024x700 every page scrolled sideways as a
+    # whole (document 1200 > 1024), the header's need-you and held-out chips and every page's right edge off screen
+    css = _read("theme.css")
+    m = re.search(r"body\s*\{([^}]*)\}", css)
+    assert m
+    mw = re.search(r"min-width:\s*(\d+)px", m.group(1))
+    assert mw is None or int(mw.group(1)) <= 1024
+
+
 def test_header_search_label_folds_away_on_a_narrow_window():
     css = _read("shell", "Header.tsx")
     m = re.search(r"@media\s*\(max-width:\s*(\d+)px\)\s*\{([^@]*?)\}\s*\}", css, re.S)
