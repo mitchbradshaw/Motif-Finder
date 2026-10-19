@@ -302,7 +302,7 @@ function CrossBody({ data }: { data: CrossRead }) {
             <span className="pre">channels</span><span className="val">{rows.length} of {data.channels.length}</span><Icon name="chevron-down" size={12} className="chev" />
           </button>
           {data.explicitWindow
-            ? <Button size="sm" iconRight="x" testid="edge-window" onClick={() => { setT0Q(null); setT1Q(null) }} title={data.edge ? 'the window a Library edge was measured on, unpadded and as recorded — click to return to the channel’s own window' : 'this exact window, unpadded (?t0=&t1=) and detrended — click to return to the channel’s own window'}>{windowLabel}</Button>
+            ? <Button size="sm" variant="primary" iconRight="x" testid="edge-window" onClick={() => { setT0Q(null); setT1Q(null) }} title={data.edge ? 'the window a Library edge was measured on, unpadded and as recorded — click to return to the channel’s own window' : 'this exact window, unpadded (?t0=&t1=) and detrended — click to return to the channel’s own window'}>{windowLabel}</Button>
             : data.options.length
               ? <>
                 <Button size="sm" variant="ghost" icon="chevron-left" testid="window-prev" disabled={at <= 0} disabledReason="this is the channel's first span"
@@ -366,7 +366,6 @@ function CrossBody({ data }: { data: CrossRead }) {
           {overlay ? (
             <div className="ex-ov-wrap" ref={ovRef} data-testid="overlay-wrap">
               <div className="ex-ov-head" data-testid="overlay-head">
-                <span className="muted small">Each channel drawn about its own mean, in equal lanes (first channel at the top), at one shared gain. Click a name or a trace to make it bold (shift-click for several); drag across the plot for a box to act on.</span>
                 <span className="grow" />
                 <button type="button" className={cx('ex-ov-toggle', align === 'lag' && 'on')} aria-pressed={align === 'lag'} onClick={() => setAlign(align === 'lag' ? null : 'lag')} data-testid="ov-align"
                   title="shift each channel by the lag measured against the reference, so a wave that travels across the electrodes lines up (A)">align by lag{align === 'lag' ? ' · on' : ''}</button>
@@ -374,7 +373,7 @@ function CrossBody({ data }: { data: CrossRead }) {
                   title="draw the box over the window's own span (the shaded region) — the same as dragging across it">box the span</button>
                 <span className="ex-links"><button type="button" onClick={() => setBold(ovChannels.map(c => c.id))} data-testid="ov-all">all</button> · <button type="button" onClick={() => setBold([])} data-testid="ov-none">none</button></span>
                 <span className="muted mono small" data-testid="ov-bold-count">{bold.length} bold</span>
-                <InfoTip title="Overlay" placement="bottom-end">Every channel of the recording over the same window, on one axis. Each trace is drawn about its own mean over the window (the electrodes sit volts apart in DC offset, so drawn as recorded they would not share a screen), in equal lanes by channel order, at <b>one shared gain</b> so a bigger wiggle still looks bigger; a trace that runs past the block is clipped, never rescaled. <b>Align by lag</b> slides each channel by the lag measured against {refName} (the number beside its name; a lag past max lag ±{maxLag} s is left in place). The box is on {refName}&rsquo;s clock: Send and Mark write it for the channels drawn unshifted (with align on, a channel slid by its lag is left out of both, so no verdict lands on samples you did not see; turn align off to act on it); Open in Signal and Open in Analyse add the channel&rsquo;s shift. Keys (click the plot first): ↑ / ↓ move the bold channel, A aligns, Esc clears the box.</InfoTip>
+                <InfoTip title="Overlay" placement="bottom-end">Click a name or a trace to make it bold (shift-click for several); drag across the plot for a box to act on. Every channel of the recording over the same window, on one axis. Each trace is drawn about its own mean over the window (the electrodes sit volts apart in DC offset, so drawn as recorded they would not share a screen), in equal lanes by channel order, at <b>one shared gain</b> so a bigger wiggle still looks bigger; a trace that runs past the block is clipped, never rescaled. <b>Align by lag</b> slides each channel by the lag measured against {refName} (the number beside its name; a lag past max lag ±{maxLag} s is left in place). The box is on {refName}&rsquo;s clock: Send and Mark write it for the channels drawn unshifted (with align on, a channel slid by its lag is left out of both, so no verdict lands on samples you did not see; turn align off to act on it); Open in Signal and Open in Analyse add the channel&rsquo;s shift. Keys (click the plot first): ↑ / ↓ move the bold channel, A aligns, Esc clears the box.</InfoTip>
               </div>
               {ovDet?.error && <div className="ex-warn" data-testid="ov-det-error"><Icon name="alert-triangle" size={13} /><span>{ovDet.error}</span></div>}
               {ovSize.width > 0 && <Overlay channels={ovChannels} window={[t0, t1]} selected={bold} onSelect={setBold} brush={brush} onBrush={setBrush}
@@ -397,7 +396,7 @@ function CrossBody({ data }: { data: CrossRead }) {
                     extra={bold.length > 1
                       ? <Dropdown size="sm" variant="outline" value="" placeholder="Open in Signal…" onChange={v => openOneInSignal(Number(v))} testid="ov-open-signal" menuWidth={200}
                           options={ovChannels.filter(c => bold.includes(c.id)).map(c => ({ value: String(c.id), label: `${c.name}${ovShift(c.id) ? ` (${fmtShift(ovShift(c.id))})` : ''}` }))} />
-                      : topBold ? <Button size="sm" onClick={() => openOneInSignal(topBold.id)} testid="ov-open-signal">Open {topBold.name} in Signal</Button> : null} />
+                      : topBold ? <Button size="sm" variant="primary" onClick={() => openOneInSignal(topBold.id)} testid="ov-open-signal">Open {topBold.name} in Signal</Button> : null} />
                 </div>
               )}
             </div>
@@ -475,7 +474,7 @@ function CrossBody({ data }: { data: CrossRead }) {
             })}
             {tooFew && (
               <div className="ex-xrow-empty" data-testid="too-few">
-                <EmptyState size="sm" icon="compare" title={`Pick at least one more channel to compare against ${refName}.`} action={<Button size="sm" onClick={() => setPopover('channels')} testid="choose-channels">Choose channels</Button>} />
+                <EmptyState size="sm" icon="compare" title={`Pick at least one more channel to compare against ${refName}.`} action={<Button size="sm" variant="primary" onClick={() => setPopover('channels')} testid="choose-channels">Choose channels</Button>} />
               </div>
             )}
           </div>
@@ -500,21 +499,22 @@ function CrossBody({ data }: { data: CrossRead }) {
               ))}
             </div>
             {sharedPair && (
-              <div className="ex-warn" data-testid="shared-ground-warning"><Icon name="alert-triangle" size={13} />
+              <div className="ex-warn ex-info" data-testid="shared-ground-warning"><Icon name="info" size={13} />
                 <span>{sharedPair.name} ↔ {sharedPair.sharedGroundWith} is a known shared-ground pair — excluded from recurrence counts · <button type="button" className="ex-link" onClick={() => navigate('settings/channels')}>Settings › Channels &amp; events</button></span>
               </div>
             )}
           </div>
           <div className="card card-pad" data-testid="take-further">
             <b style={{ display: 'block', marginBottom: 8 }}>Take it further</b>
+            {/* polish: the strip's caption sits behind an ⓘ beside the strip (`cross-strip-caption` wraps it) */}
             {/* fixup-W: wired — the family comes from the link that opened this page (Library › Family's edge list) */}
             <ActionRow icon="library" title={familyQ ? `Classify every ${familyQ} member in Library` : 'Classify a Library family across channels'}
               caption={xcJob.busy ? `running · ${xcJob.job?.total ? `${xcJob.job.done} of ${xcJob.job.total} channels · ` : ''}${xcJob.job?.message ?? ''}` : xcJob.job?.status === 'failed' ? `job ${xcJob.job.id} failed · ${xcJob.job.error}` : xcJob.startError ? `could not start: ${xcJob.startError}` : 'runs across all channels and stores bins on edges'}
               testid="act-classify" onClick={() => { if (familyQ) void xcJob.start(familyQ, groupingQ || undefined) }}
               disabled={!familyQ || xcJob.busy} reason={!familyQ ? 'open this page from a Library family (an edge\u2019s Explore › link) to say which family to classify' : 'a classification is running'} />
             <ActionRow icon="target" title={`Apply a template across these ${rows.length} channels`} caption="opens Discovery with a channel scope" testid="act-template" onClick={() => navigate(`discovery/runs?modal=add-template&channels=${selected.join(',')}`)} />
-            <div className="muted small" style={{ margin: '10px 2px 6px' }} data-testid="cross-strip-caption">
-              This window on the {rows.length} channel{rows.length === 1 ? '' : 's'} shown: send their unjudged motifs to Review, or mark it an artifact on the channels you pick.
+            <div className="row small" style={{ margin: '10px 2px 6px', gap: 6, alignItems: 'center' }} data-testid="cross-strip-caption">
+              <b>This window</b><InfoTip title="This window">This window on the {rows.length} channel{rows.length === 1 ? '' : 's'} shown: send their unjudged motifs to Review, or mark it an artifact on the channels you pick.</InfoTip>
             </div>
             <SpanActionStrip window={[t0, t1]} reviewChannels={selected} artifactChannels={data.channels} referenceId={ref}
               origin="cross-channel" onOpenInAnalyse={openInAnalyse} testid="cross-action-strip" />
@@ -546,7 +546,7 @@ function CrossBody({ data }: { data: CrossRead }) {
             )
           })}
         </div>
-        <div className="muted mono small" style={{ marginTop: 6 }}>{fmtInt(selected.length)} of {data.channels.length} · cap {CAP}</div>
+        <div className="k-meta mono small" style={{ marginTop: 6 }}>{fmtInt(selected.length)} of {data.channels.length} · cap {CAP}</div>
       </Popover>
       <DetectionsPicker runs={runs} st={st} setSt={setPickerSt} open={popover === 'detections'} setOpen={o => setPopover(o ? 'detections' : null)} demo={!!sig.data} loading={sig.loading} anchor={pickerAnchor} />
     </>

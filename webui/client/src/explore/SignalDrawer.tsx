@@ -207,8 +207,8 @@ export function SignalDrawer({ channelKey, channelName, fs, demo, live, tab, set
       {demo && tab !== 'shortcuts' && <DemoTag title="these rows are §0 demo canon for CH4_A2, not your database" />}
       <span className="grow" />
       {tab !== 'shortcuts' && <>
-        <Button icon="download" size="sm" onClick={() => exportRows('csv')} disabled={!cur.length} disabledReason="no rows match the filters" testid="export-csv">Export CSV</Button>
-        <Button icon="download" size="sm" onClick={() => exportRows('json')} disabled={!cur.length} disabledReason="no rows match the filters" testid="export-json">Export JSON</Button>
+        <Button variant="primary" icon="download" size="sm" onClick={() => exportRows('csv')} disabled={!cur.length} disabledReason="no rows match the filters" testid="export-csv">Export CSV</Button>
+        <Button variant="primary" icon="download" size="sm" onClick={() => exportRows('json')} disabled={!cur.length} disabledReason="no rows match the filters" testid="export-json">Export JSON</Button>
       </>}
       <button type="button" className="ex-link" onClick={onClose} data-testid="drawer-collapse">collapse</button>
     </div>
@@ -263,19 +263,19 @@ export function SignalDrawer({ channelKey, channelName, fs, demo, live, tab, set
         {tab === 'annotations'
           ? <Table<ARow> columns={aCols} rows={pageRows as ARow[]} rowKey={r => String(r.id)} selection="multi" selected={selA} onSelectionChange={k => setSelA(mergePage(selA, pageRows.map(r => String(r.id)), k))} dense
             sort={sortA} onSortChange={setSortA} onRowClick={r => onOpenRow({ id: r.id, start_s: r.start / fs, end_s: r.end / fs, kind: 'annotated', row: r })} testid="drawer-table"
-            empty={<EmptyState size="sm" icon="search" title="no annotation matches these filters" action={<Button size="sm" onClick={clear}>Clear filters</Button>} />} />
+            empty={<EmptyState size="sm" icon="search" title="no annotation matches these filters" action={<Button size="sm" variant="primary" onClick={clear}>Clear filters</Button>} />} />
           : <Table<DRow> columns={dCols} rows={pageRows as DRow[]} rowKey={r => String(r.id)} selection="multi" selected={selD} onSelectionChange={k => setSelD(mergePage(selD, pageRows.map(r => String(r.id)), k))} dense
             sort={sortD} onSortChange={setSortD} onRowClick={r => onOpenRow({ id: r.id, start_s: r.start / fs, end_s: r.end / fs, kind: 'detected', row: r })} testid="drawer-table"
-            empty={<EmptyState size="sm" icon="search" title="no detection matches these filters" action={<Button size="sm" onClick={clear}>Clear filters</Button>} />} />}
+            empty={<EmptyState size="sm" icon="search" title="no detection matches these filters" action={<Button size="sm" variant="primary" onClick={clear}>Clear filters</Button>} />} />}
       </div>
       <div className="ex-drawer-foot">
         <span className="mono small" data-testid="selected-count">{nSel} selected</span>
         {tab === 'annotations' ? <>
-          <Button ref={tagRef} size="sm" iconRight="tag" disabled={!nSel} disabledReason={noSel} onClick={() => setTagOpen(o => !o)} testid="add-tag-bulk">Add tag</Button>
-          <Button size="sm" iconRight="layers" disabled={!nSel} disabledReason={noSel} testid="stage-analyse"
+          <Button ref={tagRef} size="sm" variant="primary" iconRight="tag" disabled={!nSel} disabledReason={noSel} onClick={() => setTagOpen(o => !o)} testid="add-tag-bulk">Add tag</Button>
+          <Button size="sm" variant="primary" iconRight="layers" disabled={!nSel} disabledReason={noSel} testid="stage-analyse"
             onClick={() => { recordDemoWrite('explore', 'stage-for-analyse', { ids: selA.map(Number), channel: channelName }); toast.push({ text: `${nSel} annotation${nSel === 1 ? '' : 's'} staged for Analyse` }) }}>Stage for Analyse</Button>
         </> : <>
-          <Button size="sm" iconRight="arrow-right" disabled={!nSel} disabledReason={noSel} onClick={() => notWired(`send ${nSel} detections to Analyse as a SpanSet source (POST /api/chain/source)`)} testid="analyse-events">Analyse events</Button>
+          <Button size="sm" variant="primary" iconRight="arrow-right" disabled={!nSel} disabledReason={noSel} onClick={() => notWired(`send ${nSel} detections to Analyse as a SpanSet source (POST /api/chain/source)`)} testid="analyse-events">Analyse events</Button>
           <InfoTip title="Detections">Machine detections. Indices are samples into the whole recording.</InfoTip>
         </>}
         <span className="grow" />

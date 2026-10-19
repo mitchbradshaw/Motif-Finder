@@ -368,3 +368,6 @@ button.ex-ribbon:hover { border-color: var(--blue-200); }
 .ex-ov-axis .ticks { position: relative; height: 14px; }
 .ex-ov-axis .ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .ex-ov-actions { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+
+/* polish (2026-10-19): a note that is not a call to act (a known shared-ground pair, left out of the counts) — ⓘ, not ⚠ */
+.ex-warn.ex-info svg { color: var(--muted-2); }
