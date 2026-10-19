@@ -48,6 +48,7 @@ from Working import templates as core_templates
 from Working.database import queries as q
 from Working.database import runs as R
 from Working.discovery import compare as D
+from Working.discovery import detection_map as DM
 from Working.discovery import divergence as DIV
 from Working.discovery import fanout, seed_job, seeded_search
 from Working.discovery import scoreboard as SB
@@ -401,6 +402,13 @@ def _fail_lost_runs(request, conn, session_id):
         if int(row["job_id"]) in live:
             continue
         params = json.loads(row["params_json"] or "{}")
+        if params.get("extending"):
+            # discovery-coverage: an extend lost in a restart — the run it extended is still the run it was
+            params.pop("extending")
+            params["extendError"] = LOST_RUN
+            conn.execute("UPDATE discovery_runs SET status = 'done', params_json = ?, updated_at = ? WHERE id = ?",
+                         (json.dumps(params), _now(), int(row["id"])))
+            continue
         if params.get("run_ids"):
             continue                      # it finished; `_run_payload` reads its runs
         params["error"] = LOST_RUN
@@ -431,7 +439,49 @@ def _human_run(conn, chans, span):
             "status": "reference", "reviewedH": round(h, 3)}
 
 
-def _run_payload(conn, row, index, span, jobs=None):
+#: discovery-coverage: what a run is on one scope channel — the detection map's cell states, per Discovery run
+COVERAGE_STATES = ("covered", "running", "failed", "discarded", "not_run")
+
+
+def _run_coverage(row, st, chans, live=None):
+    """``{channel name: state}`` for one Discovery run over the session's scope channels (discovery-coverage,
+    2026-10-18): ``covered`` where the run has stored results, ``not_run`` where it never ran, ``running`` while a
+    sweep is writing that channel, ``failed`` where it failed (``discarded`` for a discarded run's channels).
+
+    Not a recount: the run's own member rows come from the light status read the row already made (``st``,
+    `fanout.group_status_light`), and the state of a channel with no stored result is decided by the detection
+    map's own rules (`detection_map._held_copy` / `_uncovered_state`: a `running` row whose Discovery run has
+    settled is a lost run and reads `failed`), so this strip and Discovery › Map never disagree about a channel.
+    A channel the run has no member row on is `running` while the run's live job names it (a first sweep, or an
+    extend), else `not_run` — or `failed` when the whole run failed before writing any row."""
+    params = json.loads(row["params_json"] or "{}")
+    by_rec: dict[int, list] = {}
+    for c in (st or {}).get("channels", []):
+        held = DM._held_copy(row, {"id": c["run_id"], "status": c["status"], "superseded_at": c["superseded_at"],
+                                   "span_start": c["span"][0], "span_end": c["span"][1]})
+        by_rec.setdefault(int(c["recording_id"]), []).append(held)
+    job_running = live is not None and live.status in ("running", "queued")
+    job_channels = set((live.meta or {}).get("channels") or []) if job_running else set()
+    out = {}
+    for ch in chans:
+        rows = by_rec.get(int(ch["id"]))
+        if rows:
+            if any(r["status"] == "completed" and not r["superseded_at"] for r in rows):
+                out[ch["name"]] = "covered"
+            else:
+                out[ch["name"]] = DM._uncovered_state(rows, 0, 2 ** 62)
+        elif ch["name"] in job_channels or (job_running and not st and row["status"] == "running"):
+            out[ch["name"]] = "running"
+        elif row["superseded_at"]:
+            out[ch["name"]] = "discarded"
+        elif not st and row["status"] == "failed" and not params.get("extending"):
+            out[ch["name"]] = "failed"
+        else:
+            out[ch["name"]] = "not_run"
+    return out
+
+
+def _run_payload(conn, row, index, span, jobs=None, chans=None):
     params = json.loads(row["params_json"] or "{}")
     group_id = row["run_group_id"]
     ids = _run_ids(conn, row)
@@ -445,6 +495,7 @@ def _run_payload(conn, row, index, span, jobs=None):
         if prog.get("total"):
             progress = min(1.0, float(prog.get("done") or 0) / float(prog["total"]))
         progress_text = prog.get("message") or None
+    st = None
     if ids:
         st = fanout.group_status_light(conn, run_ids=ids)      # AR: the same answer in a handful of queries
         channels_done = f"{st['done']} / {st['total']}"
@@ -468,6 +519,10 @@ def _run_payload(conn, row, index, span, jobs=None):
             error = next((c["error"] for c in st["channels"] if c["error"]), None)
         elif st["status"] == "superseded":
             status = "superseded"
+        if params.get("extending") and live is not None and live.status in ("running", "queued")                 and status not in ("superseded",):
+            # discovery-coverage: an extend is sweeping the run's missing channels; its finished ones still count
+            status = "running"
+            progress_text = progress_text or f"adding {', '.join(params['extending'])}"
     elif row["superseded_at"]:
         status = "superseded"
     elif status == "failed":
@@ -490,6 +545,10 @@ def _run_payload(conn, row, index, span, jobs=None):
         "channelsDone": channels_done,
         "found": n_found,
     }
+    if chans is not None:
+        out["coverage"] = _run_coverage(row, st, chans, live)
+    if params.get("extendError"):
+        out["extendError"] = params["extendError"]
     if params.get("band"):
         # fixup-Z: a band run is one band of one *Apply template* with a band
         # scope; the runs of one application are one set, which Compare can
@@ -559,7 +618,8 @@ def get_runs(request: Request):
         _fail_lost_runs(request, c, s["id"])
         rows = _discovery_runs(c, s["id"])
         jobs = dict(request.app.state.manager.jobs)
-        return [_human_run(c, chans, span)] + [_run_payload(c, r, i, span, jobs=jobs) for i, r in enumerate(rows)]
+        return [_human_run(c, chans, span)] + [_run_payload(c, r, i, span, jobs=jobs, chans=chans)
+                                               for i, r in enumerate(rows)]
     finally:
         c.close()
 
@@ -596,7 +656,85 @@ def _seed_bind(steps) -> str:
     return core_templates.REBIND if binding.get("mode") == core_templates.REBIND else core_templates.CARRY
 
 
-def _template_payload(conn, row, in_session: set, rank: int, memo=None, stale=None):
+#: discovery-coverage (Q44): the gauge's five verdicts, in the fixed vocabulary (`queries.VERDICTS`)
+GAUGE_VERDICTS = ("seed", "interesting", "not_interesting", "artifact", "unsure")
+#: {db key: (fingerprint, {template: counts})} — see `_template_verdicts`
+_VERDICT_CACHE: dict = {}
+
+#: Every human verdict on a detection of any run of each template, in one grouped read. A template's runs are the
+#: `run_ids` its `discovery_runs` rows recorded (every session, removed and discarded rows included: a verdict on a
+#: detection is a human verdict whatever became of the run), or a legacy row's run group's real members. DISTINCT so
+#: a run two Discovery runs share (`execute_recipe` hands an identical recipe the same run) counts once per template.
+#: CARRIED rows (`adjudications.carried_from`, review-carry) are counted: a carried verdict is a human verdict on that
+#: detection, which is the point of carrying it. The read starts from `adjudications` (thousands of rows) and reaches
+#: each detection by its primary key, so it costs O(adjudications), never a walk of the detections table.
+_VERDICTS_SQL = """
+WITH template_runs AS (
+    SELECT DISTINCT dr.template_name AS template, CAST(j.value AS INTEGER) AS run_id
+    FROM discovery_runs dr, json_each(dr.params_json, '$.run_ids') j
+    WHERE dr.template_name IS NOT NULL AND json_valid(dr.params_json)
+    UNION
+    SELECT dr.template_name, r.id
+    FROM discovery_runs dr JOIN runs r ON r.run_group_id = dr.run_group_id
+    WHERE dr.template_name IS NOT NULL AND dr.run_group_id IS NOT NULL AND r.surrogate_of_run_id IS NULL
+      AND (NOT json_valid(dr.params_json) OR json_type(dr.params_json, '$.run_ids') IS NULL
+           OR json_array_length(dr.params_json, '$.run_ids') = 0)
+)
+SELECT tr.template, a.verdict, COUNT(*)
+FROM adjudications a CROSS JOIN detections d ON d.id = a.detection_id
+JOIN template_runs tr ON tr.run_id = d.run_id
+GROUP BY tr.template, a.verdict
+"""
+
+
+#: coverage critic round: one aggregate scan of `adjudications` in C — the library critic's `_verdict_checksum` mix
+#: (`library.py`): a count, the max id, and a sum of each detection id weighted by a number that differs for each of
+#: the five verdicts. It moves on an insert, a delete AND an in-place re-judge (`UPDATE adjudications SET verdict = ?`
+#: changes that detection's weight), which is every change `_VERDICTS_SQL` can see; a swap of two verdicts moves it
+#: by (a - b)(w1 - w2), never 0. Reading the rows whole cost about four times as much per `/templates` read (380 ms
+#: at 100k verdicts on the loaded machine, 2026-10-19).
+_VERDICT_DIGEST_SQL = ("SELECT COUNT(*), MAX(id), TOTAL((detection_id % 1000003) * "
+                       "(unicode(verdict) * 131 + LENGTH(verdict) * 7 + COALESCE(unicode(substr(verdict, 3)), 0))) "
+                       "FROM adjudications")
+
+
+def _verdict_fingerprint(conn):
+    """What `_VERDICTS_SQL` reads, in digest form: the human rows by `_VERDICT_DIGEST_SQL` (verdicts are edited in
+    place and carry no timestamp of the edit, so a count and a max id alone would miss a re-judge), and the
+    template-to-run links whole (each Discovery run's template, group and recorded runs; a few hundred rows).
+    Detections are append-only machine rows and a detection never changes run, so they need no part of their own."""
+    adj = tuple(conn.execute(_VERDICT_DIGEST_SQL).fetchone())
+    drs = tuple(conn.execute("SELECT id, template_name, run_group_id, json_extract(params_json, '$.run_ids') "
+                             "FROM discovery_runs WHERE template_name IS NOT NULL ORDER BY id").fetchall())
+    return hash((adj, tuple(tuple(r) for r in drs)))
+
+
+def _template_verdicts(conn):
+    """``{template name: {seed, interesting, not_interesting, artifact, unsure, total}}`` for every template with a
+    Discovery run; a template with none has no entry (the gauge reads an empty ring). Remembered against
+    `_verdict_fingerprint`, so a new or edited verdict is never served stale."""
+    db = fanout._db_key(conn)
+    fp = _verdict_fingerprint(conn)
+    hit = _VERDICT_CACHE.get(db) if db is not None else None
+    if hit is not None and hit[0] == fp:
+        return hit[1]
+    out: dict[str, dict] = {}
+    for template, verdict, n in conn.execute(_VERDICTS_SQL).fetchall():
+        row = out.setdefault(template, {v: 0 for v in GAUGE_VERDICTS})
+        if verdict in row:
+            row[verdict] += int(n)
+    for row in out.values():
+        row["total"] = sum(row[v] for v in GAUGE_VERDICTS)
+    if db is not None:
+        _VERDICT_CACHE[db] = (fp, out)
+    return out
+
+
+def _verdicts_for(table, name):
+    return dict(table.get(name) or {**{v: 0 for v in GAUGE_VERDICTS}, "total": 0})
+
+
+def _template_payload(conn, row, in_session: set, rank: int, memo=None, stale=None, verdicts=None):
     steps = row["steps"]
     signature, terminal = _signature(steps)
     is_seed = any(st["algorithm"] == "seed_matches" for st in steps)
@@ -622,6 +760,8 @@ def _template_payload(conn, row, in_session: set, rank: int, memo=None, stale=No
         "hasModel": any(st["algorithm"] in ("cnn_score", "classifier") for st in steps),
         "version": row.get("version"), "builtin": bool(row.get("builtin")),
         "description": row.get("description"),
+        # discovery-coverage (Q44): the gauge on the template card; counts only, never a percentage on the face
+        "verdicts": _verdicts_for(verdicts if verdicts is not None else _template_verdicts(conn), row["name"]),
     }
 
 
@@ -803,10 +943,11 @@ def get_templates(request: Request):
         out = []
         memo = {}      # one read of each channel's rows for every template's score (SB.inputs_fingerprint)
         stale = []     # AR: templates whose score is not current: scored in the background, never here
+        verdicts = _template_verdicts(c)     # discovery-coverage: one grouped read for every card's gauge
         for i, row in enumerate(rows):
             if row.get("kind") not in (None, "detection"):
                 continue
-            out.append(_template_payload(c, row, in_session, i, memo, stale))
+            out.append(_template_payload(c, row, in_session, i, memo, stale, verdicts))
         if stale:
             _queue_scoring(request.app.state.rt.db_path, stale)
         return out
@@ -1012,16 +1153,23 @@ def get_fires(request: Request, channels: str = "", t0: float = 0.0, t1: float =
         # channel — `group_status` reads several rows per member run, and on the real session (16 channels, 52 runs,
         # 721 h) three channels took 147 s on 2026-10-18 with it inside the channel loop. The rest of that time is
         # the per-channel span reads; the speed pass (BACKLOG.md) owns those.
-        unfinished_from, run_ids_of = {}, {}
+        unfinished_from, run_ids_of, coverage_of = {}, {}, {}
+        jobs = dict(request.app.state.manager.jobs)
         for key in keys:
             if key == "human":
                 continue
-            ids = _run_ids(c, _dr_by_key(c, s["id"], key))
+            dr = _dr_by_key(c, s["id"], key)
+            ids = _run_ids(c, dr)
             run_ids_of[key] = ids
+            st = None
             if ids:
                 st = fanout.group_status_light(c, run_ids=ids)
                 if st["status"] in ("running", "queued"):
                     unfinished_from[key] = int(n_bins * st["progress"])
+            if not key.startswith(SET_PREFIX):
+                # discovery-coverage: a channel the run never ran on is said, not drawn as a row of zeros
+                live = jobs.get(int(dr["job_id"])) if dr["job_id"] is not None else None
+                coverage_of[key] = _run_coverage(dr, st, chans, live)
         out_channels = []
         for ch in chans:
             rev = c.execute(
@@ -1033,6 +1181,9 @@ def get_fires(request: Request, channels: str = "", t0: float = 0.0, t1: float =
                 reviewed_bins.append(round(total_length(clip(cov, lo, hi)) / fs / 3600.0, 3))
             rows = []
             for key in keys:
+                if (coverage_of.get(key) or {}).get(ch["name"]) == "not_run":
+                    rows.append({"run": key, "counts": [], "ran": False})
+                    continue
                 if key != "human" and not key.startswith(SET_PREFIX):
                     # AR: a plain run's spans are its detections, and only their starts are counted
                     starts = _run_starts(c, run_ids_of[key], int(ch["id"]), span).astype(float)
@@ -2776,14 +2927,18 @@ def _surrogate_for(conn, kind=seeded_search.DETECTION_KIND, s=None):
 
 
 def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
-                 surrogate_params=None, prelude=None, on_done=None, on_exit=None):
+                 surrogate_params=None, prelude=None, on_done=None, on_exit=None, extend_group=None):
     """One fan-out, one `sweep` job, per-channel progress. The job writes the
     run group id back onto the `discovery_runs` row as soon as it has one, so a
     page that reloads mid-sweep still finds the runs. ``on_done(conn, out)`` runs
     once the row reads its final status (round A_2, P2: a chain import stamps
     ``hpc.importedAt`` there, not before the sweep has written the run).
     ``on_exit(conn)`` runs last whatever happened — done, cancelled or failed
-    (seed-search: the keep takes back the step-cache entries it laid)."""
+    (seed-search: the keep takes back the step-cache entries it laid).
+
+    ``extend_group`` (discovery-coverage): the sweep EXTENDS the row — the plan is the run's missing channels, the
+    new runs join that group, and the row's ``run_ids`` gain them (its key, group and earlier channels stay). A
+    failed or cancelled extend leaves the run as it was, ``done``, with ``extendError`` saying what happened."""
     db_path = request.app.state.rt.db_path
 
     def run(job):
@@ -2821,7 +2976,8 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
             out = fanout.start(plan, db_path=db_path, on_progress=on_progress,
                                on_target_done=on_target_done, should_cancel=job.cancel_event.is_set,
                                surrogate=surrogate, surrogate_params=surrogate_params,
-                               surrogate_draws=(plan.get("null_draws") or None), on_draw=on_draw)
+                               surrogate_draws=(plan.get("null_draws") or None), on_draw=on_draw,
+                               run_group_id=extend_group)
             if plan.get("seedId") and plan.get("span") and surrogate and not out["cancelled"]:
                 # a finished seed run is the measured rate the next estimate reads — a paired one:
                 # the cost is the draws, and a real-only sweep (an import's) runs slower per unit
@@ -2832,12 +2988,32 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
             cur = conn2.execute("SELECT params_json FROM discovery_runs WHERE session_id = ? AND run_key = ?",
                                 (int(session_id), run_key)).fetchone()
             params = json.loads((cur["params_json"] if cur else "{}") or "{}")
-            params["run_ids"] = out["run_ids"]
-            params["reused_run_ids"] = out["reused"]
             # what this run's null really was: draws per channel (fewer than
             # asked after a cancel), and why a channel has none
             drawn = [len(r["surrogate_run_ids"]) for r in out["runs"]]
             null_rec = dict(params.get("null") or {})
+            if extend_group is not None:
+                # discovery-coverage: the run gains the channels; the ones it had stay first
+                before = [int(i) for i in params.get("run_ids") or []]
+                params["run_ids"] = before + [int(i) for i in out["run_ids"] if int(i) not in before]
+                params["reused_run_ids"] = list(params.get("reused_run_ids") or []) + list(out["reused"])
+                params.pop("extending", None)
+                params.pop("extendError", None)
+                if out["cancelled"]:
+                    params["extendError"] = "the extend was cancelled; the channels it finished were added"
+                if null_rec.get("drawn") is not None and drawn:
+                    drawn.append(int(null_rec["drawn"]))
+                null_rec["drawn"] = (min(drawn) if drawn else null_rec.get("drawn", 0))
+                params["null"] = null_rec
+                conn2.execute("UPDATE discovery_runs SET params_json = ?, status = 'done', updated_at = ? "
+                              "WHERE session_id = ? AND run_key = ?",
+                              (json.dumps(params), _now(), int(session_id), run_key))
+                conn2.commit()
+                return {"run_group_id": int(extend_group), "runs": len(out["runs"]),
+                        "cancelled": out["cancelled"], "extended": True,
+                        "detections": sum(r["detections_written"] or 0 for r in out["runs"])}
+            params["run_ids"] = out["run_ids"]
+            params["reused_run_ids"] = out["reused"]
             null_rec["drawn"] = (min(drawn) if drawn else 0)
             skipped = next((r["surrogate_skipped"] for r in out["runs"] if r.get("surrogate_skipped")), None)
             if skipped:
@@ -2861,7 +3037,19 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
             return {"run_group_id": out["run_group_id"], "runs": len(out["runs"]),
                     "cancelled": out["cancelled"],
                     "detections": sum(r["detections_written"] or 0 for r in out["runs"])}
-        except Exception:
+        except Exception as e:
+            if extend_group is not None:
+                # the run it extended is untouched: it stays done and says why its new channels are not there
+                cur = conn2.execute("SELECT params_json FROM discovery_runs WHERE session_id = ? AND run_key = ?",
+                                    (int(session_id), run_key)).fetchone()
+                params = json.loads((cur["params_json"] if cur else "{}") or "{}")
+                params.pop("extending", None)
+                params["extendError"] = f"adding the missing channels failed: {e}"
+                conn2.execute("UPDATE discovery_runs SET status = 'done', params_json = ?, updated_at = ? "
+                              "WHERE session_id = ? AND run_key = ?",
+                              (json.dumps(params), _now(), int(session_id), run_key))
+                conn2.commit()
+                raise
             conn2.execute("UPDATE discovery_runs SET status = 'failed', updated_at = ? "
                           "WHERE session_id = ? AND run_key = ?", (_now(), int(session_id), run_key))
             conn2.commit()
@@ -3871,6 +4059,165 @@ def open_history_run(request: Request, hid: str):
         c.commit()
         return {"run_key": src["run_key"], "adopted": True,
                 "note": "the same runs, read by this session — nothing was re-executed"}
+    finally:
+        c.close()
+
+
+# ── run on the missing channels (discovery-coverage, 2026-10-18) ────────────
+
+class ExtendBody(BaseModel):
+    #: the channel names to add; empty means every scope channel the run has not run on
+    channels: list[str] = Field(default_factory=list)
+
+
+#: the refusal code the page turns into "apply as a new run"
+EXTEND_PARAMS_DIFFER = "params_differ"
+#: coverage critic round: the "still running" check reads the row's job, which is written only once the sweep has
+#: started; two extends of one run (two tabs, a double click past the button's own guard) both passed it and ran the
+#: same channels twice. The check and the start are one step under this lock.
+_EXTEND_LOCK = threading.Lock()
+
+
+def _extend_refusal(status, message, code):
+    raise HTTPException(status, {"message": message, "code": code})
+
+
+def _executed_steps(conn, run_id):
+    """The steps one member run executed, as its `configs` row recorded them."""
+    row = conn.execute("SELECT c.config_json FROM runs r JOIN configs c ON c.id = r.config_id WHERE r.id = ?",
+                       (int(run_id),)).fetchone()
+    cfg = json.loads((row[0] if row else None) or "{}")
+    return cfg.get("steps", cfg) if isinstance(cfg, dict) else cfg
+
+
+def _rebound_like(template_steps, executed):
+    """A `rebind` template's current steps bound to the exemplar the run executed with, so "the same parameters"
+    compares like for like (the template keeps no exemplar of its own)."""
+    st = _seed_step(template_steps)
+    binding = ((st or {}).get("side_inputs") or {}).get("exemplar") or {}
+    if st is None or binding.get("mode") != core_templates.REBIND:
+        return template_steps
+    bound = copy.deepcopy(template_steps)
+    ran = _seed_step(executed) or {}
+    _seed_step(bound)["side_inputs"]["exemplar"] = copy.deepcopy(((ran.get("side_inputs") or {}).get("exemplar"))
+                                                                  or binding)
+    return bound
+
+
+@router.post("/api/discovery/runs/{run_key}/extend")
+def extend_run(request: Request, run_key: str, body: ExtendBody):
+    """*Run on the missing N* (the researcher, 2026-10-18): the run gains channels instead of a sibling run being
+    minted. The same steps (the template's, checked against what the run executed) are planned over the run's own
+    section on the named channels only, the sweep's runs join the run's group, and the row's ``run_ids`` gain them:
+    the key, the colour, the group and the earlier channels stay. Progress and ``channelsDone`` read as for a run.
+
+    Refused, in a sentence, when it would not be the same run: the template's current parameters differ from the
+    run's (409, ``code: params_differ``; the page offers *apply as a new run*); a band, window or seed run (its
+    scope is more than the channels); a run still running; a run with no finished channel to extend from; a
+    channel it already has; or a scope over the local ceiling (that goes to the cluster as a new run)."""
+    with _EXTEND_LOCK:
+        return _extend_run(request, run_key, body)
+
+
+def _extend_run(request: Request, run_key: str, body: ExtendBody):
+    from . import templates as T
+    c = _conn(request)
+    try:
+        s, rec, chans, _span = _session_scope(c)
+        row = _dr_by_key(c, s["id"], run_key)
+        params = json.loads(row["params_json"] or "{}")
+        if row["superseded_at"]:
+            _extend_refusal(422, f"{row['label']} was discarded; restore it before adding channels", "discarded")
+        if row["kind"] != "template" or not row["template_name"]:
+            _extend_refusal(422, f"{row['label']} is a {row['kind']} run: only a template run gains channels. "
+                                 "Apply it as a new run over the channels you want", "not_template")
+        if params.get("band") or params.get("windows"):
+            kind = "band" if params.get("band") else "windowed"
+            _extend_refusal(422, f"{row['label']} is a {kind} run: its scope is more than its channels. "
+                                 "Apply the template as a new run", "scoped")
+        live = request.app.state.manager.jobs.get(int(row["job_id"])) if row["job_id"] is not None else None
+        if live is not None and live.status in ("running", "queued"):
+            _extend_refusal(409, f"{row['label']} is still running; add channels when it has finished", "running")
+        ids = _run_ids(c, row)
+        if not ids:
+            _extend_refusal(422, f"{row['label']} has no finished channel to extend from; Retry it instead",
+                            "no_results")
+        if row["run_group_id"] is None:
+            # coverage critic round: `_start_sweep(extend_group=None)` is the FIRST sweep, which writes the new
+            # channels' runs over `run_ids` — the channels this run already had would be dropped
+            _extend_refusal(422, f"{row['label']} has no run group to add channels to; apply the template as a "
+                                 "new run over the channels you want", "no_group")
+        st = fanout.group_status_light(c, run_ids=ids)
+        coverage = _run_coverage(row, st, chans, None)
+        names = list(body.channels) or [n for n, state in coverage.items() if state == "not_run"]
+        by_name = {ch["name"]: ch for ch in chans}
+        outside = [n for n in names if n not in by_name]
+        if outside:
+            # a channel outside the scope still has to be a real channel of the recording (404 otherwise)
+            by_name.update({ch["name"]: ch for ch in _ids_for(c, _stem(s["source_file"]), outside)})
+        have = {int(ch["recording_id"]) for ch in st["channels"]
+                if ch["status"] == "completed" and not ch["superseded_at"]}
+        new = [by_name[n] for n in names if int(by_name[n]["id"]) not in have]
+        if not new:
+            _extend_refusal(422, f"{row['label']} already ran on {', '.join(names) or 'every channel in scope'}",
+                            "nothing_missing")
+
+        template = next((t for t in T.list_all(c) if t["name"] == row["template_name"]), None)
+        if template is None:
+            _extend_refusal(409, f"the template {row['template_name']!r} no longer exists; apply another as a "
+                                 "new run", EXTEND_PARAMS_DIFFER)
+        first = next((ch for ch in st["channels"] if ch["status"] == "completed" and not ch["superseded_at"]), None)
+        if first is None:
+            _extend_refusal(422, f"{row['label']} has no finished channel to extend from; Retry it instead",
+                            "no_results")
+        executed = _executed_steps(c, first["run_id"])
+        steps = _rebound_like(template["steps"], executed)
+        span = [int(first["span"][0]), int(first["span"][1])]
+        from Working.recipes import make_recipe
+        try:
+            same = (DM.steps_key(json.dumps(make_recipe(int(new[0]["id"]), steps, span=span)))
+                    == DM.steps_key(json.dumps({"steps": executed})))
+        except ValueError:
+            same = False
+        if not same:
+            _extend_refusal(409, f"{row['template_name']}'s parameters have changed since {row['label']} ran "
+                                 f"(v{params.get('version') or 1} then, v{template.get('version') or 1} now), so "
+                                 "the new channels would not be the same run. Apply it as a new run instead",
+                            EXTEND_PARAMS_DIFFER)
+
+        null = params.get("null") or {}
+        if "paired" in null:
+            # the run's own null, not today's setting: the added channels are paired the way the first ones were
+            paired, sp, draws = bool(null.get("paired")), null.get("params"), int(null.get("draws") or 0)
+        else:
+            paired, sp, _why, draws = _surrogate_for(c, seeded_search.DETECTION_KIND, s)
+        plan = fanout.plan(c, steps=steps, recording_ids=[int(ch["id"]) for ch in new], span=span,
+                           null_draws=(draws if paired else 0), surrogate=paired, surrogate_params=sp)
+        if not plan["runnable"]:
+            _extend_refusal(422, plan["reason"], "refused")
+        if plan["route"] == "cluster":
+            _extend_refusal(422, f"adding {', '.join(ch['name'] for ch in new)} is over the local ceiling; apply "
+                                 "the template as a new run and create a SLURM script", "cluster")
+        plan["channels"] = [ch["name"] for ch in new]
+        params["extending"] = plan["channels"]
+        params.pop("extendError", None)
+        c.execute("UPDATE discovery_runs SET params_json = ?, updated_at = ? WHERE id = ?",
+                  (json.dumps(params), _now(), int(row["id"])))
+        c.commit()
+        try:
+            job = _start_sweep(request, session_id=int(s["id"]), run_key=run_key, plan=plan,
+                               label=f"{row['label']} · adding {', '.join(plan['channels'])}",
+                               surrogate=paired, surrogate_params=sp, extend_group=row["run_group_id"])
+        except Exception:
+            params.pop("extending", None)
+            c.execute("UPDATE discovery_runs SET params_json = ? WHERE id = ?", (json.dumps(params), int(row["id"])))
+            c.commit()
+            raise
+        c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? WHERE id = ?",
+                  (job.id, _now(), int(row["id"])))
+        c.commit()
+        return {"run_key": run_key, "job_id": job.id, "channels": plan["channels"], "extended": True,
+                "estimate_s": plan["estimate_s"], "note": f"adding {', '.join(plan['channels'])} to {row['label']}"}
     finally:
         c.close()
 

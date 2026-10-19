@@ -155,6 +155,7 @@ export const getRuns = (): Promise<Sourced<DiscoveryRun[]>> => live(getDiscovery
   seedId: opt(r.seedId), cut: r.cut ?? null, entryId: r.entryId ?? null, scales: r.scales ?? null,
   band: r.band ?? null, bandSet: r.bandSet ?? null, bandIndex: r.bandIndex ?? null,
   hpcImported: r.hpcImported || undefined, hpcRefused: opt(r.hpcRefused), clusterAgrees: r.clusterAgrees, clusterCheck: opt(r.clusterCheck),
+  coverage: r.coverage, extendError: opt(r.extendError), windowed: r.windowed || undefined,
 }))))
 
 export const getTemplates = (): Promise<Sourced<DiscoveryTemplate[]>> => live(getDiscoveryTemplates().then(rows => rows.map(t => ({
@@ -582,3 +583,12 @@ export async function runDetectionIds(run: string, channels: string[], section: 
   const per = await Promise.all(channels.map(ch => getDiscoveryDetections(run, ch, section[0], section[1])))
   return per.flat().map(d => d.detectionId).filter((v): v is number => typeof v === 'number')
 }
+
+/* ------------------------------------------------------------------ discovery-coverage (2026-10-19) */
+/** Appended (declaration merging): where the run has stored results, channel by channel (`coverage`), and why an
+ *  extend did not add its channels (`extendError`). `getRuns` copies them through `withCoverage`. */
+export interface DiscoveryRun { coverage?: Record<string, DiscCoverageState>; extendError?: string; windowed?: boolean }
+import type { DiscCoverageState, DiscVerdictCounts } from '../api'
+export type { DiscCoverageState, DiscVerdictCounts }
+export interface FiresRow { ran?: boolean }
+export interface DiscoveryTemplate { verdicts?: DiscVerdictCounts }

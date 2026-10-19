@@ -8,7 +8,7 @@ import {
   RangeSlider, TextField, Tooltip, cx, recordDemoWrite, useNotWired, useQueryState, useSim,
 } from '../kit'
 import { getHistory, getOverview, heldOutReason, fmtMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun } from '../api/discovery'
-import { applyDiscoveryTemplates, removeDiscoveryRun, runDiscoverySeedSearchOnce } from '../api'
+import { ApiError, applyDiscoveryTemplates, extendDiscoveryRun, removeDiscoveryRun, runDiscoverySeedSearchOnce } from '../api'
 import { useSourced } from '../api/seam'
 import { navigate } from '../state'
 import { useToast } from '../shell/Toast'
@@ -260,7 +260,7 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
     <section className="k-card dsc-scope" data-testid="scope-card" aria-label="Scope">
       <div className="dsc-scope-head">
         <h3>Scope</h3>
-        <InfoTip title="Scope">One recording, one or more channels and one section. Every run in the session applies to the whole scope; at most three strips show at a time.</InfoTip>
+        <InfoTip title="Scope">One recording, one or more channels and one section. Every run in the session applies to the whole scope; at most {PAGE_SIZE} strips show at a time.</InfoTip>
         <span ref={recRef}>
           <Dropdown prefix="recording" value={s.recording} testid="recording-select"
             onChange={v => { if (v !== s.recording) setConfirmRec(v) }}
@@ -290,7 +290,7 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
               <Button size="sm" onClick={() => setAddSel([])} disabled={addSel.length === 0} disabledReason="nothing is selected" testid="add-channel-none">None</Button>
             </div>
             <div className="row between" style={{ marginTop: 10 }}>
-              <span className="muted small">{addSel.length} selected · {addSel.length > PAGE_SIZE ? 'strips page three at a time' : 'fits on one page'}</span>
+              <span className="muted small">{addSel.length} selected · {addSel.length > PAGE_SIZE ? `strips page ${PAGE_SIZE} at a time` : 'fits on one page'}</span>
               <Button size="sm" variant="primary" disabled={addSel.length === 0} disabledReason="scope needs at least one channel" testid="add-channel-apply"
                 onClick={() => { const ordered = [...s.channels.filter(c => addSel.includes(c)), ...rec.channels.filter(c => addSel.includes(c) && !s.channels.includes(c))]; dx.setScope({ channels: ordered }); setAddOpen(false); recordDemoWrite('discovery', 'set-channels', { channels: ordered }) }}>Apply</Button>
             </div>
@@ -319,9 +319,9 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
         <div className="dsc-strips-wrap">
           <Strips channels={dx.visibleChannels} traces={traces} hours={hours} section={s.section} onSection={sec => dx.setScope({ section: sec })} />
           <div className="dsc-pager-v" data-testid="channel-pager">
-            <IconButton icon="chevron-up" label="previous three channels" bordered disabled={dx.chPage <= 1} disabledReason="already at the first channels" onClick={() => dx.setChPage(dx.chPage - 1)} testid="channel-pager-up" />
+            <IconButton icon="chevron-up" label={`previous ${PAGE_SIZE} channels`} bordered disabled={dx.chPage <= 1} disabledReason="already at the first channels" onClick={() => dx.setChPage(dx.chPage - 1)} testid="channel-pager-up" />
             <span className="mono small" data-testid="channel-pager-label">{(dx.chPage - 1) * PAGE_SIZE + 1}–{Math.min(s.channels.length, dx.chPage * PAGE_SIZE)} of {s.channels.length}</span>
-            <IconButton icon="chevron-down" label="next three channels" bordered disabled={dx.chPage >= dx.pageCount} disabledReason={s.channels.length <= PAGE_SIZE ? 'every channel fits on one page' : 'already at the last channels'} onClick={() => dx.setChPage(dx.chPage + 1)} testid="channel-pager-down" />
+            <IconButton icon="chevron-down" label={`next ${PAGE_SIZE} channels`} bordered disabled={dx.chPage >= dx.pageCount} disabledReason={s.channels.length <= PAGE_SIZE ? 'every channel fits on one page' : 'already at the last channels'} onClick={() => dx.setChPage(dx.chPage + 1)} testid="channel-pager-down" />
           </div>
         </div>
       )}
@@ -530,6 +530,35 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
    * runs that had never touched the third. The server sends `channelsDone`. */
   const ranOn = run.channelsDone ? run.channelsDone.split('/').pop()!.trim() : String(nCh)
   const canPick = pickable({ ...run, status })
+  /* discovery-coverage (the researcher, 2026-10-18): which channels in scope this run has stored results on, one cell
+   * each — filled where it ran, hatched where it never did, amber while running, red where it failed — and *run on
+   * the missing N*, which EXTENDS this run (same key) when the template is unchanged. */
+  const [extending, setExtending] = useState(false)
+  const scopeChans = dx.scope?.channels ?? []
+  const cov = run.kind !== 'reference' ? run.coverage : undefined
+  const missing = cov ? scopeChans.filter(c => cov[c] === 'not_run') : []
+  const extendable = run.kind === 'template' && !!run.template && !run.band && !run.windowed
+  const extend = () => {
+    const s = dx.scope
+    if (!s) return
+    setExtending(true)
+    extendDiscoveryRun(run.key, missing)
+      .then(ack => { dx.reload(); toast.push({ text: `${run.label}: ${ack.note}` }) })
+      .catch(e => {
+        dx.reload()
+        const msg = (e instanceof Error ? e.message : String(e)).replace(/^\d{3} /, '')
+        const code = e instanceof ApiError ? (e.detail as { code?: string } | undefined)?.code : undefined
+        if (code === 'params_differ' && run.template) {
+          const tpl = run.template
+          toast.push({ text: `${run.label} was not extended · ${msg}`, action: { label: 'Apply as a new run', hint: `${tpl} over ${missing.join(', ')}`, onClick: () => {
+            applyDiscoveryTemplates([tpl], missing, s.section[0], s.section[1])
+              .then(() => dx.reload())
+              .catch(err => toast.push({ text: `${tpl} was not applied · ${err instanceof Error ? err.message : String(err)}` }))
+          } } })
+        } else toast.push({ text: `${run.label} was not extended · ${msg}` })
+      })
+      .finally(() => setExtending(false))
+  }
   const kindBadge = run.kind === 'reference' ? <span className="k-badge t-grey">reference</span> : run.kind === 'seed' ? <span className="k-badge t-purple">seed</span> : run.kind === 'draft' ? <span className="k-badge t-amber">draft</span> : <span className="k-badge t-blue">template</span>
   let line: ReactNode = null
   switch (status) {
@@ -555,8 +584,15 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
           <b>{run.label}</b>
           <span className="dsc-run-meta">{kindBadge}<span className="muted">{run.detail}</span></span>
           {line && <span className="dsc-run-line small">{line}</span>}
+          {cov && scopeChans.length > 0 && <CoverageStrip runKey={run.key} channels={scopeChans} coverage={cov} />}
+          {run.extendError && <span className="dsc-run-line small amber" title={run.extendError} data-testid={`extend-error-${run.key}`}>{run.extendError}</span>}
         </span>
       </button>
+      {missing.length > 0 && extendable && (status === 'done' || status === 'failed') && (
+        <Button size="sm" icon="play" className="dsc-run-retry" loading={extending} disabled={extending} onClick={extend} testid={`run-missing-${run.key}`}
+          title={`run ${run.label} on ${missing.join(', ')} too — the same run gains the channel${missing.length === 1 ? '' : 's'} (its key stays) while the template is unchanged`}>
+          {extending ? 'Starting…' : `Run on the missing ${missing.length}`}</Button>
+      )}
       {status === 'paused' && run.id && <Button variant="link" size="sm" icon="external" className="dsc-run-jobs-link" onClick={() => navigate('jobs')} testid={`open-in-jobs-${run.key}`}>Open in Jobs</Button>}
       {/* round A_2 (P2): the chain job's results are back — verified, the cache restored, the run written here */}
       {status === 'on cluster' && run.hpc?.kind === 'chain' && <Button size="sm" icon="download" className="dsc-run-retry" loading={importing} disabled={importing} onClick={() => {
@@ -596,6 +632,24 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
         ? <button type="button" className="dsc-run-remove" onClick={remove} aria-label={`remove ${run.label} from this session`} title="remove from this session · the runs are kept; History brings it back" data-testid={`remove-${run.key}`}>×</button>
         : <span className="dsc-run-remove ghost" aria-hidden />}
     </div>
+  )
+}
+
+/* ------------------------------------------------------------------ coverage strip */
+const COVERAGE_WORDS: Record<string, string> = {
+  covered: 'stored results', not_run: 'never ran here', running: 'running now', failed: 'failed here', discarded: 'discarded',
+}
+/** One small cell per scope channel: what the run is on it (discovery-coverage). The words are in each cell's title. */
+function CoverageStrip({ runKey, channels, coverage }: { runKey: string; channels: string[]; coverage: Record<string, string> }) {
+  const n = channels.filter(c => coverage[c] === 'covered').length
+  return (
+    <span className="dsc-cov" data-testid={`coverage-${runKey}`} aria-label={`results on ${n} of ${channels.length} channels in scope`}>
+      {channels.map(c => {
+        const state = coverage[c] ?? 'not_run'
+        return <i key={c} className={`dsc-cov-cell ${state}`} data-state={state} data-channel={c} data-testid={`coverage-${runKey}-${c}`} title={`${c}: ${COVERAGE_WORDS[state] ?? state}`} />
+      })}
+      <span className="muted">{n} of {channels.length} ch</span>
+    </span>
   )
 }
 

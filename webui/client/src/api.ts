@@ -1768,3 +1768,18 @@ export const keepDiscoverySeedMatches = (body: DiscSeedQuery & { cut?: number | 
   post<DiscSeedKeepAck>('/api/discovery/seed/keep', body)
 /** seed-search critic round: the block's own distance, unrounded (`d` is it to 4 places) — what a keep cuts by. */
 export interface DiscSeedMatch { distance?: number }
+
+/* ------------------------------------------------------------------ discovery-coverage (2026-10-19) */
+/** What a run is on each scope channel (`/runs` row `coverage`): the detection map's cell states, per run. */
+export type DiscCoverageState = 'covered' | 'not_run' | 'running' | 'failed' | 'discarded'
+export interface DiscRun { coverage?: Record<string, DiscCoverageState>; extendError?: string; windowed?: boolean }
+/** A fires row on a channel the run never ran on: `ran: false` and no counts (never a row of zeros). */
+export interface DiscFiresRow { ran?: boolean }
+/** The template card's gauge: every human verdict on the template's detections, every run, every session. */
+export interface DiscVerdictCounts { seed: number; interesting: number; not_interesting: number; artifact: number; unsure: number; total: number }
+export interface DiscTemplate { verdicts?: DiscVerdictCounts }
+export interface DiscExtendAck { run_key: string; job_id: number; channels: string[]; extended: boolean; estimate_s: number | null; note: string }
+/** *Run on the missing N*: the run gains the channels (same key). A 409 with `detail.code === 'params_differ'` means the
+ *  template changed since the run ran; the page then offers *apply as a new run*. */
+export const extendDiscoveryRun = (runKey: string, channels: string[]) =>
+  post<DiscExtendAck>(`/api/discovery/runs/${encodeURIComponent(runKey)}/extend`, { channels })

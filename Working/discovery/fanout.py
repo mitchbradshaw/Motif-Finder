@@ -290,7 +290,7 @@ def _estimate_per_channel(steps, targets):
 
 def start(plan_dict, *, db_path=None, on_progress=None, on_target_done=None, should_cancel=None,
           surrogate=False, surrogate_params=None, force=False, run_kwargs=None,
-          surrogate_draws=None, on_draw=None):
+          surrogate_draws=None, on_draw=None, run_group_id=None):
     """Run every target of a plan, linked to one run group.
 
     The loop is `fan_out_recipe`'s, with two differences it needs and that one
@@ -298,6 +298,11 @@ def start(plan_dict, *, db_path=None, on_progress=None, on_target_done=None, sho
     fan-out leaves a readable partial group instead of losing the group id
     inside a `RecipeCancelled`; and `on_target_done` fires per channel so the
     job model can publish per-channel progress rather than per step.
+
+    ``run_group_id`` (discovery-coverage, 2026-10-19): join an EXISTING group
+    instead of creating one — *run on the missing channels* extends a run, its
+    new channels' runs joining the group its first channels are in. A run the
+    cache hands back keeps the group it joined first, as always.
 
     Returns ``{run_group_id, runs, cancelled}``.
     """
@@ -316,7 +321,7 @@ def start(plan_dict, *, db_path=None, on_progress=None, on_target_done=None, sho
 
     conn = init_db(db_path)
     try:
-        group_id = _runs.create_run_group(conn)
+        group_id = int(run_group_id) if run_group_id is not None else _runs.create_run_group(conn)
         out, cancelled = [], False
         for i, target in enumerate(targets):
             if should_cancel is not None and should_cancel():
