@@ -422,3 +422,8 @@ deliberate bad-folder import refusal. The held-out states passed (the walk's flo
 scale-bank state passed inside its budget this time. **Baseline file: `reports/smoke-baseline-2026-10-20.txt`
 (also `scratchpad/base_1020.txt`).** Walker items: the tree state should wait for the floor count, the seed flow
 check should open on the kept preview.
+**8765 restarted 06:58** on main 548f5fc (`--project`, detached, `PYTHONFAULTHANDLER=1`, logs
+`webui/runtime/bridge-8765-20261020-065816.*.log`, pid 83348; backup `DATA/db/backups/20261020-065819.sqlite`;
+corpus maps 24 current, 1 on the worker). Both peer sessions told "walk done"; the HPC session's RQ4 batch 2 import
+runs through this 8765 from here — no further restart today without telling it. The three night worktrees removed
+(no junctions; branches kept), tonight's sandbox copies under `webui/runtime/` deleted bar the walk's.
