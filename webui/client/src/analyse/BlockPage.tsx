@@ -100,7 +100,7 @@ export function BlockPage({ index }: { index: number }) {
   if (!step) {
     return (
       <>
-        <Header workspace="Analyse" page={`${pad2(index + 1)} —`} subtitle="process detail · the chain row shows only the result" />
+        <Header workspace="Analyse" page={`${pad2(index + 1)} · no such stage`} subtitle="process detail · the chain row shows only the result" />
         <div className="page"><div className="page-inner" data-testid="block-page">
           <div className="card card-pad"><EmptyState size="sm" title={`There is no stage ${pad2(index + 1)} in this chain`} caption={`The chain has ${steps.length} stage${steps.length === 1 ? '' : 's'}.`} action={<Button onClick={() => navigate('analyse/chain')}>‹ full chain</Button>} /></div>
         </div></div>

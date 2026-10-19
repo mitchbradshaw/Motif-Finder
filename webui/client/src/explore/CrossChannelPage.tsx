@@ -84,7 +84,7 @@ export function CrossChannelPage({ channelId }: { channelId: number }) {
   // night-b: the detections chip's read starts beside the window's, so their identical whole-channel span reads are
   // one (api/explore.ts::getWholeChannelSpans) instead of a second 2–5 s read after the page painted
   const sig = useSourced(() => getSignalDemo(channelId), [channelId])
-  const header = (subtitle: string, demo = true) => <Header workspace="Explore" page="Cross-channel" subtitle={subtitle} search="Search spans, runs, families" demo={demo} />
+  const header = (subtitle: string, demo = false) => <Header workspace="Explore" page="Cross-channel" subtitle={subtitle} search="Search spans, runs, families" demo={demo} />
   if (look.error || read.error) return <>{header(`channel ${channelId} · error`)}<div className="page"><div className="page-inner"><ErrorCard error={asApiError(look.error ?? read.error)} title="demo read for Cross-channel failed" /></div></div></>
   if (look.loading || read.loading || !look.data) return <>{header(`channel ${channelId} · loading…`)}<div className="page"><div className="page-inner" data-testid="cross-loading"><div className="skeleton" style={{ height: 30, width: 480 }} /><div className="skeleton" style={{ height: 50 }} /><div className="skeleton" style={{ height: 440 }} /></div></div></>
   if (look.data.heldOut) {
@@ -99,10 +99,10 @@ export function CrossChannelPage({ channelId }: { channelId: number }) {
   }
   if (!read.data) {
     return (
-      <>{header(`channel ${channelId} · no demo data`)}
+      <>{header(`channel ${channelId} · not found`)}
         <div className="page"><div className="page-inner">
-          <EmptyState icon="compare" title={`No cross-channel view for channel ${channelId} in the demo data.`} caption="The demo canon carries the M2_aug fs1 channels (ids 1–16)." bordered testid="cross-unknown"
-            action={<Button variant="link" iconRight="arrow-right" onClick={() => navigate('explore/cross-channel/4')}>Open CH4_A2</Button>} />
+          <EmptyState icon="compare" title={`No channel ${channelId} in this project`} caption="the reference must be a channel of a recording in this database; open one from the Corpus" bordered testid="cross-unknown"
+            action={<Button variant="link" iconRight="arrow-right" onClick={() => navigate('explore/corpus')}>Open the Corpus</Button>} />
         </div></div>
       </>
     )

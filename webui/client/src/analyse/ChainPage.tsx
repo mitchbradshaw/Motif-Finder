@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { DatasetName } from '../naming'
 import {
-  ApiError, compatibleAt, exportRun, getTemplate, saveTemplate, validateParams, TYPE_LABEL,
+  ApiError, compatibleAt, exportRun, getTemplate, getTemplates, saveTemplate, validateParams, TYPE_LABEL,
   type Compatible, type EnvelopeSeries, type SignalPayload, type SlurmWritten, type SpansetPayload, type Step, type Template,
 } from '../api'
 import { CrosshairProvider, TimeAxis } from '../charts/primitives'
@@ -207,7 +207,11 @@ export function ChainPage() {
         let next: Step[]
         let name = 'shape_clusters'
         if (qp.template) {
-          const t = await getTemplate(Number(qp.template))
+          // night-b: a link may name the template rather than number it (GET /api/templates/NaN was a bare 422)
+          const asId = /^\d+$/.test(qp.template) ? Number(qp.template) : null
+          const t = asId !== null ? await getTemplate(asId)
+            : (await getTemplates()).find(x => x.name === qp.template || shortName(x) === qp.template)
+          if (!t) throw new Error(`no saved template called “${qp.template}”`)
           next = t.steps.map(st => ({ ...st, params: { ...st.params } }))
           name = t.name
         } else next = await buildPoolChain()
