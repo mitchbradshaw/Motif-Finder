@@ -28,7 +28,7 @@ function Body({ data }: { data: Data }) {
   const ChipRow = ({ id, options, caption, label, minOne = true }: { id: string; options: string[]; caption?: ReactNode; label: string; minOne?: boolean }) => {
     const on = s.list(id)
     return (
-      <Row label={label} dot={s.differs(id)} unsaved={s.dirty(id)} testid={`${id.replace(/\./g, '-')}-row`} caption={caption} wide>
+      <Row label={label} dot={s.differs(id)} unsaved={s.dirty(id)} testid={`${id.replace(/\./g, '-')}-row`} tip={caption} wide>
         <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {options.map(o => {
             const isOn = on.includes(o)
@@ -77,7 +77,7 @@ function Body({ data }: { data: Data }) {
           <LockedChip reason="templates are JSON so a diff is readable" testid="templates-format">JSON</LockedChip>
         </Row>
         <Row label="carry exemplars with seed templates" dot={s.differs('templates.carry_exemplars')} unsaved={s.dirty('templates.carry_exemplars')}
-          testid="carry-exemplars-row" caption="a rebind template never carries one" wide>
+          testid="carry-exemplars-row" tip="a rebind template never carries one" wide>
           <Toggle checked={s.bool('templates.carry_exemplars')} onChange={v => s.set('templates.carry_exemplars', v)} testid="carry-exemplars" />
         </Row>
       </SectionCard>
@@ -87,7 +87,7 @@ function Body({ data }: { data: Data }) {
           <Seg value={s.str('models.weights')} onChange={v => s.set('models.weights', v)} testid="weights"
             options={[{ value: 'PyTorch', label: 'PyTorch' }, { value: 'ONNX', label: 'ONNX' }]} />
         </Row>
-        <Row label="model card" testid="model-card-row" caption="held-out checks, calibration, verification sample, sign-off" wide>
+        <Row label="model card" testid="model-card-row" tip="held-out checks, calibration, verification sample, sign-off" wide>
           <Toggle checked disabled disabledReason="a model without its card cannot be read later" onChange={() => undefined} testid="model-card" />
           <LockedChip reason="the card travels with every model export (P19)">always</LockedChip>
         </Row>

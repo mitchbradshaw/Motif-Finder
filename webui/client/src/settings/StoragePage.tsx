@@ -106,7 +106,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
             <AddToken available={[...data.tokens, ...data.extraTokens].filter(t => !tokens.includes(t))} onAdd={t => s.set('tokens', [...tokens, t])} />
           </span>
         </Row>
-        <Row label="preview" testid="preview-row" wide caption="">
+        <Row label="preview" testid="preview-row" wide tip="">
           <code className="k-code-inline mono" data-testid="naming-preview" style={{ background: '#1f2937', color: '#e5e7eb', padding: '6px 10px', borderRadius: 6 }}>{namingPreview(tokens)}</code>
           <span className="s-note">the hash is the recipe prefix, so a file name says which settings made it · the real names in use today are in docs/DATA_REGISTRATION.md</span>
         </Row>
@@ -115,7 +115,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
       <SectionCard title="Backups" subtitle={`the database, settings and hand edits · ${data.backupsDir}`} testid="backups-card"
         actions={<Badge tone={history[0]?.state === 'ok' ? 'green' : 'amber'} testid="last-backup">{history[0] ? `last backup ${history[0].when} · ${history[0].state}` : 'no backup yet'}</Badge>}>
         <Row label="back up the database" dot={s.differs('backup_on')} unsaved={s.dirty('backup_on') || s.dirty('backup_every') || s.dirty('backup_at')} testid="schedule-row"
-          caption="the database is small; bulk arrays are not copied · a scheduled backup is a setting only: nothing runs while the bridge is down">
+          tip="the database is small; bulk arrays are not copied · a scheduled backup is a setting only: nothing runs while the bridge is down">
           <Toggle checked={s.bool('backup_on')} onChange={v => s.set('backup_on', v)} testid="backup-on" />
           <SelectField value={s.str('backup_every')} onChange={v => s.set('backup_every', v)} width={120} testid="backup-every"
             disabled={!s.bool('backup_on')} disabledReason={!s.bool('backup_on') ? 'turn backups on to set a schedule' : undefined}
@@ -124,27 +124,27 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
           <TextField value={s.str('backup_at')} onChange={v => s.set('backup_at', v)} width={90} testid="backup-at"
             disabled={!s.bool('backup_on')} disabledReason={!s.bool('backup_on') ? 'turn backups on to set a time' : undefined} />
         </Row>
-        <Row label="to" dot={s.differs('backup_to')} unsaved={s.dirty('backup_to')} testid="backup-to-row" caption="a path on this machine · the --project start always writes to DATA/db/backups first">
+        <Row label="to" dot={s.differs('backup_to')} unsaved={s.dirty('backup_to')} testid="backup-to-row" tip="a path on this machine · the --project start always writes to DATA/db/backups first">
           <TextField value={s.str('backup_to')} onChange={v => s.set('backup_to', v)} width={260} testid="backup-to" />
         </Row>
         <Row label="keep" id="f-keep" dot={s.differs('keep')} unsaved={s.dirty('keep')} testid="keep-row"
-          caption="recordings and bulk arrays are not copied — back those up with the lab's storage">
+          tip="recordings and bulk arrays are not copied — back those up with the lab's storage">
           <NumberField value={s.num('keep')} min={1} max={365} integer unit="backups" width={130} onValid={v => s.set('keep', v)} testid="keep" />
         </Row>
         <Row label="include project settings" dot={s.differs('include_settings')} unsaved={s.dirty('include_settings')} testid="include-settings-row"
-          caption="the settings table is in the database file, so a restore brings this page back too">
+          tip="the settings table is in the database file, so a restore brings this page back too">
           <Toggle checked={s.bool('include_settings')} onChange={v => s.set('include_settings', v)} testid="include-settings" />
         </Row>
         <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
-          <Button icon="download" testid="backup-now" loading={backingUp} disabled={backingUp} disabledReason={backingUp ? 'backing up…' : undefined} onClick={() => void backupNow()}>Back up now</Button>
-          <Button icon="undo" testid="open-restore" onClick={() => setModal('restore')}>Restore…</Button>
+          <Button variant="primary" icon="download" testid="backup-now" loading={backingUp} disabled={backingUp} disabledReason={backingUp ? 'backing up…' : undefined} onClick={() => void backupNow()}>Back up now</Button>
+          <Button variant="primary" icon="undo" testid="open-restore" onClick={() => setModal('restore')}>Restore…</Button>
           {backingUp && <ProgressBar indeterminate width={220} testid="backup-progress" label="sqlite backup API…" />}
         </div>
       </SectionCard>
 
       <SectionCard title="Disk" testid="disk-card">
         <Row label="warn when free space falls below" dot={s.differs('warn_gb')} unsaved={s.dirty('warn_gb')} testid="warn-gb-row"
-          caption="a warning in the header and before any large job">
+          tip="a warning in the header and before any large job">
           <NumberField value={s.num('warn_gb')} min={1} max={1000} integer unit="GB" width={110} onValid={v => s.set('warn_gb', v)} testid="warn-gb" />
         </Row>
       </SectionCard>
@@ -206,7 +206,7 @@ function ScanModal({ rootId, roots, onClose, onChanged }: { rootId: string; root
   return (
     <Modal open={open} onClose={onClose} title={root ? `${root.root} · ${root.path}` : 'scan'} size="lg" testid="scan-modal"
       footerNote={kind ? (registersHere ? `registry kind ${kind} · check, then register — the same POST /api/registry/${kind}/register a script would call (docs/DATA_REGISTRATION.md)` : `registry kind ${kind} · recordings and raw files register on Datasets › Import a recording`) : 'this root has no registry kind'}
-      footer={<><Button onClick={onClose}>Close</Button><Button onClick={() => { rd.reload(); onChanged() }} icon="refresh">Rescan</Button></>}>
+      footer={<><Button onClick={onClose}>Close</Button><Button variant="primary" onClick={() => { rd.reload(); onChanged() }} icon="refresh">Rescan</Button></>}>
       {!kind && <span className="muted small">nothing to scan here</span>}
       {kind && rd.loading && <ProgressBar indeterminate label="scanning…" testid="scan-progress" />}
       {kind && rd.error && <span className="small" style={{ color: 'var(--red)' }}>{rd.error.message}</span>}

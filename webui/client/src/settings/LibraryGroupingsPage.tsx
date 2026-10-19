@@ -37,7 +37,7 @@ function Body({ data }: { data: Data }) {
   return (
     <>
       <SectionCard title="Default grouping" subtitle="used for imports and new catalogues" testid="grouping-card">
-        <Row label="unit" dot={s.differs('unit')} unsaved={s.dirty('unit')} testid="unit-row" caption="what one entry in a grouping is">
+        <Row label="unit" dot={s.differs('unit')} unsaved={s.dirty('unit')} testid="unit-row" tip="what one entry in a grouping is">
           <Seg value={unit} onChange={v => s.set('unit', v)} testid="unit-seg" options={data.units.map(u => ({ value: u, label: u }))} />
         </Row>
         {unit === 'spike trains' && <Callout tone="amber" testid="spike-train-note">what a spike train is when not imported as one is undecided (B17)</Callout>}
@@ -59,7 +59,7 @@ function Body({ data }: { data: Data }) {
 
       <SectionCard title="What does not fit" subtitle="omitted from that grouping round" testid="omit-card">
         <Row label="omit motifs with nearest family d >" id="f-omit-motifs-with-nearest-family-d-" dot={s.differs('omit_d')} unsaved={s.dirty('omit_d')} testid="omit-d-row"
-          caption="omitted entries are flagged and listed">
+          tip="omitted entries are flagged and listed">
           <NumberField value={s.num('omit_d')} min={0.05} max={2} step={0.05} width={100} testid="omit-d"
             onValid={v => { s.set('omit_d', v); s.markInvalid('omit_d', null) }}
             onChange={(_r, reason) => s.markInvalid('omit_d', reason ? 'Enter 0.05–2.00' : null)} />
@@ -67,10 +67,10 @@ function Body({ data }: { data: Data }) {
             Review suggests families up to d 0.30 — <button type="button" className="k-link" onClick={() => navigate('settings/review-queues')}>Review queues</button>
           </span>}
         </Row>
-        <Row label="omit groups smaller than" dot={s.differs('omit_min')} unsaved={s.dirty('omit_min')} testid="omit-min-row" caption="a group under this is not a family">
+        <Row label="omit groups smaller than" dot={s.differs('omit_min')} unsaved={s.dirty('omit_min')} testid="omit-min-row" tip="a group under this is not a family">
           <NumberField value={s.num('omit_min')} min={2} max={1000} integer unit="members" width={130} onValid={v => s.set('omit_min', v)} testid="omit-min" />
         </Row>
-        <Row label="omitted entries are deleted" testid="never-delete-row" caption="they are listed with the grouping instead">
+        <Row label="omitted entries are deleted" testid="never-delete-row" tip="they are listed with the grouping instead">
           <LockedChip reason="omitted entries are flagged, never deleted" testid="never-delete">never</LockedChip>
         </Row>
       </SectionCard>
@@ -136,12 +136,12 @@ function Body({ data }: { data: Data }) {
       </SectionCard>
 
       <SectionCard title="Hand edits" testid="hand-edits-card">
-        <Row label="re-apply hand edits when regrouping" testid="reapply-row" caption="a hand edit outlives the grouping it was made on">
+        <Row label="re-apply hand edits when regrouping" testid="reapply-row" tip="a hand edit outlives the grouping it was made on">
           <LockedToggle reason="hand edits survive regrouping (P22)" testid="reapply-hand-edits" />
         </Row>
         <Row label="orphaned hand edits" sub="orphaned = pointing at a family the new grouping lacks"
           dot={s.differs('orphaned')} unsaved={s.dirty('orphaned')} testid="orphaned-row"
-          caption="held edits wait in the grouping report">
+          tip="held edits wait in the grouping report">
           <Seg value={s.str('orphaned')} onChange={v => s.set('orphaned', v)} testid="orphaned"
             options={[{ value: 'keep as a hand group', label: 'keep as a hand group' }, { value: 'hold', label: 'hold' }]} />
         </Row>

@@ -99,13 +99,13 @@ function Body({ data }: { data: Data }) {
         </Row>
         <Row label="multiple channels" sub="correction when a result is tested per channel" testid="correction-row"
           dot={s.differs('correction')} unsaved={s.dirty('correction')}
-          caption="applied per channel to the seed search's recommended cut: each channel's closest match against its own null, the correction across the channels in scope · the sentence beside the cut names the α and the correction it was computed under">
+          tip="applied per channel to the seed search's recommended cut: each channel's closest match against its own null, the correction across the channels in scope · the sentence beside the cut names the α and the correction it was computed under">
           <Seg value={String(s.value('correction') ?? 'none')} onChange={v => s.set('correction', v)} testid="correction"
             options={['none', 'Holm', 'Benjamini–Hochberg'].map(o => ({ value: o, label: o }))} />
         </Row>
         <Row label="show × null beside counts" testid="xnull-row"
           dot={s.differs('show_x_null')} unsaved={s.dirty('show_x_null')}
-          caption="Discovery scoreboard, templates, run reports">
+          tip="Discovery scoreboard, templates, run reports">
           <Toggle checked={s.bool('show_x_null')} onChange={v => s.set('show_x_null', v)} testid="show-x-null" />
         </Row>
       </SectionCard>
@@ -113,7 +113,7 @@ function Body({ data }: { data: Data }) {
       <SectionCard title="Running nulls" testid="running-nulls-card">
         <Row label="reuse null draws while the recipe is unchanged" testid="reuse-row"
           dot={s.differs('reuse_draws')} unsaved={s.dirty('reuse_draws')}
-          caption="a changed parameter invalidates the cached draws">
+          tip="a changed parameter invalidates the cached draws">
           <Toggle checked={s.bool('reuse_draws')} onChange={v => s.set('reuse_draws', v)} testid="reuse-draws" />
         </Row>
         <Row label="block shuffle · block length" sub="0 = twice the longest motif under test" id="f-block-length" testid="block-row"

@@ -228,7 +228,7 @@ function Body({ rec, data, seg }: { rec: string; data: Data; seg: React.ReactNod
       </SectionCard>
 
       <SectionCard title="Event log" subtitle={`${data.label} · ${live.length} events`} testid="events-card"
-        actions={<Button icon="plus" testid="add-event" disabled={locked} disabledReason={lockReason}
+        actions={<Button variant="primary" icon="plus" testid="add-event" disabled={locked} disabledReason={lockReason}
           onClick={() => setModal(modal === 'add-event' ? '' : 'add-event')}>Add event</Button>}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
           <span className="s-note mono" data-testid="timeline-window">

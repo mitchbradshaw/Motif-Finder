@@ -47,7 +47,7 @@ export function SettingsPage() {
       <Page>
         <EmptyState icon="alert-triangle" bordered testid="settings-unknown-page" title={`No settings page called “${slug}”`}
           caption="Settings has sixteen pages — Datasets is the first"
-          action={<Button onClick={() => navigate('settings/datasets')}>Open Datasets</Button>} />
+          action={<Button variant="primary" onClick={() => navigate('settings/datasets')}>Open Datasets</Button>} />
       </Page>
     </>
   )

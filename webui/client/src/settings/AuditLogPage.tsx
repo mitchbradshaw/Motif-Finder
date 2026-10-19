@@ -18,7 +18,7 @@ export function AuditLogPage() {
   const rd = useSourced(() => getAuditLog(kind), [kind])
   return (
     <SettingsShell slug="audit-log" demo={rd.source === 'demo'} noReset
-      actions={<Button icon="upload" testid="export-csv" onClick={() => { window.location.href = auditCsvUrl(kind) }}>Export CSV</Button>}>
+      actions={<Button variant="primary" icon="upload" testid="export-csv" onClick={() => { window.location.href = auditCsvUrl(kind) }}>Export CSV</Button>}>
       {rd.loading && <Loading />}
       {rd.error && <LoadFailed what="the audit log" error={rd.error} onRetry={rd.reload} />}
       {rd.data && <Body data={rd.data} kind={kind} setKind={setKind} />}
@@ -50,7 +50,7 @@ function Body({ data, kind, setKind }: { data: Data; kind: string; setKind: (k: 
       ) : (
         <EmptyState size="sm" testid="audit-empty" title={kind === 'all' ? 'The log is empty' : `No ${kind} entries`}
           caption={kind === 'all' ? 'a save on any project page, a registration or the held-out lock writes the first entry' : 'other kinds have entries'}
-          action={kind !== 'all' ? <Button size="sm" onClick={() => setKind('all')}>Show all</Button> : undefined} />
+          action={kind !== 'all' ? <Button variant="primary" size="sm" onClick={() => setKind('all')}>Show all</Button> : undefined} />
       )}
     </SectionCard>
   )

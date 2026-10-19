@@ -117,7 +117,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
   return (
     <>
       <SectionCard title="Recordings" subtitle={data.caption} testid="recordings-card"
-        actions={<Button icon="file" testid="open-import" onClick={() => setModal('import')}>
+        actions={<Button variant="primary" icon="file" testid="open-import" onClick={() => setModal('import')}>
           Import a recording…{nCandidates ? <span style={{ marginLeft: 6 }}><Badge tone="amber" testid="candidate-count">{nCandidates} on disk</Badge></span> : null}
         </Button>}>
         {rows.length ? (
@@ -267,7 +267,7 @@ function Body({ data, reload }: { data: Data; reload: () => void }) {
                 : <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <SelectField value={unitDraft} onChange={setUnitDraft} disabled={locked} disabledReason={locked ? 'held out · locked' : undefined} width={120} testid="units-select"
                     options={[{ value: '', label: 'undeclared' }, { value: 'V', label: 'V (volts)' }, { value: 'mV', label: 'mV (millivolts)' }, { value: 'uV', label: 'µV (microvolts)' }]} />
-                  <Button size="sm" testid="units-declare" disabled={!unitDraft || locked} onClick={() => void declareUnit(current, unitDraft)}>Declare</Button>
+                  <Button variant="primary" size="sm" testid="units-declare" disabled={!unitDraft || locked} onClick={() => void declareUnit(current, unitDraft)}>Declare</Button>
                 </div>}
               {!current.units && <div className="small muted" data-testid="units-note" style={{ marginTop: 4 }}>{current.units_note ?? 'no unit declared for this recording'}</div>}
             </GridField>
@@ -447,7 +447,7 @@ function ImportModal({ open, onClose, candidates, rawCandidates, mode, onRegiste
       footerNote={cand ? `will register ${cand.kind === 'raw' ? 'the derived channels of' : ''} ${cand.name} as one recordings row per channel${mode === 'sandbox' ? ' · sandbox: into the database copy' : ' · project: into the real database'} · a sidecar manifest is written · no runs affected` : `${all.length} unregistered on disk · pick one`}
       footer={<>
         <Button onClick={onClose}>Cancel</Button>
-        <Button testid="run-check" disabled={!cand || phase === 'checking' || phase === 'registering'} disabledReason={!cand ? 'pick a candidate first' : phase === 'checking' ? 'checking…' : 'registering…'} loading={phase === 'checking'} onClick={runCheck}>Check</Button>
+        <Button variant="primary" testid="run-check" disabled={!cand || phase === 'checking' || phase === 'registering'} disabledReason={!cand ? 'pick a candidate first' : phase === 'checking' ? 'checking…' : 'registering…'} loading={phase === 'checking'} onClick={runCheck}>Check</Button>
         <Button variant="primary" testid="do-import" disabled={!report?.ok || phase !== 'checked'} loading={phase === 'registering'}
           disabledReason={!report ? 'run the checks first' : fails ? `${fails} check${fails === 1 ? '' : 's'} fail` : undefined} onClick={doRegister}>Register</Button>
       </>}>
