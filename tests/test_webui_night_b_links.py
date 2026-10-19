@@ -30,3 +30,15 @@ def test_no_family_link_names_the_family_in_a_query():
 def test_interrogation_opens_the_family_it_names():
     src = io.open(os.path.join(CLIENT_SRC, "interrogation", "SourcePage.tsx"), encoding="utf-8").read()
     assert re.search(r"navigate\(`library/family/\$\{encodeURIComponent\(fam\.id\)\}`\)", src)
+
+
+def test_the_signal_page_does_not_call_its_live_read_demo():
+    """night-b: `getSignalDemo` is the LIVE read (api/explore.ts: "Kept name for the pages: now the live read"), so
+    `demo={!!demo}` printed *demo data* in the header, a *demo* tag on the span legend and "(demo canon)" on the
+    ribbons of every live channel. The chips follow the read's `source`."""
+    src = io.open(os.path.join(CLIENT_SRC, "explore", "SignalPage.tsx"), encoding="utf-8").read()
+    for el in ("<Header ", "<SpanView ", "<Ribbons "):
+        for m in re.finditer(re.escape(el), src):
+            tag = src[m.start():src.index("/>", m.start())]
+            assert "demo={!!demo}" not in tag, f"{el.strip()} is told the live read is demo"
+    assert "demoRead.source === 'demo'" in src
