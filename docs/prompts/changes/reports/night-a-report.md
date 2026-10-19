@@ -56,10 +56,14 @@ small ones are fixed; the big ones are listed with a one-line reproduction.
 | 15 | Review | Queue open sends all 10 k rows (7 MB, ~2.4 s server) before the first candidate; with the header's repeated counts the inspector paints at ~8 s at scale | reported | `server/review.py:771` get_queue; a first-page read would cut it |
 | 16 | Shell | `/api/review/counts` is re-read on every Header mount — Review mounts 3–4 Headers while opening (loading → queue → item), 4 counts reads per open, each 0.3–3 s at scale | reported (C's file) | `api/needYou.ts:13`, `review/index.tsx` loading branches |
 | 17 | Shell | `/api/runs?limit=1` polled every 5 s on every page (1–2 s each under load) | reported (C's) | the jobs chip poll |
-| 18 | Review | Ctrl Z pressed while a verdict POST is still in flight undoes the previous write (the in-flight one joins the stack only on its ack) — seen only while the bridge was starved | reported | `review/store.ts` commitWrite / Inspector `undo` |
+| 18 | Review | (critic, DATA RISK) Ctrl Z while a verdict POST is still in flight undid the PREVIOUS item's verdict (the in-flight write joins the stack only on its ack) and the new one still landed | **fixed** `60944b2` — every commit counts itself in flight; undo/redo refuse with "a verdict is still being written — try again" (a second quick Ctrl Z while the first undo is out is refused too) | `review/store.ts`, `Inspector.tsx`, `ClusterView.tsx` |
 | 19 | Discovery | Runs page: `where-fires` shrinks 388 → 315 px after its read lands; the scoreboard and browser below jump up 73 px | reported | `discovery/RunsPage.tsx:157` (Loading height 200 vs content) |
 | 20 | Discovery | The template picker on a fresh bridge shows "scoring…" on 60 templates; ~4 land per 30 s (≈8 min to clear); it never blocks (paints in 55 ms) and re-reads every 3 s meanwhile | reported (by design; see #13) | `discovery/AddTemplateModal.tsx:39` |
 | 21 | Review | `POST /api/review/queues` accepts `detection_ids: []`: a queue that can never hold anything | reported | `Working/review/queues.py` create_queue |
+| 22 | Review | (critic) a class key on an explore-spans row with a seed prior took the session-label branch: nothing written, the row counted judged | **fixed** `60944b2` — `judgedRecord()` (queue.ts) in klass, the evidence rail, the reveal card, the queue rail (Shell) and the cluster batch exclusion | `review/queue.ts`, `Inspector.tsx`, `Shell.tsx`, `ClusterView.tsx` |
+| 23 | Review | (critic) the verdict flash after the POST's await lit the item the researcher had moved to | **fixed** `60944b2` | `review/Inspector.tsx` |
+| 24 | Review | (critic, noted) an item whose prefetch is still in flight waits the 150 ms settle anyway: `peekItem` sees only settled reads | reported | `review/Inspector.tsx:69`; an `itemHeld()` export in `api/review.ts` (ITEMS has the key) would skip the wait |
+| 25 | Review | (critic, noted) the blind-test page is now chosen from the general queue read, whose rows carry earlier labels in the payload (not drawn, but in the browser's network tab) | reported | `review/index.tsx:62,80`; a light `GET /queues/{id}?rows=0` for the routing decision would keep them out |
 
 
 What held: no card ever showed an item other than the hash's (40 fast presses, sampled every press); a verdict
@@ -90,9 +94,9 @@ left. Before = first bridge (scorer running, old code); after = final code, scor
 
 ## Tests (interpreter per file)
 
-- `tests/test_night_a_review.py` — conda python (+ node for `review/judged.ts`): 12 passed. Pins the queue-end
+- `tests/test_night_a_review.py` — conda python (+ node for `review/judged.ts`): 15 passed. Pins the queue-end
   words and states, no fixture ids, run-row height, toolbar wrap, the queue route deciding from its own read, the
-  scoreboard empty row, the info callout, the judged rule (run under node), the auto-advance guard, the step settle.
+  scoreboard empty row, the info callout, the judged rule (run under node), the auto-advance guard, the step settle, undo/redo waiting for a write in flight, the judged record in the class key and the rails, the flash guard.
 - `tests/test_webui_night_a.py` — webui/.venv: 3 passed. One channel read per channel per scoreboard read; two
   identical concurrent reads score each run once; the queue list carries a count, not the ids.
 - Regression files run (webui/.venv): `test_webui_ar_speed`, `test_perf_scoring_reads`, `test_webui_discovery`,
