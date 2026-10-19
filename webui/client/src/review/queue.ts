@@ -2,6 +2,7 @@
 import { navigate } from '../state'
 import type { QueueData, QueueRow } from '../api/review'
 import { effective, key, type QueueFilters, type VerdictRecord } from './store'
+import { baseJudged } from './judged'
 
 export type UnitRef = { kind: 'item'; id: string } | { kind: 'cluster'; no: number; members: string[] }
 type Records = Record<string, VerdictRecord | null | undefined>
@@ -61,7 +62,7 @@ function buildUnits(data: QueueData, group: QueueFilters['group']): UnitRef[] {
 export function judged(records: Records, row: QueueRow): boolean {
   const k = key(row.queueId, row.id)
   if (k in records && records[k] !== undefined) return records[k] !== null
-  return !!row.baseVerdict || row.judged === true
+  return baseJudged(row)
 }
 
 export function isJudged(data: QueueData, records: Records, u: UnitRef): boolean {
@@ -117,7 +118,7 @@ export function counts(data: QueueData, records: Records) {
     if (!(k in records) || records[k] === undefined) continue
     // the base is what the DATABASE said when the queue was last read, so a re-read after an accepted
     // write cancels its own delta instead of counting the same verdict twice
-    delta += (records[k] ? 1 : 0) - (r.baseVerdict || r.judged ? 1 : 0)
+    delta += (records[k] ? 1 : 0) - (baseJudged(r) ? 1 : 0)
   }
   const judged = Math.min(data.queue.total, data.queue.judged + delta)
   return { judged, left: data.queue.total - judged, total: data.queue.total }
@@ -129,7 +130,7 @@ export function queueCounts(queueId: string, base: { judged: number; total: numb
   for (const r of rows) {
     const k = key(queueId, r.id)
     if (!(k in records) || records[k] === undefined) continue
-    delta += (records[k] ? 1 : 0) - (r.baseVerdict || r.judged ? 1 : 0)
+    delta += (records[k] ? 1 : 0) - (baseJudged(r) ? 1 : 0)
   }
   return { judged: base.judged + delta, left: base.total - base.judged - delta }
 }

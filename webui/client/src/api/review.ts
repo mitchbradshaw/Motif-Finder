@@ -32,7 +32,9 @@ export { CONTEXT_PAD_MAX } from '../fixtures/review'
 /** `judged` is the DATABASE's answer, not the session's: `queue_items` reports whether this target already
  *  carries a verdict in the table the queue writes. It carries no verdict VALUE (see `rowOf`), so it is kept
  *  as its own flag instead of being turned into a `baseVerdict` nobody sent. */
-export interface QueueRow extends QueueEntry { thumb: number[]; family: string; judged: boolean }
+export interface QueueRow extends QueueEntry { thumb: number[]; family: string; judged: boolean
+  /** night-a: the bridge's own judged flag when it sent one (`review/judged.ts`) — a row's verdict alone does not make it judged */
+  servedJudged?: boolean }
 /** `thumbsServed: false` (AR): the rows came without their thumbnails — `useThumbs` pages in the ones on screen.
  *  `thumbPeaks`: the smallest positive and the largest row peak (`baselinePeak` of every row's thumbnail), which is
  *  all the Shape card's queue-wide reference bar reads; empty when no row has a positive peak. */
@@ -246,6 +248,7 @@ function rowOf(raw: any, queueId: string): QueueRow {
     queueId,
     baseVerdict: base ? (base as Verdict) : undefined,
     judged: raw?.judged === true || raw?.judged === 1 || !!base,
+    servedJudged: raw?.judged == null ? undefined : raw.judged === true || raw.judged === 1,
     thumb: Array.isArray(raw?.thumb) ? raw.thumb as number[] : [],
     family: String(raw?.family ?? raw?.familyId ?? ''),
     tags: Array.isArray(raw?.tags) ? raw.tags as string[] : [],
