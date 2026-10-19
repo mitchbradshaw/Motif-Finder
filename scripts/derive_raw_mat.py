@@ -554,7 +554,8 @@ def plan_file(path: str, args, channels_root: str, conn_ro) -> dict:
         if args.fs is not None:
             fs, fs_source = float(args.fs), "inferred"
             cnt, cnt_note = infer_fs_from_count(n)
-            stated = (f"{fs:g} Hz stated by {args.fs_stated_by}, not read from the file" if args.fs_stated_by
+            # the registry records fs_source "inferred" only when the note says "inferred" (kinds.py): keep the word
+            stated = (f"{fs:g} Hz stated by {args.fs_stated_by}, not read from the file (recorded as inferred)" if args.fs_stated_by
                       else f"{fs:g} Hz stated with --fs at derivation and recorded as inferred: not read from the file")
             fs_note = (f"{stated} "
                        f"({notes[0] if notes else 'no time axis'}); the count rule alone: "
