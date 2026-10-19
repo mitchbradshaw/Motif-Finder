@@ -46,6 +46,12 @@ recommendations stood (built by `ux-1019`, `docs/prompts/changes/site-fixes.md`)
 
 ## 3. From the 2026-10-18 list — the large items (code facts from the 2026-10-18 searches)
 
+**Status 2026-10-19 evening: every row below, and §2's rows, became a prompt in `docs/prompts/changes/` and merged
+to main as cdd6be3 (the wave) or 43ee443 (corpus-map), except the §2 Reports row's third surface (the Export page's
+provenance) and the interval/event page pass's slope-page part, which the `interval-event-pages` prompt covered.
+The datasets scripts run on the real data separately (CO and LM skipped: another agent derives them at 2 Hz).
+The rows stay until the first clean post-wave full walk confirms them; delete then.**
+
 | Item | What the code says | Decision needed | Size |
 |---|---|---|---|
 | **Review › `Edit span in Explore`** | `review/parts.tsx:105-118` navigates to `explore/span-edit/<detectionId>?from=review&queue=…&item=…`; `explore/SpanEditPage.tsx:24` calls `getSpanEdit`, which is `demo(spanEditDemo(id))` (`api/explore.ts:225`) and knows only `m-1846` (`fixtures/explore.ts:288`); saving is an in-memory demo write; the page ignores `from`/`queue`/`item` and reads `queue`/`candidate`/`of`/`return`. The core has `Working/library/revisions.py:91 add_revision`, `current_revision`, `revision_list` and no bridge route (`library.py:1907 _revisions_for` is read-only). Explore's own span comes from app state `explore.view` (`state.tsx:57`); sessionStorage `ub-proto-a:source` carries a span from Explore to Analyse, not into Explore | none | M |

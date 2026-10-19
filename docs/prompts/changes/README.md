@@ -43,6 +43,10 @@ not-interesting + artifact, grey unsure) and Q46 (F2B included), so the three pr
 | 13 | `polish-pass.md` — less grey, fewer warnings, one palette, the add-block "about" card | L, one commit per page | 6, 7, 10 merged | ready |
 | 14 | `corpus-map-off-the-request.md` — the home page serves its last map at once; the recompute runs in a worker process (speed second pass, item 1) | M | AR merged | **merged 43ee443 (2026-10-19)**; its state passes on real data; the explore unit + daily walk followed |
 
+**The whole wave merged 2026-10-19 as cdd6be3** (rows 0–13 and the "for drops" follow-up, via `changes/integration`
+5d02ab4; corpus-map (row 14) as 43ee443 before it). Reports are in `reports/`. Still to run on the real data:
+`datasets-derive`'s scripts (the Prompt manager session, 2026-10-19 night: MJu26a_fs10 without the L_LM link, SH, SO,
+F2B, L_R at 10 Hz; CO and LM skipped). Owed: the first clean post-wave full walk on 2026-10-20 morning.
 **AR (the speed pass) merged 2026-10-18 as 5a20070** — the "AR merged" dependencies above are satisfied; base on
 5a20070 or later. A second session ("Prompt manager and examiner") runs these prompts; the two sessions agreed on
 2026-10-18: at most three implementer agents at once on this machine (six saturated it and made every smoke unit and
