@@ -85,7 +85,7 @@ export function IntervalTimeline({ ic, t0, t1, within, onWithin, coloured, onCol
         <span className="muted">·</span>
         <span>intervals within</span>
         <div className="row" style={{ gap: 4, flexWrap: 'wrap' }} data-testid="interval-within">
-          {[{ key: 'all', label: 'all events', n: ic.event_class.length }, ...ic.classes].map(c => (
+          {[{ key: 'all', label: 'all events', n: ic.event_class.length }, ...ic.classes.filter(c => c.key !== 'all')].map(c => (
             <button key={c.key} type="button" className={`btn sm${within === c.key ? ' on' : ''}`} onClick={() => onWithin(c.key)}
               data-testid={`interval-within-${c.key.replace(/\s+/g, '-')}`} aria-pressed={within === c.key}
               disabled={c.key !== 'all' && ic.rule === 'none'}>
