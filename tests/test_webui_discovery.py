@@ -252,6 +252,31 @@ def test_another_recording_opens_its_own_session_and_coming_back_finds_the_first
     assert again["id"] == s["id"] and again["channels"] == ["CH1"]   # the second is found, not made twice
 
 
+def test_a_run_key_in_two_sessions_resolves_in_the_open_one(client, tmp_path):
+    """*Add N matches* finds its seed run by key. A key is unique only within a session, and with a session per
+    recording two recordings can each hold `seed_a`: the open session's is the one meant, not the newest's."""
+    from server import library as _lib
+    other = tmp_path / "other.npy"
+    np.save(other, _planted(5))
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    conn.execute("INSERT INTO recordings (source_file, channel, fs, n_samples, global_offset, npy_path) "
+                 "VALUES ('other.mat', 0, ?, ?, 0, ?)", (FS, N, str(other)))
+    conn.commit()
+    first = client.get("/api/discovery/session").json()["session"]["id"]
+    second = client.put("/api/discovery/session", json={"recording": "other", "channels": ["CH1"]}).json()["session"]["id"]
+    for sid in (first, second):
+        conn.execute("INSERT INTO discovery_runs (session_id, run_key, kind, label, params_json, status, created_at, "
+                     "updated_at) VALUES (?, 'seed_a', 'seed', ?, '{}', 'done', ?, ?)", (sid, f"in {sid}", NOW, NOW))
+    conn.commit()
+    assert client.put("/api/discovery/session", json={"recording": "syn"}).json()["session"]["id"] == first
+    conn.row_factory = sqlite3.Row
+    try:
+        row, _ = _lib._seed_run_for(conn, "seed_a")
+        assert row["session_id"] == first
+    finally:
+        conn.close()
+
+
 # ── held out, on every door ─────────────────────────────────────────────────
 
 def test_the_held_out_recording_is_refused_by_the_scope(client):
