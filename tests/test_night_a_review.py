@@ -98,6 +98,16 @@ def test_an_unknown_run_link_is_an_info_note_not_a_warning():
     assert 'tone="amber"' not in line and "alert-triangle" not in line
 
 
+def test_auto_advance_never_moves_a_researcher_who_already_stepped_on():
+    """Driven on the scale fixture: I on item A, then two quick arrow presses, landed on the item after A, not two
+    on — the auto-advance timer scheduled for A (350 ms, and only after A's POST came back) fired after the
+    researcher had moved, and navigated from A. The timer belongs to the item it was set on."""
+    code = _code(_src("Inspector.tsx"))
+    assert "onItem.current === id" in code, "the delayed advance does not check it is still on its item"
+    assert re.search(r"useEffect\(\(\) => \{[^}]*timers\.current[^}]*\}, \[id\]\)", code), \
+        "pending timers are not cleared when the item changes"
+
+
 # ── a span queue read as finished while 622 were left (agent B's drive, Explore → Take span → Open Review) ──
 
 JUDGED_TS = os.path.join(REVIEW, "judged.ts")
