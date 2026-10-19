@@ -583,6 +583,73 @@ def test_a_poll_while_the_recompute_is_queued_does_not_fingerprint_again(scored_
     assert "stale" not in after and after != before and calls["n"] >= 1
 
 
+def test_a_job_that_raises_any_base_exception_is_a_loud_failure_and_the_queue_lives_on(scored_file, monkeypatch):
+    """Critic S2: a BaseException (a Ctrl-C through `.result()`, a KeyboardInterrupt in the job) used to escape the
+    drain with the job still marked in flight: every later read of that map answered "pending" through the poll
+    shortcut, and no other map ever drained — the page said "recomputing…" for ever with no red card."""
+    corpus = _corpus()
+    conn, path = scored_file["conn"], scored_file["path"]
+    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+
+    class Halt(BaseException):
+        pass
+
+    real = corpus._coverage
+    calls = {"n": 0}
+
+    def halting(*a, **kw):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise Halt("interrupted")
+        return real(*a, **kw)
+    monkeypatch.setattr(corpus, "_coverage", halting)
+    assert corpus.coverage(conn, "cache.mat", bins=10, db_path=path)["pending"] is True
+    assert corpus.wait_coverage_idle(120), "the queue never went idle after the job raised"
+    assert corpus.coverage_status()["in_flight"] is None
+    with pytest.raises(corpus.CoverageFailed, match="could not be computed: Halt: interrupted"):
+        corpus.coverage(conn, "cache.mat", bins=10, db_path=path)
+    # the queue still drains other maps
+    assert corpus.coverage(conn, "cache.mat", bins=11, db_path=path)["pending"] is True
+    assert corpus.wait_coverage_idle(120)
+    assert "pending" not in corpus.coverage(conn, "cache.mat", bins=11, db_path=path)
+
+
+def test_a_map_is_kept_under_the_state_it_read_not_the_state_that_asked(scored_file, monkeypatch):
+    """Critic S5: the read that schedules a recompute fingerprints state A; if the database moves to B before the
+    worker reads it, the map is B's. It was stored under A's fingerprint, so after a revert to A the B map was served
+    as fresh. The worker now fingerprints what it read (one snapshot on WAL; before == after otherwise) and the map
+    is kept under that."""
+    import threading
+
+    from Working.discovery import coverage_map as CM
+    corpus = _corpus()
+    conn, path = scored_file["conn"], scored_file["path"]
+    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+    corpus.coverage(conn, "cache.mat", bins=10, db_path=path)
+    assert corpus.wait_coverage_idle(120)
+    gate = threading.Event()
+    real_connect = CM.connect_read_only
+    monkeypatch.setattr(CM, "connect_read_only", lambda p: gate.wait(60) and real_connect(p))
+    put_settings(conn, "analysis-defaults", {"containment": "whole"})            # state A
+    conn.commit()
+    want_a = _without_timing(corpus._coverage(conn, "cache.mat", bins=10))
+    try:
+        assert corpus.coverage(conn, "cache.mat", bins=10, db_path=path)["stale"] is True    # scheduled at A
+        put_settings(conn, "analysis-defaults", {"containment": "centre"})       # state B, before the worker reads
+        conn.commit()
+        want_b = _without_timing(corpus._coverage(conn, "cache.mat", bins=10))
+        assert want_a != want_b
+    finally:
+        gate.set()
+    assert corpus.wait_coverage_idle(120)
+    put_settings(conn, "analysis-defaults", {"containment": "whole"})            # back to A
+    conn.commit()
+    got = _without_timing(corpus.coverage(conn, "cache.mat", bins=10, db_path=path))
+    assert got.get("stale") is True or got == want_a, "B's map was served as A's fresh map"
+    assert corpus.wait_coverage_idle(120)
+    assert _without_timing(corpus.coverage(conn, "cache.mat", bins=10, db_path=path)) == want_a
+
+
 def test_the_start_up_warm_goes_through_the_worker(scored_file, monkeypatch):
     """`warm_coverage` schedules every file's home map on the same queue; the parent computes none of them."""
     corpus = _corpus()

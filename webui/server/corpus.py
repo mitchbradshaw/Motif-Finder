@@ -584,8 +584,16 @@ _WORK = {"pending": {}, "in_flight": None, "computed": 0, "failed": 0, "thread":
 _WORK_LOCK = threading.Lock()
 _WORK_IDLE = threading.Event()
 _WORK_IDLE.set()
-_POOL = {"pool": None, "pid": None, "failed": None}
+_POOL = {"pool": None, "pid": None, "failed": None, "gen": 0, "atexit": False}
 _POOL_LOCK = threading.Lock()
+#: how long one recompute may take in the worker before it is given up as hung (the pool is replaced and the
+#: failure recorded): twice the warm's wait — a real recompute is 100–260 s on the post-RQ4 database
+RESULT_TIMEOUT_S = 2 * WARM_WAIT_S
+
+
+class _Stopped(Exception):
+    """The worker was stopped on purpose (`shutdown_coverage_pool`) while a map was computing: nothing is kept and
+    nothing is recorded as a failure; the next read of that map schedules it again."""
 
 
 class _MainHidden:
@@ -609,7 +617,11 @@ class _MainHidden:
 
 def coverage_pool():
     """The bridge's one corpus-map worker process (started on first use), or None when `COVERAGE_WORKER` is
-    "thread" or the process could not be started (then the queue drains on a thread)."""
+    "thread" or the process could not be started (then the queue drains on a thread).
+
+    The child watches its parent (`coverage_map.watch_parent`) and exits when the bridge is gone, however it went;
+    the bridge stops it without waiting for a map in flight (`shutdown_coverage_pool`, registered to run when the
+    interpreter's threads shut down, before `concurrent.futures` would join the worker)."""
     if COVERAGE_WORKER != "process":
         return None
     log = logging.getLogger("webui.corpus")
@@ -622,7 +634,8 @@ def coverage_pool():
         try:
             import multiprocessing as mp
             from concurrent.futures import ProcessPoolExecutor
-            pool = ProcessPoolExecutor(max_workers=1, mp_context=mp.get_context("spawn"))
+            pool = ProcessPoolExecutor(max_workers=1, mp_context=mp.get_context("spawn"),
+                                       initializer=_CM.watch_parent)
             with _MainHidden():
                 started = pool.submit(_CM.ping)
             pid = started.result(timeout=POOL_START_TIMEOUT_S)
@@ -631,23 +644,53 @@ def coverage_pool():
             log.warning("corpus maps: the worker process could not start (%s); recomputing on a background thread "
                         "that yields to the pages between channels", _POOL["failed"])
             if pool is not None:
-                try:
-                    pool.shutdown(wait=False, cancel_futures=True)
-                except Exception:
-                    pass
+                _terminate(pool)
             return None
         _POOL.update(pool=pool, pid=pid)
+        if not _POOL["atexit"]:
+            # `concurrent.futures` joins its workers from a threading-shutdown hook, which would wait out a map in
+            # flight (100–260 s); hooks run last-registered first, so this one stops the worker before that join
+            register = getattr(threading, "_register_atexit", None)
+            if register is not None:
+                register(shutdown_coverage_pool)
+            else:   # pragma: no cover - every CPython this runs on has it
+                import atexit
+                atexit.register(shutdown_coverage_pool)
+            _POOL["atexit"] = True
         log.info("corpus maps recompute in a worker process (pid %d), off the request path", pid)
         return pool
 
 
+def _terminate(pool):
+    """Stop `pool` now: queued work cancelled, its process terminated rather than joined (a map in flight is
+    abandoned; the next read schedules it again)."""
+    procs = list((getattr(pool, "_processes", None) or {}).values())
+    try:
+        pool.shutdown(wait=False, cancel_futures=True)
+    except Exception:
+        pass
+    for p in procs:
+        try:
+            p.terminate()
+        except Exception:
+            pass
+    for p in procs:
+        try:
+            p.join(5)
+        except Exception:
+            pass
+
+
 def shutdown_coverage_pool():
-    """Stop the worker process (tests; a later use starts a fresh one)."""
+    """Stop the worker process at once (the runtime's `restore()`, interpreter exit, tests). Queued recomputes are
+    dropped; a map in flight is abandoned, not waited for. A later use starts a fresh worker."""
     with _POOL_LOCK:
         pool = _POOL["pool"]
-        _POOL.update(pool=None, pid=None, failed=None)
+        _POOL.update(pool=None, pid=None, failed=None, gen=_POOL["gen"] + 1)
+    with _WORK_LOCK:
+        _WORK["pending"].clear()
     if pool is not None:
-        pool.shutdown(wait=True, cancel_futures=True)
+        _terminate(pool)
 
 
 def _schedule(key, job) -> bool:
@@ -668,32 +711,49 @@ def _schedule(key, job) -> bool:
         return True
 
 
-def _run(job) -> dict:
-    """One recompute: in the worker process, else (no pool, or it broke) on this thread with a yield between
-    channels."""
+def _run(job):
+    """One recompute: `(stable fingerprint of the state it read, map)`. In the worker process, else (no pool, or it
+    broke) on this thread with a yield between channels."""
+    from concurrent.futures import TimeoutError as FutureTimeout
     from concurrent.futures.process import BrokenProcessPool
     args = dict(bins=job["bins"], verdicts=job["verdicts"], run_ids=job["run_ids"], method=job["method"],
                 held_out=job["held_out"])
+    log = logging.getLogger("webui.corpus")
+    gen = _POOL["gen"]
     pool = coverage_pool()
     if pool is not None:
         try:
-            out = pool.submit(_CM.compute, job["db_path"], job["source_file"], **args).result()
+            fut = pool.submit(_CM.compute_fingerprinted, job["db_path"], job["source_file"], COVERAGE_SETTINGS, **args)
+        except RuntimeError as exc:          # shut down between `coverage_pool()` and here
+            raise _Stopped(str(exc)) from exc
+        try:
+            out = fut.result(timeout=RESULT_TIMEOUT_S)
             _WORK["mode"] = "process"
             return out
+        except FutureTimeout:
+            log.warning("corpus maps: the worker did not finish %s in %.0f s; it is replaced", job["source_file"],
+                        RESULT_TIMEOUT_S)
+            shutdown_coverage_pool()
+            raise RuntimeError(f"the worker process did not finish within {RESULT_TIMEOUT_S:.0f} s and was stopped")
         except BrokenProcessPool as exc:
-            logging.getLogger("webui.corpus").warning(
-                "corpus maps: the worker process died (%s); this map is recomputed on a background thread and the "
-                "next one starts a fresh worker", exc)
+            if _POOL["gen"] != gen:
+                raise _Stopped("the worker was stopped") from exc
+            log.warning("corpus maps: the worker process died (%s); this map is recomputed on a background thread and "
+                        "the next one starts a fresh worker", exc)
             shutdown_coverage_pool()
     _WORK["mode"] = "thread"
     conn = _CM.connect_read_only(job["db_path"])
     try:
-        return _coverage(conn, job["source_file"], between_channels=lambda: wait_for_quiet(), **args)
+        return _CM.fingerprinted(conn, job["source_file"], COVERAGE_SETTINGS, _coverage,
+                                 between_channels=lambda: wait_for_quiet(), **args)
     finally:
         conn.close()
 
 
 def _drain():
+    """Drain the queue, one recompute at a time. Whatever a job raises — an exception, a Ctrl-C delivered through
+    `.result()`, any `BaseException` — is recorded as that map's failure (a read then raises it, loud), and the job
+    is always cleared, so one bad job can never leave every map "recomputing…" for good (critic, corpus-map S2)."""
     log = logging.getLogger("webui.corpus")
     while True:
         with _WORK_LOCK:
@@ -706,23 +766,32 @@ def _drain():
             job = _WORK["in_flight"] = _WORK["pending"].pop(key)
         t0 = time.perf_counter()
         try:
-            out = _run(job)
-        except Exception as exc:
+            got_fp, out = _run(job)
+            if got_fp is None:
+                log.info("corpus map for %s: the database changed while it was computed; not kept, the next read "
+                         "schedules it again", key[0])
+            else:
+                # kept under the state it READ; in memory (keyed by the scheduling read's in-process digest) only
+                # when that is the state the read saw, so a map is never served as fresh for another state
+                _disk_write(key, got_fp, out)
+                with _WORK_LOCK:
+                    if got_fp == job["disk_fp"]:
+                        _remember(key, job["fp"], out)
+                    _COVERAGE_ERRORS.pop(key, None)
+                    _WORK["computed"] += 1
+                log.info("corpus map recomputed: %s, %d bins (%.1f s, in a %s)", key[0], key[1],
+                         time.perf_counter() - t0, _WORK["mode"])
+        except _Stopped:
+            log.info("corpus map for %s abandoned: the worker was stopped", key[0])
+        except BaseException as exc:        # noqa: B902 - recorded, never swallowed into a blank
             sentence = f"the corpus map for {key[0]} could not be computed: {type(exc).__name__}: {exc}"
-            log.exception("%s", sentence)
+            log.error("%s", sentence, exc_info=(type(exc), exc, exc.__traceback__))
             with _WORK_LOCK:
                 _COVERAGE_ERRORS[key] = (job["disk_fp"], sentence)
                 _WORK["failed"] += 1
+        finally:
+            with _WORK_LOCK:
                 _WORK["in_flight"] = None
-            continue
-        _disk_write(key, job["disk_fp"], out)
-        with _WORK_LOCK:
-            _remember(key, job["fp"], out)
-            _COVERAGE_ERRORS.pop(key, None)
-            _WORK["computed"] += 1
-            _WORK["in_flight"] = None
-        log.info("corpus map recomputed: %s, %d bins (%.1f s, in a %s)", key[0], key[1], time.perf_counter() - t0,
-                 _WORK["mode"])
 
 
 def coverage_status() -> dict:

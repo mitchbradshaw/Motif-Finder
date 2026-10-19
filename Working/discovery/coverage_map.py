@@ -55,6 +55,62 @@ def ping() -> int:
     return os.getpid()
 
 
+def watch_parent():
+    """The worker pool's initializer: a daemon thread that ends this process the moment its parent is gone. A
+    bridge killed hard (no shutdown) otherwise leaves the worker alive, holding the sandbox database open (WinError
+    32 on the runtime's cleanup) — one leaked process per kill-restart (critic, corpus-map S1)."""
+    import multiprocessing
+    import os
+    import threading
+
+    parent = multiprocessing.parent_process()
+    if parent is None:
+        return
+
+    def _watch():
+        parent.join()
+        os._exit(0)
+    threading.Thread(target=_watch, daemon=True, name="corpus-map-parent-watch").start()
+
+
+def fingerprinted(conn, source_file: str, settings_keys, compute, **kw):
+    """`(stable fingerprint, map)` where the fingerprint names the state the map was computed from — never the state
+    some earlier reader saw (critic, corpus-map S5: a map stored under the scheduling read's fingerprint was served
+    as fresh after the database reverted to that state).
+
+    On a WAL database both are read inside one read transaction, i.e. one snapshot. On any other journal mode a long
+    read transaction would hold writers off for the whole recompute, so the fingerprint is taken before and after
+    instead; if they differ the fingerprint is None and the caller keeps nothing. `compute(conn, source_file, **kw)`
+    is the map's computation (`compute_conn`, or the bridge's patchable `_coverage`)."""
+    from Working.discovery import scoreboard as SB
+
+    def digest():
+        ids = [int(r["id"]) for r in q.list_recordings(conn, source_file)]
+        return SB.channels_fingerprint(conn, ids, {}, settings_keys=settings_keys, stable=True)
+
+    wal = str(conn.execute("PRAGMA journal_mode").fetchone()[0]).lower() == "wal"
+    if wal:
+        conn.execute("BEGIN")
+    try:
+        fp = digest()
+        out = compute(conn, source_file, **kw)
+        if not wal and digest() != fp:
+            fp = None
+    finally:
+        if wal:
+            conn.execute("COMMIT")
+    return fp, out
+
+
+def compute_fingerprinted(db_path: str, source_file: str, settings_keys, **kw):
+    """The worker's entry: `fingerprinted` over `compute_conn` on a read-only connection of its own."""
+    conn = connect_read_only(db_path)
+    try:
+        return fingerprinted(conn, source_file, settings_keys, compute_conn, **kw)
+    finally:
+        conn.close()
+
+
 def run_methods(conn, source_file: str, run_ids=None) -> list[dict]:
     """Every run on a recording file (with or without detections), with its method (the algorithms of its recipe),
     newest first. A run's null is not a method to filter Explore by (q.not_surrogate), nor is one window of a

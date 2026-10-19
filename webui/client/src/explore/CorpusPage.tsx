@@ -143,7 +143,9 @@ export function CorpusPage() {
         run: runIdFilter,
       })
         .then(c => { if (alive) setCov(c) })
-        .catch(e => { if (alive) setCovErr(asApiError(e)) })
+        // a failed recompute (or read) is the red card alone: the old map and its "recomputing…" line go, so the
+        // page never shows a stale map, a notice that work is under way, and the failure side by side
+        .catch(e => { if (alive) { setCov(null); setCovErr(asApiError(e)) } })
     }, 3000)
     return () => { alive = false; window.clearTimeout(timer) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -253,12 +255,12 @@ export function CorpusPage() {
               </div>
               <div className="mono" style={{ fontSize: 10, color: 'var(--muted-2)', marginBottom: 2 }}>channel</div>
               <div className="ex-map-wrap" onKeyDown={e => { if (e.key === 'Escape' && !e.defaultPrevented) { setCleared(true) } }}>
-                {cov && cov.source_file === fileName && cov.stale && !showLoading && (
+                {cov && cov.source_file === fileName && cov.stale && !covErr && !showLoading && (
                   <div className="meta" style={{ color: 'var(--muted-2)', marginBottom: 4 }} data-testid="coverage-stale"
                     title={`The runs or labels on this recording changed${cov.stale_since ? ` (${cov.stale_since})` : ''}; the map below is the last one computed, and the new one replaces it when the background recompute finishes.`}>
                     updating · the map is from before the last run; recomputing…</div>
                 )}
-                {cov && cov.source_file === fileName && cov.pending && !showLoading && (
+                {cov && cov.source_file === fileName && cov.pending && !covErr && !showLoading && (
                   <div className="meta" style={{ color: 'var(--muted-2)', marginBottom: 4 }} data-testid="coverage-pending"
                     title="Nobody has asked for this view of the map before, so it is being computed in the background; it appears here when it is ready.">
                     computing the map for the first time…</div>

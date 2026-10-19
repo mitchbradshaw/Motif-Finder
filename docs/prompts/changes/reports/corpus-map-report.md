@@ -153,12 +153,75 @@ exists and the home map recomputes once more after the walk (behind the page, ma
 
 ## What is left
 
-- **The read's fingerprint floor** (~0.3–0.5 s at 5 M detections), see above. It is the next candidate. Every
-  memory-hit read of this map pays it too, as at base.
+- **The read's fingerprint floor.** It is ~0.3–0.5 s cold at 5 M detections, and the critic measured 173–295 ms
+  warm, split 49 % adjudications (a CROSS JOIN), 27 % annotations, 17 % runs. Every memory-hit read of this map
+  pays it too, as at base. A `MAX(id)` "has anything changed" probe is **unsafe**: in-place verdict edits and soft
+  deletes do not move it. The cheap fix is per-file reads split per channel, or SQLite per-channel aggregates
+  (`COUNT`, `MAX(id)`, `TOTAL` of a row checksum). Both are `scoreboard.py` changes, for the next prompt.
 - **The detection map's levels 2 and 3** (`webui/server/discovery_map.py`, `Working/discovery/detection_map.py`:
   7.6 s and 3 s on the real database) are the next candidate for the same treatment. The pattern is a key, the last
   answer marked stale, and one worker. `coverage_map.py`'s split (`compute(db_path)` versus `compute_conn`) and the
   `_MainHidden` spawn guard can be reused as they are.
 - **The template scorer** (`discovery._drain_scoring`) still scores on a thread in the parent.
-- **No `Runtime.restore()` hook stops the worker.** It is a daemon process the pool's atexit joins. Tests call
-  `wait_coverage_idle` before tearing a database down. `runtime.py` is not in my files.
+- ~~No `Runtime.restore()` hook stops the worker~~: fixed in the fix round (S1, below).
+
+## Fix round (critic's S1–S5)
+
+- **S1. The worker dies with its bridge, and stopping it never waits for a map.**
+  - `coverage_map.watch_parent` is the pool's initializer: a daemon thread joins `multiprocessing.parent_process()`
+    and calls `os._exit(0)` when the parent is gone, however it went.
+  - `shutdown_coverage_pool` cancels queued futures, drops the queue and **terminates** the worker instead of
+    joining it. A map in flight is abandoned (`_Stopped`): nothing is kept, no failure is recorded, and the next
+    read schedules it again.
+  - The pool registers `shutdown_coverage_pool` as a threading-shutdown hook. Those hooks run last-registered
+    first, so it runs before `concurrent.futures` would join the worker.
+  - **`webui/server/runtime.py`** (outside my files, authorised by the manager): `Runtime.restore()` now calls
+    `corpus.shutdown_coverage_pool()`.
+  - Tests: `test_the_worker_dies_with_a_bridge_killed_hard_even_mid_compute` (a parent process with a busy worker
+    is killed; the child is gone within 30 s) and `test_stopping_the_worker_does_not_wait_for_the_map_in_flight`
+    (< 15 s with a 600 s job in flight).
+- **S2. A job that raises anything at all is a loud failure, and the queue lives on.**
+  - `_drain` catches `BaseException` and records it as that map's failure; a `finally` always clears `in_flight`.
+  - `.result()` has a timeout, `RESULT_TIMEOUT_S` = 2 × `WARM_WAIT_S` (1 h). Past it the worker is replaced and a
+    failure recorded.
+  - Test: `test_a_job_that_raises_any_base_exception_is_a_loud_failure_and_the_queue_lives_on` (thread mode, a
+    `BaseException` subclass: the queue goes idle, the next read raises `CoverageFailed`, other maps still drain).
+- **S3. A failed poll shows the red card alone.** The poll's failure clears the stale map, and both notices are
+  hidden while there is an error. The skeleton, notice and heatmap no longer sit beside the ErrorCard.
+- **S4. The smoke state is corrected.**
+  - The `_why` now says the disk cache keeps one file per question, so putting `iou` back is a second full
+    recompute.
+  - The state reloads after the restore and waits that recompute out too, so it leaves nothing behind.
+  - Each `wait_gone` is now 400 s; the whole state can take ~15 min on the real database.
+  - It also fixes a bug of mine: the original value was kept in `window`, which the reload clears, so the restore
+    would have sent `iou: undefined`. The value is now also kept in `sessionStorage`, with 0.5 as the fallback.
+- **S5. A map is kept under the state it read.**
+  - The worker returns `(stable fingerprint, map)` from `coverage_map.fingerprinted`. On a WAL database (the real
+    one, and its sandbox copy) both are read inside one read transaction, one snapshot.
+  - On any other journal mode a 100+ s read transaction would hold writers off, so the fingerprint is taken before
+    and after instead. If the two differ, nothing is kept and the next read schedules the map again.
+  - The parent writes the map to disk under the returned fingerprint, and into memory only when that equals the
+    scheduling read's.
+  - Tests:
+    - `test_a_map_is_kept_under_the_state_it_read_not_the_state_that_asked`: A is scheduled, the database moves to
+      B before the worker reads, then reverts to A. The answer is stale or A's map, never B's served as fresh.
+    - `test_the_worker_returns_the_fingerprint_of_what_it_read`.
+    - `test_on_a_wal_database_the_map_and_its_fingerprint_come_from_one_snapshot`.
+
+### Notes from the critic, recorded (no change)
+
+- The poll shortcut never answers "fresh". A poll of a queued key is always marked stale or pending; only a
+  fingerprinting read can say fresh.
+- **A `CoverageFailed` is not retried for the same state.** A transient failure, such as a 30 s busy timeout,
+  sticks as a red card until something on the channels or in the map's settings changes (or the bridge restarts).
+  It is loud, never silent, but it can outlive its cause.
+- `warm_coverage`'s wait of up to 30 min delays the template-score warm that follows it, as the warm's own compute
+  did before.
+- The fingerprint floor and what to do about it are under "What is left".
+
+### Fix-round runs
+
+- conda: `test_coverage_map_compute` (10), `test_perf_scoring_reads`, `test_import_boundaries`, `test_divergence`,
+  `test_surrogate_never_a_detection`, `test_windowed_explore`: **126 passed**.
+- webui/.venv: `test_webui_ar_speed`, `test_webui_corpus`, `test_coverage_map_compute`: **35 passed**.
+- `tsc -b` and `vite build` pass through the junction.

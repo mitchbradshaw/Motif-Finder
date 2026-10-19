@@ -144,3 +144,104 @@ def test_without_the_guard_a_spawned_child_would_import_the_bridge(tmp_path, mon
     with ProcessPoolExecutor(max_workers=1, mp_context=mp.get_context("spawn")) as pool:
         loaded = pool.submit(CM.child_modules, UI_MODULES).result(timeout=180)
     assert "webui.server.corpus" in loaded
+
+
+def _alive(pid):
+    """Is process `pid` running? (Windows: `os.kill(pid, 0)` would terminate it.)"""
+    if os.name == "nt":
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.OpenProcess(0x1000, False, int(pid))        # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        k.GetExitCodeProcess(h, ctypes.byref(code))
+        k.CloseHandle(h)
+        return code.value == 259                           # STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def test_the_worker_dies_with_a_bridge_killed_hard_even_mid_compute(tmp_path):
+    """Critic S1: a bridge killed hard left its worker alive (~39 MB, the sandbox database held open → WinError 32 on
+    the runtime's cleanup), one per kill-restart. The worker watches its parent and exits when it is gone."""
+    import subprocess
+    import time
+
+    script = tmp_path / "bridge.py"
+    script.write_text(
+        "import sys, time\n"
+        f"sys.path.insert(0, {PROJECT_ROOT!r})\n"
+        "from webui.server import corpus\n"
+        "pool = corpus.coverage_pool()\n"
+        "pool.submit(time.sleep, 600)\n"                  # busy: a map in flight
+        "time.sleep(1)\n"
+        "print(corpus.coverage_status()['pool_pid'], flush=True)\n"
+        "time.sleep(600)\n", encoding="utf-8")
+    proc = subprocess.Popen([sys.executable, str(script)], stdout=subprocess.PIPE, text=True)
+    try:
+        child = int(proc.stdout.readline().strip())
+        assert _alive(child)
+    finally:
+        proc.kill()
+        proc.wait(30)
+    deadline = time.time() + 30
+    while _alive(child) and time.time() < deadline:
+        time.sleep(0.5)
+    assert not _alive(child), "the worker outlived its killed parent"
+
+
+def test_stopping_the_worker_does_not_wait_for_the_map_in_flight():
+    """Critic S1: a normal exit waited out the job in flight (a real recompute is 100–260 s). The worker is
+    terminated, not joined."""
+    import time
+
+    from webui.server import corpus
+    corpus.shutdown_coverage_pool()
+    pool = corpus.coverage_pool()
+    assert pool is not None
+    pid = corpus.coverage_status()["pool_pid"]
+    pool.submit(time.sleep, 600)
+    time.sleep(0.5)
+    t0 = time.time()
+    corpus.shutdown_coverage_pool()
+    assert time.time() - t0 < 15, f"stopping the worker took {time.time() - t0:.0f} s"
+    deadline = time.time() + 15
+    while _alive(pid) and time.time() < deadline:
+        time.sleep(0.2)
+    assert not _alive(pid)
+
+
+def test_the_worker_returns_the_fingerprint_of_what_it_read(dbs):
+    """Critic S5: the map comes back with the stable fingerprint of the state it was computed from."""
+    from Working.discovery import coverage_map as CM
+    from Working.discovery import scoreboard as SB
+    from webui.server import corpus
+    conn, path = dbs["scored"]
+    fp, out = CM.compute_fingerprinted(path, "cache.mat", corpus.COVERAGE_SETTINGS, bins=10)
+    ids = [r["id"] for r in conn.execute("SELECT id FROM recordings WHERE source_file = 'cache.mat'")]
+    assert fp == SB.channels_fingerprint(conn, ids, settings_keys=corpus.COVERAGE_SETTINGS, stable=True)
+    assert _digest(out) == GOLDEN[("scored", "bins10")]
+
+
+def test_on_a_wal_database_the_map_and_its_fingerprint_come_from_one_snapshot(dbs):
+    """The real database runs in WAL mode (`Runtime`): there the worker reads both inside one read transaction."""
+    from Working.discovery import coverage_map as CM
+    from webui.server import corpus
+    conn, path = dbs["scored"]
+    assert conn.execute("PRAGMA journal_mode=WAL").fetchone()[0].lower() == "wal"
+    seen = []
+
+    def compute(c, source_file, **kw):
+        seen.append(c.in_transaction)
+        return CM.compute_conn(c, source_file, **kw)
+    ro = CM.connect_read_only(path)
+    try:
+        fp, out = CM.fingerprinted(ro, "cache.mat", corpus.COVERAGE_SETTINGS, compute, bins=10)
+        assert seen == [True] and not ro.in_transaction and fp
+    finally:
+        ro.close()
+    assert _digest(out) == GOLDEN[("scored", "bins10")]

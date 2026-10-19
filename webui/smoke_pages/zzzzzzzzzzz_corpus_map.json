@@ -2,17 +2,20 @@
  {
   "page": "explore.corpus",
   "state": "corpus-map-stale-at-once-then-fresh",
-  "_why": "corpus-map-off-the-request: a read never computes the corpus map. After a setting the map reads (analysis-defaults iou) changes, the home page draws the LAST map at once with a muted 'updating' notice over it (coverage-stale) while a worker process recomputes, re-reads every 3 s, and drops the notice when the fresh map lands. Before, the read recomputed inside the request (~100 s on the post-RQ4 database) and every page stalled behind it. The final action puts iou back; the map for the original setting is still on disk, so the home page is fresh again at once.",
+  "_why": "corpus-map-off-the-request: a read never computes the corpus map. After a setting the map reads (analysis-defaults iou) changes, the home page draws the LAST map at once with a muted 'updating' notice over it (coverage-stale) while a worker process recomputes, re-reads every 3 s, and drops the notice when the fresh map lands. Before, the read recomputed inside the request (~100 s on the post-RQ4 database) and every page stalled behind it. The disk cache keeps ONE file per question, so the recompute for the changed iou overwrites the map of the original setting: putting iou back is a second change and a SECOND full recompute. The state re-reads after the restore and waits that one out too, so it leaves no recompute behind. The waits are 400 s each (a full-fixture recompute took 148-259 s under load); the whole state can take ~15 min on the real database. If iou was never saved before, the restore writes 0.5 explicitly (a settings row now exists).",
   "hash": "explore/corpus?rec=M2_aug_concat_fs1.mat",
   "actions": [
    {"wait_for": ["[data-testid=\"corpus-heatmap\"]", 180000]},
-   {"wait_gone": ["[data-testid=\"coverage-stale\"]", 180000]},
-   {"eval": "async () => { const g = await fetch('/api/settings/analysis-defaults').then(r => r.json()); const was = (g.values && typeof g.values.iou === 'number') ? g.values.iou : 0.5; window.__ubSmokeIou = was; const r = await fetch('/api/settings/analysis-defaults', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({values: {iou: was === 0.49 ? 0.48 : 0.49}, actor: 'smoke corpus-map', previous: {iou: was}})}); if (!r.ok) throw new Error('PUT analysis-defaults iou: ' + r.status + ' ' + await r.text()) }"},
+   {"wait_gone": ["[data-testid=\"coverage-stale\"]", 400000]},
+   {"eval": "async () => { const g = await fetch('/api/settings/analysis-defaults').then(r => r.json()); const was = (g.values && typeof g.values.iou === 'number') ? g.values.iou : 0.5; window.__ubSmokeIou = was; try { sessionStorage.setItem('ub-smoke-iou', String(was)) } catch (e) {} const r = await fetch('/api/settings/analysis-defaults', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({values: {iou: was === 0.49 ? 0.48 : 0.49}, actor: 'smoke corpus-map', previous: {iou: was}})}); if (!r.ok) throw new Error('PUT analysis-defaults iou: ' + r.status + ' ' + await r.text()) }"},
    {"reload": true},
    {"wait_for": ["[data-testid=\"coverage-stale\"]", 2000]},
    {"wait_for": ["[data-testid=\"corpus-heatmap\"]", 2000]},
-   {"wait_gone": ["[data-testid=\"coverage-stale\"]", 180000]},
-   {"eval": "async () => { const was = window.__ubSmokeIou; const r = await fetch('/api/settings/analysis-defaults', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({values: {iou: was}, actor: 'smoke corpus-map'})}); if (!r.ok) throw new Error('restoring analysis-defaults iou: ' + r.status + ' ' + await r.text()) }"}
+   {"wait_gone": ["[data-testid=\"coverage-stale\"]", 400000]},
+   {"eval": "async () => { let was = window.__ubSmokeIou; if (typeof was !== 'number') { try { was = Number(sessionStorage.getItem('ub-smoke-iou')) } catch (e) {} } if (typeof was !== 'number' || !isFinite(was)) was = 0.5; const r = await fetch('/api/settings/analysis-defaults', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({values: {iou: was}, actor: 'smoke corpus-map'})}); if (!r.ok) throw new Error('restoring analysis-defaults iou: ' + r.status + ' ' + await r.text()) }"},
+   {"reload": true},
+   {"wait_for": ["[data-testid=\"corpus-heatmap\"]", 2000]},
+   {"wait_gone": ["[data-testid=\"coverage-stale\"]", 400000]}
   ],
   "expect": ["[data-testid=\"corpus-heatmap\"]"],
   "expect_absent": ["[data-testid=\"coverage-stale\"]", "[data-testid=\"coverage-pending\"]", "[data-testid=\"render-error\"]"],
