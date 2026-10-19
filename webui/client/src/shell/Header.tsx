@@ -64,9 +64,9 @@ export function Header({ workspace, page, subtitle, search = 'Search spans, runs
       <style>{`
         .hdr { height: var(--header-h); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: var(--bg); border-bottom: 1px solid var(--border); flex: none; }
         .hdr-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 auto; }
-        .hdr-ws { font-weight: 700; font-size: 15px; }
-        .hdr-page { font-size: 13.5px; color: var(--text-2); }
-        .hdr-sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hdr-ws { font-weight: 700; font-size: 15px; white-space: nowrap; }
+        .hdr-page { font-size: 13.5px; color: var(--text-2); white-space: nowrap; }
+        .hdr-sub { font-size: 11px; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .hdr-right { display: flex; align-items: center; gap: 8px; flex: none; }
         .hdr-search { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--border); color: var(--muted); font-size: 11.5px; min-width: 280px; cursor: text; white-space: nowrap; }
         .hdr-search kbd { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--muted-2); }
