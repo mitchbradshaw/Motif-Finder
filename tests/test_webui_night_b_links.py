@@ -1,0 +1,32 @@
+"""
+test_webui_night_b_links.py
+===========================
+night-b: links into Library › Family that the family page does not read.
+
+The family page takes its id from the PATH (`#/library/family/<id>`, `library/index.tsx` routes on `parts[0]`).
+Interrogation's *Open in Library →* wrote `#/library/family?family=id001`: the page saw no id and drew the
+grouping's FIRST family (F-01) under the Library header — a different family from the one the button named, with
+nothing on screen to say so (driven on the night fixture: source id001 → "F-01 · grouping g-01"). Source-level:
+no client file builds a family link from a `?family=` query.
+"""
+import glob
+import io
+import os
+import re
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CLIENT_SRC = os.path.join(PROJECT_ROOT, "webui", "client", "src")
+
+
+def test_no_family_link_names_the_family_in_a_query():
+    bad = []
+    for path in glob.glob(os.path.join(CLIENT_SRC, "**", "*.ts*"), recursive=True):
+        src = io.open(path, encoding="utf-8").read()
+        for m in re.finditer(r"library/family\?family=", src):
+            bad.append(f"{os.path.relpath(path, CLIENT_SRC)}:{src[:m.start()].count(chr(10)) + 1}")
+    assert not bad, f"the family page reads its id from the path, not ?family=: {bad}"
+
+
+def test_interrogation_opens_the_family_it_names():
+    src = io.open(os.path.join(CLIENT_SRC, "interrogation", "SourcePage.tsx"), encoding="utf-8").read()
+    assert re.search(r"navigate\(`library/family/\$\{encodeURIComponent\(fam\.id\)\}`\)", src)
