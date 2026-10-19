@@ -144,3 +144,45 @@ porting all seven views is block-by-block work, and half of it would draw some b
 943b6d9 reports: the detection-run report — core renderer, reports table, bridge routes
 75f2e76 reports: failing tests for the detection-run report (core and bridge)
 ```
+
+## Critic round (2026-10-19)
+
+**In plain words.** One real problem: in a normal (project) start, a saved report went into the repository's
+`Results/` folder, which git tracks. Every save would have left new files waiting in `git status`, one careless
+`git add -A` away from landing in the history. Saved reports now go to `DATA/derived/reports/` in a project start
+(git ignores everything under `DATA/`); in a sandbox they stay in the sandbox's own results folder. The rest held up.
+
+**Fixed**
+
+- *Should-fix.* Project-mode snapshot root moved from `REPO_ROOT/Results/reports` to `REPO_ROOT/DATA/derived/reports`
+  (`webui/server/reports.py` `_results_root`). The prompt says "under the run's results folder"; a Discovery run has
+  no results folder of its own, and a tracked folder is the wrong home for per-machine output, so the defensible
+  reading is a git-ignored derived folder, beside the `window_sets` a project start already keeps in `DATA/derived`.
+  Test: `test_a_project_start_saves_snapshots_in_a_git_ignored_folder_not_the_tracked_results` (red at `f38e764`).
+- *Minor.* Two concurrent saves in one second could both pass `os.path.exists` and share a folder; the folder is now
+  claimed with `os.mkdir` (retry `-2`, `-3`, ...).
+- *Minor.* The Report page's InfoTip says where snapshots go; the smoke unit waits up to 300 s (the client's own read
+  timeout) for a render instead of 180 s.
+
+**Checked, no change**
+
+- The six sections in the decided order, four PNGs (three with the null off), Figure + Agg only, no `rcParams`
+  change, no `pyplot`; renders serialised by a lock (other routes are not blocked; a second report waits).
+- Calling `discovery.get_scoreboard` / `get_fires` / `get_detection_window` directly is safe: plain keyword defaults
+  (no `Query()`/`Depends()`), the `Request` is used only for `app.state`, each opens its own connection, and the
+  held-out 423 comes from `_session_scope` first.
+- The Markdown-vs-route test reads the scoreboard independently over HTTP, so a wrong number fails it; the formatting
+  port is the shared risk (it uses the same `score_cells`) and is pinned separately by the half-up tests.
+- Zero detections, no scoreboard, an empty fires payload, null off, 16 channels: renders (scratch check).
+- `/files/{name}`: `..`, separators and drive prefixes are refused (400); a missing file is 404; `exists` reads
+  `report.html`.
+- Report buttons are `variant="primary"` (= `--blue-muted`), one hunk each in `chrome.tsx` `RunRow` and
+  `RunsPage.tsx` `RunActs`; separable for the next prompt.
+
+**Left / risks**
+
+- Save snapshot renders the report a second time (one more full gather). Acceptable for a deliberate act.
+- First render time on the post-RQ4 walk database is unmeasured; the walk's section is 80–84 h, which keeps the
+  scoreboard and fires reads small; the map read covers every Discovery run on the recording.
+- `tests/test_webui_seed_on_demand_client.py` 1 failure is the base's `zzzzzzzzzzz_ar_speed.json` ordering (fixed on
+  main); this unit is not named in it.
