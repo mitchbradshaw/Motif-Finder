@@ -327,3 +327,17 @@ recompute per read (BACKLOG speed row). The other pages returned 200 in 0.3–4 
 
 Morning: full walk at ~05:53 on a fresh sandbox copy of this database, compared by set with `wave2_fails.txt` (38);
 then one restart of 8765 (the HPC session needs nothing from the 22:48 process).
+
+**Night C merged 00:4x as 293a8fc** (polish and load, site-wide; report `docs/prompts/changes/reports/night-c-report.md`).
+Gate on the merged tree: `tests/test_night_c_shell.py` + import boundaries (conda, 17 passed), tsc, build (entry
+chunk 472.7 → 441.9 kB); units `review` (24 shots / 3 fails), `explore` (45 / 8), `analyse` (47 / 0), `jobs` (15 / 0),
+`zzzzzzzzzzz_polish` (13 / 0) on a fresh 8766 sandbox of the final database (bridge started 00:34, warm 25 files,
+22 current, 3 scheduled on the worker). Every failure is in `wave2_fails.txt` except `explore.corpus--held-out`,
+`explore.signal--held-out` and `explore.cross-channel--held-out`, all "missing locked-card": `GET /api/held-out` on
+the sandbox copy says `locked: false, on: false` (M4_aug_concat_fs1) — the held-out lock is OFF in the final database,
+so no locked card can render; a data drift, not the shell (CSS and a shared header read cannot remove a data-driven
+card). **Expect the same three in the morning walk and read them as drift.** C's three worst unfixed things, filed
+and forwarded to A and B (their files): the Review queue open sends all rows (7.0 MB at 9,743; 7–17 s to the first
+candidate); Explore › Signal awaits the whole channel's spans (526 kB, 153 s on a loaded bridge) before tier 2 and
+`GET /api/channels/{id}` recomputes its ribbons every call (4.6 s in process); Discovery's run rows squash to 18 px
+with 60 runs (`.dsc-run { flex: none; }`). The need-you chip is now at most 15 s stale between pages (assumed).
