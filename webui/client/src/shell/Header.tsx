@@ -3,7 +3,7 @@
    amber while it is off — a2-p1) on the right. A page that rendered any fixture read passes `demo` and gets
    the "demo data" chip (brief: fixture pages say so in the header). */
 import type { ReactNode } from 'react'
-import { useReviewNeedYou } from '../api/needYou'
+import { useSharedNeedYou } from './needYouShared'
 import { navigate, useApp } from '../state'
 import { useNotWired } from '../kit/notWired'
 import { useHeldOutLock } from './heldOutLock'
@@ -28,7 +28,8 @@ export function Header({ workspace, page, subtitle, search = 'Search spans, runs
   // fixture constant 3 while /api/review/counts said 160 — the one number in the
   // chrome that is supposed to tell a researcher there is work waiting, and it
   // was decoration.
-  const review = useReviewNeedYou()
+  // night-c: one shared read for every header (a page mounts its header twice; the route costs seconds at scale)
+  const review = useSharedNeedYou()
   const total = needYou + review
   return (
     <header className="hdr" data-testid="header">
@@ -63,13 +64,16 @@ export function Header({ workspace, page, subtitle, search = 'Search spans, runs
       <style>{`
         .hdr { height: var(--header-h); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: var(--bg); border-bottom: 1px solid var(--border); flex: none; }
         .hdr-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 auto; }
-        .hdr-ws { font-weight: 700; font-size: 15px; }
-        .hdr-page { font-size: 13.5px; color: var(--text-2); }
-        .hdr-sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .hdr-right { display: flex; align-items: center; gap: 8px; }
-        .hdr-search { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--border); color: var(--muted); font-size: 11.5px; min-width: 280px; cursor: text; }
+        .hdr-ws { font-weight: 700; font-size: 15px; white-space: nowrap; }
+        .hdr-page { font-size: 13.5px; color: var(--text-2); white-space: nowrap; }
+        .hdr-sub { font-size: 11px; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hdr-right { display: flex; align-items: center; gap: 8px; flex: none; }
+        .hdr-search { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--border); color: var(--muted); font-size: 11.5px; min-width: 280px; cursor: text; white-space: nowrap; }
         .hdr-search kbd { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--muted-2); }
         button.chip { cursor: pointer; }
+        @media (max-width: 1240px) {
+          .hdr-search { min-width: 0; } .hdr-search > span { display: none; }
+        }
         .chip.demo { background: #fff; border: 1px dashed var(--amber); color: #a05e00; height: 22px; font-size: 10.5px; }
       `}</style>
     </header>

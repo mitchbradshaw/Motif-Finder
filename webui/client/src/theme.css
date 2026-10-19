@@ -61,7 +61,7 @@ body {
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
-  min-width: 1200px;
+  min-width: 1024px;   /* night-c: was 1200 px - at 1024x700 the whole app scrolled sideways */
 }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
