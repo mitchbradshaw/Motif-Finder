@@ -230,7 +230,10 @@ function CrossBody({ data }: { data: CrossRead }) {
   useEffect(() => {
     if (!overlay) return
     let live = true
-    Promise.all(data.channels.map(c => getSpans(c.id, t0, t1).then(sp => [c.id, sp.detections.map(d => ({ id: d.id, t0: d.start_s, t1: d.end_s }))] as const)))
+    // a window that starts before 0 s (a span near the recording's start, padded) would be refused by /spans
+    const [r0, r1] = [Math.max(0, t0), t1]
+    if (!(r1 > r0)) { setOvDet({ key: detKey, byId: new Map(), error: null }); return }
+    Promise.all(data.channels.map(c => getSpans(c.id, r0, r1).then(sp => [c.id, sp.detections.map(d => ({ id: d.id, t0: d.start_s, t1: d.end_s }))] as const)))
       .then(all => { if (live) setOvDet({ key: detKey, byId: new Map(all), error: null }) })
       .catch(e => { if (live) setOvDet({ key: detKey, byId: new Map(), error: `detections could not be read: ${asApiError(e).message}` }) })
     return () => { live = false }
@@ -242,6 +245,15 @@ function CrossBody({ data }: { data: CrossRead }) {
   const ovShift = (id: number) => { const c = ovChannels.find(o => o.id === id); return c ? overlayShift(c, align === 'lag', ref, maxLag) : 0 }
   // the box is on the reference's clock; a lag-aligned channel's own clock is the box plus its shift
   const topBold = ovChannels.find(c => bold.includes(c.id)) ?? null
+  // overlay critic: Send and Mark write ONE window (the box, on the reference's clock) for every channel they touch.
+  // A channel that align-by-lag has slid is drawn from its own [box + shift], so writing the box for it would put a
+  // verdict on samples the researcher did not see. Under align, the box acts only on the channels drawn unshifted
+  // (the reference, and any channel whose lag is 0, undefined or past max lag); the caption names the rest.
+  const unshifted = (id: number) => ovShift(id) === 0
+  const actBold = bold.filter(unshifted)
+  const shiftedBold = ovChannels.filter(c => bold.includes(c.id) && !unshifted(c.id))
+  const actArtifactChannels = useMemo(() => align === 'lag' ? data.channels.filter(c => { const o = ovChannels.find(x => x.id === c.id); return !o || overlayShift(o, true, ref, maxLag) === 0 }) : data.channels,
+    [align, data, ovChannels, ref, maxLag])
   const openOneInSignal = (id: number) => {
     if (!brush) return
     const sh = ovShift(id)
@@ -362,7 +374,7 @@ function CrossBody({ data }: { data: CrossRead }) {
                   title="draw the box over the window's own span (the shaded region) — the same as dragging across it">box the span</button>
                 <span className="ex-links"><button type="button" onClick={() => setBold(ovChannels.map(c => c.id))} data-testid="ov-all">all</button> · <button type="button" onClick={() => setBold([])} data-testid="ov-none">none</button></span>
                 <span className="muted mono small" data-testid="ov-bold-count">{bold.length} bold</span>
-                <InfoTip title="Overlay" placement="bottom-end">Every channel of the recording over the same window, on one axis. Each trace is drawn about its own mean over the window (the electrodes sit volts apart in DC offset, so drawn as recorded they would not share a screen), in equal lanes by channel order, at <b>one shared gain</b> so a bigger wiggle still looks bigger; a trace that runs past the block is clipped, never rescaled. <b>Align by lag</b> slides each channel by the lag measured against {refName} (the number beside its name; a lag past max lag ±{maxLag} s is left in place). The box is on {refName}&rsquo;s clock: Send and Mark use it as drawn; Open in Signal and Open in Analyse add the channel&rsquo;s shift. Keys (click the plot first): ↑ / ↓ move the bold channel, A aligns, Esc clears the box.</InfoTip>
+                <InfoTip title="Overlay" placement="bottom-end">Every channel of the recording over the same window, on one axis. Each trace is drawn about its own mean over the window (the electrodes sit volts apart in DC offset, so drawn as recorded they would not share a screen), in equal lanes by channel order, at <b>one shared gain</b> so a bigger wiggle still looks bigger; a trace that runs past the block is clipped, never rescaled. <b>Align by lag</b> slides each channel by the lag measured against {refName} (the number beside its name; a lag past max lag ±{maxLag} s is left in place). The box is on {refName}&rsquo;s clock: Send and Mark write it for the channels drawn unshifted (with align on, a channel slid by its lag is left out of both, so no verdict lands on samples you did not see; turn align off to act on it); Open in Signal and Open in Analyse add the channel&rsquo;s shift. Keys (click the plot first): ↑ / ↓ move the bold channel, A aligns, Esc clears the box.</InfoTip>
               </div>
               {ovDet?.error && <div className="ex-warn" data-testid="ov-det-error"><Icon name="alert-triangle" size={13} /><span>{ovDet.error}</span></div>}
               {ovSize.width > 0 && <Overlay channels={ovChannels} window={[t0, t1]} selected={bold} onSelect={setBold} brush={brush} onBrush={setBrush}
@@ -375,10 +387,11 @@ function CrossBody({ data }: { data: CrossRead }) {
               {brush && (
                 <div className="ex-ov-actions" data-testid="overlay-actions">
                   <div className="muted small" data-testid="overlay-box-caption">
-                    Box {(brush[0] - data.window.motifStartS).toFixed(1)} s … {(brush[1] - data.window.motifStartS).toFixed(1)} s from onset ({(brush[1] - brush[0]).toFixed(1)} s) on the {bold.length} bold channel{bold.length === 1 ? '' : 's'}{align === 'lag' ? `, on ${refName}’s clock` : ''}.
+                    Box {(brush[0] - data.window.motifStartS).toFixed(1)} s … {(brush[1] - data.window.motifStartS).toFixed(1)} s from onset ({(brush[1] - brush[0]).toFixed(1)} s) on the {actBold.length} bold channel{actBold.length === 1 ? '' : 's'}{align === 'lag' ? `, on ${refName}’s clock` : ''}.
+                    {shiftedBold.length > 0 && <span className="muted" data-testid="overlay-box-shifted" data-shifted={shiftedBold.length}> Send and Mark leave out {shiftedBold.map(c => `${c.name} (${fmtShift(ovShift(c.id))})`).join(', ')}: align slid {shiftedBold.length === 1 ? 'it' : 'them'} off {refName}’s clock, so the box is not the window drawn for {shiftedBold.length === 1 ? 'it' : 'them'} — turn align off to send or mark {shiftedBold.length === 1 ? 'it' : 'them'}.</span>}
                     <button type="button" className="ex-link" onClick={() => setBrush(null)} data-testid="overlay-box-clear" style={{ marginLeft: 8 }}>clear</button>
                   </div>
-                  <SpanActionStrip window={brush} reviewChannels={bold} artifactChannels={data.channels} referenceId={ref} defaultArtifactIds={bold}
+                  <SpanActionStrip window={brush} reviewChannels={actBold} artifactChannels={actArtifactChannels} referenceId={ref} defaultArtifactIds={actBold}
                     origin="cross-channel" note="overlay box" windowWhat="the box" onZoom={zoomToBrush} onOpenInAnalyse={topBold ? openBoldInAnalyse : undefined}
                     disabledReason={bold.length ? undefined : 'make at least one channel bold — the box acts on the bold channels'} testid="overlay-action-strip"
                     extra={bold.length > 1

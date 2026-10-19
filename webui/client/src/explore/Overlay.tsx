@@ -17,7 +17,7 @@
    The parent owns the selection, the align switch and the box; this component draws and reports. Near-sibling:
    CrossChannelPage's stacked rows (one svg per row, crossScale.ts::stackGeom) — not reused because a stack gives each
    row its own box, and the overlay's point is one box. */
-import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { scaleLinear } from 'd3'
 import { makeX, polylinePath } from '../charts/scale'
 import { mvDigits } from './util'
@@ -130,6 +130,7 @@ export function Overlay(p: OverlayProps) {
   const [hoverT, setHoverT] = useState<number | null>(null)
   const [drag, setDrag] = useState<{ x0: number; x1: number } | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+  const clipId = `ex-ov-clip-${useId().replace(/:/g, '')}`   // one id per mounted overlay (Discovery may mount a second)
   const localX = (e: PointerEvent) => { const r = svgRef.current!.getBoundingClientRect(); return Math.max(0, Math.min(plotW, e.clientX - r.left)) }
   const localY = (e: PointerEvent) => e.clientY - svgRef.current!.getBoundingClientRect().top
 
@@ -202,10 +203,10 @@ export function Overlay(p: OverlayProps) {
         })}
       </div>
       <svg ref={svgRef} width={plotW} height={H} className="ex-ov-svg" data-plot-box="">
-        <defs><clipPath id="ex-ov-clip"><rect x={0} y={0} width={plotW} height={H} /></clipPath></defs>
+        <defs><clipPath id={clipId}><rect x={0} y={0} width={plotW} height={H} /></clipPath></defs>
         {p.band && <rect x={x(p.band[0])} y={0} width={Math.max(0, x(p.band[1]) - x(p.band[0]))} height={H} fill="var(--band-selected)" data-testid="ov-band" />}
         {(p.ticks ?? []).map(k => <line key={k.t} x1={x(k.t)} x2={x(k.t)} y1={0} y2={H} stroke="var(--border)" strokeOpacity={0.6} />)}
-        <g clipPath="url(#ex-ov-clip)" data-trace="">
+        <g clipPath={`url(#${clipId})`} data-trace="">
           {/* faded first, bold last, so a bold trace is never painted under a faded one */}
           {channels.map((c, i) => ({ c, i })).sort((a, b) => Number(bold.has(a.c.id)) - Number(bold.has(b.c.id))).map(({ c, i }) => {
             const on = bold.has(c.id)
