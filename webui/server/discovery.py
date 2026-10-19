@@ -37,6 +37,7 @@ import os
 import re
 import threading
 import time
+import uuid
 
 import numpy as np
 from fastapi import APIRouter, Body, HTTPException, Request
@@ -394,6 +395,7 @@ def _fail_lost_runs(request, conn, session_id):
     hand the dead run back as the same run. A job this process does not hold
     cannot be running, so the row says what happened."""
     live = request.app.state.manager.jobs
+    lost_keep = False
     for row in conn.execute("SELECT id, job_id, params_json FROM discovery_runs WHERE session_id = ? "
                             "AND status = 'running' AND job_id IS NOT NULL", (int(session_id),)).fetchall():
         if int(row["job_id"]) in live:
@@ -404,7 +406,12 @@ def _fail_lost_runs(request, conn, session_id):
         params["error"] = LOST_RUN
         conn.execute("UPDATE discovery_runs SET status = 'failed', params_json = ?, updated_at = ? WHERE id = ?",
                      (json.dumps(params), _now(), int(row["id"])))
+        if (params.get("null") or {}).get("kept"):
+            lost_keep = True
     conn.commit()
+    if lost_keep:
+        # seed-search critic round: a keep lost in a restart left the preview's matches in the step cache
+        _take_back_lost_keeps(conn)
 
 
 def _reviewed_h(conn, chans, span):
@@ -1814,16 +1821,29 @@ class SeedBody(BaseModel):
     exclusion: float | None = None
     #: the run's null (the researcher, 2026-10-09): `preview` reuses the draws the
     #: preview made (5 over a long scope, 200 over a short one) and writes the
-    #: matches alone; `paired` draws 200 as chain runs (rigorous, hours); `off`
-    #: draws none — a quick, exploratory run whose matches still go to Review
+    #: matches alone; `paired` draws 200 as chain runs (rigorous, hours).
+    #: seed-search (2026-10-18): `off` is gone — the quick run it stood for is the
+    #: preview's matches kept (`POST /seed/keep`), whose null is the preview's
     nullMode: str = "preview"
 
 
-NULL_MODES = ("preview", "paired", "off")
+NULL_MODES = ("preview", "paired")
+#: seed-search: the retired mode, which a page opened before 2026-10-18 may still put in a READ
+RETIRED_NULL_MODE = "off"
 
 
-def _null_mode(value):
+def _null_mode(value, *, read=False):
+    """A run's null mode. ``off`` was retired on 2026-10-18: a run asking for it
+    is refused with the reason; a read that still carries it (an old page's
+    estimate) reads as ``preview``."""
     mode = (value or "preview").strip().lower()
+    if mode == RETIRED_NULL_MODE:
+        if read:
+            return "preview"
+        raise HTTPException(422, {"message": (
+            "nullMode 'off' is no longer offered: a seed run's null is the preview's draws ('preview') or "
+            "200 paired surrogate runs per channel ('paired'). To keep the preview's matches as they are, "
+            "use POST /api/discovery/seed/keep")})
     if mode not in NULL_MODES:
         raise HTTPException(422, {"message": f"nullMode must be one of {NULL_MODES}, got {value!r}"})
     return mode
@@ -1936,7 +1956,7 @@ def _seed_estimate(conn, s, n_samples, n_channels, want):
 def get_seed_estimate(request: Request, channels: str = "", t0: float = 0.0, t1: float = 0.0,
                       seedId: str = "", k: int = 200, scales: str = "", overlap: str | None = None,
                       exclusion: float | None = None, nullMode: str = "preview"):
-    mode = _null_mode(nullMode)
+    mode = _null_mode(nullMode, read=True)
     if mode == "preview" and not seedId:
         mode = "paired"            # no seed, no preview to speak of: the paired figure, as before
     c = _conn(request)
@@ -1956,7 +1976,7 @@ def get_seed_estimate(request: Request, channels: str = "", t0: float = 0.0, t1:
                             overlap=overlap, exclusion=exclusion, null=null) if seedId and mode == "preview" else None
         out["run"]["reusesPreview"] = pre is not None
         out["run"]["nullMode"] = mode
-        if pre is not None or mode == "off":
+        if pre is not None:
             work = _seed_work(max(0, span[1] - span[0]), len(chans), 0)
             out["run"].update({"draws": 0, "work": work, "seconds": work / out["run"]["rate"],
                                "previewDraws": (int(pre["null"]["draws"]) if pre is not None else None)})
@@ -2062,6 +2082,8 @@ def _assemble_seed_result(conn, seed, chans, span, computed, null, *, scales=Non
             candidates.append({
                 "id": f"{ch['name']}:{at}",
                 "d": round(c_["distance"], 4), "channel": ch["name"],
+                # seed-search: the block's own distance, unrounded — what a kept match is cut by and scored with
+                "distance": float(c_["distance"]),
                 "atH": round(at / fs / 3600.0, 5),
                 "index": at, "judged": False, "verdict": None,
                 # fixup-v: the length the match was found at, as a factor of the seed's
@@ -2754,12 +2776,14 @@ def _surrogate_for(conn, kind=seeded_search.DETECTION_KIND, s=None):
 
 
 def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
-                 surrogate_params=None, prelude=None, on_done=None):
+                 surrogate_params=None, prelude=None, on_done=None, on_exit=None):
     """One fan-out, one `sweep` job, per-channel progress. The job writes the
     run group id back onto the `discovery_runs` row as soon as it has one, so a
     page that reloads mid-sweep still finds the runs. ``on_done(conn, out)`` runs
     once the row reads its final status (round A_2, P2: a chain import stamps
-    ``hpc.importedAt`` there, not before the sweep has written the run)."""
+    ``hpc.importedAt`` there, not before the sweep has written the run).
+    ``on_exit(conn)`` runs last whatever happened — done, cancelled or failed
+    (seed-search: the keep takes back the step-cache entries it laid)."""
     db_path = request.app.state.rt.db_path
 
     def run(job):
@@ -2843,7 +2867,11 @@ def _start_sweep(request, *, session_id, run_key, plan, label, surrogate=True,
             conn2.commit()
             raise
         finally:
-            conn2.close()
+            try:
+                if on_exit is not None:
+                    on_exit(conn2)
+            finally:
+                conn2.close()
 
     job = request.app.state.manager.start_job("sweep", run, meta={
         "what": label, "run_key": run_key, "channels": plan["channels"],
@@ -3173,7 +3201,7 @@ def run_seed_search(request: Request, body: SeedBody):
                 # no preview in yet: the job draws the preview's null first (the same cheap
                 # computation the page makes), stores it for the page, then writes the matches
                 prelude, pre_draws, pre_s = _preview_prelude(request, c, s, body, seed, names, span, snull)
-        no_draws = (pre is not None) or (prelude is not None) or mode == "off" or not plan["null"]["paired"]
+        no_draws = (pre is not None) or (prelude is not None) or not plan["null"]["paired"]
         if no_draws:
             plan["null_draws"] = 0
             plan["estimate_s"] = plan["estimate_real_s"]
@@ -3189,9 +3217,6 @@ def run_seed_search(request: Request, body: SeedBody):
                             "draws": int(pre["null"]["draws"]), "drawn": int(pre["null"]["draws"]),
                             "method": pre["null"].get("method"), "key": pre["key"],
                             "expectsByChannel": _null_expects(pre["nullByChannel"], body.cut, names)}
-        elif mode == "off":
-            plan["null"] = {"paired": False, "imported": False, "source": "off", "draws": 0, "drawn": 0,
-                            "reason": "the researcher ran it without a null"}
         key, label, row, reused = _seed_row_for(request, c, s, body, plan, seed, chans, span)
         if reused:
             return {"run_key": key, "job_id": row["job_id"], "route": plan["route"],
@@ -3215,10 +3240,263 @@ def run_seed_search(request: Request, body: SeedBody):
             c.commit()
         return {"run_key": key, "job_id": job_id, "route": plan["route"], "started": job_id is not None,
                 "reused": False, "label": label, "drawsPreviewFirst": prelude is not None,
-                "nullFrom": ("preview" if pre is not None else "off" if mode == "off" else "paired runs"),
+                "nullFrom": ("preview" if pre is not None else "paired runs"),
                 "note": (None if job_id is not None else
                          f"about {plan['estimate_s'] / 60:.0f} min, over the {plan['ceiling_s'] / 60:.0f} min local "
                          f"ceiling — create the SLURM script")}
+    finally:
+        c.close()
+
+
+# ── seed-search (2026-10-18): the preview's matches kept as a run ──────────────
+
+#: How long the keep waits for its own sweep before answering: the sweep searches nothing (its one step is
+#: served from the preview), so it is the rows being written — seconds. Past this the page watches the job.
+KEEP_WAIT_S = 60.0
+#: `_store_result` keeps this many candidates on the session row for a restart
+STORED_CANDIDATES = 5000
+
+
+#: Where a keep lays its entries in the step cache: a directory of its own under the cache root, one sub-directory per
+#: keep (`<root>/_kept_preview/<token>/<prefix>/0`), so an entry a block computed is never one of them and a keep's
+#: leftovers can be told apart and taken back after a server stopped mid-sweep (critic round)
+KEPT_CACHE_DIR = "_kept_preview"
+#: the tokens of the keeps this process is running; an entry under `KEPT_CACHE_DIR` whose token is not here is a
+#: leftover of a keep that never took it back (a restart empties the set)
+_kept_live = set()
+_kept_live_lock = threading.Lock()
+
+
+def _keep_refusal(message):
+    return HTTPException(409, {"message": message, "needsPreview": True})
+
+
+def _kept_candidates(res, cut):
+    """The preview's candidates a keep writes: every one at or below the cut (all of them with no cut), judged by
+    the block's own unrounded distance (`distance`; a result stored before 2026-10-18 has only the rounded `d`)."""
+    def dist(c_):
+        return float(c_.get("distance", c_["d"]))
+    return [c_ for c_ in res["candidates"] if cut is None or dist(c_) <= float(cut)]
+
+
+def _lay_preview_steps(conn, plan, chans, span, kept, cache_root, *, banked=False, token=None):
+    """Lay each target's one step — `detection.seed_matches` — in the step cache as the preview found it, so the
+    sweep after this writes its rows through `fanout.start` → `execute_recipe` (the same runs, run group, config
+    hash and detections a run of this recipe writes) WITHOUT matching the seed again. The SpanSet is the block's
+    own output shape (`Adapters.detection_seed_matches._run`): span-relative starts, the match's length, the
+    distance as the score, closest first. Returns the entries laid, so they are taken back once the rows are
+    written: the step cache then holds only what a block computed. An entry already there (the block computed
+    it) is left alone and used."""
+    from Working.execution import _recipe_prefix_hash, recording_units
+    from Working.types import SpanSet
+
+    name_of = {int(ch["id"]): ch["name"] for ch in chans}
+    laid = []
+    for i, target in enumerate(plan["targets"]):
+        per = fanout.target_recipe(plan["recipe"], i, False)
+        rec = q.get_recording_by_id(conn, int(target["recording_id"]))
+        prefix = _recipe_prefix_hash(per, 0, recording_units(rec))
+        if R.get_step_artifact(conn, prefix, 0) is not None:
+            continue
+        mine = sorted((c_ for c_ in kept if c_["channel"] == name_of.get(int(target["recording_id"]))),
+                      key=lambda c_: (float(c_.get("distance", c_["d"])), int(c_["index"])))
+        value = SpanSet(
+            starts=tuple(int(c_["index"]) - int(span[0]) for c_ in mine),
+            ends=tuple(int(c_["index"]) - int(span[0]) + int(c_["length"]) for c_ in mine),
+            labels=tuple((f"match{j}@{float(c_.get('scale') or 1.0):g}x" if banked else f"match{j}")
+                         for j in range(len(mine))),
+            scores=tuple(float(c_.get("distance", c_["d"])) for c_ in mine))
+        where = os.path.join(cache_root, KEPT_CACHE_DIR, token or uuid.uuid4().hex, prefix, "0")
+        value.to_path(where)
+        R.insert_step_artifact(conn, prefix, 0, where)
+        laid.append((prefix, where))
+    return laid
+
+
+def _take_back(conn, laid, cache_root=None, token=None):
+    """Remove the step-cache entries a keep laid (rows and its directory); a failure to remove a directory is
+    logged, never raised — the run's rows are already written."""
+    import shutil
+    for prefix, where in laid:
+        conn.execute("DELETE FROM step_artifacts WHERE recipe_prefix_hash = ? AND step_index = 0 AND path = ?",
+                     (prefix, where))
+    conn.commit()
+    if cache_root and token:
+        mine = os.path.join(cache_root, KEPT_CACHE_DIR, token)
+        try:
+            shutil.rmtree(mine, ignore_errors=False)
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            logging.getLogger("webui.discovery").warning("the keep's step-cache entries %s were not removed: %s", mine, e)
+    with _kept_live_lock:
+        _kept_live.discard(token)
+
+
+def _take_back_lost_keeps(conn):
+    """Take back every step-cache entry a keep laid and never removed — its server stopped mid-sweep, so `on_exit`
+    never ran. Such an entry holds the preview's matches, not a block's computation, and would otherwise be served
+    to any later run whose recipe prefix is the same. An entry of a keep running in this process is left alone."""
+    import shutil
+    rows = conn.execute("SELECT recipe_prefix_hash, step_index, path FROM step_artifacts WHERE instr(path, ?) > 0",
+                        (KEPT_CACHE_DIR,)).fetchall()
+    if not rows:
+        return 0
+    with _kept_live_lock:
+        live = set(_kept_live)
+    gone, dirs = 0, set()
+    for r in rows:
+        parts = os.path.normpath(r["path"]).split(os.sep)
+        if KEPT_CACHE_DIR not in parts:
+            continue
+        i = parts.index(KEPT_CACHE_DIR)
+        token = parts[i + 1] if i + 1 < len(parts) else None
+        if token in live:
+            continue
+        conn.execute("DELETE FROM step_artifacts WHERE recipe_prefix_hash = ? AND step_index = ? AND path = ?",
+                     (r["recipe_prefix_hash"], r["step_index"], r["path"]))
+        gone += 1
+        if token:
+            dirs.add(os.sep.join(parts[:i + 2]))
+    conn.commit()
+    for d in dirs:
+        shutil.rmtree(d, ignore_errors=True)
+    if gone:
+        logging.getLogger("webui.discovery").warning("took back %d step-cache entries a lost keep had laid", gone)
+    return gone
+
+
+def _seed_row_existing(conn, s, body):
+    """The live (not failed, cancelled or discarded) seed row with this body's identity, or None — the look-up
+    `_seed_row_for` makes, without making a row."""
+    try:
+        _p, _st, _t, seed, span, chans, _s = _plan(conn, _seed_plan_body(body))
+    except HTTPException:
+        return None
+    ident = _seed_identity(body, seed["id"], chans, span)
+    for row in _discovery_runs(conn, s["id"]):
+        if row["kind"] != "seed" or row["superseded_at"] or row["status"] in ("failed", "cancelled"):
+            continue
+        if json.loads(row["params_json"] or "{}").get("identity") == ident:
+            return row
+    return None
+
+
+def _kept_ids(conn, row):
+    """The detection ids of a Discovery run's real runs (no paired surrogate's)."""
+    ids = _run_ids(conn, row)
+    if not ids:
+        return []
+    return [int(r[0]) for r in conn.execute(
+        "SELECT id FROM detections WHERE run_id IN (" + ",".join(str(int(i)) for i in ids) + ") ORDER BY id")]
+
+
+def _keep_answer(c, s, run_key, *, reused, job_id, note):
+    row = _dr_by_key(c, s["id"], run_key)
+    done = row["status"] == "done"
+    ids = _kept_ids(c, row) if done else []
+    return {"run_key": run_key, "label": row["label"], "job_id": job_id, "reused": reused,
+            "started": job_id is not None and not reused, "status": row["status"], "done": done,
+            "found": len(ids) if done else None, "detectionIds": ids, "nullFrom": "preview", "note": note}
+
+
+@router.post("/api/discovery/seed/keep")
+def keep_seed_matches(request: Request, body: SeedBody):
+    """*Use these as detections* (the researcher, 2026-10-18: "use preview detections as detections on their
+    own"). The preview IS the search — the whole scope, every channel, the null drawn — so this writes its matches
+    at or below the cut as a run, with NO second search: the `discovery_runs` row (kind seed, its null the
+    preview's), one `runs` row per channel in one run group and a `detections` row per kept match, through
+    `fanout.start` like any run (`_lay_preview_steps` serves the one step from the preview), so the scoreboard,
+    fires, the map and Review read them unchanged. Detections only — never a verdict (rule 5).
+
+    Refused with a 409 and a sentence when no preview of this query is held (the page then offers to run it). A
+    second press with the same identity returns the row already made (`_seed_row_for`)."""
+    c = _conn(request)
+    try:
+        s, rec, _, _ = _session_scope(c)
+        names = body.channels or json.loads(s["channels_json"])
+        _ids_for(c, _stem(s["source_file"]), names)                 # refuses held out / unknown names
+        seed = _seed_by_id(c, body.seedId)
+        snull = _seed_null(c, s)
+        bank = _bank(body.scales)
+        key = _seed_key(body.seedId, names, body.t0, body.t1, body.k, body.maxDistance, snull,
+                        source_file=s["source_file"], rule=rule_from_settings(c), scales=bank,
+                        overlap=body.overlap, exclusion=body.exclusion)
+        res = _cached_result(c, s["id"], key)
+        if res is None:
+            # a second press after the preview has gone (a restart that lost it, another query run since) is
+            # still the run already made: answer it, rather than refusing a keep that has happened
+            done = _seed_row_existing(c, s, body.model_copy(update={"nullMode": "preview"}))
+            if done is not None:
+                return _keep_answer(c, s, done["run_key"], reused=True, job_id=done["job_id"],
+                                    note="these matches are already kept as this run")
+            raise _keep_refusal(
+                "there is no preview of this search here — the seed, channels, section, scale bank and exclusion "
+                "zone as they are now — so there are no matches to keep. Run the preview first; keeping writes "
+                "the preview's matches and never searches again")
+        kept = _kept_candidates(res, body.cut)
+        if res.get("restored") and len(res["candidates"]) >= STORED_CANDIDATES and len(kept) >= len(res["candidates"]):
+            raise _keep_refusal(
+                f"after the server restarted only the preview's {STORED_CANDIDATES:,} closest matches are held, and "
+                f"this cut keeps all of them — some it keeps may be missing. Run the preview again to keep them")
+        # the run's plan: the recipe a run of this search runs (max_distance = the cut), real runs only
+        body = body.model_copy(update={"nullMode": "preview", "maxDistance": 0.0})
+        plan, steps, _t, seed, span, chans, s = _plan(c, _seed_plan_body(body))
+        if not plan["runnable"]:
+            raise HTTPException(422, {"message": plan["reason"], "refused": plan["refused"]})
+        if [int(v) for v in res["span"]] != [int(span[0]), int(span[1])]:
+            raise _keep_refusal(f"the preview held for this query covers samples {res['span']}, not the section "
+                                f"{list(span)} — run the preview again")
+        null_draws = int((res.get("null") or {}).get("draws") or 0)
+        plan["null_draws"] = 0
+        plan["estimate_s"] = plan["estimate_real_s"]
+        plan["route"] = "local"         # it writes rows; nothing is searched, so no ceiling applies
+        plan["null"] = {"paired": False, "imported": True, "source": "preview", "kept": True,
+                        "draws": null_draws, "drawn": null_draws, "method": (res.get("null") or {}).get("method"),
+                        "key": key, "expectsByChannel": _null_expects(res.get("nullByChannel") or {}, body.cut,
+                                                                      [ch["name"] for ch in chans])}
+        run_key, label, row, reused = _seed_row_for(request, c, s, body, plan, seed, chans, span)
+        if reused:
+            return _keep_answer(c, s, run_key, reused=True, job_id=row["job_id"],
+                                note=("these matches are already kept as this run" if row["status"] == "done" else
+                                      f"this search is already a run ({row['status']}); it is the same run"))
+        params = json.loads(row["params_json"] or "{}")
+        params["null"] = dict(plan["null"])          # a retried row carries the null it was made with: overwrite it
+        params["kept"] = {"from": "preview", "candidates": len(kept), "computedAt": res.get("computedAt")}
+        c.execute("UPDATE discovery_runs SET params_json = ? WHERE id = ?", (json.dumps(params), int(row["id"])))
+        c.commit()
+        from Working import config as cfg
+        cache_root, laid, token = cfg.STEP_CACHE_ROOT, [], uuid.uuid4().hex
+        lay_chans, lay_span = list(chans), (int(span[0]), int(span[1]))
+        _take_back_lost_keeps(c)            # a keep lost in a restart never took its entries back: do it first
+        with _kept_live_lock:
+            _kept_live.add(token)
+
+        def prelude(job, conn2):
+            laid.extend(_lay_preview_steps(conn2, plan, lay_chans, lay_span, kept, cache_root, banked=bool(bank),
+                                           token=token))
+            return dict(plan["null"])
+
+        try:
+            job = _start_sweep(request, session_id=int(s["id"]), run_key=run_key, plan=plan, label=label,
+                               surrogate=False, prelude=prelude,
+                               on_exit=lambda conn2: _take_back(conn2, laid, cache_root, token))
+        except BaseException:
+            with _kept_live_lock:
+                _kept_live.discard(token)
+            raise
+        c.execute("UPDATE discovery_runs SET job_id = ?, status = 'running', updated_at = ? "
+                  "WHERE session_id = ? AND run_key = ?", (job.id, _now(), int(s["id"]), run_key))
+        c.commit()
+        t_end = time.time() + KEEP_WAIT_S
+        while job.status in ("queued", "running") and time.time() < t_end:
+            time.sleep(0.05)
+        if job.status == "failed":
+            raise HTTPException(500, {"message": f"the keep failed: {(job.error or {}).get('message')}",
+                                      "traceback": (job.error or {}).get("traceback"), "run_key": run_key})
+        return _keep_answer(c, s, run_key, reused=False, job_id=job.id,
+                            note=(f"{len(kept)} match{'' if len(kept) == 1 else 'es'} kept from the preview; its "
+                                  f"{null_draws}-draw null is the run's null — nothing was searched again"))
     finally:
         c.close()
 

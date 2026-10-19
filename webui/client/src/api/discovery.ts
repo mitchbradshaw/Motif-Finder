@@ -24,6 +24,7 @@ import { live, type Sourced } from './seam'
 import { heldOutLocked } from '../shell/heldOutLock'
 import type { GlyphKind, Role } from '../fixtures/discovery'
 import { getDiscoverySeedPicker, type DiscSeedGrouping, type DiscSeedPickerQuery } from '../api'
+import { keepDiscoverySeedMatches } from '../api'
 import { PEEK_GIVE_UP_MS, PEEK_POLL_MS, peekPreview } from './seedPeek'
 
 export type { GlyphKind, Role, RunKind, SeedSource } from '../fixtures/discovery'
@@ -273,7 +274,9 @@ export interface SeedDraft {
 export interface SeedSetup { draft: SeedDraft; seed: SeedInfo; seeds: SeedInfo[]; recommended: SeedParams; heldOutNote?: string | null }
 export interface SeedMatch { id: string; d: number; channel: string; atH: number; judged: boolean; verdict?: string | null; trace: number[]
   /** fixup-v: the factor of the seed's length this match was found at, and its length in samples */
-  scale?: number; length?: number }
+  scale?: number; length?: number
+  /** seed-search: the block's own distance, unrounded (`d` is it to 4 places) — what a keep cuts by */
+  distance?: number }
 export interface SeedResults {
   candidates: SeedMatch[]; nullDistances: number[]
   recommendedCut: number | null; cutRule: CutRule | null
@@ -352,7 +355,7 @@ export async function getSeedResults(seedId: string, channels: string[], bank?: 
     source: 'live',
     data: {
       status: 'ready',
-      candidates: r.candidates.map(c => ({ id: c.id, d: c.d, channel: c.channel, atH: c.atH, judged: c.judged, verdict: c.verdict, trace: nums(c.trace), scale: c.scale, length: c.length })),
+      candidates: r.candidates.map(c => ({ id: c.id, d: c.d, channel: c.channel, atH: c.atH, judged: c.judged, verdict: c.verdict, trace: nums(c.trace), scale: c.scale, length: c.length, distance: c.distance })),
       nullDistances: r.nullDistances ?? [],
       recommendedCut: r.recommendedCut, cutRule: r.cutRule ?? null,
       nullDraws: r.null?.draws ?? 0, nullMethod: r.null?.method ?? null,
@@ -566,3 +569,16 @@ export const getSeedPicker = (q: DiscSeedPickerQuery): Promise<Sourced<SeedPage>
  *  once imported, `hpcImported`, and whether the sweep here found what the cluster found, channel by channel
  *  (`clusterAgrees`; `clusterCheck` says where not). `hpcRefused` is the last import refusal, in the bridge's words. */
 export interface DiscoveryRun { hpcImported?: boolean; hpcRefused?: string; clusterAgrees?: boolean; clusterCheck?: string }
+
+/* ------------------------------------------------------------------ seed-search (2026-10-18) */
+/** *Use these as detections*: the preview's matches at or below the cut, kept as a run with no second search. The
+ *  query is the preview's own (`seedQueryFor`), so the bridge finds the very preview the page is showing. */
+export const keepSeedMatches = async (seedId: string, channels: string[], bank: { scales: number[]; overlap?: string } | null, exclusion: number | null,
+  section: [number, number], cut: number | null, label?: string) =>
+  keepDiscoverySeedMatches({ ...(await seedQueryFor(seedId, channels, bank, exclusion, section)), cut, label })
+/** The detection ids of a run on the channels in scope, read through the browser's own read (`/detections`), for a run
+ *  whose ids are not in hand (the rigorous run, or a kept run found on reload). */
+export async function runDetectionIds(run: string, channels: string[], section: [number, number]): Promise<number[]> {
+  const per = await Promise.all(channels.map(ch => getDiscoveryDetections(run, ch, section[0], section[1])))
+  return per.flat().map(d => d.detectionId).filter((v): v is number => typeof v === 'number')
+}

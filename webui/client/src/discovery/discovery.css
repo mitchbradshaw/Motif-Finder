@@ -376,3 +376,21 @@
 .dsc-map-axis span.last { transform: translateX(-100%); }
 .dsc-map-readout { display: flex; align-items: center; gap: 6px; padding: 8px 14px 0; font-family: var(--font-mono); font-size: 11px; color: var(--text-2); min-height: 18px; }
 .dsc-map-readout.muted { color: var(--muted); padding-top: 2px; }
+
+/* seed-search (2026-10-18): the Seed page's four-step strip, the advanced toggle and the keep card (appended) */
+.dsc-seed-steps { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+.dsc-seed-steps .k-stepper { flex: 1; gap: 8px; }
+.dsc-seed-steps .k-step-btn { cursor: pointer; }
+.dsc-seed-steps .k-step[data-state="todo"] { color: var(--muted); }
+.dsc-step-detail { font-size: 11px; color: var(--text-2); max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dsc-step-next { margin-top: -4px; }
+.dsc-preview-in { padding: 12px 14px; }
+.dsc-adv-toggle { display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; color: var(--text); cursor: pointer; }
+.dsc-advanced[data-open="0"] { padding-bottom: 10px; }
+.dsc-cut-card .dsc-card-head h3 { margin-right: 4px; }
+.dsc-keep { display: flex; flex-direction: column; gap: 10px; }
+.dsc-keep-lede { margin: 0; }
+.dsc-keep-ways { display: flex; flex-direction: column; gap: 8px; }
+.dsc-keep-way { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dsc-keep-run { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
+.dsc-keep-save { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 10px; }
