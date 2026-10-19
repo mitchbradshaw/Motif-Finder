@@ -77,6 +77,11 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const confirmRef = useRef<(() => void) | null>(null)
   const timers = useRef<number[]>([])
   useEffect(() => () => { timers.current.forEach(t => window.clearTimeout(t)) }, [])
+  // night-a: a delayed advance belongs to the item it was set on. I then two quick arrows landed on the item after
+  // the judged one: its timer (set only after the POST came back) fired after the researcher had moved on.
+  const onItem = useRef(id)
+  onItem.current = id
+  useEffect(() => { timers.current.forEach(t => window.clearTimeout(t)); timers.current = []; setFlash(null) }, [id])
   useEffect(() => { if (padQ === '30' || padQ === '120' || padQ === '300') setPad(padQ) }, [padQ, setPad])
   // the refusal card belongs to the item it was raised on: moving on clears it, a new failure re-raises it
   useEffect(() => { setOverlay(''); clearWriteError() }, [id])
@@ -156,7 +161,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     // P21: the seed verdict itself creates the Library exemplar (the bridge wrote it); the panel only chooses its family
     if (v === 'seed') return next
     if (opts.flash !== false) { setFlash(v); later(() => setFlash(null), ADVANCE_MS) }
-    if (opts.advance && auto) later(advance, ADVANCE_MS)
+    if (opts.advance && auto) later(() => { if (onItem.current === id) advance() }, ADVANCE_MS)
     return next
   }
 
