@@ -321,3 +321,19 @@ def test_registered_paths_are_repo_relative_inside_the_repo_and_absolute_outside
     assert drm.repo_relative(inside) == os.path.join("DATA", "derived", "channels")
     outside = os.path.join(os.path.dirname(PROJECT_ROOT), "elsewhere", "channels")
     assert drm.repo_relative(outside) == os.path.abspath(outside)
+
+
+def test_a_rate_stated_by_the_researcher_is_recorded_as_stated_not_read(env):
+    """manager, 2026-10-19: the researcher stated L_R_Aug_26_PD_raw's rate (10 Hz). The note must say who stated
+    it and that it was not read from the file; fs_source stays 'inferred' (the schema's two words: read | inferred)."""
+    write_v5(env["raw"] / "L_R_Aug_26_PD_raw.mat", {"M1": _volts(5001, 3)})
+    assert _run(env, env["raw"] / "L_R_Aug_26_PD_raw.mat", "--fs", "10",
+                "--fs-stated-by", "the researcher (2026-10-19)") == 0
+    man = _manifest(env, "L_R_Aug_26_PD_raw_fs10")
+    assert man["fs_note"].startswith("10 Hz stated by the researcher (2026-10-19), not read from the file")
+    assert man.get("fs_source", "inferred") == "inferred"
+
+
+def test_fs_stated_by_without_fs_refuses(env):
+    write_v5(env["raw"] / "L_R_Aug_26_PD_raw.mat", {"M1": _volts(5001, 3)})
+    assert _run(env, env["raw"] / "L_R_Aug_26_PD_raw.mat", "--fs-stated-by", "the researcher") != 0

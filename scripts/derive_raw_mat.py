@@ -554,7 +554,9 @@ def plan_file(path: str, args, channels_root: str, conn_ro) -> dict:
         if args.fs is not None:
             fs, fs_source = float(args.fs), "inferred"
             cnt, cnt_note = infer_fs_from_count(n)
-            fs_note = (f"{fs:g} Hz stated with --fs at derivation and recorded as inferred: not read from the file "
+            stated = (f"{fs:g} Hz stated by {args.fs_stated_by}, not read from the file" if args.fs_stated_by
+                      else f"{fs:g} Hz stated with --fs at derivation and recorded as inferred: not read from the file")
+            fs_note = (f"{stated} "
                        f"({notes[0] if notes else 'no time axis'}); the count rule alone: "
                        + (cnt_note if cnt is not None else cnt_note.split(", and no time axis")[0]))
         else:
@@ -664,6 +666,8 @@ def build_parser():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("files", nargs="+", help="raw .mat files (a bare name resolves under <data-root>/raw)")
     ap.add_argument("--fs", type=float, help="the sampling rate (Hz) when the file cannot give it, or the grid for an uneven axis")
+    ap.add_argument("--fs-stated-by", help="who stated the --fs rate, for the record (e.g. 'the researcher (2026-10-19)'); "
+                                           "the note then says so; fs_source stays 'inferred' (not read)")
     ap.add_argument("--units", help="V | mV | uV when the value range cannot tell")
     ap.add_argument("--variable", help="the data matrix when the file holds more than one")
     ap.add_argument("--time-file", help="a .mat holding t_s (seconds, one per sample) or a scalar dur_s")
@@ -677,6 +681,9 @@ def build_parser():
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+    if args.fs_stated_by and args.fs is None:
+        print("   REFUSED   --fs-stated-by names who stated a rate, but no --fs rate was given")
+        return 2
     data_root = os.path.abspath(args.data_root)
     db = args.db or os.path.join(data_root, "db", "annotations.sqlite")
     channels_root = os.path.join(data_root, "derived", "channels")
