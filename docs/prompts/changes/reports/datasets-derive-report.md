@@ -191,3 +191,25 @@ import. `link_parent` is minimal and tested, `init_db` is untouched, and there i
 **Gate** (conda, one file at a time): `test_derive_mju26a_fs10` 11, `test_derive_raw_mat` 19,
 `test_import_boundaries` 4, `test_registration_recording` 19, `test_registration_artifacts` 14,
 `test_registration_settings` 10, `test_recording_units` 15. Total 92 passed, 0 failed.
+
+## Real run (manager, 2026-10-19)
+
+From the main checkout after the wave merged (`cdd6be3`), database backed up first
+(`DATA/db/backups/annotations.sqlite.pre-datasets-derive-20261019-211013`, integrity ok). The full per-file
+table, the L_LM correlation table and the reproduce commands are in `docs/datasets/NEW_RAW_2026-10.md`.
+
+- `derive_mju26a_fs10.py --skip-link`: `MJu26a_fs10`, 16 rows (ids 650–665), 22,892,769 samples at 10 Hz
+  (635.91 h), V; the old `MJu26a.mat` rows declared V; Mushroom_260720 kept its existing parent. **No L_LM
+  link**: the dry run refused it (best parents at offset ≈ 0 but refined r far from 1 — CH2 0.18–0.43), and
+  the researcher decided not to link (Q47).
+- `derive_raw_mat.py SH SO F2B`: SH_fs10 (666–669, V), SO_fs10 (670–673, V), F2B_fs10 (674–678, mV), all
+  10 Hz inferred from the sample count (the time axes are MATLAB `duration` objects).
+- `derive_raw_mat.py L_R_Aug_26_PD_raw --fs 10 --fs-stated-by "the researcher (2026-10-19)"`: 13 rows
+  (679–691), V, 106.99 h. The rate is the researcher's statement (Q48). A new option, `--fs-stated-by`
+  (`b8aefa3`), records who stated it; its first note lacked the word "inferred" the registry keys on, so the
+  rows were registered `fs_source = read` — corrected to `inferred` the same evening with an audit row, and
+  the script fixed (`b8752ce`, the test now checks the registered rows).
+- **Skipped:** `CO.mat` and `LM.mat` — derived at 2 Hz by another agent the same day (`CO_fs2`, `LM_fs2`); a
+  10 Hz copy would be a second recording of the same data (the researcher, 2026-10-19).
+- The ~300 "legacy detections: refusing run N (ambiguous)" lines in the run's output come from `init_db()`'s
+  legacy-detection migration declining ambiguous pre-2026-09-22 runs; it writes nothing.
