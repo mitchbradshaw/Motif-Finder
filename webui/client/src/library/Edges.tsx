@@ -200,7 +200,7 @@ export function ScaleReadout({ readout }: { readout: LibScaleReadout | null | un
         ? <div className="lib-cap" style={{ marginTop: 4, color: 'var(--amber-700, #b76a00)' }} data-testid="scale-readout-caveat">
             <Icon name="alert-triangle" size={11} style={{ verticalAlign: -1 }} /> exemplar morphology: <b>{readout.morphology}</b> · {readout.caveat}
           </div>
-        : <About label="exemplar morphology" style={{ marginTop: 4 }}><div data-testid="scale-readout-caveat">exemplar morphology: <b>{readout.morphology}</b> · {readout.caveat}</div></About>}
+        : <About label="exemplar morphology" style={{ marginTop: 4 }} testid="scale-readout-about"><div data-testid="scale-readout-caveat">exemplar morphology: <b>{readout.morphology}</b> · {readout.caveat}</div></About>}
       {!readout.runs.length
         ? <EmptyState size="sm" icon="target" title="No seed search has been run for this exemplar" caption="run one with the scale bank, judge its matches, then Add N matches to this entry in Discovery › Runs" testid="scale-readout-empty" />
         : (

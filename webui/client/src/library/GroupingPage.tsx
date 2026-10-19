@@ -860,7 +860,7 @@ function Params({ d, set, basis, dist, extent, clusterings, invalid, methods, cu
         <div className="lib-params">
           <div className="stack" style={{ gap: 6 }}>
             {methodRow}
-            {spec?.description && <About label="about this method"><span data-testid="method-description">{spec.description}</span></About>}
+            {spec?.description && <About label="about this method" testid="method-about"><span data-testid="method-description">{spec.description}</span></About>}
             {spec ? <MethodParams spec={spec} values={d.mparams[method] ?? {}} onChange={(k, v) => set({ mparams: { ...d.mparams, [method]: { ...(d.mparams[method] ?? {}), [k]: v } } })} />
               : <span className="lib-cap">the editor read carries no parameters for {method}</span>}
             <span className="row small" style={{ gap: 6 }}>how many families<InfoTip title="How many families">How many families this gives, and whether each beats noise of the same colour, is measured by the preview.</InfoTip></span>
