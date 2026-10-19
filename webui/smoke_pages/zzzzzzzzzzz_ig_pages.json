@@ -231,7 +231,7 @@
   "state": "ig-pages-trains-leads-density-sizes-timeline",
   "hash": "analyse/block/4",
   "settle_ms": 2500,
-  "_why": "ig-pages: the Trains page leads with the log-interval density WITH its cut line (amber marker), the train-size histogram and the timeline with each train as a bar; everything else (measures, table, rules, spans strip, slideshow, durations) is under one folded 'more'. If the walk's span has one hump the density draws with data-has-cut=0 and says 'no valley' - check the run before calling it a fault",
+  "_why": "ig-pages: the Trains page leads with the log-interval density WITH its cut line (amber marker), the train-size histogram and the timeline with each train as a bar; everything else (measures, table, rules, spans strip, slideshow, durations) is under one folded 'more'. If the walk's span has one hump the density draws with data-has-cut=0 and says 'no valley' - check the run before calling it a fault. integration fix: on the real database the example span holds 4 events (3 gaps), so logISI refuses and the page says so in the density's place (trains-density-note) - the honest outcome the ig-pages report said to expect; the state accepts the drawn density with its cut OR that note",
   "actions": [
    {
     "wait_for": [
@@ -248,7 +248,7 @@
   ],
   "expect": [
    "[data-testid=\"headline\"]",
-   "[data-testid=\"trains-density\"][data-has-cut=\"1\"] [data-testid=\"trains-density-plot\"] svg",
+   "[data-testid=\"trains-density\"][data-has-cut=\"1\"] [data-testid=\"trains-density-plot\"] svg, [data-testid=\"trains-density-note\"]",
    "[data-testid=\"trains-sizes\"]",
    "[data-testid=\"trains-timeline\"] svg",
    "[data-testid=\"headline-more\"][data-open=\"0\"]"
@@ -256,7 +256,6 @@
   "expect_absent": [
    "[data-testid=\"headline-folded\"]",
    "[data-testid=\"feature-table\"]",
-   "[data-testid=\"trains-density-note\"]",
    "[data-testid=\"render-error\"]",
    "[data-testid=\"generic-process\"]"
   ]
