@@ -1,5 +1,7 @@
 /* Review workspace (frames review-1 … review-7). Prefix rv-. */
 .rv-root { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
+/* night-a: a page-level red card sits inside the page padding, not flush to the window edge */
+.rv-pad { padding: 20px; }
 :is(.rv-root, .rv-pop) .grow { flex: 1; }
 :is(.rv-root, .rv-pop) .sm { font-size: 10.5px; }
 :is(.rv-root, .rv-pop) .row { display: flex; align-items: center; gap: 8px; }
@@ -11,7 +13,7 @@
 .rv-purple { color: var(--k-rv-purple, #6a3ecf); }
 
 /* ---- toolbar ---- */
-.rv-toolbar { display: flex; align-items: center; gap: 8px; padding: 0 16px; height: 54px; background: var(--card); border-bottom: 1px solid var(--border); flex: none; }
+.rv-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 16px; min-height: 54px; height: auto; background: var(--card); border-bottom: 1px solid var(--border); flex: none; }
 .rv-queue-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 9px; min-width: 0; flex: 0 1 auto; border-radius: 8px; border: 1px solid var(--blue-200); background: var(--blue-100); color: var(--blue-600); font-family: var(--font-mono); font-size: 11.5px; cursor: pointer; white-space: nowrap; }
 .rv-queue-chip .pre { opacity: .75; }
 .rv-queue-chip .lbl { font-weight: 500; overflow: hidden; text-overflow: ellipsis; min-width: 0; }

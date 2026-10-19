@@ -70,7 +70,7 @@ export function RunsPage() {
                 <div className="dsc-cols">
                   <RunsCard dx={dx} mode="runs" selected={selected?.key} onSelect={k => setRunQ(k)} onAddTemplate={() => setModal('add-template')} />
                   <div className="dsc-right">
-                    {missingRun && <Callout tone="amber" icon="alert-triangle" title={`No run named ${missingRun} in this session`} testid="run-missing-callout" action={<Button variant="primary" size="sm" onClick={() => setRunQ(null)}>Clear</Button>}>Showing {selected?.label ?? 'nothing'} instead. Past runs can be brought in from History.</Callout>}
+                    {missingRun && <Callout tone="grey" icon="info" title={`No run named ${missingRun} in this session`} testid="run-missing-callout" action={<Button variant="primary" size="sm" onClick={() => setRunQ(null)}>Clear</Button>}>Showing {selected?.label ?? 'nothing'} instead. Past runs can be brought in from History.</Callout>}
                     {stateQ === 'failed' && (() => { const f = dx.runs.find(r => r.status === 'failed'); return f ? <Callout tone="red" icon="alert-triangle" title={`${f.label} failed`} testid="run-failed-callout" action={<Button size="sm" icon="refresh" onClick={() => navigate('discovery/runs')}>Dismiss</Button>}>{f.error}</Callout> : null })()}
                     {dx.runs.filter(hasResults).length === 0 ? (
                       <div className="k-card dsc-empty-results" data-testid="results-empty">
@@ -312,6 +312,10 @@ function Scoreboard({ dx }: { dx: Discovery }) {
                 <td colSpan={8} className="muted">{otherLine(r)}{r.status === 'paused' && r.id && <Button variant="link" size="sm" icon="external" onClick={() => navigate('jobs')}>Open in Jobs</Button>}</td>
               </tr>
             ))}
+            {/* night-a: a header row and no body read as broken; say why there is nothing */}
+            {!done.length && !others.length && <tr data-testid="scoreboard-empty"><td colSpan={9} className="muted">{dx.scores === null
+              ? 'working out the scores — they appear here when the read lands'
+              : 'no finished run on this scope yet — a run’s scores appear here when it finishes'}</td></tr>}
           </tbody>
         </table>
       </div>

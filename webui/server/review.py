@@ -748,7 +748,14 @@ def get_queues(request: Request, include_closed: int = Query(default=0)):
         # AR: one count per queue, with the held-out set (it was counted twice, once without it)
         for q in queues_mod.list_queues(conn, include_closed=bool(include_closed), exclude_recording_ids=held):
             counts = {k: q[k] for k in ("total", "judged", "remaining")}
-            out.append(_queue_payload(conn, q, counts=counts, detections=q.get("detections")))
+            row = _queue_payload(conn, q, counts=counts, detections=q.get("detections"))
+            # night-a: a Discovery picked queue's filter is its whole detection list (9,743 ids, 78 kB at scale) and no
+            # reader of the listing uses it: the listing says how many; the queue's own read still carries them
+            f = row.get("filters")
+            if isinstance(f, dict) and isinstance(f.get("detection_ids"), list):
+                row["filters"] = {**{k: v for k, v in f.items() if k != "detection_ids"},
+                                  "detection_ids_count": len(f["detection_ids"])}
+            out.append(row)
         return out
     finally:
         conn.close()
