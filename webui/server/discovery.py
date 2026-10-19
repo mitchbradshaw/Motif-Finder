@@ -1324,6 +1324,9 @@ def get_scoreboard(request: Request, runs: str = "", channels: str = "", t0: flo
         span = (int(round(t0 * 3600 * fs)), int(round(t1 * 3600 * fs)))
         rule = rule_from_settings(c)
         out = []
+        # night-a: one read pass, one memo (`SB.inputs_fingerprint`): each channel's human rows are read once for
+        # every run asked for, not once per run (60 runs x 16 channels took 54 s even with every score cached)
+        memo: dict = {}
         for key in _split(runs):
             if key == "human":
                 continue
@@ -1338,7 +1341,7 @@ def get_scoreboard(request: Request, runs: str = "", channels: str = "", t0: flo
             on = {int(r[0]) for r in c.execute("SELECT id FROM runs WHERE id IN (" + ",".join(str(int(i)) for i in ids)
                                                + ") AND recording_id IN (" + ",".join(str(int(w)) for w in wanted)
                                                + ")").fetchall()}
-            scored = SB.score_runs_cached(c, [i for i in ids if int(i) in on], rule=rule, span=span)
+            scored = SB.score_runs_cached(c, [i for i in ids if int(i) in on], rule=rule, span=span, memo=memo)
             rows = [r for r in scored["channels"] if r["recording_id"] in wanted]
             # a run whose null came from the preview or the cluster has no paired surrogate
             # runs to count: its *null expects* is that null's matches per draw at the cut
@@ -4732,6 +4735,7 @@ def _per_band(c, session_id, set_key, other_key, chans, span, rule, per, set_is_
     regions that band alone fired."""
     members = _band_members(c, session_id, set_key)
     rows = []
+    memo: dict = {}      # night-a: one read pass, one memo for every band member's score (see get_scoreboard)
     for m in members:
         band = _band_of(m)
         ids = _run_ids(c, m)
@@ -4747,7 +4751,7 @@ def _per_band(c, session_id, set_key, other_key, chans, span, rule, per, set_is_
                     if r["bands"] == [band.get("label")])
         # the band's own null on the same scope: its paired surrogate runs, as
         # the scoreboard counts them (the draw count is the count drawn)
-        tot = SB.score_runs_cached(c, ids, span=span)["total"] if ids else {}
+        tot = SB.score_runs_cached(c, ids, span=span, memo=memo)["total"] if ids else {}
         rows.append({"run": m["run_key"], "label": m["label"], "band": band, "found": found,
                      "both": matched, "only": found - matched, "alone": alone, "colour": m["colour"],
                      "nullExpects": tot.get("null_expects"), "nullDraws": tot.get("null_draws")})
