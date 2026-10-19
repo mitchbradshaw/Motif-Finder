@@ -2,7 +2,8 @@
    choices, select for more, range + number for bounded numerics, checkbox for bools,
    text otherwise. "= default" marks a value equal to the adapter default; "= recommended"
    is printed only for a value the adapter's recommend hook actually produced (none are served
-   by this slice — critique r1); the description sits behind an info icon (P9). */
+   by this slice — critique r1); the description sits behind an info icon (P9).
+   polish (2026-10-19): "· recommended: not computed" left every row — the head's ⓘ "Recommended values" says it once. */
 import { useEffect, useState } from 'react'
 import { getDiscoveryBands, type AdapterCard, type DiscBand, type ParamSpec } from '../api'
 
@@ -75,7 +76,7 @@ export function ParamsPanel({ adapter, params, onChange, disabled, recommended }
             </div>
             <div className="pp-ctl">{ctl}</div>
             <div className={`pp-rec${rec || isDefault ? '' : ' no'}`} data-testid={`param-rec-${spec.name}`}>
-              {rec ? '= recommended' : recVal !== undefined ? `rec ${fmtParam(recVal)}` : isDefault ? `= default${adapter.has_recommend ? ' · recommended: not computed' : ''}` : `default ${fmtParam(spec.default)}`}
+              {rec ? '= recommended' : recVal !== undefined ? `rec ${fmtParam(recVal)}` : isDefault ? '= default' : `default ${fmtParam(spec.default)}`}
             </div>
           </div>
         )
@@ -99,7 +100,7 @@ function BandPresets({ params, onChange, disabled }: { params: Record<string, un
     getDiscoveryBands().then(r => { if (live) setBands(r.bands) }).catch(e => { if (live) setErr(e instanceof Error ? e.message : String(e)) })
     return () => { live = false }
   }, [])
-  if (err) return <div className="pp-row wide small" data-testid="band-presets-error"><span className="muted">band presets unavailable: {err}</span></div>
+  if (err) return <div className="pp-row wide small" data-testid="band-presets-error"><span style={{ color: 'var(--red)' }}>band presets unavailable: {err}</span></div>
   if (!bands) return null
   return (
     <div className="pp-row wide" data-testid="band-presets">
@@ -111,7 +112,6 @@ function BandPresets({ params, onChange, disabled }: { params: Record<string, un
             onClick={() => { onChange('low_hz', b.low_hz); onChange('high_hz', b.high_hz) }}>{b.label}</button>
         })}
       </div>
-      <div className="pp-rec">Settings › Analysis defaults</div>
     </div>
   )
 }

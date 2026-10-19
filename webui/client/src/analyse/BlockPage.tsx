@@ -153,8 +153,8 @@ export function BlockPage({ index }: { index: number }) {
           <SurrogateToggle />
           <EstimateChip text={running ? `${pad2(curStep + 1)} running · ${stepElapsed(curStep).toFixed(1)} s` : `≈ ${costText} · ${pad2(rerunFrom + 1)} → ${pad2(steps.length)}${stale ? ' recompute' : ''}${over.length ? ` · ${over.length} over the local ceiling` : ''}`} kind={running ? 'blue' : over.length ? 'red' : 'amber'} />
           <span className="spacer" />
-          <button className="btn" onClick={saveAsTemplate} data-testid="save-template">▢ Save template</button>
-          <button className="btn" onClick={() => { if (!step) return; deleteStepAt({ steps, index, name: ad?.page_name ?? step.algorithm, setChain, toast }); navigate('analyse/chain') }}
+          <button className="btn primary" onClick={saveAsTemplate} data-testid="save-template">▢ Save template</button>
+          <button className="btn danger" onClick={() => { if (!step) return; deleteStepAt({ steps, index, name: ad?.page_name ?? step.algorithm, setChain, toast }); navigate('analyse/chain') }}
             disabled={running || !step} data-testid="delete-block" title={running ? 'wait for the run' : 'delete this block from the chain (Ctrl Z on the chain page undoes it)'}>✕ Delete block</button>
           {running ? <button className="btn danger" onClick={cancel} data-testid="cancel-button" disabled={cancelling}
               title={cancelling ? 'cancel accepted · the run stops when the current stage ends, because cancel is checked between steps and never mid-step' : 'stop the run after the current stage'}>{cancelling ? '■ Cancelling…' : '■ Cancel'}</button>
@@ -187,12 +187,14 @@ export function BlockPage({ index }: { index: number }) {
           <div className="card card-pad bp-process" data-testid="block-process" data-running={running ? '1' : undefined}>
             {running && (
               <div className="bp-run-veil" data-testid="block-running">
-                <div className="an-progress"><div className="bar" /><div className="txt">{runNote}{runningHere && job?.steps[index]?.cached_predicted ? ' · predicted cache hit' : ''}</div><div className="note">the result refreshes here when the run ends · cancel takes effect before the next step</div></div>
+                <div className="an-progress"><div className="bar" /><div className="txt">{runNote}{runningHere && job?.steps[index]?.cached_predicted ? ' · predicted cache hit' : ''}
+                  {/* polish: how the veil behaves is behind the ⓘ, not a third grey line under the bar */}
+                  {' '}<InfoTip title="While it runs">the result refreshes here when the run ends · cancel takes effect before the next step</InfoTip></div></div>
               </div>
             )}
             <div className="bp-card-title"><span className="mono muted">{pad2(index + 1)}</span><h3>{title}</h3><span className="sg">{ad?.signature ?? name}</span>
               <span className="sg" style={{ marginLeft: 'auto' }}>{source?.kind === 'pool' ? 'a Window pool · saved window sets' : source ? `${fmtHours(t0)}–${fmtHours(t1)} of ${source.channel_name}` : 'no source'}{row.status === 'cached' && row.timing !== null ? ` · ${fmtTiming(row.timing)} core` : ''}</span></div>
-            {!source && <EmptyState size="sm" icon="layers" title="no source" caption="the process view needs a span" action={<Button onClick={() => navigate('analyse/chain')}>Pick the example span on the chain page</Button>} />}
+            {!source && <EmptyState size="sm" icon="layers" title="no source" caption="the process view needs a span" action={<Button variant="primary" onClick={() => navigate('analyse/chain')}>Pick the example span on the chain page</Button>} />}
             {source && (
               <ErrorBoundary label={`block ${pad2(index + 1)} process`}>
                 {/* the drawing standard (fixup-h): the view is the block's output type, the modifier its conversion —
@@ -220,9 +222,11 @@ export function BlockPage({ index }: { index: number }) {
               {stat.length > 0 && <div className="bp-tiles" data-testid="stat-tiles">{stat.map(t => <div className="bp-tile" key={t.k}><div className="k" title={t.k}>{t.k}</div><div className={`v${t.red ? ' red' : ''}`}>{t.v}</div></div>)}</div>}
               {row.payload && <div className="bp-info">{row.payload.summary}{stale ? ' · from the last run · stale' : ''}</div>}
             </div>
+            {/* polish: the null card was a heading over a dashed box that said "not here"; it is one row now — the
+                heading, its ⓘ and the state as a chip */}
             <div className="card bp-null" data-testid="null-card">
-              <div className="row"><span className="b">This parameter against the null</span><InfoTip title="The null" placement="bottom-end">A null is drawn per chain run, not per block. Turn the toolbar's surrogate toggle on and the run's footer reads detected versus surrogate.</InfoTip></div>
-              <div className="e">{ad?.input_kind === 'signal' ? 'drawn per chain run — use the toolbar\'s surrogate toggle' : 'this block declares no signal null'}</div>
+              <div className="row"><span className="b">This parameter against the null</span><InfoTip title="The null" placement="bottom-end">A null is drawn per chain run, not per block. Turn the toolbar's surrogate toggle on and the run's footer reads detected versus surrogate.</InfoTip>
+                <span className="chip grey e" style={{ marginLeft: 'auto' }}>{ad?.input_kind === 'signal' ? 'drawn per chain run — use the toolbar\'s surrogate toggle' : 'this block declares no signal null'}</span></div>
             </div>
           </div>
         </div>
@@ -235,7 +239,7 @@ export function BlockPage({ index }: { index: number }) {
               defaultName={`ws_${(chain.name || 'chain').replace(/[^A-Za-z0-9_.-]+/g, '_')}_${pad2(index + 1)}`.slice(0, 64)}
               disabledReason={stale ? 'this step is stale · re-run before saving its windows' : row.status !== 'cached' ? 'this step has no result in the last run' : null}
               testid="block-save-window-set" />}
-            <button className="btn" onClick={revert} disabled={!ad || running} data-testid="revert-defaults" title={running ? 'wait for the run' : 'reset every parameter of this block to the adapter defaults'}>↶ Revert to defaults</button>
+            <button className="btn primary" onClick={revert} disabled={!ad || running} data-testid="revert-defaults" title={running ? 'wait for the run' : 'reset every parameter of this block to the adapter defaults'}>↶ Revert to defaults</button>
             {running ? <button className="btn danger" onClick={cancel} disabled={cancelling}
                 title={cancelling ? 'cancel accepted · the run stops when the current stage ends' : 'stop the run after the current stage'}>{cancelling ? '■ Cancelling…' : '■ Cancel'}</button>
               : <button className="btn primary" onClick={rerun} disabled={!canRun} title={runTitle} data-testid="footer-rerun">{job ? `↻ Re-run from ${pad2(rerunFrom + 1)}` : '▶ Run chain'}</button>}
