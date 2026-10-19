@@ -634,3 +634,39 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
     matrix profile on two channels each.
   - **Expected return:** about 14 GB.
   - Not yet run on the cluster.
+- 2026-10-19 · batch 3, returned · all 552 tasks complete: none refused, none crashed (every `state/*.failed` is
+  empty), no null draw skipped. The last result was written about 3.5 h after the first (05:33–09:07 UTC).
+  - **Slowest:** the matrix profiles, 2.5–3.2 h a channel on the A100 (inside the 5 h); `cnn_fusion3_1min` on L_LM
+    up to 44 min. Every CPU task took under 7 min.
+  - **Size:** 11.7 GB returned, against 14 estimated: L_LM 9.0 GB, LM and CO 1.4 GB each. On L_LM almost every task
+    also returns its first step's full-length signal (`signal.npz`, 33 MB), the same file once per template; on LM and
+    CO only the wavelet templates do. Only 1.7 GB of L_LM's cache is unique (0.9 GB each for LM and CO), so the
+    import adds about 3.6 GB to the step cache, not 11.7.
+  - **Empty results:** 20 tasks found nothing: `BEADs…delta_mv_25` on L_LM CH1, CH3 and CH5, and 17 `symbol_search`
+    tasks. `symbol_search` finding next to nothing on the real signal and thousands on its phase-randomised copy
+    held in batches 1 and 2 too. L_LM's CH1 and CH5 are near-empty for every event detector (BEADs, drop,
+    `signal_threshold`).
+  - **Variants that change nothing:** `drop_detection_v5`'s `same_fraction` 0.5 and 0.7 give the default's counts
+    within 1–4 (on LM CH1; identical elsewhere), as on M2_aug, M2_concat and M4_aug.
+  - **Real vs null:** in 255 of 552 tasks the real signal gave no more detections than its phase-randomised copy.
+    That is for the analysis, not a fault of the run.
+  - `cleanup_copied.{txt,sh}` lists the 1,104 cluster paths this PC holds (10.9 GiB), each checked here by byte
+    count; `result.json` stays on the cluster.
+- 2026-10-19/20 · batch 3, imported · all 129 jobs into the real database by `rq4_overnight.py adopt --apply
+  --allow-project`, 22:55–00:09, one recording at a time, through the 8765 bridge. No job failed or was refused.
+  - **A session per recording first.** Scope's change of recording used to relabel Discovery's one session in
+    place, which would have moved M2_aug's 52 runs onto LM_fs2. Main `0ffadd5` gives each recording its own session
+    (made on first use, an `openSeq` in its state picks the open one), and *Add N matches* reads a run key in the open
+    session first.
+  - **Sessions:** 3 `LM_fs2_rq4`, 4 `CO_fs2_rq4` and 5 `L_LM_Jul_26_J_raw_fs2_rq4`, each with the whole signal and
+    every channel, and 46 runs each: the 43 jobs plus three matrix-profile copies made here from the cached profiles
+    (`mp_threshold` at 6 and 10, `mp_motifs`). Discovery is back on session 2 (M2_aug, its 52 runs unchanged).
+  - **Against the cluster:** 127 of 129 jobs have exactly the cluster's detection count. The two others are BEADs
+    (`BEADs_invert_detect_v1__delta_mv_5` on CO_fs2, 1,352 against 1,353, and `BEADs_invert_detect_v1` on L_LM_fs2,
+    497 against 498), the same off-by-a-few as batch 1's BEADs.
+  - **Size:** the database grew from 342 MB to 511 MB, and `DATA/derived/step_cache` from 4.6 GB to 9.2 GB (3.6 GB
+    of it copied from the cluster, the rest the local sweep's own steps).
+  - **Pages:** Discovery's runs, the per-dataset Map, the overview, Library and Review answer in 0.3–4 s on the
+    live bridge. The Map's overview takes 11–15 s, as it already did on the pre-import backup (14.3 / 10.8 s then,
+    14.6 / 11.9 s now).
+  - Not yet read for RQ4.
