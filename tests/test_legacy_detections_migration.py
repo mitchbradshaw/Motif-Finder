@@ -309,3 +309,31 @@ def test_a_refusal_is_warned_once_per_process_not_on_every_database_open(caplog)
     quiet = [r for r in caplog.records if r.levelno < logging.WARNING and "already reported" in r.getMessage()]
     assert len(quiet) == 2
     conn.close()
+
+
+def test_many_refusals_are_one_warning_line_with_each_run_at_debug(caplog):
+    """The real database holds 306 refused runs, so a fresh bridge (and every worker process it spawns) printed
+    306 warning lines in a row (the researcher, 2026-10-19: "it really fills the terminal"). One line now sums
+    them up, with the count by reason and the first few ids; each run's own line is at DEBUG."""
+    import logging
+    from Working.database import schema as S
+    S._LEGACY_REFUSALS_REPORTED.clear()
+    path = _scratch_db()
+    conn = init_db(path)
+    rec = _recording(conn)
+    runs = []
+    for i in range(30):
+        run = _run(conn, rec, 5_000 + i, 100_000 + i)         # ambiguous: length > span_start
+        _detection(conn, run, 100, 200)
+        runs.append(run)
+    with caplog.at_level(logging.DEBUG, logger="Working.database.schema"):
+        migrate_legacy_detections(conn)
+        migrate_legacy_detections(conn)
+    mine = [r for r in caplog.records if "legacy detections" in r.getMessage()]
+    warned = [r for r in mine if r.levelno >= logging.WARNING]
+    assert len(warned) == 1, [r.getMessage() for r in warned]
+    text = warned[0].getMessage()
+    assert "30" in text and "ambiguous" in text and f"run {runs[0]}" in text
+    each = [r for r in mine if r.levelno == logging.DEBUG and "refusing run " in r.getMessage()]
+    assert sorted(int(r.getMessage().split("refusing run ")[1].split()[0]) for r in each) == runs
+    conn.close()
