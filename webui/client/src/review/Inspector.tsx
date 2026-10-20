@@ -8,10 +8,11 @@ import { useAbortableSourced, useSourced } from '../api/seam'
 import { useSize } from '../charts/useSize'
 import { useToast } from '../shell/Toast'
 import { plotPx } from './axis'
-import { VOCABULARY, carryOf, getItem, peekItem, prefetchItem, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
+import { VOCABULARY, carryOf, getItem, itemHeld, peekItem, prefetchItemThen, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
-import { goUnit, judged, judgedRecord, nextUnjudgedAfter, relTime, step } from './queue'
+import { goUnit, indexOf, isJudged, judged, judgedRecord, nextUnjudgedAfter, relTime, step, units } from './queue'
+import { prefetchIds } from './prefetch'
 import {
   AnnotateCard, ArtifactPill, ContextCard, EvidenceRail, NearestFamiliesCard, Pill, PromotionPanel, ShapeCard, VerdictCard, editInExplore, statusDot, statusText, useNow,
 } from './parts'
@@ -22,7 +23,10 @@ import {
   patchRecord, rawRecord, releaseExemplar, resend, useAutoAdvance, useDrafts, usePad, useRecords, useReviewVersion, useStack, useWriteError, type Draft, type VerdictRecord,
 } from './store'
 
-const ADVANCE_MS = 350
+/** night-review: how long the verdict flash shows before auto-advance moves on — counted from the bridge's accept, so
+ *  a few frames, not the 350 ms it was (the researcher: "no noticeable lag between items"). The "previous" line
+ *  under the verdict buttons names the write that landed. */
+const ADVANCE_MS = 60
 /** night-a: an item not yet held is read once it has been on screen this long, so stepping fast through a 10 k queue
  *  sends no read for the items passed (40 presses left the bridge 25-49 s of item reads behind) */
 const STEP_SETTLE_MS = 150
@@ -66,7 +70,8 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const det = useAbortableSourced(signal => {
     if (!px) return Promise.resolve({ data: null, source: 'live' as const })
     const opts = { px, padS: +pad }
-    if (peekItem(q, id, opts)) return getItem(q, id, opts)
+    // night-review: an item already read OR being read (the window below) joins its read at once, with no settle
+    if (peekItem(q, id, opts) || itemHeld(q, id, opts)) return getItem(q, id, opts)
     return new Promise<void>(res => window.setTimeout(res, STEP_SETTLE_MS))
       .then(() => signal.aborted ? Promise.reject(new DOMException('superseded', 'AbortError')) : getItem(q, id, opts))
   }, [q, id, version, px, pad])
@@ -99,18 +104,25 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   // read itself is then answered from the same cache entry
   const peeked = px ? peekItem(q, id, { px, padS: +pad }) : null
   const d = (det.data && det.data.entry.id === id ? det.data : null) ?? (peeked && peeked.entry.id === id ? peeked : null)
-  // AR: the moment this item is on screen, read the ones a key press can go to next (auto-advance's next unjudged
-  // item, J/K's either side), at the width and padding this card asks for, so the step is a cache hit
+  // AR: the moment this item is on screen, read the ones a key press can go to next, at the width and padding this
+  // card asks for, so the step is a cache hit. night-review: the window is the next five unjudged items (a run of
+  // verdicts), the very next unit (an arrow) and the previous one, read ONE AT A TIME nearest first — the next item
+  // is in hand first, and the bridge never has the whole window in flight at once. Still only from an item the
+  // researcher stopped on (STEP_SETTLE_MS), and the chain stops the moment they move: an item passed by fast
+  // stepping is never read.
   useEffect(() => {
     if (!d || !px) return
-    const u0 = { kind: 'item' as const, id }
-    // night-a: only from an item the researcher stopped on (see STEP_SETTLE_MS)
-    const t = window.setTimeout(() => {
-      for (const u of [nextUnjudgedAfter(data, getRecords(), u0), step(data, u0, 1), step(data, u0, -1)]) {
-        if (u && u.kind === 'item') prefetchItem(q, u.id, { px, padS: +pad })
+    const opts = { px, padS: +pad }
+    let live = true
+    const t = window.setTimeout(async () => {
+      const list = units(data)
+      const recs = getRecords()
+      for (const pid of prefetchIds(list, indexOf(list, { kind: 'item', id }), i => isJudged(data, recs, list[i]))) {
+        if (!live) return
+        await prefetchItemThen(q, pid, opts)
       }
     }, STEP_SETTLE_MS)
-    return () => window.clearTimeout(t)
+    return () => { live = false; window.clearTimeout(t) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d?.entry.id, px, pad, q])
   const rec = effective(records, row)

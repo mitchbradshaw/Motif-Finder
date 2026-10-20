@@ -611,3 +611,17 @@ function eventsLine(q: SrvQueue): string {
   if (n == null || !(n > total)) return ''
   return `${total.toLocaleString('en-GB')} events from ${n.toLocaleString('en-GB')} detections`
 }
+
+/* night-review (append-only): the Inspector's five-ahead window. `itemHeld` is true for an item read or being read at
+ * these trace options (`peekItem` sees only settled reads, so an item whose prefetch was in flight still waited the
+ * 150 ms settle before joining it — night-a #24). `prefetchItemThen` is `prefetchItem` with a promise that settles
+ * when the read does (never rejects: a failed read is dropped from the cache and read again by the card), so the
+ * window can be read one item at a time, nearest first. */
+export function itemHeld(queueId: string, itemId: string, opts: TraceOpts = {}): boolean {
+  return ITEMS.has(itemKey(queueId, itemId, opts))
+}
+export function prefetchItemThen(queueId: string, itemId: string, opts: TraceOpts = {}): Promise<void> {
+  prefetchItem(queueId, itemId, opts)
+  const p = ITEMS.get(itemKey(queueId, itemId, opts))
+  return p ? p.then(() => undefined, () => undefined) : Promise.resolve()
+}

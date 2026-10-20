@@ -52,6 +52,7 @@ import { Dendrogram, Spark, heightFor, kAt } from '../analyse/views/TreePage'
 /* the five omission reasons live in `chrome` so the drawer and this panel cannot word them differently */
 import { NoiseBadge, OMIT_REASON_LABEL, useExternalNavKey, useAllGroupings, useMotifGroupingId, useSavedGroupings, useSelection, useSequenceGroupingId } from './chrome'
 import { AtlasPage } from './AtlasPage'
+import { TREE_BASES, treeSource } from './treeSource'
 import { FamilyPage } from './FamilyPage'
 import { RecurrencePage } from './RecurrencePage'
 
@@ -401,7 +402,12 @@ function GroupingEditor({ from }: { from: string }) {
   const overLimit = pv?.recompute.where === 'cluster'
   const busy = job.view.phase === 'running' || writing
   const failed = job.view.phase === 'failed'
-  const current = all.find(g => g.id === (d.unit === 'sequences' ? seqGid : motifGid))
+  const currentAny = all.find(g => g.id === (d.unit === 'sequences' ? seqGid : motifGid))
+  /* night-review: the editor opens on a TREE grouping by default (the researcher, 2026-10-20: the dendrogram "on by
+   * default in add new grouping"). The newest grouping is often a feature-bin one (g-09 on the real database), which
+   * builds no tree, so the panel was not on the page at all. Unless the address names a non-tree basis, the editor
+   * seeds from the current grouping when it is Ward on a distance basis, else from the newest one of this unit that is. */
+  const current = basisQ && !TREE_BASES.includes(basisQ) ? currentAny : (treeSource(all, d.unit, currentAny) ?? undefined)
   // the core's own identity for "this is the grouping you already have" — the recipe hash, not a comparison
   // against the literal settings of `g-07`
   const currentHash = (current as (Grouping & { recipeHash?: string | null }) | undefined)?.recipeHash ?? null
@@ -567,7 +573,8 @@ function GroupingEditor({ from }: { from: string }) {
       {editor.data && basis && <>
         {treeGid && (
           <TreePanel gid={treeGid} cut={d.cut} minGroup={d.minMembers} omitSmall={d.omitSmall} nearest={d.nearest}
-            onCut={c => set({ cut: c })} busy={busy} onBuild={() => runPreview()} builtKey={builtKey} />
+            onCut={c => set({ cut: c })} busy={busy} onBuild={() => runPreview()} builtKey={builtKey}
+            autoBuild={seededFrom === treeGid && !touched.current && !stateQ && job.view.phase === 'idle' && !job.view.result && !job.view.refusal} />
         )}
         <section className="lib-ge-sec" data-testid="ge-unit">
           <h4>1&nbsp; What to group</h4>
@@ -700,15 +707,20 @@ function GroupingEditor({ from }: { from: string }) {
  * when the catalogue and the fit settings have not changed. */
 const MAX_TREE_CARDS = 40
 
-function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onBuild, busy, builtKey }: {
+function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onBuild, busy, builtKey, autoBuild = false }: {
   gid: string; cut: number; minGroup: number; omitSmall: boolean; nearest: number
   onCut: (c: number) => void; onBuild: () => void; busy: boolean
   /** ux-1018: the tree the regroup job just built for this grouping's settings — drawn and cut by its key until
    *  Apply saves it. Build the tree used to run the job and change nothing here, because the panel read only the
    *  row, which records no tree until a save (the researcher, 2026-10-18: "build the tree not working"). */
   builtKey: string | null
+  /** night-review: the tree is ON by default — a grouping with no kept tree has it built the moment the editor opens
+   *  on it (the same regroup *Build the tree* runs: at the grouping's own settings, nothing saved until Apply), once
+   *  per editor, and only while the draft is untouched and no job has run. A refused or failed build shows the button. */
+  autoBuild?: boolean
 }) {
   const [tree, setTree] = useState<LibGroupingTree | null>(null)
+  const builtOnce = useRef(false)
   const [treeErr, setTreeErr] = useState<string | null>(null)
   useEffect(() => {
     let alive = true
@@ -718,6 +730,12 @@ function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onBuild, bus
     return () => { alive = false }
   }, [gid, builtKey])
   const has = !!tree?.tree
+  const missing = !!tree && !tree.tree && tree.canBuild
+  useEffect(() => {
+    if (!missing || !autoBuild || busy || builtOnce.current) return
+    builtOnce.current = true
+    onBuild()
+  }, [missing, autoBuild, busy]) // eslint-disable-line react-hooks/exhaustive-deps
   const [pv, setPv] = useState<LibCutPreview | null>(null)
   const [pvErr, setPvErr] = useState<string | null>(null)
   /* fix round: at most one cut request in flight. A move while one is out waits as `pending` (a newer move replaces
@@ -746,6 +764,13 @@ function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onBuild, bus
   )
   if (treeErr) return <section className="lib-ge-sec" data-testid="ge-tree">{head}<Callout tone="red" title="The tree did not load" testid="tree-load-failed">{treeErr}</Callout></section>
   if (!tree) return <section className="lib-ge-sec" data-testid="ge-tree">{head}<span className="mono small muted" data-testid="tree-loading">reading the tree…</span></section>
+  if (!tree.tree && builtOnce.current && busy) {
+    return (
+      <section className="lib-ge-sec" data-testid="ge-tree">{head}
+        <span className="mono small" data-testid="tree-building"><Icon name="clock" size={11} style={{ verticalAlign: -1 }} /> building the tree at {gid}'s settings. The regroup saves nothing; the tree is drawn here when it lands, and Apply saves it with a new grouping.</span>
+      </section>
+    )
+  }
   if (!tree.tree) {
     return (
       <section className="lib-ge-sec" data-testid="ge-tree">{head}
