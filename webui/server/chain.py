@@ -29,6 +29,9 @@ from Working.database.queries import get_recording_by_id
 from Working.database.runs import get_step_artifact
 
 from . import views as views_mod
+from Working import block_cost as _block_cost
+
+_REAL_CALIBRATE = _block_cost.calibrate   # site-x: a stand-in (tests) is not sent to a calibration process
 
 discover_adapters()
 
@@ -319,15 +322,65 @@ def _block_cost_models(step: dict) -> list[str]:
             if getattr(run_once, "__module__", None) == modname or name in named]
 
 
+#: site-x (2026-10-20, "pulled a span into Analyse, loading forever, the whole website lagging"): where a model is
+#: timed. "process" (the default): a process of its own, so the timing's Python never holds the bridge's GIL — on a
+#: thread, timing detection.rupture (~447 s) slowed every other route two to five times for as long as it ran.
+#: "thread": on the calling thread (a sandbox that forbids processes). A stand-in `block_cost.calibrate` (a test's
+#: fake) cannot cross a process boundary, so it always runs on the thread.
+CALIBRATION_WORKER = "process"
+_BC_POOLS: set = set()               # the calibration processes in flight, stopped at interpreter exit
+_BC_ATEXIT = {"registered": False}
+
+
+def _stop_block_calibrations() -> None:
+    """Stop every calibration process now (interpreter exit): a bridge must not wait out a 7-minute timing to
+    close. The model stays uncalibrated; the next chain that needs it starts it again."""
+    from . import corpus
+    for pool in list(_BC_POOLS):
+        _BC_POOLS.discard(pool)
+        corpus._terminate(pool)
+
+
+def _calibrate_in_process(name: str, path: str) -> int:
+    """`block_cost.calibrate([name], path=path)` in a spawned process of its own (one per model, so a slow model
+    never queues behind another, nor behind the corpus maps' worker); the child's pid. The child watches the
+    bridge and ends with it (`coverage_map.watch_parent`)."""
+    import multiprocessing as mp
+    from concurrent.futures import ProcessPoolExecutor
+    from Working import block_cost
+    from Working.discovery import coverage_map
+    from . import calibrate_child, corpus
+    module = getattr((block_cost.MODELS.get(name) or (None, None))[1], "__module__", None)
+    pool = ProcessPoolExecutor(max_workers=1, mp_context=mp.get_context("spawn"), initializer=coverage_map.watch_parent)
+    _BC_POOLS.add(pool)
+    if not _BC_ATEXIT["registered"]:
+        register = getattr(threading, "_register_atexit", None)    # before concurrent.futures joins its workers
+        if register is not None:
+            register(_stop_block_calibrations)
+        _BC_ATEXIT["registered"] = True
+    try:
+        with corpus._POOL_LOCK, corpus._MainHidden():   # the child must not re-run the bridge's main script
+            fut = pool.submit(calibrate_child.calibrate_in_child, name, path, module)
+        return fut.result()
+    finally:
+        _BC_POOLS.discard(pool)
+        pool.shutdown(wait=False)
+
+
 def _calibrate_block_cost(name: str, path: str, generation: dict) -> None:
     """Time one model and store it in `path` — the calibration file resolved when the request started it (a
     sandbox's runtime copy), never whatever the module points at by the time a minutes-long timing ends (a
-    restored runtime would otherwise send it to the checkout's DATA/db)."""
+    restored runtime would otherwise send it to the checkout's DATA/db). site-x: timed in a process of its own
+    (`_calibrate_in_process`); the state records which process (`pid`)."""
     from Working import block_cost
     t0 = time.time()
     try:
-        block_cost.calibrate([name], path=path)
-        st = {"state": "calibrated", "seconds": round(time.time() - t0, 1), "error": None}
+        if CALIBRATION_WORKER == "process" and block_cost.calibrate is _REAL_CALIBRATE:
+            pid = _calibrate_in_process(name, path)
+        else:
+            block_cost.calibrate([name], path=path)
+            pid = os.getpid()
+        st = {"state": "calibrated", "seconds": round(time.time() - t0, 1), "error": None, "pid": pid}
     except Exception as e:          # a block that cannot run here: say why, never "free"
         st = {"state": "failed", "seconds": round(time.time() - t0, 1), "error": f"{type(e).__name__}: {e}",
               "failed_at": time.time()}
@@ -371,7 +424,12 @@ def route_local(recipe: dict, n_samples: int, fs: float, *, ceiling_s: float, dr
         est = estimate(recipe, n_samples, fs)
     models = sorted({name for i in est["unknown"] for name in _block_cost_models(recipe["steps"][i])})
     if models:
-        threads = [t for t in (_ensure_block_calibration(m) for m in models) if t is not None]
+        # site-x: only the request that STARTS a timing waits for it (a quick model lands inside it); a re-validate
+        # that finds one already running answers "calibrating" at once — the page asks again every 3 s, and each of
+        # those waiting 10 s again held the chain page "loading" for the whole of a minutes-long timing
+        with _BC_LOCK:
+            running = {m for m in models if (_BC_STATE.get(m) or {}).get("state") == "calibrating"}
+        threads = [t for t in (_ensure_block_calibration(m) for m in models if m not in running) if t is not None]
         deadline = time.time() + float(CALIBRATION_WAIT_S)
         for t in threads:
             t.join(max(0.0, deadline - time.time()))
