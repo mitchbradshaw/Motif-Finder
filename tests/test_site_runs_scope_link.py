@@ -221,17 +221,20 @@ def test_the_scoreboard_scrolls_past_ten_runs_with_a_sticky_header():
 
 def test_a_run_row_puts_its_actions_on_their_own_line():
     """The researcher's screenshot: in the 296 px column the name was cut to `dip_se...`, and *Report* and *Run on
-    the missing 14* overlapped the text and each other. The small actions now sit on a line of their own under the
-    row (grid row 2, every column), the A/B box and the x stay at the right of the name."""
+    the missing 14* overlapped the text and each other. night-disc (2026-10-20, the researcher's drawing) replaced the
+    five lines with three columns: the small actions are a line of their own in the MIDDLE column, under the name and
+    its facts; Report is an icon in the right column under the x and the A/B box (tests/test_night_disc.py)."""
     src = _src("discovery", "chrome.tsx")
     start = src.index("function RunRow")
     body = src[start:src.index("/* ------------------------------------------------------------------ coverage strip")]
     assert 'className="dsc-run-actions"' in body
-    acts = body[body.index('className="dsc-run-actions"'):]
-    for tid in ("run-missing-", "report-", "retry-", "chain-import-", "open-in-jobs-"):
+    acts = body[body.index('className="dsc-run-actions"'):body.index('className="dsc-run-right"')]
+    for tid in ("run-missing-", "retry-", "chain-import-", "open-in-jobs-"):
         assert tid in acts, f"{tid} is not on the actions line"
-    # the pick box and the x come BEFORE the actions in the row, so the grid puts them beside the name
-    assert body.index("dsc-run-remove") < body.index('className="dsc-run-actions"')
+    # the x, the pick box and the Report icon come AFTER the actions, in the right column
+    right = body[body.index('className="dsc-run-right"'):]
+    for tid in ("remove-", "pick-", "report-"):
+        assert tid in right, f"{tid} is not in the right column"
     assert "title={run.label}" in body
 
 
@@ -239,7 +242,8 @@ def test_a_run_name_wraps_to_two_lines_then_ellipsis():
     css = _src("discovery", "discovery.css")
     assert re.search(r"\.dsc-run-text\s*>\s*b\s*\{[^}]*-webkit-line-clamp:\s*2", css)
     assert re.search(r"\.dsc-run\s*\{[^}]*display:\s*grid", css)
-    assert re.search(r"\.dsc-run-actions\s*\{[^}]*grid-column:\s*1\s*/\s*-1", css)
+    # night-disc: the actions are a wrapping line inside the middle column
+    assert re.search(r"\.dsc-run-actions\s*\{[^}]*flex-wrap:\s*wrap", css)
 
 
 # ── item 2: "Runs drawn: N of M" ────────────────────────────────────────────
