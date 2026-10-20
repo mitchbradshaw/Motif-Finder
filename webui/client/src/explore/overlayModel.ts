@@ -54,6 +54,16 @@ export function overlayGains(spans: (number | null)[], lane: number, blockPx: nu
   return { shared, medianSpan, rows }
 }
 
+/** Gate G2: the drawing origin for one lane, nudged so the channel's whole drawn extent — `up` units above its mean
+ *  and `down` below, at `pxPerUnit` — stays inside [0, blockPx]. A channel that fits the block at the shared gain but
+ *  sits in an edge lane (CO CH4 ran 46 px below the block) moves toward the middle instead of leaving it; the gain,
+ *  and so how its height compares with the others', is unchanged. A lane that fits keeps its centre. */
+export function fitCentre(centre: number, up: number, down: number, pxPerUnit: number, blockPx: number): number {
+  const top = up * pxPerUnit, bottom = down * pxPerUnit
+  if (top + bottom >= blockPx) return (blockPx - bottom + top) / 2     // cannot fit (never for a shared- or own-gain lane)
+  return Math.min(Math.max(centre, top), blockPx - bottom)
+}
+
 export interface DetectionMark { t0: number; t1: number; n: number; openLeft: boolean; openRight: boolean }
 
 /** Overlapping (or touching) detections as one mark each, clipped to [w0, w1], in time order. */

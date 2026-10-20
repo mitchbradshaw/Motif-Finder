@@ -7,10 +7,12 @@
    - channels sit in EQUAL lanes by rank, the first channel at the top and the last at the bottom: a lane is at least
      LANE_MIN px and the block at least BLOCK_MIN px tall;
    - one SHARED gain for every channel (mV per pixel), so a bigger wiggle still looks bigger: the (lower) median
-     channel's own range spans GAIN_LANES lanes, so neighbours overlap a little, which is what an overlay is for. A
-     wiggle that runs past the block is clipped by the block — except a channel whose whole range cannot fit the
+     channel's own range spans GAIN_LANES lanes, so neighbours overlap a little, which is what an overlay is for. No
+     trace leaves the block — a channel whose whole range cannot fit the
      block at the shared gain: that one is drawn at its own gain and marked ÷N beside its name (site-x,
      overlayModel.ts::overlayGains), and a lane drawn flatter than FLAT_PX says "flat at this gain";
+   - a channel that fits the block but sits in an edge lane is drawn from a centre nudged toward the middle
+     (overlayModel.ts::fitCentre), so no trace leaves the block; its name stays on its lane;
    - selected ("bold") channels draw at full opacity and a thicker stroke, the rest faded behind them;
    - align by lag (off by default) slides a channel by the lag the bridge measured against the reference, so a wave
      that travels across the electrodes lines up; the shift is printed beside the name.
@@ -24,7 +26,7 @@ import { scaleLinear } from 'd3'
 import { makeX, polylinePath } from '../charts/scale'
 import { mvDigits } from './util'
 import { cx } from '../kit'
-import { mergeDetectionMarks, overlayGains } from './overlayModel'
+import { fitCentre, mergeDetectionMarks, overlayGains } from './overlayModel'
 
 /** One channel as the overlay draws it. `t` is absolute seconds (the envelope's own, non-uniform once decimated),
  *  `v` the envelope's values in the recording's display unit, a null a gap. */
@@ -104,7 +106,12 @@ export function overlayGeometry(channels: OverlayChannel[]) {
   // the block at it — drawn at its own gain and labelled with the factor (overlayModel.ts::overlayGains)
   const gains = overlayGains(st.map(s => (s ? s.hi - s.lo : null)), lane, height, GAIN_LANES)
   const centre = channels.map((_, i) => PAD_T + lane * (i + 0.5))
-  return { height, lane, pxPerUnit: gains.shared, medianSpan: gains.medianSpan, gains: gains.rows, centre, stats: st }
+  // gate G2: where each trace is drawn from — its lane's centre, nudged so its whole extent stays inside the block
+  const origin = channels.map((_, i) => {
+    const s = st[i]
+    return s ? fitCentre(centre[i], s.hi - s.mean, s.mean - s.lo, gains.rows[i].pxPerUnit, height) : centre[i]
+  })
+  return { height, lane, pxPerUnit: gains.shared, medianSpan: gains.medianSpan, gains: gains.rows, centre, origin, stats: st }
 }
 
 /** The value nearest in time to t on one envelope (binary search over its own t). */
@@ -123,7 +130,7 @@ export function Overlay(p: OverlayProps) {
   const g = useMemo(() => overlayGeometry(channels), [channels])
   const bold = useMemo(() => new Set(selected), [selected])
   const shifts = channels.map(c => overlayShift(c, p.align, p.referenceId, p.maxLagS))
-  const yOf = (i: number) => { const m = g.stats[i]?.mean ?? 0; return scaleLinear().domain([m, m + 1]).range([g.centre[i], g.centre[i] - (g.gains[i]?.pxPerUnit ?? g.pxPerUnit)]) }
+  const yOf = (i: number) => { const m = g.stats[i]?.mean ?? 0; return scaleLinear().domain([m, m + 1]).range([g.origin[i], g.origin[i] - (g.gains[i]?.pxPerUnit ?? g.pxPerUnit)]) }
   const paths = useMemo(() => channels.map((c, i) => {
     const s = shifts[i]
     const tt = s ? c.t.map(t => t - s) : c.t
