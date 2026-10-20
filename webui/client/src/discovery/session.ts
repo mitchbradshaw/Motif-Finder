@@ -150,7 +150,9 @@ export function useDiscovery(): Discovery {
   const setScope = (patch: Partial<ScopeState>) => {
     if (!scope) return
     const next = { ...scope, ...patch }
-    const clearLink = () => { if (channelsQ && (patch.channels || patch.recording)) setChannelsQ(null) }
+    // critic (night-disc): a bare ?recording= link is a view; once the researcher picks another recording, that key
+    // must go too, or the page keeps drawing the link's recording over the session the bridge just opened
+    const clearLink = () => { if (channelsQ && (patch.channels || patch.recording)) setChannelsQ(null); if (recordingQ && patch.recording !== undefined) setRecordingQ(null) }
     const moves = patch.recording !== undefined || patch.channels !== undefined || patch.section !== undefined
     if (!moves || isHeldOut(next.recording)) { setScopeStore(next); clearLink(); return }
     /* site-runs item 6: the scope shown is the bridge's ANSWER — a change of recording opens that recording's own
