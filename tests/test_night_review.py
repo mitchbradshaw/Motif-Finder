@@ -191,3 +191,40 @@ def test_the_automatic_build_is_for_motif_shape_trees_only():
     Sequences keep the button until that is fixed in the core."""
     code = _code(_read("library", "GroupingPage.tsx"))
     assert re.search(r"autoBuild=\{d\.unit === 'motifs' && d\.basis === 'shape-distance' && ", code)
+
+
+# ── fix round (the critic, 2026-10-21 00:40) ─────────────────────────────────
+
+def test_f1_the_carry_fields_come_from_the_fresh_row_first():
+    """A carry that reached no row of THIS queue no longer empties the item cache, so an item of another queue read
+    before the carry came back from the cache without its `carriedFrom`: the carried line vanished. The row (re-read
+    on every queue open) wins over the cached detail, and the other queues' cached items are dropped."""
+    insp = _code(_read("review", "Inspector.tsx"))
+    assert "const carry: CarryFields = { ...carryOf(d?.entry), ...carryOf(row) }" in insp
+    assert "clearItemCacheExcept(q)" in insp
+    api = _code(_read("api", "review.ts"))
+    assert "export function clearItemCacheExcept(" in api
+
+
+def test_f2_a_grouping_job_is_cancelled_on_every_exit():
+    """The automatic build was left running on browser back, a nav link, a hash change, or a close before the job
+    id arrived. The hook cancels its live job on unmount and cancels a job whose id arrives after it was abandoned."""
+    code = _code(_read("library", "GroupingPage.tsx"))
+    hook = re.search(r"function useGroupingJob\(\) \{(.*?)\n}\n", code, re.S).group(1)
+    assert "liveJob.current" in hook and "gen.current" in hook
+    assert re.search(r"useEffect\(\(\) => \(\) => \{[^\n]*liveJob\.current[^\n]*cancelJob", hook), \
+        "unmount does not cancel the live job"
+    assert re.search(r"if \(!alive\.current \|\| mine !== gen\.current\) \{ void cancelJob\(j\.job_id\)", hook), \
+        "a job abandoned before its id arrived keeps running"
+
+
+def test_f3_undo_clears_the_pending_advance_and_navigates_from_where_the_researcher_is():
+    code = _code(_read("review", "Inspector.tsx"))
+    body = re.search(r"const undo = async \(\) => \{(.*?)\n  \}", code, re.S).group(1)
+    assert body.index("timers.current.forEach(t => window.clearTimeout(t))") < body.index("await commitUndo(")
+    assert "if (onItem.current !== w.items[0]) navigate(" in body
+
+
+def test_f4_the_detection_index_reads_the_bridge_field():
+    queue = _code(_read("review", "queue.ts"))
+    assert "detection_id" in queue and "r.detectionId" not in queue
