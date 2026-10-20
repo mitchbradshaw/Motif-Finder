@@ -247,6 +247,13 @@ def _cover_by_id(conn):
         "SELECT recording_id, SUM(end_idx - start_idx) FROM reviewed_spans GROUP BY recording_id").fetchall())
 
 
+def _session_name(conn, source_file):
+    """A NEW session's name (site-runs, 2026-10-20): the dataset's display name, or its file stem when Settings ›
+    Datasets gave it none — no longer "<stem> screen". Existing rows keep the name they have."""
+    name = corpus.dataset_name(conn, source_file)
+    return _stem(source_file) if not name or name == source_file else name
+
+
 def _new_session(conn, best, cover_by_id=None):
     """A new session on one recording: its three most-reviewed channels and its most-reviewed section."""
     cover_by_id = _cover_by_id(conn) if cover_by_id is None else cover_by_id
@@ -256,7 +263,7 @@ def _new_session(conn, best, cover_by_id=None):
     span = _densest_section(conn, [c["id"] for c in channels], best["fs"], n_samples)
     null = seeded_search.null_from_settings(conn)
     row = {
-        "name": f"{_stem(best['source_file'])} screen",
+        "name": _session_name(conn, best["source_file"]),
         "source_file": best["source_file"],
         "channels_json": json.dumps([c["name"] for c in channels]),
         "span_start": int(span[0]), "span_end": int(span[1]),

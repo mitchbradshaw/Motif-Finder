@@ -62,6 +62,10 @@ export function RunsPage() {
               placeholder card above content that pushes the toolbar down and back */}
           {dx.firstLoad && !dx.error && <DiscoverySkeleton label="loading the session" />}
           {!dx.firstLoad && !dx.error && <Refreshing on={dx.refreshing} label="re-reading the runs" />}
+          {/* site-runs item 5: a deep link whose channels the recording does not have is refused in words, not sent */}
+          {dx.linkRefused && <Callout tone="red" icon="alert-triangle" title="The link's scope was not applied" testid="scope-link-refused"
+            action={<Button variant="primary" size="sm" onClick={() => { dx.clearLink(); setModal(null) }}>Keep the session's scope</Button>}>{dx.linkRefused}</Callout>}
+          {dx.linkPending && <Refreshing on testid="scope-link-pending" label="moving the session to the linked scope…" />}
           {dx.scope && !dx.firstLoad && (
             <>
               <DiscoveryToolbar dx={dx} right={<><NullChip dx={dx} /><CostChip dx={dx} /><HistoryButton dx={dx} />{primary}</>} />
@@ -92,7 +96,7 @@ export function RunsPage() {
           )}
         </div>
       </div>
-      {dx.scope && <AddTemplateModal open={modal === 'add-template'} onClose={() => setModal(null)} dx={dx}
+      {dx.scope && <AddTemplateModal open={modal === 'add-template' && !dx.linkPending && !dx.linkRefused} onClose={() => setModal(null)} dx={dx}
         onSlurm={keys => { setSlurmKeys(keys); setModal('slurm') }} />}
       {dx.scope && <SlurmModal open={modal === 'slurm'} onClose={() => setModal(null)} dx={dx} runs={slurmRuns} />}
     </>

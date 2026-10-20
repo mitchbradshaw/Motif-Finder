@@ -514,7 +514,7 @@ function CrossBody({ data, sig }: { data: CrossRead; sig: SourcedState<SignalDem
               caption={xcJob.busy ? `running · ${xcJob.job?.total ? `${xcJob.job.done} of ${xcJob.job.total} channels · ` : ''}${xcJob.job?.message ?? ''}` : xcJob.job?.status === 'failed' ? `job ${xcJob.job.id} failed · ${xcJob.job.error}` : xcJob.startError ? `could not start: ${xcJob.startError}` : 'runs across all channels and stores bins on edges'}
               testid="act-classify" onClick={() => { if (familyQ) void xcJob.start(familyQ, groupingQ || undefined) }}
               disabled={!familyQ || xcJob.busy} reason={!familyQ ? 'open this page from a Library family (an edge\u2019s Explore › link) to say which family to classify' : 'a classification is running'} />
-            <ActionRow icon="target" title={`Apply a template across these ${rows.length} channels`} caption="opens Discovery with a channel scope" testid="act-template" onClick={() => navigate(`discovery/runs?modal=add-template&channels=${selected.join(',')}`)} />
+            <ActionRow icon="target" title={`Apply a template across these ${rows.length} channels`} caption="opens Discovery with a channel scope" testid="act-template" onClick={() => navigate(`discovery/runs?modal=add-template&recording=${encodeURIComponent(data.recording)}&channels=${rows.map(r => encodeURIComponent(r.name)).join(',')}`)} />
             <div className="row small" style={{ margin: '10px 2px 6px', gap: 6, alignItems: 'center' }} data-testid="cross-strip-caption">
               <b>This window</b><InfoTip title="This window">This window on the {rows.length} channel{rows.length === 1 ? '' : 's'} shown: send their unjudged motifs to Review, or mark it an artifact on the channels you pick.</InfoTip>
             </div>

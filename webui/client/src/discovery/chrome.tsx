@@ -107,7 +107,7 @@ export function ScopeSummaryChip({ dx }: { dx: Discovery }) {
   return (
     <Chip tone="blue" icon="layers" size="lg" testid="scope-chip" title="jump to the Scope card"
       onClick={() => { const el = document.querySelector<HTMLElement>('[data-testid="scope-card"]'); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); el?.querySelector<HTMLElement>('[data-testid="section-chip"]')?.focus() }}>
-      <DatasetName file={dx.recording.file} testid="scope-dataset" /> · {s.channels.length} channel{s.channels.length === 1 ? '' : 's'} · {s.section[0]}–{s.section[1]} h <Icon name="chevron-down" size={11} />
+      <DatasetName file={dx.recording.file} testid="scope-dataset" /> · {s.channels.length} channel{s.channels.length === 1 ? '' : 's'} · {s.section[0]}–{s.section[1]} h
     </Chip>
   )
 }

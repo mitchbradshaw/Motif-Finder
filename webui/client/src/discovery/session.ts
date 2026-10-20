@@ -7,6 +7,7 @@ import { useSourced } from '../api/seam'
 import { useDemoState, useQueryState } from '../kit'
 import { applyDiscoveryTemplates } from '../api'
 import { useToast } from '../shell/Toast'
+import { resolveScopeLink, scopeFromSession } from './scopeLink'
 
 /** The template `?state=running` applies. `mp_threshold` is the cheapest of the
  *  nine canonical detection templates on a short span. */
@@ -37,6 +38,12 @@ export interface Discovery {
   scope: ScopeState | null; recordings: RecordingOption[]; recording: RecordingOption | null
   setScope: (patch: Partial<ScopeState>) => void
   resetScope: () => void
+  /** site-runs: a deep link (`?recording=` + `?channels=`) being written to the session — hold anything that would
+   *  act on the scope (the Apply-template modal) until it lands. */
+  linkPending: boolean
+  /** site-runs: why a deep link was refused (a name that is not a channel of the recording), in words; nothing was sent. */
+  linkRefused: string | null
+  clearLink: () => void
   runs: DiscoveryRun[]; patchRun: (key: string, patch: Partial<DiscoveryRun>) => void
   picks: string[]; setPicks: (p: string[]) => void; togglePick: (key: string) => void
   /** ux-1019: the runs drawn in "Where each run fires" — none on a new session, each turned on by its eye button;
@@ -73,19 +80,44 @@ export function useDiscovery(): Discovery {
   const [stale, setStale] = useDemoState<boolean>('discovery.stale', () => false)
   const [chPageQ, setChPageQ] = useQueryState('chpage', '1')
   const [channelsQ, setChannelsQ] = useQueryState('channels', '')
-  const [recordingQ] = useQueryState('recording', '')
+  const [recordingQ, setRecordingQ] = useQueryState('recording', '')
   const [stateQ] = useQueryState('state', '')
   const toast = useToast()
 
-  const fixtureScope: ScopeState | null = sess.data ? { name: sess.data.session.name, saved: true, recording: sess.data.session.recording, channels: sess.data.session.channels, section: sess.data.session.section, nullMethod: sess.data.session.null.method, nullN: sess.data.session.null.n, nullRequested: sess.data.session.null.requested ?? null, nullReason: sess.data.session.null.reason ?? null, nullTemplateN: sess.data.session.nulls?.template.n ?? sess.data.session.null.n, nullTemplateMethod: sess.data.session.nulls?.template.method ?? sess.data.session.null.method, nullExplicit: !!sess.data.session.null.explicit } : null
+  const fixtureScope: ScopeState | null = sess.data ? scopeFromSession(sess.data.session) : null
   const scope0 = scopeStore ?? fixtureScope
   const recordings = sess.data?.recordings ?? []
-  // deep links: ?channels=a,b,c and ?recording=<key> seed the scope
-  const scope: ScopeState | null = scope0 && (channelsQ || recordingQ) ? {
-    ...scope0,
-    recording: recordingQ || scope0.recording,
-    channels: channelsQ ? channelsQ.split(',').filter(Boolean) : scope0.channels,
-  } : scope0
+  /* site-runs item 5: a deep link that names channels (Cross-channel's *Apply a template across these N channels*:
+   * `?recording=<key>&channels=<names>`) BECOMES the session's scope, through the Scope card's own `putScope`
+   * write, and the query keys are cleared once it has landed — so a template is applied where the page says. A
+   * name the recording does not have is refused in words and nothing is sent. A link with no channels
+   * (`?recording=` alone, the held-out states) and a held-out recording stay a view, as before. */
+  const link = scope0 && sess.data ? resolveScopeLink(recordingQ, channelsQ, scope0, recordings) : null
+  const linkRefused = link && 'refused' in link ? link.refused : null
+  const linkTarget = link && 'scope' in link ? link.scope : null
+  const scope: ScopeState | null = !scope0 ? null
+    : linkTarget ? { ...scope0, ...linkTarget }
+      : linkRefused ? scope0
+        : (channelsQ || recordingQ) ? {
+          ...scope0,
+          recording: recordingQ || scope0.recording,
+          channels: channelsQ ? channelsQ.split(',').filter(Boolean) : scope0.channels,
+        } : scope0
+  const clearLinkKeys = () => { setChannelsQ(null); setRecordingQ(null) }
+  const linkKey = linkTarget ? `${linkTarget.recording}|${linkTarget.channels.join(',')}|${linkTarget.section.join(',')}` : ''
+  useEffect(() => {
+    if (!link || !('scope' in link)) return
+    if (link.same) { clearLinkKeys(); return }
+    let alive = true
+    putScope(link.scope)
+      .then(p => { if (!alive) return; setScopeStore(scopeFromSession(p.session)); clearLinkKeys(); sess.reload(); base.reload() })
+      .catch(e => {
+        console.error('the linked scope could not be written', e)
+        toast.push({ text: `the link's scope was not applied · ${e instanceof Error ? e.message : String(e)}` })
+      })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkKey])
   const recording = recordings.find(r => r.key === scope?.recording) ?? null
 
   /* The scope is the SERVER's (P17: one session, one scope). A changed recording, channel list or section is
@@ -100,8 +132,10 @@ export function useDiscovery(): Discovery {
     const clearLink = () => { if (channelsQ && (patch.channels || patch.recording)) setChannelsQ(null) }
     const moves = patch.recording !== undefined || patch.channels !== undefined || patch.section !== undefined
     if (!moves || isHeldOut(next.recording)) { setScopeStore(next); clearLink(); return }
+    /* site-runs item 6: the scope shown is the bridge's ANSWER — a change of recording opens that recording's own
+     * session, with its own name; merging the patch into this copy kept the old session's name on the toolbar */
     putScope({ recording: next.recording, channels: next.channels, section: next.section })
-      .then(() => { setScopeStore(next); clearLink(); sess.reload(); base.reload() })
+      .then(p => { setScopeStore(scopeFromSession(p.session)); clearLink(); sess.reload(); base.reload() })
       .catch(e => {
         console.error('the scope could not be changed', e)
         toast.push({ text: `the scope was not changed · ${e instanceof Error ? e.message : String(e)}` })
@@ -183,6 +217,7 @@ export function useDiscovery(): Discovery {
     error: sess.error ?? base.error ?? scoreRead.error, reload: () => { sess.reload(); base.reload(); scoreRead.reload() },
     demo: sess.source === 'demo' || base.source === 'demo',
     scope, recordings, recording, setScope, resetScope,
+    linkPending: !!linkTarget && !(link && 'same' in link && link.same), linkRefused, clearLink: clearLinkKeys,
     runs, patchRun, picks, setPicks, togglePick, shown, isShown, toggleShown, setShown, stale, setStale,
     pending, estimateMin, overLimit: estimateMin > DISCOVERY_LIMIT_MIN,
     chPage, setChPage: p => setChPageQ(String(p)), pageCount, visibleChannels,
