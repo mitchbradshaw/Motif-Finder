@@ -207,3 +207,32 @@ c8d8b16 site-runs: red - item 1, a run row's actions on their own line and a two
 ecfd26b site-runs: items 5 and 6 - a deep-linked scope becomes the session's, and the session shown is the bridge's
 18a1955 site-runs: red - items 5 and 6, the deep-linked scope and the session's name
 ```
+
+## Fix round (the critic's F1–F5)
+
+Commits: `949bb22` red, `5538031` F1, `2926589` F2–F5.
+
+- **F1: the Send count is now exactly what Send would queue.**
+  - `GET /api/discovery/runs/{key}/unjudged` returns `queue_counts` of the run's open queue when there is one. It finds it with `find_open_queue` and the send's own kind and filter `{"run_ids": ids}`.
+  - When there is no open queue, it returns the same count from the new `Working/review/queues.py` `unwritten_counts`. That uses the same `_detection_structure` (overlap sets, with items a human verdict already covers left out), the same cap and the same rule for "judged". It writes nothing: no `review_queues` row and no structure row.
+  - The structure is cached in memory the way a written queue's is. `_cached_structure` gains an optional `cache_key`; the queue id is still the default. Both edits are additive and outside my declared files (`Working/review/queues.py`), and no run reads that file.
+  - The answer is `{total, judged, unjudged, queueId}`. The button's words are now "N events Review would put to you · M judged", and a true 0 reads "Review would ask about none" with the button disabled.
+  - Test: the route's answer before a send equals the send's own count, on a case with an overlap set, a prior human verdict and an adjudication; the count wrote no queue; after the send the route answers from the open queue. Run with webui/.venv. `tests/test_review_queue*.py` and `test_review_carry_core.py` pass (94, conda).
+  - **On the real-DB copy, all 52 done runs:**
+    - `dip_search_allch` reads 0 (it has open queue 7, so 102 events, all 102 judged).
+    - Cold reads take 0.4–2 s for most runs. The largest runs take 18–42 s (`deconvolved_troughs__recovery_half_s_60` 41.6 s, `OASIS_Deconvolution__threshold_3` 41.4 s, `deconvolved_troughs_2` 25.9 s). Median 1.7 s; a warm repeat takes 0.4 s. "counting…" covers the wait.
+    - **Risk:** each cold count keeps a structure in the in-memory queue-structure cache, which is bounded by `_STRUCTURE_CACHE_MAX`. On a 1 GB-free machine, the 100k+ runs' structures are real memory.
+- **F2: a rejected link write no longer hangs the page.**
+  - A rejected `putScopeLink` is held as `linkError` and said through the `scope-link-refused` callout. Its button keeps the session's scope and clears the URL keys and the error.
+  - `linkWriting` is false while the error is held, so the page stops showing its loading layout.
+  - Test: source pins in `test_site_runs_scope_link.py`.
+  - Checked in the browser with the PUT forced to 500: the callout reads "the bridge did not take the link's scope — forced — the session keeps its scope". The toolbar mounts, the modal stays shut and the pending line is gone. The button clears the keys and the callout.
+- **F3: `webui/smoke.py` waits for the count before reading the Send label.** This file is outside my list; the manager allowed the edit. In the discovery → review flow it waits for `[data-testid="send-to-review"]:not([data-counting="1"])` (60 s) before reading the label, at the first send and at the seed run's send. That is two added lines; nothing else changed.
+- **F4: the smoke states now measure, not pin.**
+  - New state `site-runs-run-row-geometry-at-1024` narrows the page to a 1024 px window's width (960 px beside the rail). An `eval` then checks every run row: no two of its parts (name, meta, status, coverage, pick, ×, action buttons) overlap, and none leaves the row. It marks `runs-list[data-geometry=ok|bad]`, with the reasons in `data-geometry-detail`. Nine `no_overlap` pairs measure the walk's own `{run:a}` row.
+  - The scoreboard state gains an `eval` that marks `scoreboard-scroll[data-check=ok|bad]`. It checks that more than ten runs scroll in a box no taller than the header plus ten rows, and that the header stays at the top after a scroll.
+  - Only existing check kinds are used (`eval`, `expect`, `no_overlap`). The other states in the file restore the page width first, and it also goes when the page unmounts.
+  - **On the copy:** geometry `ok` over 53 rows at 960 px. The scroll eval was **not** run end to end: the cold scoreboard did not land within 15 min on the loaded machine (the template warm took 547 s alongside it). The earlier manual measurement (496 of 2468 px, header at offset 0 after a 200 px scroll) is what it checks.
+- **F5:** restored the indent in `RunsPage.tsx`; removed the dead `.dsc-run-jobs`, `.dsc-run-retry` and `.dsc-run-jobs-link` rules; dropped the unused `scoresLoading` export.
+
+Gates: `tests/test_site_runs_scope_link.py` 27 passed (conda); `tests/test_webui_site_runs.py` 5 passed (webui/.venv); `tsc -b` and `vite build` pass. Bridge stopped.
