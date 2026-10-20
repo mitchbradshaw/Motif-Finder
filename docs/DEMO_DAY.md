@@ -95,11 +95,18 @@ estimates 31 s). Do not.
 | # | click | what appears | time |
 |---|---|---|---|
 | 1 | Library › Atlas › group *by shape distance* (grouping **g-05**, "shape families") | families | 1.5–2.5 s |
+| 1b | *Edit grouping* › *Build the tree* | the Ward dendrogram of all ~3,600 motifs, with the cut line at 0.6 that makes the families; drag the line to show how the families split or merge | about 6 s: it reuses the kept tree `38ca0755`, built on 20 October. **Close without *Apply* or *Save*.** Either one writes a new grouping and renumbers the families |
 | 2 | family **F-30** (`#/library/family/F-30?grouping=g-05`) | 79 members, all judged; medoid m-191 on CH2_A1 at 442 h | about 1 s warm, 13 s cold |
 | 3 | *Seed search in Discovery* | opens on the kept run **seed 056a5d** (step 4): the same search returns the same run | 2 s |
 | 4 | step 2/3 | 1000 matches, the null's recommended cut, 155 kept | instant |
 | 5 | Review › queue **31** "demo · talk · picked from Discovery" | the matches | 2–3 s |
 
+- **Check the scope chip says "5 channels · 0–721 h" before step 3.** If it does not, the search is a new
+  one on a different scope.
+  - On 20 October at 22:37 the "demo · talk" scope was changed to 3 channels and 0–174 h, so the walk
+    found 49 matches instead of 155. It was set back at 23:10.
+  - To set it back by hand: Discovery › Runs › Scope, channels CH3_A2, CH4_A2, CH6_B1, CH7_B2, CH8_B2,
+    section 0–721 h.
 - **Do not press *Run with the rigorous null*.** It is about 14.5 h and goes to the cluster.
 - **On main 3d4bef1 or later, do not use Cross-channel's *Apply template* link on M2_aug before the
   talk.** It writes the scope of the newest M2_aug session, which is "demo · talk".
