@@ -334,6 +334,50 @@ def _starts(conn, claimed, run_rows):
     return np.array(out, dtype=float)
 
 
+#: past this many cells under one owned range, its detections are fetched once and histogrammed (`_starts`) rather
+#: than counted cell by cell; every level-3 and level-2 cell (1-8 per channel) is under it, long level-1 rows are not
+COUNT_CELLS_MAX = 16
+
+
+def _counts(conn, claimed, run_rows, edges):
+    """Detections per cell between ``edges`` (sample indices), each from the run that owns the sample range it falls
+    in — the histogram of `_starts` (site-map, 2026-10-20: on the real database level 2 fetched every counted row,
+    1.25 s of a 1.8 s read). A range spanning few cells is an indexed ``COUNT(*)`` per cell on (run_id, start_idx),
+    stated as `_starts` states its two index ranges (absolute rows, legacy span-relative rows); a range spanning many
+    cells is fetched once and histogrammed. Like `np.histogram`, the last cell includes its right edge."""
+    nb = len(edges) - 1
+    out = np.zeros(max(0, nb), dtype=np.int64)
+    if not claimed or nb <= 0:
+        return out
+    span_start = {int(r["id"]): int(r["span_start"]) for r in run_rows}
+    ed = [int(math.ceil(e)) for e in edges]
+    fetch = []
+    for lo, hi, rid in claimed:
+        o = int(span_start.get(rid, 0) or 0)
+        lo_i, hi_i = int(math.ceil(lo)), int(math.ceil(hi))
+        cells = []
+        for i in range(nb):
+            a = max(lo_i, ed[i])
+            b = min(hi_i, ed[i + 1] + 1 if i == nb - 1 else ed[i + 1])
+            if b > a:
+                cells.append((i, a, b))
+        if len(cells) > COUNT_CELLS_MAX:
+            fetch.append((lo, hi, rid))
+            continue
+        for i, a, b in cells:
+            n = conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ? AND start_idx >= ? AND start_idx < ?",
+                             (rid, max(a, o) if o else a, b)).fetchone()[0]
+            if o:
+                n += conn.execute("SELECT COUNT(*) FROM detections WHERE run_id = ? AND start_idx >= ? AND start_idx < ?",
+                                  (rid, a - o, min(o, b - o))).fetchone()[0]
+            out[i] += int(n)
+    if fetch:
+        starts = _starts(conn, fetch, run_rows)
+        if len(starts):
+            out += np.histogram(starts, bins=np.asarray(edges, dtype=float))[0]
+    return out
+
+
 def _hours(samples, fs):
     return round(samples / fs / 3600.0, HOURS_PLACES)
 
@@ -346,8 +390,7 @@ def _machine_cells(conn, run_rows, edges, fs):
     claimed = _resolve(run_rows)
     cover = [(lo, hi) for lo, hi, _ in claimed]
     holder = {int(r["id"]): r for r in run_rows}
-    starts = _starts(conn, claimed, run_rows)
-    counts = np.histogram(starts, bins=np.asarray(edges, dtype=float))[0] if len(starts) else np.zeros(len(edges) - 1, dtype=int)
+    counts = _counts(conn, claimed, run_rows, edges)
     out = []
     for i in range(len(edges) - 1):
         lo, hi = edges[i], edges[i + 1]
@@ -591,6 +634,39 @@ def compute(db_path: str, exclude_files=()) -> tuple:
         try:
             fp = overview_fingerprint(conn, exclude_files)
             out = dataset_map(conn, exclude_files=exclude_files)
+            if not wal and overview_fingerprint(conn, exclude_files) != fp:
+                fp = None
+        finally:
+            if wal:
+                conn.execute("COMMIT")
+        return fp, out
+    finally:
+        conn.close()
+
+
+def compute_level(db_path: str, level: str, source_file: str, args: dict, exclude_files=()) -> tuple:
+    """Level 2 (``level="dataset"``, ``args={"chunks"}``) or level 1 (``level="channel"``, ``args={"channel",
+    "bin_h"}``) read from the database at `db_path` on a read-only connection of its own, as `compute` reads the
+    overview: ``(fingerprint, payload)``, the fingerprint `overview_fingerprint` of the state the payload was READ
+    from (both levels read the rows the overview reads), or None on a non-WAL database that changed meanwhile.
+    The bridge keeps the payload under that fingerprint (site-map, 2026-10-20)."""
+    from Working.discovery.coverage_map import connect_read_only
+
+    if level not in ("dataset", "channel"):
+        raise ValueError(f"level must be 'dataset' or 'channel', not {level!r}")
+    exclude_files = tuple(exclude_files)
+    conn = connect_read_only(db_path)
+    try:
+        wal = str(conn.execute("PRAGMA journal_mode").fetchone()[0]).lower() == "wal"
+        if wal:
+            conn.execute("BEGIN")
+        try:
+            fp = overview_fingerprint(conn, exclude_files)
+            if level == "dataset":
+                out = channel_map(conn, source_file, chunks=int(args["chunks"]), exclude_files=exclude_files)
+            else:
+                out = timeline_map(conn, source_file, args["channel"], bin_h=float(args["bin_h"]),
+                                   exclude_files=exclude_files)
             if not wal and overview_fingerprint(conn, exclude_files) != fp:
                 fp = None
         finally:

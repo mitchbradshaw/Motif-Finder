@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import copy
 import json
+from collections import OrderedDict
 import logging
 import threading
 import time
@@ -314,8 +315,10 @@ def get_map_dataset(request: Request, recording: str, chunks: int = 1):
         _refuse_held_out(c, rec["source_file"])
         if chunks not in DM.CHUNK_OPTIONS:
             raise HTTPException(422, {"message": f"chunks must be one of {list(DM.CHUNK_OPTIONS)}, not {chunks}"})
-        m = DM.channel_map(c, rec["source_file"], chunks=chunks, exclude_files=_held_out_files(c))
+        t0 = time.perf_counter()
+        m = _level(c, request.app.state.rt.db_path, "dataset", rec["source_file"], {"chunks": chunks})
         m["key"] = _stem(rec["source_file"])
+        m["read_ms"] = (time.perf_counter() - t0) * 1e3
         m["session"] = _session_bit(c)
         return m
     finally:
@@ -330,13 +333,135 @@ def get_map_channel(request: Request, recording: str, channel: str, binH: float 
         _refuse_held_out(c, rec["source_file"])
         if not binH > 0:
             raise HTTPException(422, {"message": f"binH must be a positive number of hours, not {binH}"})
+        t0 = time.perf_counter()
         try:
-            m = DM.timeline_map(c, rec["source_file"], channel, bin_h=binH, exclude_files=_held_out_files(c))
+            m = _level(c, request.app.state.rt.db_path, "channel", rec["source_file"], {"channel": channel, "bin_h": float(binH)})
         except KeyError as e:
             raise HTTPException(404, {"message": str(e.args[0]) if e.args else "no such channel",
                                       "channels": [ch["name"] for ch in rec["channels"]]})
         m["key"] = _stem(rec["source_file"])
+        m["read_ms"] = (time.perf_counter() - t0) * 1e3
         m["session"] = _session_bit(c)
         return m
     finally:
         c.close()
+
+
+# ── levels 2 and 1, kept per view (site-map, 2026-10-20) ────────────────────
+#
+# Both were computed on every read: on a copy of the real database level 2 took 6.1-6.8 s per read and level 1
+# 1.3-3.5 s, the bridge holding the GIL meanwhile. Each view — (level, recording, chunks) or (level, recording,
+# channel, bin) — is now kept under the overview's fingerprint (both levels read the rows the overview reads), which
+# `_fingerprint` skips while SQLite's change counter stands. A read of a view held for the current state answers from
+# memory; a view held for an older state is answered at once marked ``stale`` and recomputed once, off the request, on
+# a thread (its own read-only connection, `detection_map.compute_level`); a view never seen is computed on the request,
+# as before, so a page never has to wait on a "pending" it does not know. Memory only: a restart recounts on first read.
+# Not the worker process the overview and corpus maps use: one level-2 read takes ~1-3 s, and queueing it behind a
+# corpus-map warm of minutes would make the first open slower than computing it here.
+
+#: views kept (least recently read dropped first): ~0.3-1 MB each on the real database
+LEVEL_CACHE_MAX = 48
+
+_LV = {"cache": OrderedDict(), "errors": {}, "first_seen": {}, "done_at": {}, "in_flight": set(), "scheduled": 0,
+       "computed": 0}
+_LV_LOCK = threading.Lock()
+_LV_IDLE = threading.Event()
+_LV_IDLE.set()
+
+
+def _level(conn, db_path, level, source_file, args) -> dict:
+    """The level-2 or level-1 payload for one view, as the module comment says. Raises what the core raises
+    (KeyError for a channel the recording lacks) on the request; `MapFailed` when the last off-request recompute of
+    this view failed on the current state."""
+    exclude = _exclude(conn)
+    key = (level, source_file, tuple(sorted(args.items())), exclude)
+    fp = _fingerprint(conn, db_path, exclude)
+    with _LV_LOCK:
+        hit = _LV["cache"].get(key)
+        if hit is not None:
+            _LV["cache"].move_to_end(key)
+        failed = _LV["errors"].get(key)
+    if hit is not None and hit[0] == fp:
+        return copy.deepcopy(hit[1])
+    if failed is not None and failed[0] == fp:
+        raise MapFailed(failed[1])
+    if hit is not None:
+        with _LV_LOCK:
+            seen = _LV["first_seen"].get(key)
+            if seen is None or seen[0] != fp:
+                seen = _LV["first_seen"][key] = (fp, _now())
+            done_at = _LV["done_at"].get(key)
+        if not (done_at is not None and time.monotonic() - done_at < RUNNING_GAP_S and DM.any_running(conn)):
+            _schedule_level(key, fp, db_path, level, source_file, args, exclude)
+        out = copy.deepcopy(hit[1])
+        out.update(stale=True, stale_since=seen[1])
+        return out
+    got_fp, out = DM.compute_level(db_path, level, source_file, args, exclude)
+    _keep_level(key, got_fp, out)
+    return copy.deepcopy(out)
+
+
+def _keep_level(key, fp, out):
+    if fp is None:                      # the database changed while it was read: not kept, the next read recounts
+        return
+    with _LV_LOCK:
+        _LV["cache"][key] = (fp, out)
+        _LV["cache"].move_to_end(key)
+        _LV["errors"].pop(key, None)
+        _LV["computed"] += 1
+        while len(_LV["cache"]) > LEVEL_CACHE_MAX:
+            _LV["cache"].popitem(last=False)
+
+
+def _schedule_level(key, fp, db_path, level, source_file, args, exclude) -> bool:
+    """One recompute of `key` off the request, unless one is in flight (single flight per view)."""
+    with _LV_LOCK:
+        if key in _LV["in_flight"]:
+            return False
+        _LV["in_flight"].add(key)
+        _LV["scheduled"] += 1
+        _LV_IDLE.clear()
+    threading.Thread(target=_recompute_level, args=(key, fp, db_path, level, source_file, args, exclude), daemon=True,
+                     name=f"discovery-map-level-{level}").start()
+    return True
+
+
+def _recompute_level(key, asked_fp, db_path, level, source_file, args, exclude):
+    log = logging.getLogger("webui.discovery_map")
+    t0 = time.perf_counter()
+    try:
+        got_fp, out = DM.compute_level(db_path, level, source_file, args, exclude)
+        _keep_level(key, got_fp, out)
+        log.info("map %s level recomputed for %s %s (%.1f s)", level, source_file, dict(args), time.perf_counter() - t0)
+    except BaseException as exc:            # noqa: B902 - recorded, never swallowed into a blank
+        sentence = f"the Discovery map's {level} level could not be computed: {type(exc).__name__}: {exc}"
+        log.error("%s", sentence, exc_info=(type(exc), exc, exc.__traceback__))
+        with _LV_LOCK:
+            _LV["errors"][key] = (asked_fp, sentence)
+    finally:
+        with _LV_LOCK:
+            _LV["in_flight"].discard(key)
+            _LV["done_at"][key] = time.monotonic()
+            if not _LV["in_flight"]:
+                _LV_IDLE.set()
+
+
+def level_status() -> dict:
+    with _LV_LOCK:
+        return {"held": len(_LV["cache"]), "in_flight": len(_LV["in_flight"]), "scheduled": _LV["scheduled"],
+                "computed": _LV["computed"]}
+
+
+def wait_levels_idle(timeout: float | None = None) -> bool:
+    """Block until no level recompute is in flight (tests). True when idle."""
+    return _LV_IDLE.wait(timeout)
+
+
+def reset_level_cache(timeout: float = 120.0):
+    """Tests: wait out a recompute in flight, then forget every view held."""
+    wait_levels_idle(timeout)
+    close_probe()
+    with _LV_LOCK:
+        for k in ("cache", "errors", "first_seen", "done_at"):
+            _LV[k].clear()
+        _LV.update(scheduled=0, computed=0)
