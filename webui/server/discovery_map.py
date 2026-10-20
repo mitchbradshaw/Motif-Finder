@@ -28,6 +28,7 @@ import threading
 import time
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from Working.discovery import detection_map as DM
 
@@ -318,9 +319,10 @@ def get_map_dataset(request: Request, recording: str, chunks: int = 1):
         t0 = time.perf_counter()
         m = _level(c, request.app.state.rt.db_path, "dataset", rec["source_file"], {"chunks": chunks})
         m["key"] = _stem(rec["source_file"])
-        m["read_ms"] = (time.perf_counter() - t0) * 1e3
         m["session"] = _session_bit(c)
-        return m
+        m["read_ms"] = (time.perf_counter() - t0) * 1e3
+        # plain JSON: FastAPI's jsonable_encoder walked a 1 h level-1 payload (2.6 MB) in ~0.3 s
+        return JSONResponse(m)
     finally:
         c.close()
 
@@ -340,9 +342,10 @@ def get_map_channel(request: Request, recording: str, channel: str, binH: float 
             raise HTTPException(404, {"message": str(e.args[0]) if e.args else "no such channel",
                                       "channels": [ch["name"] for ch in rec["channels"]]})
         m["key"] = _stem(rec["source_file"])
-        m["read_ms"] = (time.perf_counter() - t0) * 1e3
         m["session"] = _session_bit(c)
-        return m
+        m["read_ms"] = (time.perf_counter() - t0) * 1e3
+        # plain JSON: FastAPI's jsonable_encoder walked a 1 h level-1 payload (2.6 MB) in ~0.3 s
+        return JSONResponse(m)
     finally:
         c.close()
 
@@ -381,8 +384,10 @@ def _level(conn, db_path, level, source_file, args) -> dict:
         if hit is not None:
             _LV["cache"].move_to_end(key)
         failed = _LV["errors"].get(key)
+    # shallow copies: a read only adds top-level keys (key, session, read_ms, stale); the cells are never written
+    # (a deep copy of a 1 h level-1 payload cost ~0.2 s)
     if hit is not None and hit[0] == fp:
-        return copy.deepcopy(hit[1])
+        return dict(hit[1])
     if failed is not None and failed[0] == fp:
         raise MapFailed(failed[1])
     if hit is not None:
@@ -393,12 +398,12 @@ def _level(conn, db_path, level, source_file, args) -> dict:
             done_at = _LV["done_at"].get(key)
         if not (done_at is not None and time.monotonic() - done_at < RUNNING_GAP_S and DM.any_running(conn)):
             _schedule_level(key, fp, db_path, level, source_file, args, exclude)
-        out = copy.deepcopy(hit[1])
+        out = dict(hit[1])
         out.update(stale=True, stale_since=seen[1])
         return out
     got_fp, out = DM.compute_level(db_path, level, source_file, args, exclude)
     _keep_level(key, got_fp, out)
-    return copy.deepcopy(out)
+    return dict(out)
 
 
 def _keep_level(key, fp, out):
