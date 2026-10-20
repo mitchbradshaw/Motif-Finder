@@ -1,4 +1,126 @@
-# Demo day, 21 October 2026: the examiners' copy of the tool
+# Demo day, 21 October 2026
+
+Two sites run on the day:
+
+- **The talk** runs live on your everyday site, **8765** (the real database, full data). It is described in
+  the first half of this file.
+- **The examiners' playground** runs on **8800**, on a 4-hour slice of the data. It is described in the
+  second half.
+
+## Part 1: the live talk on 8765
+
+### In plain words
+
+Every step of the three walkthroughs was cooked once on 20 October, on the full data, so in the talk
+each click reheats a dish that is already made. A chain run is answered from the step cache in about
+1 s. A Discovery run, a seed search and a Review queue already exist and only need opening. Nothing in
+the talk computes anything heavy.
+
+Everything made for the talk is named "demo ·" so it can be found and removed afterwards (see
+*Cleanup*). If the site fails, `docs/demo/UndergroundBrains_backup.pptx` holds a screenshot of every
+step, plus R3 and R4, which have no page in the site.
+
+### Before the talk
+
+1. **Leave 8765 running.** It was restarted on main 7ceea4f at 14:14 on 20 October and is warm.
+   - A restart keeps the step cache and the runs, which live on disk. The Map recount takes about 10 s on
+     the first visit after a restart.
+   - Never rebuild `webui/client/dist` on the morning of the talk.
+2. **Warm it** about 15 minutes before the talk. It takes about 1 minute and visits pages only:
+
+       cd /c/Users/mmebr/Documents/CNN
+       PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" scripts/demo_rehearsal.py --url http://127.0.0.1:8765 --allow-project --talk --slow 2
+
+3. **Open one browser tab per stop below, in order, before you start.** This is the single best defence
+   against the waits that are left. A tab that has already loaded shows instantly; switching tabs costs
+   nothing.
+4. **Nothing heavy** on the machine during the talk: no smoke walk, no pytest, no HPC import.
+
+### The click script
+
+Times are warm, measured on 20 October with three other agents loading the machine. Expect less on a
+quiet machine.
+
+**W1: open a span in Explore, analyse it**
+
+| # | click | what appears | time |
+|---|---|---|---|
+| 1 | Explore › Corpus › M2_aug_concat_fs1 › CH4_A2 › *Open* | Signal, 0–721 h | 2–5 s |
+| 2 | *Annotations* (drawer) › *clear* the filters › id **12640** › click the row › *collapse* | the saved span "demo · W1/W2 span" (377–381 h) as the motif | 1 s |
+| 3 | *Send motif to Analyse* | Analyse, source "CH4_A2 · 377.00–381.00 h" | 1 s |
+| 4 | *Import* › `spike_event_features` › *Run chain* | invert → detrend → encoding → drop detection → event shape → **intervals**: 9 spikes and their inter-spike intervals | 1–2 s (cache) |
+| 5 | *Import* › `cwt_events` › *Run chain* | wavelet route: CWT ridges → event shape → intervals, 11 events | about 1 s (cache) |
+
+- **Recovery:** Analyse › *History* reopens any of these runs.
+- **Report:** reports exist for Discovery runs, not Analyse chains. W1's report is the W2 report below.
+
+**W2: build a detector, save it, apply it, judge it**
+
+| # | click | what appears | time |
+|---|---|---|---|
+| 1 | still on the W1 source: *Import* › `drop_detection_v1` (or add Baseline removal → Symbolic encoding → Drop detection by hand) › *Run chain* | 6 drops | about 1 s |
+| 2 | *Save template* | it already exists as **demo · drop detector** (template 75); say so and show it in Library › Templates rather than saving a second | 1.5 s |
+| 3 | Discovery › Runs (session **demo · talk**: M2_aug, 5 channels, 0–721 h) | run **demo · drop detector**: 365 found on 5 channels, 20-draw null | 2 s |
+| 4 | that run's *Report* | the detection map against the human reference and its null | **5–7 s live**; instant as the saved snapshot in Reports |
+| 5 | *Send unjudged to Review* (already done) › Review › queue **30** "Discovery · demo · drop detector" | one detection at a time | 2–3 s |
+
+If you apply the template live instead, it takes about **2.5 min** on 5 channels × 721 h (the page
+estimates 31 s). Do not.
+
+**W3: a Library family to new instances**
+
+| # | click | what appears | time |
+|---|---|---|---|
+| 1 | Library › Atlas › group *by shape distance* (grouping **g-05**, "shape families") | families | 1.5–2.5 s |
+| 2 | family **F-30** (`#/library/family/F-30?grouping=g-05`) | 79 members, all judged; medoid m-191 on CH2_A1 at 442 h | about 1 s warm, 13 s cold |
+| 3 | *Seed search in Discovery* | opens on the kept run **seed 056a5d** (step 4): the same search returns the same run | 2 s |
+| 4 | step 2/3 | 1000 matches, the null's recommended cut, 155 kept | instant |
+| 5 | Review › queue **31** "demo · talk · picked from Discovery" | the matches | 2–3 s |
+
+- **Do not press *Run with the rigorous null*.** It is about 14.5 h and goes to the cluster.
+- A fresh preview of F-30 over the full data took 1.6 min on 20 October (estimated 13 min).
+
+**Results**
+
+| | where | time |
+|---|---|---|
+| R1 | Discovery › Map (all datasets), then click a dataset | 1–1.5 s; a dataset 2–5 s (M2_aug the slowest) |
+| R2 | Discovery › Runs in **demo · talk**: `dip_search_allch`, `trough_search`, `seed aba099` and `seed bdd3d0` were *adopted* from your M2_aug session (read, not copied). Their *Report*s, or the snapshots in Reports | report 5–7 s; snapshot instant |
+| R3 | backup deck only: queue 25's estimate. About 24.6 % of unjudged candidates are interesting (CI 21–28 %), and the rate rises with detector agreement | — |
+| R4 | backup deck only: MiniRocket AUC 0.79 against 0.83 for the agreement count | — |
+
+### Steps still over 2 s, and what to do
+
+| step | warm | cause | workaround today | fix after the talk |
+|---|---|---|---|---|
+| Explore › Corpus | 5 s | the corpus page reads every recording | pre-opened tab | a cached corpus read |
+| A run's Report | 5–7 s | matplotlib draws it on every visit | open the saved snapshot from Reports, or a pre-opened tab | cache the rendered report per run |
+| Every Review page, and the "need you" chip | 2–3 s | `GET /api/review/queues` and `/counts` count about 5,000 unjudged items | pre-opened tabs | cache the counts |
+| Discovery › Runs, Seed | about 2 s | the same counts, plus `/api/discovery/templates` | pre-opened tabs | — |
+| Map, M2_aug dataset | 3–5 s | 16 channels × about 60 algorithms | pre-opened tab | — |
+| Library family, first visit | 13 s | cold read | the warm-up visits it | — |
+
+### Cleanup after 21 October
+
+Everything below was made on 2026-10-20 between 04:14 and 05:00 UTC on the real database:
+
+- **Discovery session 9 "demo · talk"**, with its runs `demo · drop detector` (310), `seed 056a5d`
+  (311), and the four adopted R2 rows. Adoption does not touch session 2.
+  - While session 9 exists, switching Discovery to M2_aug opens it rather than your
+    "M2_aug_concat_fs1 screen" (session 2). History › *Open* adopts a run into it; deleting session 9
+    restores the old behaviour.
+- **Template 75** "demo · drop detector".
+- **Review queues 29** (Explore spans, holding the demo span), **30** and **31**.
+- **Annotation 12640**, the seed span "demo · W1/W2 span".
+- **Run rows 7177–7298**: Analyse chain runs on the span, and the two Discovery runs with their null
+  fan-out. Three of these (7291–7293) ran on 276.4–278.4 h by a scripting mistake. They are harmless but
+  belong to no step.
+- **Report snapshots** under `DATA/derived/reports/detection-run/` (demo · drop detector, seed_056a5d,
+  dip_search_allch, seed_bdd3d0).
+- **Also on 20 October:** the restart of 8765 at 14:14 local killed run **d-309** `cnn_gadf_1min` in session
+  LM_fs2_rq4, which was still running. Its finished channels are kept, and *run it again* finishes the rest.
+
+# Part 2: the examiners' playground on 8800
 
 ## In plain words
 

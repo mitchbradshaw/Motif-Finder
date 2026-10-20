@@ -34,6 +34,18 @@ PAGES = [
     "review", "jobs", "reports", "settings/datasets", "settings/analysis-defaults",
 ]
 
+# The live talk's own pages on the project bridge (docs/DEMO_DAY.md, "The live talk"): every one should be a
+# cache hit or an existing run. Run keys and queue ids are the ones made on 2026-10-20.
+TALK = [
+    "explore/corpus", "explore/signal/4", "analyse/chain", "library/templates",
+    "discovery/runs", "reports/detection-run/demo%20%C2%B7%20drop%20detector", "review/queue/30",
+    "library/atlas", "library/family/F-30?grouping=g-05", "discovery/seed?entry=191", "review/queue/31",
+    "reports/detection-run/seed_056a5d", "reports/detection-run/dip_search_allch", "discovery/map",
+    *[f"discovery/map?dataset={d}" for d in ("M2_aug_concat_fs1", "M2_concat_fs1", "CO_fs2", "LM_fs2",
+                                             "L_LM_Jul_26_J_raw", "L_LM_Jul_26_J_raw_fs2", "M4_aug_concat_fs1")],
+    "review/queue/27", "review/queue/28",
+]
+
 
 def channel_ids(url: str) -> list[int]:
     with urllib.request.urlopen(f"{url}/api/recordings", timeout=120) as r:
@@ -88,14 +100,17 @@ def main() -> int:
     ap.add_argument("--quiet", type=float, default=2.0, help="a page is ready after this long with no /api request open")
     ap.add_argument("--cap", type=float, default=300.0, help="give up waiting on one page after this many seconds")
     ap.add_argument("--report", default=None, help="write the full timing table here (markdown)")
+    ap.add_argument("--talk", action="store_true", help="walk the live talk's pages (TALK) instead of every page")
+    ap.add_argument("--allow-project", action="store_true",
+                    help="walk a --project bridge too (page visits only; for warming the talk bridge on the real database)")
     a = ap.parse_args()
     url = a.url.rstrip("/")
-    if urlparse(url).port == 8765:
-        raise SystemExit("8765 is the researcher's project bridge; rehearse on a sandbox bridge on its own port")
+    if urlparse(url).port == 8765 and not a.allow_project:
+        raise SystemExit("8765 is the researcher's project bridge; pass --allow-project to warm it for the talk")
     with urllib.request.urlopen(f"{url}/api/runtime", timeout=60) as r:
-        if json.load(r).get("mode") != "sandbox":
-            raise SystemExit(f"{url} is not a sandbox bridge; refusing to walk it")
-    routes = [p.format(ch=c) for p in PAGES for c in (channel_ids(url) if "{ch}" in p else [None])]
+        if json.load(r).get("mode") != "sandbox" and not a.allow_project:
+            raise SystemExit(f"{url} is not a sandbox bridge; pass --allow-project to walk it anyway")
+    routes = TALK if a.talk else [p.format(ch=c) for p in PAGES for c in (channel_ids(url) if "{ch}" in p else [None])]
 
     from playwright.sync_api import sync_playwright
     rows: list[tuple[int, str, str, float, int]] = []
