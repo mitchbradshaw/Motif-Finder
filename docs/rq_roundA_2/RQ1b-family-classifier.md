@@ -157,3 +157,15 @@ train a CNN on window-pool clusters but not yet on Library families.
 - 2026-10-18 · a2-rq1b · candidate events built over the RQ4b sweep (M2_aug: 1.50 M events from 2.0 M detections;
   your verdicts carried over; a stratified 800-item blind sample; the precision estimator). The table was checked on
   a copy of the real database, the queue on a sandbox bridge. Not merged. `findings/rq1b-candidate-events.md`.
+- 2026-10-20 · a2-rq1b · merged (57a42e0).
+  - **Queue 25 (M2_aug) answered by the researcher:** 754 answered, 46 unsure. Its estimate is in
+    `DATA/derived/candidate_events/M2_aug_concat_fs1_bf098c00/sample_seed0_l100_f50/estimate.json` (R3, read in RQ4b).
+  - **Four new tables:** CO_fs2, LM_fs2, M2_concat and L_LM fs2 (the 10 Hz copy left out). 2.28 M detections make
+    1.60 M candidate events.
+    - The merge rules are rate-free (§4.6, half the shorter span, twice the shortest span).
+    - Two detector settings count samples, so they cover half the time at 2 Hz: BEADs' `width` and the wavelet
+      levels.
+  - **Queue 28, for R3 and the MiniRocket training (R4):** 1,160 sampled events, 290 per recording (40 per agreement
+    level, 15 per selective detector). The recordings are interleaved and the queue is blind. Review serves 1,153
+    items, since 7 same-run pairs overlap. It was created through the project bridge's own route; each recording's
+    sample is `<table>/sample_seed0_l40_f15_multi`.

@@ -692,3 +692,12 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
   - **Pages:** every Discovery route on the three new sessions answers 200 in 0.2–6 s. The Map's overview now takes
     17–21 s on every call (11–15 s before batch 2): it grows with the number of Discovery runs (289).
   - Not yet read for RQ4.
+- 2026-10-20 · a2-rq1b · **R3 on M2_aug, from queue 25** (754 answered; seed counts as interesting, artifact as not,
+  unsure is left out):
+  - **By agreement:** the share of events that are real runs from 4 % at 1–2 families to 59 % at 9+.
+  - **By family:** drop_detection_v1 96 %, cnn_10min 95 %, wavelet_encoded 86 %, drop_detection_v5 81 %,
+    BEADs 68 %, symbol_search 64 %, OASIS 44 %, signal_threshold 43 %, Wavelet_detection_prototype 28 %,
+    noise_threshold 16 %, deconvolved_troughs 7 %, matrix profile 0 % (12 sampled).
+  - The per-setting figures, with intervals, are in `DATA/derived/candidate_events/M2_aug_concat_fs1_bf098c00/`
+    `sample_seed0_l100_f50/estimate.json`.
+  - Queue 28 extends it to CO_fs2, LM_fs2, M2_concat and L_LM fs2 (RQ1b's log).
