@@ -158,13 +158,15 @@ export function useDiscovery(): Discovery {
     /* night-disc item 3: a change of recording alone sends the recording alone — the bridge opens that recording's
      * session as it was left. Sending this page's channels and section with it overwrote the target session's own
      * scope ("demo · talk" lost its 5 channels × 721 h to 3 × 174 h, and its seed search found 49 instead of 155). */
+    const failed = (e: unknown) => {
+      console.error('the scope could not be changed', e)
+      toast.push({ text: `the scope was not changed · ${e instanceof Error ? e.message : String(e)}` })
+    }
     const bare = patch.recording !== undefined && patch.recording !== scope.recording && patch.channels === undefined && patch.section === undefined
-    ;(bare ? putRecording(next.recording) : putScope({ recording: next.recording, channels: next.channels, section: next.section }))
+    if (bare) { putRecording(next.recording).then(p => { took(p.session); clearLink() }).catch(failed); return }
+    putScope({ recording: next.recording, channels: next.channels, section: next.section })
       .then(p => { took(p.session); clearLink() })
-      .catch(e => {
-        console.error('the scope could not be changed', e)
-        toast.push({ text: `the scope was not changed · ${e instanceof Error ? e.message : String(e)}` })
-      })
+      .catch(failed)
   }
   /** Back to the scope the server holds (out of a held-out recording the card refused). */
   const resetScope = () => { setScopeStore(null); sess.reload(); base.reload() }

@@ -121,8 +121,12 @@ def test_the_keep_card_has_its_own_inner_margin():
 def test_a_change_of_recording_sends_the_recording_only():
     chrome = _src("discovery", "chrome.tsx")
     fn = _between(chrome, "const changeRecording", "const runPreview")
-    call = re.search(r"dx\.setScope\(\{[^}]*\}\)", fn).group(0)
-    assert "channels" not in call and "section" not in call, call
+    calls = re.findall(r"dx\.setScope\(\{[^}]*\}\)", fn)
+    assert "dx.setScope({ recording: key })" in calls, calls
+    # only a held-out recording (never written to the bridge, shown from the client's copy) keeps defaults
+    for call in calls:
+        if "channels" in call or "section" in call:
+            assert "if (r.heldOut) " + call in fn, f"a non-held-out switch still writes a scope: {call}"
     sess = _src("discovery", "session.ts")
     assert "putRecording(" in sess, "the session writes a bare recording through putRecording"
     api = _src("api", "discovery.ts")
@@ -140,7 +144,7 @@ def test_the_confirm_no_longer_says_it_clears_the_channels():
 def test_the_deep_link_still_writes_its_channels():
     api = _src("api", "discovery.ts")
     assert "export const putScopeLink" in api
-    link = _between(api, "export const putScopeLink", "})")
+    link = _between(api, "export const putScopeLink", ".then(")
     assert "channels: body.channels" in link
 
 
