@@ -243,7 +243,12 @@
 .an-toolbar { flex-wrap: nowrap; }
 .an-toolbar > * { flex: none; }
 .an-toolbar .spacer { flex: 1 1 0; min-width: 0; }
-.an-toolbar .an-popwrap:has(> .an-source), .an-toolbar .an-source { flex: 0 1 auto; min-width: 140px; overflow: hidden; }
+/* demo fix 2026-10-21: the wrapper shrinks AND the chip inside shrinks with it, so a long source ends in an ellipsis
+   with its border and caret intact (the button kept its own width and was clipped under the surrogate toggle);
+   the wrapper no longer clips, so the source popover is not cut off either */
+.an-toolbar .an-popwrap:has(> .an-source) { flex: 0 1 auto; min-width: 140px; display: inline-flex; }
+.an-toolbar .an-source { flex: 0 1 auto; min-width: 140px; max-width: 100%; overflow: hidden; }
+.an-toolbar .an-source > span:first-of-type { min-width: 0; }
 
 /* block page: running state over the process card (a re-run stays on the block page — critique r1) */
 .bp-process { position: relative; }
