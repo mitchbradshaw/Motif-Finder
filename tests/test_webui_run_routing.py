@@ -41,6 +41,12 @@ def fake_calibration(tmp_path, monkeypatch):
     deterministic, and never the real DATA/db."""
     path = tmp_path / "mp_calibration.json"
     monkeypatch.setattr(cost, "CALIBRATION_PATH", str(path))
+    # detection.fluss fixes its span cap at IMPORT time from whatever calibration file was current then
+    # (`max_span_samples_for_background()`). A module that imports the registry at collection (test_webui_chain_job_route)
+    # did so from the main checkout's real DATA/db/mp_calibration.json, so the cap was 678,125 here and the over-the-limit
+    # test met the cap refusal, not the SLURM route (gate, 2026-10-20). The cap is this test's calibration's: none yet.
+    from Adapters.registry import get_adapter
+    monkeypatch.setattr(get_adapter("detection.fluss"), "max_span_samples", cost.max_span_samples_for_background())
     calls = []
 
     def _calibrate(backend="stump", force=False, **kw):

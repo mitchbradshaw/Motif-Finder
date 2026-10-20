@@ -3,16 +3,28 @@
   "page": "discovery.runs",
   "state": "default",
   "hash": "discovery/runs",
-  "_why": "ux-1019: runs are hidden in Where each run fires until their eye is on, so the state turns every run on before it expects drawn bins",
+  "_why": "ux-1019: runs are hidden in Where each run fires until their eye is on, so the state turns every run on before it expects drawn bins; site-runs: show all is inside the Runs drawn picker now",
   "actions": [
    {
     "wait_for": [
-     "[data-testid=\"fires-show-all\"]",
+     "[data-testid=\"fires-picker\"]",
      30000
     ]
    },
    {
-    "click": "[data-testid=\"fires-show-all\"]"
+    "click": "[data-testid=\"fires-picker\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"fires-picker-popover\"] [data-testid=\"fires-show-all\"]",
+     10000
+    ]
+   },
+   {
+    "click": "[data-testid=\"fires-picker-popover\"] [data-testid=\"fires-show-all\"]"
+   },
+   {
+    "press": "Escape"
    },
    {
     "wait": 1500

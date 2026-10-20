@@ -175,3 +175,15 @@ Gate units: `explore` (cross-channel states), `zzz_w_cross_channel`, `zzzzzzzzzz
 found, what you changed, the test that proves it and the interpreter that ran it; timings before/after where an item
 is about speed; the smoke states added or edited, each with what it should show; `tsc -b` and `vite build` pass from
 your worktree. Hand back with the branch, the commit list and anything you could not finish.
+
+## The researcher's answers, after the brief (2026-10-20, ~14:40) — these override the sections above
+
+- **MAP 3, hidden rows and columns:** "for a cleaner look, make hidden detection algorithm rows in the discovery map
+  fall to the bottom rows on the map". A hidden row sinks below every shown row, dimmed and thin, its label readable
+  with a button to bring it back; a hidden column sinks to the right end of its dataset (level 3) or of the table
+  (level 2), narrow and dimmed. **Restoring a row or column puts it back in its original position** in the current
+  order, not at the end. All three levels.
+- **MAP 5, the level-1 signal:** a strip above the rows, at the **same height as the trace on Explore's Signal page**,
+  "so that it is easier to see structure".
+- **RUNS 6, the session name:** new sessions are named after the dataset (no "screen"); existing ones keep theirs.
+- **The manager's Review item:** a finished queue is hidden under a fold and kept in the database, not deleted.

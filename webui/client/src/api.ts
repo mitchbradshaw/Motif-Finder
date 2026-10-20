@@ -572,6 +572,8 @@ export interface DiscMap {
 export interface DiscMapDatasetLevel {
   rows: DiscMapRow[]; file: string; key: string; name: string; hours: number; fs: number; chunks: number
   channels: DiscMapChannel[]; cells: Record<string, Record<string, DiscMapCell[]>>; session: DiscMapSession
+  /** site-map: the bridge keeps the last answer per view; `stale` — from before the last change, a recompute is under way */
+  stale?: boolean; stale_since?: string; read_ms?: number
 }
 export interface DiscMapTimeline {
   rows: DiscMapRow[]; file: string; key: string; name: string; hours: number; fs: number; channel: string; recordingId: number
@@ -579,6 +581,8 @@ export interface DiscMapTimeline {
   /** per bin: count, covered fraction, state, and the Discovery run that owns the bin's first covered sample (null when none) */
   cells: Record<string, { counts: number[]; covered: number[]; states: DiscMapState[]; owners: ({ runKey: string; sessionId: number } | null)[]; state: DiscMapState }>
   session: DiscMapSession
+  /** site-map: as the dataset level */
+  stale?: boolean; stale_since?: string; read_ms?: number
 }
 export const getDiscoveryMap = () => req<DiscMap>('/api/discovery/map')
 export const getDiscoveryMapDataset = (recording: string, chunks: number) =>
@@ -1793,3 +1797,7 @@ export interface DiscExtendAck { run_key: string; job_id: number; channels: stri
  *  template changed since the run ran; the page then offers *apply as a new run*. */
 export const extendDiscoveryRun = (runKey: string, channels: string[]) =>
   post<DiscExtendAck>(`/api/discovery/runs/${encodeURIComponent(runKey)}/extend`, { channels })
+
+/** site-runs item 4: *Send N unjudged*'s N without the scoreboard — what Review would ask about (its queue's own count). */
+export interface DiscRunUnjudged { run_key: string; total: number; judged: number; unjudged: number; queueId: number | null; note: string }
+export const getDiscoveryRunUnjudged = (runKey: string) => req<DiscRunUnjudged>(`/api/discovery/runs/${encodeURIComponent(runKey)}/unjudged`)

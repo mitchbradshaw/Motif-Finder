@@ -1,0 +1,8 @@
+[
+  {"page": "explore.cross-channel", "state": "site-runs-apply-template-link-moves-the-session", "hash": "explore/cross-channel/4?view=stacked", "settle_ms": 1500,
+   "_why": "site-runs item 5: a WRITE (the session's scope becomes the cross-channel recording and its drawn channels), so this file sorts after every other. Take it further > Apply a template across these N channels opens Discovery with recording=<key>&channels=<names>; the scope is written through putScope, the query keys clear, and the Apply-template modal opens on the new scope with no 'no channel(s) [...]' card",
+   "actions": [{"wait_for": ["[data-testid=\"act-template\"]", 60000]}, {"click": "[data-testid=\"act-template\"]"},
+               {"wait_for": ["[data-testid=\"add-template-modal\"]", 120000]}],
+   "expect": ["[data-testid=\"add-template-modal\"]", "[data-testid=\"scope-chip\"]"],
+   "expect_absent": ["[data-testid=\"scope-link-refused\"]", "[data-testid=\"discovery-load-failed\"]"]}
+]

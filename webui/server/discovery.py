@@ -247,6 +247,13 @@ def _cover_by_id(conn):
         "SELECT recording_id, SUM(end_idx - start_idx) FROM reviewed_spans GROUP BY recording_id").fetchall())
 
 
+def _session_name(conn, source_file):
+    """A NEW session's name (site-runs, 2026-10-20): the dataset's display name, or its file stem when Settings ›
+    Datasets gave it none — no longer "<stem> screen". Existing rows keep the name they have."""
+    name = corpus.dataset_name(conn, source_file)
+    return _stem(source_file) if not name or name == source_file else name
+
+
 def _new_session(conn, best, cover_by_id=None):
     """A new session on one recording: its three most-reviewed channels and its most-reviewed section."""
     cover_by_id = _cover_by_id(conn) if cover_by_id is None else cover_by_id
@@ -256,7 +263,7 @@ def _new_session(conn, best, cover_by_id=None):
     span = _densest_section(conn, [c["id"] for c in channels], best["fs"], n_samples)
     null = seeded_search.null_from_settings(conn)
     row = {
-        "name": f"{_stem(best['source_file'])} screen",
+        "name": _session_name(conn, best["source_file"]),
         "source_file": best["source_file"],
         "channels_json": json.dumps([c["name"] for c in channels]),
         "span_start": int(span[0]), "span_end": int(span[1]),
@@ -957,6 +964,11 @@ def warm_last_scores(db_path):
             t0 = time.perf_counter()
             files = corpus.warm_coverage(c, first="M2_aug_concat_fs1.mat")
             log.info("corpus maps warmed (%d files, %.1f s)", len(files), time.perf_counter() - t0)
+            try:                    # site-map: start the map overview's first count (~2 min cold) now, in the worker
+                from . import discovery_map
+                discovery_map.overview(c, db_path)
+            except Exception:       # its own failure: the template scores below are still warmed
+                log.exception("warming the map overview failed; the map counts on its first read")
             t0 = time.perf_counter()
             # AR: through the picker's own background scorer, so a picker read during the warm joins the same list
             # (it serves the last known score meanwhile) instead of scoring beside it
@@ -4467,6 +4479,37 @@ def _send_picked(c, s, row, run_key, detection_ids):
             "message": " · ".join(parts),
             "note": ("one queue per session for the detections sent one at a time; it is a filter over those "
                      "detections, and a verdict in Review moves this page's scoreboard like any other")}
+
+
+@router.get("/api/discovery/runs/{run_key}/unjudged")
+def get_run_unjudged(request: Request, run_key: str):
+    """site-runs item 4: *Send N unjudged to Review*'s N, from a read of its own. The button read it off the
+    scoreboard, which took 461 s cold over the real session (16 channels x 52 runs, 721 h), and printed 0 until
+    then.
+
+    Fix round F1: the N is exactly what the send would queue — Review's own count (`queue_counts`): the run's open
+    queue's when there is one (the same `find_open_queue` lookup the send makes), else the same count over the
+    same description that has not been written (`queues.unwritten_counts`: overlap sets, items a human verdict
+    already covers left out, the same kind and filter). Nothing is written. It can honestly be 0."""
+    c = _conn(request)
+    try:
+        s = _session(c)
+        row = _dr_by_key(c, s["id"], run_key)
+        ids = _run_ids(c, row) if row["run_group_id"] else []
+        if not ids:
+            return {"run_key": run_key, "total": 0, "judged": 0, "unjudged": 0, "queueId": None,
+                    "note": f"{run_key} has no runs recorded, so it has nothing to send"}
+        kind = "seed-search" if row["kind"] == "seed" else "discovery-run"
+        filters = {"run_ids": [int(i) for i in ids]}
+        qid = queues_mod.find_open_queue(c, source_kind=kind, filters=filters)
+        counts = (queues_mod.queue_counts(c, qid) if qid is not None
+                  else queues_mod.unwritten_counts(c, source_kind=kind, filters=filters))
+        return {"run_key": run_key, "total": int(counts["total"]), "judged": int(counts["judged"]),
+                "unjudged": int(counts["remaining"]), "queueId": (int(qid) if qid is not None else None),
+                "note": "what Review would ask about: the run's detections as Review's queue serves them (overlap "
+                        "sets, items a human verdict already covers left out)"}
+    finally:
+        c.close()
 
 
 @router.post("/api/discovery/runs/{run_key}/review")

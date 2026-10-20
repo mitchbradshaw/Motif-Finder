@@ -25,13 +25,13 @@ export interface StepStatus {
   blocked?: string
 }
 
-/** Which step a page opens on. The exemplar while one is being chosen (a picker tab named in the URL) or when there
- *  is none; else the keep when this search is already kept, the cut once a preview is in, and the preview otherwise —
- *  the session always remembers a seed (the draft), and the strip shows it as step 1, done, with its name. */
+/** Which step a page opens on. The exemplar unless a preview of this query is in hand — while one is being chosen,
+ *  when there is none, and when the remembered seed has no preview yet (the researcher, 2026-10-20: "don't jump to
+ *  step 2 by default"; picking a seed still walks on to step 2, and `?step=` still opens any step that can open);
+ *  with a preview in hand, the keep when this search is already kept, else the cut. */
 export function openingStep(o: { kept: boolean; previewIn: boolean; hasSeed: boolean; choosing: boolean }): SeedStep {
-  if (o.choosing || !o.hasSeed) return 1
-  if (o.previewIn) return o.kept ? 4 : 3
-  return 2
+  if (o.choosing || !o.hasSeed || !o.previewIn) return 1
+  return o.kept ? 4 : 3
 }
 
 export function StepStrip({ current, status, onStep }: { current: SeedStep; status: Record<SeedStep, StepStatus>; onStep: (s: SeedStep) => void }) {
@@ -41,7 +41,9 @@ export function StepStrip({ current, status, onStep }: { current: SeedStep; stat
     return {
       id: `step-${n}`, state,
       label: <span data-testid={`seed-step-${n}`} data-open={st.open ? '1' : '0'} title={st.open ? undefined : st.blocked}>{SEED_STEPS[n]}</span>,
-      detail: <span className="dsc-step-detail">{st.open ? st.detail : <span className="muted">{st.blocked}</span>}</span>,
+      // site-changes (2026-10-20): a step that cannot open yet says nothing under its name ("run the preview first" beside
+      // steps 3 and 4 read as an instruction); why it is closed is on the name's hover
+      detail: <span className="dsc-step-detail">{st.open ? st.detail : null}</span>,
     }
   })
   return (

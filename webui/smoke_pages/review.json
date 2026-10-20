@@ -250,10 +250,10 @@
   "settle_ms": 1500,
   "expect": [
    "[data-testid=\"queue-picker\"]",
-   "[data-testid=\"queue-row-1\"]",
+   "[data-testid=\"queue-row-1\"], [data-testid=\"queue-finished-toggle\"]",
    "[data-testid=\"queue-row-2\"]"
   ],
-  "_timing": "fixup-smoke2: the picker reads every queue in full, as the rail does; wait until the list (or its error) is drawn in the popover, then assert queues 1 and 2 are listed",
+  "_timing": "fixup-smoke2: the picker reads every queue in full, as the rail does; wait until the list (or its error) is drawn in the popover, then assert queues 1 and 2 are listed. site-changes 2026-10-20: a finished queue is filed under the 'N finished queues' fold, so queue 1 (30 of 30 judged on the real copy) is listed OR folded; queue 2, the one open, always shows",
   "actions": [
    {
     "wait_for": [

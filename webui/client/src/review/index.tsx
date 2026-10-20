@@ -32,8 +32,12 @@ export function ReviewPage() {
   const [lastQueue, setLastQueue] = useDemoState<string | null>('review.lastQueue', () => null)
   const queues = useSourced(getQueues, [])
   const live = queues.data ?? null
+  // site-changes (2026-10-20): a finished queue is filed away in the list, so the landing prefers one with something
+  // left — the remembered one if it still has, else the first that has — and only then a finished one
+  const hasLeft = (q: { total: number; judged: number }) => q.total - q.judged > 0
+  const last = live?.find(q => q.id === lastQueue) ?? null
   const landing = live && live.length
-    ? (live.some(q => q.id === lastQueue) ? (lastQueue as string) : live[0].id)
+    ? (last && hasLeft(last) ? last.id : live.find(hasLeft)?.id ?? last?.id ?? live[0].id)
     : null
   const aliasNo = p[0] === 'cluster' ? Number(p[1]) : null
   const aliasQueue = aliasNo != null ? clusterQueue(aliasNo) : null

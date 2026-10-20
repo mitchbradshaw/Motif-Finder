@@ -210,6 +210,21 @@ def test_analyse_takes_the_held_out_recording_only_while_unlocked(bridge):
 
 # ── Discovery and its Map ───────────────────────────────────────────────────
 
+def _settled_map(client, tries=6):
+    """The map overview as it stands once its recompute has landed. Since map-overview-cache (7ceea4f) a read never
+    computes: the first answers `pending`, one after a change answers the old overview `stale`, and the worker's
+    recompute replaces it. Read, wait the recompute out, read again — bounded, and loud if it never settles."""
+    from server import discovery_map as DMAP
+    for _ in range(tries):
+        r = client.get("/api/discovery/map")
+        assert r.status_code == 200, r.text
+        m = r.json()
+        if not (m.get("pending") or m.get("stale")):
+            return m
+        assert DMAP.wait_map_idle(120), "the map overview's recompute did not finish within 120 s"
+    raise AssertionError(f"the map overview was still pending or stale after {tries} reads: {sorted(m)}")
+
+
 def test_discovery_scopes_plans_and_maps_the_held_out_recording_only_while_unlocked(bridge):
     client, info = bridge
 
@@ -219,9 +234,7 @@ def test_discovery_scopes_plans_and_maps_the_held_out_recording_only_while_unloc
         return [r for r in s.json()["recordings"] if r["file"] == HELD_OUT_FILE][0]
 
     def omitted():
-        m = client.get("/api/discovery/map")
-        assert m.status_code == 200, m.text
-        return m.json()
+        return _settled_map(client)
 
     # locked
     opt = option()
