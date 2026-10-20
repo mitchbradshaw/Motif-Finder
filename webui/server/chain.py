@@ -342,9 +342,10 @@ def _stop_block_calibrations() -> None:
 
 
 def _calibrate_in_process(name: str, path: str) -> int:
-    """`block_cost.calibrate([name], path=path)` in a spawned process of its own (one per model, so a slow model
-    never queues behind another, nor behind the corpus maps' worker); the child's pid. The child watches the
-    bridge and ends with it (`coverage_map.watch_parent`)."""
+    """`name` timed in a spawned process of its own (one per model, so a slow model never queues behind another,
+    nor behind the corpus maps' worker) and stored in `path`; the child's pid. The child watches the bridge and
+    ends with it (`coverage_map.watch_parent`). It hands back the timing (`calibrate_child.calibrate_in_child`):
+    the shared file is written HERE, under `block_cost._FILE_LOCK`, so no other process ever writes it."""
     import multiprocessing as mp
     from concurrent.futures import ProcessPoolExecutor
     from Working import block_cost
@@ -360,8 +361,13 @@ def _calibrate_in_process(name: str, path: str) -> int:
         _BC_ATEXIT["registered"] = True
     try:
         with corpus._POOL_LOCK, corpus._MainHidden():   # the child must not re-run the bridge's main script
-            fut = pool.submit(calibrate_child.calibrate_in_child, name, path, module)
-        return fut.result()
+            fut = pool.submit(calibrate_child.calibrate_in_child, name, module)
+        pid, key, entry = fut.result()
+        with block_cost._FILE_LOCK:     # the read-merge-write block_cost.calibrate does, in the bridge's process
+            merged = block_cost._load(path)
+            merged[key] = entry
+            block_cost._save(merged, path)
+        return pid
     finally:
         _BC_POOLS.discard(pool)
         pool.shutdown(wait=False)
