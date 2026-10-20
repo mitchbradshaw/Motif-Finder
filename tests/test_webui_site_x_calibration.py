@@ -38,6 +38,13 @@ NAME = "preprocessing.invert"     # a registered cost model that times in millis
 @pytest.fixture
 def fresh(tmp_path, monkeypatch):
     from Working import block_cost
+    # gate, 2026-10-20: importing the registry imports every adapter, and detection.fluss reads the MP calibration
+    # file at IMPORT time (`max_span_samples_for_background()`, a module-level default). From the main checkout that
+    # relative path is the real DATA/db/mp_calibration.json, so FLUSS kept a 678,125-sample cap for the rest of the
+    # session and test_webui_run_routing's over-the-limit test met the cap refusal instead of the SLURM route. Point
+    # it at this test's tmp first, as the bridge's sandbox runtime does; nothing reads or writes the real file.
+    import Working.Detection.matrix_profiling.cost as _mpc
+    monkeypatch.setattr(_mpc, "CALIBRATION_PATH", str(tmp_path / "mp_calibration.json"))
     from Adapters import registry  # noqa: F401 - registers every adapter's cost model
     from server import chain
     monkeypatch.setattr(block_cost, "CALIBRATION_PATH", str(tmp_path / "block_calibration.json"))
