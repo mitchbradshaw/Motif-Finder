@@ -957,6 +957,11 @@ def warm_last_scores(db_path):
             t0 = time.perf_counter()
             files = corpus.warm_coverage(c, first="M2_aug_concat_fs1.mat")
             log.info("corpus maps warmed (%d files, %.1f s)", len(files), time.perf_counter() - t0)
+            try:                    # site-map: start the map overview's first count (~2 min cold) now, in the worker
+                from . import discovery_map
+                discovery_map.overview(c, db_path)
+            except Exception:       # its own failure: the template scores below are still warmed
+                log.exception("warming the map overview failed; the map counts on its first read")
             t0 = time.perf_counter()
             # AR: through the picker's own background scorer, so a picker read during the warm joins the same list
             # (it serves the last known score meanwhile) instead of scoring beside it

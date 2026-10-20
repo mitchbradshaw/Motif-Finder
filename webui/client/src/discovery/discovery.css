@@ -414,3 +414,44 @@
 /* the fires card's "not run here" row: hatched, with the words, never a row of zeros */
 .dsc-fires-notrun { height: 11px; display: flex; align-items: center; padding-left: 6px; font-size: 9.5px; color: var(--muted);
   background: repeating-linear-gradient(45deg, transparent 0 4px, var(--grey-100) 4px 7px); border-radius: 2px; }
+
+/* site-map (2026-10-20): the table scrolls inside the card (both ways) with its row labels and header rows sticky, so
+   no column is ever out of reach; hidden rows sink to the bottom and hidden columns to the right, thin and dimmed,
+   each with a button that brings it back. */
+.dsc-map-orderbar { padding-top: 0; }
+.dsc-map-hidden { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.dsc-map-wrap { max-height: calc(100vh - 240px); min-height: 160px; overscroll-behavior: contain; margin: 0 14px; padding: 0; }
+.dsc-map-table thead { position: sticky; top: 0; z-index: 3; background: var(--card); }
+.dsc-map-table thead th { background: var(--card); }
+.dsc-map-table thead th.ds { background: var(--grey-100); }
+.dsc-map-table thead th.ds:hover { background: var(--blue-100); }
+.dsc-map-table th.corner, .dsc-map-table th.corner-pad { position: sticky; left: 0; z-index: 4; background: var(--card); }
+.dsc-map-table th.dsc-map-rowlabel { position: sticky; left: 0; z-index: 2; background: var(--card); max-width: 280px; }
+.dsc-map-rowin { display: flex; align-items: center; gap: 4px; max-width: 272px; }
+.dsc-map-rowtext { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dsc-map-x { visibility: hidden; flex: none; border: 1px solid var(--border); background: var(--card); color: var(--muted); border-radius: 3px; font: 500 10px/12px var(--font-mono); padding: 0 3px; cursor: pointer; }
+.dsc-map-x:hover { color: var(--blue-600); border-color: var(--blue-600); }
+.dsc-map-x:focus-visible, .dsc-map-x.show,
+.dsc-map-rowlabel:hover .dsc-map-x, .dsc-map-table th.ch:hover .dsc-map-x, .dsc-map-table th.ds:hover .dsc-map-x, .dsc-map-tlabel:hover .dsc-map-x { visibility: visible; }
+.dsc-map-x.show { color: var(--blue-600); }
+.dsc-map-table th.ds .dsc-map-x { margin-left: 6px; }
+.dsc-map-table th.ch { height: 66px; }
+.dsc-map-table th.ch > .dsc-map-x { display: block; margin: 0 auto 3px; }
+.dsc-map-table th.ch.hidden { width: 10px; max-width: 12px; opacity: .6; }
+.dsc-map-table th.ch.hidden > span { font-size: 8.5px; color: var(--muted); }
+.dsc-map-table th.ch.hidden > .dsc-map-x { padding: 0 1px; }
+.dsc-map-table td.dsc-map-hiddencol { width: 10px; }
+.dsc-map-mcell { display: block; border: 1px solid var(--border); border-radius: 2px; background: #fff; opacity: .4; }
+.dsc-map-mcell.col { width: 8px; height: 22px; }
+.dsc-map-mcell.row { width: 100%; min-width: 22px; height: 7px; }
+.dsc-map-mcell.not_run, .dsc-map-mcell.not_reviewed { background: repeating-linear-gradient(45deg, #e5e7eb 0 2px, #fff 2px 5px); }
+.dsc-map-hiddenrow th.dsc-map-rowlabel { color: var(--muted) !important; font-size: 10px; }
+.dsc-map-hiddenrow td.dsc-map-hiddencol .dsc-map-mcell.col { height: 7px; }
+.dsc-map-trow.hidden { height: 9px; opacity: .6; }
+.dsc-map-trow.hidden .dsc-map-tlabel { font-size: 9.5px; color: var(--muted); }
+.dsc-map-tlabel { display: flex; align-items: center; gap: 4px; }
+.dsc-map-trow.dsc-map-signal { height: auto; min-height: 22px; margin-bottom: 4px; }
+.dsc-map-trow.dsc-map-signal .dsc-map-tsvg { border: 1px solid var(--border); border-radius: 3px; }
+.dsc-map-signal-note { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+/* the 2 px border-spacing between header cells would let scrolled rows show through the sticky header: close it */
+.dsc-map-table thead th { box-shadow: 0 0 0 2px var(--card); }
