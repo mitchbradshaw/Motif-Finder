@@ -200,7 +200,10 @@ export function SeedPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!ready])
 
-  const draftRow = draft && !keptRun && !rigorousRun ? <DraftRow draft={draft} seed={seed} /> : null
+  const renameDraft = (name: string) => putDiscoverySeedDraft({ seedId: draft!.seedId, label: name })
+    .then(() => { setDraft({ label: name }); toast.push({ text: `renamed · the seed search is now ${name}` }) })
+    .catch(e => toast.push({ text: `the seed search was not renamed · ${e instanceof Error ? e.message : String(e)}` }))
+  const draftRow = draft && !keptRun && !rigorousRun ? <DraftRow draft={draft} seed={seed} onRename={renameDraft} /> : null
   const loading = dx.firstLoad || (setup.loading && !setup.data)
   const hours = dx.scope ? dx.scope.section[1] - dx.scope.section[0] : null
 
@@ -317,13 +320,39 @@ function ProfileToggle({ children }: { children: () => React.ReactNode }) {
     : <div className="row end"><Button variant="link" size="sm" icon="wave" onClick={() => setOpen('1')} testid="profile-show">show the distance profile</Button></div>
 }
 
-function DraftRow({ draft, seed }: { draft: SeedDraft; seed: SeedInfo | null }) {
+/* site-changes (the researcher, 2026-10-20): "it should be easy to rename a seed from 'seed 4e691f'". The pencil on
+ * the draft row edits its name in place; Enter or Save writes it to the session's draft (PUT /api/discovery/seed/draft),
+ * and it is the name the run is kept under. */
+const DRAFT_NAME_MAX = 60
+function DraftRow({ draft, seed, onRename }: { draft: SeedDraft; seed: SeedInfo | null; onRename: (name: string) => Promise<unknown> }) {
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(draft.label)
+  const [saving, setSaving] = useState(false)
+  const trimmed = name.trim()
+  const error = !trimmed ? 'a seed search needs a name' : trimmed.length > DRAFT_NAME_MAX ? `at most ${DRAFT_NAME_MAX} characters` : null
+  const save = () => {
+    if (error) return
+    if (trimmed === draft.label) { setEditing(false); return }
+    setSaving(true)
+    onRename(trimmed).then(() => setEditing(false)).finally(() => setSaving(false))
+  }
   return (
     <div className="dsc-run selected draft" style={{ ['--run' as string]: SEED_COLOUR }} data-testid="run-row-draft" data-status="draft">
       <div className="dsc-run-body" role="group" aria-label={`${draft.label} draft`}>
         <RunGlyph kind="seed" width={40} height={28} />
         <span className="dsc-run-text">
-          <b>{draft.label}</b>
+          {editing ? (
+            <span className="dsc-draft-rename" data-testid="draft-rename">
+              <TextField value={name} onChange={setName} onEnter={save} invalid={!!error} width={150} autoFocus ariaLabel="seed search name" testid="draft-name-input" />
+              <Button size="sm" variant="primary" onClick={save} loading={saving} disabled={!!error || saving} disabledReason={error ?? 'saving…'} testid="draft-name-save">Save</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setName(draft.label); setEditing(false) }} testid="draft-name-cancel">Cancel</Button>
+              {error && <span className="dsc-err" data-testid="draft-name-error">{error}</span>}
+            </span>
+          ) : (
+            <button type="button" className="dsc-draft-name" onClick={() => { setName(draft.label); setEditing(true) }} title="rename this seed search — the name it is kept under" data-testid="draft-name">
+              <b>{draft.label}</b><Icon name="pencil" size={11} />
+            </button>
+          )}
           {/* polish: "draft · not kept yet" was the badge said again in amber; it is the badge's hover now */}
           <span className="dsc-run-meta"><span className="k-badge t-amber" title="draft · not kept yet">draft</span><span className="k-meta">{seed ? `${seed.title} · ${seed.role}` : 'no seed'} · MASS</span></span>
         </span>
@@ -588,13 +617,14 @@ function CutCard({ seed, setParams, results, kept, nullKept, cut, cutIsRecommend
         {cut != null && <NumberField value={cut} min={0.1} max={dMax} step={0.1} width={78} onValid={v => { setParams({ threshold: +v.toFixed(1) }); setThrRaw(null) }} onChange={(_, r) => setThrRaw(r ?? null)} testid="param-threshold-number" ariaLabel="match threshold d" />}
         {!cutIsRecommended && recommended != null && <Button variant="link" size="sm" icon="undo" onClick={() => setParams({ threshold: null })} testid="cut-to-recommended">back to the recommended {recommended}</Button>}
       </div>
-      <p className="small" style={{ margin: '0 0 6px' }}>Drag the handle: everything left of it is kept.</p>
+      {/* site-changes (2026-10-20): the lines under the head sat flush on the card's edge; they share the head's 14 px inset */}
+      <p className="small dsc-cut-pad" style={{ margin: '0 0 6px' }} data-testid="cut-drag-hint">Drag the handle: everything left of it is kept.</p>
       {results.candidates.length
         ? <CutHistogram candidates={results.candidates} nullDistances={results.nullDistances} threshold={cut} recommended={recommended} kept={kept} nullKept={nullKept} rule={results.cutRule ?? null} onThreshold={t => setParams({ threshold: t })} />
         : <div className="dsc-cut-empty"><EmptyState size="sm" icon="bar-chart" title="No distances" caption="the preview returned no match on this scope" /></div>}
-      <span className="small mono green">{thrRaw ? <span className="dsc-err">{thrRaw}</span> : cut != null ? <span data-testid="param-cut-line">{cutIsRecommended ? 'recommended' : 'chosen'} {cut} · {kept} kept · the null gives {fmtNull(nullKept)} per draw</span> : null}</span>
+      <span className="small mono green dsc-cut-pad">{thrRaw ? <span className="dsc-err">{thrRaw}</span> : cut != null ? <span data-testid="param-cut-line">{cutIsRecommended ? 'recommended' : 'chosen'} {cut} · {kept} kept · the null gives {fmtNull(nullKept)} per draw</span> : null}</span>
       {cut == null && (
-        <span className="small mono muted row" style={{ gap: 8, alignItems: 'center' }} data-testid="threshold-none">
+        <span className="small mono muted row dsc-cut-pad" style={{ gap: 8, alignItems: 'center' }} data-testid="threshold-none">
           {results.candidates.length
             ? <><span>no cut: nothing here beats the null</span><Button size="sm" variant="primary" onClick={() => setParams({ threshold: closest })} testid="choose-cut">choose a cut anyway · d ≤ {closest}</Button></>
             : 'no cut · the recommended cut is read off the null distribution'}
@@ -602,7 +632,7 @@ function CutCard({ seed, setParams, results, kept, nullKept, cut, cutIsRecommend
       )}
       {/* a statistic whose rule is unstated cannot be falsified (fixup-a item 12) */}
       {/* polish: the cut's rule is how the recommended cut was read, one click away (the histogram's legend prints it too) */}
-      {results.cutRule && <About label="how the cut is read" testid="cut-rule-about"><span className="small mono" data-testid="cut-rule">{results.cutRule.text}</span></About>}
+      {results.cutRule && <div className="dsc-cut-pad"><About label="how the cut is read" testid="cut-rule-about"><span className="small mono" data-testid="cut-rule">{results.cutRule.text}</span></About></div>}
       {results.candidates.length && results.nullByScale ? <NullPerLength results={results} cut={cut} m={seed.samples} /> : null}
     </section>
   )
@@ -618,7 +648,7 @@ function NullPerLength({ results, cut, m }: { results: { candidates: SeedMatch[]
     return { scale, length: Math.round(m * scale), kept, perDraw: v.draws ? nullHits / v.draws : null, draws: v.draws }
   }).sort((a, b) => a.scale - b.scale)
   return (
-    <div className="mono small" data-testid="null-per-length" style={{ display: 'grid', gap: 2, margin: '4px 0 2px' }}>
+    <div className="mono small dsc-cut-pad" data-testid="null-per-length" style={{ display: 'grid', gap: 2, margin: '4px 0 2px' }}>
       <span className="muted">per length, at {cut == null ? 'no cut' : `d ≤ ${cut}`} · kept · the null gives (per draw)</span>
       {rows.map(r => (
         <span key={r.scale} data-testid={`null-length-${r.scale}`}>

@@ -388,6 +388,13 @@
 .dsc-adv-toggle { display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; padding: 0; font: inherit; font-weight: 600; color: var(--text); cursor: pointer; }
 .dsc-advanced[data-open="0"] { padding-bottom: 10px; }
 .dsc-cut-card .dsc-card-head h3 { margin-right: 4px; }
+/* site-changes (2026-10-20): the cut card's lines share the head's inset; the seed draft's name renames in place */
+.dsc-cut-pad { padding-left: 14px; padding-right: 14px; }
+.dsc-draft-name { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; padding: 0; cursor: pointer; color: inherit; font: inherit; min-width: 0; max-width: 100%; text-align: left; }
+.dsc-draft-name b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dsc-draft-name .k-icon { flex: none; color: var(--muted); }
+.dsc-draft-name:hover .k-icon { color: var(--blue); }
+.dsc-draft-rename { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .dsc-keep { display: flex; flex-direction: column; gap: 10px; }
 .dsc-keep-lede { margin: 0; }
 .dsc-keep-ways { display: flex; flex-direction: column; gap: 8px; }
