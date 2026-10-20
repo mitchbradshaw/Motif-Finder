@@ -22,11 +22,17 @@ step, plus R3 and R4, which have no page in the site.
 
 ### Before the talk
 
-1. **Leave 8765 running.** It was restarted on main 7ceea4f at 14:14 on 20 October and is warm.
-   - A restart keeps the step cache and the runs, which live on disk. The Map recount takes about 10 s on
-     the first visit after a restart.
-   - Never rebuild `webui/client/dist` on the morning of the talk.
-2. **Warm it** about 15 minutes before the talk. It takes about 1 minute and visits pages only:
+1. **Main freezes at 09:00 on 21 October.**
+   - Overnight fixes may land before then, and 8765 may be restarted onto the newer main with a fresh
+     `npm run build` of `webui/client/dist`. WEBSITE CHANGES asks first.
+   - After 09:00: no merge, no dist rebuild and no restart of 8765 until the talk is over.
+   - A restart keeps the step cache, the runs and the demo artefacts, which all live on disk or in the
+     database. It does lose the in-memory warmth, so **if 8765 was restarted, the warm-up below must run
+     again after it.**
+   - Check the restart time in the [project bridge 8765](#terminal/c1) tab, or
+     `curl -s http://127.0.0.1:8765/api/runtime`.
+2. **Warm it after the 09:00 freeze**, about 15 minutes before the talk. It takes about 1 minute and
+   visits pages only. Re-run it after any later restart:
 
        cd /c/Users/mmebr/Documents/CNN
        PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" scripts/demo_rehearsal.py --url http://127.0.0.1:8765 --allow-project --talk --slow 2
