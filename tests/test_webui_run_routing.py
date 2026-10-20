@@ -377,6 +377,9 @@ def test_a_run_whose_cost_model_is_still_calibrating_is_refused_with_409(bridge,
     from server import chain
     client, rt, rid, n = bridge
     monkeypatch.setattr(chain, "CALIBRATION_WAIT_S", 0.05)
+    # site-x gate G1: a run waits RUN_CALIBRATION_WAIT_S (60 s) for a timing in flight; past that bound it still
+    # answers 409 in words and starts nothing — shortened here so the 1.5 s timing outlasts it
+    monkeypatch.setattr(chain, "RUN_CALIBRATION_WAIT_S", 0.05)
     fake_block_cost["delay"] = 1.5
     r = client.post("/api/runs", json={"recording_id": rid, "span": [0, 20_000], "steps": DECONV})
     assert r.status_code == 409, r.text

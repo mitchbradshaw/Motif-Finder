@@ -14,10 +14,14 @@ import shutil
 import tempfile
 
 
-def calibrate_in_child(name: str, module: str | None) -> tuple:
+def calibrate_in_child(name: str, module: str | None, hold_s: float = 0.0) -> tuple:
     """Import the adapter module that registered `name`'s cost model (a spawned interpreter starts with an empty
-    `block_cost.MODELS`), time it, and return ``(pid, key, entry)`` — the calibration file's key and value for it."""
+    `block_cost.MODELS`), time it, and return ``(pid, key, entry)`` — the calibration file's key and value for it.
+    `hold_s` pauses untimed first (a test standing in for a slow child, gate G1); the bridge never passes it."""
     import json
+    import time
+    if hold_s:
+        time.sleep(hold_s)
     from Working import block_cost
     if module:
         importlib.import_module(module)

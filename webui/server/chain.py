@@ -438,13 +438,25 @@ def _ensure_block_calibration(name: str) -> threading.Thread | None:
     return t
 
 
-def route_local(recipe: dict, n_samples: int, fs: float, *, ceiling_s: float, draws: int = 0) -> dict:
+#: gate G1 (2026-10-20): how long POST /api/runs waits for a cost-model timing — one it starts or one already in
+#: flight — before it answers 409 "calibrating". A validate waits CALIBRATION_WAIT_S for a timing it starts and not
+#: at all for one in flight (the page asks again every 3 s); a Run click is the researcher asking for the run, and
+#: the timing is in another process, so waiting is cheap: a quick model (spawn, imports, an untimed warm-up, then
+#: the timing — preprocessing.wavelet_transform's first run, zz_analyse_run's dehshibi funnel) lands inside it,
+#: while rupture (~447 s) still answers 409 in words after it.
+RUN_CALIBRATION_WAIT_S = 60.0
+
+
+def route_local(recipe: dict, n_samples: int, fs: float, *, ceiling_s: float, draws: int = 0,
+                wait_s: float | None = None) -> dict:
     """Can this run finish locally? ``estimate`` per step; when a step's estimator is uncalibrated, its cost
     model is calibrated — the matrix-profile model synchronously (a few seconds), a `Working.block_cost` model in
     the background, waited for up to ``CALIBRATION_WAIT_S`` — and the estimate taken again. The run's cost is
     the real chain plus ``draws`` paired null draws (each runs the whole chain again). ``route`` is ``cluster``
     over the ceiling, ``local`` under it, ``unknown`` when a step still cannot be estimated: ``calibrating``
-    lists the steps whose model is still being timed, ``errors`` the estimator's (or calibration's) own words."""
+    lists the steps whose model is still being timed, ``errors`` the estimator's (or calibration's) own words.
+    ``wait_s`` (POST /api/runs: RUN_CALIBRATION_WAIT_S) waits that long for EVERY timing the chain needs, started
+    here or already in flight; without it, as a validate, only a timing started here is waited for, CALIBRATION_WAIT_S."""
     est = estimate(recipe, n_samples, fs)
     calibration: dict | None = None
     if any(_uses_mp_cost(recipe["steps"][i]) for i in est["unknown"]):
@@ -457,8 +469,11 @@ def route_local(recipe: dict, n_samples: int, fs: float, *, ceiling_s: float, dr
         # those waiting 10 s again held the chain page "loading" for the whole of a minutes-long timing
         with _BC_LOCK:
             running = {m for m in models if (_BC_STATE.get(m) or {}).get("state") == "calibrating"}
-        threads = [t for t in (_ensure_block_calibration(m) for m in models if m not in running) if t is not None]
-        deadline = time.time() + float(CALIBRATION_WAIT_S)
+        if wait_s is not None:      # a run: wait for every timing the chain needs, the ones in flight too
+            threads = [t for t in (_ensure_block_calibration(m) for m in models) if t is not None]
+        else:
+            threads = [t for t in (_ensure_block_calibration(m) for m in models if m not in running) if t is not None]
+        deadline = time.time() + float(CALIBRATION_WAIT_S if wait_s is None else wait_s)
         for t in threads:
             t.join(max(0.0, deadline - time.time()))
         calibration = dict(calibration or {})
