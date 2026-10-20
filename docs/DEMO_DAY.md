@@ -42,10 +42,14 @@ step, plus R3 and R4, which have no page in the site.
        PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" scripts/demo_screenshots.py --url http://127.0.0.1:8765 --out "$TEMP/demo-warm" --only w1
        PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" scripts/demo_screenshots.py --url http://127.0.0.1:8765 --out "$TEMP/demo-warm" --only w2-1
 
-   Why: on main as of 20 October, the first validation of a chain containing a block whose cost model has
-   not been timed yet runs that timing on a bridge thread, and the whole site crawls for a few minutes.
-   This was found by WEBSITE CHANGES; the fix is on a branch, not on 8765. It happens once and is then
-   cached, so pay for it here, not in the talk. The runs it adds are ordinary Analyse run rows.
+   Why: it re-warms the step-cache reads after a restart.
+   - The block cost timings, whose first run can stall the site for minutes, are kept on disk in
+     `DATA/db/block_calibration.json` and survive a restart. The demo's blocks are timed already.
+   - A chain with a block that has never been timed would stall once. The fix is on a branch, so don't
+     add new blocks live.
+   - The runs this adds are ordinary Analyse run rows.
+   - Discovery's scoreboard in "demo · talk" (5 channels, 6 runs) took 3 s cold after the 20 October
+     restart, against about 8 min for a 16-channel, 52-run session. The `--talk` warm-up visits it.
 
    Run the warm-up close to the talk. With RAM tight, Windows pages an idle bridge out of memory: it read
    38 MB at 16:10 on 20 October. The first requests after a quiet spell are then slow while it pages back
