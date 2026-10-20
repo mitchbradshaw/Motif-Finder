@@ -101,6 +101,8 @@ estimates 31 s). Do not.
 | 5 | Review › queue **31** "demo · talk · picked from Discovery" | the matches | 2–3 s |
 
 - **Do not press *Run with the rigorous null*.** It is about 14.5 h and goes to the cluster.
+- **On main 3d4bef1 or later, do not use Cross-channel's *Apply template* link on M2_aug before the
+  talk.** It writes the scope of the newest M2_aug session, which is "demo · talk".
 - A fresh preview of F-30 over the full data took 1.6 min on 20 October (estimated 13 min).
 
 **Results**
