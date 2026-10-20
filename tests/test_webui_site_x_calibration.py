@@ -119,3 +119,24 @@ def test_only_the_request_that_starts_a_timing_waits_for_it_a_re_validate_answer
         assert _t.time() - t1 < 0.5, "a re-validate while the same timing runs does not wait for it again"
     finally:
         release.set()
+
+
+def test_the_child_hands_its_timing_back_and_the_bridge_alone_writes_the_shared_calibration_file(fresh, monkeypatch):
+    """The calibration file is read by every validate (`calibration_status`) and written by every timing. The child
+    times into a scratch file of its own and RETURNS the entry; the bridge merges it into the shared file under
+    `block_cost._FILE_LOCK`, as it always did — so two children timing two models never race a read-merge-write
+    across processes, and an `os.replace` onto the shared file never happens outside the bridge. The child writes
+    no database row and no cache."""
+    chain, block_cost, path = fresh
+    real_save = block_cost._save
+    writes = []
+
+    def spy(data, p=None):
+        writes.append((os.getpid(), os.path.abspath(p or block_cost.CALIBRATION_PATH)))
+        return real_save(data, p)
+    monkeypatch.setattr(block_cost, "_save", spy)
+    st = _calibrate(chain, path)
+    assert st["state"] == "calibrated" and st["pid"] != os.getpid()
+    assert writes == [(os.getpid(), os.path.abspath(str(path)))], writes
+    data = json.load(open(path, encoding="utf-8"))
+    assert data[block_cost._key(NAME)]["k"] > 0
