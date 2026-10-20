@@ -161,7 +161,8 @@ export function queueHoldsAny(data: QueueData, ids: (number | string)[]): boolea
     s = new Set()
     for (const r of data.rows) {
       s.add(String(r.id))
-      if (r.detectionId != null) s.add(String(r.detectionId))
+      const det = (r as unknown as { detection_id?: unknown }).detection_id    // the bridge's field (F4)
+      if (det != null) s.add(String(det))
       for (const m of carryOf(r).members ?? []) s.add(String(m))
     }
     DETECTIONS.set(data, s)

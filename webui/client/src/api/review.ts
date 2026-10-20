@@ -625,3 +625,9 @@ export function prefetchItemThen(queueId: string, itemId: string, opts: TraceOpt
   const p = ITEMS.get(itemKey(queueId, itemId, opts))
   return p ? p.then(() => undefined, () => undefined) : Promise.resolve()
 }
+
+/** night-review fix round (F1, append-only): drop every cached item that is not of this queue — a carry that reached
+ *  no row of the queue on screen can still have reached rows of others, whose cached details predate it. */
+export function clearItemCacheExcept(queueId: string) {
+  for (const k of [...ITEMS.keys()]) if (!k.startsWith(`${queueId}/`)) { ITEMS.delete(k); SETTLED.delete(k) }
+}

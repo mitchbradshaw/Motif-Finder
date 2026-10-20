@@ -252,11 +252,18 @@ function useGroupingJob() {
   const poll = useRef<number | null>(null)
   const then = useRef<((r: RunResult) => void) | null>(null)
   const alive = useRef(true)
-  useEffect(() => () => { alive.current = false; stream.current?.close(); if (poll.current) window.clearInterval(poll.current) }, [])
+  /* night-review fix round (F2): the job this hook started and has not seen end, and a generation that every start,
+   * cancel and reset moves on — a job id that arrives for an older generation (closed, cancelled or restarted before
+   * `runLibraryGrouping` answered), or after unmount, is cancelled at once; unmount cancels the live job. The
+   * automatic tree build was left running on browser back, a nav link or a hash change. */
+  const liveJob = useRef<number | null>(null)
+  const gen = useRef(0)
+  useEffect(() => () => { alive.current = false; stream.current?.close(); if (poll.current) window.clearInterval(poll.current); if (liveJob.current != null) { void cancelJob(liveJob.current).catch(() => undefined); liveJob.current = null } }, [])
 
   const stop = () => { stream.current?.close(); stream.current = null; if (poll.current) { window.clearInterval(poll.current); poll.current = null } }
 
   const settle = (status: string, result: unknown, error: unknown) => {
+    liveJob.current = null
     if (!alive.current) return
     stop()
     if (status === 'completed' && result) {
@@ -302,9 +309,11 @@ function useGroupingJob() {
   const start = (sig: string, body: { unit: string; basis: string; method: string; params: Record<string, unknown> }, after?: (r: RunResult) => void) => {
     stop()
     then.current = after ?? null
+    const mine = ++gen.current
     setView({ ...IDLE, phase: 'running', sig, progress: { done: 0, total: 4, message: 'starting' } })
     runLibraryGrouping(body).then(j => {
-      if (!alive.current) return
+      if (!alive.current || mine !== gen.current) { void cancelJob(j.job_id).catch(() => undefined); return }
+      liveJob.current = j.job_id
       setView(v => ({ ...v, jobId: j.job_id }))
       watch(j.job_id)
     }).catch(err => {
@@ -318,13 +327,14 @@ function useGroupingJob() {
   }
 
   const cancel = () => {
-    const id = view.jobId
+    const id = view.jobId ?? liveJob.current
+    gen.current++; liveJob.current = null
     then.current = null
     stop()
     setView(v => ({ ...v, phase: 'cancelled' }))
     if (id != null) void cancelJob(id).catch(() => undefined)
   }
-  const reset = () => { then.current = null; stop(); setView(IDLE) }
+  const reset = () => { gen.current++; then.current = null; stop(); setView(IDLE) }
   const clearRefusal = () => setView(v => ({ ...v, refusal: null, refusalSig: undefined }))
   /** the two `?state=` deep links: a display state for the screenshot pass, never a result */
   const force = (v: Partial<JobView>) => setView(x => ({ ...x, ...v, forced: true }))

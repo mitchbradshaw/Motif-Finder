@@ -8,7 +8,7 @@ import { useAbortableSourced, useSourced } from '../api/seam'
 import { useSize } from '../charts/useSize'
 import { useToast } from '../shell/Toast'
 import { plotPx } from './axis'
-import { VOCABULARY, carryOf, getItem, itemHeld, peekItem, prefetchItemThen, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
+import { VOCABULARY, carryOf, clearItemCacheExcept, getItem, itemHeld, peekItem, prefetchItemThen, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type CarryFields, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
 import { goUnit, indexOf, isJudged, judged, judgedRecord, nextUnjudgedAfter, queueHoldsAny, relTime, step, units } from './queue'
@@ -136,7 +136,9 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const unit = { kind: 'item' as const, id }
   // review-carry: the overlap set this item stands for, the class stored with its verdict, and where a carried
   // verdict came from — as the bridge serves them on the row (and on the detail, once read)
-  const carry = carryOf(d?.entry ?? row)
+  // night-review fix round (F1): the ROW (re-read on every queue open) wins over the cached detail — a carry from
+  // another queue no longer empties the item cache, so a detail read before it can lack the `carriedFrom` the row has
+  const carry: CarryFields = { ...carryOf(d?.entry), ...carryOf(row) }
   const members = carry.members ?? []
   // R3: the class is stored on a detection's adjudication row; elsewhere it stays a session label
   const storesClass = queue.writes === 'adjudications'
@@ -185,6 +187,8 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
       // (night-review). A carry that reached no row of this queue changes none of its rows; the counts are re-read anyway.
       // When the bridge names no ids (an older bridge), re-read as before.
       if (!carriedIds.length || queueHoldsAny(data, carriedIds)) bumpReviewVersion()
+      // F1: the carried detections may be rows of OTHER queues; their cached details predate the carry
+      else clearItemCacheExcept(q)
       say(`${VERDICT_LABEL[v]} · written${members.length > 1 ? ` to the ${members.length} detections of this event` : ''} · carried to ${carried} other detection${carried === 1 ? '' : 's'} of the same event`)
     }
     // P21: the seed verdict itself creates the Library exemplar (the bridge wrote it); the panel only chooses its family
@@ -252,6 +256,8 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     if (writesInFlight()) return say('a verdict is still being written — try again')
     const w = lastLive(q)
     if (!w) return say('nothing to undo in this queue')
+    // F3: a verdict's pending advance (60 ms after its accept) must not move off the item being undone
+    timers.current.forEach(t => window.clearTimeout(t)); timers.current = []
     if (!await commitUndo(() => postUndo(q), w)) return refused()
     if (w.kind === 'batch') { navigate(`review/queue/${q}/cluster/${w.clusterNo}?state=undone`); return }
     if (w.kind === 'promotion') {
@@ -260,7 +266,8 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
       say(`promotion undone · exemplar ${ex} removed`)
       if (w.items[0] === id) setQuery({ state: null }, true)
     } else say(`undone · ${w.label}`)
-    if (!w.items.includes(id)) navigate(`review/queue/${q}/${w.items[0]}`)
+    // F3: from where the researcher IS when the undo lands, not the item this render was for
+    if (onItem.current !== w.items[0]) navigate(`review/queue/${q}/${w.items[0]}`)
   }
   const redo = async () => {
     if (writesInFlight()) return say('a verdict is still being written — try again')

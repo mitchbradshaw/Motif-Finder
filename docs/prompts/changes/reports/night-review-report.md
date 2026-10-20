@@ -183,3 +183,28 @@ Gate units on that bridge:
 - **Smoke-walk cost:** each `library.grouping` state that opens the editor on g-05 now runs a regroup, about 5
   jobs per walk at 3–20 s each. Once a grouping with a kept tree is applied (the fixup-an apply state does this),
   later opens draw it with no job.
+
+## Fix round (the critic, 2026-10-21 00:40): red `87faf9c`, green in the next commit
+
+- **F1, carry fields went stale.** A carry that reaches no row of this queue no longer empties the item cache, so
+  an item of another queue read before the carry was served without its `carriedFrom`. The carried line
+  vanished and the evidence rail said "earlier session". Now the carry fields are `{ ...carryOf(d?.entry),
+  ...carryOf(row) }`. The row is re-read on every queue open and wins, and the bridge sends `carriedFrom` /
+  `classLabel` only when set. Also, the no-re-read branch now drops every other queue's cached items
+  (`clearItemCacheExcept(q)`, append-only in `api/review.ts`).
+- **F2, the grouping job kept running after leaving the editor.** The job hook now:
+  - remembers the job it started (`liveJob`);
+  - moves a generation counter on every start, cancel and reset;
+  - cancels the live job on unmount (browser back, a nav link, a hash change);
+  - cancels at once a job whose id arrives after it was abandoned (a close before `runLibraryGrouping` answered).
+
+  `cancel()` falls back to the remembered id when the view has none yet.
+- **F3, undo raced the pending advance.** `undo` clears the pending advance timers before sending, so the 60 ms
+  advance cannot move off the item being undone. It then navigates only when `onItem.current !== w.items[0]`.
+- **F4, wrong field name.** The detection index reads the bridge's `detection_id` (the dead `r.detectionId`
+  check is gone).
+
+Gates:
+- `tests/test_night_review.py` (15) and `tests/test_night_a_review.py` (15): 30 passed, conda python + node.
+- `tsc -b` and `vite build` pass.
+- Smoke `zzzzzzzzzzz_night_review` on the main checkout's sandbox bridge with this client: 3/0, no tracebacks.
