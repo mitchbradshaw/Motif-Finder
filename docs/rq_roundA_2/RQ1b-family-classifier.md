@@ -74,6 +74,14 @@ train a CNN on window-pool clusters but not yet on Library families.
 - **Your misses, measured roughly** (same findings file): the blind repeats imply you miss about 11.5 % of
   interesting windows per look (95 % range 4.6–23 %). The better a queue's detections, the more of your "no"s are
   misses: about half of them at 90 % precision.
+- **R4, a MiniRocket classifier of your verdicts** (2026-10-20, `findings/rq1b-minirocket-2026-10-20.md`; code
+  `scripts/rq1b_minirocket.py`; model `DATA/derived/models/rq1b_minirocket/20261020-2343/`):
+  - **Classes:** interesting versus not. No verdict carries a shape class, so there are no shape classes yet.
+  - **Trained on:** 2,456 judged events from six recording groups, plus 3,000 judged windows.
+  - **Held-out results:** leave one recording out, balanced accuracy 0.92 and AUC 0.97 (0.95–0.99 per recording).
+    On the stratified queue candidates alone, AUC 0.97. Inside every detector family, AUC 0.88–0.99.
+  - **Baselines on the same candidates:** detector agreement alone AUC 0.86; size and noise alone 0.84–0.90.
+  - **Not yet:** the M4_aug exam, a free sliding scan, shape classes.
 
 ## Decisions already made
 
@@ -169,3 +177,6 @@ train a CNN on window-pool clusters but not yet on Library families.
     level, 15 per selective detector). The recordings are interleaved and the queue is blind. Review serves 1,153
     items, since 7 same-run pairs overlap. It was created through the project bridge's own route; each recording's
     sample is `<table>/sample_seed0_l40_f15_multi`.
+- 2026-10-20 · a2-rq1b · R4: MiniRocket trained on the researcher's verdicts after queues 25 and 28 were judged.
+  Interesting versus not; held out by recording, balanced accuracy 0.92 and AUC 0.97. Model in
+  `DATA/derived/models/rq1b_minirocket/20261020-2343/`; `findings/rq1b-minirocket-2026-10-20.md`.
