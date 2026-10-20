@@ -140,3 +140,79 @@ def test_the_child_hands_its_timing_back_and_the_bridge_alone_writes_the_shared_
     assert writes == [(os.getpid(), os.path.abspath(str(path)))], writes
     data = json.load(open(path, encoding="utf-8"))
     assert data[block_cost._key(NAME)]["k"] > 0
+
+
+# ── fix round (the critic, 2026-10-20) ──────────────────────────────────────────────────────────────────────────
+
+def test_f1_the_child_times_a_warm_model_not_its_first_cold_call(fresh, tmp_path):
+    """F1 (blocker): a fresh interpreter pays the model's lazy imports and numba compile inside the one timed
+    run_once — interrogation.trains read k 2.2e-4..2.9e-4 in the child against 1.6e-6 on a warm thread, and an
+    inflated k is merged into block_calibration.json for good (routing a long span to the cluster). The child warms
+    the model untimed first; its k is within 5x of a warm in-process timing of the same model in this run."""
+    chain, block_cost, path = fresh
+    trains = "interrogation.trains"
+    exponent, run_once = block_cost.MODELS[trains]
+    import numpy as np
+    if trains in block_cost.WARM_UPS:
+        block_cost.WARM_UPS[trains]()
+    run_once(np.cumsum(np.random.default_rng(1).standard_normal(1000)) * 1e-3, 1.0)     # warm, untimed
+    here = tmp_path / "here.json"
+    k_here = block_cost.calibrate([trains], path=str(here))[trains]
+    gen = {"state": "calibrating", "seconds": None, "error": None}
+    chain._BC_STATE[trains] = gen
+    chain._calibrate_block_cost(trains, str(path), gen)
+    assert chain._BC_STATE[trains]["state"] == "calibrated", chain._BC_STATE[trains]
+    k_child = json.load(open(path, encoding="utf-8"))[block_cost._key(trains)]["k"]
+    assert k_child <= 5 * k_here, f"child k {k_child:.3g} vs warm in-process k {k_here:.3g}"
+
+
+def test_f2_a_child_that_hangs_is_stopped_and_the_model_reads_failed_in_words(fresh, monkeypatch):
+    """F2: fut.result() had no timeout — a hung child left the model 'calibrating' until a restart."""
+    import time as _t
+    chain, block_cost, path = fresh
+    monkeypatch.setattr(chain, "CALIBRATION_TIMEOUT_S", 3.0)
+    monkeypatch.setattr(chain, "_child_call", lambda name, module: (_t.sleep, (120,)))
+    t0 = _t.time()
+    st = _calibrate(chain, path)
+    assert _t.time() - t0 < 30
+    assert st["state"] == "failed" and "timed out after 3 s" in st["error"], st
+    assert not chain._BC_POOLS, "the hung child's pool is terminated, not left running"
+
+
+def test_f6_at_most_one_calibration_child_at_a_time_and_the_others_read_calibrating(fresh, monkeypatch):
+    """F6: free RAM is ~1 GB; two models timing at once was two extra interpreters. One child at a time; a queued
+    model reads 'calibrating' meanwhile."""
+    import threading
+    import time as _t
+    chain, block_cost, path = fresh
+    monkeypatch.setattr(chain, "_child_call", lambda name, module: (_t.sleep, (2,)))
+    names = ["preprocessing.invert", "interrogation.intervals"]
+    gens = {}
+    threads = []
+    for n in names:
+        gens[n] = {"state": "calibrating", "seconds": None, "error": None}
+        chain._BC_STATE[n] = gens[n]
+        threads.append(threading.Thread(target=chain._calibrate_block_cost, args=(n, str(path), gens[n]), daemon=True))
+    for t in threads:
+        t.start()
+    peak = 0
+    while any(t.is_alive() for t in threads):
+        peak = max(peak, len(chain._BC_POOLS))
+        _t.sleep(0.05)
+    assert peak == 1, f"{peak} calibration children ran at once"
+
+
+def test_f6_the_starting_request_never_waits_past_calibration_wait_s_while_the_corpus_worker_starts(fresh, monkeypatch):
+    """F6: corpus.coverage_pool() holds corpus._POOL_LOCK while it starts its worker (up to 180 s); the submit that
+    needs it happens on the calibration's own thread, so the validate that started it still answers in time."""
+    import time as _t
+    chain, block_cost, path = fresh
+    from server import corpus
+    from Working.recipes import make_recipe
+    monkeypatch.setattr(chain, "CALIBRATION_WAIT_S", 1.0)
+    recipe = make_recipe(1, [{"stage": "preprocessing", "algorithm": "invert", "params": {}}], span=[0, 20_000])
+    with corpus._POOL_LOCK:
+        t0 = _t.time()
+        out = chain.route_local(recipe, 20_000, 1.0, ceiling_s=900)
+        waited = _t.time() - t0
+    assert waited < 2.0 and out["route"] == "unknown", (waited, out["route"])

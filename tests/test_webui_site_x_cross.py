@@ -167,3 +167,39 @@ def test_the_site_x_smoke_unit_pins_the_default_and_the_co_window():
     assert '[data-testid="overlay"]' in d["expect"] and '[data-testid="reference-trace"]' in d["expect_absent"]
     assert "site-x-stacked-on-request" in states
     assert '[data-testid="reference-trace"]' in states["site-x-stacked-on-request"]["expect"]
+
+
+# ── fix round (the critic, 2026-10-20) ───────────────────────────────────────────────────────────────────────
+
+def test_f3_the_shared_gain_comes_from_the_lower_median_so_two_or_half_wide_channels_never_flatten_the_rest():
+    two = _node(f"M.overlayGains([0.2, 35], {LANE}, {BLOCK}, {GAIN_LANES})")
+    assert two["medianSpan"] == pytest.approx(0.2)
+    assert [r["ownScale"] for r in two["rows"]] == [False, True]
+    assert two["rows"][0]["px"] >= _node("M.FLAT_PX")
+    four = _node(f"M.overlayGains([0.2, 0.3, 30, 35], {LANE}, {BLOCK}, {GAIN_LANES})")
+    assert four["medianSpan"] == pytest.approx(0.3)
+    assert [r["ownScale"] for r in four["rows"]] == [False, False, True, True]
+    assert all(r["px"] >= _node("M.FLAT_PX") for r in four["rows"])
+
+
+def test_f3_an_overlay_lane_drawn_flatter_than_flat_px_says_so():
+    g = _node(f"M.overlayGains([0.0005, 0.3, 0.35], {LANE}, {BLOCK}, {GAIN_LANES})")
+    assert g["rows"][0]["flat"] is True and g["rows"][1]["flat"] is False
+    src = _read("explore", "Overlay.tsx")
+    assert "ov-lane-flat-" in src and "flat at this gain" in src
+
+
+def test_f4_the_help_says_a_channel_too_wide_is_drawn_at_its_own_gain():
+    page = _read("explore", "CrossChannelPage.tsx")
+    tip = page[page.index('InfoTip title="Overlay"'):]
+    tip = tip[:tip.index("</InfoTip>")]
+    assert "never rescaled" not in tip and "÷" in tip and "own gain" in tip
+    head = _read("explore", "Overlay.tsx").split("*/")[0]
+    assert "never rescaled" not in head and "own gain" in head
+
+
+def test_f5_one_channel_is_never_marked_own_scale_and_fits_the_block():
+    one = _node(f"M.overlayGains([5], 400, {BLOCK}, {GAIN_LANES})")
+    assert one["rows"][0]["ownScale"] is False and one["rows"][0]["px"] <= BLOCK
+    same = _node(f"M.overlayGains([2, 2, 2], {LANE}, {BLOCK}, {GAIN_LANES})")
+    assert not any(r["ownScale"] for r in same["rows"])
