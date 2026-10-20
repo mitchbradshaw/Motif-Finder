@@ -134,7 +134,7 @@ export function IntervalFigures({ q, p, ic, stats }: { q: ProcessProps; p: Spans
         <IntervalSignal q={q} p={p} ic={ic} shown={shown} mark={mark} onPick={pick} />
         <SeriesLegend testid="interval-class-legend" shown={shown} onToggle={toggle}
           series={ic.classes.map(c => ({ key: c.key, label: c.key === 'all' ? 'all events' : c.label, colour: classColour(ic, c.key), n: c.n }))}
-          note={<span className="muted">{ic.rule_words}</span>} />
+          note={<span className="muted">events per class · the rule is under the timeline</span>} />
       </div>
       <IntervalTimelinePanel ic={ic} t0={t0} t1={t1} stats={stats} histogram={false} />
       <div>

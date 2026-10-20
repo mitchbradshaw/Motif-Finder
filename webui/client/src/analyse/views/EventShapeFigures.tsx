@@ -41,7 +41,7 @@ const eventTime = (p: SpansetPayload, i: number) => p.marks?.onset_s[i] ?? p.sta
 type Motifs = { state: 'loading'; done: number; of: number } | { state: 'error'; message: string } | { state: 'ready'; rows: { i: number; a: Aligned }[]; perEvent: boolean; decimated: number }
 
 /** Read and align the drawn events' waveforms. */
-function useMotifs(p: SpansetPayload, rec: number, t0: number, t1: number): { motifs: Motifs; picks: number[] } {
+function useMotifs(p: SpansetPayload, rec: number, t0: number, t1: number, flip: boolean): { motifs: Motifs; picks: number[] } {
   const n = p.start_s.length
   const order = useMemo(() => Array.from({ length: n }, (_, i) => i).sort((a, b) => p.start_s[a] - p.start_s[b] || a - b), [p, n])
   const oneRead = (t1 - t0) * p.fs <= ONE_READ_SAMPLES
@@ -53,7 +53,7 @@ function useMotifs(p: SpansetPayload, rec: number, t0: number, t1: number): { mo
     const cut = (tr: SlideTrace, i: number) => {
       const s = p.start_s[i], e = p.end_s[i]
       const t: number[] = [], v: (number | null)[] = []
-      for (let k = 0; k < tr.t.length; k++) if (tr.t[k] >= s - 1e-9 && tr.t[k] <= e + 1e-9) { t.push(tr.t[k]); v.push(tr.v[k]) }
+      for (let k = 0; k < tr.t.length; k++) if (tr.t[k] >= s - 1e-9 && tr.t[k] <= e + 1e-9) { const y = tr.v[k]; t.push(tr.t[k]); v.push(flip && y !== null ? -y : y) }
       return alignOnSteepest(t, v, range(i))
     }
     setMotifs({ state: 'loading', done: 0, of: picks.length })
@@ -88,13 +88,13 @@ function useMotifs(p: SpansetPayload, rec: number, t0: number, t1: number): { mo
     run().then(r => { if (live) setMotifs({ state: 'ready', ...r }) },
       e => { if (live) setMotifs({ state: 'error', message: e instanceof Error ? e.message : String(e) }) })
     return () => { live = false }
-  }, [p, rec, t0, t1, picks, oneRead])
+  }, [p, rec, t0, t1, picks, oneRead, flip])
   return { motifs, picks }
 }
 
 /** 1. The motif overlay. */
-function MotifOverlay({ p, rec, t0, t1, mark }: { p: SpansetPayload; rec: number; t0: number; t1: number; mark: number | null }) {
-  const { motifs, picks } = useMotifs(p, rec, t0, t1)
+function MotifOverlay({ p, rec, t0, t1, mark, flip }: { p: SpansetPayload; rec: number; t0: number; t1: number; mark: number | null; flip: boolean }) {
+  const { motifs, picks } = useMotifs(p, rec, t0, t1, flip)
   const [ref, size] = useSize<HTMLDivElement>()
   const w = Math.max(10, size.width), h = 170
   const n = p.start_s.length
@@ -146,7 +146,7 @@ function MotifOverlay({ p, rec, t0, t1, mark }: { p: SpansetPayload; rec: number
         {motifs.state === 'error' && <div className="callout warn small" data-testid="motif-overlay-error" style={{ margin: 8 }}>the waveforms could not be read: {motifs.message}</div>}
         {motifs.state === 'ready' && !geom && <div className="an-plot-empty" data-testid="motif-overlay-empty">{n ? 'no event has finite samples to draw' : 'no events: the step before found none on this span'}</div>}
         {motifs.state === 'ready' && geom && size.width > 0 && (() => {
-          const x = makeX(geom.lo, geom.hi, w, 34, 10)
+          const x = makeX(geom.lo, geom.hi, w, 46, 10)
           const y = makeY(geom.zlo, geom.zhi, h, 6, 6)
           return (
             <svg width={w} height={h + 18} data-plot-box data-rule9="overlay" style={{ display: 'block' }}>
@@ -154,9 +154,9 @@ function MotifOverlay({ p, rec, t0, t1, mark }: { p: SpansetPayload; rec: number
               <text x={x(0) + 4} y={11} style={{ fontSize: 9.5, fill: 'var(--muted)' }}>steepest slope</text>
               {drawn.map(({ i, a }) => <path key={i} d={path(a, x, y)} fill="none" stroke={rampColour(rank.get(i) ?? 0)} strokeOpacity={drawn.length > 60 ? 0.35 : 0.65} strokeWidth={1} data-testid="motif-line" />)}
               {marked && <path d={path(marked.a, x, y)} fill="none" stroke="var(--text)" strokeWidth={2.2} data-testid="motif-marked" />}
-              <text x={30} y={y(geom.zhi) + 8} textAnchor="end" style={{ fontSize: 9.5, fill: 'var(--muted)' }}>{fmtN(geom.zhi)}σ</text>
-              <text x={30} y={y(geom.zlo)} textAnchor="end" style={{ fontSize: 9.5, fill: 'var(--muted)' }}>{fmtN(geom.zlo)}σ</text>
-              <text x={34} y={h + 14} style={{ fontSize: 9.5, fill: 'var(--muted-2)' }}>{fmtN(geom.lo)} s</text>
+              <text x={42} y={y(geom.zhi) + 8} textAnchor="end" style={{ fontSize: 9.5, fill: 'var(--muted)' }}>{fmtN(geom.zhi)}σ</text>
+              <text x={42} y={y(geom.zlo)} textAnchor="end" style={{ fontSize: 9.5, fill: 'var(--muted)' }}>{fmtN(geom.zlo)}σ</text>
+              <text x={46} y={h + 14} style={{ fontSize: 9.5, fill: 'var(--muted-2)' }}>{fmtN(geom.lo)} s</text>
               <text x={w - 10} y={h + 14} textAnchor="end" style={{ fontSize: 9.5, fill: 'var(--muted-2)' }}>+{fmtN(geom.hi)} s from the steepest slope</text>
             </svg>
           )
@@ -168,6 +168,7 @@ function MotifOverlay({ p, rec, t0, t1, mark }: { p: SpansetPayload; rec: number
           late</span>
         {n > 0 && <span className="muted">{fmtHours(p.start_s[0], 2)} → {fmtHours(p.start_s[n - 1], 2)}</span>}
         <span className="muted">{words}</span>
+        {flip && <span data-testid="motif-overlay-flipped">drawn upside down from the recording, as the inverted signal below (this block is told the chain inverted it)</span>}
         {marked && <span>black = the event marked below (#{marked.i + 1})</span>}
       </div>
     </div>
@@ -203,7 +204,7 @@ export function EventShapeFigures({ q, p, rose }: { q: ProcessProps; p: SpansetP
   const { t0, t1 } = q.ctx
   return (
     <div className="stack" style={{ gap: 10 }} data-testid="event-shape-figures">
-      <MotifOverlay p={p} rec={q.source.recording_id} t0={t0} t1={t1} mark={mark} />
+      <MotifOverlay p={p} rec={q.source.recording_id} t0={t0} t1={t1} mark={mark} flip={q.step.params.upstream_inverted === true} />
       {rose}
       <div>
         <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Where the events are, and what each measured</h3>
