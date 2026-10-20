@@ -238,9 +238,9 @@ export function getScoreboard(runKeys: string[], channels: string[], section: [n
   return live(getDiscoveryScoreboard(runKeys.filter(k => k !== 'human'), channels, section[0], section[1]))
 }
 
-/** site-runs item 4: the Send button's count, from a read of its own — the run's real detections (surrogates left
- *  out) that carry no verdict, over the whole run, which is what *Send* puts in the queue. It never waits on the
- *  scoreboard (461 s cold over the real session). */
+/** site-runs item 4: the Send button's count, from a read of its own — what Review would ask about if the run were
+ *  sent (its queue's own count: overlap sets, items a human verdict covers left out); nothing is written. It never
+ *  waits on the scoreboard (461 s cold over the real session). */
 export type RunUnjudged = DiscRunUnjudged
 export const getRunUnjudged = (runKey: string): Promise<Sourced<RunUnjudged>> => live(getDiscoveryRunUnjudged(runKey))
 

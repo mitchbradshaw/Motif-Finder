@@ -1794,6 +1794,6 @@ export interface DiscExtendAck { run_key: string; job_id: number; channels: stri
 export const extendDiscoveryRun = (runKey: string, channels: string[]) =>
   post<DiscExtendAck>(`/api/discovery/runs/${encodeURIComponent(runKey)}/extend`, { channels })
 
-/** site-runs item 4: the run's detections with no verdict, over the whole run — *Send N unjudged*'s N, without the scoreboard. */
-export interface DiscRunUnjudged { run_key: string; found: number; judged: number; unjudged: number; note: string }
+/** site-runs item 4: *Send N unjudged*'s N without the scoreboard — what Review would ask about (its queue's own count). */
+export interface DiscRunUnjudged { run_key: string; total: number; judged: number; unjudged: number; queueId: number | null; note: string }
 export const getDiscoveryRunUnjudged = (runKey: string) => req<DiscRunUnjudged>(`/api/discovery/runs/${encodeURIComponent(runKey)}/unjudged`)

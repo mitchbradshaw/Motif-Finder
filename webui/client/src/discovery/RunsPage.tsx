@@ -504,7 +504,7 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
   const [sent, setSent] = useDemoState<Record<string, { n: number; queueId: number }>>('discovery.sent', () => ({}))
   const toast = useToast()
   const notWired = useNotWired()
-  /* site-runs item 4: the count is a read of its own (GET /api/discovery/runs/{key}/unjudged: two COUNTs) — it
+  /* site-runs item 4: the count is a read of its own (GET /api/discovery/runs/{key}/unjudged: Review's own count of what the send would queue) — it
    * was `found − judged` off the scoreboard, which took 461 s cold over the real session and printed 0 until then */
   const countable = !!run && run.kind !== 'reference' && hasResults(run)
   const count = useSourced(() => countable ? getRunUnjudged(run!.key) : Promise.resolve({ data: null, source: 'live' as const }), [run?.key, run?.status, countable])
@@ -520,7 +520,7 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
   const unjudged = counted?.unjudged ?? 0
   const sendReason = count.error ? `the unjudged detections could not be counted: ${count.error.message}`
     : !counted ? 'counting the unjudged detections…'
-      : unjudged === 0 ? 'nothing unjudged — every detection of this run has a verdict' : null
+      : unjudged === 0 ? 'Review would ask about none — every event of this run is judged or already covered by a human verdict' : null
   const reason = run.kind === 'reference' ? 'human annotations are the reference, not a run'
     : run.status === 'superseded' ? 'discarded — marked superseded, no verdicts written'
       : !results ? 'no detections yet' : null
@@ -560,7 +560,7 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
       <span className="dot" style={{ background: run.colour, width: 9, height: 9 }} />
       <b>{run.label}</b>
       {total && results ? <span className="muted small">{total.found} detections · {run.channelsDone ? `${run.channelsDone} channels` : `${dx.scope!.channels.length} channels`} · {total.judged} already judged</span>
-        : results && counted ? <span className="muted small" data-testid="run-acts-counted">{counted.found} detections · {counted.judged} with a verdict · scores still being worked out</span>
+        : results && counted ? <span className="muted small" data-testid="run-acts-counted">{counted.total} events Review would put to you · {counted.judged} judged · scores still being worked out</span>
           : <span className="muted small">{reason ?? 'working out the scores…'}</span>}
       <span className="k-spacer" />
       {/* reports (2026-10-19): this run's report — figures and tables drawn by the server */}

@@ -445,6 +445,25 @@ def queue_counts(conn, queue_id, *, exclude_recording_ids=None):
                                    exclude_recording_ids=exclude_recording_ids))
 
 
+def unwritten_counts(conn, *, source_kind, filters=None, source_ref=None, cap=None):
+    """`queue_counts` for a detection queue that has NOT been made: what *Send N unjudged to Review* would put in
+    front of the researcher (site-runs, 2026-10-20) — the same structure (`_detection_structure`: overlap sets,
+    items a human verdict already covers left out), the same cap, the same judged rule. It writes nothing: no
+    `review_queues` row and no structure row; the structure is remembered in memory like a written queue's,
+    keyed on the description instead of an id."""
+    if source_kind not in _DETECTION_KINDS:
+        raise ValueError("unwritten_counts counts a detection queue ({}), not {!r}".format(
+            ", ".join(_DETECTION_KINDS), source_kind))
+    q = {"id": None, "source_kind": source_kind, "source_ref": None if source_ref is None else str(source_ref),
+         "filters": dict(filters or {}), "cap": cap}
+    key = ("unwritten", source_kind, q["source_ref"], repr(sorted(_normalised_filters(filters).items())), cap)
+    structure = _cached_structure(conn, q, cache_key=key)
+    served = _structure_views(q, structure, None)["served_members"]
+    adjudicated = {r[0] for r in conn.execute("SELECT detection_id FROM adjudications").fetchall()}
+    judged = sum(1 for ms in served if _set_judged(ms, adjudicated))
+    return {"total": len(served), "judged": judged, "remaining": len(served) - judged}
+
+
 def counts_of(served):
     """`queue_counts`' numbers over a served list (`select_items(..., include_judged=True)`)."""
     judged = sum(1 for it in served if it["judged"])
@@ -840,11 +859,12 @@ def _database_identity(conn):
     return (os.path.normcase(os.path.abspath(path)), getattr(st, "st_ino", 0), st.st_ctime_ns)
 
 
-def _cached_structure(conn, q):
+def _cached_structure(conn, q, cache_key=None):
     """`_detection_structure(conn, q)`, answered from memory while
     `_structure_fingerprint` is unchanged. Read inside one read transaction
     where the connection is not already in one, so the fingerprint and the
-    structure it vouches for see the same rows."""
+    structure it vouches for see the same rows. ``cache_key`` names a queue that
+    has no row (`unwritten_counts`); a written queue is keyed by its id."""
     db = _database_identity(conn)
     if db is None:                  # an in-memory database has no identity to key on: resolve every time
         return _detection_structure(conn, q)
@@ -852,7 +872,7 @@ def _cached_structure(conn, q):
     if own:
         conn.execute("BEGIN")
     try:
-        key = (db, int(q["id"]))
+        key = (db, cache_key if cache_key is not None else int(q["id"]))
 
         def held():
             with _STRUCTURE_LOCK:

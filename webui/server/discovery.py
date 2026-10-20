@@ -4480,25 +4480,29 @@ def _send_picked(c, s, row, run_key, detection_ids):
 def get_run_unjudged(request: Request, run_key: str):
     """site-runs item 4: *Send N unjudged to Review*'s N, from a read of its own. The button read it off the
     scoreboard, which took 461 s cold over the real session (16 channels x 52 runs, 721 h), and printed 0 until
-    then. This counts the run's real detections (`_run_ids`, which leaves the paired surrogates out) and the ones
-    with an adjudication, over the WHOLE run — what *Send* puts in the queue, a filter over those run ids. Two
-    COUNTs, no scoring. Review's own count after the send (overlap sets, verdicts carried over) is the toast's."""
+    then.
+
+    Fix round F1: the N is exactly what the send would queue — Review's own count (`queue_counts`): the run's open
+    queue's when there is one (the same `find_open_queue` lookup the send makes), else the same count over the
+    same description that has not been written (`queues.unwritten_counts`: overlap sets, items a human verdict
+    already covers left out, the same kind and filter). Nothing is written. It can honestly be 0."""
     c = _conn(request)
     try:
         s = _session(c)
         row = _dr_by_key(c, s["id"], run_key)
         ids = _run_ids(c, row) if row["run_group_id"] else []
         if not ids:
-            return {"run_key": run_key, "found": 0, "judged": 0, "unjudged": 0,
+            return {"run_key": run_key, "total": 0, "judged": 0, "unjudged": 0, "queueId": None,
                     "note": f"{run_key} has no runs recorded, so it has nothing to send"}
-        marks = ",".join(str(int(i)) for i in ids)
-        base = ("FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.id IN (" + marks + ") AND "
-                + q.not_surrogate("r"))
-        found = int(c.execute("SELECT COUNT(*) " + base).fetchone()[0])
-        judged = int(c.execute("SELECT COUNT(*) " + base.replace("FROM detections d",
-                               "FROM detections d JOIN adjudications a ON a.detection_id = d.id", 1)).fetchone()[0])
-        return {"run_key": run_key, "found": found, "judged": judged, "unjudged": max(0, found - judged),
-                "note": "the run's detections with no verdict, over the whole run — what Send puts in the queue"}
+        kind = "seed-search" if row["kind"] == "seed" else "discovery-run"
+        filters = {"run_ids": [int(i) for i in ids]}
+        qid = queues_mod.find_open_queue(c, source_kind=kind, filters=filters)
+        counts = (queues_mod.queue_counts(c, qid) if qid is not None
+                  else queues_mod.unwritten_counts(c, source_kind=kind, filters=filters))
+        return {"run_key": run_key, "total": int(counts["total"]), "judged": int(counts["judged"]),
+                "unjudged": int(counts["remaining"]), "queueId": (int(qid) if qid is not None else None),
+                "note": "what Review would ask about: the run's detections as Review's queue serves them (overlap "
+                        "sets, items a human verdict already covers left out)"}
     finally:
         c.close()
 
