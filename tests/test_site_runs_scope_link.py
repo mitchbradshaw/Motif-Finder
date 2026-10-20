@@ -303,3 +303,44 @@ def test_the_default_state_opens_the_picker_before_show_all():
     clicks = [a["click"] for a in default["actions"] if "click" in a]
     assert clicks[0] == '[data-testid="fires-picker"]'
     assert any("fires-show-all" in c for c in clicks[1:])
+
+
+# ── fix round (the critic, 2026-10-20) ──────────────────────────────────────
+
+def test_f2_a_failed_link_write_is_said_in_words_and_does_not_hang_the_page():
+    """A rejected putScopeLink only logged and toasted: the link target stayed set, so the page stayed on its loading
+    layout under "moving the session to the linked scope..." for ever (reproduced with the PUT forced to 500). The
+    failure is held, said through the scope-link-refused callout (whose button keeps the session's scope and clears
+    the keys), and the page is no longer 'writing' while it is held."""
+    src = _src("discovery", "session.ts")
+    assert "setLinkError(" in src
+    m = re.search(r"const linkWriting = ([^\n]+)", src)
+    assert m and "linkError" in m.group(1), "a held write error must end the writing state"
+    m = re.search(r"const linkRefused = ([^\n]+)", src)
+    assert m and "linkError" in m.group(1), "the write error is shown through the refusal callout"
+    assert re.search(r"const clearLinkKeys = \(\) => \{[^}]*setLinkError\(null\)", src)
+
+
+def test_f3_the_review_flow_waits_for_the_count_before_reading_the_label():
+    src = io.open(os.path.join(PROJECT_ROOT, "webui", "smoke.py"), encoding="utf-8").read()
+    start = src.index('print("[discovery → review]")')
+    body = src[start:start + 1500]
+    wait = body.find('data-counting="1"')
+    read = body.find("label = btn.first.inner_text()")
+    assert 0 <= wait < read, "the flow reads the Send label before the count has landed"
+
+
+def test_f4_the_smoke_states_measure_the_row_and_the_scroll():
+    rows = json.load(io.open(os.path.join(PROJECT_ROOT, "webui", "smoke_pages", "zzzzzzzzzzz_site_runs.json"),
+                             encoding="utf-8"))
+    by = {r["state"]: r for r in rows}
+    row = by["site-runs-run-row-geometry-at-1024"]
+    sels = [s for pair in row["no_overlap"] for s in pair]
+    for part in (".dsc-run-text > b", ".dsc-run-meta", ".dsc-run-line", ".dsc-cov", "pick-{run:a}", "remove-{run:a}",
+                 "report-{run:a}"):
+        assert any(part in s for s in sels), f"{part} is not measured"
+    assert any("eval" in a and "1024px" in a["eval"] for a in row["actions"])
+    assert any("data-geometry=\"ok\"" in x for x in row["expect"])
+    sc = by["site-runs-scoreboard-scrolls-under-a-sticky-header"]
+    assert any("eval" in a for a in sc["actions"])
+    assert any("data-check=\"ok\"" in x for x in sc["expect"])
