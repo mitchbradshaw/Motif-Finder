@@ -1,0 +1,158 @@
+"""
+test_site_runs_scope_link.py
+============================
+site-runs (2026-10-20), items 5 and 6: a deep-linked Discovery scope, and the session the page shows after a write.
+
+Item 5. *Explore > Cross-channel > Apply a template across these N channels* opened
+`discovery/runs?modal=add-template&channels=667,668,669,666`: channel IDS and no recording, so the session (still on
+M2_aug) asked M2_aug for channels named `667...` and three cards printed "no channel(s) ['667', ...] on
+M2_aug_concat_fs1". The link now carries `recording=<key>` and the channel NAMES, and the page resolves it with one
+pure helper (`discovery/scopeLink.ts`, run here under Node; skips without `node`) before writing it to the session
+through `putScope` -- the same write the Scope card makes. A name the recording does not have is refused in words
+and nothing is sent.
+
+Item 6. `setScope` merged its patch into the client's copy and never took the bridge's answer, so after a change of
+recording the toolbar kept the OLD session's name. The scope is now built from `putScope`'s response by
+`scopeFromSession`, the same builder the first read uses.
+"""
+import io
+import json
+import os
+import re
+import shutil
+import subprocess
+
+import pytest
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC = os.path.join(PROJECT_ROOT, "webui", "client", "src")
+LINK_TS = os.path.join(SRC, "discovery", "scopeLink.ts")
+
+RECS = [
+    {"key": "M2_aug_concat_fs1", "label": "M2 aug", "channels": ["CH1_A1", "CH2_A1", "CH3_A2", "CH4_A2"], "hours": 721.0,
+     "heldOut": False},
+    {"key": "CO_fs2", "label": "CO", "channels": ["CH1", "CH2", "CH3", "CH4"], "hours": 480.0, "heldOut": False},
+    {"key": "M4_aug_concat_fs1", "label": "M4", "channels": ["CH1_A1"], "hours": 500.0, "heldOut": True},
+]
+CURRENT = {"recording": "M2_aug_concat_fs1", "channels": ["CH1_A1", "CH2_A1", "CH3_A2"], "section": [600.0, 700.0]}
+
+
+def _node(expr_lines):
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not on PATH")
+    assert os.path.isfile(LINK_TS), "webui/client/src/discovery/scopeLink.ts does not exist"
+    url = "file:///" + LINK_TS.replace("\\", "/").lstrip("/")
+    script = f"import * as L from {json.dumps(url)};\n" + "\n".join(expr_lines)
+    r = subprocess.run([node, "--no-warnings", "--input-type=module", "-e", script], capture_output=True, text=True,
+                       encoding="utf-8", timeout=60)
+    assert r.returncode == 0, r.stderr
+    return json.loads(r.stdout)
+
+
+def _resolve(recording_q, channels_q, current=CURRENT, recs=RECS):
+    return _node([f"process.stdout.write(JSON.stringify(L.resolveScopeLink({json.dumps(recording_q)}, "
+                  f"{json.dumps(channels_q)}, {json.dumps(current)}, {json.dumps(recs)}) ?? null));"])
+
+
+def _src(*parts):
+    return io.open(os.path.join(SRC, *parts), encoding="utf-8").read()
+
+
+# ── item 5: the link and its resolution ─────────────────────────────────────
+
+def test_no_link_is_nothing_to_resolve():
+    assert _resolve("", "") is None
+
+
+def test_a_link_with_a_recording_and_channel_names_becomes_that_scope():
+    out = _resolve("CO_fs2", "CH2,CH4")
+    assert out["scope"]["recording"] == "CO_fs2"
+    assert out["scope"]["channels"] == ["CH2", "CH4"]
+    # the section is clamped to the new recording: [600, 700] h does not exist on a 480 h one
+    s0, s1 = out["scope"]["section"]
+    assert 0 <= s0 < s1 <= 480.0
+
+
+def test_a_section_inside_the_new_recording_is_kept():
+    out = _resolve("CO_fs2", "CH1", current={**CURRENT, "section": [10.0, 34.0]})
+    assert out["scope"]["section"] == [10.0, 34.0]
+
+
+def test_channel_names_alone_stay_on_the_sessions_recording_and_section():
+    out = _resolve("", "CH4_A2,CH1_A1")
+    assert out["scope"] == {"recording": "M2_aug_concat_fs1", "channels": ["CH4_A2", "CH1_A1"], "section": [600.0, 700.0]}
+
+
+def test_channel_ids_are_refused_in_words_not_sent():
+    out = _resolve("", "667,668,669,666")
+    assert "scope" not in out
+    assert "667" in out["refused"] and "M2 aug" in out["refused"]
+
+
+def test_a_name_that_is_not_a_channel_of_the_recording_is_refused():
+    out = _resolve("CO_fs2", "CH1,CH1_A1")
+    assert "CH1_A1" in out["refused"] and "CO" in out["refused"]
+
+
+def test_an_unknown_recording_is_refused():
+    out = _resolve("nope", "CH1")
+    assert "nope" in out["refused"]
+
+
+def test_the_held_out_recording_is_left_to_the_scope_cards_refusal():
+    # the Scope card refuses a held-out recording from the client's copy; the link must never write it
+    assert _resolve("M4_aug_concat_fs1", "CH1_A1") is None
+
+
+def test_a_recording_only_link_is_a_view_not_a_write():
+    # discovery.json's held-out-refused state opens ?recording=M4...; with the lock off a write would move the
+    # whole walk's session onto M4 (Assumed in the report): only a link that names channels is written
+    assert _resolve("CO_fs2", "") is None
+
+
+def test_the_cross_channel_link_carries_the_recording_and_the_names():
+    src = _src("explore", "CrossChannelPage.tsx")
+    line = next(ln for ln in src.splitlines() if 'testid="act-template"' in ln)
+    assert "recording=" in line
+    assert "selected.join(',')" not in line, "the link still sends channel ids"
+    assert ".name" in line
+
+
+def test_the_session_writes_a_deep_link_through_putScope_and_clears_it():
+    src = _src("discovery", "session.ts")
+    assert "resolveScopeLink(" in src
+    assert "setRecordingQ(null)" in src and "setChannelsQ(null)" in src
+    assert "linkRefused" in src
+
+
+def test_the_runs_page_holds_the_modal_until_the_link_is_written():
+    src = _src("discovery", "RunsPage.tsx")
+    assert "dx.linkPending" in src and "dx.linkRefused" in src
+    assert 'data-testid="scope-link-refused"' in src or 'testid="scope-link-refused"' in src
+
+
+# ── item 6: the session the page shows is the bridge's ──────────────────────
+
+def test_the_scope_is_built_from_the_bridges_session():
+    payload = {"name": "CO", "recording": "CO_fs2", "channels": ["CH1"], "section": [0, 24],
+               "null": {"method": "phase_randomize", "n": 200, "requested": None, "reason": None, "explicit": False},
+               "nulls": {"template": {"method": "phase_randomize", "n": 20}}}
+    out = _node([f"process.stdout.write(JSON.stringify(L.scopeFromSession({json.dumps(payload)})));"])
+    assert out["name"] == "CO" and out["recording"] == "CO_fs2" and out["channels"] == ["CH1"]
+    assert out["section"] == [0, 24] and out["saved"] is True
+    assert out["nullN"] == 200 and out["nullTemplateN"] == 20 and out["nullExplicit"] is False
+
+
+def test_setScope_takes_putScopes_answer():
+    src = _src("discovery", "session.ts")
+    m = re.search(r"putScope\(\{[^}]*\}\)\s*\.then\(([^)]*)\)", src)
+    assert m and m.group(1).strip() not in ("", "()"), "setScope ignores the bridge's answer"
+    assert "scopeFromSession(" in src
+
+
+def test_the_scope_summary_chip_has_no_chevron():
+    src = _src("discovery", "chrome.tsx")
+    start = src.index("export function ScopeSummaryChip")
+    body = src[start:src.index("export function", start + 10)]
+    assert "chevron" not in body
