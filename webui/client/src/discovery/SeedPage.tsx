@@ -337,26 +337,34 @@ function DraftRow({ draft, seed, onRename }: { draft: SeedDraft; seed: SeedInfo 
     onRename(trimmed).then(() => setEditing(false)).finally(() => setSaving(false))
   }
   return (
+    /* night-disc: the run rows' three columns — the glyph and its draft tag left, the name (with its rename pencil) and
+     * what it searches in the middle; the right column is empty (a draft has no x, no A/B box and no report yet) */
     <div className="dsc-run selected draft" style={{ ['--run' as string]: SEED_COLOUR }} data-testid="run-row-draft" data-status="draft">
-      <div className="dsc-run-body" role="group" aria-label={`${draft.label} draft`}>
-        <RunGlyph kind="seed" width={40} height={28} />
-        <span className="dsc-run-text">
-          {editing ? (
-            <span className="dsc-draft-rename" data-testid="draft-rename">
-              <TextField value={name} onChange={setName} onEnter={save} invalid={!!error} width={150} autoFocus ariaLabel="seed search name" testid="draft-name-input" />
-              <Button size="sm" variant="primary" onClick={save} loading={saving} disabled={!!error || saving} disabledReason={error ?? 'saving…'} testid="draft-name-save">Save</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setName(draft.label); setEditing(false) }} testid="draft-name-cancel">Cancel</Button>
-              {error && <span className="dsc-err" data-testid="draft-name-error">{error}</span>}
-            </span>
-          ) : (
-            <button type="button" className="dsc-draft-name" onClick={() => { setName(draft.label); setEditing(true) }} title="rename this seed search — the name it is kept under" data-testid="draft-name">
-              <b>{draft.label}</b><Icon name="pencil" size={11} />
-            </button>
-          )}
-          {/* polish: "draft · not kept yet" was the badge said again in amber; it is the badge's hover now */}
-          <span className="dsc-run-meta"><span className="k-badge t-amber" title="draft · not kept yet">draft</span><span className="k-meta">{seed ? `${seed.title} · ${seed.role}` : 'no seed'} · MASS</span></span>
-        </span>
+      <div className="dsc-run-left">
+        <span className="dsc-run-glyph"><RunGlyph kind="seed" width={40} height={28} /></span>
+        {/* polish: "draft · not kept yet" was the badge said again in amber; it is the badge's hover now */}
+        <span className="k-badge t-amber" title="draft · not kept yet">draft</span>
       </div>
+      <div className="dsc-run-mid">
+        <div className="dsc-run-body" role="group" aria-label={`${draft.label} draft`}>
+          <span className="dsc-run-text">
+            {editing ? (
+              <span className="dsc-draft-rename" data-testid="draft-rename">
+                <TextField value={name} onChange={setName} onEnter={save} invalid={!!error} width={140} autoFocus ariaLabel="seed search name" testid="draft-name-input" />
+                <Button size="sm" variant="primary" onClick={save} loading={saving} disabled={!!error || saving} disabledReason={error ?? 'saving…'} testid="draft-name-save">Save</Button>
+                <Button size="sm" variant="ghost" onClick={() => { setName(draft.label); setEditing(false) }} testid="draft-name-cancel">Cancel</Button>
+                {error && <span className="dsc-err" data-testid="draft-name-error">{error}</span>}
+              </span>
+            ) : (
+              <button type="button" className="dsc-draft-name" onClick={() => { setName(draft.label); setEditing(true) }} title="rename this seed search — the name it is kept under" data-testid="draft-name">
+                <b>{draft.label}</b><Icon name="pencil" size={11} />
+              </button>
+            )}
+            <span className="dsc-run-meta"><span className="k-meta">{seed ? `${seed.title} · ${seed.role}` : 'no seed'} · MASS</span></span>
+          </span>
+        </div>
+      </div>
+      <div className="dsc-run-right" aria-hidden />
     </div>
   )
 }
@@ -673,13 +681,25 @@ function ParamField({ label, info, aside, children }: { label: string; info: str
  *  null behind them are exactly the evidence for that, so they still draw —
  *  hiding the histogram would make "nothing beats the null" look like "the
  *  search did not run". */
+/** night-disc item 2: where the cut's label goes — right of the handle when it fits, else left of it (anchored at its
+ *  end), and never past either edge of the plot (it used to be clamped at W - 150, and a 40-character label ran off the
+ *  card's right edge). About 6.4 px per character of the 10 px mono axis font at weight 600. */
+function cutLabelX(at: number, text: string, left: number, right: number): { x: number; anchor: 'start' | 'end' } {
+  const w = text.length * 6.4
+  if (at + 10 + w <= right) return { x: at + 10, anchor: 'start' }
+  if (at - 10 - w >= left) return { x: at - 10, anchor: 'end' }
+  return { x: Math.max(left, right - w), anchor: 'start' }
+}
+
 function CutHistogram({ candidates, nullDistances, threshold, recommended, kept, nullKept, rule, onThreshold }: {
   candidates: SeedMatch[]; nullDistances: number[]; threshold: number | null; recommended: number | null; kept: number; nullKept: number
   rule: CutRule | null; onThreshold: (t: number) => void
 }) {
   const [ref, size] = useSize<HTMLDivElement>()
   const [dragging, setDragging] = useState(false)
-  const W = size.width, H = 150, padL = 34, padR = 12, padT = 22, padB = 30
+  /* night-disc item 2: padL leaves room for the y-axis label "count" (5 mono characters, ~31 px, ending at padL - 6) —
+   * at 34 it started 2 px off the card's left edge and was clipped */
+  const W = size.width, H = 150, padL = 44, padR = 12, padT = 22, padB = 30
   /* The axis follows the DATA. It was fixed at 0-8 d, and a z-normalised MASS
    * distance over a 711-sample exemplar runs to 17: `count()` clamped every
    * value into the last bin, so the card drew one bar at 7.8-8.0 whose tooltip
@@ -721,7 +741,8 @@ function CutHistogram({ candidates, nullDistances, threshold, recommended, kept,
                 <rect x={x(threshold) - 8} y={padT - 12} width={16} height={H - padT - padB + 12} fill="transparent" />
                 <circle cx={x(threshold)} cy={padT - 8} r={6} fill="#fff" stroke={THRESH} strokeWidth={2} />
               </g>
-              <text x={Math.min(x(threshold) + 10, W - 150)} y={padT - 4} className="dsc-axis-t" style={{ fill: THRESH, fontWeight: 600 }} data-testid="cut-label">{kept} kept · the null gives {fmtNull(nullKept)} per draw</text>
+              {(() => { const text = `${kept} kept · the null gives ${fmtNull(nullKept)} per draw`, at = cutLabelX(x(threshold), text, padL, W - padR)
+                return <text x={at.x} textAnchor={at.anchor} y={padT - 4} className="dsc-axis-t" style={{ fill: THRESH, fontWeight: 600 }} data-testid="cut-label">{text}</text> })()}
             </>
           ) : (
             <text x={padL + 4} y={padT - 4} className="dsc-axis-t" style={{ fill: 'var(--muted)', fontWeight: 600 }} data-testid="cut-label">

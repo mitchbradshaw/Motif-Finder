@@ -489,23 +489,31 @@ export function RunsCard({ dx, mode, selected, onSelect, draft, compareActive, o
 function BandSetRow({ dx, set }: { dx: Discovery; set: BandSet }) {
   const pickIdx = dx.picks.indexOf(set.key)
   const found = set.members.map(m => dx.foundOf(m.key) ?? m.found)
+  /* night-disc: the run rows' three columns — the icon and its tag left, the name and facts in the middle, the pick
+   * box right (a band set is not removed as one row; its ghost keeps the column) */
   return (
     <div className="dsc-run dsc-band-set" style={{ ['--run' as string]: set.members[0].colour }} data-testid={`band-set-row-${set.bandSet}`} data-status={set.done ? 'done' : 'running'}>
-      <span className="dsc-run-body" title="the band runs of one application, compared as their union">
-        <Icon name="layers" size={16} />
-        <span className="dsc-run-text">
-          <b>{set.label}</b>
-          <span className="dsc-run-meta"><span className="k-badge t-purple">band set</span><span className="muted">{set.members.map(m => m.band?.label ?? m.key).join(' · ')}</span></span>
-          <span className="dsc-run-line small">{set.done ? <span>union of {set.members.length} runs · {found.map(f => f ?? '…').join(' + ')} found before de-duplication</span> : <span className="blue">waiting for every band to finish</span>}</span>
+      <div className="dsc-run-left">
+        <span className="dsc-run-glyph"><Icon name="layers" size={16} /></span>
+        <span className="k-badge t-purple">band set</span>
+      </div>
+      <div className="dsc-run-mid">
+        <span className="dsc-run-body" title="the band runs of one application, compared as their union">
+          <span className="dsc-run-text">
+            <b title={set.label}>{set.label}</b>
+            <span className="dsc-run-meta"><span className="k-meta">{set.members.map(m => m.band?.label ?? m.key).join(' · ')}</span></span>
+            <span className="dsc-run-line small">{set.done ? <span>union of {set.members.length} runs · {found.map(f => f ?? '…').join(' + ')} found before de-duplication</span> : <span className="blue">waiting for every band to finish</span>}</span>
+          </span>
         </span>
-      </span>
-      {pickIdx >= 0
-        ? <button type="button" className={cx('dsc-pick', pickIdx === 0 ? 'a' : 'b')} onClick={() => dx.togglePick(set.key)} aria-label={`unpick ${set.label} (${pickIdx === 0 ? 'A' : 'B'})`} data-testid={`pick-${set.key}`}>{pickIdx === 0 ? 'A' : 'B'}</button>
-        : <DisabledReason disabled={!set.done} reason="every band run needs results before the set can be compared">
-          <button type="button" className="dsc-pick" disabled={!set.done} onClick={() => dx.togglePick(set.key)} aria-label={`pick ${set.label} to compare`} data-testid={`pick-${set.key}`} />
-        </DisabledReason>}
-      {/* a band set is not removed as one row; the ghost keeps its badge in the same column as the runs' */}
-      <span className="dsc-run-remove ghost" aria-hidden />
+      </div>
+      <div className="dsc-run-right">
+        <span className="dsc-run-remove ghost" aria-hidden />
+        {pickIdx >= 0
+          ? <button type="button" className={cx('dsc-pick', pickIdx === 0 ? 'a' : 'b')} onClick={() => dx.togglePick(set.key)} aria-label={`unpick ${set.label} (${pickIdx === 0 ? 'A' : 'B'})`} data-testid={`pick-${set.key}`}>{pickIdx === 0 ? 'A' : 'B'}</button>
+          : <DisabledReason disabled={!set.done} reason="every band run needs results before the set can be compared">
+            <button type="button" className="dsc-pick" disabled={!set.done} onClick={() => dx.togglePick(set.key)} aria-label={`pick ${set.label} to compare`} data-testid={`pick-${set.key}`} />
+          </DisabledReason>}
+      </div>
     </div>
   )
 }
@@ -566,7 +574,7 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
   }
   const hasActions = (missing.length > 0 && extendable && (status === 'done' || status === 'failed'))
     || (status === 'paused' && !!run.id) || (status === 'on cluster' && run.hpc?.kind === 'chain')
-    || status === 'failed' || (status === 'done' && run.kind !== 'reference')
+    || status === 'failed'
   const kindBadge = run.kind === 'reference' ? <span className="k-badge t-grey">reference</span> : run.kind === 'seed' ? <span className="k-badge t-purple">seed</span> : run.kind === 'draft' ? <span className="k-badge t-amber">draft</span> : <span className="k-badge t-blue">template</span>
   let line: ReactNode = null
   switch (status) {
@@ -584,67 +592,78 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
     case 'failed': line = <span className="red">failed · {run.error ?? 'the server reported no error text — open it in Jobs'}</span>; break
     case 'reference': break
   }
+  const open = () => onSelect ? onSelect(run.key) : navigate(`discovery/runs?run=${encodeURIComponent(run.key)}`)
+  const openTitle = mode === 'runs' ? `browse ${run.label}` : `open ${run.label} in Runs`
+  /* night-disc item 1 (the researcher's drawing, 2026-10-20): three columns, every part of the box visible at the 296 px
+   * column. LEFT: the glyph, under it the kind tag, under that the coverage cells and "n of m ch" in body text. MIDDLE:
+   * the name (two lines, then an ellipsis, the full name on hover), its bare facts (found, channels, done; the status of a
+   * running / paused / failed run), and the run's extra actions as small buttons. RIGHT: the x in the corner, the A/B
+   * box beneath it, the Report icon beneath that. The facts wrap instead of being cut. */
   return (
     <div className={cx('dsc-run', selected && 'selected', status === 'paused' && 'paused', status === 'superseded' && 'superseded', status === 'failed' && 'failed')} style={{ ['--run' as string]: run.colour }} data-testid={`run-row-${run.key}`} data-status={status}>
-      <button type="button" className="dsc-run-body" onClick={() => onSelect ? onSelect(run.key) : navigate(`discovery/runs?run=${encodeURIComponent(run.key)}`)} aria-pressed={selected} title={mode === 'runs' ? `browse ${run.label}` : `open ${run.label} in Runs`}>
-        <RunGlyph kind={run.glyph} width={40} height={28} />
-        <span className="dsc-run-text">
-          <b title={run.label}>{run.label}</b>
-          <span className="dsc-run-meta">{kindBadge}<span className="k-meta">{run.detail}</span></span>
-          {line && <span className="dsc-run-line small">{line}</span>}
-          {cov && scopeChans.length > 0 && <CoverageStrip runKey={run.key} channels={scopeChans} coverage={cov} />}
-          {run.extendError && <span className="dsc-run-line small" style={{ color: 'var(--red)' }} title={run.extendError} data-testid={`extend-error-${run.key}`}>{run.extendError}</span>}
-        </span>
-      </button>
-      {status !== 'paused' && status !== 'superseded' && mode !== 'seed' && (
-        pickIdx >= 0
-          ? <button type="button" className={cx('dsc-pick', pickIdx === 0 ? 'a' : 'b')} onClick={() => dx.togglePick(run.key)} aria-label={`unpick ${run.label} (${pickIdx === 0 ? 'A' : 'B'})`} data-testid={`pick-${run.key}`}>{pickIdx === 0 ? 'A' : 'B'}</button>
-          : <DisabledReason disabled={!canPick} reason={status === 'failed' ? 'a failed run has no results to compare' : 'no results yet to compare'}>
-            <button type="button" className="dsc-pick" disabled={!canPick} onClick={() => dx.togglePick(run.key)} aria-label={`pick ${run.label} to compare`} data-testid={`pick-${run.key}`} />
-          </DisabledReason>
-      )}
-      {mode === 'seed' && status !== 'paused' && status !== 'superseded' && <span className="dsc-pick ghost" aria-hidden />}
-      {/* fixup-unpick: the x is the last item in the row, AFTER the badge — it used to be an absolute overlay on
-          the same corner, so it intercepted the click meant for the badge. A reference run has no x; its ghost
-          keeps the badges in one column. */}
-      {run.kind !== 'reference'
-        ? <button type="button" className="dsc-run-remove" onClick={remove} aria-label={`remove ${run.label} from this session`} title="remove from this session · the runs are kept; History brings it back" data-testid={`remove-${run.key}`}>×</button>
-        : <span className="dsc-run-remove ghost" aria-hidden />}
-      {/* site-runs item 1 (the researcher, 2026-10-20: "home page runs look messy"): the small actions are a line of
-          their own under the row, left-aligned — they used to share the name's line and overlapped it and each other */}
-      {hasActions && (
-        <div className="dsc-run-actions">
-        {missing.length > 0 && extendable && (status === 'done' || status === 'failed') && (
-          <Button variant="primary" size="sm" icon="play" loading={extending} disabled={extending} onClick={extend} testid={`run-missing-${run.key}`}
-            title={`run ${run.label} on ${missing.join(', ')} too — the same run gains the channel${missing.length === 1 ? '' : 's'} (its key stays) while the template is unchanged`}>
-            {extending ? 'Starting…' : `Run on the missing ${missing.length}`}</Button>
+      <div className="dsc-run-left">
+        <button type="button" className="dsc-run-glyph" onClick={open} tabIndex={-1} aria-hidden title={openTitle}><RunGlyph kind={run.glyph} width={40} height={28} /></button>
+        {kindBadge}
+        {cov && scopeChans.length > 0 && <CoverageStrip runKey={run.key} channels={scopeChans} coverage={cov} />}
+      </div>
+      <div className="dsc-run-mid">
+        <button type="button" className="dsc-run-body" onClick={open} aria-pressed={selected} title={openTitle}>
+          <span className="dsc-run-text">
+            <b title={run.label}>{run.label}</b>
+            <span className="dsc-run-meta"><span className="k-meta">{run.detail}</span></span>
+            {line && <span className="dsc-run-line small">{line}</span>}
+          </span>
+        </button>
+        {run.extendError && <span className="dsc-run-line small" style={{ color: 'var(--red)' }} title={run.extendError} data-testid={`extend-error-${run.key}`}>{run.extendError}</span>}
+        {hasActions && (
+          <div className="dsc-run-actions">
+          {missing.length > 0 && extendable && (status === 'done' || status === 'failed') && (
+            <Button variant="primary" size="sm" icon="play" loading={extending} disabled={extending} onClick={extend} testid={`run-missing-${run.key}`}
+              title={`run ${run.label} on ${missing.join(', ')} too — the same run gains the channel${missing.length === 1 ? '' : 's'} (its key stays) while the template is unchanged`}>
+              {extending ? 'Starting…' : `Run on the missing ${missing.length}`}</Button>
+          )}
+          {status === 'paused' && run.id && <Button variant="link" size="sm" icon="external" onClick={() => navigate('jobs')} testid={`open-in-jobs-${run.key}`}>Open in Jobs</Button>}
+          {/* round A_2 (P2): the chain job's results are back — verified, the cache restored, the run written here */}
+          {status === 'on cluster' && run.hpc?.kind === 'chain' && <Button variant="primary" size="sm" icon="download" loading={importing} disabled={importing} onClick={() => {
+            setImporting(true)   // ux-1018: the button shows the import is under way — the POST verifies and restores every task before it answers
+            importDiscoveryChain(run.key)
+              .then(ack => { dx.reload(); toast.push({ text: `${run.label}: ${ack.note}`, action: { label: 'Open Jobs', onClick: () => navigate('jobs') } }) })
+              .catch(e => { dx.reload(); toast.push({ text: `${run.label} was not imported · ${(e instanceof Error ? e.message : String(e)).replace(/^\d{3} /, '')}` }) })
+              .finally(() => setImporting(false))
+          }} testid={`chain-import-${run.key}`} title="verify the tasks' results against this machine, restore their step cache, and write the run's channels here">{importing ? 'Importing…' : 'Import results'}</Button>}
+          {/* a real retry: a seed run is started again from its seed and cut, a template run from its template, over the
+              scope. It used to mark the row `new` in the page's memory, which the Seed page then took for a pending run of
+              this search and greyed *Run seed search* out. */}
+          {status === 'failed' && <Button variant="primary" size="sm" icon="refresh" onClick={() => {
+            const s = dx.scope
+            if (!s) return
+            const again = run.kind === 'seed' && run.seedId
+              ? runDiscoverySeedSearchOnce({ seedId: run.seedId, channels: s.channels, t0: s.section[0], t1: s.section[1], k: 200, label: run.label,
+                ...(run.cut != null ? { cut: run.cut } : {}), ...(run.scales?.length ? { scales: run.scales } : {}) })
+              : run.template ? applyDiscoveryTemplates([run.template], s.channels, s.section[0], s.section[1]) : null
+            if (!again) return
+            again.then(() => dx.reload()).catch(e => console.error('the run could not be retried', e))
+          }} testid={`retry-${run.key}`}>Retry</Button>}
+          </div>
         )}
-        {status === 'paused' && run.id && <Button variant="link" size="sm" icon="external" onClick={() => navigate('jobs')} testid={`open-in-jobs-${run.key}`}>Open in Jobs</Button>}
-        {/* round A_2 (P2): the chain job's results are back — verified, the cache restored, the run written here */}
-        {status === 'on cluster' && run.hpc?.kind === 'chain' && <Button variant="primary" size="sm" icon="download" loading={importing} disabled={importing} onClick={() => {
-          setImporting(true)   // ux-1018: the button shows the import is under way — the POST verifies and restores every task before it answers
-          importDiscoveryChain(run.key)
-            .then(ack => { dx.reload(); toast.push({ text: `${run.label}: ${ack.note}`, action: { label: 'Open Jobs', onClick: () => navigate('jobs') } }) })
-            .catch(e => { dx.reload(); toast.push({ text: `${run.label} was not imported · ${(e instanceof Error ? e.message : String(e)).replace(/^\d{3} /, '')}` }) })
-            .finally(() => setImporting(false))
-        }} testid={`chain-import-${run.key}`} title="verify the tasks' results against this machine, restore their step cache, and write the run's channels here">{importing ? 'Importing…' : 'Import results'}</Button>}
-        {/* a real retry: a seed run is started again from its seed and cut, a template run from its template, over the
-            scope. It used to mark the row `new` in the page's memory, which the Seed page then took for a pending run of
-            this search and greyed *Run seed search* out. */}
-        {status === 'failed' && <Button variant="primary" size="sm" icon="refresh" onClick={() => {
-          const s = dx.scope
-          if (!s) return
-          const again = run.kind === 'seed' && run.seedId
-            ? runDiscoverySeedSearchOnce({ seedId: run.seedId, channels: s.channels, t0: s.section[0], t1: s.section[1], k: 200, label: run.label,
-              ...(run.cut != null ? { cut: run.cut } : {}), ...(run.scales?.length ? { scales: run.scales } : {}) })
-            : run.template ? applyDiscoveryTemplates([run.template], s.channels, s.section[0], s.section[1]) : null
-          if (!again) return
-          again.then(() => dx.reload()).catch(e => console.error('the run could not be retried', e))
-        }} testid={`retry-${run.key}`}>Retry</Button>}
-        {/* reports (2026-10-19): the run's figures and tables, drawn by the server — a finished run only */}
-        {status === 'done' && run.kind !== 'reference' && <Button size="sm" variant="primary" icon="file" onClick={() => navigate(`reports/detection-run/${encodeURIComponent(run.key)}`)} title={`the report for ${run.label}: the map, the scoreboard, where it fires, twelve examples, the null and its parameters — figures and tables to paste`} testid={`report-${run.key}`}>Report</Button>}
-        </div>
-      )}
+      </div>
+      <div className="dsc-run-right">
+        {/* fixup-unpick: the x and the A/B box are separate targets — the x sat over the badge once and took its clicks.
+            A reference run has no x; its ghost keeps the boxes in one column down the list. */}
+        {run.kind !== 'reference'
+          ? <button type="button" className="dsc-run-remove" onClick={remove} aria-label={`remove ${run.label} from this session`} title="remove from this session · the runs are kept; History brings it back" data-testid={`remove-${run.key}`}>×</button>
+          : <span className="dsc-run-remove ghost" aria-hidden />}
+        {status !== 'paused' && status !== 'superseded' && mode !== 'seed' && (
+          pickIdx >= 0
+            ? <button type="button" className={cx('dsc-pick', pickIdx === 0 ? 'a' : 'b')} onClick={() => dx.togglePick(run.key)} aria-label={`unpick ${run.label} (${pickIdx === 0 ? 'A' : 'B'})`} data-testid={`pick-${run.key}`}>{pickIdx === 0 ? 'A' : 'B'}</button>
+            : <DisabledReason disabled={!canPick} reason={status === 'failed' ? 'a failed run has no results to compare' : 'no results yet to compare'}>
+              <button type="button" className="dsc-pick" disabled={!canPick} onClick={() => dx.togglePick(run.key)} aria-label={`pick ${run.label} to compare`} data-testid={`pick-${run.key}`} />
+            </DisabledReason>
+        )}
+        {/* reports (2026-10-19): the run's figures and tables, drawn by the server — a finished run only. night-disc: the
+            icon alone, "Report" its title and name */}
+        {status === 'done' && run.kind !== 'reference' && <IconButton icon="file" label="Report" className="dsc-run-report" bordered testid={`report-${run.key}`} onClick={() => navigate(`reports/detection-run/${encodeURIComponent(run.key)}`)} />}
+      </div>
     </div>
   )
 }
@@ -662,7 +681,8 @@ function CoverageStrip({ runKey, channels, coverage }: { runKey: string; channel
         const state = coverage[c] ?? 'not_run'
         return <i key={c} className={`dsc-cov-cell ${state}`} data-state={state} data-channel={c} data-testid={`coverage-${runKey}-${c}`} title={`${c}: ${COVERAGE_WORDS[state] ?? state}`} />
       })}
-      <span className="muted">{n} of {channels.length} ch</span>
+      {/* night-disc: the count in the body text colour, not grey (the researcher) */}
+      <span className="dsc-cov-n">{n} of {channels.length} ch</span>
     </span>
   )
 }
