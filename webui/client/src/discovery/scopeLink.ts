@@ -8,7 +8,10 @@
 
 export interface LinkRecording { key: string; label?: string; channels: string[]; hours: number; heldOut?: boolean }
 export interface LinkScope { recording: string; channels: string[]; section: [number, number] }
-export type LinkResolution = null | { refused: string } | { scope: LinkScope; same: boolean }
+/** `section` is null for another recording: the bridge opens that recording's own session, which keeps its own
+ *  section (clamped to the recording by the bridge); carrying the old recording's hours over would overwrite it. */
+export interface LinkTarget { recording: string; channels: string[]; section: [number, number] | null }
+export type LinkResolution = null | { refused: string } | { scope: LinkTarget; same: boolean }
 
 /** The scope a Discovery link asks for, or why it is refused; null when there is nothing to write.
  *  A link that names no channels (`?recording=` alone) is a VIEW, as before: the held-out states open
@@ -26,12 +29,7 @@ export function resolveScopeLink(recordingQ: string, channelsQ: string, current:
   if (unknown.length) {
     return { refused: `${unknown.join(', ')} ${unknown.length === 1 ? 'is not a channel' : 'are not channels'} of ${label} — the link was not applied; the session keeps its scope` }
   }
-  let section: [number, number] = current.section
-  if (rec.key !== current.recording) {
-    const a = Math.min(current.section[0], rec.hours)
-    const b = Math.min(current.section[1], rec.hours)
-    section = b - a > 0 ? [a, b] : [0, Math.min(rec.hours, 174)]
-  }
+  const section = rec.key === current.recording ? current.section : null
   const same = rec.key === current.recording && names.join(',') === current.channels.join(',')
   return { scope: { recording: rec.key, channels: names, section }, same }
 }

@@ -138,6 +138,16 @@ export const putScope = (body: { recording: string; channels: string[]; section:
     return p
   })
 
+/** site-runs item 5: a deep link's scope, the same write as `putScope`. `section` null leaves the opened session's
+ *  own section in place — another recording is another session, and the old recording's hours are not its. */
+export const putScopeLink = (body: { recording: string; channels: string[]; section: [number, number] | null }) =>
+  putDiscoverySession(body.section ? { recording: body.recording, channels: body.channels, section: body.section }
+    : { recording: body.recording, channels: body.channels }).then(p => {
+    RECORDINGS = p.recordings.map(toRecording)
+    SCOPE = { channels: p.session.channels, section: p.session.section }
+    return p
+  })
+
 /** The session's channels and section, for a read whose fixture signature does not carry them. */
 async function scope(): Promise<{ channels: string[]; section: [number, number] }> {
   if (SCOPE) return SCOPE

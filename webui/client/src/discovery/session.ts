@@ -1,8 +1,8 @@
 /* The Discovery session as every Discovery page sees it (P17: one session, one scope, one runs list).
  * Reads come through api/discovery.ts; writes (scope edits, added runs, picks, discards, status changes) live in
  * the in-memory demo store, so they survive moving between Runs · Seed search · Compare but not a reload. */
-import { useEffect, useMemo } from 'react'
-import { getRuns, getScoreboard, getSession, isHeldOut, putScope, runEstimateMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun, type RecordingOption, type ScoreRun } from '../api/discovery'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { getRuns, getScoreboard, getSession, isHeldOut, putScope, putScopeLink, runEstimateMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun, type RecordingOption, type ScoreRun } from '../api/discovery'
 import { useSourced } from '../api/seam'
 import { useDemoState, useQueryState } from '../kit'
 import { applyDiscoveryTemplates } from '../api'
@@ -94,25 +94,39 @@ export function useDiscovery(): Discovery {
    * write, and the query keys are cleared once it has landed — so a template is applied where the page says. A
    * name the recording does not have is refused in words and nothing is sent. A link with no channels
    * (`?recording=` alone, the held-out states) and a held-out recording stay a view, as before. */
+  /* A write's answer becomes the scope. When it opened ANOTHER session (a change of recording) the runs on hand are
+   * the old session's, and every read keyed by them (fires, scoreboard, detections) would ask the new session for
+   * runs it does not have — so the page shows its loading layout until the new session's runs are read. */
+  const [awaitRunsOf, setAwaitRunsOf] = useState<unknown>(null)
+  // read through refs: the link's write resolves in an effect made renders ago, whose closure holds old values
+  const runsNow = useRef<unknown>(null); runsNow.current = base.data
+  const recNow = useRef<string | null>(null); recNow.current = scope0?.recording ?? null
+  const took = (session: Parameters<typeof scopeFromSession>[0]) => {
+    if (recNow.current && session.recording !== recNow.current) setAwaitRunsOf(runsNow.current ?? {})
+    setScopeStore(scopeFromSession(session)); sess.reload(); base.reload()
+  }
+  useEffect(() => { if (awaitRunsOf !== null && base.data !== awaitRunsOf) setAwaitRunsOf(null) }, [base.data, awaitRunsOf])
+  const switching = awaitRunsOf !== null
   const link = scope0 && sess.data ? resolveScopeLink(recordingQ, channelsQ, scope0, recordings) : null
   const linkRefused = link && 'refused' in link ? link.refused : null
   const linkTarget = link && 'scope' in link ? link.scope : null
+  /* while the link is being written the page stays on the session the bridge HOLDS: drawing the target over it sent
+   * the new names to the old recording ("no channel(s) ['CH1', 'CH2'] on M2_aug_concat_fs1") */
   const scope: ScopeState | null = !scope0 ? null
-    : linkTarget ? { ...scope0, ...linkTarget }
-      : linkRefused ? scope0
+    : linkTarget || linkRefused ? scope0
         : (channelsQ || recordingQ) ? {
           ...scope0,
           recording: recordingQ || scope0.recording,
           channels: channelsQ ? channelsQ.split(',').filter(Boolean) : scope0.channels,
         } : scope0
   const clearLinkKeys = () => { setChannelsQ(null); setRecordingQ(null) }
-  const linkKey = linkTarget ? `${linkTarget.recording}|${linkTarget.channels.join(',')}|${linkTarget.section.join(',')}` : ''
+  const linkKey = linkTarget ? `${linkTarget.recording}|${linkTarget.channels.join(',')}|${linkTarget.section?.join(',') ?? 'own'}` : ''
   useEffect(() => {
     if (!link || !('scope' in link)) return
     if (link.same) { clearLinkKeys(); return }
     let alive = true
-    putScope(link.scope)
-      .then(p => { if (!alive) return; setScopeStore(scopeFromSession(p.session)); clearLinkKeys(); sess.reload(); base.reload() })
+    putScopeLink(link.scope)
+      .then(p => { if (!alive) return; took(p.session); clearLinkKeys() })
       .catch(e => {
         console.error('the linked scope could not be written', e)
         toast.push({ text: `the link's scope was not applied · ${e instanceof Error ? e.message : String(e)}` })
@@ -137,7 +151,7 @@ export function useDiscovery(): Discovery {
     /* site-runs item 6: the scope shown is the bridge's ANSWER — a change of recording opens that recording's own
      * session, with its own name; merging the patch into this copy kept the old session's name on the toolbar */
     putScope({ recording: next.recording, channels: next.channels, section: next.section })
-      .then(p => { setScopeStore(scopeFromSession(p.session)); clearLink(); sess.reload(); base.reload() })
+      .then(p => { took(p.session); clearLink() })
       .catch(e => {
         console.error('the scope could not be changed', e)
         toast.push({ text: `the scope was not changed · ${e instanceof Error ? e.message : String(e)}` })
@@ -146,7 +160,7 @@ export function useDiscovery(): Discovery {
   /** Back to the scope the server holds (out of a held-out recording the card refused). */
   const resetScope = () => { setScopeStore(null); sess.reload(); base.reload() }
 
-  let runs: DiscoveryRun[] = (base.data ?? []).map(r => patches[r.key] ? { ...r, ...patches[r.key] } : r)
+  let runs: DiscoveryRun[] = (switching ? [] : base.data ?? []).map(r => patches[r.key] ? { ...r, ...patches[r.key] } : r)
   if (stateQ === 'empty') runs = runs.filter(r => r.kind === 'reference')
   /* The three deep-link states name the session's FIRST real run rather than a
    * fixture key: `drop_motifs9` and `seed_E0102_bank` were inventions and no
@@ -220,13 +234,16 @@ export function useDiscovery(): Discovery {
   const foundOf = useMemo(() => (key: string) => scores?.find(s => s.run === key)?.total.found ?? null, [scores])
 
   const loading = sess.loading || base.loading
-  const firstLoad = loading && (sess.data === null || base.data === null)
+  /* a link being written, or a new session's runs not in yet: no card mounts, so no read goes out on a scope the
+   * bridge is leaving (a read in flight across the write is answered by the NEW session and 404s) */
+  const linkWriting = !!linkTarget && !(link && 'same' in link && link.same)
+  const firstLoad = (loading && (sess.data === null || base.data === null)) || switching || linkWriting
   return {
     loading, firstLoad, refreshing: loading && !firstLoad,
     error: sess.error ?? base.error ?? scoreRead.error, reload: () => { sess.reload(); base.reload(); scoreRead.reload() },
     demo: sess.source === 'demo' || base.source === 'demo',
     scope, recordings, recording, setScope, resetScope,
-    linkPending: !!linkTarget && !(link && 'same' in link && link.same), linkRefused, clearLink: clearLinkKeys,
+    linkPending: linkWriting, linkRefused, clearLink: clearLinkKeys,
     runs, patchRun, picks, setPicks, togglePick, shown, isShown, toggleShown, setShown, stale, setStale,
     pending, estimateMin, overLimit: estimateMin > DISCOVERY_LIMIT_MIN,
     chPage, setChPage: p => setChPageQ(String(p)), pageCount, visibleChannels,

@@ -69,14 +69,9 @@ def test_a_link_with_a_recording_and_channel_names_becomes_that_scope():
     out = _resolve("CO_fs2", "CH2,CH4")
     assert out["scope"]["recording"] == "CO_fs2"
     assert out["scope"]["channels"] == ["CH2", "CH4"]
-    # the section is clamped to the new recording: [600, 700] h does not exist on a 480 h one
-    s0, s1 = out["scope"]["section"]
-    assert 0 <= s0 < s1 <= 480.0
-
-
-def test_a_section_inside_the_new_recording_is_kept():
-    out = _resolve("CO_fs2", "CH1", current={**CURRENT, "section": [10.0, 34.0]})
-    assert out["scope"]["section"] == [10.0, 34.0]
+    # another recording is another session (the bridge opens it): it keeps ITS section, which the bridge clamps to
+    # the recording -- the old recording's [600, 700] h is not carried over (it would overwrite that session's own)
+    assert out["scope"]["section"] is None
 
 
 def test_channel_names_alone_stay_on_the_sessions_recording_and_section():
