@@ -362,11 +362,15 @@ def get_map_channel(request: Request, recording: str, channel: str, binH: float 
 # Not the worker process the overview and corpus maps use: one level-2 read takes ~1-3 s, and queueing it behind a
 # corpus-map warm of minutes would make the first open slower than computing it here.
 
-#: views kept (least recently read dropped first): ~0.3-1 MB each on the real database
+#: views kept, least recently read dropped first, bounded by their summed JSON size (critic, site-map fix round: on
+#: the real database a 1 h level-1 timeline of M2_aug is ~2.9 MB of JSON, ~10 MB in memory, and level 2 x8 ~5 MB in
+#: memory — a count cap of 48 could reach hundreds of MB on a box with ~1 GB free). Memory is ~3-4x the JSON size, so
+#: 16 MB of JSON is roughly 50-60 MB held. A view larger than the whole budget is served and not kept.
+LEVEL_CACHE_BYTES = 16_000_000
 LEVEL_CACHE_MAX = 48
 
-_LV = {"cache": OrderedDict(), "errors": {}, "first_seen": {}, "done_at": {}, "in_flight": set(), "scheduled": 0,
-       "computed": 0}
+_LV = {"cache": OrderedDict(), "sizes": {}, "bytes": 0, "errors": {}, "first_seen": {}, "done_at": {},
+       "in_flight": set(), "scheduled": 0, "computed": 0}
 _LV_LOCK = threading.Lock()
 _LV_IDLE = threading.Event()
 _LV_IDLE.set()
@@ -378,6 +382,16 @@ def _level(conn, db_path, level, source_file, args) -> dict:
     this view failed on the current state."""
     exclude = _exclude(conn)
     key = (level, source_file, tuple(sorted(args.items())), exclude)
+    with _LV_LOCK:
+        busy = key in _LV["in_flight"]
+        held = _LV["cache"].get(key)
+        seen = _LV["first_seen"].get(key)
+    if busy and held is not None:
+        # a recompute of this view is in flight: answer the held view marked stale without fingerprinting (~0.5 s
+        # on the real database, and the page polls every 5 s during a run), as `overview` does
+        out = dict(held[1])
+        out.update(stale=True, stale_since=seen[1] if seen is not None else _now())
+        return out
     fp = _fingerprint(conn, db_path, exclude)
     with _LV_LOCK:
         hit = _LV["cache"].get(key)
@@ -409,13 +423,23 @@ def _level(conn, db_path, level, source_file, args) -> dict:
 def _keep_level(key, fp, out):
     if fp is None:                      # the database changed while it was read: not kept, the next read recounts
         return
+    size = len(json.dumps(out, separators=(",", ":")))
     with _LV_LOCK:
-        _LV["cache"][key] = (fp, out)
-        _LV["cache"].move_to_end(key)
-        _LV["errors"].pop(key, None)
         _LV["computed"] += 1
-        while len(_LV["cache"]) > LEVEL_CACHE_MAX:
-            _LV["cache"].popitem(last=False)
+        _LV["errors"].pop(key, None)
+        _drop_level_locked(key)
+        if size > LEVEL_CACHE_BYTES:
+            return
+        _LV["cache"][key] = (fp, out)
+        _LV["sizes"][key] = size
+        _LV["bytes"] += size
+        while _LV["cache"] and (_LV["bytes"] > LEVEL_CACHE_BYTES or len(_LV["cache"]) > LEVEL_CACHE_MAX):
+            _drop_level_locked(next(iter(_LV["cache"])))
+
+
+def _drop_level_locked(key):
+    if _LV["cache"].pop(key, None) is not None:
+        _LV["bytes"] -= _LV["sizes"].pop(key, 0)
 
 
 def _schedule_level(key, fp, db_path, level, source_file, args, exclude) -> bool:
@@ -453,8 +477,8 @@ def _recompute_level(key, asked_fp, db_path, level, source_file, args, exclude):
 
 def level_status() -> dict:
     with _LV_LOCK:
-        return {"held": len(_LV["cache"]), "in_flight": len(_LV["in_flight"]), "scheduled": _LV["scheduled"],
-                "computed": _LV["computed"]}
+        return {"held": len(_LV["cache"]), "bytes": _LV["bytes"], "in_flight": len(_LV["in_flight"]),
+                "scheduled": _LV["scheduled"], "computed": _LV["computed"]}
 
 
 def wait_levels_idle(timeout: float | None = None) -> bool:
@@ -467,6 +491,6 @@ def reset_level_cache(timeout: float = 120.0):
     wait_levels_idle(timeout)
     close_probe()
     with _LV_LOCK:
-        for k in ("cache", "errors", "first_seen", "done_at"):
+        for k in ("cache", "sizes", "errors", "first_seen", "done_at"):
             _LV[k].clear()
-        _LV.update(scheduled=0, computed=0)
+        _LV.update(bytes=0, scheduled=0, computed=0)

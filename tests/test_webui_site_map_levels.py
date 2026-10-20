@@ -171,7 +171,7 @@ def test_a_change_serves_the_old_answer_stale_then_one_recompute(fresh, monkeypa
 
 def test_the_level_cache_never_exceeds_its_byte_budget(fresh, monkeypatch):
     client, rt, info = fresh
-    budget = 400_000
+    budget = 6_000                                  # the fixture's views are ~1-4 kB of JSON each
     monkeypatch.setattr(DMAP, "LEVEL_CACHE_BYTES", budget)
     ch = _urls(info)[1].split("channel=")[1].split("&")[0]
     urls = [f"/api/discovery/map/dataset?recording={KEY}&chunks={k}" for k in (1, 2, 4, 8)] +            [f"/api/discovery/map/channel?recording={KEY}&channel={ch}&binH={b}" for b in (1, 3, 6, 12)]

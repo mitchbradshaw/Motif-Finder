@@ -30,6 +30,7 @@ import { getMap, getMapChannel, getMapDataset, getOverview } from '../api/discov
 import type { DiscMapCell, DiscMapRow, DiscMapState, DiscMapTimeline } from '../api'
 import { LoadFailed, Loading, Refreshing } from './chrome'
 import { arrange, splitKeys, toggleKey, type SortMode } from './mapOrder'
+import { extentOf, maxOf } from '../kit/extent'
 
 /* ux-1018: a level answered only its first read. A run finishing or a verdict landing changed nothing on screen,
  * and a new slice count drew the OLD payload until the next read landed, with nothing to say a read was out — which
@@ -446,7 +447,7 @@ function DatasetLevel({ dataset, chunks, norm, view, onName, onChannel }: { data
   return (
     <>
       <Refreshing on={m.loading || !!data.stale} testid="map-refreshing" label={chunks !== n ? `re-slicing ${data.name} into ${chunks} chunk${chunks === 1 ? '' : 's'} per channel…` : running ? 're-counting · a run is still going' : data.stale ? 're-counting · this map is from before the last change' : `re-counting the runs on ${data.name}`} />
-      <div className="dsc-map-wrap" data-testid="map-dataset-level" data-stale={m.loading ? '1' : '0'} style={{ opacity: m.loading ? 0.55 : 1, transition: 'opacity 140ms' }}>
+      <div className="dsc-map-wrap" data-testid="map-dataset-level" data-stale={m.loading || data.stale ? '1' : '0'} style={{ opacity: m.loading ? 0.55 : 1, transition: 'opacity 140ms' }}>
         <table className="dsc-map-table" data-testid="map-table">
           <thead>
             <tr>
@@ -532,7 +533,7 @@ function SignalStrip({ dataset, channel, hours, units, binH, onHover, onLeave, o
   if (!values) return <div className="dsc-map-trow dsc-map-signal note" data-testid="map-signal-strip" data-state="loading">{label}<span className="dsc-map-signal-note">reading {channel}'s hourly means…</span></div>
   const finite = values.filter(Number.isFinite)
   if (!finite.length) return <div className="dsc-map-trow dsc-map-signal note" data-testid="map-signal-strip" data-state="empty">{label}<span className="dsc-map-signal-note">signal not drawn: {channel} has no finite sample to average</span></div>
-  let lo = Math.min(...finite), hi = Math.max(...finite)
+  let [lo, hi] = extentOf(finite)
   if (hi - lo < 1e-12) { lo -= 1; hi += 1 }
   const pad = (hi - lo) * 0.06, y0 = lo - pad, y1 = hi + pad
   const W = units * 10
@@ -591,7 +592,7 @@ function ChannelLevel({ dataset, channel, binH, view, signal, onName }: { datase
   })()
   const line = (row: DiscMapRow, hidden: boolean) => {
     const cell = data.cells[row.key]
-    const max = Math.max(0, ...cell.counts)
+    const max = Math.max(0, maxOf(cell.counts))
     const colour = row.kind === 'human' ? '#22a06b' : row.colour
     // one rect per contiguous uncovered stretch OF ONE STATE, not one per bin: a mostly-unrun 721-bin row stays light
     const gaps: { a: number; b: number; state: DiscMapState }[] = []
