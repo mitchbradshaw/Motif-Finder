@@ -454,7 +454,7 @@ def _windows_sample(df, per_class, seed):
 
 
 def train(conn, out_dir, *, n_features=DEFAULT_N_FEATURES, length=LENGTH, with_windows=True,
-          windows_per_class=1500, seed=0, log=print):
+          windows_per_class=1500, seed=0, final="auto", log=print):
     """Every variant, the comparison, the chosen model saved with its report. Returns the manifest."""
     t_start = time.perf_counter()
     labels, left_out = collect_labels(conn, with_windows=with_windows)
@@ -486,9 +486,13 @@ def train(conn, out_dir, *, n_features=DEFAULT_N_FEATURES, length=LENGTH, with_w
     det_ids, adj_to_det = _adjudicated_detections(conn, E_rows)
     context = _agreement_context(E_rows, det_ids, adj_to_det,
                                  variants["events · MiniRocket + side"]["recording"]["oof"])
-    # choose: the best pooled AUC on held-out recordings among the full-feature variants
+    # choose: the best pooled AUC on held-out recordings among the full-feature variants (`final` overrides it)
     full = [k for k in variants if "MiniRocket + side" in k]
     best = max(full, key=lambda k: variants[k]["recording"]["pooled"].get("auc", 0))
+    if final == "windows" and "events + windows · MiniRocket + side" in variants:
+        best = "events + windows · MiniRocket + side"
+    elif final == "events":
+        best = "events · MiniRocket + side"
     use_rows, use_M, use_side = (rows, M, side) if best.startswith("events + windows") else (E_rows, E_M, E_side)
     model = fit_model(use_rows, use_M, use_side, n_features=n_features, seed=seed, features="both",
                       oof=variants[best]["recording"]["oof"])
@@ -516,7 +520,12 @@ def train(conn, out_dir, *, n_features=DEFAULT_N_FEATURES, length=LENGTH, with_w
                            "by_group": _by_group(rows)},
                 "variants": {k: {s: {"pooled": v[s]["pooled"], "folds": v[s]["folds"]} for s in v}
                              for k, v in variants.items()},
-                "agreement_context": context, "seconds": round(time.perf_counter() - t_start, 1),
+                "agreement_context": context,
+                "robustness": robustness(conn, E_rows, variants["events · MiniRocket + side"]["recording"]["oof"]),
+                "robustness_best": robustness(
+                    conn, rows if best.startswith("events + windows") else E_rows,
+                    variants[best]["recording"]["oof"]),
+                "seconds": round(time.perf_counter() - t_start, 1),
                 "model": os.path.join(out_dir, "model.joblib"), "platt": model["platt"],
                 "versions": _versions()}
     with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as fh:
@@ -548,6 +557,50 @@ def _agreement_context(E_rows, det_ids, adj_to_det, oof):
         if h["label"].nunique() == 2:
             out[g] = {"n": int(len(h)), "auc_agreement": float(roc_auc_score(h["label"], h["n_agree"])),
                       "auc_minirocket": float(roc_auc_score(h["label"], h["decision"]))}
+    return out
+
+
+def _queue_detections(conn):
+    """The anchor detections of the stratified candidate-event samples (queues whose note starts `rq1b-sample`)."""
+    out = set()
+    for (filters,) in conn.execute("SELECT filters_json FROM review_queues WHERE note LIKE 'rq1b-sample%'"):
+        out.update(int(d) for d in (json.loads(filters or "{}").get("detection_ids") or ()))
+    return out
+
+
+def _anchor_family(detection_ids):
+    from Working.discovery.candidate_events import family_of
+    want, out = set(int(d) for d in detection_ids), {}
+    for p in glob.glob(os.path.join(DATA_ROOT, "DATA", "derived", "candidate_events", "*", "events.parquet")):
+        t = pd.read_parquet(p, columns=["anchor_detection_id", "anchor_variant"])
+        t = t[t["anchor_detection_id"].isin(want)]
+        out.update(zip(t["anchor_detection_id"].astype(int), t["anchor_variant"].map(family_of)))
+    return out
+
+
+def robustness(conn, rows, oof):
+    """The held-out scores read on the honest population and inside each detector family: the stratified random
+    queue samples alone (no seed-search match), the other judged events, and each anchor family with both classes
+    at least five times (does the model judge the shape, or recognise which detector proposed the span?)."""
+    rows = rows.reset_index(drop=True)
+    o = oof.copy()
+    refs = rows["ref"].to_numpy()[o["row"].to_numpy(dtype=int)]
+    adj = [int(r.split(":")[1]) if r.startswith("adjudication:") else None for r in refs]
+    det_ids, adj_to_det = _adjudicated_detections(conn, rows)
+    o["detection_id"] = [adj_to_det.get(a) if a is not None else None for a in adj]
+    o["kind"] = rows["kind"].to_numpy()[o["row"].to_numpy(dtype=int)]
+    queue = _queue_detections(conn)
+    in_queue = o["detection_id"].isin(queue).to_numpy()
+    fam = _anchor_family([d for d in o["detection_id"].dropna().astype(int)])
+    o["family"] = [fam.get(int(d)) if d == d and d is not None else None for d in o["detection_id"]]
+    out = {"queue_samples": _metrics(o.loc[in_queue, "label"], o.loc[in_queue, "decision"]) if in_queue.any() else {},
+           "other_judged_events": _metrics(o.loc[~in_queue & (o["kind"] == "event"), "label"],
+                                           o.loc[~in_queue & (o["kind"] == "event"), "decision"]),
+           "by_anchor_family": {}}
+    q = o[in_queue]
+    for f, h in q.groupby("family"):
+        if (h["label"] == 1).sum() >= 5 and (h["label"] == 0).sum() >= 5:
+            out["by_anchor_family"][f] = _metrics(h["label"], h["decision"])
     return out
 
 
@@ -586,6 +639,8 @@ def main(argv=None, real=None):
     t.add_argument("--no-windows", action="store_true")
     t.add_argument("--windows-per-class", type=int, default=1500)
     t.add_argument("--seed", type=int, default=0)
+    t.add_argument("--final", choices=("auto", "events", "windows"), default="auto",
+                   help="which variant the saved model is: auto = the best held-out AUC")
     a = ap.parse_args(argv)
     if a.db and a.real:
         ap.error("give --db or --real, not both")
@@ -600,7 +655,7 @@ def main(argv=None, real=None):
                                 datetime.datetime.now().strftime("%Y%m%d-%H%M"))
     try:
         manifest = train(conn, out, n_features=a.n_features, length=a.length, with_windows=not a.no_windows,
-                         windows_per_class=a.windows_per_class, seed=a.seed)
+                         windows_per_class=a.windows_per_class, seed=a.seed, final=a.final)
     finally:
         conn.close()
     print(json.dumps({"out": out, "best": manifest["best"], "seconds": manifest["seconds"]}, indent=1))
