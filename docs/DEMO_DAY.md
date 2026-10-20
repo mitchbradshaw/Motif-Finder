@@ -126,6 +126,25 @@ estimates 31 s). Do not.
 | R3 | backup deck only: queue 25's estimate. About 24.6 % of unjudged candidates are interesting (CI 21–28 %), and the rate rises with detector agreement | — |
 | R4 | backup deck only: MiniRocket AUC 0.79 against 0.83 for the agreement count | — |
 
+### If 8765 is moved onto the overnight main (cbe06f1 or later): what changes
+
+Only with your OK on the morning of 21 October; otherwise 8765 stays on the rehearsed 7ceea4f and none of
+this applies.
+
+- **W1/W2 (Analyse):** the Event shape, Intervals and slideshow pages are redrawn.
+  - A cached Event shape step can say "rose-missing … re-run the step to draw the rose" instead of
+    showing the steepest-slope rose.
+  - Pre-run fix: press *Re-run from 05* on the Event shape block once, after the restart.
+- **W3 1b (Library › Edit grouping):** opens on g-05 by itself and starts the tree build ("building the
+  tree…", then the dendrogram and its cut, "built, not saved"). The step becomes "*Edit grouping*, wait
+  for the tree, close without *Apply*". It should reuse the kept tree 38ca0755.
+- **Discovery:**
+  - Run rows are three columns, with Report as an icon.
+  - Seed cards are no longer cut off.
+  - Switching recording no longer rewrites "demo · talk", so the Scope-card warning above can go.
+- **Map:** the scrollbar is at the top.
+- **Review:** a verdict moves to the next card in about 0.2 s (it was 2 s), and the arrows are instant.
+
 ### Steps still over 2 s, and what to do
 
 | step | warm | cause | workaround today | fix after the talk |
