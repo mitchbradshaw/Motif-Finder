@@ -432,3 +432,38 @@ runs through this 8765 from here — no further restart today without telling it
 step cache 15 GB, C: 58 GB free. **The Map overview now 17–21 s per call, uncached (16.7 / 17.6 / 20.7 s), growing
 with the run count (289 across 8 sessions) — a demo risk; prompt written: `docs/prompts/changes/map-overview-cache.md`
 (the corpus-map worker pattern).** Per-recording routes 0.2–6 s; no tracebacks in the 06:58 bridge's log.
+
+## 2026-10-20 afternoon/evening — site-changes (the researcher's eve-of-demo list), three agents + the manager
+
+Brief `docs/prompts/changes/site-changes-2026-10-20.md` (f445468; the researcher's four answers appended, ca367be).
+The demo became a LIVE walk on 8765 (pre-run by the "Demo instance" session): no 8765 restart or shared-dist rebuild
+without asking it; no demo-path core or cache-key change; main may move until **09:00 on 2026-10-21**. Gates now
+build into a PRIVATE dist (`scratchpad/gate2.sh`, `--dist` on the 8766 sandbox) and wait for "template scores warmed".
+- **Manager, on main:** Review files finished queues under a fold (45f2882); seed search opens on step 1, no "run the
+  preview first", rename on the draft row, cut card inset (9f2191d); `start.ps1` opens the browser itself — the
+  "phantom Ctrl+C" was the next command run into the bridge's own terminal (1f7ffe8); two map tests wait for the
+  overview recompute (c1aa7b1, red since 7ceea4f); the routing test's FLUSS cap is its own calibration's (d3ce03c:
+  `test_webui_chain_job_route` imports the registry at collection, baking the REAL mp_calibration cap into FLUSS from
+  the main checkout — red on main in that pairing). One slip: the shared dist was rebuilt at 14:43 (client-only)
+  before the demo rule reached me; the Demo instance session said keep it.
+- **site/map → 64a0d10.** Critic: merge after fixes (cache bounded by bytes, stronger stale test, warm in its own
+  try, three nits) — all fixed. Gate: conda 47, venv 100 (`test_webui_discovery_map.py` held out: its `read_ms < 100`
+  budget fails on main alone, 104 ms, loaded box), smoke site_map 7/0, corpus_map 1/0, a1_seed_search 6/0, review
+  25/2 (both baseline: queue 1 is fully judged).
+- **site/runs → 21c9b96** (hand-resolved discovery.css, both sides' appended rules). Critic: F1 the Send count
+  counted raw rows (50 of 54 runs disagreed with the queue; demo run 365 vs 325) → now `queue_counts` /
+  `queues.unwritten_counts`; F2 a failed link write hung the page; F3 smoke.py waits for the count. Gate: conda 130,
+  venv 101, smoke site_runs / a1_coverage / a1_polish_discovery / site_runs_link 0 FAIL; EXC only where a full
+  walk's run is needed, and `ar-templates-open-under-a-second` (GET /api/discovery/templates 2.5 s warm on tonight's
+  copy; the branch does not touch that route — judge in the full walk).
+- **site/x — NOT merged yet.** Overlay by default (33 states pinned `view=stacked`), CO_fs2 faults (CH2's 35 mV drift
+  drawn at its own gain ÷N; full-window detections as dashed brackets; the stack says when a row is flat), and the
+  Analyse lag found: block cost-model calibration on a bridge thread (rupture ~447 s held every request). Moved to a
+  spawned process; critic BLOCKER fixed (the child timed cold: trains k 700× too high would have routed spike-train
+  runs to the cluster). Gate on main: tests/tsc/build green; smoke found two regressions → back to the agent: the
+  first run of a chain with an uncalibrated quick block now 409s (dehshibi funnel state), and a CO trace leaves the
+  overlay's box after the lower-median gain. Expected pages-only fails in the same gate: the three `*--held-out`
+  (lock off in the copy), Signal default/motif and channel-4 cross-channel load timing (screenshot: still loading).
+- **After the demo (BACKLOG):** the Apply-template estimate leaves out null draws (it decides local vs cluster, so not
+  before the talk); a write to M2_aug rebuilds its whole corpus map (~3 min in the worker) — the other candidate for
+  the "site lagging" report.
