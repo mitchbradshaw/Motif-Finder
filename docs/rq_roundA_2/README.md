@@ -18,6 +18,7 @@ can do.
 
 | File | What |
 |---|---|
+| [`findings/rq1b-minirocket-2026-10-20.md`](findings/rq1b-minirocket-2026-10-20.md) | R4: a MiniRocket classifier of the researcher's verdicts (interesting versus not), trained on 2,456 judged events and 3,000 judged windows. Held out by recording: balanced accuracy 0.92, AUC 0.97, against 0.86 for detector agreement. Retrain with `scripts/rq1b_minirocket.py train --real`. |
 | [`findings/rq1b-candidate-events.md`](findings/rq1b-candidate-events.md) | The RQ4b sweep merged into candidate events (M2_aug: 1.50 M from 2.0 M detections). Your verdicts are carried over and never re-asked; a stratified 800-item blind sample gives each detector's precision. Also measured: agreement predicts your labels (AUC 0.87), and your misses (≈ 11.5 % per look). Rebuild with `scripts/rq1b_candidate_events.py`. |
 | [`findings/library-fragments-and-duplicates.md`](findings/library-fragments-and-duplicates.md) | The Library audit. Two-thirds of the members are overlapping pieces of one 20-minute recording, and M2_aug events are held twice or four times. The researcher's 197 accepted members are 142 distinct events. **Read it before training on families.** Re-measure with `scripts/library_fragment_audit.py`. |
 

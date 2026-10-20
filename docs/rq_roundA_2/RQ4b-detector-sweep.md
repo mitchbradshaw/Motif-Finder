@@ -701,3 +701,7 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
   - The per-setting figures, with intervals, are in `DATA/derived/candidate_events/M2_aug_concat_fs1_bf098c00/`
     `sample_seed0_l100_f50/estimate.json`.
   - Queue 28 extends it to CO_fs2, LM_fs2, M2_concat and L_LM fs2 (RQ1b's log).
+- 2026-10-20 · a2-rq1b · **R4 beside R3:** on the 1,689 judged queue candidates, a MiniRocket classifier of the
+  span's shape, held out by recording, ranks interesting above not-interesting at AUC 0.97. Detector agreement does
+  it at 0.86. Inside each detector family it is 0.88–0.99, so a candidate's shape says more than how many detectors
+  fired on it. `findings/rq1b-minirocket-2026-10-20.md`.
