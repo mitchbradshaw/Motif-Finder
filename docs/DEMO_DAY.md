@@ -105,6 +105,11 @@ estimates 31 s). Do not.
   one on a different scope.
   - On 20 October at 22:37 the "demo · talk" scope was changed to 3 channels and 0–174 h, so the walk
     found 49 matches instead of 155. It was set back at 23:10.
+  - **The cause:** Discovery › Scope › recording › *Change*. Switching to M2_aug writes that recording's
+    first 3 channels and 0–174 h over its newest session, which is "demo · talk".
+  - **In the talk, never switch recording in the Scope card.** Open Discovery already on "demo · talk",
+    and use the Map to look at other datasets. A fix is due overnight (main after 6cd22df); until 8765
+    runs it, this rule stands.
   - To set it back by hand: Discovery › Runs › Scope, channels CH3_A2, CH4_A2, CH6_B1, CH7_B2, CH8_B2,
     section 0–721 h.
 - **Do not press *Run with the rigorous null*.** It is about 14.5 h and goes to the cluster.
