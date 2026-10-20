@@ -22,6 +22,8 @@ step, plus R3 and R4, which have no page in the site.
 
 ### Before the talk
 
+0. **8765 now runs main 31e9827.** It was restarted at 07:39 on 21 October, with the researcher's OK,
+   then warmed: the `--talk` pass, the three chains, and the Event shape rose (see W1 step 4b).
 1. **Main freezes at 09:00 on 21 October.**
    - Overnight fixes may land before then, and 8765 may be restarted onto the newer main with a fresh
      `npm run build` of `webui/client/dist`. WEBSITE CHANGES asks first.
@@ -72,6 +74,7 @@ quiet machine.
 | 2 | *Annotations* (drawer) › *clear* the filters › id **12640** › click the row › *collapse* | the saved span "demo · W1/W2 span" (377–381 h) as the motif | 1 s |
 | 3 | *Send motif to Analyse* | Analyse, source "CH4_A2 · 377.00–381.00 h" | 1 s |
 | 4 | *Import* › `spike_event_features` › *Run chain* | invert → detrend → encoding → drop detection → event shape → **intervals**: 9 spikes and their inter-spike intervals | 1–2 s (cache) |
+| 4b | open block **05 Event shape** › set **knee_frac 0.05 → 0.06** › *Re-run from 05* | the new event-shape page: motif overlay, the signal, the multi-measure scatter, and the **steepest-slope rose** | about 1 s (cached at 0.06 on 21 Oct) |
 | 5 | *Import* › `cwt_events` › *Run chain* | wavelet route: CWT ridges → event shape → intervals, 11 events | about 1 s (cache) |
 
 - **Recovery:** Analyse › *History* reopens any of these runs.
@@ -95,7 +98,7 @@ estimates 31 s). Do not.
 | # | click | what appears | time |
 |---|---|---|---|
 | 1 | Library › Atlas › group *by shape distance* (grouping **g-05**, "shape families") | families | 1.5–2.5 s |
-| 1b | *Edit grouping* › *Build the tree* | the Ward dendrogram of all ~3,600 motifs, with the cut line at 0.6 that makes the families; drag the line to show how the families split or merge | about 6 s: it reuses the kept tree `38ca0755`, built on 20 October. **Close without *Apply* or *Save*.** Either one writes a new grouping and renumbers the families |
+| 1b | *Edit grouping* | opens "from g-05" and builds the tree by itself ("building the tree…"): the Ward dendrogram of all ~3,600 motifs, with the cut line at 0.6 that makes the families; drag the line to show how families split or merge | about 7 s: it reuses the kept tree `38ca0755`, and the page says "not saved to g-05". **Close without *Apply*.** Apply writes a new grouping and renumbers the families |
 | 2 | family **F-30** (`#/library/family/F-30?grouping=g-05`) | 79 members, all judged; medoid m-191 on CH2_A1 at 442 h | about 1 s warm, 13 s cold |
 | 3 | *Seed search in Discovery* | opens on the kept run **seed 056a5d** (step 4): the same search returns the same run | 2 s |
 | 4 | step 2/3 | 1000 matches, the null's recommended cut, 155 kept | instant |
@@ -107,7 +110,8 @@ estimates 31 s). Do not.
     found 49 matches instead of 155. It was set back at 23:10.
   - **The cause:** Discovery › Scope › recording › *Change*. Switching to M2_aug writes that recording's
     first 3 channels and 0–174 h over its newest session, which is "demo · talk".
-  - **In the talk, never switch recording in the Scope card.** Open Discovery already on "demo · talk",
+  - **Fixed on 8765 since 07:39 on 21 October** (753aeea is in 31e9827). Even so, it is simplest not to
+    switch recording in the talk: open Discovery already on "demo · talk",
     and use the Map to look at other datasets. A fix is due overnight (main after 6cd22df); until 8765
     runs it, this rule stands.
   - To set it back by hand: Discovery › Runs › Scope, channels CH3_A2, CH4_A2, CH6_B1, CH7_B2, CH8_B2,
@@ -126,7 +130,7 @@ estimates 31 s). Do not.
 | R3 | backup deck only: queue 25's estimate. About 24.6 % of unjudged candidates are interesting (CI 21–28 %), and the rate rises with detector agreement | — |
 | R4 | backup deck only: MiniRocket AUC 0.79 against 0.83 for the agreement count | — |
 
-### If 8765 is moved onto the overnight main (cbe06f1 or later): what changes
+### What changed with the overnight main (applied to 8765 at 07:39 on 21 October)
 
 Only with your OK on the morning of 21 October; otherwise 8765 stays on the rehearsed 7ceea4f and none of
 this applies.
@@ -150,11 +154,12 @@ this applies.
 | step | warm | cause | workaround today | fix after the talk |
 |---|---|---|---|---|
 | Explore › Corpus | 5 s | the corpus page reads every recording | pre-opened tab | a cached corpus read |
+| Review queues 30 and 31 (first open) | 6.5–8 s for the page; the item itself in about 2 s | the header's "need you" counts and the queue list (`/api/review/counts`, `/queues`, about 4,400 unjudged) | pre-opened tabs; the next item after a verdict is now about 0.2 s | cache the counts |
 | A run's Report | 5–7 s | matplotlib draws it on every visit | open the saved snapshot from Reports, or a pre-opened tab | cache the rendered report per run |
 | Every Review page, and the "need you" chip | 2–3 s | `GET /api/review/queues` and `/counts` count about 5,000 unjudged items | pre-opened tabs | cache the counts |
-| Discovery › Runs, Seed | about 2 s | the same counts, plus `/api/discovery/templates` | pre-opened tabs | — |
-| Map, M2_aug dataset | 3–5 s | 16 channels × about 60 algorithms | pre-opened tab | — |
-| Library family, first visit | 13 s | cold read | the warm-up visits it | — |
+| Discovery › Runs, Seed | about 5 s | the same counts (2.5 s), plus `/api/discovery/templates` (3.3 s) | pre-opened tabs | — |
+| Map, any dataset | 0.7–1.2 s (was 3–5 s) | cached since the overnight main | — | — |
+| Library family, first visit | 15 s cold, 1.6 s warm | cold read | the warm-up visits it | — |
 
 ### Cleanup after 21 October
 
