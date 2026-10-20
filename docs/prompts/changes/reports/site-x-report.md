@@ -264,3 +264,39 @@ Gates after the fix round:
 No bridge was started in this round. On CO the lower median changes the gain from CH4's 0.244 mV to CH3's 0.19 mV.
 CH2 is still drawn at its own gain, so the `site-x-co-own-scale` smoke state still holds. The critic's runtime folder
 `webui/runtime/20261020-182838/` in my worktree is deleted.
+
+## Gate round (merged main d3ce03c into the branch first: 3a4d5c8)
+
+Red: 21cfb3b. Fixes: b700907 (G1), 0d483fb (G2).
+
+- **G1: `zz_analyse_run › fixup-j-dehshibi-funnel`, a 409 on the first Run.**
+  - The dehshibi_spikes template's `preprocessing.wavelet_transform` is uncalibrated in the real
+    `block_calibration.json`. The validate after *use example* started its timing in a child process. The Run click
+    found that timing running and, since 0d0fd84, did not wait for it, so the run answered 409.
+  - Fix: `route_local(wait_s=…)` waits for every timing the chain needs, whether this request started it or it is
+    already in flight. `POST /api/runs` passes `RUN_CALIBRATION_WAIT_S`, a new constant of 60 s.
+  - A validate is unchanged. A slow model (rupture, about 447 s) still answers 409 in words after the 60 s.
+  - The client already says so in words on a 409: a refusal card and a toast ("run refused · calibrating: …").
+    While a validate reads calibrating, the Run button is disabled with that reason in its title. It does not
+    retry by itself, and with the 60 s wait it rarely needs to.
+  - Test: a stand-in child that holds 12 s (`calibrate_in_child(hold_s=…)`) is routed `local` with no
+    "calibrating".
+  - Deliberate behaviour change: `test_webui_run_routing`'s 409 test now shortens `RUN_CALIBRATION_WAIT_S` too.
+- **G2: `site-x-co-own-scale`, a trace 46 px out of the plot box.**
+  - After F3's lower median, CO CH4 fits the block at the shared gain. But centred on the bottom lane, it ran 46 px
+    below the block. Smoke measures path geometry, which a clipPath does not change.
+  - Fix: `overlayModel.ts::fitCentre` nudges that lane's drawing origin toward the middle, just enough that its
+    whole extent stays in the block. The gain is unchanged and the name stays on its lane. The help text now says
+    this instead of "clipped".
+  - Model test: every shared-gain and own-gain lane on CO-like extents stays inside [0, block], and a lane that
+    fits keeps its centre.
+
+Gates:
+
+| Check | Interpreter | Result |
+|---|---|---|
+| `site_x_calibration`, `site_x_cross`, `cross_page`, `import_boundaries` | conda | 51 passed |
+| `site_x_calibration`, `run_routing`, `site_x_cross`, `cross_page` | `webui/.venv` | 69 passed |
+| `tsc -b`, `vite build` | — | pass |
+
+No bridge was started.
