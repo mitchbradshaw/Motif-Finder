@@ -1801,3 +1801,7 @@ export const extendDiscoveryRun = (runKey: string, channels: string[]) =>
 /** site-runs item 4: *Send N unjudged*'s N without the scoreboard — what Review would ask about (its queue's own count). */
 export interface DiscRunUnjudged { run_key: string; total: number; judged: number; unjudged: number; queueId: number | null; note: string }
 export const getDiscoveryRunUnjudged = (runKey: string) => req<DiscRunUnjudged>(`/api/discovery/runs/${encodeURIComponent(runKey)}/unjudged`)
+
+/* night-analyse (2026-10-20, append-only): the Intervals page's per-class scatter plots, for each event, the time
+ * until the NEXT event of its class in its group (serialize.py `_interval_classes`; null for the last of its class). */
+export interface IntervalClasses { next_within_gap_s?: (number | null)[] }

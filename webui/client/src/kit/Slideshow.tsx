@@ -43,6 +43,8 @@ export interface SlideEvent {
   chip?: { text: string; colour?: string }
   /** the event's own extent inside the window, in the trace's seconds */
   band?: [number, number] | null
+  /** night-analyse: draw `band` as the blue highlighted band (the detection), not the faint tint */
+  highlight?: boolean
   onset?: number | null; extremum?: number | null
   /** the window drawn, when it is narrower than the trace (a sequence frame inside a stored snippet) */
   window?: [number, number] | null
@@ -87,7 +89,8 @@ export function EventTrace({ trace, domain, event, height = 56, colour = 'var(--
       {size.width > 0 && (
         <svg width={w} height={height} role="img" aria-label={`${event.title ?? event.id}: ${n} points`} data-plot-box data-rule9="event" data-flat={pts.every(q => Math.abs(q[1] - pts[0][1]) < 0.5) ? "1" : "0"}
           data-points={n} data-decimated={trace.decimated ? '1' : '0'} data-domain={`${domain[0]},${domain[1]}`} style={{ display: 'block' }}>
-          {event.band && <rect x={X(event.band[0])} width={Math.max(1, X(event.band[1]) - X(event.band[0]))} y={0} height={height} fill="var(--band-detected)" />}
+          {event.band && !event.highlight && <rect x={X(event.band[0])} width={Math.max(1, X(event.band[1]) - X(event.band[0]))} y={0} height={height} fill="var(--band-detected)" />}
+          {event.band && event.highlight && <g data-testid="slide-band"><rect x={X(event.band[0])} width={Math.max(2, X(event.band[1]) - X(event.band[0]))} y={0} height={height} fill="var(--blue)" fillOpacity={0.16} /><rect x={X(event.band[0])} width={Math.max(2, X(event.band[1]) - X(event.band[0]))} y={0} height={3} fill="var(--blue)" fillOpacity={0.7} /></g>}
           {event.onset != null && <line x1={X(event.onset)} x2={X(event.onset)} y1={0} y2={height} stroke="var(--blue)" strokeOpacity={0.7} />}
           {event.extremum != null && <line x1={X(event.extremum)} x2={X(event.extremum)} y1={0} y2={height} stroke="var(--red)" strokeOpacity={0.6} />}
           <g data-trace><path d={d} fill="none" stroke={impure ? 'var(--red)' : colour} strokeWidth={1.2} strokeLinejoin="round" /></g>

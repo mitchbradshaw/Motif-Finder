@@ -22,7 +22,8 @@ import { useSize } from '../../charts/useSize'
 import { axisUnit } from '../../charts/units'
 import { Button, EmptyState, Headline, Histogram, InfoTip, Rose, type HeadlineFold } from '../../kit'
 import { useRoseReferenceLine } from '../../library/roseReference'
-import { IntervalTimelinePanel } from './IntervalTimeline'
+import { IntervalFigures } from './IntervalFigures'
+import { EventShapeFigures } from './EventShapeFigures'
 import { TrainsFigures } from './TrainsView'
 import { fmtHours, navigate } from '../../state'
 import { DetectorFunnel, funnelOf } from '../DetectorFunnel'
@@ -220,7 +221,7 @@ function SpanSetProcess({ q, lead, featuresFirst, fold }: { q: ProcessProps; lea
       {explain}
       <Full q={q} height={featuresFirst ? 110 : 190}>{ctx => <SpanSetView p={p} ctx={ctx} selected={selected} onSelect={setSelected} cut={cut} />}</Full>
       <div className="bp-legend" style={{ paddingLeft: 0 }}>
-        <span><i style={{ background: 'var(--band-detected)', border: '1px solid var(--blue)' }} />span · the window Review shows{p.marks ? '' : ' (the slideshow adds half its length of context each side)'}</span>
+        <span><i style={{ background: 'var(--band-detected)', border: '1px solid var(--blue)' }} />span · the window Review shows (the slideshow draws it as the blue band, with about 15 % of its width of context each side)</span>
         {cut && <span><i style={{ background: 'var(--amber-100)', border: '1px solid var(--amber)' }} />the cut · drag the line{f !== 1 ? ` · drawn in ${axisUnit(q.ctx.ghostUnit)}; the parameter holds it in ${q.ctx.ghostStoredUnit ?? 'the stored unit'} (÷${fmtN(f)})` : ''}</span>}
         {p.marks && <span><i style={{ background: 'var(--blue)', opacity: 0.45 }} />{p.explain?.mark ?? 'the fall inside its window (onset → extremum)'}</span>}
         {impure > 0 && <span><i style={{ background: 'var(--band-artifact)', border: '1px solid var(--red)' }} />window holding more than one {p.window_count_of === 'falls' ? 'fall' : 'span'}</span>}
@@ -462,14 +463,16 @@ function SpansToSpans(q: ProcessProps) {
   ) : <div className="muted mono small" data-testid="event-features-none">this block returned its spans with no measures attached</div>
   const rose = p.rose ? <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Steepest slope, each event as one angle</h3></div><Rose rose={p.rose} reference={roseRef} testid="rose-fan" /></div> : null
   const intervals = !p.interval_stats ? null : p.interval_classes
-    ? <IntervalTimelinePanel ic={p.interval_classes} t0={q.ctx.t0} t1={q.ctx.t1} stats={p.interval_stats} />
+    ? <IntervalFigures q={q} p={p} ic={p.interval_classes} stats={p.interval_stats} />
     : <div><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Inter-event intervals</h3><span className="sg">per group, never pooled</span></div><IntervalStatsTable stats={p.interval_stats} /></div>
   const leadOf: Record<typeof kind, ReactNode> = {
-    cycles, trains: <TrainsFigures p={p} t0={q.ctx.t0} t1={q.ctx.t1} />, intervals, shape: <>{rose}{measures}</>, measures,
+    // night-analyse: Event shape leads with pictures (motifs overlaid, the rose, the signal with its measures as one
+    // scatter); its histograms join the fold below, and Intervals leads with its own figures (IntervalFigures)
+    cycles, trains: <TrainsFigures p={p} t0={q.ctx.t0} t1={q.ctx.t1} />, intervals, shape: <EventShapeFigures q={q} p={p} rose={rose} />, measures,
   }
   const leads = <>{families}{unitNote}{leadOf[kind]}</>
   const extra: (HeadlineFold | null | false)[] = [
-    kind !== 'shape' && kind !== 'measures' && { key: 'measures', node: measures },
+    kind !== 'measures' && { key: 'measures', node: measures },
     kind !== 'shape' && !!rose && { key: 'rose', node: rose },
     kind !== 'intervals' && !!intervals && { key: 'intervals', node: intervals },
     !!p.features && { key: 'table', node: <div data-testid="feature-table-fold"><div className="bp-card-title"><h3 style={{ fontSize: 13 }}>The per-event table</h3><span className="sg">{p.features.n_columns} columns × {p.n} rows</span></div><FeatureTable table={p.features} /></div> },

@@ -398,6 +398,17 @@ def _interval_classes(value, meta, fs, ss, sl):
     for key, s in by_key.items():
         g, c = key.split("\x1f", 1) if groups is not None else ("all", key)
         stats.setdefault(c, {})[g] = _clean(s)
+    # night-analyse (append-only): the time until the NEXT event of the same class in the same group - the next
+    # such event's own `within_gap_s`, read off the block's timing above (no new measure); None for the last
+    next_within = np.full(n, np.nan)
+    members: dict = {}
+    for i in range(n):
+        if np.isfinite(anchor[i]):
+            members.setdefault(gkey(i), []).append(i)
+    for idx in members.values():
+        idx.sort(key=lambda i: (anchor[i], i))
+        for a, b in zip(idx, idx[1:]):
+            next_within[a] = within[b]
     return {
         "rule": rule, "rule_words": words, "column": column, "edges": _clean(edges),
         "classes": [{"key": k, "label": k, "n": int(sum(1 for c in cls if c == k))} for k in keys],
@@ -405,6 +416,7 @@ def _interval_classes(value, meta, fs, ss, sl):
         "event_class": cls[sl], "event_t_s": _clean([float(v) for v in ((anchor[sl] + ss) / fs)]),
         "event_group": groups[sl] if groups is not None else None,
         "gap_s": _clean(gap[sl].tolist()), "within_gap_s": _clean(within[sl].tolist()), "stats": stats,
+        "next_within_gap_s": _clean(next_within[sl].tolist()),
     }
 
 CYCLE_EXEMPLAR_FORM = '{"<group key without suffix>": <event index into the SpanSet>}'
