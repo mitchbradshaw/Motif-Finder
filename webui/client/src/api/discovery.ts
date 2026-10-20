@@ -25,6 +25,7 @@ import { heldOutLocked } from '../shell/heldOutLock'
 import type { GlyphKind, Role } from '../fixtures/discovery'
 import { getDiscoverySeedPicker, type DiscSeedGrouping, type DiscSeedPickerQuery } from '../api'
 import { keepDiscoverySeedMatches } from '../api'
+import { getDiscoveryRunUnjudged, type DiscRunUnjudged } from '../api'
 import { PEEK_GIVE_UP_MS, PEEK_POLL_MS, peekPreview } from './seedPeek'
 
 export type { GlyphKind, Role, RunKind, SeedSource } from '../fixtures/discovery'
@@ -137,6 +138,16 @@ export const putScope = (body: { recording: string; channels: string[]; section:
     return p
   })
 
+/** site-runs item 5: a deep link's scope, the same write as `putScope`. `section` null leaves the opened session's
+ *  own section in place — another recording is another session, and the old recording's hours are not its. */
+export const putScopeLink = (body: { recording: string; channels: string[]; section: [number, number] | null }) =>
+  putDiscoverySession(body.section ? { recording: body.recording, channels: body.channels, section: body.section }
+    : { recording: body.recording, channels: body.channels }).then(p => {
+    RECORDINGS = p.recordings.map(toRecording)
+    SCOPE = { channels: p.session.channels, section: p.session.section }
+    return p
+  })
+
 /** The session's channels and section, for a read whose fixture signature does not carry them. */
 async function scope(): Promise<{ channels: string[]; section: [number, number] }> {
   if (SCOPE) return SCOPE
@@ -226,6 +237,12 @@ export interface ScoreRun { run: string; total: ScoreRow; channels: (ScoreRow & 
 export function getScoreboard(runKeys: string[], channels: string[], section: [number, number]): Promise<Sourced<ScoreRun[]>> {
   return live(getDiscoveryScoreboard(runKeys.filter(k => k !== 'human'), channels, section[0], section[1]))
 }
+
+/** site-runs item 4: the Send button's count, from a read of its own — what Review would ask about if the run were
+ *  sent (its queue's own count: overlap sets, items a human verdict covers left out); nothing is written. It never
+ *  waits on the scoreboard (461 s cold over the real session). */
+export type RunUnjudged = DiscRunUnjudged
+export const getRunUnjudged = (runKey: string): Promise<Sourced<RunUnjudged>> => live(getDiscoveryRunUnjudged(runKey))
 
 /* ------------------------------------------------------------------ browse detections */
 export interface Detection {

@@ -1,21 +1,22 @@
 /* discovery.runs — frames discovery-1 (runs), -1b (add-template modal), -1c (six channels, paged three at a time).
  * Toolbar · Scope · Runs list | where each run fires · scoreboard · browse detections · run acts (spec §7.1–7.5, P17). */
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
-  Badge, Button, Callout, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, Pager, Seg, Trace, cx, recordDemoWrite, useDemoState, useNotWired, useQueryState, useSim, startSim, ProgressBar } from '../kit'
+  Badge, Button, Callout, Checkbox, DisabledReason, PopoverButton, TextField, Dropdown, EmptyState, Icon, InfoTip, Modal, Pager, Seg, Trace, cx, recordDemoWrite, useDemoState, useNotWired, useQueryState, useSim, startSim, ProgressBar } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
 import { useSourced } from '../api/seam'
 import { applyDiscoveryTemplates, discardDiscoveryRun, sendDetectionsToReview, sendDiscoveryRunToReview } from '../api'
 import {
-  getDetectionWindow, getDetections, getFires, fmtMin, type Detection, type DiscoveryRun, type FiresData, type Recall, type ScoreRow, type ScoreRun,
+  getDetectionWindow, getDetections, getFires, getRunUnjudged, fmtMin, type Detection, type DiscoveryRun, type FiresData, type Recall, type ScoreRow, type ScoreRun,
 } from '../api/discovery'
 import { CostChip, DiscoverySkeleton, DiscoveryToolbar, HistoryButton, LoadFailed, Loading, NullChip, Refreshing, RunsCard, ScopeCard, SlurmModal } from './chrome'
 import { AddTemplateModal } from './AddTemplateModal'
 import { AddMatchesButton } from './AddMatches'
 import { PrecisionCell } from './Precision'
 import { hasResults, useDiscovery, type Discovery } from './session'
+import { pickerGroups } from './firesPicker'
 
 export function RunsPage() {
   const dx = useDiscovery()
@@ -62,6 +63,10 @@ export function RunsPage() {
               placeholder card above content that pushes the toolbar down and back */}
           {dx.firstLoad && !dx.error && <DiscoverySkeleton label="loading the session" />}
           {!dx.firstLoad && !dx.error && <Refreshing on={dx.refreshing} label="re-reading the runs" />}
+          {/* site-runs item 5: a deep link whose channels the recording does not have is refused in words, not sent */}
+          {dx.linkRefused && <Callout tone="red" icon="alert-triangle" title="The link's scope was not applied" testid="scope-link-refused"
+            action={<Button variant="primary" size="sm" onClick={() => { dx.clearLink(); setModal(null) }}>Keep the session's scope</Button>}>{dx.linkRefused}</Callout>}
+          {dx.linkPending && <Refreshing on testid="scope-link-pending" label="moving the session to the linked scope…" />}
           {dx.scope && !dx.firstLoad && (
             <>
               <DiscoveryToolbar dx={dx} right={<><NullChip dx={dx} /><CostChip dx={dx} /><HistoryButton dx={dx} />{primary}</>} />
@@ -92,7 +97,7 @@ export function RunsPage() {
           )}
         </div>
       </div>
-      {dx.scope && <AddTemplateModal open={modal === 'add-template'} onClose={() => setModal(null)} dx={dx}
+      {dx.scope && <AddTemplateModal open={modal === 'add-template' && !dx.linkPending && !dx.linkRefused} onClose={() => setModal(null)} dx={dx}
         onSlurm={keys => { setSlurmKeys(keys); setModal('slurm') }} />}
       {dx.scope && <SlurmModal open={modal === 'slurm'} onClose={() => setModal(null)} dx={dx} runs={slurmRuns} />}
     </>
@@ -134,9 +139,8 @@ function WhereFires({ dx }: { dx: Discovery }) {
           ? `${dx.visibleChannels[0]}–${dx.visibleChannels[dx.visibleChannels.length - 1]} of ${s.channels.length} channels · page with the strips' arrows`
           : (mode === 'spans' ? 'every span in view · grouped by channel' : 'detections per 3 h · grouped by channel')}</span>
         <span className="k-spacer" />
-        <span className="muted small" data-testid="fires-shown-count">{nDrawn} of {runKeys.length} runs drawn</span>
-        <Button size="sm" variant="link" icon="eye" testid="fires-show-all" onClick={() => dx.setShown(runKeys)}>show all</Button>
-        <Button size="sm" variant="link" icon="eye-off" testid="fires-hide-all" onClick={() => dx.setShown([])}>hide all</Button>
+        {/* site-runs item 2: one button instead of a wall of eye-off links under the rows */}
+        <RunsDrawnPicker dx={dx} drawable={drawable} nDrawn={nDrawn} runKeys={runKeys} />
         <Seg size="sm" value={mode} onChange={v => setMode(v)} options={[{ value: 'density', label: 'density' }, { value: 'spans', label: 'spans' }]} testid="fires-mode" />
         {/* the detection map (2026-10-12): the same rows as columns of channels and datasets, every session — where overall, not when */}
         <Button size="sm" variant="link" icon="grid" onClick={() => navigate(`discovery/map?dataset=${encodeURIComponent(s.recording)}`)} testid="open-map">Open the map</Button>
@@ -193,17 +197,50 @@ function WhereFires({ dx }: { dx: Discovery }) {
           {notShown.length > 0 && <div className="muted small dsc-fires-foot">not drawn: {notShown.map(r => `${r.label} (${r.status === 'paused' ? `paused ${r.pausedAt?.stage}/${r.pausedAt?.of}` : r.status})`).join(' · ')} — nothing to draw in this section</div>}
         </div>
       )}
-      {hidden.length > 0 && (
+      {hidden.length > 0 && nDrawn === 0 && (
         <div className="dsc-fires-hidden small" data-testid="fires-hidden">
-          <span className="muted">{nDrawn ? 'hidden' : 'no run drawn yet · press a run to draw it'}:</span>
-          {hidden.map(r => (
-            <button key={r.key} type="button" className="dsc-fires-eye off" onClick={() => dx.toggleShown(r.key)} title={`draw ${r.label}`} aria-label={`draw ${r.label}`} aria-pressed={false} data-testid={`fires-eye-${r.key}`} data-shown="0">
-              <i className="sw" style={{ borderColor: r.colour }} /><Icon name="eye-off" size={10} />{r.label}
-            </button>
-          ))}
+          <span className="muted">no run drawn yet — pick runs under <i>Runs drawn</i> above, or</span>
+          <Button size="sm" variant="link" icon="eye" testid="fires-show-all" onClick={() => dx.setShown(runKeys)}>show all {runKeys.length}</Button>
         </div>
       )}
     </section>
+  )
+}
+
+/** site-runs item 2: *Runs drawn: N of M ▾* — a popover with a search box and the runs grouped by kind (templates,
+ *  seed searches; each band set folded), each a checkbox with its colour and found count, and show all / hide all.
+ *  The groups are ./firesPicker.ts. A drawn row keeps its own eye in the card to hide it. */
+function RunsDrawnPicker({ dx, drawable, nDrawn, runKeys }: { dx: Discovery; drawable: DiscoveryRun[]; nDrawn: number; runKeys: string[] }) {
+  const [q, setQ] = useState('')
+  const groups = pickerGroups(drawable, q)
+  // two runs of one template share a label (`drop_detection_v5` and its `_2`): the key tells them apart
+  const seen = new Map<string, number>()
+  for (const r of drawable) seen.set(r.label, (seen.get(r.label) ?? 0) + 1)
+  const row = (r: DiscoveryRun) => {
+    const found = dx.foundOf(r.key) ?? r.found
+    const label = (seen.get(r.label) ?? 0) > 1 && r.label !== r.key ? `${r.label} · ${r.key}` : r.label
+    return <Checkbox key={r.key} checked={dx.isShown(r)} onChange={() => dx.toggleShown(r.key)} label={label} dot={r.colour}
+      count={found != null ? String(found) : undefined} testid={`fires-check-${r.key}`} ariaLabel={`${dx.isShown(r) ? 'hide' : 'draw'} ${r.label}`} />
+  }
+  return (
+    <PopoverButton size="sm" variant="default" icon="eye" testid="fires-picker" width={320} placement="bottom-end"
+      label={<span data-testid="fires-shown-count">Runs drawn: {nDrawn} of {runKeys.length}</span>}>
+      {() => (
+        <div className="dsc-fires-picker">
+          <TextField value={q} onChange={setQ} placeholder="search runs" icon="search" size="sm" block autoFocus testid="fires-picker-search" />
+          <div className="row" style={{ gap: 4 }}>
+            <Button size="sm" variant="link" icon="eye" testid="fires-show-all" onClick={() => dx.setShown(runKeys)}>show all</Button>
+            <Button size="sm" variant="link" icon="eye-off" testid="fires-hide-all" onClick={() => dx.setShown([])}>hide all</Button>
+          </div>
+          <div className="dsc-fires-picker-list">
+            {groups.length === 0 && <span className="muted small">{q ? `no run matches “${q}”` : 'no run has anything to draw yet'}</span>}
+            {groups.map(g => g.folded
+              ? <details key={g.key} className="dsc-fires-picker-group" data-testid={`fires-picker-${g.key}`}><summary className="small">{g.label} · {g.runs.filter(dx.isShown).length} drawn</summary>{g.runs.map(row)}</details>
+              : <div key={g.key} className="dsc-fires-picker-group" data-testid={`fires-picker-${g.key}`}><span className="muted small">{g.label}</span>{g.runs.map(row)}</div>)}
+          </div>
+        </div>
+      )}
+    </PopoverButton>
   )
 }
 
@@ -241,6 +278,8 @@ function useBrowserMarker(dx: Discovery): Detection | null {
 const defaultIndex = (iQ: string, run: string | undefined, ch: string, n: number) => Math.min(n, Math.max(1, parseInt(iQ, 10) || (run === 'drop_motifs9' && ch === 'CH4_A2' ? 12 : 1)))
 
 /* ------------------------------------------------------------------ scoreboard */
+/** site-runs item 3: at most this many run rows show at once; the body scrolls past them under a sticky header. */
+export const SCORE_ROWS_VISIBLE = 10
 const fmtRecall = (r: Recall) => 'value' in r ? `${r.value.toFixed(2)} over ${r.overH} h` : 'none' in r ? 'no reviewed overlap' : `${r.tooFewH} h · too few`
 type SortKey = 'found' | 'judged' | 'reviewed' | 'interesting' | 'precision' | 'nullExpects' | 'xNull'
 
@@ -259,10 +298,25 @@ function Scoreboard({ dx }: { dx: Discovery }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh.status])
   const scores = dx.scores ?? []
+  /* site-runs item 4: null is "the answer for these runs is not in yet" — say so, never "no finished run" */
+  const working = dx.scores === null && dx.runs.some(hasResults)
+  /* site-runs item 3: the body scrolls past SCORE_ROWS_VISIBLE run rows; the height is measured off the drawn
+   * header and first run row, so an expanded run's channel rows scroll with the rest and sorting is untouched */
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [maxH, setMaxH] = useState<number | null>(null)
   const colourOf = (k: string) => dx.runs.find(r => r.key === k)?.colour ?? '#9ca3af'
   let done: ScoreRun[] = scores.filter(s => dx.runs.some(r => r.key === s.run && hasResults(r)))
   if (sort) done = [...done].sort((a, b) => ((a.total[sort.key] ?? -1) - (b.total[sort.key] ?? -1)) * sort.dir)
   const others = dx.runs.filter(r => r.kind !== 'reference' && !hasResults(r) && r.status !== 'draft')
+  const nRunRows = done.length + others.length
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const head = el.querySelector<HTMLElement>('thead')
+    const first = el.querySelector<HTMLElement>('tbody tr.parent')
+    if (nRunRows <= SCORE_ROWS_VISIBLE || !head || !first) { setMaxH(null); return }
+    setMaxH(Math.ceil(head.offsetHeight + first.offsetHeight * SCORE_ROWS_VISIBLE) + 1)
+  }, [nRunRows, expandQ])
   const th = (label: string, key?: SortKey) => key
     ? <th><button type="button" className="dsc-th-sort" onClick={() => setSort(s => s?.key === key ? (s.dir === -1 ? { key, dir: 1 } : null) : { key, dir: -1 })} aria-sort={sort?.key === key ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>{label}{sort?.key === key && <Icon name={sort.dir === 1 ? 'chevron-up' : 'chevron-down'} size={10} />}</button></th>
     : <th>{label}</th>
@@ -290,10 +344,12 @@ function Scoreboard({ dx }: { dx: Discovery }) {
         <span className="k-spacer" />
         <Button variant="link" icon="refresh" loading={refresh.busy} onClick={() => refresh.start({ stepMs: 600, queuedMs: 100 })} testid="refresh-scores">Refresh after reviewing</Button>
       </div>
-      <div className="k-table-wrap">
+      <div className="k-table-wrap dsc-score-scroll" ref={scrollRef} data-testid="scoreboard-scroll" data-rows={nRunRows}
+        style={maxH ? { maxHeight: maxH } : undefined}>
         <table className="dsc-table" data-testid="scoreboard-table">
           <thead><tr>{th('run')}{th('found', 'found')}{th('already judged', 'judged')}{th('reviewed', 'reviewed')}{th('interesting', 'interesting')}{th('precision', 'precision')}{th('recall · reviewed overlap')}{th('null expects / draws', 'nullExpects')}{th('× null', 'xNull')}</tr></thead>
           <tbody>
+            {working && <tr data-testid="scores-working"><td colSpan={9} className="muted"><span className="row" style={{ gap: 8 }}><ProgressBar indeterminate size="sm" width={90} labelPosition="none" />working out the scores — over many runs and channels this can take minutes the first time; the rows appear when the read lands</span></td></tr>}
             {done.map(s => {
               const open = expanded.includes(s.run)
               return (
@@ -313,7 +369,7 @@ function Scoreboard({ dx }: { dx: Discovery }) {
               </tr>
             ))}
             {/* night-a: a header row and no body read as broken; say why there is nothing */}
-            {!done.length && !others.length && <tr data-testid="scoreboard-empty"><td colSpan={9} className="muted">{dx.scores === null
+            {!working && !done.length && !others.length && <tr data-testid="scoreboard-empty"><td colSpan={9} className="muted">{dx.scores === null
               ? 'working out the scores — they appear here when the read lands'
               : 'no finished run on this scope yet — a run’s scores appear here when it finishes'}</td></tr>}
           </tbody>
@@ -448,15 +504,23 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
   const [sent, setSent] = useDemoState<Record<string, { n: number; queueId: number }>>('discovery.sent', () => ({}))
   const toast = useToast()
   const notWired = useNotWired()
+  /* site-runs item 4: the count is a read of its own (GET /api/discovery/runs/{key}/unjudged: Review's own count of what the send would queue) — it
+   * was `found − judged` off the scoreboard, which took 461 s cold over the real session and printed 0 until then */
+  const countable = !!run && run.kind !== 'reference' && hasResults(run)
+  const count = useSourced(() => countable ? getRunUnjudged(run!.key) : Promise.resolve({ data: null, source: 'live' as const }), [run?.key, run?.status, countable])
   if (!run) return null
   const total = dx.scores?.find(s => s.run === run.key)?.total
   const results = hasResults(run)
+  const counted = count.data && count.data.run_key === run.key ? count.data : null
   /* "unjudged" is `found - judged`. It was `found - reviewed`, and `reviewed`
    * counts the detections a human COULD have judged (those inside the reviewed
    * coverage), not the ones carrying a verdict — so the button offered to send
    * a number the queue route disagreed with. The toast still reports the
    * server's own count, which is the one that decides. */
-  const unjudged = total ? Math.max(0, total.found - total.judged) : 0
+  const unjudged = counted?.unjudged ?? 0
+  const sendReason = count.error ? `the unjudged detections could not be counted: ${count.error.message}`
+    : !counted ? 'counting the unjudged detections…'
+      : unjudged === 0 ? 'Review would ask about none — every event of this run is judged or already covered by a human verdict' : null
   const reason = run.kind === 'reference' ? 'human annotations are the reference, not a run'
     : run.status === 'superseded' ? 'discarded — marked superseded, no verdicts written'
       : !results ? 'no detections yet' : null
@@ -483,6 +547,7 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
     sendDiscoveryRunToReview(run.key)
       .then(r => {
         setSent({ ...sent, [run.key]: { n: r.unjudged, queueId: r.queue_id } })
+        count.reload()
         toast.push({
           text: `${r.reused ? 'already sent · ' : ''}${r.unjudged} unjudged in '${r.queue}' · verdicts write ${r.writes}`,
           action: { label: 'Open Review', onClick: () => navigate(`review/queue/${r.queue_id}`) },
@@ -494,7 +559,9 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
     <section className="k-card dsc-acts" data-testid="run-acts" aria-label="Run acts">
       <span className="dot" style={{ background: run.colour, width: 9, height: 9 }} />
       <b>{run.label}</b>
-      {total && results ? <span className="muted small">{total.found} detections · {run.channelsDone ? `${run.channelsDone} channels` : `${dx.scope!.channels.length} channels`} · {total.judged} already judged</span> : <span className="muted small">{reason}</span>}
+      {total && results ? <span className="muted small">{total.found} detections · {run.channelsDone ? `${run.channelsDone} channels` : `${dx.scope!.channels.length} channels`} · {total.judged} already judged</span>
+        : results && counted ? <span className="muted small" data-testid="run-acts-counted">{counted.total} events Review would put to you · {counted.judged} judged · scores still being worked out</span>
+          : <span className="muted small">{reason ?? 'working out the scores…'}</span>}
       <span className="k-spacer" />
       {/* reports (2026-10-19): this run's report — figures and tables drawn by the server */}
       <Button variant="primary" icon="file" onClick={() => navigate(`reports/detection-run/${encodeURIComponent(run.key)}`)} disabled={!!reason} disabledReason={reason ?? undefined} testid="report-run">Report</Button>
@@ -502,7 +569,7 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
       <Button variant="primary" icon="branch" onClick={() => { recordDemoWrite('analyse', 'import-spanset', { run: run.key }); notWired(`send SpanSet of ${run.label} to Analyse`); navigate('analyse/chain') }} disabled={!!reason} disabledReason={reason ?? undefined} testid="analyse-events">Analyse events</Button>
       {sent[run.key] != null
         ? <Button variant="primary" icon="check" onClick={() => navigate(`review/queue/${sent[run.key].queueId}`)} testid="send-to-review" data-queue={sent[run.key].queueId}>Sent {sent[run.key].n} · open in Review · then refresh</Button>
-        : <Button variant="next" icon="arrow-right" onClick={send} disabled={!!reason || unjudged === 0} disabledReason={reason ?? 'nothing unjudged'} testid="send-to-review">Send {unjudged} unjudged to Review</Button>}
+        : <Button variant="next" icon="arrow-right" onClick={send} disabled={!!reason || !!sendReason} disabledReason={reason ?? sendReason ?? undefined} testid="send-to-review" data-counting={counted ? '0' : '1'}>{counted ? `Send ${unjudged} unjudged to Review` : 'Send unjudged to Review · counting…'}</Button>}
       {/* fixup-v: a seed run's accepted matches become members of the entry it searched for, with their edges */}
       {run.kind === 'seed' && results && <AddMatchesButton run={run} />}
       <Modal open={confirm === 'discard' && !reason} onClose={() => setConfirm(null)} title={`Discard ${run.label}?`} size="sm" testid="discard-modal"

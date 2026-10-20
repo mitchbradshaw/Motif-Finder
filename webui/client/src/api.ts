@@ -1797,3 +1797,7 @@ export interface DiscExtendAck { run_key: string; job_id: number; channels: stri
  *  template changed since the run ran; the page then offers *apply as a new run*. */
 export const extendDiscoveryRun = (runKey: string, channels: string[]) =>
   post<DiscExtendAck>(`/api/discovery/runs/${encodeURIComponent(runKey)}/extend`, { channels })
+
+/** site-runs item 4: *Send N unjudged*'s N without the scoreboard — what Review would ask about (its queue's own count). */
+export interface DiscRunUnjudged { run_key: string; total: number; judged: number; unjudged: number; queueId: number | null; note: string }
+export const getDiscoveryRunUnjudged = (runKey: string) => req<DiscRunUnjudged>(`/api/discovery/runs/${encodeURIComponent(runKey)}/unjudged`)

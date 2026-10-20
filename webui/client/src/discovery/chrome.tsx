@@ -107,7 +107,7 @@ export function ScopeSummaryChip({ dx }: { dx: Discovery }) {
   return (
     <Chip tone="blue" icon="layers" size="lg" testid="scope-chip" title="jump to the Scope card"
       onClick={() => { const el = document.querySelector<HTMLElement>('[data-testid="scope-card"]'); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); el?.querySelector<HTMLElement>('[data-testid="section-chip"]')?.focus() }}>
-      <DatasetName file={dx.recording.file} testid="scope-dataset" /> · {s.channels.length} channel{s.channels.length === 1 ? '' : 's'} · {s.section[0]}–{s.section[1]} h <Icon name="chevron-down" size={11} />
+      <DatasetName file={dx.recording.file} testid="scope-dataset" /> · {s.channels.length} channel{s.channels.length === 1 ? '' : 's'} · {s.section[0]}–{s.section[1]} h
     </Chip>
   )
 }
@@ -559,6 +559,9 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
       })
       .finally(() => setExtending(false))
   }
+  const hasActions = (missing.length > 0 && extendable && (status === 'done' || status === 'failed'))
+    || (status === 'paused' && !!run.id) || (status === 'on cluster' && run.hpc?.kind === 'chain')
+    || status === 'failed' || (status === 'done' && run.kind !== 'reference')
   const kindBadge = run.kind === 'reference' ? <span className="k-badge t-grey">reference</span> : run.kind === 'seed' ? <span className="k-badge t-purple">seed</span> : run.kind === 'draft' ? <span className="k-badge t-amber">draft</span> : <span className="k-badge t-blue">template</span>
   let line: ReactNode = null
   switch (status) {
@@ -581,42 +584,13 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
       <button type="button" className="dsc-run-body" onClick={() => onSelect ? onSelect(run.key) : navigate(`discovery/runs?run=${encodeURIComponent(run.key)}`)} aria-pressed={selected} title={mode === 'runs' ? `browse ${run.label}` : `open ${run.label} in Runs`}>
         <RunGlyph kind={run.glyph} width={40} height={28} />
         <span className="dsc-run-text">
-          <b>{run.label}</b>
+          <b title={run.label}>{run.label}</b>
           <span className="dsc-run-meta">{kindBadge}<span className="k-meta">{run.detail}</span></span>
           {line && <span className="dsc-run-line small">{line}</span>}
           {cov && scopeChans.length > 0 && <CoverageStrip runKey={run.key} channels={scopeChans} coverage={cov} />}
           {run.extendError && <span className="dsc-run-line small" style={{ color: 'var(--red)' }} title={run.extendError} data-testid={`extend-error-${run.key}`}>{run.extendError}</span>}
         </span>
       </button>
-      {missing.length > 0 && extendable && (status === 'done' || status === 'failed') && (
-        <Button variant="primary" size="sm" icon="play" className="dsc-run-retry" loading={extending} disabled={extending} onClick={extend} testid={`run-missing-${run.key}`}
-          title={`run ${run.label} on ${missing.join(', ')} too — the same run gains the channel${missing.length === 1 ? '' : 's'} (its key stays) while the template is unchanged`}>
-          {extending ? 'Starting…' : `Run on the missing ${missing.length}`}</Button>
-      )}
-      {status === 'paused' && run.id && <Button variant="link" size="sm" icon="external" className="dsc-run-jobs-link" onClick={() => navigate('jobs')} testid={`open-in-jobs-${run.key}`}>Open in Jobs</Button>}
-      {/* round A_2 (P2): the chain job's results are back — verified, the cache restored, the run written here */}
-      {status === 'on cluster' && run.hpc?.kind === 'chain' && <Button variant="primary" size="sm" icon="download" className="dsc-run-retry" loading={importing} disabled={importing} onClick={() => {
-        setImporting(true)   // ux-1018: the button shows the import is under way — the POST verifies and restores every task before it answers
-        importDiscoveryChain(run.key)
-          .then(ack => { dx.reload(); toast.push({ text: `${run.label}: ${ack.note}`, action: { label: 'Open Jobs', onClick: () => navigate('jobs') } }) })
-          .catch(e => { dx.reload(); toast.push({ text: `${run.label} was not imported · ${(e instanceof Error ? e.message : String(e)).replace(/^\d{3} /, '')}` }) })
-          .finally(() => setImporting(false))
-      }} testid={`chain-import-${run.key}`} title="verify the tasks' results against this machine, restore their step cache, and write the run's channels here">{importing ? 'Importing…' : 'Import results'}</Button>}
-      {/* a real retry: a seed run is started again from its seed and cut, a template run from its template, over the
-          scope. It used to mark the row `new` in the page's memory, which the Seed page then took for a pending run of
-          this search and greyed *Run seed search* out. */}
-      {status === 'failed' && <Button variant="primary" size="sm" icon="refresh" className="dsc-run-retry" onClick={() => {
-        const s = dx.scope
-        if (!s) return
-        const again = run.kind === 'seed' && run.seedId
-          ? runDiscoverySeedSearchOnce({ seedId: run.seedId, channels: s.channels, t0: s.section[0], t1: s.section[1], k: 200, label: run.label,
-            ...(run.cut != null ? { cut: run.cut } : {}), ...(run.scales?.length ? { scales: run.scales } : {}) })
-          : run.template ? applyDiscoveryTemplates([run.template], s.channels, s.section[0], s.section[1]) : null
-        if (!again) return
-        again.then(() => dx.reload()).catch(e => console.error('the run could not be retried', e))
-      }} testid={`retry-${run.key}`}>Retry</Button>}
-      {/* reports (2026-10-19): the run's figures and tables, drawn by the server — a finished run only */}
-      {status === 'done' && run.kind !== 'reference' && <Button size="sm" variant="primary" icon="file" style={{ alignSelf: 'center' }} onClick={() => navigate(`reports/detection-run/${encodeURIComponent(run.key)}`)} title={`the report for ${run.label}: the map, the scoreboard, where it fires, twelve examples, the null and its parameters — figures and tables to paste`} testid={`report-${run.key}`}>Report</Button>}
       {status !== 'paused' && status !== 'superseded' && mode !== 'seed' && (
         pickIdx >= 0
           ? <button type="button" className={cx('dsc-pick', pickIdx === 0 ? 'a' : 'b')} onClick={() => dx.togglePick(run.key)} aria-label={`unpick ${run.label} (${pickIdx === 0 ? 'A' : 'B'})`} data-testid={`pick-${run.key}`}>{pickIdx === 0 ? 'A' : 'B'}</button>
@@ -631,6 +605,41 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
       {run.kind !== 'reference'
         ? <button type="button" className="dsc-run-remove" onClick={remove} aria-label={`remove ${run.label} from this session`} title="remove from this session · the runs are kept; History brings it back" data-testid={`remove-${run.key}`}>×</button>
         : <span className="dsc-run-remove ghost" aria-hidden />}
+      {/* site-runs item 1 (the researcher, 2026-10-20: "home page runs look messy"): the small actions are a line of
+          their own under the row, left-aligned — they used to share the name's line and overlapped it and each other */}
+      {hasActions && (
+        <div className="dsc-run-actions">
+        {missing.length > 0 && extendable && (status === 'done' || status === 'failed') && (
+          <Button variant="primary" size="sm" icon="play" loading={extending} disabled={extending} onClick={extend} testid={`run-missing-${run.key}`}
+            title={`run ${run.label} on ${missing.join(', ')} too — the same run gains the channel${missing.length === 1 ? '' : 's'} (its key stays) while the template is unchanged`}>
+            {extending ? 'Starting…' : `Run on the missing ${missing.length}`}</Button>
+        )}
+        {status === 'paused' && run.id && <Button variant="link" size="sm" icon="external" onClick={() => navigate('jobs')} testid={`open-in-jobs-${run.key}`}>Open in Jobs</Button>}
+        {/* round A_2 (P2): the chain job's results are back — verified, the cache restored, the run written here */}
+        {status === 'on cluster' && run.hpc?.kind === 'chain' && <Button variant="primary" size="sm" icon="download" loading={importing} disabled={importing} onClick={() => {
+          setImporting(true)   // ux-1018: the button shows the import is under way — the POST verifies and restores every task before it answers
+          importDiscoveryChain(run.key)
+            .then(ack => { dx.reload(); toast.push({ text: `${run.label}: ${ack.note}`, action: { label: 'Open Jobs', onClick: () => navigate('jobs') } }) })
+            .catch(e => { dx.reload(); toast.push({ text: `${run.label} was not imported · ${(e instanceof Error ? e.message : String(e)).replace(/^\d{3} /, '')}` }) })
+            .finally(() => setImporting(false))
+        }} testid={`chain-import-${run.key}`} title="verify the tasks' results against this machine, restore their step cache, and write the run's channels here">{importing ? 'Importing…' : 'Import results'}</Button>}
+        {/* a real retry: a seed run is started again from its seed and cut, a template run from its template, over the
+            scope. It used to mark the row `new` in the page's memory, which the Seed page then took for a pending run of
+            this search and greyed *Run seed search* out. */}
+        {status === 'failed' && <Button variant="primary" size="sm" icon="refresh" onClick={() => {
+          const s = dx.scope
+          if (!s) return
+          const again = run.kind === 'seed' && run.seedId
+            ? runDiscoverySeedSearchOnce({ seedId: run.seedId, channels: s.channels, t0: s.section[0], t1: s.section[1], k: 200, label: run.label,
+              ...(run.cut != null ? { cut: run.cut } : {}), ...(run.scales?.length ? { scales: run.scales } : {}) })
+            : run.template ? applyDiscoveryTemplates([run.template], s.channels, s.section[0], s.section[1]) : null
+          if (!again) return
+          again.then(() => dx.reload()).catch(e => console.error('the run could not be retried', e))
+        }} testid={`retry-${run.key}`}>Retry</Button>}
+        {/* reports (2026-10-19): the run's figures and tables, drawn by the server — a finished run only */}
+        {status === 'done' && run.kind !== 'reference' && <Button size="sm" variant="primary" icon="file" onClick={() => navigate(`reports/detection-run/${encodeURIComponent(run.key)}`)} title={`the report for ${run.label}: the map, the scoreboard, where it fires, twelve examples, the null and its parameters — figures and tables to paste`} testid={`report-${run.key}`}>Report</Button>}
+        </div>
+      )}
     </div>
   )
 }

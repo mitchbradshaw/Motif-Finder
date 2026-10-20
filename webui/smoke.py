@@ -940,6 +940,8 @@ class Smoke:
         self.goto(page, f"discovery/runs?run={a_key}", 1500)
         page.wait_for_selector('[data-testid="run-acts"]', timeout=20000)
         page.wait_for_timeout(800)
+        # site-runs F3: the count is a read of its own; read the label once it has landed, not while "counting…"
+        page.wait_for_selector('[data-testid="send-to-review"]:not([data-counting="1"])', timeout=60000)
         btn = page.locator('[data-testid="send-to-review"]')
         label = btn.first.inner_text().strip() if btn.count() else ""
         m = re.search(r"Send (\d+) unjudged", label)
@@ -1019,6 +1021,7 @@ class Smoke:
             self.goto(page, f"discovery/runs?run={b_key}", 1500)
             page.wait_for_selector('[data-testid="run-acts"]', timeout=20000)
             page.wait_for_timeout(800)
+            page.wait_for_selector('[data-testid="send-to-review"]:not([data-counting="1"])', timeout=60000)  # site-runs F3
             btn = page.locator('[data-testid="send-to-review"]')
             if btn.count() and btn.first.is_enabled() and "Send" in btn.first.inner_text():
                 btn.first.click()
