@@ -195,10 +195,14 @@ during it.
 
 ### Rebuilding the copy (only if something goes wrong)
 
+    cp -r /c/Users/mmebr/Documents/CNN-demo/webui/client/dist-demo /c/Users/mmebr/Documents/dist-demo-keep
     rm -r /c/Users/mmebr/Documents/CNN-demo && mkdir /c/Users/mmebr/Documents/CNN-demo
     git -C /c/Users/mmebr/Documents/CNN archive main | tar -x -C /c/Users/mmebr/Documents/CNN-demo
     "/c/ProgramData/anaconda3/python.exe" scripts/build_demo_data.py --root C:/Users/mmebr/Documents/CNN --out C:/Users/mmebr/Documents/CNN-demo
-    cd webui/client && npm run build:demo && cp -r dist-demo /c/Users/mmebr/Documents/CNN-demo/webui/client/
+    cp -r /c/Users/mmebr/Documents/dist-demo-keep /c/Users/mmebr/Documents/CNN-demo/webui/client/dist-demo
+
+The demo client build is kept aside and copied back because its flag (`npm run build:demo`, below) lives on
+branch `claude/eager-khorana-7c8811`, not on main.
 
 The rebuilt database has no Library families until a grouping is saved: Library › Edit grouping ›
 compute › save, on a `--project` bridge started in `CNN-demo`. A sandbox would throw the grouping away.
@@ -252,7 +256,7 @@ The workflows, by hand in the browser:
 - **Not measured**: saving a chain as a template from Analyse (W2's middle step), and the report step of
   W1. Both are quick writes in normal use; walk them once by hand tomorrow before the session.
 
-## The client flag (`npm run build:demo`)
+## The client flag (`npm run build:demo`, branch claude/eager-khorana-7c8811 only)
 
 - **What it does:** `vite build --mode demo` writes `webui/client/dist-demo/`. A demo-only Vite plugin
   hides the Signal/Cross-channel switch and Corpus's *Cross-channel from …* button, and sends a typed
