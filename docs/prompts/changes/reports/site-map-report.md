@@ -166,3 +166,28 @@ a bridge without the channel's `.npy` it would log the read's 500; on a normal s
   what every read cost. A first open after a restart pays it once per view.
 - Level-3 columns of a dataset with few channels and a long name stretch to fit the name (pre-existing; e.g. CO_fs2, 4 ch).
 - Unit of the signal strip is not shown (see Assumed).
+
+## Fix round (critic: "merge after fixes", no blockers)
+
+1. **The level cache is bounded by size.** `LEVEL_CACHE_BYTES = 16_000_000` of summed compact JSON (memory runs ~3–4×
+   the JSON, so ~50–60 MB held), plus the old cap of 48 views. Least recently read views go first. A view bigger than the
+   whole budget is served and not kept. `level_status()` now reports `bytes`. The old "~0.3-1 MB" comment is corrected
+   (a 1 h level-1 timeline of M2_aug is ~2.9 MB of JSON, ~10 MB in memory). Test:
+   `test_the_level_cache_never_exceeds_its_byte_budget` (red in a35b844).
+2. **The stale-then-fresh test checks the new answer.** It now also asserts the fresh payload differs from the old one
+   and the totals move: a detection added to the newest run on the first channel raises the machine total by 1, and an
+   `interesting` verdict raises the human row by 1, at both levels (4 cases). These passed on the existing code: they
+   pin behaviour, they did not expose a bug.
+3. **The map warm has its own `try`** in `webui/server/discovery.py` `warm_last_scores` (the same single site), logged
+   with `log.exception("warming the map overview failed; …")`, so a failure there can no longer skip the template-score
+   warm.
+4. **No fingerprint while a recompute is in flight.** `_level` answers the held view marked stale without
+   fingerprinting while that view's recompute is in flight, as `overview` does.
+5. **The level-2 wrap marks stale.** Its `data-stale` reads `m.loading || data.stale`.
+6. **No array spreads into `Math.min` / `Math.max`.** `SignalStrip` uses `extentOf` and the timeline uses `maxOf`, both
+   from `kit/extent.ts`. Source checks added (red in fa731e7).
+
+Gates: `tsc -b` and `vite build` pass. Conda: 47 passed (counts, order, detection_map, map_cache, import boundaries).
+`webui/.venv`: `test_webui_site_map_levels` 9 passed. `test_webui_discovery_map` (level 3, code unchanged here) has
+`read_ms < 100` asserts that flaked on this loaded machine (101–167 ms). In separate runs a different case failed each
+time, and the same failure shows on the pre-fix HEAD. Worth re-running on a quiet machine at the gate.
