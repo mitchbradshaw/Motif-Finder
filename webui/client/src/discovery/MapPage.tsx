@@ -299,10 +299,40 @@ function MutedCell({ row, cell, shade, as }: { row: DiscMapRow; cell: DiscMapCel
   return <i className={cx('dsc-map-mcell', as, cell.state)} style={{ background: fill(row, cell, shade) }} data-testid="map-cell-muted" />
 }
 
+/* ------------------------------------------------------------------ level 3's top scrollbar */
+/** night-disc item 4: a thin horizontal scrollbar ABOVE the level-3 table (the researcher: the table's own bar is at the
+ *  bottom of a tall block, out of sight), synced both ways with the table's horizontal scroll. Its inner width is chosen
+ *  so the two have the same scroll range (the table's vertical scrollbar narrows its client width); a ResizeObserver
+ *  keeps it in step when datasets or rows are hidden or the window changes. The row labels stay sticky on the left. */
+function TopScrollbar({ target }: { target: React.RefObject<HTMLDivElement | null> }) {
+  const bar = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ inner: 0, overflow: false })
+  useEffect(() => {
+    const t = target.current, b = bar.current
+    if (!t || !b) return
+    const measure = () => setSize({ inner: t.scrollWidth - t.clientWidth + b.clientWidth, overflow: t.scrollWidth > t.clientWidth + 1 })
+    const fromTable = () => { if (Math.abs(b.scrollLeft - t.scrollLeft) > 1) b.scrollLeft = t.scrollLeft }
+    const fromBar = () => { if (Math.abs(t.scrollLeft - b.scrollLeft) > 1) t.scrollLeft = b.scrollLeft }
+    t.addEventListener('scroll', fromTable, { passive: true })
+    b.addEventListener('scroll', fromBar, { passive: true })
+    const ro = new ResizeObserver(measure)
+    ro.observe(t)
+    if (t.firstElementChild) ro.observe(t.firstElementChild)
+    measure()
+    return () => { t.removeEventListener('scroll', fromTable); b.removeEventListener('scroll', fromBar); ro.disconnect() }
+  }, [target])
+  return (
+    <div ref={bar} className={cx('dsc-map-topscroll', !size.overflow && 'fits')} data-testid="map-top-scroll" data-overflow={size.overflow ? '1' : '0'} aria-hidden>
+      <div style={{ width: size.inner }} />
+    </div>
+  )
+}
+
 /* ------------------------------------------------------------------ level 3: datasets × channels */
 function DatasetsLevel({ norm, view, onDataset }: { norm: Norm; view: MapView; onDataset: (key: string, name: string) => void }) {
   const m = useSourced(getMap, [])
   const data = m.data
+  const wrapRef = useRef<HTMLDivElement>(null)
   const cellsOf = useMemo(() => (key: string) => data ? data.datasets.flatMap(d => Object.values(d.cells[key] ?? {})) : [], [data])
   const shade = useShades(data?.rows ?? [], cellsOf, norm)
   // map-overview-cache: the overview is the bridge's last answer; while it is behind (none yet, or from before the
@@ -365,7 +395,8 @@ function DatasetsLevel({ norm, view, onDataset }: { norm: Norm; view: MapView; o
   return (
     <>
       <Refreshing on={m.loading || behind} testid="map-refreshing" label={data.running ? 're-counting · a run is still going' : data.stale ? `re-counting · this map is from before the last change${data.stale_since ? ` (${new Date(data.stale_since).toLocaleTimeString()})` : ''}` : 're-counting every session’s runs'} />
-      <div className="dsc-map-wrap" data-stale={behind ? '1' : '0'} data-testid="map-wrap">
+      <TopScrollbar target={wrapRef} />
+      <div ref={wrapRef} className="dsc-map-wrap" data-stale={behind ? '1' : '0'} data-testid="map-wrap">
         <table className="dsc-map-table" data-testid="map-table">
           <thead>
             <tr>

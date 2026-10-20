@@ -148,6 +148,17 @@ export const putScopeLink = (body: { recording: string; channels: string[]; sect
     return p
   })
 
+/** night-disc item 3: a change of recording, and nothing else. The bridge opens that recording's own session AS IT WAS
+ *  LEFT (its channels and its section), or builds one with its own defaults when there is none. Sending the first three
+ *  channels and 0–174 h with it (as the Scope card did) wrote those defaults OVER the target session's saved scope —
+ *  "demo · talk" became 3 channels × 174 h and its seed search found 49 instead of 155. */
+export const putRecording = (recording: string) =>
+  putDiscoverySession({ recording }).then(p => {
+    RECORDINGS = p.recordings.map(toRecording)
+    SCOPE = { channels: p.session.channels, section: p.session.section }
+    return p
+  })
+
 /** The session's channels and section, for a read whose fixture signature does not carry them. */
 async function scope(): Promise<{ channels: string[]; section: [number, number] }> {
   if (SCOPE) return SCOPE
