@@ -446,3 +446,5 @@
 .dsc-map-trow.dsc-map-signal { height: auto; min-height: 22px; margin-bottom: 4px; }
 .dsc-map-trow.dsc-map-signal .dsc-map-tsvg { border: 1px solid var(--border); border-radius: 3px; }
 .dsc-map-signal-note { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+/* the 2 px border-spacing between header cells would let scrolled rows show through the sticky header: close it */
+.dsc-map-table thead th { box-shadow: 0 0 0 2px var(--card); }

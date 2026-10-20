@@ -1,0 +1,194 @@
+[
+ {
+  "page": "discovery.map",
+  "state": "site-map-datasets-scroll-to-the-last-column",
+  "hash": "discovery/map",
+  "_why": "site-map item 2: the datasets view scrolls inside its card both ways; scrolled to the far right and down, the row labels and both header rows stay in view (sticky), so no column is out of reach",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"map-cell\"][data-state=\"covered\"]",
+     60000
+    ]
+   },
+   {
+    "eval": "(() => { const w = document.querySelector('[data-testid=\"map-wrap\"]'); w.scrollLeft = w.scrollWidth; w.scrollTop = 200 })()"
+   },
+   {
+    "wait": 300
+   }
+  ],
+  "expect": [
+   "[data-testid=\"map-wrap\"]",
+   "[data-testid=\"map-rsort\"]",
+   "[data-testid=\"map-csort\"]",
+   "th.dsc-map-rowlabel",
+   "th.corner"
+  ],
+  "settle_ms": 900
+ },
+ {
+  "page": "discovery.map",
+  "state": "site-map-hide-the-human-row-from-its-label",
+  "hash": "discovery/map",
+  "_why": "site-map item 3: the x on a row label hides it; the row sinks to the bottom drawn thin and dimmed, with a show button, the hidden line appears, and the URL keeps it (hide=)",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"map-cell\"][data-state=\"covered\"]",
+     60000
+    ]
+   },
+   {
+    "hover": "[data-testid=\"map-row-human\"]"
+   },
+   {
+    "click": "[data-testid=\"map-row-hide-human\"]"
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"map-row-show-human\"]",
+     10000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"map-row-hidden\"] [data-testid=\"map-row-show-human\"]",
+   "[data-testid=\"map-hidden-line\"]",
+   "[data-testid=\"map-show-all\"]"
+  ],
+  "expect_hash": [
+   "hide=human"
+  ],
+  "settle_ms": 900
+ },
+ {
+  "page": "discovery.map",
+  "state": "site-map-hidden-and-sorted-from-a-link",
+  "hash": "discovery/map?hide=human&hidecols=M2_aug_concat_fs1%2FCH1_A1&rsort=cluster&csort=count",
+  "_why": "site-map items 3-4 from the URL: the human row at the bottom, M2_aug CH1_A1 narrow and dimmed at the right of its dataset with a + to bring it back; rows clustered, columns by most detections",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"map-cell\"][data-state=\"covered\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"map-row-show-human\"]",
+   "[data-testid=\"map-col-show-M2_aug_concat_fs1/CH1_A1\"]",
+   "[data-testid=\"map-hidden-line\"]",
+   "[data-testid=\"map-cell-muted\"]",
+   "[data-testid=\"map-row\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"discovery-load-failed\"]"
+  ],
+  "settle_ms": 900
+ },
+ {
+  "page": "discovery.map",
+  "state": "site-map-show-all-brings-everything-back",
+  "hash": "discovery/map?hide=human&hidecols=M2_aug_concat_fs1&rsort=name",
+  "_why": "site-map item 3: a whole dataset hidden at level 3 sits at the far right; show all brings it and the human row back into their places",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"map-cell\"][data-state=\"covered\"]",
+     60000
+    ]
+   },
+   {
+    "wait_for": [
+     "[data-testid=\"map-col-show-M2_aug_concat_fs1\"]",
+     10000
+    ]
+   },
+   {
+    "click": "[data-testid=\"map-show-all\"]"
+   },
+   {
+    "wait": 500
+   }
+  ],
+  "expect": [
+   "[data-testid=\"map-dataset-M2_aug_concat_fs1\"]",
+   "[data-testid=\"map-row-human\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"map-hidden-line\"]",
+   "[data-testid=\"map-row-hidden\"]"
+  ],
+  "settle_ms": 900
+ },
+ {
+  "page": "discovery.map",
+  "state": "site-map-dataset-level-hidden-channel-clustered",
+  "hash": "discovery/map?dataset=M2_aug_concat_fs1&chunks=2&hidecols=M2_aug_concat_fs1%2FCH2_A1&csort=cluster&rsort=count",
+  "_why": "site-map items 3-4 at level 2: channels clustered with each channel's two slices moving as one, CH2_A1 narrow at the right with a +, rows by most detections",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"map-card\"][data-level=\"2\"] [data-testid=\"map-cell\"][data-state=\"covered\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"map-col-show-M2_aug_concat_fs1/CH2_A1\"]",
+   "[data-testid=\"map-channel-CH1_A1\"]",
+   "[data-testid=\"map-csort\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"map-channel-CH2_A1\"]"
+  ],
+  "settle_ms": 900
+ },
+ {
+  "page": "discovery.map",
+  "state": "site-map-channel-signal-above-the-rows",
+  "hash": "discovery/map?dataset=M2_aug_concat_fs1&channel=CH1_A1&bin=24",
+  "_why": "site-map item 5: level 1 draws the channel's own hourly-mean trace above the rows, 150 px (the Signal page's trace height), on the rows' time axis; hovering it reads that bin's range",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"map-signal-path\"]",
+     60000
+    ]
+   },
+   {
+    "hover": "[data-testid=\"map-signal-strip\"] svg"
+   }
+  ],
+  "expect": [
+   "[data-testid=\"map-signal-strip\"][data-state=\"drawn\"]",
+   "[data-testid=\"map-signal\"]",
+   "[data-testid=\"map-timeline-row\"]",
+   "[data-testid=\"map-readout\"]:has-text(\"hourly means\")"
+  ],
+  "settle_ms": 900
+ },
+ {
+  "page": "discovery.map",
+  "state": "site-map-channel-hidden-row-sorted-signal-off",
+  "hash": "discovery/map?dataset=M2_aug_concat_fs1&channel=CH1_A1&bin=24&hide=human&rsort=count&signal=0",
+  "_why": "site-map items 3-5 at level 1: the human row thin at the bottom with its show button, the rest by most detections, the signal strip off",
+  "actions": [
+   {
+    "wait_for": [
+     "[data-testid=\"map-timeline\"] [data-testid=\"map-bin\"]",
+     60000
+    ]
+   }
+  ],
+  "expect": [
+   "[data-testid=\"map-timeline-row-hidden\"][data-row=\"human\"]",
+   "[data-testid=\"map-row-show-human\"]"
+  ],
+  "expect_absent": [
+   "[data-testid=\"map-signal-strip\"]"
+  ],
+  "settle_ms": 900
+ }
+]
