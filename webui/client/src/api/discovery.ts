@@ -25,6 +25,7 @@ import { heldOutLocked } from '../shell/heldOutLock'
 import type { GlyphKind, Role } from '../fixtures/discovery'
 import { getDiscoverySeedPicker, type DiscSeedGrouping, type DiscSeedPickerQuery } from '../api'
 import { keepDiscoverySeedMatches } from '../api'
+import { getDiscoveryRunUnjudged, type DiscRunUnjudged } from '../api'
 import { PEEK_GIVE_UP_MS, PEEK_POLL_MS, peekPreview } from './seedPeek'
 
 export type { GlyphKind, Role, RunKind, SeedSource } from '../fixtures/discovery'
@@ -226,6 +227,12 @@ export interface ScoreRun { run: string; total: ScoreRow; channels: (ScoreRow & 
 export function getScoreboard(runKeys: string[], channels: string[], section: [number, number]): Promise<Sourced<ScoreRun[]>> {
   return live(getDiscoveryScoreboard(runKeys.filter(k => k !== 'human'), channels, section[0], section[1]))
 }
+
+/** site-runs item 4: the Send button's count, from a read of its own — the run's real detections (surrogates left
+ *  out) that carry no verdict, over the whole run, which is what *Send* puts in the queue. It never waits on the
+ *  scoreboard (461 s cold over the real session). */
+export type RunUnjudged = DiscRunUnjudged
+export const getRunUnjudged = (runKey: string): Promise<Sourced<RunUnjudged>> => live(getDiscoveryRunUnjudged(runKey))
 
 /* ------------------------------------------------------------------ browse detections */
 export interface Detection {

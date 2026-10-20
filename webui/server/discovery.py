@@ -4476,6 +4476,33 @@ def _send_picked(c, s, row, run_key, detection_ids):
                      "detections, and a verdict in Review moves this page's scoreboard like any other")}
 
 
+@router.get("/api/discovery/runs/{run_key}/unjudged")
+def get_run_unjudged(request: Request, run_key: str):
+    """site-runs item 4: *Send N unjudged to Review*'s N, from a read of its own. The button read it off the
+    scoreboard, which took 461 s cold over the real session (16 channels x 52 runs, 721 h), and printed 0 until
+    then. This counts the run's real detections (`_run_ids`, which leaves the paired surrogates out) and the ones
+    with an adjudication, over the WHOLE run — what *Send* puts in the queue, a filter over those run ids. Two
+    COUNTs, no scoring. Review's own count after the send (overlap sets, verdicts carried over) is the toast's."""
+    c = _conn(request)
+    try:
+        s = _session(c)
+        row = _dr_by_key(c, s["id"], run_key)
+        ids = _run_ids(c, row) if row["run_group_id"] else []
+        if not ids:
+            return {"run_key": run_key, "found": 0, "judged": 0, "unjudged": 0,
+                    "note": f"{run_key} has no runs recorded, so it has nothing to send"}
+        marks = ",".join(str(int(i)) for i in ids)
+        base = ("FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.id IN (" + marks + ") AND "
+                + q.not_surrogate("r"))
+        found = int(c.execute("SELECT COUNT(*) " + base).fetchone()[0])
+        judged = int(c.execute("SELECT COUNT(*) " + base.replace("FROM detections d",
+                               "FROM detections d JOIN adjudications a ON a.detection_id = d.id", 1)).fetchone()[0])
+        return {"run_key": run_key, "found": found, "judged": judged, "unjudged": max(0, found - judged),
+                "note": "the run's detections with no verdict, over the whole run — what Send puts in the queue"}
+    finally:
+        c.close()
+
+
 @router.post("/api/discovery/runs/{run_key}/review")
 def send_to_review(request: Request, run_key: str, body: ReviewBody):
     """§7.4's *Send N unjudged to Review* (P20): a named Review queue over this

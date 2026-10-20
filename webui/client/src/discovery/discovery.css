@@ -407,3 +407,8 @@
 /* the fires card's "not run here" row: hatched, with the words, never a row of zeros */
 .dsc-fires-notrun { height: 11px; display: flex; align-items: center; padding-left: 6px; font-size: 9.5px; color: var(--muted);
   background: repeating-linear-gradient(45deg, transparent 0 4px, var(--grey-100) 4px 7px); border-radius: 2px; }
+
+/* site-runs item 3: the scoreboard shows at most ten run rows (RunsPage SCORE_ROWS_VISIBLE sets max-height off the
+   drawn rows) and scrolls past them; the header row stays on top */
+.dsc-score-scroll { overflow-y: auto; }
+.dsc-score-scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--card); }

@@ -8,6 +8,7 @@ import { useDemoState, useQueryState } from '../kit'
 import { applyDiscoveryTemplates } from '../api'
 import { useToast } from '../shell/Toast'
 import { resolveScopeLink, scopeFromSession } from './scopeLink'
+import { scoreKey, scoresFor, type KeyedScores } from './scoreRead'
 
 /** The template `?state=running` applies. `mp_threshold` is the cheapest of the
  *  nine canonical detection templates on a short span. */
@@ -52,7 +53,8 @@ export interface Discovery {
   stale: boolean; setStale: (v: boolean) => void
   pending: DiscoveryRun[]; estimateMin: number; overLimit: boolean
   chPage: number; setChPage: (p: number) => void; pageCount: number; visibleChannels: string[]
-  scores: ScoreRun[] | null; foundOf: (key: string) => number | null
+  /** null until the scoreboard has answered for the runs and scope on screen (site-runs item 4) */
+  scores: ScoreRun[] | null; scoresLoading: boolean; foundOf: (key: string) => number | null
   sectionH: number
 }
 
@@ -206,9 +208,16 @@ export function useDiscovery(): Discovery {
   const visibleChannels = scope ? scope.channels.slice((chPage - 1) * PAGE_SIZE, chPage * PAGE_SIZE) : []
 
   const doneKeys = runs.filter(hasResults).map(r => r.key)
-  const scoreRead = useSourced(() => scope ? getScoreboard(doneKeys, scope.channels, scope.section) : Promise.resolve({ data: [] as ScoreRun[], source: 'demo' as const }),
-    [doneKeys.join(','), scope?.channels.join(','), scope?.section.join(',')])
-  const foundOf = useMemo(() => (key: string) => scoreRead.data?.find(s => s.run === key)?.total.found ?? null, [scoreRead.data])
+  /* site-runs item 4: an answer is tagged with the key it was read for (./scoreRead.ts), and no read goes out
+   * before the runs are in — the empty first answer used to stand on screen as "no finished run" and "Send 0"
+   * for the minutes the real read took. Until the answer for THESE runs lands, `scores` is null. */
+  const wantKey = scope && base.data ? scoreKey(doneKeys, scope.channels, scope.section) : ''
+  const scoreRead = useSourced<KeyedScores<ScoreRun> | null>(() => scope && base.data
+    ? getScoreboard(doneKeys, scope.channels, scope.section).then(r => ({ ...r, data: { key: wantKey, rows: r.data } }))
+    : Promise.resolve({ data: null, source: 'live' as const }),
+    [wantKey])
+  const scores = wantKey ? scoresFor(scoreRead.data, wantKey) : null
+  const foundOf = useMemo(() => (key: string) => scores?.find(s => s.run === key)?.total.found ?? null, [scores])
 
   const loading = sess.loading || base.loading
   const firstLoad = loading && (sess.data === null || base.data === null)
@@ -221,7 +230,7 @@ export function useDiscovery(): Discovery {
     runs, patchRun, picks, setPicks, togglePick, shown, isShown, toggleShown, setShown, stale, setStale,
     pending, estimateMin, overLimit: estimateMin > DISCOVERY_LIMIT_MIN,
     chPage, setChPage: p => setChPageQ(String(p)), pageCount, visibleChannels,
-    scores: scoreRead.data, foundOf, sectionH,
+    scores, scoresLoading: scoreRead.loading, foundOf, sectionH,
   }
 }
 
