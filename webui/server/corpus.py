@@ -421,11 +421,13 @@ COVERAGE_SETTINGS = (("analysis-defaults", "iou"), ("analysis-defaults", "onset"
 DISK_CACHE_DIR: str | None = None
 
 
-def _disk_path(key) -> str | None:
+def _disk_path(key, kind: str = "coverage") -> str | None:
+    """`<runtime root>/cache/<kind>/<sha1 of the key>.json`: `coverage` for the corpus maps, `map` for Discovery ›
+    Map's overview (map-overview-cache shares these helpers rather than keeping a second copy)."""
     if not DISK_CACHE_DIR:
         return None
     import hashlib
-    return os.path.join(DISK_CACHE_DIR, "coverage", hashlib.sha1(repr(key).encode("utf-8")).hexdigest() + ".json")
+    return os.path.join(DISK_CACHE_DIR, kind, hashlib.sha1(repr(key).encode("utf-8")).hexdigest() + ".json")
 
 
 def _disk_read(key, fp):
@@ -443,8 +445,8 @@ def _disk_read(key, fp):
     return held.get("payload")
 
 
-def _disk_write(key, fp, out):
-    path = _disk_path(key)
+def _disk_write(key, fp, out, kind: str = "coverage"):
+    path = _disk_path(key, kind)
     if not path:
         return
     try:
@@ -541,10 +543,10 @@ def _coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = N
     return _CM.compute_conn(conn, source_file, bins=bins, verdicts=verdicts, run_ids=run_ids, method=method, **kw)
 
 
-def _disk_read_any(key):
+def _disk_read_any(key, kind: str = "coverage"):
     """The map kept on disk for `key` whatever state it was computed from: `(stable fingerprint, payload)`, or None.
     The last known map a stale read serves."""
-    path = _disk_path(key)
+    path = _disk_path(key, kind)
     if not path or not os.path.isfile(path):
         return None
     try:
@@ -687,6 +689,22 @@ def shutdown_coverage_pool():
         _WORK["pending"].clear()
     if pool is not None:
         _terminate(pool)
+    for fn in list(_ON_STOP):
+        try:
+            fn()
+        except Exception:
+            logging.getLogger("webui.corpus").exception("a worker-stop hook failed")
+
+
+#: called by `shutdown_coverage_pool` after the worker stops (map-overview-cache: Discovery › Map's overview closes
+#: its change-counter connection there, so the runtime's `restore()` releases the sandbox copy)
+_ON_STOP: list = []
+
+
+def on_worker_stop(fn):
+    """Register `fn()` to run whenever the shared worker is stopped (`shutdown_coverage_pool`). Idempotent."""
+    if fn not in _ON_STOP:
+        _ON_STOP.append(fn)
 
 
 def _schedule(key, job) -> bool:
@@ -710,40 +728,55 @@ def _schedule(key, job) -> bool:
 def _run(job):
     """One recompute: `(stable fingerprint of the state it read, map)`. In the worker process, else (no pool, or it
     broke) on this thread with a yield between channels."""
-    from concurrent.futures import TimeoutError as FutureTimeout
-    from concurrent.futures.process import BrokenProcessPool
     args = dict(bins=job["bins"], verdicts=job["verdicts"], run_ids=job["run_ids"], method=job["method"],
                 held_out=job["held_out"])
+
+    def here():
+        conn = _CM.connect_read_only(job["db_path"])
+        try:
+            return _CM.fingerprinted(conn, job["source_file"], COVERAGE_SETTINGS, _coverage,
+                                     between_channels=lambda: wait_for_quiet(), **args)
+        finally:
+            conn.close()
+    mode, out = run_in_worker(_CM.compute_fingerprinted, job["db_path"], job["source_file"], COVERAGE_SETTINGS,
+                              fallback=here, what=f"the corpus map for {job['source_file']}", **args)
+    _WORK["mode"] = mode
+    return out
+
+
+def run_in_worker(fn, *args, fallback, what: str, **kw):
+    """``(mode, fn(*args, **kw))`` computed in the bridge's one worker process (`coverage_pool`), or
+    ``("thread", fallback())`` on the calling thread when there is no pool or it broke. The one place a recompute
+    meets the pool: the corpus maps (`_run`) and Discovery › Map's overview (`discovery_map`, map-overview-cache)
+    both come through here, so there is one pool, one timeout and one stop for both. `fn` must be a top-level core
+    function (the child imports `Working` only). Raises `_Stopped` when the worker was stopped on purpose meanwhile
+    (nothing is kept, nothing is a failure), and a RuntimeError when the worker hung past `RESULT_TIMEOUT_S`."""
+    from concurrent.futures import CancelledError
+    from concurrent.futures import TimeoutError as FutureTimeout
+    from concurrent.futures.process import BrokenProcessPool
     log = logging.getLogger("webui.corpus")
     gen = _POOL["gen"]
     pool = coverage_pool()
     if pool is not None:
         try:
-            fut = pool.submit(_CM.compute_fingerprinted, job["db_path"], job["source_file"], COVERAGE_SETTINGS, **args)
+            fut = pool.submit(fn, *args, **kw)
         except RuntimeError as exc:          # shut down between `coverage_pool()` and here
             raise _Stopped(str(exc)) from exc
         try:
-            out = fut.result(timeout=RESULT_TIMEOUT_S)
-            _WORK["mode"] = "process"
-            return out
+            return "process", fut.result(timeout=RESULT_TIMEOUT_S)
         except FutureTimeout:
-            log.warning("corpus maps: the worker did not finish %s in %.0f s; it is replaced", job["source_file"],
-                        RESULT_TIMEOUT_S)
+            log.warning("worker: %s did not finish in %.0f s; the worker is replaced", what, RESULT_TIMEOUT_S)
             shutdown_coverage_pool()
             raise RuntimeError(f"the worker process did not finish within {RESULT_TIMEOUT_S:.0f} s and was stopped")
+        except CancelledError as exc:        # queued behind another job when the pool was shut down
+            raise _Stopped("the worker was stopped") from exc
         except BrokenProcessPool as exc:
             if _POOL["gen"] != gen:
                 raise _Stopped("the worker was stopped") from exc
-            log.warning("corpus maps: the worker process died (%s); this map is recomputed on a background thread and "
-                        "the next one starts a fresh worker", exc)
+            log.warning("worker: the worker process died (%s); %s is recomputed on a background thread and the next "
+                        "job starts a fresh worker", exc, what)
             shutdown_coverage_pool()
-    _WORK["mode"] = "thread"
-    conn = _CM.connect_read_only(job["db_path"])
-    try:
-        return _CM.fingerprinted(conn, job["source_file"], COVERAGE_SETTINGS, _coverage,
-                                 between_channels=lambda: wait_for_quiet(), **args)
-    finally:
-        conn.close()
+    return "thread", fallback()
 
 
 def _drain():

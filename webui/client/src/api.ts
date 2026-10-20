@@ -564,6 +564,10 @@ export interface DiscMap {
   rows: DiscMapRow[]; datasets: DiscMapDataset[]
   withoutRuns: { file: string; key: string; name: string; hours: number }[]; heldOutOmitted: string[]
   session: DiscMapSession
+  /** map-overview-cache: the bridge answers the last overview it computed and recomputes behind it. `pending` — none
+   *  computed yet (rows and datasets are empty, not zero counts); `stale` — the overview is from before the last
+   *  change (`stale_since`, UTC) and a recompute is under way; `running` — a Discovery run is still going */
+  pending?: boolean; stale?: boolean; stale_since?: string; running?: boolean; read_ms?: number
 }
 export interface DiscMapDatasetLevel {
   rows: DiscMapRow[]; file: string; key: string; name: string; hours: number; fs: number; chunks: number
