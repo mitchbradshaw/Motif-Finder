@@ -224,3 +224,34 @@ def test_f6_the_starting_request_never_waits_past_calibration_wait_s_while_the_c
         out = chain.route_local(recipe, 20_000, 1.0, ceiling_s=900)
         waited = _t.time() - t0
     assert waited < 2.0 and out["route"] == "unknown", (waited, out["route"])
+
+
+# ── gate round (2026-10-20, merged main d3ce03c) ─────────────────────────────────────────────────────────────────
+
+def test_g1_a_run_waits_for_a_quick_model_another_request_started_and_is_routed_without_a_409(fresh, monkeypatch):
+    """G1: zz_analyse_run › fixup-j-dehshibi-funnel. The validate after *use example* started timing
+    preprocessing.wavelet_transform (uncalibrated in the real file); the Run click that followed found it running and,
+    since the first fix, did not wait — POST /api/runs answered 409 "calibrating" and the run never started. A run
+    now waits for a timing in flight up to RUN_CALIBRATION_WAIT_S (its own bound) before it answers; a stand-in child
+    that takes ~12 s lands inside it."""
+    import time as _t
+    chain, block_cost, path = fresh
+    from server import calibrate_child
+    from Working.recipes import make_recipe
+    monkeypatch.setattr(chain, "CALIBRATION_WAIT_S", 1.0)
+    monkeypatch.setattr(chain, "_child_call", lambda name, module: (calibrate_child.calibrate_in_child, (name, module, 12.0)))
+    recipe = make_recipe(1, [{"stage": "preprocessing", "algorithm": "invert", "params": {}}], span=[0, 20_000])
+    validate = chain.route_local(recipe, 20_000, 1.0, ceiling_s=900)
+    assert validate["route"] == "unknown" and validate["calibrating"] == [0], "the validate starts it and answers"
+    t0 = _t.time()
+    run = chain.route_local(recipe, 20_000, 1.0, ceiling_s=900, wait_s=chain.RUN_CALIBRATION_WAIT_S)
+    assert run["route"] == "local" and run["calibrating"] == [], run
+    assert _t.time() - t0 < chain.RUN_CALIBRATION_WAIT_S
+    assert chain.RUN_CALIBRATION_WAIT_S >= 30
+
+
+def test_g1_post_runs_asks_route_local_for_the_longer_wait():
+    src = open(os.path.join(WEBUI_DIR, "server", "app.py"), encoding="utf-8").read()
+    run = src[src.index('@app.post("/api/runs")'):]
+    run = run[:run.index("@app.", 10)]
+    assert "wait_s=chain_mod.RUN_CALIBRATION_WAIT_S" in run, "POST /api/runs waits the run's own bound for a timing"

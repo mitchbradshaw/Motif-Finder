@@ -203,3 +203,21 @@ def test_f5_one_channel_is_never_marked_own_scale_and_fits_the_block():
     assert one["rows"][0]["ownScale"] is False and one["rows"][0]["px"] <= BLOCK
     same = _node(f"M.overlayGains([2, 2, 2], {LANE}, {BLOCK}, {GAIN_LANES})")
     assert not any(r["ownScale"] for r in same["rows"])
+
+
+def test_g2_a_shared_gain_lane_is_drawn_inside_the_block_wherever_its_lane_sits():
+    """G2: site-x-co-own-scale — after the lower median, CO CH4 (0.244 mV against CH3's 0.19) fits the block at the
+    shared gain but, centred on the bottom lane, ran 46 px below it. fitCentre nudges a lane's drawing origin so its
+    whole drawn extent stays inside [0, block]; the gain (and so the comparison of heights) is unchanged."""
+    H, lane = 420.0, 100.0
+    # CO-like: each channel's (hi - mean, mean - lo) in mV, top lane first
+    ext = [(0.07, 0.08), (20.0, 14.97), (0.09, 0.10), (0.12, 0.124)]
+    spans = [u + d for u, d in ext]
+    g = _node(f"M.overlayGains({json.dumps(spans)}, {lane}, {H}, {GAIN_LANES})")
+    for i, (u, d) in enumerate(ext):
+        r = g["rows"][i]
+        c = _node(f"M.fitCentre({10 + lane * (i + 0.5)}, {u}, {d}, {r['pxPerUnit']}, {H})")
+        assert c - u * r["pxPerUnit"] >= -1e-6 and c + d * r["pxPerUnit"] <= H + 1e-6, (i, c, r)
+    assert _node("M.fitCentre(60, 0.01, 0.01, 100, 420)") == 60, "a lane that fits stays on its centre"
+    src = _read("explore", "Overlay.tsx")
+    assert "fitCentre(" in src
