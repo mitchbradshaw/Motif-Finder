@@ -12,15 +12,24 @@
  * on the session's recording, on one of its channels and inside its section; otherwise the readout says why not.
  *
  * URL keys are `dataset` / `channel` / `bin` / `chunks` / `norm` — `recording` and `channels` are the
- * session's own deep-link keys (session.ts) and must not be touched by this page. */
+ * session's own deep-link keys (session.ts) and must not be touched by this page.
+ *
+ * site-map (2026-10-20): every row and column can be hidden from its label — `hide=` (row keys) and `hidecols=`
+ * (`<dataset key>` or `<dataset key>/<channel>`) — and a hidden one is not removed: it sinks to the bottom (a row)
+ * or to the right of its dataset (a column), drawn thin and dimmed with a button that brings it back to where the
+ * current order puts it (the researcher, 2026-10-20). `rsort=` / `csort=` order the shown rows and columns as listed,
+ * by name, by most detections or by clustering (`mapOrder.ts`); hidden ones are left out of the ordering. The table
+ * scrolls inside the card with its row labels and header rows sticky. Level 1 draws the channel's own signal above
+ * its rows (`signal=0` turns it off) from the scope strip's hourly-mean read. */
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Breadcrumb, Button, EmptyState, Icon, InfoTip, Seg, cx, useQueryState } from '../kit'
 import { Header } from '../shell/Header'
 import { navigate } from '../state'
 import { useSourced, type SourcedState } from '../api/seam'
-import { getMap, getMapChannel, getMapDataset } from '../api/discovery'
+import { getMap, getMapChannel, getMapDataset, getOverview } from '../api/discovery'
 import type { DiscMapCell, DiscMapRow, DiscMapState, DiscMapTimeline } from '../api'
 import { LoadFailed, Loading, Refreshing } from './chrome'
+import { arrange, splitKeys, toggleKey, type SortMode } from './mapOrder'
 
 /* ux-1018: a level answered only its first read. A run finishing or a verdict landing changed nothing on screen,
  * and a new slice count drew the OLD payload until the next read landed, with nothing to say a read was out — which
@@ -116,7 +125,58 @@ function rowTitle(row: DiscMapRow): string {
   return bits.join(' · ')
 }
 
+/* ------------------------------------------------------------------ hide / sort (site-map) */
+const ROW_SORTS: { value: SortMode; label: string; title: string }[] = [
+  { value: 'listed', label: 'as listed', title: 'templates, then seed searches, by name — the order the bridge lists them' },
+  { value: 'name', label: 'name', title: 'alphabetical, numbers compared as numbers' },
+  { value: 'count', label: 'most detections', title: 'most detections over the shown cells first' },
+  { value: 'cluster', label: 'cluster', title: 'rows that fire alike side by side: average-linkage clustering on the correlation of their shaded rates over the shown cells' },
+]
+const COL_SORTS: { value: SortMode; label: string; title: string }[] = [
+  { value: 'listed', label: 'as recorded', title: 'channel order as recorded' }, ROW_SORTS[1], ROW_SORTS[2],
+  { value: 'cluster', label: 'cluster', title: 'channels that light up alike side by side: average-linkage clustering on the correlation of their shaded rates over the shown rows' },
+]
+const SORT_VALUES: SortMode[] = ['listed', 'name', 'count', 'cluster']
+interface MapView {
+  hiddenRows: ReadonlySet<string>; hiddenCols: ReadonlySet<string>
+  toggleRow: (key: string) => void; toggleCol: (id: string) => void
+  rsort: SortMode; csort: SortMode
+}
+const colId = (datasetKey: string, channel: string) => `${datasetKey}/${channel}`
+const NOT_RUN: DiscMapCell = { count: 0, hours: 0, state: 'not_run' }
+
+/** The shown rows in the chosen order (the human row first), then the hidden ones in their listed order. */
+function orderRows(rows: DiscMapRow[], view: MapView, valuesOf: (r: DiscMapRow) => (number | null)[], countOf: (r: DiscMapRow) => number) {
+  const items = rows.map(r => ({ key: r.key, label: r.label, values: view.rsort === 'cluster' && !view.hiddenRows.has(r.key) ? valuesOf(r) : [], count: view.rsort === 'count' && !view.hiddenRows.has(r.key) ? countOf(r) : 0 }))
+  const a = arrange(items, view.rsort, view.hiddenRows, 'human')
+  const by = new Map(rows.map(r => [r.key, r]))
+  return { shown: a.shown.map(k => by.get(k)!), hidden: a.hidden.map(k => by.get(k)!) }
+}
+
+/** One line above the table naming what is hidden, with a button that shows it all again. */
+function HiddenLine({ rows, cols, onShowAll }: { rows: string[]; cols: string[]; onShowAll: () => void }) {
+  if (!rows.length && !cols.length) return null
+  const bits = [rows.length ? `${rows.length} row${rows.length === 1 ? '' : 's'} (at the bottom)` : '', cols.length ? `${cols.length} column${cols.length === 1 ? '' : 's'} (at the right)` : ''].filter(Boolean)
+  return (
+    <div className="dsc-map-hidden" data-testid="map-hidden-line">
+      <Icon name="eye-off" size={12} /> hidden: {bits.join(' · ')} — each has a button on it to bring it back ·
+      <Button size="sm" variant="link" onClick={onShowAll} testid="map-show-all">show all</Button>
+    </div>
+  )
+}
+
 export function MapPage() {
+  const [hideQ, setHideQ] = useQueryState('hide', '')
+  const [hideColsQ, setHideColsQ] = useQueryState('hidecols', '')
+  const [rsortQ, setRsort] = useQueryState<SortMode>('rsort', 'listed')
+  const [csortQ, setCsort] = useQueryState<SortMode>('csort', 'listed')
+  const [signalQ, setSignalQ] = useQueryState('signal', '1')
+  const view: MapView = useMemo(() => ({
+    hiddenRows: new Set(splitKeys(hideQ)), hiddenCols: new Set(splitKeys(hideColsQ)),
+    toggleRow: (key: string) => setHideQ(toggleKey(hideQ, key)), toggleCol: (id: string) => setHideColsQ(toggleKey(hideColsQ, id)),
+    rsort: SORT_VALUES.includes(rsortQ) ? rsortQ : 'listed', csort: SORT_VALUES.includes(csortQ) ? csortQ : 'listed',
+  }), [hideQ, hideColsQ, rsortQ, csortQ, setHideQ, setHideColsQ])
+  const showAll = () => { setHideQ(null); setHideColsQ(null) }
   const [dataset, setDataset] = useQueryState('dataset', '')
   const [channel, setChannel] = useQueryState('channel', '')
   const [norm, setNorm] = useQueryState<Norm>('norm', 'row')
@@ -134,7 +194,7 @@ export function MapPage() {
     <>
       <Header workspace="Discovery" page="Map" subtitle="where each algorithm fires · every session · read-only" />
       <div className="k-page dsc-page" data-testid="discovery-map-page">
-        <div className="k-page-inner" style={{ maxWidth: 1600, gap: 12 }}>
+        <div className="k-page-inner" style={{ maxWidth: 'none', gap: 12 }}>
           <section className="k-card dsc-map" data-testid="map-card" data-level={level} aria-label="Detection map">
             <div className="dsc-card-head dsc-map-head">
               <h3>Detection map</h3>
@@ -149,11 +209,23 @@ export function MapPage() {
               {level !== 1 && <Seg size="sm" value={norm} onChange={v => setNorm(v)} label="shade" options={[{ value: 'row', label: 'per row', title: 'each row\'s busiest cell is 1' }, { value: 'map', label: 'whole map', title: 'the busiest machine cell on the map is 1; the human row stays per row' }]} testid="map-norm" />}
               {level === 2 && <Seg size="sm" value={String(chunks)} onChange={v => setChunksQ(v)} label="time chunks" options={CHUNK_OPTIONS.map(v => ({ value: v, label: v }))} testid="map-chunks" />}
               {level === 1 && <BinSeg value={String(binH)} onChange={v => setBinQ(v)} hours={crumbHours(crumbNames, dataset)} />}
+              {level === 1 && <Seg size="sm" value={signalQ === '0' ? '0' : '1'} onChange={v => setSignalQ(v)} label="signal" options={[{ value: '1', label: 'on', title: 'the channel\'s own trace (hourly means) above the rows, on their time axis' }, { value: '0', label: 'off' }]} testid="map-signal" />}
               <Button size="sm" variant="link" icon="arrow-left" onClick={() => navigate('discovery/runs')} testid="map-to-runs">Runs</Button>
             </div>
-            {level === 3 && <DatasetsLevel norm={norm} onDataset={(key, name) => { setCrumbNames(n => ({ ...n, [key]: name })); setDataset(key) }} />}
-            {level === 2 && <DatasetLevel dataset={dataset} chunks={chunks} norm={norm} onName={learn} onChannel={ch => setChannel(ch)} />}
-            {level === 1 && <ChannelLevel dataset={dataset} channel={channel} binH={binH} onName={learn} />}
+            <div className="dsc-card-head dsc-map-head dsc-map-orderbar">
+              <Seg size="sm" value={view.rsort} onChange={v => setRsort(v)} label="rows" options={ROW_SORTS} testid="map-rsort" />
+              {level !== 1 && <Seg size="sm" value={view.csort} onChange={v => setCsort(v)} label="columns" options={COL_SORTS} testid="map-csort" />}
+              <InfoTip title="Order and hide">
+                Rows: as listed, by name, most detections first, or clustered — rows that fire alike side by side (average-linkage clustering on
+                the correlation of their shaded rates). Columns sort the same way{level === 3 ? ', each dataset\'s channels within the dataset' : level === 2 ? ', a channel\'s time slices moving as one' : ''};
+                level 1's columns are time and do not sort. The human row stays first. Hover a row or column label for its × to hide it: it sinks
+                to the bottom (a row) or the right (a column), thin and dimmed, with a button to bring it back. Orders read only the shown cells. All of it is in the link.
+              </InfoTip>
+              <HiddenLine rows={[...view.hiddenRows]} cols={[...view.hiddenCols]} onShowAll={showAll} />
+            </div>
+            {level === 3 && <DatasetsLevel norm={norm} view={view} onDataset={(key, name) => { setCrumbNames(n => ({ ...n, [key]: name })); setDataset(key) }} />}
+            {level === 2 && <DatasetLevel dataset={dataset} chunks={chunks} norm={norm} view={view} onName={learn} onChannel={ch => setChannel(ch)} />}
+            {level === 1 && <ChannelLevel dataset={dataset} channel={channel} binH={binH} view={view} signal={signalQ !== '0'} onName={learn} />}
           </section>
         </div>
       </div>
@@ -201,12 +273,33 @@ function Cell({ row, cell, where, shade, share, onClick, wide }: { row: DiscMapR
   )
 }
 
-function RowLabel({ row }: { row: DiscMapRow }) {
-  return <th scope="row" className="dsc-map-rowlabel" title={rowTitle(row)} data-testid={`map-row-${row.key}`}><i className="sw" style={{ background: row.colour }} />{row.label}</th>
+/** A row's label, sticky at the left; its × hides the row (it sinks to the bottom), a hidden row's `show` brings it back. */
+function RowLabel({ row, hidden, onToggle }: { row: DiscMapRow; hidden?: boolean; onToggle: () => void }) {
+  return (
+    <th scope="row" className={cx('dsc-map-rowlabel', hidden && 'hidden')} title={rowTitle(row)} data-testid={`map-row-${row.key}`}>
+      <span className="dsc-map-rowin">
+        <span className="dsc-map-rowtext"><i className="sw" style={{ background: row.colour }} />{row.label}</span>
+        <HideButton hidden={hidden} what={row.label} kind="row" testid={hidden ? `map-row-show-${row.key}` : `map-row-hide-${row.key}`} onClick={onToggle} />
+      </span>
+    </th>
+  )
+}
+
+function HideButton({ hidden, what, kind, testid, onClick }: { hidden?: boolean; what: string; kind: 'row' | 'column' | 'dataset'; testid: string; onClick: () => void }) {
+  const title = hidden ? `show ${what} again, back in its place` : `hide ${what} — it moves to the ${kind === 'row' ? 'bottom' : 'right'}, thin and dimmed`
+  return (
+    <button type="button" className={cx('dsc-map-x', hidden && 'show')} title={title} aria-label={title} data-testid={testid}
+      onClick={e => { e.stopPropagation(); onClick() }}>{hidden ? (kind === 'row' ? 'show' : '+') : '×'}</button>
+  )
+}
+
+/** A cell of a hidden row or column: its shade kept, drawn small and dimmed, not clickable. */
+function MutedCell({ row, cell, shade, as }: { row: DiscMapRow; cell: DiscMapCell; shade: number; as: 'row' | 'col' }) {
+  return <i className={cx('dsc-map-mcell', as, cell.state)} style={{ background: fill(row, cell, shade) }} data-testid="map-cell-muted" />
 }
 
 /* ------------------------------------------------------------------ level 3: datasets × channels */
-function DatasetsLevel({ norm, onDataset }: { norm: Norm; onDataset: (key: string, name: string) => void }) {
+function DatasetsLevel({ norm, view, onDataset }: { norm: Norm; view: MapView; onDataset: (key: string, name: string) => void }) {
   const m = useSourced(getMap, [])
   const data = m.data
   const cellsOf = useMemo(() => (key: string) => data ? data.datasets.flatMap(d => Object.values(d.cells[key] ?? {})) : [], [data])
@@ -215,8 +308,29 @@ function DatasetsLevel({ norm, onDataset }: { norm: Norm; onDataset: (key: strin
   // last change, or a run still going) the chip says so and the level re-reads until the recompute lands
   const behind = !!data && !!(data.pending || data.stale)
   useMapRefresh(m, behind)
+  // site-map: the order of rows and of each dataset's channels, reading only the shown cells
+  const layout = useMemo(() => {
+    if (!data) return null
+    const cellOf = (d: typeof data.datasets[number], rowKey: string, ch: string) => d.cells[rowKey]?.[ch] ?? NOT_RUN
+    const shownDs = data.datasets.filter(d => !view.hiddenCols.has(d.key))
+    const hiddenDs = data.datasets.filter(d => view.hiddenCols.has(d.key))
+    const shownRowKeys = data.rows.filter(r => !view.hiddenRows.has(r.key)).map(r => r.key)
+    const cols = new Map(shownDs.map(d => {
+      const items = d.channels.map(c => ({
+        key: colId(d.key, c.name), label: c.name,
+        values: view.csort === 'cluster' ? shownRowKeys.map(k => rateOf(cellOf(d, k, c.name))) : [],
+        count: shownRowKeys.reduce((s, k) => s + cellOf(d, k, c.name).count, 0),
+      }))
+      const a = arrange(items, view.csort, view.hiddenCols)
+      const byId = new Map(d.channels.map(c => [colId(d.key, c.name), c]))
+      return [d.key, { shown: a.shown.map(k => byId.get(k)!), hidden: a.hidden.map(k => byId.get(k)!) }] as const
+    }))
+    const shownCells = (r: DiscMapRow) => shownDs.flatMap(d => cols.get(d.key)!.shown.map(c => cellOf(d, r.key, c.name)))
+    const rows = orderRows(data.rows, view, r => shownCells(r).map(rateOf), r => shownCells(r).reduce((s, c) => s + c.count, 0))
+    return { shownDs, hiddenDs, cols, rows, cellOf }
+  }, [data, view])
   if (m.error) return <LoadFailed what="the detection map" error={m.error} onRetry={m.reload} />
-  if (!data) return <Loading height={320} label="counting every session's runs" />
+  if (!data || !layout) return <Loading height={320} label="counting every session's runs" />
   if (data.pending) return <><Refreshing on testid="map-refreshing" label="counting every session's runs for the first time — the map appears when the count is done" /><Loading height={320} label="counting every session's runs" /></>
   const total = data.datasets.length + data.withoutRuns.length
   const foot = (
@@ -230,31 +344,51 @@ function DatasetsLevel({ norm, onDataset }: { norm: Norm; onDataset: (key: strin
     return <><EmptyState icon="grid" title="No Discovery run has finished on any dataset" caption="apply a template or run a seed search on the Runs page; its cells appear here when it finishes" testid="map-empty"
       action={<Button icon="layers" onClick={() => navigate('discovery/runs')}>Open Runs</Button>} />{foot}</>
   }
+  const { shownDs, hiddenDs, cols, rows, cellOf } = layout
+  const line = (row: DiscMapRow, hidden: boolean) => (
+    <tr key={row.key} data-testid={hidden ? 'map-row-hidden' : 'map-row'} className={cx(hidden && 'dsc-map-hiddenrow')}>
+      <RowLabel row={row} hidden={hidden} onToggle={() => view.toggleRow(row.key)} />
+      {shownDs.map(d => { const cs = cols.get(d.key)!; return <Fragment key={d.file}>
+        {cs.shown.map(c => {
+          const cell = cellOf(d, row.key, c.name)
+          return <td key={c.name}>{hidden
+            ? <MutedCell row={row} cell={cell} shade={shade(row.key, cell)} as="row" />
+            : <Cell row={row} cell={cell} where={`${d.name} ${c.name}`} shade={shade(row.key, cell)} share={c.hours > 0 ? cell.hours / c.hours : 0} onClick={() => onDataset(d.key, d.name)} />}</td>
+        })}
+        {cs.hidden.map(c => { const cell = cellOf(d, row.key, c.name); return <td key={c.name} className="dsc-map-hiddencol"><MutedCell row={row} cell={cell} shade={shade(row.key, cell)} as="col" /></td> })}
+        <td className="gap" />
+      </Fragment> })}
+      {hiddenDs.map(d => <td key={d.file} className="dsc-map-hiddencol"><i className="dsc-map-mcell col" /></td>)}
+    </tr>
+  )
   return (
     <>
       <Refreshing on={m.loading || behind} testid="map-refreshing" label={data.running ? 're-counting · a run is still going' : data.stale ? `re-counting · this map is from before the last change${data.stale_since ? ` (${new Date(data.stale_since).toLocaleTimeString()})` : ''}` : 're-counting every session’s runs'} />
-      <div className="dsc-map-wrap" data-stale={behind ? '1' : '0'}>
+      <div className="dsc-map-wrap" data-stale={behind ? '1' : '0'} data-testid="map-wrap">
         <table className="dsc-map-table" data-testid="map-table">
           <thead>
             <tr>
-              <th />
-              {data.datasets.map(d => <Fragment key={d.file}><th className="ds" colSpan={d.channels.length} onClick={() => onDataset(d.key, d.name)} data-testid={`map-dataset-${d.key}`} title={`${d.name} · ${d.channels.length} channels · ${fmtH(d.hours)} — open its channels`}>{d.name} <span className="muted">· {d.channels.length} ch · {fmtH(d.hours)}</span></th><th className="gap" /></Fragment>)}
+              <th className="corner-pad" />
+              {shownDs.map(d => { const cs = cols.get(d.key)!; return <Fragment key={d.file}><th className="ds" colSpan={cs.shown.length + cs.hidden.length} onClick={() => onDataset(d.key, d.name)} data-testid={`map-dataset-${d.key}`} title={`${d.name} · ${d.channels.length} channels · ${fmtH(d.hours)} — open its channels`}>
+                {d.name} <span className="muted">· {d.channels.length} ch · {fmtH(d.hours)}</span>
+                <HideButton what={d.name} kind="dataset" testid={`map-col-hide-${d.key}`} onClick={() => view.toggleCol(d.key)} />
+              </th><th className="gap" /></Fragment> })}
+              {hiddenDs.map(d => <th key={d.file} rowSpan={2} className="ch hidden ds-hidden" title={`${d.name} is hidden`} data-testid={`map-dataset-hidden-${d.key}`}>
+                <HideButton hidden what={d.name} kind="dataset" testid={`map-col-show-${d.key}`} onClick={() => view.toggleCol(d.key)} /><span>{d.name}</span>
+              </th>)}
             </tr>
             <tr>
               <th className="corner">{norm === 'map' ? 'shade · whole map' : 'shade · per row'}</th>
-              {data.datasets.map(d => <Fragment key={d.file}>{d.channels.map(c => <th key={c.name} className="ch"><span>{c.name}</span></th>)}<th className="gap" /></Fragment>)}
+              {shownDs.map(d => { const cs = cols.get(d.key)!; return <Fragment key={d.file}>
+                {cs.shown.map(c => <th key={c.name} className="ch"><HideButton what={`${d.name} ${c.name}`} kind="column" testid={`map-col-hide-${colId(d.key, c.name)}`} onClick={() => view.toggleCol(colId(d.key, c.name))} /><span>{c.name}</span></th>)}
+                {cs.hidden.map(c => <th key={c.name} className="ch hidden" title={`${c.name} is hidden`}><HideButton hidden what={`${d.name} ${c.name}`} kind="column" testid={`map-col-show-${colId(d.key, c.name)}`} onClick={() => view.toggleCol(colId(d.key, c.name))} /><span>{c.name}</span></th>)}
+                <th className="gap" />
+              </Fragment> })}
             </tr>
           </thead>
           <tbody>
-            {data.rows.map(row => (
-              <tr key={row.key} data-testid="map-row">
-                <RowLabel row={row} />
-                {data.datasets.map(d => <Fragment key={d.file}>
-                  {d.channels.map(c => { const cell = d.cells[row.key]?.[c.name] ?? { count: 0, hours: 0, state: 'not_run' as const }; return <td key={c.name}><Cell row={row} cell={cell} where={`${d.name} ${c.name}`} shade={shade(row.key, cell)} share={c.hours > 0 ? cell.hours / c.hours : 0} onClick={() => onDataset(d.key, d.name)} /></td> })}
-                  <td className="gap" />
-                </Fragment>)}
-              </tr>
-            ))}
+            {rows.shown.map(row => line(row, false))}
+            {rows.hidden.map(row => line(row, true))}
           </tbody>
         </table>
       </div>
@@ -265,41 +399,69 @@ function DatasetsLevel({ norm, onDataset }: { norm: Norm; onDataset: (key: strin
 }
 
 /* ------------------------------------------------------------------ level 2: one dataset's channels, in chunks */
-function DatasetLevel({ dataset, chunks, norm, onName, onChannel }: { dataset: string; chunks: number; norm: Norm; onName: (name: string, hours: number) => void; onChannel: (ch: string) => void }) {
+function DatasetLevel({ dataset, chunks, norm, view, onName, onChannel }: { dataset: string; chunks: number; norm: Norm; view: MapView; onName: (name: string, hours: number) => void; onChannel: (ch: string) => void }) {
   const m = useSourced(() => getMapDataset(dataset, chunks), [dataset, chunks])
   const data = m.data
   const cellsOf = useMemo(() => (key: string) => data ? Object.values(data.cells[key] ?? {}).flat() : [], [data])
   const shade = useShades(data?.rows ?? [], cellsOf, norm)
   const running = !!data && data.rows.some(row => cellsOf(row.key).some(c => c.state === 'running'))
-  useMapRefresh(m, running)
+  useMapRefresh(m, running || !!data?.stale)
   // the crumb learns the dataset's name after the fact, in an effect: a parent setState during this render is a console error
   useEffect(() => { if (data) onName(data.name, data.hours) }, [data?.name, data?.hours]) // eslint-disable-line react-hooks/exhaustive-deps
+  // site-map: a channel's slices move as one; hidden channels go to the right, hidden rows to the bottom
+  const layout = useMemo(() => {
+    if (!data) return null
+    const key = data.key || dataset
+    const sl = (rowKey: string, ch: string) => data.cells[rowKey]?.[ch] ?? []
+    const shownRowKeys = data.rows.filter(r => !view.hiddenRows.has(r.key)).map(r => r.key)
+    const items = data.channels.map(c => ({
+      key: colId(key, c.name), label: c.name,
+      values: view.csort === 'cluster' ? shownRowKeys.flatMap(k => sl(k, c.name).map(rateOf)) : [],
+      count: shownRowKeys.reduce((s, k) => s + sl(k, c.name).reduce((t, x) => t + x.count, 0), 0),
+    }))
+    const a = arrange(items, view.csort, view.hiddenCols)
+    const byId = new Map(data.channels.map(c => [colId(key, c.name), c]))
+    const shownCh = a.shown.map(k => byId.get(k)!), hiddenCh = a.hidden.map(k => byId.get(k)!)
+    const shownCells = (r: DiscMapRow) => shownCh.flatMap(c => sl(r.key, c.name))
+    const rows = orderRows(data.rows, view, r => shownCells(r).map(rateOf), r => shownCells(r).reduce((s, c) => s + c.count, 0))
+    return { key, shownCh, hiddenCh, rows, sl }
+  }, [data, view, dataset])
   if (m.error) return <LoadFailed what={`the map of ${dataset}`} error={m.error} onRetry={m.reload} />
-  if (!data) return <Loading height={320} label={`counting the runs on ${dataset}`} />
+  if (!data || !layout) return <Loading height={320} label={`counting the runs on ${dataset}`} />
   // the payload's own chunk count, not the prop: while the next read is in flight the old payload is still drawn
   const n = data.chunks
   const sliceH = (chHours: number) => chHours / n
+  const { key, shownCh, hiddenCh, rows, sl } = layout
+  const line = (row: DiscMapRow, hidden: boolean) => (
+    <tr key={row.key} data-testid={hidden ? 'map-row-hidden' : 'map-row'} className={cx(hidden && 'dsc-map-hiddenrow')}>
+      <RowLabel row={row} hidden={hidden} onToggle={() => view.toggleRow(row.key)} />
+      {shownCh.map(c => sl(row.key, c.name).map((cell, i) => {
+        if (hidden) return <td key={`${c.name}-${i}`}><MutedCell row={row} cell={cell} shade={shade(row.key, cell)} as="row" /></td>
+        const where = n === 1 ? c.name : `${c.name} · slice ${i + 1} of ${n} (${fmtH(i * sliceH(c.hours))}–${fmtH((i + 1) * sliceH(c.hours))})`
+        return <td key={`${c.name}-${i}`} className={cx(i === 0 && 'first', i === n - 1 && 'last')}><Cell row={row} cell={cell} where={where} shade={shade(row.key, cell)} share={sliceH(c.hours) > 0 ? cell.hours / sliceH(c.hours) : 0} wide={n === 1} onClick={() => onChannel(c.name)} /></td>
+      }))}
+      {hiddenCh.map(c => { const cell = sl(row.key, c.name)[0] ?? NOT_RUN; return <td key={c.name} className="dsc-map-hiddencol"><MutedCell row={row} cell={cell} shade={shade(row.key, cell)} as="col" /></td> })}
+    </tr>
+  )
   return (
     <>
-      <Refreshing on={m.loading} testid="map-refreshing" label={chunks !== n ? `re-slicing ${data.name} into ${chunks} chunk${chunks === 1 ? '' : 's'} per channel…` : running ? 're-counting · a run is still going' : `re-counting the runs on ${data.name}`} />
+      <Refreshing on={m.loading || !!data.stale} testid="map-refreshing" label={chunks !== n ? `re-slicing ${data.name} into ${chunks} chunk${chunks === 1 ? '' : 's'} per channel…` : running ? 're-counting · a run is still going' : data.stale ? 're-counting · this map is from before the last change' : `re-counting the runs on ${data.name}`} />
       <div className="dsc-map-wrap" data-testid="map-dataset-level" data-stale={m.loading ? '1' : '0'} style={{ opacity: m.loading ? 0.55 : 1, transition: 'opacity 140ms' }}>
         <table className="dsc-map-table" data-testid="map-table">
           <thead>
             <tr>
               <th className="corner">{data.name} · {fmtH(data.hours)} · {n === 1 ? 'one cell per channel' : `${n} equal time slices per channel`}</th>
-              {data.channels.map(c => <th key={c.name} className="ch link" colSpan={n} onClick={() => onChannel(c.name)} data-testid={`map-channel-${c.name}`} title={`${c.name} · ${fmtH(c.hours)} — open its timeline`}><span>{c.name}</span></th>)}
+              {shownCh.map(c => <th key={c.name} className="ch link" colSpan={n} onClick={() => onChannel(c.name)} data-testid={`map-channel-${c.name}`} title={`${c.name} · ${fmtH(c.hours)} — open its timeline`}>
+                <HideButton what={c.name} kind="column" testid={`map-col-hide-${colId(key, c.name)}`} onClick={() => view.toggleCol(colId(key, c.name))} /><span>{c.name}</span>
+              </th>)}
+              {hiddenCh.map(c => <th key={c.name} className="ch hidden" title={`${c.name} is hidden`}>
+                <HideButton hidden what={c.name} kind="column" testid={`map-col-show-${colId(key, c.name)}`} onClick={() => view.toggleCol(colId(key, c.name))} /><span>{c.name}</span>
+              </th>)}
             </tr>
           </thead>
           <tbody>
-            {data.rows.map(row => (
-              <tr key={row.key} data-testid="map-row">
-                <RowLabel row={row} />
-                {data.channels.map(c => (data.cells[row.key]?.[c.name] ?? []).map((cell, i) => {
-                  const where = n === 1 ? c.name : `${c.name} · slice ${i + 1} of ${n} (${fmtH(i * sliceH(c.hours))}–${fmtH((i + 1) * sliceH(c.hours))})`
-                  return <td key={`${c.name}-${i}`} className={cx(i === 0 && 'first', i === n - 1 && 'last')}><Cell row={row} cell={cell} where={where} shade={shade(row.key, cell)} share={sliceH(c.hours) > 0 ? cell.hours / sliceH(c.hours) : 0} wide={n === 1} onClick={() => onChannel(c.name)} /></td>
-                }))}
-              </tr>
-            ))}
+            {rows.shown.map(row => line(row, false))}
+            {rows.hidden.map(row => line(row, true))}
           </tbody>
         </table>
       </div>
@@ -336,16 +498,76 @@ function openability(data: DiscMapTimeline, row: DiscMapRow, bin: number): { ok:
   return { ok: true, runKey: owner.runKey }
 }
 
-function ChannelLevel({ dataset, channel, binH, onName }: { dataset: string; channel: string; binH: number; onName: (name: string, hours: number) => void }) {
+/** The signal strip's height: the height Explore › Signal draws its main trace at (SpanView's `H`), so structure reads
+ *  the same here as there (the researcher, 2026-10-20). */
+const SIGNAL_H = 150
+
+/** The overview route's points as hours: one value per whole hour, or `n` points spread over them past its cap. */
+function signalHours(values: number[], hours: number): number[] {
+  const nFull = Math.max(1, Math.floor(hours))
+  return values.length >= nFull ? values.map((_, i) => i + 0.5) : values.map((_, i) => values.length === 1 ? nFull / 2 : (i / (values.length - 1)) * (nFull - 1) + 0.5)
+}
+
+/** The channel's own trace (the scope strip's hourly means, `getOverview`) on the rows' time axis, above them. */
+function SignalStrip({ dataset, channel, hours, units, binH, onHover, onLeave, onRange }: {
+  dataset: string; channel: string; hours: number; units: number; binH: number
+  onHover: (bin: number) => void; onLeave: () => void; onRange: (r: ((t0: number, t1: number) => [number, number] | null) | null) => void
+}) {
+  const ov = useSourced(() => getOverview(dataset, [channel]), [dataset, channel])
+  const values = ov.data && 'data' in ov.data && ov.data.data ? ov.data.data[channel] ?? [] : null
+  const refused = ov.data && 'refused' in ov.data && ov.data.refused ? ov.data.refused : null
+  const at = useMemo(() => values ? signalHours(values, hours) : [], [values, hours])
+  useEffect(() => {
+    if (!values) { onRange(null); return }
+    onRange((t0: number, t1: number): [number, number] | null => {
+      let lo = Infinity, hi = -Infinity
+      at.forEach((h, i) => { const v = values[i]; if (h >= t0 && h < t1 && Number.isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v) } })
+      return Number.isFinite(lo) ? [lo, hi] : null
+    })
+    return () => onRange(null)
+  }, [values, at]) // eslint-disable-line react-hooks/exhaustive-deps
+  const label = <span className="dsc-map-tlabel" title="the channel's own signal: one mean per hour, from the scope strip's read"><i className="sw" style={{ background: '#374151' }} />signal<span className="muted small"> · hourly mean</span></span>
+  if (ov.error) return <div className="dsc-map-trow dsc-map-signal" data-testid="map-signal-strip" data-state="failed">{label}<LoadFailed what={`the signal of ${channel}`} error={ov.error} onRetry={ov.reload} /></div>
+  if (refused) return <div className="dsc-map-trow dsc-map-signal note" data-testid="map-signal-strip" data-state="refused">{label}<span className="dsc-map-signal-note">signal not drawn: {refused}</span></div>
+  if (!values) return <div className="dsc-map-trow dsc-map-signal note" data-testid="map-signal-strip" data-state="loading">{label}<span className="dsc-map-signal-note">reading {channel}'s hourly means…</span></div>
+  const finite = values.filter(Number.isFinite)
+  if (!finite.length) return <div className="dsc-map-trow dsc-map-signal note" data-testid="map-signal-strip" data-state="empty">{label}<span className="dsc-map-signal-note">signal not drawn: {channel} has no finite sample to average</span></div>
+  let lo = Math.min(...finite), hi = Math.max(...finite)
+  if (hi - lo < 1e-12) { lo -= 1; hi += 1 }
+  const pad = (hi - lo) * 0.06, y0 = lo - pad, y1 = hi + pad
+  const W = units * 10
+  const xOf = (h: number) => (h / binH) * 10
+  const yOf = (v: number) => SIGNAL_H - ((v - y0) / (y1 - y0)) * SIGNAL_H
+  // a gap (NaN hour) breaks the line rather than being drawn through
+  let d = '', pen = false
+  at.forEach((h, i) => { const v = values[i]; if (!Number.isFinite(v)) { pen = false; return } d += `${pen ? 'L' : 'M'}${xOf(h).toFixed(2)} ${yOf(v).toFixed(2)}`; pen = true })
+  return (
+    <div className="dsc-map-trow dsc-map-signal" data-testid="map-signal-strip" data-state="drawn" style={{ height: SIGNAL_H }}>
+      {label}
+      <svg className="dsc-map-tsvg" viewBox={`0 0 ${W} ${SIGNAL_H}`} preserveAspectRatio="none" width="100%" height={SIGNAL_H} role="img" aria-label={`${channel} hourly means`}
+        onMouseMove={e => { const r = e.currentTarget.getBoundingClientRect(); onHover(Math.max(0, Math.floor((e.clientX - r.left) / r.width * units))) }} onMouseLeave={onLeave}>
+        <rect x={0} y={0} width={W} height={SIGNAL_H} fill="#fff" />
+        <path d={d} fill="none" stroke="#374151" strokeWidth={1.2} vectorEffect="non-scaling-stroke" data-testid="map-signal-path" />
+      </svg>
+    </div>
+  )
+}
+
+function ChannelLevel({ dataset, channel, binH, view, signal, onName }: { dataset: string; channel: string; binH: number; view: MapView; signal: boolean; onName: (name: string, hours: number) => void }) {
   const m = useSourced(() => getMapChannel(dataset, channel, binH), [dataset, channel, binH])
   const [hover, setHover] = useState<{ key: string; bin: number } | null>(null)
   const [note, setNote] = useState<string | null>(null)
+  const [range, setRange] = useState<((t0: number, t1: number) => [number, number] | null) | null>(null)
   const data = m.data
   const running = !!data && Object.values(data.cells).some(c => c.state === 'running' || c.states.includes('running'))
-  useMapRefresh(m, running)
+  useMapRefresh(m, running || !!data?.stale)
   useEffect(() => { if (data) onName(data.name, data.hours) }, [data?.name, data?.hours]) // eslint-disable-line react-hooks/exhaustive-deps
+  // site-map: rows ordered by their counts per bin (level 1's columns are time and do not sort); hidden rows at the bottom
+  const rows = useMemo(() => data
+    ? orderRows(data.rows, view, r => data.cells[r.key]?.counts ?? [], r => (data.cells[r.key]?.counts ?? []).reduce((a, b) => a + b, 0))
+    : null, [data, view])
   if (m.error) return <LoadFailed what={`the timeline of ${channel}`} error={m.error} onRetry={m.reload} />
-  if (!data) return <Loading height={320} label={`binning ${channel} over the whole recording`} />
+  if (!data || !rows) return <Loading height={320} label={`binning ${channel} over the whole recording`} />
   // the payload's own bin width and count, not the props: the previous payload is drawn while the next loads
   const n = data.nBins, bh = data.binH
   // the drawing is in HOURS, so a last bin shorter than the rest is drawn shorter and the axis lines up with it
@@ -354,52 +576,63 @@ function ChannelLevel({ dataset, channel, binH, onName }: { dataset: string; cha
   const ticks = ticksFor(data.hours)
   const readout = (() => {
     if (!hover) return `${data.name} · ${channel} · ${fmtH(data.hours)} in ${n} bins of ${bh} h — move over a row to read a bin; click a bin to open it in Runs`
+    const t0 = hover.bin * bh, t1 = Math.min(data.hours, (hover.bin + 1) * bh)
+    if (hover.key === '__signal') {
+      const r = range ? range(t0, t1) : null
+      return `${channel} · signal · ${fmtH(t0)}–${fmtH(t1)} · ${r ? `hourly means from ${r[0].toPrecision(4)} to ${r[1].toPrecision(4)}` : 'no whole hour averaged in this bin'}`
+    }
     const row = data.rows.find(r => r.key === hover.key)!
     const cell = data.cells[row.key]
-    const t0 = hover.bin * bh, t1 = Math.min(data.hours, (hover.bin + 1) * bh)
     const cov = cell.covered[hover.bin], st = cell.states[hover.bin]
     const what = row.kind === 'human' ? `${cell.counts[hover.bin]} marked` : `${cell.counts[hover.bin]} detection${cell.counts[hover.bin] === 1 ? '' : 's'}`
     const covText = st !== 'covered' ? STATE_WORDS[st] : cov >= 0.999 ? (row.kind === 'human' ? 'looked at throughout' : 'covered') : `${Math.max(1, Math.round(cov * 100))} % ${row.kind === 'human' ? 'looked at' : 'covered'}`
     const open = openability(data, row, hover.bin)
     return `${channel} · ${row.label} · ${fmtH(t0)}–${fmtH(t1)} · ${what} · ${covText}${open.ok ? ' · click to open in Runs' : row.kind === 'human' ? '' : ` · ${open.why}`}`
   })()
+  const line = (row: DiscMapRow, hidden: boolean) => {
+    const cell = data.cells[row.key]
+    const max = Math.max(0, ...cell.counts)
+    const colour = row.kind === 'human' ? '#22a06b' : row.colour
+    // one rect per contiguous uncovered stretch OF ONE STATE, not one per bin: a mostly-unrun 721-bin row stays light
+    const gaps: { a: number; b: number; state: DiscMapState }[] = []
+    for (let i = 0; i < n; i++) {
+      if (cell.states[i] === 'covered') continue
+      const last = gaps[gaps.length - 1]
+      if (last && last.b === i && last.state === cell.states[i]) last.b = i + 1
+      else gaps.push({ a: i, b: i + 1, state: cell.states[i] })
+    }
+    const w = (i: number) => Math.max(0, Math.min(10, (units - i) * 10))
+    return (
+      <div key={row.key} className={cx('dsc-map-trow', hidden && 'hidden')} data-testid={hidden ? 'map-timeline-row-hidden' : 'map-timeline-row'} data-row={row.key} data-state={cell.state}>
+        <span className="dsc-map-tlabel" title={rowTitle(row)}>
+          <span className="dsc-map-rowtext"><i className="sw" style={{ background: row.colour }} />{row.label}<span className="muted small"> · {cell.counts.reduce((a, b) => a + b, 0)}</span></span>
+          <HideButton hidden={hidden} what={row.label} kind="row" testid={hidden ? `map-row-show-${row.key}` : `map-row-hide-${row.key}`} onClick={() => view.toggleRow(row.key)} />
+        </span>
+        <svg className="dsc-map-tsvg" viewBox={`0 0 ${units * 10} 10`} preserveAspectRatio="none" width="100%" height={hidden ? 5 : 14} role="img" aria-label={`${row.label} on ${channel} per ${bh} h`}
+          onMouseMove={hidden ? undefined : e => setHover({ key: row.key, bin: binAt(e) })}
+          onMouseLeave={hidden ? undefined : () => setHover(h => (h?.key === row.key ? null : h))}
+          onClick={hidden ? undefined : e => {
+            const bin = binAt(e)
+            const open = openability(data, row, bin)
+            if (open.ok) navigate(`discovery/runs?run=${encodeURIComponent(open.runKey)}&ch=${encodeURIComponent(channel)}&at=${bin * bh}`)
+            else setNote(open.why)
+          }}>
+          <rect x={0} y={0} width={units * 10} height={10} fill="#f3f4f6" />
+          {gaps.map(g => <rect key={`g${g.a}`} x={g.a * 10} y={0} width={Math.max(0, Math.min(units, g.b) - g.a) * 10} height={10} fill={GAP_FILL[g.state]} data-testid="map-gap" data-state={g.state} />)}
+          {cell.counts.map((c, i) => c > 0 ? <rect key={i} x={i * 10 + 0.3} y={0} width={Math.max(0.4, w(i) - 0.6)} height={10} fill={colour} opacity={opacityFor(c, max)} data-testid={hidden ? undefined : 'map-bin'} /> : null)}
+        </svg>
+      </div>
+    )
+  }
   return (
     <>
-      <Refreshing on={m.loading} testid="map-refreshing" label={binH !== bh ? `re-binning ${channel} at ${binH} h…` : running ? 're-counting · a run is still going' : `re-counting the runs on ${channel}`} />
+      <Refreshing on={m.loading || !!data.stale} testid="map-refreshing" label={binH !== bh ? `re-binning ${channel} at ${binH} h…` : running ? 're-counting · a run is still going' : data.stale ? 're-counting · this timeline is from before the last change' : `re-counting the runs on ${channel}`} />
       <svg width={0} height={0} style={{ position: 'absolute' }} aria-hidden><defs><pattern id="dsc-map-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#fff" /><rect width="2.5" height="6" fill="#e5e7eb" /></pattern></defs></svg>
       <div className="dsc-map-timeline" data-testid="map-timeline">
-        {data.rows.map(row => {
-          const cell = data.cells[row.key]
-          const max = Math.max(0, ...cell.counts)
-          const colour = row.kind === 'human' ? '#22a06b' : row.colour
-          // one rect per contiguous uncovered stretch OF ONE STATE, not one per bin: a mostly-unrun 721-bin row stays light
-          const gaps: { a: number; b: number; state: DiscMapState }[] = []
-          for (let i = 0; i < n; i++) {
-            if (cell.states[i] === 'covered') continue
-            const last = gaps[gaps.length - 1]
-            if (last && last.b === i && last.state === cell.states[i]) last.b = i + 1
-            else gaps.push({ a: i, b: i + 1, state: cell.states[i] })
-          }
-          const w = (i: number) => Math.max(0, Math.min(10, (units - i) * 10))
-          return (
-            <div key={row.key} className="dsc-map-trow" data-testid="map-timeline-row" data-row={row.key} data-state={cell.state}>
-              <span className="dsc-map-tlabel" title={rowTitle(row)}><i className="sw" style={{ background: row.colour }} />{row.label}<span className="muted small"> · {cell.counts.reduce((a, b) => a + b, 0)}</span></span>
-              <svg className="dsc-map-tsvg" viewBox={`0 0 ${units * 10} 10`} preserveAspectRatio="none" width="100%" height={14} role="img" aria-label={`${row.label} on ${channel} per ${bh} h`}
-                onMouseMove={e => setHover({ key: row.key, bin: binAt(e) })}
-                onMouseLeave={() => setHover(h => (h?.key === row.key ? null : h))}
-                onClick={e => {
-                  const bin = binAt(e)
-                  const open = openability(data, row, bin)
-                  if (open.ok) navigate(`discovery/runs?run=${encodeURIComponent(open.runKey)}&ch=${encodeURIComponent(channel)}&at=${bin * bh}`)
-                  else setNote(open.why)
-                }}>
-                <rect x={0} y={0} width={units * 10} height={10} fill="#f3f4f6" />
-                {gaps.map(g => <rect key={`g${g.a}`} x={g.a * 10} y={0} width={Math.max(0, Math.min(units, g.b) - g.a) * 10} height={10} fill={GAP_FILL[g.state]} data-testid="map-gap" data-state={g.state} />)}
-                {cell.counts.map((c, i) => c > 0 ? <rect key={i} x={i * 10 + 0.3} y={0} width={Math.max(0.4, w(i) - 0.6)} height={10} fill={colour} opacity={opacityFor(c, max)} data-testid="map-bin" /> : null)}
-              </svg>
-            </div>
-          )
-        })}
+        {signal && <SignalStrip dataset={dataset} channel={channel} hours={data.hours} units={units} binH={bh}
+          onHover={bin => setHover({ key: '__signal', bin: Math.min(n - 1, bin) })} onLeave={() => setHover(h => (h?.key === '__signal' ? null : h))} onRange={r => setRange(() => r)} />}
+        {rows.shown.map(row => line(row, false))}
+        {rows.hidden.map(row => line(row, true))}
         <div className="dsc-map-axis mono">{ticks.map((t, i) => <span key={i} style={{ left: `${(t.h / data.hours) * 100}%` }} className={cx(i === 0 && 'first', t.h >= data.hours - 1e-9 && 'last')}>{t.label}</span>)}</div>
       </div>
       <div className="dsc-map-readout" data-testid="map-readout"><Icon name="eye" size={12} /> {readout}</div>
