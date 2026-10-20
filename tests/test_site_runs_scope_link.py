@@ -335,7 +335,7 @@ def test_f3_the_review_flow_waits_for_the_count_before_reading_the_label():
 
 
 def test_f4_the_smoke_states_measure_the_row_and_the_scroll():
-    rows = json.load(io.open(os.path.join(PROJECT_ROOT, "webui", "smoke_pages", "zzzzzzzzzzz_site_runs.json"),
+    rows = json.load(io.open(os.path.join(PROJECT_ROOT, "webui", "smoke_pages", "zzzzzzzzzzz_a1_site_runs.json"),
                              encoding="utf-8"))
     by = {r["state"]: r for r in rows}
     row = by["site-runs-run-row-geometry-at-1024"]

@@ -3,7 +3,7 @@ test_night_disc.py
 ==================
 night-disc (2026-10-20, the researcher's second list, the night before the demo): the Discovery runs list as the
 researcher drew it, the Seed page's cut-off card text, the Scope card's recording switch, and the map's top scrollbar.
-Source checks only (the layout itself is measured by the smoke unit `zzzzzzzzzzz_night_disc.json`); conda pytest.
+Source checks only (the layout itself is measured by the smoke unit `zzzzzzzzzzz_a1_night_disc.json`); conda pytest.
 
 Item 1. "each template box ... left column icon, then under the tag, e.g. 'seed', then under that the '1 of 3 ch'
 indicator but without the grey text; then middle column title as is, below bare info (how many found, etc); then
@@ -163,7 +163,7 @@ def test_level_3_has_a_top_scrollbar_synced_with_the_table():
 # ── the smoke unit ──────────────────────────────────────────────────────────
 
 def test_the_smoke_unit_measures_each_item():
-    rows = json.load(io.open(os.path.join(PAGES, "zzzzzzzzzzz_night_disc.json"), encoding="utf-8"))
+    rows = json.load(io.open(os.path.join(PAGES, "zzzzzzzzzzz_a1_night_disc.json"), encoding="utf-8"))
     names = {r["state"] for r in rows}
     for s in ("night-disc-run-rows-three-columns-at-1024", "night-disc-seed-cut-card-not-clipped",
               "night-disc-seed-keep-card-not-squished", "night-disc-map-top-scrollbar"):
