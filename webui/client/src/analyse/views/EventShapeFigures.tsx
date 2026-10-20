@@ -205,7 +205,13 @@ export function EventShapeFigures({ q, p, rose }: { q: ProcessProps; p: SpansetP
   return (
     <div className="stack" style={{ gap: 10 }} data-testid="event-shape-figures">
       <MotifOverlay p={p} rec={q.source.recording_id} t0={t0} t1={t1} mark={mark} flip={q.step.params.upstream_inverted === true} />
-      {rose}
+      {rose ?? (
+        <div className="callout warn small" data-testid="rose-missing" style={{ padding: '6px 10px', background: '#fff7e6', borderRadius: 6 }}>
+          No rose: this step's result was restored from the cache without the block's printed record (the rose and the
+          rules live there, and this machine does not hold it for this run). Re-run this step to draw the rose; the
+          shapes above and the measures below are from the result itself.
+        </div>
+      )}
       <div>
         <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Where the events are, and what each measured</h3>
           <span className="sg">the block's input signal; beneath it each event's measures on the same time axis</span></div>

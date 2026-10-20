@@ -135,3 +135,10 @@ export function rampColour(f: number): string {
   const c = RAMP[i].map((a, k) => Math.round(a + (RAMP[i + 1][k] - a) * u))
   return `rgb(${c[0]}, ${c[1]}, ${c[2]})`
 }
+
+/** True for an Event shape feature table (its amplitude and steepest-slope columns: a payload convention, never the
+ *  block's name). The page is chosen by this as well as by the rose, because a step restored from the step cache
+ *  with no meta sidecar carries its table and marks but no rose (the demo's W1 chain, 2026-10-21). */
+export function isEventShapeTable(columns: ReadonlyArray<string> | null | undefined): boolean {
+  return !!columns && columns.includes('event_amplitude_mv') && columns.includes('max_slope_mv_s')
+}

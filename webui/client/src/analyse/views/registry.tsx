@@ -36,6 +36,7 @@ import { ClusterExemplars, ClusterSizes, FamilyTable, GroupingView } from './Gro
 import { ModelView } from './ModelView'
 import { ScoreHistogram, ScoresView, scoreWords, scoreY, type ScoreCut } from './ScoresView'
 import { SignalLayers, SignalLayersNote, SignalNote, SignalSplitNote, SignalView, type LayerPick } from './SignalView'
+import { isEventShapeTable } from './eventFigures'
 import { DurationHistogram, EventFamiliesKey, EventFamiliesView, SpanSetView, SpanSlideshow } from './SpanSetView'
 import { EventWindowsKey, EventWindowsView, WindowSetKey, WindowSetView } from './WindowSetView'
 import { isPoolPayload, isTreePayload } from '../../api/shape'
@@ -453,7 +454,7 @@ function SpansToSpans(q: ProcessProps) {
   // folds everything else under one "more" toggle. Chosen by what the payload carries, never by the block's name:
   // a cycle stack (Cycle shapes), trains (Trains), interval statistics (Intervals), a rose (Event shape), else the
   // measures' histograms.
-  const kind = cycleStackOf(p) ? 'cycles' : p.trains ? 'trains' : p.interval_stats ? 'intervals' : p.rose ? 'shape' : 'measures'
+  const kind = cycleStackOf(p) ? 'cycles' : p.trains ? 'trains' : p.interval_stats ? 'intervals' : p.rose || isEventShapeTable(p.features?.columns) ? 'shape' : 'measures'
   const unitNote = p.features_unit_note ? <div className="callout warn small" data-testid="features-unit-note" style={{ padding: '6px 10px', background: '#fff7e6', borderRadius: 6 }}>{p.features_unit_note}</div> : null
   const measures = p.features ? (
     <div data-testid="event-features">
