@@ -387,7 +387,7 @@
  {
   "page": "explore.cross-channel",
   "state": "as-recorded",
-  "hash": "explore/cross-channel/4",
+  "hash": "explore/cross-channel/4?view=stacked",
   "settle_ms": 1500,
   "actions": [],
   "expect": [
@@ -399,7 +399,7 @@
  {
   "page": "explore.cross-channel",
   "state": "lag-aligned",
-  "hash": "explore/cross-channel/4?align=lag&channels=5,3,1",
+  "hash": "explore/cross-channel/4?align=lag&channels=5,3,1&view=stacked",
   "settle_ms": 1500,
   "actions": [],
   "expect": [
@@ -410,7 +410,7 @@
  {
   "page": "explore.cross-channel",
   "state": "align-click",
-  "hash": "explore/cross-channel/4",
+  "hash": "explore/cross-channel/4?view=stacked",
   "settle_ms": 1500,
   "actions": [
    {
@@ -424,7 +424,7 @@
  {
   "page": "explore.cross-channel",
   "state": "channels-picker",
-  "hash": "explore/cross-channel/4?popover=channels",
+  "hash": "explore/cross-channel/4?popover=channels&view=stacked",
   "settle_ms": 1500,
   "actions": [],
   "expect": [
@@ -435,7 +435,7 @@
  {
   "page": "explore.cross-channel",
   "state": "detections-picker",
-  "hash": "explore/cross-channel/4",
+  "hash": "explore/cross-channel/4?view=stacked",
   "settle_ms": 1500,
   "actions": [
    {
@@ -449,7 +449,7 @@
  {
   "page": "explore.cross-channel",
   "state": "questions-open",
-  "hash": "explore/cross-channel/4?questions=open",
+  "hash": "explore/cross-channel/4?questions=open&view=stacked",
   "settle_ms": 1500,
   "actions": [],
   "expect": [
@@ -459,7 +459,7 @@
  {
   "page": "explore.cross-channel",
   "state": "computing",
-  "hash": "explore/cross-channel/4?state=computing",
+  "hash": "explore/cross-channel/4?state=computing&view=stacked",
   "settle_ms": 1500,
   "actions": [],
   "expect": [
@@ -469,7 +469,7 @@
  {
   "page": "explore.cross-channel",
   "state": "bin-focus",
-  "hash": "explore/cross-channel/4",
+  "hash": "explore/cross-channel/4?view=stacked",
   "settle_ms": 1500,
   "actions": [
    {
@@ -483,7 +483,7 @@
  {
   "page": "explore.cross-channel",
   "state": "max-lag-10",
-  "hash": "explore/cross-channel/4?maxlag=10&align=lag&channels=5,3",
+  "hash": "explore/cross-channel/4?maxlag=10&align=lag&channels=5,3&view=stacked",
   "settle_ms": 1500,
   "actions": [],
   "expect": [
@@ -493,7 +493,7 @@
  {
   "page": "explore.cross-channel",
   "state": "too-few-channels",
-  "hash": "explore/cross-channel/4?channels=4",
+  "hash": "explore/cross-channel/4?channels=4&view=stacked",
   "settle_ms": 1500,
   "actions": [],
   "expect": [
@@ -503,7 +503,7 @@
  {
   "page": "explore.cross-channel",
   "state": "held-out",
-  "hash": "explore/cross-channel/52",
+  "hash": "explore/cross-channel/52?view=stacked",
   "settle_ms": 1200,
   "actions": [],
   "expect": [
@@ -513,7 +513,7 @@
  {
   "page": "explore.cross-channel",
   "state": "unknown-channel",
-  "hash": "explore/cross-channel/999",
+  "hash": "explore/cross-channel/999?view=stacked",
   "settle_ms": 1200,
   "actions": [],
   "expect": [
@@ -523,7 +523,7 @@
  {
   "page": "explore.cross-channel",
   "state": "y-absolute",
-  "hash": "explore/cross-channel/4?y=absolute",
+  "hash": "explore/cross-channel/4?y=absolute&view=stacked",
   "settle_ms": 1500,
   "actions": [],
   "expect": [
@@ -538,7 +538,7 @@
  {
   "page": "explore.cross-channel",
   "state": "y-per-channel",
-  "hash": "explore/cross-channel/4?y=per-channel",
+  "hash": "explore/cross-channel/4?y=per-channel&view=stacked",
   "settle_ms": 1500,
   "actions": [],
   "expect": [
@@ -549,7 +549,7 @@
  {
   "page": "explore.cross-channel",
   "state": "y-centred-axis",
-  "hash": "explore/cross-channel/4",
+  "hash": "explore/cross-channel/4?view=stacked",
   "settle_ms": 1500,
   "actions": [],
   "expect": [

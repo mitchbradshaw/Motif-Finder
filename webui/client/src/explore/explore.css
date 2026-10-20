@@ -361,10 +361,13 @@ button.ex-ribbon:hover { border-color: var(--blue-200); }
 .ex-ov-name .sh { margin-left: auto; font-size: 10px; color: var(--text-2); font-weight: 400; }
 .ex-ov-name .sh.past { color: var(--amber); }
 .ex-ov-name .err { color: var(--red); font-weight: 700; }
+.ex-ov-name .own { margin-left: auto; font-size: 10px; color: var(--amber); font-weight: 600; }   /* site-x: drawn at its own gain */
+.ex-ov-lane-note { font-size: 10.5px; }
 .ex-ov-svg { display: block; flex: none; touch-action: none; }
 .ex-ov-readout { position: absolute; top: 8px; pointer-events: none; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px;
   font-size: 10.5px; line-height: 1.45; box-shadow: 0 2px 6px rgba(0,0,0,.08); max-width: 220px; }
-.ex-ov-axis { display: grid; grid-template-columns: minmax(0, 1fr) auto; margin: 4px 0 0 118px; font-size: 10.5px; color: var(--muted); }
+.ex-ov-axis { display: grid; grid-template-columns: minmax(0, 1fr); margin: 4px 0 0 118px; font-size: 10.5px; color: var(--muted); }
+.ex-ov-axis .frame { justify-self: end; }   /* site-x: under the ticks, not beside the last one */
 .ex-ov-axis .ticks { position: relative; height: 14px; }
 .ex-ov-axis .ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .ex-ov-actions { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }

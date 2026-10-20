@@ -352,8 +352,9 @@ def create_app(rt: Runtime) -> FastAPI:
         from Working.discovery import routing as _routing
         c = conn()
         try:
+            # gate G1: a run waits for a cost-model timing in flight (its own bound) instead of a 409 on the first click
             routed = chain_mod.route_local(recipe, n, rec["fs"], ceiling_s=chain_mod.analyse_ceiling_s(c),
-                                           draws=(null or {}).get("draws", 0))
+                                           draws=(null or {}).get("draws", 0), wait_s=chain_mod.RUN_CALIBRATION_WAIT_S)
             # round A_2 (P2): what the step cache holds costs nothing, in the real run and in each null draw — the
             # rule Discovery's plan uses
             cost = _routing.target_cost(c, recipe, samples=n, fs=rec["fs"], draws=(null or {}).get("draws", 0),

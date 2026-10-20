@@ -29,6 +29,9 @@ from Working.database.queries import get_recording_by_id
 from Working.database.runs import get_step_artifact
 
 from . import views as views_mod
+from Working import block_cost as _block_cost
+
+_REAL_CALIBRATE = _block_cost.calibrate   # site-x: a stand-in (tests) is not sent to a calibration process
 
 discover_adapters()
 
@@ -319,15 +322,93 @@ def _block_cost_models(step: dict) -> list[str]:
             if getattr(run_once, "__module__", None) == modname or name in named]
 
 
+#: site-x (2026-10-20, "pulled a span into Analyse, loading forever, the whole website lagging"): where a model is
+#: timed. "process" (the default): a process of its own, so the timing's Python never holds the bridge's GIL — on a
+#: thread, timing detection.rupture (~447 s) slowed every other route two to five times for as long as it ran.
+#: "thread": on the calling thread (a sandbox that forbids processes). A stand-in `block_cost.calibrate` (a test's
+#: fake) cannot cross a process boundary, so it always runs on the thread.
+CALIBRATION_WORKER = "process"
+_BC_POOLS: set = set()               # the calibration processes in flight, stopped at interpreter exit
+#: fix round F2: how long one child may time a model before it is stopped and the model reads "failed" (the slowest
+#: measured, rupture, is ~447 s)
+CALIBRATION_TIMEOUT_S = 900.0
+#: fix round F6: at most ONE calibration child at a time (each is a second interpreter, and free RAM is short); a
+#: model queued behind it reads "calibrating" meanwhile. Taken on the calibration's own thread, never a request's.
+_BC_PROCESS_SLOT = threading.Semaphore(1)
+
+
+def _child_call(name: str, module: str | None):
+    """What the calibration child runs: ``(function, args)`` — a seam the tests replace with a stand-in child."""
+    from . import calibrate_child
+    return calibrate_child.calibrate_in_child, (name, module)
+_BC_ATEXIT = {"registered": False}
+
+
+def _stop_block_calibrations() -> None:
+    """Stop every calibration process now (interpreter exit): a bridge must not wait out a 7-minute timing to
+    close. The model stays uncalibrated; the next chain that needs it starts it again."""
+    from . import corpus
+    for pool in list(_BC_POOLS):
+        _BC_POOLS.discard(pool)
+        corpus._terminate(pool)
+
+
+def _calibrate_in_process(name: str, path: str) -> int:
+    """`name` timed in a spawned process of its own and stored in `path`; the child's pid. One child at a time
+    (`_BC_PROCESS_SLOT`, fix round F6; never behind the corpus maps' worker); stopped after `CALIBRATION_TIMEOUT_S`
+    (F2). The child watches the bridge and ends with it (`coverage_map.watch_parent`). It hands back the timing
+    (`calibrate_child.calibrate_in_child`): the shared file is written HERE, under `block_cost._FILE_LOCK`, so no
+    other process ever writes it. Runs on the calibration's own thread, never a request's."""
+    import multiprocessing as mp
+    from concurrent.futures import ProcessPoolExecutor
+    from concurrent.futures import TimeoutError as FutureTimeout
+    from Working import block_cost
+    from Working.discovery import coverage_map
+    from . import corpus
+    module = getattr((block_cost.MODELS.get(name) or (None, None))[1], "__module__", None)
+    fn, args = _child_call(name, module)
+    with _BC_PROCESS_SLOT:
+        pool = ProcessPoolExecutor(max_workers=1, mp_context=mp.get_context("spawn"),
+                                   initializer=coverage_map.watch_parent)
+        _BC_POOLS.add(pool)
+        if not _BC_ATEXIT["registered"]:
+            register = getattr(threading, "_register_atexit", None)    # before concurrent.futures joins its workers
+            if register is not None:
+                register(_stop_block_calibrations)
+            _BC_ATEXIT["registered"] = True
+        try:
+            with corpus._POOL_LOCK, corpus._MainHidden():   # the child must not re-run the bridge's main script
+                fut = pool.submit(fn, *args)
+            try:
+                pid, key, entry = fut.result(timeout=CALIBRATION_TIMEOUT_S)
+            except FutureTimeout:
+                corpus._terminate(pool)
+                raise TimeoutError(f"timing {name} timed out after {CALIBRATION_TIMEOUT_S:.0f} s; "
+                                   "the child was stopped") from None
+            with block_cost._FILE_LOCK:     # the read-merge-write block_cost.calibrate does, in the bridge's process
+                merged = block_cost._load(path)
+                merged[key] = entry
+                block_cost._save(merged, path)
+            return pid
+        finally:
+            _BC_POOLS.discard(pool)
+            pool.shutdown(wait=False)
+
+
 def _calibrate_block_cost(name: str, path: str, generation: dict) -> None:
     """Time one model and store it in `path` — the calibration file resolved when the request started it (a
     sandbox's runtime copy), never whatever the module points at by the time a minutes-long timing ends (a
-    restored runtime would otherwise send it to the checkout's DATA/db)."""
+    restored runtime would otherwise send it to the checkout's DATA/db). site-x: timed in a process of its own
+    (`_calibrate_in_process`); the state records which process (`pid`)."""
     from Working import block_cost
     t0 = time.time()
     try:
-        block_cost.calibrate([name], path=path)
-        st = {"state": "calibrated", "seconds": round(time.time() - t0, 1), "error": None}
+        if CALIBRATION_WORKER == "process" and block_cost.calibrate is _REAL_CALIBRATE:
+            pid = _calibrate_in_process(name, path)
+        else:
+            block_cost.calibrate([name], path=path)
+            pid = os.getpid()
+        st = {"state": "calibrated", "seconds": round(time.time() - t0, 1), "error": None, "pid": pid}
     except Exception as e:          # a block that cannot run here: say why, never "free"
         st = {"state": "failed", "seconds": round(time.time() - t0, 1), "error": f"{type(e).__name__}: {e}",
               "failed_at": time.time()}
@@ -357,13 +438,25 @@ def _ensure_block_calibration(name: str) -> threading.Thread | None:
     return t
 
 
-def route_local(recipe: dict, n_samples: int, fs: float, *, ceiling_s: float, draws: int = 0) -> dict:
+#: gate G1 (2026-10-20): how long POST /api/runs waits for a cost-model timing — one it starts or one already in
+#: flight — before it answers 409 "calibrating". A validate waits CALIBRATION_WAIT_S for a timing it starts and not
+#: at all for one in flight (the page asks again every 3 s); a Run click is the researcher asking for the run, and
+#: the timing is in another process, so waiting is cheap: a quick model (spawn, imports, an untimed warm-up, then
+#: the timing — preprocessing.wavelet_transform's first run, zz_analyse_run's dehshibi funnel) lands inside it,
+#: while rupture (~447 s) still answers 409 in words after it.
+RUN_CALIBRATION_WAIT_S = 60.0
+
+
+def route_local(recipe: dict, n_samples: int, fs: float, *, ceiling_s: float, draws: int = 0,
+                wait_s: float | None = None) -> dict:
     """Can this run finish locally? ``estimate`` per step; when a step's estimator is uncalibrated, its cost
     model is calibrated — the matrix-profile model synchronously (a few seconds), a `Working.block_cost` model in
     the background, waited for up to ``CALIBRATION_WAIT_S`` — and the estimate taken again. The run's cost is
     the real chain plus ``draws`` paired null draws (each runs the whole chain again). ``route`` is ``cluster``
     over the ceiling, ``local`` under it, ``unknown`` when a step still cannot be estimated: ``calibrating``
-    lists the steps whose model is still being timed, ``errors`` the estimator's (or calibration's) own words."""
+    lists the steps whose model is still being timed, ``errors`` the estimator's (or calibration's) own words.
+    ``wait_s`` (POST /api/runs: RUN_CALIBRATION_WAIT_S) waits that long for EVERY timing the chain needs, started
+    here or already in flight; without it, as a validate, only a timing started here is waited for, CALIBRATION_WAIT_S."""
     est = estimate(recipe, n_samples, fs)
     calibration: dict | None = None
     if any(_uses_mp_cost(recipe["steps"][i]) for i in est["unknown"]):
@@ -371,8 +464,16 @@ def route_local(recipe: dict, n_samples: int, fs: float, *, ceiling_s: float, dr
         est = estimate(recipe, n_samples, fs)
     models = sorted({name for i in est["unknown"] for name in _block_cost_models(recipe["steps"][i])})
     if models:
-        threads = [t for t in (_ensure_block_calibration(m) for m in models) if t is not None]
-        deadline = time.time() + float(CALIBRATION_WAIT_S)
+        # site-x: only the request that STARTS a timing waits for it (a quick model lands inside it); a re-validate
+        # that finds one already running answers "calibrating" at once — the page asks again every 3 s, and each of
+        # those waiting 10 s again held the chain page "loading" for the whole of a minutes-long timing
+        with _BC_LOCK:
+            running = {m for m in models if (_BC_STATE.get(m) or {}).get("state") == "calibrating"}
+        if wait_s is not None:      # a run: wait for every timing the chain needs, the ones in flight too
+            threads = [t for t in (_ensure_block_calibration(m) for m in models) if t is not None]
+        else:
+            threads = [t for t in (_ensure_block_calibration(m) for m in models if m not in running) if t is not None]
+        deadline = time.time() + float(CALIBRATION_WAIT_S if wait_s is None else wait_s)
         for t in threads:
             t.join(max(0.0, deadline - time.time()))
         calibration = dict(calibration or {})
