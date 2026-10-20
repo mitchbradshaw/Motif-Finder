@@ -1,6 +1,6 @@
 /* Queue order, units (item or cluster), counts and navigation — pure helpers over the queue read + the records. */
 import { navigate } from '../state'
-import type { QueueData, QueueRow } from '../api/review'
+import { carryOf, type QueueData, type QueueRow } from '../api/review'
 import { effective, key, type QueueFilters, type VerdictRecord } from './store'
 import { baseJudged } from './judged'
 
@@ -147,4 +147,24 @@ export function relTime(at: number, now: number) {
   if (s < 60) return `${s} s ago`
   const m = Math.round(s / 60)
   return m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`
+}
+
+/* night-review: does this queue serve any of these detections? A verdict carried to other runs' detections of the same
+ * event re-read every row and emptied the item cache (`bumpReviewVersion`) — 1.6 s and 6 MB at 8,700 rows, and the next
+ * card then cold — although the carried detections were in no row of this queue. Only a carry INTO this queue can
+ * change one of its rows; one that is not changes the counts, which every accepted write re-reads anyway. The index
+ * (row ids, their detection ids and every overlap-set member) is built once per queue read. */
+const DETECTIONS = new WeakMap<QueueData, Set<string>>()
+export function queueHoldsAny(data: QueueData, ids: (number | string)[]): boolean {
+  let s = DETECTIONS.get(data)
+  if (!s) {
+    s = new Set()
+    for (const r of data.rows) {
+      s.add(String(r.id))
+      if (r.detectionId != null) s.add(String(r.detectionId))
+      for (const m of carryOf(r).members ?? []) s.add(String(m))
+    }
+    DETECTIONS.set(data, s)
+  }
+  return ids.some(id => s!.has(String(id)))
 }

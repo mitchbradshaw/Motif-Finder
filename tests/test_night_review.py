@@ -171,3 +171,23 @@ def test_the_editor_seeds_from_the_tree_grouping_and_builds_a_missing_tree_at_on
     assert 'data-testid="tree-building"' in code, "while the tree is built the panel says nothing"
     panel = re.search(r"function TreePanel\((.*?)\n}\n", code, re.S).group(1)
     assert "autoBuild" in panel and "builtOnce" in panel, "the panel can start more than one build per editor"
+
+
+def test_a_carry_that_reaches_no_row_of_this_queue_does_not_re_read_every_row():
+    """Measured on the scale fixture: every verdict was carried to other runs' detections of the same event, and the
+    page then re-read all 8,700 rows (1.6 s, 6 MB) and emptied the item cache, so the next card waited 2.4-4.6 s for
+    a cold read behind the re-read. The carried detections were in no row of the queue. Only a carry INTO this
+    queue re-reads its rows now; an ack that names no ids re-reads as before."""
+    queue = _code(_read("review", "queue.ts"))
+    assert "export function queueHoldsAny(" in queue and "carryOf(r).members" in queue
+    insp = _code(_read("review", "Inspector.tsx"))
+    assert "carriedIds = ack.carriedIds ?? []" in insp
+    assert "if (!carriedIds.length || queueHoldsAny(data, carriedIds)) bumpReviewVersion()" in insp
+
+
+def test_the_automatic_build_is_for_motif_shape_trees_only():
+    """On the sandbox walk the automatic build on a sequence grouping (g-06, sequence similarity) failed in the core
+    ("tree.tree_key and tree.from_fit disagree"): a red card and a server traceback where a button used to wait.
+    Sequences keep the button until that is fixed in the core."""
+    code = _code(_read("library", "GroupingPage.tsx"))
+    assert re.search(r"autoBuild=\{d\.unit === 'motifs' && d\.basis === 'shape-distance' && ", code)

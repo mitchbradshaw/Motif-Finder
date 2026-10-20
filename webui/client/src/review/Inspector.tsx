@@ -11,7 +11,7 @@ import { plotPx } from './axis'
 import { VOCABULARY, carryOf, getItem, itemHeld, peekItem, prefetchItemThen, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
-import { goUnit, indexOf, isJudged, judged, judgedRecord, nextUnjudgedAfter, relTime, step, units } from './queue'
+import { goUnit, indexOf, isJudged, judged, judgedRecord, nextUnjudgedAfter, queueHoldsAny, relTime, step, units } from './queue'
 import { prefetchIds } from './prefetch'
 import {
   AnnotateCard, ArtifactPill, ContextCard, EvidenceRail, NearestFamiliesCard, Pill, PromotionPanel, ShapeCard, VerdictCard, editInExplore, statusDot, statusText, useNow,
@@ -166,6 +166,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     /* fixup-y: the exemplar is named by what was WRITTEN — the bridge's `entry_id` — and is filled in before
      * the write joins the session stack. It was minted here ("E-0217") while the row was motif_entry 3609. */
     let carried = 0
+    let carriedIds: number[] = []
     const send = () => v === 'seed'
       ? postPromote(q, id, 'seed', { note, tags }).then(ack => {
         if (ack.entry_id != null) { next.entryId = ack.entry_id; next.memberId = ack.member_id; next.entryCreated = ack.created; next.exemplarId = `entry ${ack.entry_id}` }
@@ -173,15 +174,17 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
       })
       // review-carry: the class travels with the verdict and is stored (R3); the ack says how many other runs'
       // detections of the same event the verdict was carried to
-      : postVerdict(q, id, v, { note, tags, classLabel: storesClass ? className : undefined }).then(ack => { carried = ack.carried ?? 0; return ack })
+      : postVerdict(q, id, v, { note, tags, classLabel: storesClass ? className : undefined }).then(ack => { carried = ack.carried ?? 0; carriedIds = ack.carriedIds ?? []; return ack })
     const w = await commitWrite(send, { queueId: q, items: [id], kind, verdict: v, className, label: `${id} · ${VERDICT_LABEL[v]}`, before: { [k]: before }, after: { [k]: next } },
       // AR: a verdict on a queue that does not write annotations changes one row's judged state and nothing else, so only
       // the counts are re-read; a promotion, or a write that makes a human span (which can change any queue's set), re-reads the rows
       { light: kind !== 'promotion' && queue.writes !== 'annotations' })
     if (!w) { refused(); return null }
     if (carried > 0) {
-      // a carried row can judge other items of this queue (other runs' detections in it): re-read the rows
-      bumpReviewVersion()
+      // a carried row can judge other items of this queue (other runs' detections in it): re-read the rows — only then
+      // (night-review). A carry that reached no row of this queue changes none of its rows; the counts are re-read anyway.
+      // When the bridge names no ids (an older bridge), re-read as before.
+      if (!carriedIds.length || queueHoldsAny(data, carriedIds)) bumpReviewVersion()
       say(`${VERDICT_LABEL[v]} · written${members.length > 1 ? ` to the ${members.length} detections of this event` : ''} · carried to ${carried} other detection${carried === 1 ? '' : 's'} of the same event`)
     }
     // P21: the seed verdict itself creates the Library exemplar (the bridge wrote it); the panel only chooses its family

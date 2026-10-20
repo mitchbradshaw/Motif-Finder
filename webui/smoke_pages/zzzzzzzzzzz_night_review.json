@@ -2,31 +2,31 @@
  {
   "page": "review.inspector",
   "state": "night-review-an-arrow-lands-on-a-warm-item",
-  "_why": "night-review: once an item has been on screen for a moment the next five items ahead and the previous one are read in the background, one at a time. After 3 s on item 102 of queue 2, the right arrow paints the next item (103 on the real database) from memory: its card is there within half a second of the key (the press action itself waits 200 ms) and no loading card or item error shows. Read-only.",
-  "hash": "review/queue/2/102",
+  "_why": "night-review: once an item has been on screen for a moment the next five items ahead and the previous one are read in the background, one at a time. After 3 s on item 103 of queue 2, the right arrow paints the next item (104 on the real database) from memory: its card is there within half a second of the key (the press action itself waits 200 ms) and no loading card or item error shows. Read-only.",
+  "hash": "review/queue/2/103",
   "actions": [
-   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"102\"]", 30000]},
+   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"103\"]", 30000]},
    {"wait": 3000},
    {"press": "ArrowRight"},
-   {"wait_for": ["[data-testid=\"inspector\"]:not([data-item=\"102\"])", 500]}
+   {"wait_for": ["[data-testid=\"inspector\"]:not([data-item=\"103\"])", 500]}
   ],
   "expect": ["[data-testid=\"inspector\"]", "[data-testid=\"context-card\"]"],
-  "expect_absent": ["[data-testid=\"item-error\"]", "[data-testid=\"inspector\"][data-item=\"102\"]"],
+  "expect_absent": ["[data-testid=\"item-error\"]", "[data-testid=\"inspector\"][data-item=\"103\"]"],
   "settle_ms": 300
  },
  {
   "page": "review.inspector",
   "state": "night-review-five-arrows-stay-inside-the-warm-window",
-  "_why": "night-review: from item 100, held 4 s (the five-ahead window read), five right arrows in a row (200 ms apart) land on the fifth unit after 100 with its card painted at once and no read error. The card shown is the hash's item (night-a's rule). Read-only.",
-  "hash": "review/queue/2/100",
+  "_why": "night-review: from item 104, held 4 s (the five-ahead window read), five right arrows in a row (200 ms apart) land on the fifth unit after 104 with its card painted at once and no read error. The card shown is the hash's item (night-a's rule). Read-only.",
+  "hash": "review/queue/2/104",
   "actions": [
-   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"100\"]", 30000]},
+   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"104\"]", 30000]},
    {"wait": 4000},
    {"press": "ArrowRight"}, {"press": "ArrowRight"}, {"press": "ArrowRight"}, {"press": "ArrowRight"}, {"press": "ArrowRight"},
-   {"wait_for": ["[data-testid=\"inspector\"]:not([data-item=\"100\"])", 500]}
+   {"wait_for": ["[data-testid=\"inspector\"]:not([data-item=\"104\"])", 500]}
   ],
   "expect": ["[data-testid=\"inspector\"]", "[data-testid=\"verdict-card\"]"],
-  "expect_absent": ["[data-testid=\"item-error\"]", "[data-testid=\"inspector\"][data-item=\"100\"]"],
+  "expect_absent": ["[data-testid=\"item-error\"]", "[data-testid=\"inspector\"][data-item=\"104\"]"],
   "settle_ms": 300
  },
  {

@@ -574,7 +574,9 @@ function GroupingEditor({ from }: { from: string }) {
         {treeGid && (
           <TreePanel gid={treeGid} cut={d.cut} minGroup={d.minMembers} omitSmall={d.omitSmall} nearest={d.nearest}
             onCut={c => set({ cut: c })} busy={busy} onBuild={() => runPreview()} builtKey={builtKey}
-            autoBuild={seededFrom === treeGid && !touched.current && !stateQ && job.view.phase === 'idle' && !job.view.result && !job.view.refusal} />
+            // night-review: motifs on shape distance only — a sequence-similarity tree build fails in the core tonight
+            // ("tree.tree_key and tree.from_fit disagree", job 727 on the sandbox), so sequences keep the button
+            autoBuild={d.unit === 'motifs' && d.basis === 'shape-distance' && seededFrom === treeGid && !touched.current && !stateQ && job.view.phase === 'idle' && !job.view.result && !job.view.refusal} />
         )}
         <section className="lib-ge-sec" data-testid="ge-unit">
           <h4>1&nbsp; What to group</h4>
