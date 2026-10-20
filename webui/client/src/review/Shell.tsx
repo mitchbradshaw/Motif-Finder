@@ -172,21 +172,36 @@ function QueueList({ current, onPick }: { current: string; onPick: (id: string) 
   const all = useSourced(getQueues, [version, countsVersion])
   const records = useRecords()
   const [over] = useBlindOverrides()
+  /* site-changes (the researcher, 2026-10-20): "once queues in review get to 0 they should be removed". A queue with
+   * nothing left is FILED, not deleted: it drops out of the list into one folded line that opens them all. The queue
+   * open now always stays listed, finished or not, so the rail never loses the row you are on. */
+  const [showDone, setShowDone] = useState(false)
   if (all.error) return <div className="error-card" data-testid="queues-error">Queues failed to load: {all.error.message}</div>
   if (!all.data) return <div className="skeleton" style={{ height: 180 }} />
+  const listed = all.data.map(q => ({ q, c: queueCounts(q.id, q, undefined, records) }))
+  const open = listed.filter(({ q, c }) => c.left > 0 || q.id === current)
+  const done = listed.filter(({ q, c }) => !(c.left > 0 || q.id === current))
+  const row = ({ q, c }: (typeof listed)[number], finished = false) => {
+    const blind = over[q.id] ?? q.blind
+    return (
+      <button key={q.id} type="button" className={cx('rv-queue-row', q.id === current && 'on', finished && 'done')} onClick={() => onPick(q.id)} data-testid={`queue-row-${q.id}`} data-left={c.left}>
+        <Icon name={QUEUE_ICON[q.icon]} size={15} />
+        <span className="txt"><b>{q.title}</b><span className="mono muted">{q.subtitle}</span></span>
+        <span className="cnt"><b>{q.source === 'model-verification' ? `${c.left} / ${q.total}` : fmtInt(c.left)}</b>{blind && <span className="rv-blind-badge">blind</span>}</span>
+      </button>
+    )
+  }
   return (
     <div className="rv-queues" data-testid="queue-list">
-      {all.data.map(q => {
-        const c = queueCounts(q.id, q, undefined, records)
-        const blind = over[q.id] ?? q.blind
-        return (
-          <button key={q.id} type="button" className={cx('rv-queue-row', q.id === current && 'on')} onClick={() => onPick(q.id)} data-testid={`queue-row-${q.id}`}>
-            <Icon name={QUEUE_ICON[q.icon]} size={15} />
-            <span className="txt"><b>{q.title}</b><span className="mono muted">{q.subtitle}</span></span>
-            <span className="cnt"><b>{q.source === 'model-verification' ? `${c.left} / ${q.total}` : fmtInt(c.left)}</b>{blind && <span className="rv-blind-badge">blind</span>}</span>
-          </button>
-        )
-      })}
+      {open.map(r => row(r))}
+      {open.length === 0 && <div className="muted small" data-testid="queues-all-finished">every queue is finished — nothing is waiting for a verdict</div>}
+      {done.length > 0 && (
+        <button type="button" className="rv-queues-done-toggle" onClick={() => setShowDone(v => !v)} aria-expanded={showDone} data-testid="queue-finished-toggle"
+          title="queues with nothing left to judge — kept, with every verdict, and opened from here">
+          <Icon name={showDone ? 'chevron-down' : 'chevron-right'} size={12} />{done.length} finished queue{done.length === 1 ? '' : 's'}
+        </button>
+      )}
+      {showDone && done.map(r => row(r, true))}
     </div>
   )
 }

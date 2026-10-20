@@ -82,6 +82,9 @@
 .rv-queue-row:hover { background: var(--k-fill-2, #e9ebef); }
 .rv-queue-row.on { background: var(--blue-100); border-color: var(--blue); }
 .rv-queue-row.on > .k-icon { color: var(--blue-600); }
+.rv-queue-row.done { opacity: 0.7; }
+.rv-queues-done-toggle { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; border: 0; background: none; padding: 4px 2px; cursor: pointer; color: var(--blue-muted, var(--blue)); font: inherit; font-size: 12px; }
+.rv-queues-done-toggle:hover { text-decoration: underline; }
 .rv-queue-row .txt { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .rv-queue-row .txt b { font-size: 13px; font-weight: 600; }
 .rv-queue-row .txt .mono { font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
