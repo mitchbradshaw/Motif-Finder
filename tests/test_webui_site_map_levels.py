@@ -122,14 +122,37 @@ def test_a_second_read_computes_nothing(fresh, monkeypatch, which):
     assert again.json()["read_ms"] < 300, again.json()["read_ms"]
 
 
+def _totals(body):
+    """(machine detections, human marks) summed over every cell of a level-2 or level-1 payload."""
+    machine = human = 0
+    for key, per in body["cells"].items():
+        if "counts" in per:                                  # level 1: one channel's bins
+            n = sum(per["counts"])
+        else:                                                # level 2: channel -> slices
+            n = sum(c["count"] for slices in per.values() for c in slices)
+        if key == "human":
+            human += n
+        else:
+            machine += n
+    return machine, human
+
+
+# the newest completed run on the first channel owns sample 10 for its row (newest wins), so the map counts it
+NEW_DETECTION = ("INSERT INTO detections (run_id, start_idx, end_idx, score) SELECT r.id, 10, 20, 0.5 FROM runs r "
+                 "WHERE r.surrogate_of_run_id IS NULL AND r.status = 'completed' AND r.span_start <= 10 "
+                 "AND r.span_end > 10 AND r.recording_id = (SELECT MIN(id) FROM recordings) ORDER BY r.id DESC LIMIT 1")
+NEW_VERDICT = ("INSERT INTO annotations (recording_id, start_idx, end_idx, verdict, source, created_at) "
+               "SELECT MIN(id), 100, 110, 'interesting', 'site-map-test', '2026-10-20T12:00:00+00:00' FROM recordings")
+
+
 @pytest.mark.parametrize("which", [0, 1])
-def test_a_change_serves_the_old_answer_stale_then_one_recompute(fresh, monkeypatch, which):
+@pytest.mark.parametrize("change, moves", [(NEW_DETECTION, (1, 0)), (NEW_VERDICT, (0, 1))], ids=["detection", "verdict"])
+def test_a_change_serves_the_old_answer_stale_then_one_recompute(fresh, monkeypatch, which, change, moves):
     client, rt, info = fresh
     url = _urls(info)[which]
     old = client.get(url).json()
     count = _Count(monkeypatch, hold=True)
-    _edit(rt, "INSERT INTO detections (run_id, start_idx, end_idx, score) SELECT id, 10, 20, 0.5 FROM runs "
-              "WHERE surrogate_of_run_id IS NULL ORDER BY id LIMIT 1")
+    _edit(rt, change)
     stale = client.get(url).json()
     assert stale.get("stale") is True and stale.get("stale_since"), stale.keys()
     assert _strip(stale) == _strip(old), "the OLD answer, as it was"
@@ -140,6 +163,28 @@ def test_a_change_serves_the_old_answer_stale_then_one_recompute(fresh, monkeypa
     new = client.get(url).json()
     assert "stale" not in new, new.keys()
     assert count.calls == 1
+    assert _strip(new) != _strip(old), "the recompute's answer is the new state's"
+    m0, h0 = _totals(old)
+    m1, h1 = _totals(new)
+    assert (m1 - m0, h1 - h0) == moves, f"machine {m0}->{m1}, human {h0}->{h1}"
+
+
+def test_the_level_cache_never_exceeds_its_byte_budget(fresh, monkeypatch):
+    client, rt, info = fresh
+    budget = 400_000
+    monkeypatch.setattr(DMAP, "LEVEL_CACHE_BYTES", budget)
+    ch = _urls(info)[1].split("channel=")[1].split("&")[0]
+    urls = [f"/api/discovery/map/dataset?recording={KEY}&chunks={k}" for k in (1, 2, 4, 8)] +            [f"/api/discovery/map/channel?recording={KEY}&channel={ch}&binH={b}" for b in (1, 3, 6, 12)]
+    for url in urls:
+        assert client.get(url).status_code == 200
+        st = DMAP.level_status()
+        assert st["bytes"] <= budget, st
+    st = DMAP.level_status()
+    assert 0 < st["held"] < len(urls), st
+    # the most recent view is the one kept
+    before = st["computed"]
+    client.get(urls[-1])
+    assert DMAP.level_status()["computed"] == before
 
 
 def test_another_slice_count_is_a_view_of_its_own(fresh, monkeypatch):
