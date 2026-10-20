@@ -97,6 +97,8 @@ export function MultiScatter({ series, t0, t1, shown, onToggle, hover, onHover, 
     const t = j >= 0 ? s.t[j] : null, u = j >= 0 ? norm[k].y[j] : null
     return t === null || u === null ? [] : [{ k, px: x(t), py: Y(u) }]
   })
+  // critic (night-analyse): a plot with no point in any shown series says so inside the plot, never an empty box
+  const anyPoint = shownK.some(k => norm[k].y.some(v => v !== null && Number.isFinite(v as number)))
   const tipSeries = tip ? series[tip.k] : null
   const tipValue = tip && tipSeries ? tipSeries.v[tip.j] : null
   const tipTime = tip && tipSeries ? tipSeries.t[tip.j] : null
@@ -120,6 +122,7 @@ export function MultiScatter({ series, t0, t1, shown, onToggle, hover, onHover, 
             <text x={x(t0) + 2} y={Y(0) - 2} style={{ fontSize: 9, fill: 'var(--muted-2)' }}>min</text>
             {shownK.map(k => <path key={series[k].key} d={paths[k]} fill={series[k].colour} fillOpacity={0.75} data-series={series[k].key} data-testid={`${testid}-series`} />)}
             {marked.map(m => <circle key={m.k} cx={m.px} cy={m.py} r={5} fill="none" stroke="var(--amber)" strokeWidth={2} data-testid={`${testid}-marked`} />)}
+            {!anyPoint && <text x={w / 2} y={height / 2} textAnchor="middle" style={{ fontSize: 11, fill: 'var(--muted)' }} data-testid={`${testid}-empty`}>{shownK.length ? 'nothing to plot: no shown series has a value here (a class needs two events for a time-to-next)' : 'no series is ticked: tick one in the legend to plot it'}</text>}
             <TimeAxis x={x} y={height + 2} t0={t0} t1={t1} n={7} ends />
           </svg>
         )}
