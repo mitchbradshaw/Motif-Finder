@@ -215,3 +215,52 @@ calibrated inside its first validate still has 10 s.
 Main checkout `webui/runtime/`: `20261020-143548`, `20261020-145245`, `20261020-145719`. These are three starts of
 the main-checkout sandbox bridge; each was stopped. My worktree's own DB copy and runtime folders are already
 deleted.
+
+## Fix round (the critic, 2026-10-20: "merge after fixes", one blocker)
+
+Red: 7fae1ae (7 failed, 16 passed, conda). Fixes: c77a20c (F1), d14d4c2 (F2 + F6), 8dd1f2b (F3 + F4 + F5).
+
+- **F1 (blocker): cold timing.**
+  - The problem: a fresh child paid the model's lazy imports and numba compile inside the one timed call, and the
+    inflated k was kept in the calibration file permanently.
+  - The fix: `calibrate_child.calibrate_in_child` runs the model untimed first (its `WARM_UPS` entry if it has
+    one, then one call on a 1000-sample synthetic series).
+  - Result for `interrogation.trains`: child k 5.1e-7 against a warm in-process 5.06e-7, in the same test run (it
+    was 3.57e-4). `detection.deconvolve` in the child gives 1.31e-5; the real database holds 2.14e-5.
+  - Test: `test_f1_the_child_times_a_warm_model_not_its_first_cold_call`, which requires the child's k to be
+    within 5× of the warm one.
+- **F2: timeout.**
+  - `fut.result(timeout=CALIBRATION_TIMEOUT_S)`, set to 900 s.
+  - On timeout the pool is terminated, and the model reads "failed", with the message "timing <name> timed out
+    after N s; the child was stopped". The next try comes after `CALIBRATION_RETRY_S`.
+  - Test: a stand-in child that sleeps 120 s, with a 3 s timeout.
+- **F6: one child at a time.**
+  - `_BC_PROCESS_SLOT` is a semaphore of one, taken on the calibration's own thread. A queued model reads
+    "calibrating".
+  - The request that starts a timing only joins that thread with the `CALIBRATION_WAIT_S` deadline. The submit,
+    including the wait on `corpus._POOL_LOCK`, is never on a request thread.
+  - Tests: the peak number of live calibration children is 1 with two models started together; and with
+    `_POOL_LOCK` held, `route_local` answers in under 2 s (a guard: this already held).
+  - `_child_call` is the seam the tests use for a stand-in child.
+- **F3: lower median and flat lanes.**
+  - `overlayGains` takes the shared gain from the lower median. [0.2, 35] and [0.2, 0.3, 30, 35] now draw every
+    narrow channel at full height, and only the wide ones at their own gain.
+  - Each lane carries `px` and `flat`. A lane under `FLAT_PX` prints "flat at this gain …"
+    (`ov-lane-flat-<name>`).
+- **F4: help text.** The overlay InfoTip and `Overlay.tsx`'s header now say one shared gain, except a channel too
+  wide for the block, which is drawn at its own gain and marked ÷N. They also name the flat note and the dashed
+  detection brackets.
+- **F5: no ÷1.0.** The shared gain is capped at 0.9 of the block, so a single channel fits it. `ownScale` is set
+  only when there is more than one channel and the factor is over 1.
+
+Gates after the fix round:
+
+| Check | Interpreter | Result |
+|---|---|---|
+| `test_webui_site_x_calibration`, `test_webui_site_x_cross`, `test_webui_cross_page`, `test_import_boundaries` | conda | 48 passed |
+| `test_webui_site_x_calibration`, `test_webui_run_routing`, `test_webui_cross_channel`, `test_webui_cross_page` | `webui/.venv` | 61 passed |
+| `tsc -b`, `vite build` | — | pass |
+
+No bridge was started in this round. On CO the lower median changes the gain from CH4's 0.244 mV to CH3's 0.19 mV.
+CH2 is still drawn at its own gain, so the `site-x-co-own-scale` smoke state still holds. The critic's runtime folder
+`webui/runtime/20261020-182838/` in my worktree is deleted.
