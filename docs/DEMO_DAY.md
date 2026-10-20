@@ -78,7 +78,8 @@ quiet machine.
 | 4 | *Import* › `spike_event_features` › *Run chain* | invert → detrend → encoding → drop detection → event shape → **intervals**: 9 spans at the template's defaults (see 4c) | 1–2 s (cache) |
 | 4b | open block **05 Event shape** › set **knee_frac 0.05 → 0.06** › *Re-run from 05* | the new event-shape page: motif overlay, the signal, the multi-measure scatter, and the **steepest-slope rose** | about 1 s (cached at 0.06 on 21 Oct) |
 | 4c | **catch every spike:** open block **03 Symbolic encoding** › set **segment_seconds 98.33 → 5** › *Re-run from 03*; then block **02 Baseline removal** › **window_s 4916.67 → 300** › *Re-run from 02* | the template's defaults find 9 long spans that lump ~10 spikes each (67 of the ~90 spikes covered). After the first change: 83 spans, 85 of 90 spikes. After both: **85 spans, 88 of 90 spikes**, at most 2 per span, one blue band per spike across the comb | about 4 s each (both cached on 21 Oct) |
-| 5 | *Import* › `cwt_events` › *Run chain* | wavelet route: CWT ridges → event shape → intervals, 11 events | about 1 s (cache) |
+| 5 | *Import* › `cwt_events` › *Run chain* | wavelet route: CWT ridges → event shape → intervals; 11 spans at the defaults (18 of ~90 spikes) | about 1 s |
+| 5b | open block **01 CWT ridges** › **min_scale_s 10 → 2** › *Re-run from 01* | **94 spans, 81 of ~90 spikes**: the smallest wavelet now fits a 5 s fall | about 2–4 s (steps under 1 s are never cached; they recompute this fast) |
 
 - **Recovery:** Analyse › *History* reopens any of these runs.
 - **Report:** reports exist for Discovery runs, not Analyse chains. W1's report is the W2 report below.
