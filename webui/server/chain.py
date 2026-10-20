@@ -329,6 +329,18 @@ def _block_cost_models(step: dict) -> list[str]:
 #: fake) cannot cross a process boundary, so it always runs on the thread.
 CALIBRATION_WORKER = "process"
 _BC_POOLS: set = set()               # the calibration processes in flight, stopped at interpreter exit
+#: fix round F2: how long one child may time a model before it is stopped and the model reads "failed" (the slowest
+#: measured, rupture, is ~447 s)
+CALIBRATION_TIMEOUT_S = 900.0
+#: fix round F6: at most ONE calibration child at a time (each is a second interpreter, and free RAM is short); a
+#: model queued behind it reads "calibrating" meanwhile. Taken on the calibration's own thread, never a request's.
+_BC_PROCESS_SLOT = threading.Semaphore(1)
+
+
+def _child_call(name: str, module: str | None):
+    """What the calibration child runs: ``(function, args)`` — a seam the tests replace with a stand-in child."""
+    from . import calibrate_child
+    return calibrate_child.calibrate_in_child, (name, module)
 _BC_ATEXIT = {"registered": False}
 
 
@@ -342,35 +354,45 @@ def _stop_block_calibrations() -> None:
 
 
 def _calibrate_in_process(name: str, path: str) -> int:
-    """`name` timed in a spawned process of its own (one per model, so a slow model never queues behind another,
-    nor behind the corpus maps' worker) and stored in `path`; the child's pid. The child watches the bridge and
-    ends with it (`coverage_map.watch_parent`). It hands back the timing (`calibrate_child.calibrate_in_child`):
-    the shared file is written HERE, under `block_cost._FILE_LOCK`, so no other process ever writes it."""
+    """`name` timed in a spawned process of its own and stored in `path`; the child's pid. One child at a time
+    (`_BC_PROCESS_SLOT`, fix round F6; never behind the corpus maps' worker); stopped after `CALIBRATION_TIMEOUT_S`
+    (F2). The child watches the bridge and ends with it (`coverage_map.watch_parent`). It hands back the timing
+    (`calibrate_child.calibrate_in_child`): the shared file is written HERE, under `block_cost._FILE_LOCK`, so no
+    other process ever writes it. Runs on the calibration's own thread, never a request's."""
     import multiprocessing as mp
     from concurrent.futures import ProcessPoolExecutor
+    from concurrent.futures import TimeoutError as FutureTimeout
     from Working import block_cost
     from Working.discovery import coverage_map
-    from . import calibrate_child, corpus
+    from . import corpus
     module = getattr((block_cost.MODELS.get(name) or (None, None))[1], "__module__", None)
-    pool = ProcessPoolExecutor(max_workers=1, mp_context=mp.get_context("spawn"), initializer=coverage_map.watch_parent)
-    _BC_POOLS.add(pool)
-    if not _BC_ATEXIT["registered"]:
-        register = getattr(threading, "_register_atexit", None)    # before concurrent.futures joins its workers
-        if register is not None:
-            register(_stop_block_calibrations)
-        _BC_ATEXIT["registered"] = True
-    try:
-        with corpus._POOL_LOCK, corpus._MainHidden():   # the child must not re-run the bridge's main script
-            fut = pool.submit(calibrate_child.calibrate_in_child, name, module)
-        pid, key, entry = fut.result()
-        with block_cost._FILE_LOCK:     # the read-merge-write block_cost.calibrate does, in the bridge's process
-            merged = block_cost._load(path)
-            merged[key] = entry
-            block_cost._save(merged, path)
-        return pid
-    finally:
-        _BC_POOLS.discard(pool)
-        pool.shutdown(wait=False)
+    fn, args = _child_call(name, module)
+    with _BC_PROCESS_SLOT:
+        pool = ProcessPoolExecutor(max_workers=1, mp_context=mp.get_context("spawn"),
+                                   initializer=coverage_map.watch_parent)
+        _BC_POOLS.add(pool)
+        if not _BC_ATEXIT["registered"]:
+            register = getattr(threading, "_register_atexit", None)    # before concurrent.futures joins its workers
+            if register is not None:
+                register(_stop_block_calibrations)
+            _BC_ATEXIT["registered"] = True
+        try:
+            with corpus._POOL_LOCK, corpus._MainHidden():   # the child must not re-run the bridge's main script
+                fut = pool.submit(fn, *args)
+            try:
+                pid, key, entry = fut.result(timeout=CALIBRATION_TIMEOUT_S)
+            except FutureTimeout:
+                corpus._terminate(pool)
+                raise TimeoutError(f"timing {name} timed out after {CALIBRATION_TIMEOUT_S:.0f} s; "
+                                   "the child was stopped") from None
+            with block_cost._FILE_LOCK:     # the read-merge-write block_cost.calibrate does, in the bridge's process
+                merged = block_cost._load(path)
+                merged[key] = entry
+                block_cost._save(merged, path)
+            return pid
+        finally:
+            _BC_POOLS.discard(pool)
+            pool.shutdown(wait=False)
 
 
 def _calibrate_block_cost(name: str, path: str, generation: dict) -> None:
