@@ -86,3 +86,36 @@ def test_a_calibration_child_that_fails_says_why_in_words(fresh, monkeypatch):
     chain._calibrate_block_cost("no.such_block", str(path), gen)
     st = chain._BC_STATE["no.such_block"]
     assert st["state"] == "failed" and "no.such_block" in st["error"], st
+
+
+def test_only_the_request_that_starts_a_timing_waits_for_it_a_re_validate_answers_calibrating_at_once(fresh, monkeypatch):
+    """The page re-validates every 3 s while a step reads "calibrating" (analyse/useValidation.ts); each request
+    used to wait CALIBRATION_WAIT_S (10 s) again for the same timing, so for a 7-minute rupture timing every
+    validate took 10 s — the chain page "loading forever". The request that starts the timing still waits (a quick
+    model lands inside it); one that finds it already running answers at once."""
+    import threading
+    import time as _t
+    chain, block_cost, path = fresh
+    from Working.recipes import make_recipe
+    release = threading.Event()
+
+    def slow(names=None, force=False, path=None, **kw):
+        release.wait(20)
+        data = block_cost._load(path)
+        for n in names:
+            data[block_cost._key(n)] = {"k": 1e-3, "exponent": 1.0, "n": 1, "elapsed_s": 0.1, "calibrated_at": "t"}
+        block_cost._save(data, path)
+        return {n: 1e-3 for n in names}
+    monkeypatch.setattr(block_cost, "calibrate", slow)
+    monkeypatch.setattr(chain, "CALIBRATION_WAIT_S", 1.0)
+    recipe = make_recipe(1, [{"stage": "detection", "algorithm": "deconvolve", "params": {}}], span=[0, 20_000])
+    try:
+        t0 = _t.time()
+        first = chain.route_local(recipe, 20_000, 1.0, ceiling_s=900)
+        assert first["route"] == "unknown" and _t.time() - t0 >= 0.9, "the starting request waits for the timing"
+        t1 = _t.time()
+        again = chain.route_local(recipe, 20_000, 1.0, ceiling_s=900)
+        assert again["route"] == "unknown" and again["calibrating"] == [0]
+        assert _t.time() - t1 < 0.5, "a re-validate while the same timing runs does not wait for it again"
+    finally:
+        release.set()
