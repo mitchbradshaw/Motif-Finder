@@ -1408,6 +1408,21 @@ def test_a_wavelet_band_plan_costs_the_wavelet_chain(client):
 # recording in time bins. The core half is pinned in test_discovery_detection_map.py;
 # here the routes are checked against a real fan-out on the synthetic recording.
 
+def _settled_map(client, tries=6):
+    """The map overview as it stands once its recompute has landed. Since map-overview-cache (7ceea4f) a read never
+    computes: the first answers `pending`, one after a change answers the old overview `stale`, and the worker's
+    recompute replaces it. Read, wait the recompute out, read again — bounded, and loud if it never settles."""
+    from server import discovery_map as DMAP
+    for _ in range(tries):
+        r = client.get("/api/discovery/map")
+        assert r.status_code == 200, r.text
+        m = r.json()
+        if not (m.get("pending") or m.get("stale")):
+            return m
+        assert DMAP.wait_map_idle(120), "the map overview's recompute did not finish within 120 s"
+    raise AssertionError(f"the map overview was still pending or stale after {tries} reads: {sorted(m)}")
+
+
 def _map_row(payload, **where):
     hits = [r for r in payload["rows"] if all(r.get(k) == v for k, v in where.items())]
     assert len(hits) == 1, f"{where} matched {len(hits)} rows: {[r['key'] for r in payload['rows']]}"
@@ -1416,9 +1431,7 @@ def _map_row(payload, **where):
 
 def test_the_map_lists_the_applied_run_as_one_row_over_every_channel_of_the_dataset(client):
     out = _apply(client)                                   # mp_threshold on CH1 and CH2, the whole recording
-    r = client.get("/api/discovery/map")
-    assert r.status_code == 200, r.text
-    m = r.json()
+    m = _settled_map(client)
     assert m["session"]["recording"] == "syn" and m["session"]["id"] >= 1, \
         "the client needs the open session to know which cells the Runs browser can open"
     assert m["session"]["channels"] == list(CH[:2]) and m["session"]["section"] == [0.0, pytest.approx(N / FS / 3600.0)], \
