@@ -112,7 +112,8 @@ def test_the_overlay_draws_detections_as_brackets_with_a_legend_never_as_a_solid
     src = _read("explore", "Overlay.tsx")
     assert "mergeDetectionMarks(" in src, "the overlay draws merged marks, not one bar per detection"
     assert 'data-testid="ov-detection"' in src
-    assert "strokeDasharray" in src[src.index('data-testid="ov-detection"') - 600:src.index('data-testid="ov-detection"')], \
+    at = src.index('data-testid="ov-detection"')
+    assert "strokeDasharray" in src[at - 600:at + 600], \
         "a detection mark is dashed so it cannot be read as a trace"
     page = _read("explore", "CrossChannelPage.tsx")
     assert 'data-testid="ov-det-legend"' in page, "the overlay head says what the dashed marks are"

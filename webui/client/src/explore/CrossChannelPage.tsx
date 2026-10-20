@@ -3,7 +3,7 @@
    summary, hand-offs and the open design questions. Live since stage-3 prompt 01 (getCrossChannel → GET /api/cross/{id}):
    lag, r and the bin are the core's (Working.cross_channel.classify_waveforms) on the window in view.
    Deep links: ?align=lag · ?window=motif-<n> · ?pad=60 · ?channels=4,3,1 · ?maxlag=10 · ?lag=channel ·
-   ?y=absolute|centred|per-channel · ?view=overlay (every channel on one axis, ./Overlay.tsx) · ?bold=4,3|none · ?popover=channels · ?questions=open · ?state=computing ·
+   ?y=absolute|centred|per-channel · ?view=stacked (the stacked rows; absent = the overlay, every channel on one axis, ./Overlay.tsx — site-x, the researcher 2026-10-20) · ?bold=4,3|none · ?popover=channels · ?questions=open · ?state=computing ·
    ?t0=&t1= (fixup-W: an edge's own window, unpadded — Library › Family's *Explore ›*) · ?family=F-xx&grouping=g-NN
    (fixup-W: *Classify every F-xx member in Library* starts that family's cross_channel job)
 
@@ -38,6 +38,7 @@ import { makeX } from '../charts/scale'
 import { unitWords } from '../charts/units'
 import { Y_MODES, Y_MODE_LABEL, Y_MODE_NOTE, fmtMvAt, fmtMvSpan, isYMode, scaleNote, stackGeom, type YMode } from './crossScale'
 import { crossDetrendFor, lagShift, windowParam } from './crossModel'
+import { FLAT_PX, drawnRowPx } from './overlayModel'
 import { Badge, Button, Checkbox, Chip, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Popover, ProgressBar, Seg, Tooltip, cx, fmtInt, useDemoState, useQueryState, useSim, type IconName } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
@@ -122,9 +123,10 @@ function CrossBody({ data, sig }: { data: CrossRead; sig: SourcedState<SignalDem
   const [channelsQ, setChannelsQ] = useQueryState<string>('channels', '')
   const [yQ, setYQ] = useQueryState<string>('y', 'centred')
   const yMode: YMode = isYMode(yQ) ? yQ : 'centred'
-  // cross-channel-overlay: the plot's view — the stacked rows, or every channel on one tall axis (./Overlay.tsx)
+  // cross-channel-overlay: the plot's view — the stacked rows, or every channel on one tall axis (./Overlay.tsx).
+  // site-x (the researcher, 2026-10-20: "make overlay plot by default"): absent is the overlay; ?view=stacked the rows
   const [viewQ, setViewQ] = useQueryState<string>('view', '')
-  const overlay = viewQ === 'overlay'
+  const overlay = viewQ !== 'stacked'
   const [boldQ, setBoldQ] = useQueryState<string>('bold', '')
   const [popover, setPopover] = useQueryState<string>('popover', '')
   const [questions, setQuestions] = useQueryState<string>('questions', '')
@@ -347,7 +349,7 @@ function CrossBody({ data, sig }: { data: CrossRead; sig: SourcedState<SignalDem
         <div className="card ex-stack" data-testid="channel-stack">
           <div className="ex-stack-head">
             <span className="card-title">{overlay ? 'Same window, every channel on one axis' : 'Same window, every selected channel'}</span>
-            <Seg size="sm" value={overlay ? 'overlay' : 'stacked'} onChange={v => { setViewQ(v === 'overlay' ? 'overlay' : null); setBrush(null) }} ariaLabel="view" testid="view-seg"
+            <Seg size="sm" value={overlay ? 'overlay' : 'stacked'} onChange={v => { setViewQ(v === 'stacked' ? 'stacked' : null); setBrush(null) }} ariaLabel="view" testid="view-seg"
               options={[{ value: 'stacked', label: 'stacked' }, { value: 'overlay', label: 'overlay' }]} />
             <span className="range mono" data-testid="window-phrase" data-t0={data.window.t0S} data-t1={data.window.t0S + data.window.durS}>{windowLabel} · {data.window.startH.toFixed(3)} – {data.window.endH.toFixed(3)} h</span>
             {!overlay && <span className="muted mono small" data-testid="scale-note" data-gain={geom.fullScaleMv !== null ? fmtMvSpan(geom.fullScaleMv) : undefined}>{scaleNote(geom, setByName)}</span>}
@@ -375,6 +377,9 @@ function CrossBody({ data, sig }: { data: CrossRead; sig: SourcedState<SignalDem
                   title="draw the box over the window's own span (the shaded region) — the same as dragging across it">box the span</button>
                 <span className="ex-links"><button type="button" onClick={() => setBold(ovChannels.map(c => c.id))} data-testid="ov-all">all</button> · <button type="button" onClick={() => setBold([])} data-testid="ov-none">none</button></span>
                 <span className="muted mono small" data-testid="ov-bold-count">{bold.length} bold</span>
+                {/* site-x: the dashed marks are detections, not a trace — the screenshot of 2026-10-20 read them as one */}
+                <span className="muted mono small" data-testid="ov-det-legend" title="each channel's detections inside the window, from every run: one dashed bracket per run of overlapping detections, open-ended where they run past the window — hover one for how many it stands for">
+                  ╌ detections</span>
                 <InfoTip title="Overlay" placement="bottom-end">Click a name or a trace to make it bold (shift-click for several); drag across the plot for a box to act on. Every channel of the recording over the same window, on one axis. Each trace is drawn about its own mean over the window (the electrodes sit volts apart in DC offset, so drawn as recorded they would not share a screen), in equal lanes by channel order, at <b>one shared gain</b> so a bigger wiggle still looks bigger; a trace that runs past the block is clipped, never rescaled. <b>Align by lag</b> slides each channel by the lag measured against {refName} (the number beside its name; a lag past max lag ±{maxLag} s is left in place). The box is on {refName}&rsquo;s clock: Send and Mark write it for the channels drawn unshifted (with align on, a channel slid by its lag is left out of both, so no verdict lands on samples you did not see; turn align off to act on it); Open in Signal and Open in Analyse add the channel&rsquo;s shift. Keys (click the plot first): ↑ / ↓ move the bold channel, A aligns, Esc clears the box.</InfoTip>
               </div>
               {ovDet?.error && <div className="ex-warn" data-testid="ov-det-error"><Icon name="alert-triangle" size={13} /><span>{ovDet.error}</span></div>}
@@ -443,6 +448,15 @@ function CrossBody({ data, sig }: { data: CrossRead; sig: SourcedState<SignalDem
                             into a blank is the thing CLAUDE.md's web-UI gate forbids */}
                         {r.error && <text x={6} y={ROWH / 2 + 4} className="mono ex-xrow-err" data-testid={`xrow-error-${r.name}`}>{r.error.split(':')[0]} — read failed<title>{r.error}</title></text>}
                         {!r.error && g && !g.extent && <text x={6} y={ROWH / 2 + 4} className="mono ex-xrow-err">no finite sample in this window</text>}
+                        {/* site-x: at a shared gain set by a much wider row this row is under FLAT_PX tall — a dead-flat line
+                            with nothing said is the harm crossScale's header names; say it, and how to see its shape */}
+                        {(() => {
+                          if (!g?.extent || yMode === 'per-channel') return null
+                          const h = drawnRowPx(g.extent, geom.fullScaleMv, ROWH)
+                          if (h === null || h >= FLAT_PX) return null
+                          return <text x={6} y={14} className="mono ex-xrow-err" data-testid={`xrow-flat-${r.name}`} data-px={h.toFixed(2)}>
+                            flat at this gain: {fmtMvSpan(g.extent[1] - g.extent[0])} is {h.toFixed(1)} px of {fmtMvSpan(geom.fullScaleMv ?? 0)} per row — y: per channel draws its shape</text>
+                        })()}
                         {/* the row's own ABSOLUTE extent, in every mode — the sentence that makes centring
                             honest, since the raw record is still stated when the drawing origin has moved */}
                         {g?.extent && <text x={W - 4} y={ROWH - 4} textAnchor="end" className="mono ex-xrow-mv" data-testid={`mv-${r.name}`}>

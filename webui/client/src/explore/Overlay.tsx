@@ -22,6 +22,7 @@ import { scaleLinear } from 'd3'
 import { makeX, polylinePath } from '../charts/scale'
 import { mvDigits } from './util'
 import { cx } from '../kit'
+import { mergeDetectionMarks, overlayGains } from './overlayModel'
 
 /** One channel as the overlay draws it. `t` is absolute seconds (the envelope's own, non-uniform once decimated),
  *  `v` the envelope's values in the recording's display unit, a null a gap. */
@@ -97,11 +98,11 @@ export function overlayGeometry(channels: OverlayChannel[]) {
   const height = Math.max(BLOCK_MIN, n * LANE_MIN + PAD_T + PAD_B)
   const lane = (height - PAD_T - PAD_B) / n
   const st = channels.map(c => stats(c.v))
-  const spans = st.filter((s): s is NonNullable<typeof s> => !!s && s.hi > s.lo).map(s => s.hi - s.lo).sort((a, b) => a - b)
-  const median = spans.length ? spans[Math.floor(spans.length / 2)] : 1
-  const pxPerUnit = (GAIN_LANES * lane) / median
+  // site-x: one shared gain (the median channel's range spans GAIN_LANES lanes), except for a channel that cannot fit
+  // the block at it — drawn at its own gain and labelled with the factor (overlayModel.ts::overlayGains)
+  const gains = overlayGains(st.map(s => (s ? s.hi - s.lo : null)), lane, height, GAIN_LANES)
   const centre = channels.map((_, i) => PAD_T + lane * (i + 0.5))
-  return { height, lane, pxPerUnit, medianSpan: median, centre, stats: st }
+  return { height, lane, pxPerUnit: gains.shared, medianSpan: gains.medianSpan, gains: gains.rows, centre, stats: st }
 }
 
 /** The value nearest in time to t on one envelope (binary search over its own t). */
@@ -120,7 +121,7 @@ export function Overlay(p: OverlayProps) {
   const g = useMemo(() => overlayGeometry(channels), [channels])
   const bold = useMemo(() => new Set(selected), [selected])
   const shifts = channels.map(c => overlayShift(c, p.align, p.referenceId, p.maxLagS))
-  const yOf = (i: number) => { const m = g.stats[i]?.mean ?? 0; return scaleLinear().domain([m, m + 1]).range([g.centre[i], g.centre[i] - g.pxPerUnit]) }
+  const yOf = (i: number) => { const m = g.stats[i]?.mean ?? 0; return scaleLinear().domain([m, m + 1]).range([g.centre[i], g.centre[i] - (g.gains[i]?.pxPerUnit ?? g.pxPerUnit)]) }
   const paths = useMemo(() => channels.map((c, i) => {
     const s = shifts[i]
     const tt = s ? c.t.map(t => t - s) : c.t
@@ -197,6 +198,10 @@ export function Overlay(p: OverlayProps) {
                 <span className={cx('sh mono', past && 'past')} data-testid={`ov-shift-${c.name}`} data-shift={s}>
                   {past ? 'past max' : c.lag_s === null ? '— s' : fmtShift(s)}
                 </span>)}
+              {g.gains[i]?.ownScale && (
+                <span className="own mono" data-testid={`ov-own-scale-${c.name}`} data-factor={g.gains[i].factor.toFixed(1)}
+                  title={`${c.name} spans ${(g.stats[i]!.hi - g.stats[i]!.lo).toFixed(places)} ${p.unitLabel ?? ''} in this window, ${g.gains[i].factor.toFixed(0)}× the median channel's range: at the shared gain it would run off the plot, so it is drawn at its own gain, ${g.gains[i].factor.toFixed(0)}× smaller — its amplitude does not compare with the others'`}>
+                  ÷{g.gains[i].factor >= 10 ? g.gains[i].factor.toFixed(0) : g.gains[i].factor.toFixed(1)}</span>)}
               {c.error && <span className="err" data-testid={`ov-error-${c.name}`}>!</span>}
             </button>
           )
@@ -212,11 +217,20 @@ export function Overlay(p: OverlayProps) {
             const on = bold.has(c.id)
             return (
               <g key={c.id} data-testid={`ov-row-${c.name}`} data-shift={shifts[i] || undefined}>
-                {(c.detections ?? []).map(d => {
-                  const a = x(d.t0 - shifts[i]), b = x(d.t1 - shifts[i])
-                  return <rect key={d.id} x={a} y={g.centre[i] - g.lane / 2 + 1} width={Math.max(2, b - a)} height={2.5} rx={1} fill={c.colour}
-                    opacity={on ? 0.95 : 0.3} data-testid="ov-detection"><title>{`${c.name} · detection ${d.id}`}</title></rect>
+                {/* site-x: detections as dashed brackets, merged where they overlap, open where they run past the window —
+                    drawn as solid bars in the trace's colour they read as a flat trace across the top of every lane */}
+                {mergeDetectionMarks((c.detections ?? []).map(d => ({ t0: d.t0 - shifts[i], t1: d.t1 - shifts[i] })), t0, t1).map(m => {
+                  const a = x(m.t0), b = Math.max(x(m.t0) + 2, x(m.t1)), yy = g.centre[i] - g.lane / 2 + 4
+                  return (
+                    <g key={`${m.t0}-${m.t1}`} data-testid="ov-detection" data-n={m.n} opacity={on ? 0.6 : 0.25}>
+                      <line x1={a} x2={b} y1={yy} y2={yy} stroke={c.colour} strokeWidth={1.5} strokeDasharray="5 3" />
+                      {!m.openLeft && <line x1={a} x2={a} y1={yy - 3} y2={yy + 3} stroke={c.colour} strokeWidth={1.5} />}
+                      {!m.openRight && <line x1={b} x2={b} y1={yy - 3} y2={yy + 3} stroke={c.colour} strokeWidth={1.5} />}
+                      <title>{`${c.name} · ${m.n} detection${m.n === 1 ? '' : 's'}${m.openLeft || m.openRight ? ' · runs past the window' : ''}`}</title>
+                    </g>)
                 })}
+                {(c.error || !g.stats[i]) && <text x={6} y={g.centre[i] + 4} className="mono ex-ov-lane-note" fill={c.colour} data-testid={`ov-lane-note-${c.name}`}>
+                  {c.name}: {c.error ? `read failed — ${c.error.split(':')[0]}` : 'no finite sample in this window'}<title>{c.error ?? 'every value in this window is missing'}</title></text>}
                 <path d={paths[i]} fill="none" stroke={c.colour} strokeWidth={on ? 1.8 : 1} strokeOpacity={on ? 1 : selected.length ? 0.18 : 0.75}
                   strokeLinejoin="round" vectorEffect="non-scaling-stroke" data-testid={`ov-trace-${c.name}`} data-bold={on ? 'yes' : 'no'} />
               </g>
