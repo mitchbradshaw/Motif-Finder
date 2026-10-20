@@ -163,6 +163,7 @@ def test_f1_the_child_times_a_warm_model_not_its_first_cold_call(fresh, tmp_path
     chain._calibrate_block_cost(trains, str(path), gen)
     assert chain._BC_STATE[trains]["state"] == "calibrated", chain._BC_STATE[trains]
     k_child = json.load(open(path, encoding="utf-8"))[block_cost._key(trains)]["k"]
+    print(f"F1: child k {k_child:.3g}, warm in-process k {k_here:.3g}")
     assert k_child <= 5 * k_here, f"child k {k_child:.3g} vs warm in-process k {k_here:.3g}"
 
 

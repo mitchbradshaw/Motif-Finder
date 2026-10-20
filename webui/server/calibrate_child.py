@@ -21,6 +21,14 @@ def calibrate_in_child(name: str, module: str | None) -> tuple:
     from Working import block_cost
     if module:
         importlib.import_module(module)
+    # fix round F1: a fresh interpreter pays the model's lazy imports and numba compile on its FIRST call; timed cold,
+    # interrogation.trains read k 2.2e-4 against 1.6e-6 warm, and the k is kept for good. Warm it untimed first — the
+    # block's own warm-up if it registered one, then one call on a small synthetic series — as a bridge thread was,
+    # having imported every adapter through discover_adapters()
+    import numpy as np
+    if name in block_cost.WARM_UPS:
+        block_cost.WARM_UPS[name]()
+    block_cost.MODELS[name][1](np.cumsum(np.random.default_rng(0).standard_normal(1000)) * 1e-3, 1.0)
     scratch = tempfile.mkdtemp(prefix="ub-calibrate-")
     try:
         path = os.path.join(scratch, "block_calibration.json")
