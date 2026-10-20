@@ -1,0 +1,43 @@
+[
+ {
+  "page": "review.inspector",
+  "state": "night-review-an-arrow-lands-on-a-warm-item",
+  "_why": "night-review: once an item has been on screen for a moment the next five items ahead and the previous one are read in the background, one at a time. After 3 s on item 103 of queue 2, the right arrow paints the next item (104 on the real database) from memory: its card is there within half a second of the key (the press action itself waits 200 ms) and no loading card or item error shows. Read-only.",
+  "hash": "review/queue/2/103",
+  "actions": [
+   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"103\"]", 30000]},
+   {"wait": 3000},
+   {"press": "ArrowRight"},
+   {"wait_for": ["[data-testid=\"inspector\"]:not([data-item=\"103\"])", 500]}
+  ],
+  "expect": ["[data-testid=\"inspector\"]", "[data-testid=\"context-card\"]"],
+  "expect_absent": ["[data-testid=\"item-error\"]", "[data-testid=\"inspector\"][data-item=\"103\"]"],
+  "settle_ms": 300
+ },
+ {
+  "page": "review.inspector",
+  "state": "night-review-five-arrows-stay-inside-the-warm-window",
+  "_why": "night-review: from item 104, held 4 s (the five-ahead window read), five right arrows in a row (200 ms apart) land on the fifth unit after 104 with its card painted at once and no read error. The card shown is the hash's item (night-a's rule). Read-only.",
+  "hash": "review/queue/2/104",
+  "actions": [
+   {"wait_for": ["[data-testid=\"inspector\"][data-item=\"104\"]", 30000]},
+   {"wait": 4000},
+   {"press": "ArrowRight"}, {"press": "ArrowRight"}, {"press": "ArrowRight"}, {"press": "ArrowRight"}, {"press": "ArrowRight"},
+   {"wait_for": ["[data-testid=\"inspector\"]:not([data-item=\"104\"])", 500]}
+  ],
+  "expect": ["[data-testid=\"inspector\"]", "[data-testid=\"verdict-card\"]"],
+  "expect_absent": ["[data-testid=\"item-error\"]", "[data-testid=\"inspector\"][data-item=\"104\"]"],
+  "settle_ms": 300
+ },
+ {
+  "page": "library.grouping",
+  "state": "night-review-the-editor-opens-on-the-tree",
+  "_why": "night-review: with the atlas on a feature-bin grouping (g-09, amplitude bins — no tree), Edit grouping opens on the newest Ward grouping of motifs instead, on shape distance, with the tree panel at the top: its kept tree drawn (or, for a grouping made before trees were kept, built at once and drawn — the regroup saves nothing). Never the amber 'No tree to draw' with a button to discover.",
+  "grouping": {"motifs": "g-09"},
+  "hash": "library/grouping?from=atlas",
+  "settle_ms": 1500,
+  "actions": [{"wait_for": ["[data-testid=\"edit-grouping-modal\"] [data-testid=\"ge-tree\"] [data-testid=\"dendrogram\"] svg", 600000]}],
+  "expect": ["[data-testid=\"basis-shape-distance\"][aria-checked=\"true\"]", "[data-testid=\"ge-tree\"]", "[data-testid=\"dendrogram-cut-handle\"]"],
+  "expect_absent": ["[data-testid=\"tree-missing\"]", "[data-testid=\"tree-load-failed\"]", "[data-testid=\"regroup-failed\"]"]
+ }
+]

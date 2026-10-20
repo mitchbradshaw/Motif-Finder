@@ -611,3 +611,23 @@ function eventsLine(q: SrvQueue): string {
   if (n == null || !(n > total)) return ''
   return `${total.toLocaleString('en-GB')} events from ${n.toLocaleString('en-GB')} detections`
 }
+
+/* night-review (append-only): the Inspector's five-ahead window. `itemHeld` is true for an item read or being read at
+ * these trace options (`peekItem` sees only settled reads, so an item whose prefetch was in flight still waited the
+ * 150 ms settle before joining it — night-a #24). `prefetchItemThen` is `prefetchItem` with a promise that settles
+ * when the read does (never rejects: a failed read is dropped from the cache and read again by the card), so the
+ * window can be read one item at a time, nearest first. */
+export function itemHeld(queueId: string, itemId: string, opts: TraceOpts = {}): boolean {
+  return ITEMS.has(itemKey(queueId, itemId, opts))
+}
+export function prefetchItemThen(queueId: string, itemId: string, opts: TraceOpts = {}): Promise<void> {
+  prefetchItem(queueId, itemId, opts)
+  const p = ITEMS.get(itemKey(queueId, itemId, opts))
+  return p ? p.then(() => undefined, () => undefined) : Promise.resolve()
+}
+
+/** night-review fix round (F1, append-only): drop every cached item that is not of this queue — a carry that reached
+ *  no row of the queue on screen can still have reached rows of others, whose cached details predate it. */
+export function clearItemCacheExcept(queueId: string) {
+  for (const k of [...ITEMS.keys()]) if (!k.startsWith(`${queueId}/`)) { ITEMS.delete(k); SETTLED.delete(k) }
+}
