@@ -54,7 +54,7 @@ export interface Discovery {
   pending: DiscoveryRun[]; estimateMin: number; overLimit: boolean
   chPage: number; setChPage: (p: number) => void; pageCount: number; visibleChannels: string[]
   /** null until the scoreboard has answered for the runs and scope on screen (site-runs item 4) */
-  scores: ScoreRun[] | null; scoresLoading: boolean; foundOf: (key: string) => number | null
+  scores: ScoreRun[] | null; foundOf: (key: string) => number | null
   sectionH: number
 }
 
@@ -108,7 +108,11 @@ export function useDiscovery(): Discovery {
   useEffect(() => { if (awaitRunsOf !== null && base.data !== awaitRunsOf) setAwaitRunsOf(null) }, [base.data, awaitRunsOf])
   const switching = awaitRunsOf !== null
   const link = scope0 && sess.data ? resolveScopeLink(recordingQ, channelsQ, scope0, recordings) : null
-  const linkRefused = link && 'refused' in link ? link.refused : null
+  /* fix round F2: a write the bridge rejected is held and said in words through the same callout as a refusal (its
+   * button keeps the session's scope and clears the keys); while it is held the page is not "writing", so it does
+   * not hang on its loading layout */
+  const [linkError, setLinkError] = useState<string | null>(null)
+  const linkRefused = link && 'refused' in link ? link.refused : linkError
   const linkTarget = link && 'scope' in link ? link.scope : null
   /* while the link is being written the page stays on the session the bridge HOLDS: drawing the target over it sent
    * the new names to the old recording ("no channel(s) ['CH1', 'CH2'] on M2_aug_concat_fs1") */
@@ -119,17 +123,18 @@ export function useDiscovery(): Discovery {
           recording: recordingQ || scope0.recording,
           channels: channelsQ ? channelsQ.split(',').filter(Boolean) : scope0.channels,
         } : scope0
-  const clearLinkKeys = () => { setChannelsQ(null); setRecordingQ(null) }
+  const clearLinkKeys = () => { setLinkError(null); setChannelsQ(null); setRecordingQ(null) }
   const linkKey = linkTarget ? `${linkTarget.recording}|${linkTarget.channels.join(',')}|${linkTarget.section?.join(',') ?? 'own'}` : ''
   useEffect(() => {
     if (!link || !('scope' in link)) return
     if (link.same) { clearLinkKeys(); return }
+    setLinkError(null)
     let alive = true
     putScopeLink(link.scope)
       .then(p => { if (!alive) return; took(p.session); clearLinkKeys() })
       .catch(e => {
         console.error('the linked scope could not be written', e)
-        toast.push({ text: `the link's scope was not applied · ${e instanceof Error ? e.message : String(e)}` })
+        if (alive) setLinkError(`the bridge did not take the link's scope — ${(e instanceof Error ? e.message : String(e)).replace(/^\d{3} /, '')} — the session keeps its scope`)
       })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -236,7 +241,7 @@ export function useDiscovery(): Discovery {
   const loading = sess.loading || base.loading
   /* a link being written, or a new session's runs not in yet: no card mounts, so no read goes out on a scope the
    * bridge is leaving (a read in flight across the write is answered by the NEW session and 404s) */
-  const linkWriting = !!linkTarget && !(link && 'same' in link && link.same)
+  const linkWriting = !!linkTarget && !(link && 'same' in link && link.same) && !linkError
   const firstLoad = (loading && (sess.data === null || base.data === null)) || switching || linkWriting
   return {
     loading, firstLoad, refreshing: loading && !firstLoad,
@@ -247,7 +252,7 @@ export function useDiscovery(): Discovery {
     runs, patchRun, picks, setPicks, togglePick, shown, isShown, toggleShown, setShown, stale, setStale,
     pending, estimateMin, overLimit: estimateMin > DISCOVERY_LIMIT_MIN,
     chPage, setChPage: p => setChPageQ(String(p)), pageCount, visibleChannels,
-    scores, scoresLoading: scoreRead.loading, foundOf, sectionH,
+    scores, foundOf, sectionH,
   }
 }
 

@@ -307,7 +307,7 @@ function Scoreboard({ dx }: { dx: Discovery }) {
   const colourOf = (k: string) => dx.runs.find(r => r.key === k)?.colour ?? '#9ca3af'
   let done: ScoreRun[] = scores.filter(s => dx.runs.some(r => r.key === s.run && hasResults(r)))
   if (sort) done = [...done].sort((a, b) => ((a.total[sort.key] ?? -1) - (b.total[sort.key] ?? -1)) * sort.dir)
- const others = dx.runs.filter(r => r.kind !== 'reference' && !hasResults(r) && r.status !== 'draft')
+  const others = dx.runs.filter(r => r.kind !== 'reference' && !hasResults(r) && r.status !== 'draft')
   const nRunRows = done.length + others.length
   useLayoutEffect(() => {
     const el = scrollRef.current

@@ -87,8 +87,6 @@
 .dsc-run-meta > .muted { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .dsc-run-line { display: block; font-family: var(--font-mono); color: var(--muted); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .dsc-run-progress { display: inline-flex; align-items: center; gap: 8px; }
-.dsc-run-jobs { margin-left: auto; }
-.dsc-run-retry { align-self: flex-end; flex: none; white-space: nowrap; }
 /* the × in the corner of a run card: the run leaves the session (the row is kept; History brings it back) */
 .dsc-run { position: relative; }
 /* fixup-unpick: the x is the row's LAST flex item, after the A/B badge. It used to be absolutely positioned in
@@ -203,7 +201,6 @@
   .dsc-cols { grid-template-columns: 1fr; }
   .dsc-add-body { grid-template-columns: 1fr; }
 }
-.dsc-run-jobs-link.k-btn { align-self: flex-end; flex: none; height: 20px; padding: 0 2px; font-size: 11px; white-space: nowrap; }
 .dsc-run.paused .dsc-run-line { white-space: normal; }
 
 /* seed search (2) */
