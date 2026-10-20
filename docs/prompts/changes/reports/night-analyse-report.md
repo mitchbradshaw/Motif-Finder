@@ -181,3 +181,17 @@ the histograms in the fold, and are unchanged.
 - Shared-stash incident (23:21). My `git stash pop` picked up REVIEW's stash, because the stash list is shared
   across worktrees. It applied nothing but one conflicted file, which I took back out of my worktree; a copy is in my
   scratchpad. The manager checked REVIEW's tree. I used no stash after that.
+
+## Demo check fix (2026-10-21, after the gate)
+
+**Found.** On the demo's W1 flow (`scripts/demo_screenshots.py`: CH4_A2 377-381 h, then Import `spike_event_features`, then Run chain), block 4 (Event shape) still drew the OLD histogram view. On the way-2 sandbox its step is restored from the step cache with no meta sidecar, so `/api/runs/726/steps/4` carried `features` and `marks` but no `rose` and no `rules`. `SpansToSpans` chose the page by `p.rose` alone, so with no rose it fell back to kind 'measures'.
+
+**Changed.** The kind is now 'shape' when there is a rose OR when the feature table carries the Event shape columns (`event_amplitude_mv` and `max_slope_mv_s`: a payload convention; `eventFigures.ts::isEventShapeTable`). With no rose, the page says so in words (`rose-missing`: the result was restored without the block's printed record; re-run the step to draw the rose) instead of drawing nothing. No bridge change: the rose exists only in the block's meta, which the bridge does not hold for that run, and recomputing it would mean the core.
+
+**Proof.**
+- Red commit bee8b52: 2 failed, 11 passed.
+- Green: `test_night_analyse_helpers.py`, 13 passed (conda python).
+- Way-2 drive with the demo flow: block 4 now shows motif-overlay (9 of 9 events, flipped as the inverted input), event-shape-signal, measure-scatter and rose-missing, with no feature-histograms and no page errors.
+- New smoke state `night-analyse-w1-spike-event-shape-is-the-new-view` (it runs the demo flow through `eval` actions and expects motif-overlay, event-shape-signal, measure-scatter, and rose-fan OR rose-missing; feature-histograms absent). Unit `zzzzzzzzzzz_night_analyse`: 9/0.
+- `zz_analyse_run` re-run: 52/0.
+- `zzzzzzzzzzz_ig_pages` re-run: 14/0.
