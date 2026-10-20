@@ -2,7 +2,7 @@
  * Toolbar · Scope · Runs list | where each run fires · scoreboard · browse detections · run acts (spec §7.1–7.5, P17). */
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
-  Badge, Button, Callout, DisabledReason, Dropdown, EmptyState, Icon, InfoTip, Modal, Pager, Seg, Trace, cx, recordDemoWrite, useDemoState, useNotWired, useQueryState, useSim, startSim, ProgressBar } from '../kit'
+  Badge, Button, Callout, Checkbox, DisabledReason, PopoverButton, TextField, Dropdown, EmptyState, Icon, InfoTip, Modal, Pager, Seg, Trace, cx, recordDemoWrite, useDemoState, useNotWired, useQueryState, useSim, startSim, ProgressBar } from '../kit'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
@@ -16,6 +16,7 @@ import { AddTemplateModal } from './AddTemplateModal'
 import { AddMatchesButton } from './AddMatches'
 import { PrecisionCell } from './Precision'
 import { hasResults, useDiscovery, type Discovery } from './session'
+import { pickerGroups } from './firesPicker'
 
 export function RunsPage() {
   const dx = useDiscovery()
@@ -138,9 +139,8 @@ function WhereFires({ dx }: { dx: Discovery }) {
           ? `${dx.visibleChannels[0]}–${dx.visibleChannels[dx.visibleChannels.length - 1]} of ${s.channels.length} channels · page with the strips' arrows`
           : (mode === 'spans' ? 'every span in view · grouped by channel' : 'detections per 3 h · grouped by channel')}</span>
         <span className="k-spacer" />
-        <span className="muted small" data-testid="fires-shown-count">{nDrawn} of {runKeys.length} runs drawn</span>
-        <Button size="sm" variant="link" icon="eye" testid="fires-show-all" onClick={() => dx.setShown(runKeys)}>show all</Button>
-        <Button size="sm" variant="link" icon="eye-off" testid="fires-hide-all" onClick={() => dx.setShown([])}>hide all</Button>
+        {/* site-runs item 2: one button instead of a wall of eye-off links under the rows */}
+        <RunsDrawnPicker dx={dx} drawable={drawable} nDrawn={nDrawn} runKeys={runKeys} />
         <Seg size="sm" value={mode} onChange={v => setMode(v)} options={[{ value: 'density', label: 'density' }, { value: 'spans', label: 'spans' }]} testid="fires-mode" />
         {/* the detection map (2026-10-12): the same rows as columns of channels and datasets, every session — where overall, not when */}
         <Button size="sm" variant="link" icon="grid" onClick={() => navigate(`discovery/map?dataset=${encodeURIComponent(s.recording)}`)} testid="open-map">Open the map</Button>
@@ -197,17 +197,50 @@ function WhereFires({ dx }: { dx: Discovery }) {
           {notShown.length > 0 && <div className="muted small dsc-fires-foot">not drawn: {notShown.map(r => `${r.label} (${r.status === 'paused' ? `paused ${r.pausedAt?.stage}/${r.pausedAt?.of}` : r.status})`).join(' · ')} — nothing to draw in this section</div>}
         </div>
       )}
-      {hidden.length > 0 && (
+      {hidden.length > 0 && nDrawn === 0 && (
         <div className="dsc-fires-hidden small" data-testid="fires-hidden">
-          <span className="muted">{nDrawn ? 'hidden' : 'no run drawn yet · press a run to draw it'}:</span>
-          {hidden.map(r => (
-            <button key={r.key} type="button" className="dsc-fires-eye off" onClick={() => dx.toggleShown(r.key)} title={`draw ${r.label}`} aria-label={`draw ${r.label}`} aria-pressed={false} data-testid={`fires-eye-${r.key}`} data-shown="0">
-              <i className="sw" style={{ borderColor: r.colour }} /><Icon name="eye-off" size={10} />{r.label}
-            </button>
-          ))}
+          <span className="muted">no run drawn yet — pick runs under <i>Runs drawn</i> above, or</span>
+          <Button size="sm" variant="link" icon="eye" testid="fires-show-all" onClick={() => dx.setShown(runKeys)}>show all {runKeys.length}</Button>
         </div>
       )}
     </section>
+  )
+}
+
+/** site-runs item 2: *Runs drawn: N of M ▾* — a popover with a search box and the runs grouped by kind (templates,
+ *  seed searches; each band set folded), each a checkbox with its colour and found count, and show all / hide all.
+ *  The groups are ./firesPicker.ts. A drawn row keeps its own eye in the card to hide it. */
+function RunsDrawnPicker({ dx, drawable, nDrawn, runKeys }: { dx: Discovery; drawable: DiscoveryRun[]; nDrawn: number; runKeys: string[] }) {
+  const [q, setQ] = useState('')
+  const groups = pickerGroups(drawable, q)
+  // two runs of one template share a label (`drop_detection_v5` and its `_2`): the key tells them apart
+  const seen = new Map<string, number>()
+  for (const r of drawable) seen.set(r.label, (seen.get(r.label) ?? 0) + 1)
+  const row = (r: DiscoveryRun) => {
+    const found = dx.foundOf(r.key) ?? r.found
+    const label = (seen.get(r.label) ?? 0) > 1 && r.label !== r.key ? `${r.label} · ${r.key}` : r.label
+    return <Checkbox key={r.key} checked={dx.isShown(r)} onChange={() => dx.toggleShown(r.key)} label={label} dot={r.colour}
+      count={found != null ? String(found) : undefined} testid={`fires-check-${r.key}`} ariaLabel={`${dx.isShown(r) ? 'hide' : 'draw'} ${r.label}`} />
+  }
+  return (
+    <PopoverButton size="sm" variant="default" icon="eye" testid="fires-picker" width={320} placement="bottom-end"
+      label={<span data-testid="fires-shown-count">Runs drawn: {nDrawn} of {runKeys.length}</span>}>
+      {() => (
+        <div className="dsc-fires-picker">
+          <TextField value={q} onChange={setQ} placeholder="search runs" icon="search" size="sm" block autoFocus testid="fires-picker-search" />
+          <div className="row" style={{ gap: 4 }}>
+            <Button size="sm" variant="link" icon="eye" testid="fires-show-all" onClick={() => dx.setShown(runKeys)}>show all</Button>
+            <Button size="sm" variant="link" icon="eye-off" testid="fires-hide-all" onClick={() => dx.setShown([])}>hide all</Button>
+          </div>
+          <div className="dsc-fires-picker-list">
+            {groups.length === 0 && <span className="muted small">{q ? `no run matches “${q}”` : 'no run has anything to draw yet'}</span>}
+            {groups.map(g => g.folded
+              ? <details key={g.key} className="dsc-fires-picker-group" data-testid={`fires-picker-${g.key}`}><summary className="small">{g.label} · {g.runs.filter(dx.isShown).length} drawn</summary>{g.runs.map(row)}</details>
+              : <div key={g.key} className="dsc-fires-picker-group" data-testid={`fires-picker-${g.key}`}><span className="muted small">{g.label}</span>{g.runs.map(row)}</div>)}
+          </div>
+        </div>
+      )}
+    </PopoverButton>
   )
 }
 

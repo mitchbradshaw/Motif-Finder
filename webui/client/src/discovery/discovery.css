@@ -416,3 +416,10 @@
    drawn rows) and scrolls past them; the header row stays on top */
 .dsc-score-scroll { overflow-y: auto; }
 .dsc-score-scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--card); }
+
+/* site-runs item 2: the Runs drawn picker */
+.dsc-fires-picker { display: flex; flex-direction: column; gap: 8px; }
+.dsc-fires-picker-list { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; }
+.dsc-fires-picker-group { display: flex; flex-direction: column; gap: 2px; }
+.dsc-fires-picker-group > summary { cursor: pointer; color: var(--muted); }
+.dsc-fires-picker-group .k-check .lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
