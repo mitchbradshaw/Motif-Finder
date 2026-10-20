@@ -1,0 +1,381 @@
+{
+ "queue_ids": [
+  25
+ ],
+ "window_s": 600,
+ "fs": 1.0,
+ "folds": 5,
+ "gap_s": 3600,
+ "counts": {
+  "queues": {
+   "25": "RQ1b candidate events \u00b7 M2_aug_concat_fs1.mat \u00b7 stratified sample \u00b7 seed 0"
+  },
+  "verdicts": {
+   "not_interesting": 393,
+   "interesting": 329,
+   "unsure": 46,
+   "artifact": 19,
+   "seed": 13
+  },
+  "not_in_any_table": 0,
+  "used_by_dataset": {
+   "M2_aug_concat_fs1.mat": {
+    "n": 722,
+    "interesting": 329
+   }
+  },
+  "no_agreement_score": 0
+ },
+ "windows_dropped_for_gaps": 0,
+ "datasets": [
+  "M2_aug_concat_fs1.mat"
+ ],
+ "tables": [
+  "M2_aug_concat_fs1_bf098c00"
+ ],
+ "event_length_s": {
+  "10": 15.0,
+  "25": 40.0,
+  "50": 400.0,
+  "75": 607.0,
+  "90": 716.6999999999999
+ },
+ "blocked_cv": {
+  "n": 722,
+  "n_interesting": 329,
+  "auc": {
+   "minirocket": {
+    "value": 0.7871567012382346,
+    "ci95": [
+     0.7540076065383626,
+     0.819206326894715
+    ]
+   },
+   "agreement": {
+    "value": 0.8261521922395725,
+    "ci95": [
+     0.7961163808740169,
+     0.8563668347286513
+    ]
+   },
+   "minirocket+agreement": {
+    "value": 0.8221381779933022,
+    "ci95": [
+     0.7909860038020532,
+     0.8525029063198706
+    ]
+   },
+   "event_length": {
+    "value": 0.7698399808193539,
+    "ci95": [
+     0.734309728715523,
+     0.8027222260701525
+    ]
+   }
+  },
+  "balanced_accuracy": {
+   "minirocket": {
+    "value": 0.6994864536686853,
+    "ci95": [
+     0.6657475338744374,
+     0.7326734264385996
+    ]
+   },
+   "agreement": {
+    "value": 0.7634593223353983,
+    "ci95": [
+     0.734036778436738,
+     0.7927422982039667
+    ]
+   },
+   "minirocket+agreement": {
+    "value": 0.7701725484736692,
+    "ci95": [
+     0.7387165917209569,
+     0.799506998092036
+    ]
+   }
+  },
+  "auc_differences": {
+   "minirocket-minirocket+agreement": {
+    "ci": [
+     -0.060499068179720936,
+     -0.009574623675428584
+    ],
+    "p_le_0": 0.998
+   },
+   "agreement-minirocket": {
+    "ci": [
+     0.010427265009779058,
+     0.06785897051587071
+    ],
+    "p_le_0": 0.0025
+   },
+   "agreement-minirocket+agreement": {
+    "ci": [
+     -0.0025528073833797184,
+     0.010815269648829612
+    ],
+    "p_le_0": 0.1115
+   },
+   "agreement-event_length": {
+    "ci": [
+     0.011648453674948253,
+     0.10303003926454558
+    ],
+    "p_le_0": 0.007
+   },
+   "event_length-minirocket": {
+    "ci": [
+     -0.06928412188854281,
+     0.03393992621072101
+    ],
+    "p_le_0": 0.753
+   },
+   "event_length-minirocket+agreement": {
+    "ci": [
+     -0.0995169801942864,
+     -0.005832887381396876
+    ],
+    "p_le_0": 0.9855
+   }
+  },
+  "folds": [
+   {
+    "fold": 0,
+    "n_train": 418,
+    "n_test": 304,
+    "test_interesting": 0.47039473684210525,
+    "auc_minirocket": 0.7407809581722625,
+    "auc_agreement": 0.7752899274638405
+   },
+   {
+    "fold": 1,
+    "n_train": 577,
+    "n_test": 145,
+    "test_interesting": 0.5310344827586206,
+    "auc_minirocket": 0.7880061115355234,
+    "auc_agreement": 0.8485485103132162
+   },
+   {
+    "fold": 2,
+    "n_train": 593,
+    "n_test": 127,
+    "test_interesting": 0.4645669291338583,
+    "auc_minirocket": 0.8477068793619142,
+    "auc_agreement": 0.9057826520438685
+   },
+   {
+    "fold": 3,
+    "n_train": 628,
+    "n_test": 93,
+    "test_interesting": 0.3978494623655914,
+    "auc_minirocket": 0.7644787644787645,
+    "auc_agreement": 0.7883687258687259
+   },
+   {
+    "fold": 4,
+    "n_train": 669,
+    "n_test": 53,
+    "test_interesting": 0.24528301886792453,
+    "auc_minirocket": 0.9153846153846155,
+    "auc_agreement": 0.8980769230769231
+   }
+  ],
+  "by_dataset": {
+   "M2_aug_concat_fs1.mat": {
+    "n": 722,
+    "auc_minirocket": 0.7871567012382346,
+    "auc_agreement": 0.8261521922395725,
+    "auc_minirocket+agreement": 0.8221381779933022,
+    "auc_event_length": 0.7698399808193539
+   }
+  }
+ },
+ "forward_80_20": {
+  "n": 145,
+  "n_interesting": 50,
+  "auc": {
+   "minirocket": {
+    "value": 0.819578947368421,
+    "ci95": [
+     0.7509086585234028,
+     0.8848275993012835
+    ]
+   },
+   "agreement": {
+    "value": 0.8332631578947368,
+    "ci95": [
+     0.7688603531300161,
+     0.895247188269247
+    ]
+   },
+   "minirocket+agreement": {
+    "value": 0.848842105263158,
+    "ci95": [
+     0.7875162731266367,
+     0.9083791938750415
+    ]
+   },
+   "event_length": {
+    "value": 0.7611578947368421,
+    "ci95": [
+     0.676335988278195,
+     0.8362728474139324
+    ]
+   }
+  },
+  "balanced_accuracy": {
+   "minirocket": {
+    "value": 0.7,
+    "ci95": [
+     0.6158540899355565,
+     0.7792357568027211
+    ]
+   },
+   "agreement": {
+    "value": 0.76,
+    "ci95": [
+     0.6839276014459839,
+     0.8328267477203647
+    ]
+   },
+   "minirocket+agreement": {
+    "value": 0.7868421052631579,
+    "ci95": [
+     0.7093947651178889,
+     0.8559311224489796
+    ]
+   }
+  },
+  "auc_differences": {
+   "minirocket-minirocket+agreement": {
+    "ci": [
+     -0.07397133610725837,
+     0.015151515151515249
+    ],
+    "p_le_0": 0.91
+   },
+   "agreement-minirocket": {
+    "ci": [
+     -0.04581246379365701,
+     0.07082816377171212
+    ],
+    "p_le_0": 0.319
+   },
+   "agreement-minirocket+agreement": {
+    "ci": [
+     -0.03411912648123762,
+     0.0018899914089348597
+    ],
+    "p_le_0": 0.96
+   },
+   "agreement-event_length": {
+    "ci": [
+     -0.02080385220125785,
+     0.17412066149760375
+    ],
+    "p_le_0": 0.061
+   },
+   "event_length-minirocket": {
+    "ci": [
+     -0.1590400118700694,
+     0.036927648171657876
+    ],
+    "p_le_0": 0.8715
+   },
+   "event_length-minirocket+agreement": {
+    "ci": [
+     -0.1835401148464937,
+     -0.0022777381610735127
+    ],
+    "p_le_0": 0.9775
+   }
+  },
+  "n_train": 577
+ },
+ "leave_one_dataset_out": null,
+ "strata": [
+  {
+   "rec_source": "M2_aug_concat_fs1.mat",
+   "stratum": "agree:1-2",
+   "size": 91,
+   "mean": 0.044
+  },
+  {
+   "rec_source": "M2_aug_concat_fs1.mat",
+   "stratum": "agree:3-4",
+   "size": 94,
+   "mean": 0.064
+  },
+  {
+   "rec_source": "M2_aug_concat_fs1.mat",
+   "stratum": "agree:5-6",
+   "size": 93,
+   "mean": 0.226
+  },
+  {
+   "rec_source": "M2_aug_concat_fs1.mat",
+   "stratum": "agree:7-8",
+   "size": 94,
+   "mean": 0.543
+  },
+  {
+   "rec_source": "M2_aug_concat_fs1.mat",
+   "stratum": "agree:9+",
+   "size": 97,
+   "mean": 0.557
+  },
+  {
+   "rec_source": "M2_aug_concat_fs1.mat",
+   "stratum": "family:BEADs_invert_detect_v1",
+   "size": 50,
+   "mean": 0.66
+  },
+  {
+   "rec_source": "M2_aug_concat_fs1.mat",
+   "stratum": "family:drop_detection_v1",
+   "size": 45,
+   "mean": 1.0
+  },
+  {
+   "rec_source": "M2_aug_concat_fs1.mat",
+   "stratum": "family:drop_detection_v5",
+   "size": 41,
+   "mean": 0.829
+  },
+  {
+   "rec_source": "M2_aug_concat_fs1.mat",
+   "stratum": "family:signal_threshold",
+   "size": 32,
+   "mean": 0.438
+  },
+  {
+   "rec_source": "M2_aug_concat_fs1.mat",
+   "stratum": "family:symbol_search",
+   "size": 43,
+   "mean": 0.651
+  },
+  {
+   "rec_source": "M2_aug_concat_fs1.mat",
+   "stratum": "family:wavelet_encoded",
+   "size": 42,
+   "mean": 0.929
+  }
+ ],
+ "by_stratum_kind": {
+  "agreement_strata": {
+   "n": 469,
+   "auc_minirocket": 0.749293411058117,
+   "auc_agreement": 0.8048489666136724,
+   "auc_combo": 0.8034137078254726
+  },
+  "family_strata": {
+   "n": 253,
+   "auc_minirocket": 0.7403281519861831,
+   "auc_agreement": 0.7357512953367875,
+   "auc_combo": 0.7203799654576856
+  }
+ },
+ "seconds": 65.0
+}

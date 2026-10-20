@@ -169,3 +169,6 @@ train a CNN on window-pool clusters but not yet on Library families.
     level, 15 per selective detector). The recordings are interleaved and the queue is blind. Review serves 1,153
     items, since 7 same-run pairs overlap. It was created through the project bridge's own route; each recording's
     sample is `<table>/sample_seed0_l40_f15_multi`.
+- 2026-10-20 · rq1b-minirocket · preliminary interesting-vs-not on queue 25's 722 yes/no verdicts (600 s MiniRocket +
+  ridge, 5 time blocks, 1 h gap): MiniRocket AUC 0.79 [0.75–0.82] against detector agreement 0.83 [0.80–0.86]. Shape
+  does not beat the vote, and the two together add nothing (0.82). `findings/rq1b-minirocket-preliminary.md`.
