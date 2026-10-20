@@ -6,9 +6,11 @@
      of DC offset between electrodes never flatten a trace — the same reason the stack's default is 'centred';
    - channels sit in EQUAL lanes by rank, the first channel at the top and the last at the bottom: a lane is at least
      LANE_MIN px and the block at least BLOCK_MIN px tall;
-   - one SHARED gain for every channel (mV per pixel), so a bigger wiggle still looks bigger: the median channel's own
-     range spans GAIN_LANES lanes, so neighbours overlap a little, which is what an overlay is for. A trace that runs
-     past the block is clipped by the block, never rescaled;
+   - one SHARED gain for every channel (mV per pixel), so a bigger wiggle still looks bigger: the (lower) median
+     channel's own range spans GAIN_LANES lanes, so neighbours overlap a little, which is what an overlay is for. A
+     wiggle that runs past the block is clipped by the block — except a channel whose whole range cannot fit the
+     block at the shared gain: that one is drawn at its own gain and marked ÷N beside its name (site-x,
+     overlayModel.ts::overlayGains), and a lane drawn flatter than FLAT_PX says "flat at this gain";
    - selected ("bold") channels draw at full opacity and a thicker stroke, the rest faded behind them;
    - align by lag (off by default) slides a channel by the lag the bridge measured against the reference, so a wave
      that travels across the electrodes lines up; the shift is printed beside the name.
@@ -231,6 +233,8 @@ export function Overlay(p: OverlayProps) {
                 })}
                 {(c.error || !g.stats[i]) && <text x={6} y={g.centre[i] + 4} className="mono ex-ov-lane-note" fill={c.colour} data-testid={`ov-lane-note-${c.name}`}>
                   {c.name}: {c.error ? `read failed — ${c.error.split(':')[0]}` : 'no finite sample in this window'}<title>{c.error ?? 'every value in this window is missing'}</title></text>}
+                {g.gains[i]?.flat && !c.error && <text x={6} y={g.centre[i] - 4} className="mono ex-ov-lane-note" fill={c.colour} data-testid={`ov-lane-flat-${c.name}`} data-px={g.gains[i].px.toFixed(2)}>
+                  {c.name}: flat at this gain — its range {(g.stats[i]!.hi - g.stats[i]!.lo).toFixed(places)} {p.unitLabel ?? ''} draws {g.gains[i].px.toFixed(1)} px; the stacked view's y: per channel draws its shape</text>}
                 <path d={paths[i]} fill="none" stroke={c.colour} strokeWidth={on ? 1.8 : 1} strokeOpacity={on ? 1 : selected.length ? 0.18 : 0.75}
                   strokeLinejoin="round" vectorEffect="non-scaling-stroke" data-testid={`ov-trace-${c.name}`} data-bold={on ? 'yes' : 'no'} />
               </g>

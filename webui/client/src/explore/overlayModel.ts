@@ -22,21 +22,34 @@
 export interface LaneGain {
   /** px per display unit this channel is drawn at */
   pxPerUnit: number
-  /** true when the channel cannot fit the block at the shared gain and is drawn at its own */
+  /** true when the channel cannot fit the block at the shared gain and is drawn at its own (never for one channel) */
   ownScale: boolean
   /** how many times smaller than the shared gain it is drawn (1 = the shared gain) */
   factor: number
+  /** how tall its own range draws, in px (0 = no range) */
+  px: number
+  /** drawn flatter than FLAT_PX — the lane says "flat at this gain" (fix round F3) */
+  flat: boolean
 }
 
-/** One gain per channel. `spans` are each channel's own range over the window (hi − lo, null = nothing finite). */
+/** One gain per channel. `spans` are each channel's own range over the window (hi − lo, null = nothing finite).
+ *  Fix round (the critic): the shared gain comes from the LOWER median — with two channels, one 0.2 mV and one
+ *  35 mV, the upper median set the gain from the wide one and drew the narrow one ~1.8 px flat — and is capped so
+ *  the median channel never runs past the block (one channel at 1.6 lanes was taller than the block, marked ÷1.0). */
 export function overlayGains(spans: (number | null)[], lane: number, blockPx: number, gainLanes: number): { shared: number; medianSpan: number; rows: LaneGain[] } {
   const live = spans.filter((s): s is number => s !== null && Number.isFinite(s) && s > 0).sort((a, b) => a - b)
-  const medianSpan = live.length ? live[Math.floor(live.length / 2)] : 1
-  const shared = (gainLanes * lane) / medianSpan
+  const medianSpan = live.length ? live[Math.floor((live.length - 1) / 2)] : 1
+  const shared = Math.min(gainLanes * lane, 0.9 * blockPx) / medianSpan
+  const many = spans.length > 1
   const rows = spans.map(s => {
-    if (s === null || !Number.isFinite(s) || s <= 0 || s * shared <= blockPx) return { pxPerUnit: shared, ownScale: false, factor: 1 }
-    const own = (gainLanes * lane) / s
-    return { pxPerUnit: own, ownScale: true, factor: shared / own }
+    const span = s !== null && Number.isFinite(s) && s > 0 ? s : 0
+    if (!many || !span || span * shared <= blockPx) {
+      const px = span * shared
+      return { pxPerUnit: shared, ownScale: false, factor: 1, px, flat: span > 0 && px < FLAT_PX }
+    }
+    const own = Math.min(gainLanes * lane, 0.9 * blockPx) / span
+    const factor = shared / own
+    return { pxPerUnit: own, ownScale: factor > 1, factor, px: span * own, flat: false }
   })
   return { shared, medianSpan, rows }
 }
