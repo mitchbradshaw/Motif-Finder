@@ -246,10 +246,15 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
   const runnable = dx.pending
   const changeRecording = (key: string) => {
     const r = dx.recordings.find(x => x.key === key)!
-    dx.setScope({ recording: key, channels: r.channels.slice(0, Math.min(3, r.channels.length)), section: [0, Math.min(r.hours, 174)] })
-    dx.setStale(true); dx.setChPage(1)
+    /* night-disc item 3: the recording alone — the bridge opens that recording's session as it was left (its channels,
+     * its section). The first three channels and 0–174 h used to go with it and overwrote that session's saved scope.
+     * A held-out recording is never written (the card refuses it from this copy), so it is still shown on defaults. */
+    if (r.heldOut) dx.setScope({ recording: key, channels: r.channels.slice(0, Math.min(3, r.channels.length)), section: [0, Math.min(r.hours, 174)] })
+    else dx.setScope({ recording: key })
+    /* the runs shown next are the opened session's own, made on its own scope: nothing there is stale */
+    dx.setStale(!!r.heldOut); dx.setChPage(1)
     recordDemoWrite('discovery', 'change-recording', { recording: key })
-    toast.push({ text: `recording changed to ${r.label} · ${dx.runs.filter(hasResults).length} runs marked stale` })
+    toast.push({ text: r.heldOut ? `recording changed to ${r.label} · ${dx.runs.filter(hasResults).length} runs marked stale` : `opened the ${r.label} session as it was left` })
     setConfirmRec(null)
   }
   const runPreview = () => {
@@ -267,7 +272,7 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
             options={dx.recordings.map(r => ({ value: r.key, label: r.label, hint: `${r.label === r.file ? '' : `${r.file} · `}${r.channels.length} ch · ${r.hours} h`, disabled: r.heldOut, reason: r.heldOut ? 'held out · locked (D6)' : undefined }))} />
         </span>
         <Popover open={!!confirmRec} onClose={() => setConfirmRec(null)} anchorRef={recRef} title="Change the recording?" width={320} testid="recording-confirm">
-          <p className="small">Changing the recording clears {s.channels.length} channel{s.channels.length === 1 ? '' : 's'} and marks {dx.runs.filter(hasResults).length} runs stale.</p>
+          <p className="small" data-testid="recording-confirm-text">Each recording keeps its own session. Changing the recording opens that recording's session as it was left (its channels, its section and its runs); this session's {s.channels.length} channel{s.channels.length === 1 ? '' : 's'} and {dx.runs.filter(hasResults).length} run{dx.runs.filter(hasResults).length === 1 ? '' : 's'} stay here for when you come back.</p>
           <div className="row end" style={{ gap: 8 }}><Button size="sm" onClick={() => setConfirmRec(null)}>Cancel</Button><Button size="sm" variant="primary" onClick={() => changeRecording(confirmRec!)} testid="recording-confirm-change">Change</Button></div>
         </Popover>
         <div className="dsc-chips" data-testid="channel-chips">

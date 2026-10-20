@@ -2,7 +2,7 @@
  * Reads come through api/discovery.ts; writes (scope edits, added runs, picks, discards, status changes) live in
  * the in-memory demo store, so they survive moving between Runs · Seed search · Compare but not a reload. */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getRuns, getScoreboard, getSession, isHeldOut, putScope, putScopeLink, runEstimateMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun, type RecordingOption, type ScoreRun } from '../api/discovery'
+import { getRuns, getScoreboard, getSession, isHeldOut, putRecording, putScope, putScopeLink, runEstimateMin, DISCOVERY_LIMIT_MIN, type DiscoveryRun, type RecordingOption, type ScoreRun } from '../api/discovery'
 import { useSourced } from '../api/seam'
 import { useDemoState, useQueryState } from '../kit'
 import { applyDiscoveryTemplates } from '../api'
@@ -155,7 +155,11 @@ export function useDiscovery(): Discovery {
     if (!moves || isHeldOut(next.recording)) { setScopeStore(next); clearLink(); return }
     /* site-runs item 6: the scope shown is the bridge's ANSWER — a change of recording opens that recording's own
      * session, with its own name; merging the patch into this copy kept the old session's name on the toolbar */
-    putScope({ recording: next.recording, channels: next.channels, section: next.section })
+    /* night-disc item 3: a change of recording alone sends the recording alone — the bridge opens that recording's
+     * session as it was left. Sending this page's channels and section with it overwrote the target session's own
+     * scope ("demo · talk" lost its 5 channels × 721 h to 3 × 174 h, and its seed search found 49 instead of 155). */
+    const bare = patch.recording !== undefined && patch.recording !== scope.recording && patch.channels === undefined && patch.section === undefined
+    ;(bare ? putRecording(next.recording) : putScope({ recording: next.recording, channels: next.channels, section: next.section }))
       .then(p => { took(p.session); clearLink() })
       .catch(e => {
         console.error('the scope could not be changed', e)
