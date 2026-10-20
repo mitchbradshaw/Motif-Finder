@@ -117,10 +117,10 @@ def test_stepping_fast_does_not_queue_a_read_for_every_item_passed():
     code = _code(_src("Inspector.tsx"))
     assert "useAbortableSourced(" in code and "signal.aborted" in code, "a superseded item read is still sent"
     assert "STEP_SETTLE_MS" in code
-    # the prefetch loop itself sits inside a timer that the effect clears
-    assert re.search(r"const t = window\.setTimeout\(\(\) => \{\s*for \(const u of \[nextUnjudgedAfter[^\]]*\]\) \{\s*"
-                     r"if \(u && u\.kind === 'item'\) prefetchItem\(q, u\.id, \{ px, padS: \+pad \}\)\s*\}\s*\}, STEP_SETTLE_MS\)\s*"
-                     r"return \(\) => window\.clearTimeout\(t\)", code), \
+    # the prefetch loop itself sits inside a timer that the effect clears (night-review: the window grew to five
+    # ahead and is read one at a time; `tests/test_night_review.py` pins its shape)
+    assert re.search(r"const t = window\.setTimeout\(async \(\) => \{.*?\}, STEP_SETTLE_MS\)\s*"
+                     r"return \(\) => \{ live = false; window\.clearTimeout\(t\) \}", code, re.S), \
         "the neighbours are still prefetched from every item passed"
 
 
