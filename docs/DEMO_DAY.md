@@ -63,6 +63,8 @@ step, plus R3 and R4, which have no page in the site.
 
 ### The click script
 
+*Why 4c works, in plain words:* the encoding turns the trace into letters, one per *segment_seconds*. At 98 s per letter, a spike that comes every 60 s and falls in about 5 s is smaller than one letter, so neighbouring spikes merge. At 5 s per letter each fall gets its own letter. The 300 s baseline window then follows the slow drift closely enough that every fall stands out against it. The reference count (~90 spikes ≥ 1 mV, about one a minute) comes from a plain peak count on the same span, made offline on 21 October.
+
 Times are warm, measured on 20 October with three other agents loading the machine. Expect less on a
 quiet machine.
 
@@ -73,8 +75,9 @@ quiet machine.
 | 1 | Explore › Corpus › M2_aug_concat_fs1 › CH4_A2 › *Open* | Signal, 0–721 h | 2–5 s |
 | 2 | *Annotations* (drawer) › *clear* the filters › id **12640** › click the row › *collapse* | the saved span "demo · W1/W2 span" (377–381 h) as the motif | 1 s |
 | 3 | *Send motif to Analyse* | Analyse, source "CH4_A2 · 377.00–381.00 h" | 1 s |
-| 4 | *Import* › `spike_event_features` › *Run chain* | invert → detrend → encoding → drop detection → event shape → **intervals**: 9 spikes and their inter-spike intervals | 1–2 s (cache) |
+| 4 | *Import* › `spike_event_features` › *Run chain* | invert → detrend → encoding → drop detection → event shape → **intervals**: 9 spans at the template's defaults (see 4c) | 1–2 s (cache) |
 | 4b | open block **05 Event shape** › set **knee_frac 0.05 → 0.06** › *Re-run from 05* | the new event-shape page: motif overlay, the signal, the multi-measure scatter, and the **steepest-slope rose** | about 1 s (cached at 0.06 on 21 Oct) |
+| 4c | **catch every spike:** open block **03 Symbolic encoding** › set **segment_seconds 98.33 → 5** › *Re-run from 03*; then block **02 Baseline removal** › **window_s 4916.67 → 300** › *Re-run from 02* | the template's defaults find 9 long spans that lump ~10 spikes each (67 of the ~90 spikes covered). After the first change: 83 spans, 85 of 90 spikes. After both: **85 spans, 88 of 90 spikes**, at most 2 per span, one blue band per spike across the comb | about 4 s each (both cached on 21 Oct) |
 | 5 | *Import* › `cwt_events` › *Run chain* | wavelet route: CWT ridges → event shape → intervals, 11 events | about 1 s (cache) |
 
 - **Recovery:** Analyse › *History* reopens any of these runs.
