@@ -245,3 +245,66 @@ def test_a_run_name_wraps_to_two_lines_then_ellipsis():
     assert re.search(r"\.dsc-run-text\s*>\s*b\s*\{[^}]*-webkit-line-clamp:\s*2", css)
     assert re.search(r"\.dsc-run\s*\{[^}]*display:\s*grid", css)
     assert re.search(r"\.dsc-run-actions\s*\{[^}]*grid-column:\s*1\s*/\s*-1", css)
+
+
+# ── item 2: "Runs drawn: N of M" ────────────────────────────────────────────
+
+PICK_TS = os.path.join(SRC, "discovery", "firesPicker.ts")
+
+
+def _pick(runs, query):
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not on PATH")
+    assert os.path.isfile(PICK_TS), "webui/client/src/discovery/firesPicker.ts does not exist"
+    url = "file:///" + PICK_TS.replace("\\", "/").lstrip("/")
+    r = subprocess.run([node, "--no-warnings", "--input-type=module", "-e",
+                        f"import * as P from {json.dumps(url)};\n"
+                        f"process.stdout.write(JSON.stringify(P.pickerGroups({json.dumps(runs)}, {json.dumps(query)})));"],
+                       capture_output=True, text=True, encoding="utf-8", timeout=60)
+    assert r.returncode == 0, r.stderr
+    return json.loads(r.stdout)
+
+
+RUNS = [
+    {"key": "human", "label": "human annotations", "kind": "reference"},
+    {"key": "drop_v1", "label": "drop_detection_v1", "kind": "template", "template": "drop_detection"},
+    {"key": "dip", "label": "dip_search_allch", "kind": "seed"},
+    {"key": "b1", "label": "wavelet · 0.1 Hz", "kind": "template", "template": "wavelet", "bandSet": "s1"},
+    {"key": "b2", "label": "wavelet · 0.5 Hz", "kind": "template", "template": "wavelet", "bandSet": "s1"},
+    {"key": "thr", "label": "signal_threshold", "kind": "template", "template": "signal_threshold"},
+]
+
+
+def test_the_picker_groups_runs_by_kind_with_band_sets_folded():
+    groups = _pick(RUNS, "")
+    by = {g["key"]: g for g in groups}
+    assert [r["key"] for r in by["templates"]["runs"]] == ["drop_v1", "thr"]
+    assert [r["key"] for r in by["seeds"]["runs"]] == ["dip"]
+    band = [g for g in groups if g["folded"]]
+    assert len(band) == 1 and [r["key"] for r in band[0]["runs"]] == ["b1", "b2"]
+    assert "human" not in [r["key"] for g in groups for r in g["runs"]]       # the human row is always drawn
+
+
+def test_the_picker_search_matches_names_case_blind_and_drops_empty_groups():
+    groups = _pick(RUNS, "DROP")
+    assert [(g["key"], [r["key"] for r in g["runs"]]) for g in groups] == [("templates", ["drop_v1"])]
+
+
+def test_the_wall_of_eye_links_is_one_button():
+    src = _src("discovery", "RunsPage.tsx")
+    start = src.index("function WhereFires")
+    body = src[start:src.index("function FiresCells")]
+    assert "hidden.map(" not in body, "the wall of hidden runs is still drawn under the rows"
+    assert 'testid="fires-picker"' in body and "Runs drawn: " in body
+    for tid in ("fires-show-all", "fires-hide-all", "fires-picker-search", "fires-hidden"):
+        assert tid in body
+    assert "fires-eye-${run.key}" in body           # a drawn row keeps its eye
+
+
+def test_the_default_state_opens_the_picker_before_show_all():
+    rows = json.load(io.open(os.path.join(PROJECT_ROOT, "webui", "smoke_pages", "discovery.json"), encoding="utf-8"))
+    default = next(r for r in rows if r["page"] == "discovery.runs" and r["state"] == "default")
+    clicks = [a["click"] for a in default["actions"] if "click" in a]
+    assert clicks[0] == '[data-testid="fires-picker"]'
+    assert any("fires-show-all" in c for c in clicks[1:])
