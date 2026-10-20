@@ -705,3 +705,10 @@ once per window. A block-shuffle null is now drawn in every window, with one blo
   span's shape, held out by recording, ranks interesting above not-interesting at AUC 0.97. Detector agreement does
   it at 0.86. Inside each detector family it is 0.88–0.99, so a candidate's shape says more than how many detectors
   fired on it. `findings/rq1b-minirocket-2026-10-20.md`.
+- 2026-10-21 · demo-outline · **R3 on the four new recordings, from queue 28** (1,159 of 1,160 judged; `estimate --real`
+  per table, `<table>/sample_seed0_l40_f15_multi/estimate.json`). Share of candidate events that are real, 95 % interval:
+  CO_fs2 10 % (7–13), M2_concat 13 % (10–17), L_LM_Jul_26_J fs2 14 % (10–19), LM_fs2 16 % (12–20); M2_aug 25 % (21–28).
+  The agreement ladder holds on every recording: 1–2 families agreeing 0–5 %, 9+ agreeing 40–63 %. The selective
+  detectors hold across recordings and rates: drop_detection_v1 92–100 % and drop_detection_v5 81–100 % on all five;
+  wavelet_encoded 86–100 % except M2_concat (31 %). Loose ones stay loose: deconvolved_troughs 1–7 %, matrix profile
+  0 % everywhere. Per-family rows rest on 13–20 sampled events each, so read them as ranges, not ranks.
