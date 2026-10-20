@@ -26,8 +26,9 @@ import { LoadFailed, Loading, Refreshing } from './chrome'
  * and a new slice count drew the OLD payload until the next read landed, with nothing to say a read was out — which
  * read as "the time chunks are not showing changes" (the researcher, 2026-10-18). Now a read in flight shows the
  * refreshing line and dims the table; the level re-reads when the window comes back into focus; and while any cell
- * is still running it re-reads every few seconds until none is. The server computes the map on every read, so the
- * poll is tied to running cells, not left on. */
+ * is still running it re-reads every few seconds until none is. The server computes levels 1 and 2 on every read, so
+ * the poll is tied to running cells, not left on. Level 3 (map-overview-cache) is the bridge's last computed answer:
+ * it polls while that answer says it is pending or stale, and a poll then costs the bridge milliseconds. */
 const MAP_POLL_MS = 5000
 function useMapRefresh<T>(m: SourcedState<T>, running: boolean) {
   const reload = useRef(m.reload)
@@ -210,8 +211,13 @@ function DatasetsLevel({ norm, onDataset }: { norm: Norm; onDataset: (key: strin
   const data = m.data
   const cellsOf = useMemo(() => (key: string) => data ? data.datasets.flatMap(d => Object.values(d.cells[key] ?? {})) : [], [data])
   const shade = useShades(data?.rows ?? [], cellsOf, norm)
+  // map-overview-cache: the overview is the bridge's last answer; while it is behind (none yet, or from before the
+  // last change, or a run still going) the chip says so and the level re-reads until the recompute lands
+  const behind = !!data && !!(data.pending || data.stale)
+  useMapRefresh(m, behind)
   if (m.error) return <LoadFailed what="the detection map" error={m.error} onRetry={m.reload} />
   if (!data) return <Loading height={320} label="counting every session's runs" />
+  if (data.pending) return <><Refreshing on testid="map-refreshing" label="counting every session's runs for the first time — the map appears when the count is done" /><Loading height={320} label="counting every session's runs" /></>
   const total = data.datasets.length + data.withoutRuns.length
   const foot = (
     <div className="dsc-map-foot" data-testid="map-foot">
@@ -226,7 +232,8 @@ function DatasetsLevel({ norm, onDataset }: { norm: Norm; onDataset: (key: strin
   }
   return (
     <>
-      <div className="dsc-map-wrap">
+      <Refreshing on={m.loading || behind} testid="map-refreshing" label={data.running ? 're-counting · a run is still going' : data.stale ? `re-counting · this map is from before the last change${data.stale_since ? ` (${new Date(data.stale_since).toLocaleTimeString()})` : ''}` : 're-counting every session’s runs'} />
+      <div className="dsc-map-wrap" data-stale={behind ? '1' : '0'}>
         <table className="dsc-map-table" data-testid="map-table">
           <thead>
             <tr>

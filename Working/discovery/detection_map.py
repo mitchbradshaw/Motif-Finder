@@ -522,3 +522,80 @@ def timeline_map(conn, source_file, channel, *, bin_h=3.0, exclude_files=()):
         }
     return {**ds, "rows": rows, "channel": channel, "recordingId": int(c["id"]), "hours": _hours(n, fs),
             "binH": bin_h, "nBins": n_bins, "cells": cells}
+
+
+# ── the overview off the request (map-overview-cache, 2026-10-20) ───────────
+#
+# `dataset_map` took 17–21 s on every read of the real database (289 Discovery runs, 8 sessions) and grows with the
+# runs. The bridge (`webui/server/discovery_map.py`) now serves the last overview it computed and recomputes it in
+# its worker process through `compute`; a read only fingerprints. `scoreboard.channels_fingerprint` over every
+# recording the overview covers was measured at 19–23 s on the same database — slower than the overview itself,
+# because it reads every channel's adjudications and every run on it — so the overview has a fingerprint of its own,
+# over exactly the rows `dataset_map` reads (0.5 s warm, 1.8 s cold there).
+
+def overview_fingerprint(conn, exclude_files=()) -> str:
+    """A digest (SHA-1, the same in every process) of every row `dataset_map(conn, exclude_files=...)` reads:
+    the Discovery runs whole (status, discard, removal, params — which name their runs) with their sessions' names;
+    each run they hold with its span, status, discard and detection id range; those runs' recipes; every verdict
+    and reviewed span (edited in place, so read whole); the recordings and the datasets' display names.
+
+    Detections are append-only machine rows (see `scoreboard.inputs_fingerprint`), so a run's id range names its
+    set. **Keep this in step with `_gather`, `_machine_cells` and `_human_cells`**: a read added there and not here is
+    an overview served stale (tests/test_discovery_map_cache.py changes each input and expects a move)."""
+    def rows(sql, args=()):
+        return tuple(tuple(r) for r in conn.execute(sql, args).fetchall())
+
+    drs = _discovery_runs(conn)
+    parts = [tuple(sorted(str(f) for f in exclude_files)), tuple(tuple(r) for r in drs)]
+    ids = sorted({int(i) for dr in drs for i in discovery_run_ids(conn, dr)})
+    marks = ",".join(str(i) for i in ids) or "NULL"
+    parts.append(rows("SELECT r.id, r.config_id, r.recording_id, r.span_start, r.span_end, r.status, r.superseded_at, "
+                      "r.surrogate_of_run_id, (SELECT MIN(d.id) FROM detections d WHERE d.run_id = r.id), "
+                      "(SELECT MAX(d.id) FROM detections d WHERE d.run_id = r.id) "
+                      f"FROM runs r WHERE r.id IN ({marks}) ORDER BY r.id"))
+    parts.append(rows(f"SELECT id, config_json FROM configs WHERE id IN "
+                      f"(SELECT config_id FROM runs WHERE id IN ({marks})) ORDER BY id"))
+    parts.append(rows("SELECT id, recording_id, start_idx, end_idx, verdict, deleted_at FROM annotations ORDER BY id"))
+    parts.append(rows("SELECT id, recording_id, start_idx, end_idx FROM reviewed_spans ORDER BY id"))
+    parts.append(rows("SELECT * FROM recordings ORDER BY id"))
+    parts.append(tuple(sorted(_datasets.display_names(conn).items())))
+    return hashlib.sha1(repr(tuple(parts)).encode("utf-8")).hexdigest()
+
+
+def any_running(conn) -> bool:
+    """Whether a Discovery run is still going here (queued or running, not discarded or removed): its runs write as
+    they go, so any overview is about to be out of date and the page says so. A run on the cluster is not going
+    HERE: its results arrive by import, which changes the fingerprint like any other write."""
+    cols = {c[1] for c in conn.execute("PRAGMA table_info(discovery_runs)")}
+    removed = " AND removed_at IS NULL" if "removed_at" in cols else ""
+    return conn.execute("SELECT 1 FROM discovery_runs WHERE status IN ('running', 'queued') AND superseded_at IS NULL"
+                        + removed + " LIMIT 1").fetchone() is not None
+
+
+def compute(db_path: str, exclude_files=()) -> tuple:
+    """The overview read from the database at `db_path` on a read-only connection of its own: the bridge's worker
+    process calls this. Returns ``(fingerprint, overview)`` where the fingerprint names the state the overview was
+    READ from (never the state the request that asked saw).
+
+    On a WAL database (the real one and its sandbox copies) both come from one read transaction, one snapshot. On
+    any other journal mode a long read transaction would hold writers off, so the fingerprint is taken before and
+    after; if they differ the fingerprint is None and the caller keeps nothing (as `coverage_map.fingerprinted`)."""
+    from Working.discovery.coverage_map import connect_read_only
+
+    exclude_files = tuple(exclude_files)
+    conn = connect_read_only(db_path)
+    try:
+        wal = str(conn.execute("PRAGMA journal_mode").fetchone()[0]).lower() == "wal"
+        if wal:
+            conn.execute("BEGIN")
+        try:
+            fp = overview_fingerprint(conn, exclude_files)
+            out = dataset_map(conn, exclude_files=exclude_files)
+            if not wal and overview_fingerprint(conn, exclude_files) != fp:
+                fp = None
+        finally:
+            if wal:
+                conn.execute("COMMIT")
+        return fp, out
+    finally:
+        conn.close()
