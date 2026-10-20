@@ -34,13 +34,15 @@ export function fmtGap(s: number): string {
 
 const LANE = 30, LABEL_PX = 6.2, MAX_LANES = 6
 
-export function IntervalTimeline({ ic, t0, t1, within, onWithin, coloured, onColoured, stats }: {
+export function IntervalTimeline({ ic, t0, t1, within, onWithin, coloured, onColoured, stats, histogram = true }: {
   ic: IntervalClasses; t0: number; t1: number
   /** 'all' or one class key */
   within: string; onWithin: (w: string) => void
   coloured: boolean; onColoured: (c: boolean) => void
   /** the block's own per-group statistics, shown when `within` is 'all' */
   stats?: Record<string, IntervalStats>
+  /** night-analyse: false on the Intervals page, where the per-class scatter (IntervalFigures) replaces it */
+  histogram?: boolean
 }) {
   const [ref, size] = useSize<HTMLDivElement>()
   const w = Math.max(10, size.width)
@@ -148,21 +150,21 @@ export function IntervalTimeline({ ic, t0, t1, within, onWithin, coloured, onCol
           ? <IntervalStatsTable stats={shownStats} testid={within === 'all' ? 'interval-stats' : 'interval-stats-within'} />
           : <div className="muted mono small" data-testid="interval-stats-empty">no interval statistics for this selection</div>}
       </div>
-      <div>
+      {histogram && <div>
         <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>The distances, as a histogram</h3><span className="sg">{histValues.length} interval{histValues.length === 1 ? '' : 's'}{within === 'all' ? '' : ` · ${within} to ${within}`}{shared ? ` · ${groups.length} groups drawn on one lane` : ''}</span></div>
         {histValues.length > 1
           ? <Histogram values={histValues} nBins={Math.min(30, Math.max(6, Math.round(Math.sqrt(histValues.length))))} height={130} xLabel="seconds between events" colour={within === 'all' ? '#9ca3af' : classColour(ic, within)} testid="interval-histogram" />
           : <div className="muted mono small" data-testid="interval-histogram-empty">{histValues.length === 0 ? 'no interval to draw' : `one interval: ${fmtGap(histValues[0])}`}</div>}
-      </div>
+      </div>}
     </div>
   )
 }
 
 /** The timeline with its own state (which class, coloured or not), for a page that just hands over the payload. */
-export function IntervalTimelinePanel({ ic, t0, t1, stats }: { ic: IntervalClasses; t0: number; t1: number; stats?: Record<string, IntervalStats> }) {
+export function IntervalTimelinePanel({ ic, t0, t1, stats, histogram = true }: { ic: IntervalClasses; t0: number; t1: number; stats?: Record<string, IntervalStats>; histogram?: boolean }) {
   const [picked, setWithin] = useState('all')
   const [coloured, setColoured] = useState(ic.rule !== 'none')
   // a re-run can drop the class that was picked: fall back to all rather than show an empty table
   const within = ic.classes.some(c => c.key === picked) ? picked : 'all'
-  return <IntervalTimeline ic={ic} t0={t0} t1={t1} within={within} onWithin={setWithin} coloured={coloured} onColoured={setColoured} stats={stats} />
+  return <IntervalTimeline ic={ic} t0={t0} t1={t1} within={within} onWithin={setWithin} coloured={coloured} onColoured={setColoured} stats={stats} histogram={histogram} />
 }

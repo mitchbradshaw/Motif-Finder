@@ -18,6 +18,7 @@ import { fmtDuration, fmtHours } from '../../state'
 import { CutLineH, Empty, finiteRange, fmtN, type ViewCtx } from './common'
 import type { ScoreCut } from './ScoresView'
 import { familyColour } from './GroupingView'
+import { slideWindow } from './eventFigures'
 
 /** spans closer together than this many pixels on average are drawn as a density ribbon */
 const DENSE_PX = 3
@@ -100,37 +101,29 @@ export function DurationHistogram({ p }: { p: SpansetPayload }) {
   )
 }
 
-/** a bare span is drawn with at least this many samples of the channel either side */
-const MIN_CONTEXT_SAMPLES = 20
-
 export const SPAN_SORTS: SlideSort[] = [
   { value: 'score', label: 'score', descending: true },
   { value: 'time', label: 'time' },
   { value: 'duration', label: 'duration', descending: true },
 ]
 
-/** True when every span's onset and extremum are the same sample (a one-sample event: a spike). */
-function marksCoincide(p: SpansetPayload): boolean {
-  const m = p.marks
-  return !!m && m.onset_s.length > 0 && m.onset_s.every((o, i) => o === m.extremum_s[i])
-}
-
-/** The payload's spans as slideshow events. A span that is already a window around its event (the detector named
- *  an onset and an extremum inside it) is drawn as it is; a bare span gets half its own length of context each
- *  side, clipped to the run's span, because a fall cropped to onset→trough is not a picture of the event. */
+/** The payload's spans as slideshow events: each span is the detection, drawn as one blue highlighted band, with
+ *  about 15 % of its width of context each side (never fewer than 3 samples), clipped to the run's span
+ *  (night-analyse; before, a span with marks drew blue / red onset and extremum lines and a bare span half its
+ *  length of context). */
 export function spanEvents(p: SpansetPayload, t0: number, t1: number): SlideEvent[] {
   const of = p.window_count_of === 'falls' ? 'falls' : 'spans'
-  // fixup-ak: a detector whose event is one sample (a spike) names the same sample as onset and extremum — draw it once
-  const one = marksCoincide(p)
   return p.start_s.map((s, i) => {
     const e = p.end_s[i]
-    const pad = p.marks ? 0 : Math.max(MIN_CONTEXT_SAMPLES / p.fs, 0.5 * (e - s))
     const chip = chipOf(p.labels?.[i])
     const score = p.scores?.[i] ?? null
+    // night-analyse (the researcher, 2026-10-20: "the blue vertical lines confuse"): the detection is ONE blue
+    // highlighted band over the whole span, with about 15 % of its width of context either side (never fewer than
+    // 3 samples) — no onset / extremum lines
     return {
       id: String(i), title: `#${i + 1}`, chip: chip ? { text: chip } : undefined,
-      band: p.marks ? null : [s, e], onset: one ? null : p.marks?.onset_s[i] ?? null, extremum: p.marks?.extremum_s[i] ?? null,
-      window: [Math.max(t0, s - pad), Math.min(t1, e + pad)],
+      band: [s, e], highlight: true, onset: null, extremum: null,
+      window: slideWindow(s, e, p.fs, t0, t1),
       count: p.window_counts?.[i] ?? null, countOf: of,
       facts: `${fmtHours(s, 3)} · ${fmtDuration(e - s)}${score !== null ? ` · score ${fmtN(score)}` : ''}`,
       sort: { score, time: s, duration: e - s },
@@ -149,7 +142,7 @@ export function SpanSlideshow({ p, t0, t1, load, selected, onSelect, action, uni
     <EventSlideshow testid="event-slideshow" events={events} load={load} sorts={sorts} cap={10} columns={5} unit={unit}
       title={`Each of the ${p.capped ? `first ${events.length.toLocaleString()}` : events.length.toLocaleString()} spans`}
       selected={selected === null ? null : String(selected)} onSelect={id => onSelect(Number(id))} action={action}
-      frameNote={p.marks ? (marksCoincide(p) ? 'the span as the block emitted it — its own window around the event; the red mark is the event\'s one sample (its onset and extremum are the same sample)' : 'the span as the block emitted it — its own window around the event; the onset is the blue mark and the extremum the red') : `the span (tinted) with half its own length of the source channel either side, and never fewer than ${MIN_CONTEXT_SAMPLES} samples`} />
+      frameNote="the blue band is the detection, the whole span as the block emitted it; about 15 % of its width of the source channel is drawn either side for context (never fewer than 3 samples)" />
   )
 }
 

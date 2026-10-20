@@ -298,7 +298,7 @@
   "state": "ig-pages-event-shape-leads-rose-and-histograms",
   "hash": "analyse/block/3",
   "settle_ms": 2500,
-  "_why": "ig-pages: the Event shape page leads with the rose and the feature histograms; the table, rules and spans are folded",
+  "_why": "ig-pages: the Event shape page leads with pictures; the table, rules and spans are folded. night-analyse (2026-10-20, 'too many histograms'): the events' shapes overlaid, the rose, the input signal with the measures as one scatter beneath it; the feature histograms moved into the fold",
   "actions": [
    {
     "wait_for": [
@@ -315,10 +315,13 @@
   ],
   "expect": [
    "[data-testid=\"rose-fan\"] [data-render=\"rose\"]",
-   "[data-testid=\"feature-histograms\"] svg",
+   "[data-testid=\"motif-overlay\"]",
+   "[data-testid=\"event-shape-signal\"] svg",
+   "[data-testid=\"measure-scatter\"] svg",
    "[data-testid=\"headline-more\"][data-open=\"0\"]"
   ],
   "expect_absent": [
+   "[data-testid=\"feature-histograms\"]",
    "[data-testid=\"feature-table\"]",
    "[data-testid=\"headline-folded\"]",
    "[data-testid=\"render-error\"]",
@@ -360,7 +363,7 @@
   "state": "ig-pages-intervals-timeline-gap-labels-and-legend",
   "hash": "analyse/block/5",
   "settle_ms": 2500,
-  "_why": "ig-pages: the Intervals page leads with the timeline (events as ticks coloured by depth thirds, the distance written on each gap that fits), the legend naming the rule, the interval statistics table and the interval histogram; the rest folded",
+  "_why": "ig-pages: the Intervals page leads with the timeline (events as ticks coloured by depth thirds, the distance written on each gap that fits), the legend naming the rule, the interval statistics table and the interval histogram; the rest folded. night-analyse (2026-10-20): the histogram is replaced by the per-class scatter (time until the next event of the same class), with the input signal coloured by class above and the class transition table below",
   "actions": [
    {
     "wait_for": [
@@ -381,10 +384,13 @@
    "[data-testid=\"interval-legend-rule\"]",
    "[data-testid=\"interval-legend\"] i",
    "[data-testid=\"interval-stats\"]",
-   "[data-testid=\"interval-histogram\"]",
+   "[data-testid=\"interval-signal\"] svg",
+   "[data-testid=\"interval-scatter\"] svg",
+   "[data-testid=\"class-transitions\"]",
    "[data-testid=\"headline-more\"][data-open=\"0\"]"
   ],
   "expect_absent": [
+   "[data-testid=\"interval-histogram\"]",
    "[data-testid=\"feature-table\"]",
    "[data-testid=\"headline-folded\"]",
    "[data-testid=\"render-error\"]",
