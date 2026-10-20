@@ -467,3 +467,26 @@ build into a PRIVATE dist (`scratchpad/gate2.sh`, `--dist` on the 8766 sandbox) 
 - **After the demo (BACKLOG):** the Apply-template estimate leaves out null draws (it decides local vs cluster, so not
   before the talk); a write to M2_aug rebuilds its whole corpus map (~3 min in the worker) — the other candidate for
   the "site lagging" report.
+
+## 2026-10-20 night / 2026-10-21 early — site-night (the researcher's second list) and the overnight walk
+
+Brief `docs/prompts/changes/site-night-2026-10-20.md`. Paused 23:05–23:20 while the researcher reviewed a queue (agents
+read/edit only, every bridge and build stopped). The 49-vs-155 W3 puzzle was a scope clobber: Scope › recording ›
+Change sent the first 3 channels and 0–174 h and the bridge wrote them over "demo · talk" (the Demo instance session
+restored it and re-stored F-30's preview). Merged, each after a critic, one fix round and gate2.sh:
+- **night-disc → 753aeea**: a recording switch sends the recording alone; the runs list in the researcher's three
+  columns; seed cards uncut; the map's level-3 top scrollbar. Gate: all units 0 FAIL (site_runs geometry needs a walk).
+- **night-review → cbe06f1**: the whole-deck re-read after a carried verdict skipped unless it reaches this queue;
+  five ahead kept warm; verdict→next card 2.2 s → 0.2 s on queue 31's copy; grouping editor opens on a tree grouping
+  and builds a missing tree. Gate: its units 0 FAIL; review/review_carry failures all on queue 2 items 100/102 (data).
+- **night-analyse → bd40772**: event shape (motif overlay, signal + measure scatter), intervals (signal by class,
+  next-interval scatter, transitions), the slideshow band. The first gate passed but the demo check found W1's Event
+  shape on the OLD view (its cached step has no rose); fixed (09ac92f) and re-gated: all units 0 FAIL, W1 18/19.
+- 631729a: the Demo instance session's DEMO_DAY.md. 6ee5f9f: manifest renames for the two ordering guards.
+**Overnight walk on 631729a (01:29–02:26): 832 / 36 (31 states) against 23** — 9 baseline states pass now; 17 new,
+none a code regression: 13 data (queue 2's 100/102 judged tonight; review-carry), 3 load timing (screenshots
+loading: corpus, settings datasets, signal default), 1 known slow read (templates 2.5 s). **New baseline:
+`reports/smoke-baseline-2026-10-21.txt`.** **Daily pytest (webui/.venv -n 4, 49 min): 5567 passed, 8 failed** — 2
+ordering guards from tonight (fixed, 6ee5f9f), 6 from the 10-19/10-20 merges that FAIL IDENTICALLY ON 7ceea4f
+(checked in a 7ceea4f worktree): BACKLOG's 2026-10-21 table. 8765 untouched all night (still 7ceea4f, dist of
+14:43); the Demo instance session asks the researcher before moving it.

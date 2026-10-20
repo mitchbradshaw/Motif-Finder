@@ -1,0 +1,40 @@
+# Smoke baseline 2026-10-21 (overnight full walk on main 631729a: 832 screenshots, 36 failures, 31 failing states)
+# Compare by SET. 13 of these are data: Review states pinned to queue 2 items 100/102, which the researcher's 2026-10-20 evening verdicts
+# took out of queue 2; seed_sources fixup-y (queue 2's first item); the review flow's one-adjudication-row check (review-carry over today's imports).
+# Re-pin those states to items queue 2 still serves to clear them.
+  EXC: discovery.runs--ar-templates-open-under-a-second Page.wait_for_selector: Timeout 1500ms exceeded.
+  EXC: discovery.seed--fixup-y-seed-search-from-review Page.wait_for_selector: Timeout 60000ms exceeded.
+  EXC: models.launch--fixup-ab-save-a-window-set-across-channels Locator.click: Timeout 30000ms exceeded.
+  EXC: models.launch--fixup-ab-train-locally Locator.click: Timeout 30000ms exceeded.
+  EXC: review.inspector--1b-other-channels (click, then Escape) Locator.click: Timeout 30000ms exceeded.
+  EXC: review.inspector--4-evidence-rail (micro-stat click) Locator.click: Timeout 30000ms exceeded.
+  EXC: review.inspector--ar-step-paints-from-the-prefetch Page.wait_for_selector: Timeout 30000ms exceeded.
+  EXC: review.inspector--review-carry-one-item-per-event Page.wait_for_selector: Timeout 30000ms exceeded.
+  EXC: review.inspector--review-carry-verdict-is-written-and-carried Page.wait_for_selector: Timeout 30000ms exceeded.
+  EXC: review.inspector--shape card toggled to its own 1 Hz samples Locator.click: Timeout 30000ms exceeded.
+  EXC: review.queue--polish-inspector-grey-at-most-24 Page.wait_for_selector: Timeout 30000ms exceeded.
+  EXC: settings.channels-events--rows-all-by-click Locator.click: Timeout 30000ms exceeded.
+  EXC: settings.datasets--import-check-passes-MJu26a Locator.click: Timeout 30000ms exceeded.
+  EXC: settings.datasets--review-item-carries-its-source-file Page.wait_for_selector: Timeout 15000ms exceeded.
+  EXC: settings.storage-backups--scan-check-a-matrix-profile Locator.click: Timeout 30000ms exceeded.
+  FAIL: I wrote one adjudications row, on a detection of a real run in the queue ([{'id': 37516, 'detection_id': 11628882, 'verdict': 'interesting', 'created_at': '2026-10-20T15:31:55.156955+00:00', 'run_id': 7404, 'surrogate_of_run_id': None}, {'id': 37517, 'detection_id': 4951234, 'verdict': 'interesting', 'created_at': '2026-10-20T15:31:55.158689+00:00', 'run_id': 3271, 'surrogate_of_run_id': None}])
+  FAIL: discovery: discovery.runs--default renders — missing ['[data-testid="browser-trace"] svg']
+  FAIL: discovery: discovery.seed--save-template-invalid renders — missing ['[data-testid="save-template-error"]']
+  FAIL: explore: explore.corpus--default renders — missing ['[data-testid="corpus-heatmap"]']
+  FAIL: explore: explore.cross-channel--max-lag-10 renders — missing ['[data-testid="lag-unaligned-CH5_B1"]']
+  FAIL: explore: explore.signal--default renders — missing ['[data-testid="signal-span"]', '[data-testid="no-motif"]']
+  FAIL: library: library.templates--model-stage renders — missing ['[data-testid^="template-card-cnn_"]']
+  FAIL: no browser console/page errors (2)
+  FAIL: no unexpected server tracebacks (2 unexpected of 4 error lines)
+  FAIL: review: review.inspector--1-candidate (deep link, live detection) renders · every trace inside its plot box — missing ['[data-testid="inspector"][data-item="100"]', '[data-testid="title-row"]', '[data-testid="shape-card"]', '[data-testid="shape-reference"]', '[data-testid="verdict-card"]']
+  FAIL: review: review.inspector--4-evidence-rail (deep link) renders · every trace inside its plot box — missing ['[data-testid="evidence-sections"]', '[data-testid="write-target"]']
+  FAIL: review: review.inspector--context axis: 102's drop sits inside its band (fixup-g, U2) renders — no context trace — missing ['[data-testid="context-card"][data-pad="300"]', '[data-testid="context-trace"] svg[data-timed="1"]', '[data-testid="context-resolution"][data-decimated="0"]']
+  FAIL: review: review.inspector--extract-events queue (sequence unit, writes annotations) renders — missing ['[data-testid="inspector"]', '[data-testid="verdict-card"]']
+  FAIL: review: review.inspector--padding +/-120 s is symmetric (fixup-g, U3) renders — no context trace — missing ['[data-testid="context-card"][data-pad="120"]']
+  FAIL: review: review.inspector--padding +/-30 s is symmetric (fixup-g, U3) renders — no context trace — missing ['[data-testid="context-card"][data-pad="30"]']
+  FAIL: review: review.inspector--shape card drawn from the 10 Hz source, and says so (fixup-g, Q24) renders · every trace inside its plot box — missing ['[data-testid="shape-card"][data-source="parent"][data-source-available="1"]', '[data-testid="shape-source-toggle"][aria-checked="true"]', '[data-testid="shape-drawn-from"]', '[data-testid="shape-trace"] svg[data-timed="1"]']
+  FAIL: review: review.inspector--shape card without a parent: the toggle is disabled with the reason renders — missing ['[data-testid="shape-card"][data-source-available="0"]', '[data-disabled-reason]']
+  FAIL: review: review.inspector--verdict given (I) writes to the database and advances renders — missing ['[data-testid="inspector"]', '[data-testid="previous-line"]']
+  FAIL: seed_sources: discovery.seed--fixup-y-seed-search-from-review-provenance renders — 1 console errors
+  FAIL: settings: settings.datasets--default renders — missing ['[data-testid="recordings-table"]', '[data-testid="metadata-card"]', '[data-testid="held-out-card"]', '[data-testid="candidate-count"]']
+  FAIL: settings: settings.datasets--identity-fields renders — missing ['[data-testid="unnamed-Mushroom_260720_0509_4hrs_CH14_fs1"]']
