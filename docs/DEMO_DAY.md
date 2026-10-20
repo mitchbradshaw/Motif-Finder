@@ -37,6 +37,19 @@ step, plus R3 and R4, which have no page in the site.
        cd /c/Users/mmebr/Documents/CNN
        PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" scripts/demo_rehearsal.py --url http://127.0.0.1:8765 --allow-project --talk --slow 2
 
+   **If 8765 was restarted since 20 October, also run the three chains once:**
+
+       PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" scripts/demo_screenshots.py --url http://127.0.0.1:8765 --out "$TEMP/demo-warm" --only w1
+       PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" scripts/demo_screenshots.py --url http://127.0.0.1:8765 --out "$TEMP/demo-warm" --only w2-1
+
+   Why: on main as of 20 October, the first validation of a chain containing a block whose cost model has
+   not been timed yet runs that timing on a bridge thread, and the whole site crawls for a few minutes.
+   This was found by WEBSITE CHANGES; the fix is on a branch, not on 8765. It happens once and is then
+   cached, so pay for it here, not in the talk. The runs it adds are ordinary Analyse run rows.
+
+   Run the warm-up close to the talk. With RAM tight, Windows pages an idle bridge out of memory: it read
+   38 MB at 16:10 on 20 October. The first requests after a quiet spell are then slow while it pages back
+   in. Close other heavy programs, and keep the agents' sandbox bridges stopped, during the talk.
 3. **Open one browser tab per stop below, in order, before you start.** This is the single best defence
    against the waits that are left. A tab that has already loaded shows instantly; switching tabs costs
    nothing.
