@@ -147,3 +147,20 @@ def test_intervals_draw_the_signal_the_class_scatter_and_the_transition_matrix()
     for testid in ("interval-signal", "interval-scatter", "class-transitions"):
         assert testid in figs, f"no {testid} on the Intervals page"
     assert "next_within_gap_s" in figs, "the class scatter does not plot the time until the next event of the class"
+
+
+# ── demo check (2026-10-21): the W1 chain's Event shape step came back from the step cache with no meta (no rose,
+#    no rules), and the page fell back to the old histogram view. The view is chosen by the feature table too. ──
+
+def test_an_event_shape_table_is_known_by_its_columns_without_a_rose():
+    out = _node("return [M.isEventShapeTable(['polarity', 'onset_idx', 'event_amplitude_mv', 'max_slope_mv_s']),"
+                " M.isEventShapeTable(['interval_before_s']), M.isEventShapeTable([]), M.isEventShapeTable(null)]")
+    assert out == [True, False, False, False], out
+
+
+def test_the_page_kind_reads_the_feature_table_and_says_when_the_rose_is_missing():
+    reg = _src("registry.tsx")
+    kind = reg[reg.index("const kind = cycleStackOf(p)"):]
+    kind = kind[:kind.index("\n")]
+    assert "isEventShapeTable(" in kind, "the Event shape view is still chosen by the rose alone"
+    assert "rose-missing" in _src("EventShapeFigures.tsx"), "a missing rose is not said on the page"
