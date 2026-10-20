@@ -156,3 +156,67 @@ def test_the_scope_summary_chip_has_no_chevron():
     start = src.index("export function ScopeSummaryChip")
     body = src[start:src.index("export function", start + 10)]
     assert "chevron" not in body
+
+
+# ── items 3 and 4: the scoreboard's read and its scroll ─────────────────────
+
+SCORE_TS = os.path.join(SRC, "discovery", "scoreRead.ts")
+
+
+def _score_node(lines):
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not on PATH")
+    assert os.path.isfile(SCORE_TS), "webui/client/src/discovery/scoreRead.ts does not exist"
+    url = "file:///" + SCORE_TS.replace("\\", "/").lstrip("/")
+    r = subprocess.run([node, "--no-warnings", "--input-type=module", "-e",
+                        f"import * as S from {json.dumps(url)};\n" + "\n".join(lines)],
+                       capture_output=True, text=True, encoding="utf-8", timeout=60)
+    assert r.returncode == 0, r.stderr
+    return json.loads(r.stdout)
+
+
+def test_an_answer_read_for_other_runs_is_not_the_scores():
+    """Item 4's cause: the first scoreboard read goes out before the runs are in, with no run keys, and answers []
+    at once; `useSourced` keeps that [] on screen while the real read (461 s cold on the real session) is out, and
+    the page printed "no finished run on this scope yet" and "Send 0 unjudged". An answer counts only for the keys
+    it was read for; anything else is "not in yet" (null)."""
+    out = _score_node([
+        "const k = S.scoreKey(['a','b'], ['CH1'], [0, 24]);",
+        "const k0 = S.scoreKey([], ['CH1'], [0, 24]);",
+        "process.stdout.write(JSON.stringify([",
+        "  S.scoresFor({ key: k0, rows: [] }, k),",
+        "  S.scoresFor({ key: k, rows: [{ run: 'a' }] }, k),",
+        "  S.scoresFor(null, k),",
+        "  S.scoresFor({ key: k0, rows: [] }, k0),",
+        "]));",
+    ])
+    assert out == [None, [{"run": "a"}], None, []]
+
+
+def test_the_scoreboard_says_it_is_working_while_the_scores_are_out():
+    src = _src("discovery", "RunsPage.tsx")
+    assert "working out the scores" in src
+    start = src.index("function Scoreboard")
+    body = src[start:src.index("function otherLine")]
+    # the empty line is chosen on `dx.scores === null` before anything else, not only when no other row is drawn
+    assert "scores-working" in body
+
+
+def test_the_send_button_counts_from_its_own_read():
+    src = _src("discovery", "RunsPage.tsx")
+    start = src.index("function RunActs")
+    body = src[start:]
+    assert "getRunUnjudged(" in body
+    assert "counting the unjudged detections" in body
+    assert "total.found - total.judged" not in body
+    assert "getRunUnjudged" in _src("api", "discovery.ts")
+
+
+def test_the_scoreboard_scrolls_past_ten_runs_with_a_sticky_header():
+    src = _src("discovery", "RunsPage.tsx")
+    assert "SCORE_ROWS_VISIBLE = 10" in src
+    assert 'data-testid="scoreboard-scroll"' in src
+    css = _src("discovery", "discovery.css")
+    assert re.search(r"\.dsc-score-scroll\s+thead\s+th\s*\{[^}]*position:\s*sticky", css)
+    assert re.search(r"\.dsc-score-scroll\s*\{[^}]*overflow-y:\s*auto", css)

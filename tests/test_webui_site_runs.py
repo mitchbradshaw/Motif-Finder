@@ -59,3 +59,43 @@ def test_the_put_answers_with_the_opened_sessions_name(client, tmp_path):
     _add_other(client, tmp_path)
     moved = client.put("/api/discovery/session", json={"recording": "other", "channels": ["CH1"]}).json()["session"]
     assert moved["name"] != before
+
+
+# ── item 4: the Send button's count is a cheap read of its own ──────────────
+
+from test_webui_discovery import CH, _apply  # noqa: E402
+
+
+def test_the_unjudged_count_is_found_minus_the_detections_with_a_verdict(client, monkeypatch):
+    """The scoreboard over the real session (16 channels x 52 runs, 721 h) took 461 s cold on a copy of the real
+    database, and the button printed "Send 0 unjudged" all that while. The count now comes from its own read, which
+    never scores (score_runs is made to explode here) and counts the run's real detections -- surrogates left out --
+    that carry no adjudication: the detections a Send puts in the queue."""
+    out = _apply(client)
+    from server import discovery as disc
+    monkeypatch.setattr(disc.SB, "score_runs", lambda *a, **k: (_ for _ in ()).throw(AssertionError("scored")))
+    conn = sqlite3.connect(client.app.state.rt.db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        dr = conn.execute("SELECT * FROM discovery_runs WHERE run_key = ? AND removed_at IS NULL ORDER BY id DESC",
+                          (out["run_key"],)).fetchone()
+        run_ids = ",".join(str(int(i)) for i in disc._run_ids(conn, dr))
+        ids = [r[0] for r in conn.execute(
+            "SELECT d.id FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.id IN (" + run_ids + ") "
+            "AND r.surrogate_of_run_id IS NULL ORDER BY d.id").fetchall()]
+        assert ids, "the fixture run found nothing"
+        conn.execute("INSERT INTO adjudications (detection_id, verdict, created_at) VALUES (?, 'interesting', ?)",
+                     (ids[0], "2026-10-20T00:00:00+00:00"))
+        conn.commit()
+    finally:
+        conn.close()
+    r = client.get(f"/api/discovery/runs/{out['run_key']}/unjudged")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["found"] == len(ids)
+    assert body["judged"] == 1
+    assert body["unjudged"] == len(ids) - 1
+
+
+def test_the_unjudged_count_of_an_unknown_run_is_a_404(client):
+    assert client.get("/api/discovery/runs/nope/unjudged").status_code == 404
