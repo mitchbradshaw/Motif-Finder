@@ -131,7 +131,7 @@ estimates 31 s). Do not.
 | R1 | Discovery › Map (all datasets), then click a dataset | 1–1.5 s; a dataset 2–5 s (M2_aug the slowest) |
 | R2 | Discovery › Runs in **demo · talk**: `dip_search_allch`, `trough_search`, `seed aba099` and `seed bdd3d0` were *adopted* from your M2_aug session (read, not copied). Their *Report*s, or the snapshots in Reports | report 5–7 s; snapshot instant |
 | R3 | backup deck only: queue 25's estimate. About 24.6 % of unjudged candidates are interesting (CI 21–28 %), and the rate rises with detector agreement | — |
-| R4 | backup deck only: MiniRocket AUC 0.79 against 0.83 for the agreement count | — |
+| R4 | backup deck only: MiniRocket on your verdicts, each recording held out in turn, AUC 0.97 (balanced accuracy 0.92) against 0.86 for the agreement count and 0.90 for size and noise alone, on the 1,689 queue candidates (docs/rq_roundA_2/findings/rq1b-minirocket-2026-10-20.md; the queue-25 preliminary 0.79 vs 0.83 is superseded) | — |
 
 ### What changed with the overnight main (applied to 8765 at 07:39 on 21 October)
 
