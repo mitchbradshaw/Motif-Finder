@@ -30,7 +30,7 @@ import { getMap, getMapChannel, getMapDataset, getOverview } from '../api/discov
 import type { DiscMapCell, DiscMapRow, DiscMapState, DiscMapTimeline } from '../api'
 import { LoadFailed, Loading, Refreshing } from './chrome'
 import { arrange, splitKeys, toggleKey, type SortMode } from './mapOrder'
-import { extentOf, maxOf } from '../kit/extent'
+import { extentOf, maxOf } from '../charts/domain'
 
 /* ux-1018: a level answered only its first read. A run finishing or a verdict landing changed nothing on screen,
  * and a new slice count drew the OLD payload until the next read landed, with nothing to say a read was out — which
@@ -562,9 +562,9 @@ function SignalStrip({ dataset, channel, hours, units, binH, onHover, onLeave, o
   if (ov.error) return <div className="dsc-map-trow dsc-map-signal" data-testid="map-signal-strip" data-state="failed">{label}<LoadFailed what={`the signal of ${channel}`} error={ov.error} onRetry={ov.reload} /></div>
   if (refused) return <div className="dsc-map-trow dsc-map-signal note" data-testid="map-signal-strip" data-state="refused">{label}<span className="dsc-map-signal-note">signal not drawn: {refused}</span></div>
   if (!values) return <div className="dsc-map-trow dsc-map-signal note" data-testid="map-signal-strip" data-state="loading">{label}<span className="dsc-map-signal-note">reading {channel}'s hourly means…</span></div>
-  const finite = values.filter(Number.isFinite)
-  if (!finite.length) return <div className="dsc-map-trow dsc-map-signal note" data-testid="map-signal-strip" data-state="empty">{label}<span className="dsc-map-signal-note">signal not drawn: {channel} has no finite sample to average</span></div>
-  let [lo, hi] = extentOf(finite)
+  const extent = extentOf(values)
+  if (!extent) return <div className="dsc-map-trow dsc-map-signal note" data-testid="map-signal-strip" data-state="empty">{label}<span className="dsc-map-signal-note">signal not drawn: {channel} has no finite sample to average</span></div>
+  let [lo, hi] = extent
   if (hi - lo < 1e-12) { lo -= 1; hi += 1 }
   const pad = (hi - lo) * 0.06, y0 = lo - pad, y1 = hi + pad
   const W = units * 10

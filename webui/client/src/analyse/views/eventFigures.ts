@@ -1,12 +1,11 @@
 /* night-analyse (2026-10-20): the pure helpers behind the Event shape and Intervals figures and the span-set
- * slideshow's highlighted band. No imports: `tests/test_night_analyse_helpers.py` runs this file under Node.
+ * slideshow's highlighted band. Imports only pure files, by their `.ts` name, so `tests/test_night_analyse_helpers.py`
+ * runs it under Node.
  *
  * Nothing here derives a MEASURE: the measures are the bridge's. These place what the payload carries — a
  * waveform aligned for an overlay, a series scaled to share one plot, the order of classes counted as
- * transitions, which events to draw when there are too many.
- *
- * Near siblings, and why not them: `kit/extent.ts` gives a range but not the 0..1 scale with a flat series at 0.5;
- * `views/common.tsx::finiteRange` the same (and that file imports React, which Node cannot run). */
+ * transitions, which events to draw when there are too many. */
+import { extentOf } from '../../charts/domain.ts'
 
 type Num = number | null | undefined
 
@@ -77,10 +76,9 @@ export function alignOnSteepest(t: number[], v: ArrayLike<Num>, range: [number, 
 /** A series scaled to 0..1 over its own finite range, for display beside other series; the real value is read off
  *  the payload, never back off this. A flat series sits at 0.5; a missing value stays missing. */
 export function normaliseSeries(vals: ArrayLike<Num>): { y: (number | null)[]; lo: number | null; hi: number | null } {
-  let lo = Infinity, hi = -Infinity
-  for (let i = 0; i < vals.length; i++) { const x = vals[i]; if (fin(x)) { if (x < lo) lo = x; if (x > hi) hi = x } }
-  if (!(lo <= hi)) return { y: Array.from(vals, () => null), lo: null, hi: null }
-  const r = hi - lo
+  const extent = extentOf(vals)
+  if (!extent) return { y: Array.from(vals, () => null), lo: null, hi: null }
+  const [lo, hi] = extent, r = hi - lo
   return { y: Array.from(vals, x => (fin(x) ? (r > 0 ? (x - lo) / r : 0.5) : null)), lo, hi }
 }
 

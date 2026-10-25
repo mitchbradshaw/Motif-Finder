@@ -1,7 +1,7 @@
 /* night-analyse (the researcher, 2026-10-20): the Intervals page, top to bottom —
  *   1. the block's input signal over the span, the detected regions on it coloured by interval class, each class
  *      shown / hidden by its checkbox (the same switches as the scatter's legend);
- *   2. the interactive interval timeline (IntervalTimeline, unchanged, its histogram left out here);
+ *   2. the interactive interval timeline (IntervalTimeline);
  *   3. in place of the histogram, one scatter series per class: x = the event's time, y = the time until the next
  *      event of the SAME class in its group (the bridge's `next_within_gap_s`), each series drawn 0..1 over its own
  *      range, the real value on hover; hovering or clicking a point marks the event on the signal;
@@ -136,7 +136,7 @@ export function IntervalFigures({ q, p, ic, stats }: { q: ProcessProps; p: Spans
           series={ic.classes.map(c => ({ key: c.key, label: c.key === 'all' ? 'all events' : c.label, colour: classColour(ic, c.key), n: c.n }))}
           note={<span className="muted">events per class · the rule is under the timeline</span>} />
       </div>
-      <IntervalTimelinePanel ic={ic} t0={t0} t1={t1} stats={stats} histogram={false} />
+      <IntervalTimelinePanel ic={ic} t0={t0} t1={t1} stats={stats} />
       <div>
         <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>{next ? 'Time until the next event of the same class' : 'Time since the previous event of the same class'}</h3>
           <span className="sg">one series per class, on the time axis above · hover a point for its interval, click to mark the event</span></div>

@@ -35,7 +35,7 @@ export const DOMAIN_PAD = 0.06
 const FLAT_REL = 0.01
 const FLAT_ABS = 1e-3
 
-type Series = ReadonlyArray<number | null | undefined>
+type Series = ArrayLike<number | null | undefined> | null | undefined
 
 /** The pad, and the flat floor. Every measured extent in the app goes through this. */
 export function padDomain(lo: number, hi: number, pad: number = DOMAIN_PAD): [number, number] {
@@ -48,12 +48,15 @@ export function padDomain(lo: number, hi: number, pad: number = DOMAIN_PAD): [nu
   return [lo - m, hi + m]
 }
 
-/** min/max over every finite value of every series; null when there is none. */
+/** min/max over every finite value of every series; null when there is none. A loop by index, never
+ *  `Math.max(...xs)`: a cut sweep or a channel read holds ~10^5 values, and spreading that many arguments is
+ *  `RangeError: Maximum call stack size exceeded` (night, 2026-10-20). Typed arrays go through the same loop. */
 export function extentOf(...series: Series[]): [number, number] | null {
   let lo = Infinity, hi = -Infinity
   for (const s of series) {
     if (!s) continue
-    for (const v of s) {
+    for (let i = 0; i < s.length; i++) {
+      const v = s[i]
       if (v === null || v === undefined || !Number.isFinite(v)) continue
       if (v < lo) lo = v
       if (v > hi) hi = v
@@ -61,6 +64,13 @@ export function extentOf(...series: Series[]): [number, number] | null {
   }
   return lo <= hi ? [lo, hi] : null
 }
+
+/** The largest finite value, or -Infinity when there is none, so `Math.max(1, maxOf(xs))` floors exactly as
+ *  `Math.max(1, ...xs)` did. */
+export function maxOf(...series: Series[]): number { return extentOf(...series)?.[1] ?? -Infinity }
+
+/** The smallest finite value, or Infinity when there is none. */
+export function minOf(...series: Series[]): number { return extentOf(...series)?.[0] ?? Infinity }
 
 /** THE rule: a card's y domain, measured from everything drawn on it. `null` when nothing finite is drawn —
  *  a caller draws an empty plot then, never a made-up axis. */
