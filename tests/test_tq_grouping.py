@@ -81,7 +81,13 @@ def test_the_editor_is_split_and_tree_source_is_gone():
     n = len(_read("GroupingPage.tsx").splitlines())
     assert n < 600, f"GroupingPage.tsx is {n} lines"
     page = _code(_read("GroupingPage.tsx"))
-    assert "newestGrouping(all.filter(isTreeGrouping)" in page, "the tree pick is chrome's newest-grouping rule"
+    draft = _code(_read("groupingDraft.ts"))
+    assert "newestGrouping(all.filter(isTreeGrouping)" in draft, "the tree pick is the newest-grouping rule"
+    assert "openingGrouping(all, d.unit, currentAny)" in page
+    chrome = _read("chrome.tsx")
+    assert "export function newestGrouping(" not in chrome and "export const groupingNum =" not in chrome, \
+        "chrome.tsx keeps a second copy of the newest-grouping rule"
+    assert "export { groupingNum, newestGrouping }" in chrome, "chrome.tsx no longer re-exports the rule"
     assert "as Grouping & {" not in page, "Grouping declares method / recipeHash / treeKey: no casts"
     assert "as Grouping & {" not in _code(_read("groupingDraft.ts"))
     for f in ("GroupingPage.tsx", "groupingDraft.ts", "GroupingParams.tsx", "TreePanel.tsx"):
@@ -96,6 +102,21 @@ def test_one_abort_controller_per_start_cancels_the_grouping_job():
     assert re.search(r"if \(signal\.aborted\) \{ void cancelJob\(", hook), \
         "a job id that arrives after its controller was aborted keeps running"
     assert re.search(r"useEffect\(\(\) => abort, \[\]\)", hook), "unmount does not abort the live job"
+
+
+def test_a_job_settles_once_and_polls_one_at_a_time():
+    """Critic, fix round: on the polling path (the SSE stream dropped) the interval fired `getJob` every 2 s whatever
+    the previous request was doing; on a bridge slower than 2 s two polls were in flight, both answered `completed`,
+    and `settle` ran twice — and with it the after-callback: onSave's write or onApply's applyResult, two grouping
+    rows and two toasts. The old hook took the callback once (`then.current = null`); the follow loop now settles once
+    and keeps one poll in flight."""
+    hook = _code(_read("useGroupingJob.ts"))
+    settle = re.search(r"const settle = \(status: string, result: unknown, error: unknown\) => \{\n(.*?)\n    \}\n", hook, re.S)
+    assert settle, "settle is not where the pin expects it"
+    first = settle.group(1).strip().splitlines()[0].strip()
+    assert first == "if (settled) return; settled = true", "settle (and its after-callback) can run twice"
+    assert "if (polling) return; polling = true" in hook, "a slow poll lets the next one start beside it"
+    assert ".finally(() => { polling = false })" in hook
 
 
 def test_the_editor_decides_the_auto_build_once():

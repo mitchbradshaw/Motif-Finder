@@ -135,8 +135,8 @@ def test_the_advance_after_a_verdict_is_a_frame_not_a_third_of_a_second():
 
 # ── 2. the grouping tree by default ──────────────────────────────────────────
 
-# tq-grouping: `treeSource.ts` is gone. The tree test is `isTreeGrouping` in the pure draft module; the pick itself is
-# chrome's `newestGrouping` over the tree groupings, in the editor.
+# tq-grouping: `treeSource.ts` is gone. The rule is `openingGrouping` in the pure draft module: `isTreeGrouping` and
+# `newestGrouping` (moved there from chrome.tsx, which re-exports it).
 TREE_TS = os.path.join(LIBRARY, "groupingDraft.ts")
 
 G = [
@@ -149,23 +149,26 @@ G = [
 ]
 
 
+def _source(unit, current_id):
+    cur = next((g for g in G if g["id"] == current_id), None)
+    r = _node(TREE_TS, f"M.openingGrouping({json.dumps(G)}, {json.dumps(unit)}, {json.dumps(cur)}) ?? null")
+    return r and r["id"]
+
+
 def test_the_editor_opens_on_a_tree_grouping_when_the_current_one_has_no_tree():
-    tree = dict(_node(TREE_TS, f"{json.dumps(G)}.map(g => [g.id, M.isTreeGrouping(g)])"))
-    assert tree == {"g-04": True, "g-05": True, "g-06": True, "g-08": True, "g-09": False, "g-10": False}, \
-        "Ward on a distance basis is a tree grouping; feature bins and HDBSCAN build none"
-    code = _code(_read("library", "GroupingPage.tsx"))
-    # the current grouping of this unit when it has a tree (from g-04 means g-04), else the newest tree grouping of
-    # the unit, else the current one of this unit
-    assert "currentAny?.unit === d.unit ? currentAny : undefined" in code
-    assert ("isTreeGrouping(currentOfUnit) ? currentOfUnit : newestGrouping(all.filter(isTreeGrouping), d.unit) "
-            "?? currentOfUnit") in code
+    assert _source("motifs", "g-09") == "g-05", "the newest Ward grouping of the unit"
+    assert _source("motifs", "g-10") == "g-05", "an HDBSCAN grouping builds no tree either"
+    assert _source("motifs", "g-04") == "g-04", "a current Ward grouping is kept (from g-04 means g-04)"
+    assert _source("sequences", "g-06") == "g-06"
+    assert _source("spike-trains", None) is None
+    assert "openingGrouping(all, d.unit, currentAny)" in _code(_read("library", "GroupingPage.tsx"))
 
 
 def test_the_editor_seeds_from_the_tree_grouping_and_builds_a_missing_tree_at_once():
     # tq-grouping: the build is decided in the editor (an `autoBuilt` state, once per editor) and the panel, now in
     # TreePanel.tsx, is told `building`. The pins moved with the code.
     code = _code(_read("library", "GroupingPage.tsx"))
-    assert "newestGrouping(all.filter(isTreeGrouping)" in code, "the editor still opens on the newest grouping, tree or not"
+    assert "openingGrouping(" in code, "the editor still opens on the newest grouping, tree or not"
     # an address naming a basis still wins (a feature-bin link opens on its bins)
     assert "basisQ && !DISTANCE_BASES.includes(basisQ) ? currentAny" in code, \
         "a ?basis= in the address no longer opens the editor on that basis"
