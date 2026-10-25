@@ -124,14 +124,34 @@ def test_a_change_of_recording_sends_the_recording_only():
     calls = re.findall(r"dx\.setScope\(\{[^}]*\}\)", fn)
     assert "dx.setScope({ recording: key })" in calls, calls
     # only a held-out recording (never written to the bridge, shown from the client's copy) keeps defaults
-    for call in calls:
-        if "channels" in call or "section" in call:
-            assert "if (r.heldOut) " + call in fn, f"a non-held-out switch still writes a scope: {call}"
+    # tq-scope (2026-10-25): one write, `writeSession`, sends exactly the patch's channels and section, so a change
+    # of recording carries the recording alone; putRecording, putScope, putScopeLink and the `bare` branch are gone.
+    # The held-out view's defaults (never written) moved into setScope's one held-out return.
+    assert not [c for c in calls if "channels" in c or "section" in c], calls
     sess = _src("discovery", "session.ts")
-    assert "putRecording(" in sess, "the session writes a bare recording through putRecording"
+    assert "const bare" not in sess and "putRecording" not in sess
+    assert "writeSession({ recording: next.recording, channels: patch.channels, section: patch.section })" in sess
     api = _src("api", "discovery.ts")
-    m = re.search(r"export const putRecording = \(recording: string\) =>\s*putDiscoverySession\(\{ recording \}\)", api)
-    assert m, "putRecording sends { recording } alone"
+    for gone in ("putRecording", "putScope", "putScopeLink"):
+        assert f"export const {gone} " not in api, f"{gone} is a second copy of the session write"
+    assert re.search(r"export const writeSession = \(body: \{ recording\?: string; channels\?: string\[\]; section\?: \[number, number\] \}\) =>\s*putDiscoverySession\(body\)", api)
+
+
+def test_a_held_out_recording_is_shown_on_defaults_and_never_written():
+    sess = _src("discovery", "session.ts")
+    fn = _between(sess, "const setScope = ", "const resetScope")
+    held = next(ln for ln in fn.splitlines() if "isHeldOut(next.recording)" in ln)
+    assert "return" in held and "writeSession" not in held
+    assert "channels.slice(0, 3)" in fn and "Math.min(rec.hours, 174)" in fn
+    assert fn.count("writeSession(") == 1, "setScope writes through one call"
+
+
+def test_the_run_row_builds_its_actions_once():
+    """tq-scope (2026-10-25): `hasActions` repeated the four render conditions by hand; an action added below and
+    forgotten there vanished. The row builds the list once and draws the line when it is not empty."""
+    body = _run_row()
+    assert "hasActions" not in body
+    assert "actions.length > 0 && <div className=\"dsc-run-actions\">{actions}</div>" in body
 
 
 def test_the_confirm_no_longer_says_it_clears_the_channels():
@@ -142,10 +162,10 @@ def test_the_confirm_no_longer_says_it_clears_the_channels():
 
 
 def test_the_deep_link_still_writes_its_channels():
-    api = _src("api", "discovery.ts")
-    assert "export const putScopeLink" in api
-    link = _between(api, "export const putScopeLink", ".then(")
-    assert "channels: body.channels" in link
+    hook = _src("discovery", "useScopeLink.ts")
+    m = re.search(r"writeSession\(\{[^}]*\}\)", hook)
+    assert m and "channels: t.channels" in m.group(0)
+    assert "section: t.section ?? undefined" in m.group(0), "another recording's link leaves its own section"
 
 
 # ── item 4: the map's top scrollbar ─────────────────────────────────────────

@@ -114,11 +114,13 @@ def test_the_cross_channel_link_carries_the_recording_and_the_names():
     assert ".name" in line
 
 
-def test_the_session_writes_a_deep_link_through_putScope_and_clears_it():
+def test_the_session_writes_a_deep_link_through_writeSession_and_clears_it():
+    # tq-scope (2026-10-25): the link's resolution, write, keys and error live in one hook, discovery/useScopeLink.ts
+    hook = _src("discovery", "useScopeLink.ts")
+    assert "resolveScopeLink(" in hook and "writeSession(" in hook
+    assert "setRecordingQ(null)" in hook and "setChannelsQ(null)" in hook
     src = _src("discovery", "session.ts")
-    assert "resolveScopeLink(" in src
-    assert "setRecordingQ(null)" in src and "setChannelsQ(null)" in src
-    assert "linkRefused" in src
+    assert "useScopeLink(" in src and "linkRefused" in src
 
 
 def test_the_runs_page_holds_the_modal_until_the_link_is_written():
@@ -139,10 +141,10 @@ def test_the_scope_is_built_from_the_bridges_session():
     assert out["nullN"] == 200 and out["nullTemplateN"] == 20 and out["nullExplicit"] is False
 
 
-def test_setScope_takes_putScopes_answer():
+def test_setScope_takes_writeSessions_answer():
     src = _src("discovery", "session.ts")
-    m = re.search(r"putScope\(\{[^}]*\}\)\s*\.then\(([^)]*)\)", src)
-    assert m and m.group(1).strip() not in ("", "()"), "setScope ignores the bridge's answer"
+    m = re.search(r"writeSession\((\{[^}]*\})\)\s*\.then\(([^)]*)\)", src)
+    assert m and m.group(2).strip() not in ("", "()"), "setScope ignores the bridge's answer"
     assert "scopeFromSession(" in src
 
 
@@ -155,38 +157,25 @@ def test_the_scope_summary_chip_has_no_chevron():
 
 # ── items 3 and 4: the scoreboard's read and its scroll ─────────────────────
 
-SCORE_TS = os.path.join(SRC, "discovery", "scoreRead.ts")
-
-
-def _score_node(lines):
-    node = shutil.which("node")
-    if node is None:
-        pytest.skip("node is not on PATH")
-    assert os.path.isfile(SCORE_TS), "webui/client/src/discovery/scoreRead.ts does not exist"
-    url = "file:///" + SCORE_TS.replace("\\", "/").lstrip("/")
-    r = subprocess.run([node, "--no-warnings", "--input-type=module", "-e",
-                        f"import * as S from {json.dumps(url)};\n" + "\n".join(lines)],
-                       capture_output=True, text=True, encoding="utf-8", timeout=60)
-    assert r.returncode == 0, r.stderr
-    return json.loads(r.stdout)
-
-
-def test_an_answer_read_for_other_runs_is_not_the_scores():
+def test_an_answer_read_for_another_question_is_not_the_answer():
     """Item 4's cause: the first scoreboard read goes out before the runs are in, with no run keys, and answers []
     at once; `useSourced` keeps that [] on screen while the real read (461 s cold on the real session) is out, and
-    the page printed "no finished run on this scope yet" and "Send 0 unjudged". An answer counts only for the keys
-    it was read for; anything else is "not in yet" (null)."""
-    out = _score_node([
-        "const k = S.scoreKey(['a','b'], ['CH1'], [0, 24]);",
-        "const k0 = S.scoreKey([], ['CH1'], [0, 24]);",
-        "process.stdout.write(JSON.stringify([",
-        "  S.scoresFor({ key: k0, rows: [] }, k),",
-        "  S.scoresFor({ key: k, rows: [{ run: 'a' }] }, k),",
-        "  S.scoresFor(null, k),",
-        "  S.scoresFor({ key: k0, rows: [] }, k0),",
-        "]));",
-    ])
-    assert out == [None, [{"run": "a"}], None, []]
+    the page printed "no finished run on this scope yet" and "Send 0 unjudged". An answer counts only for the key
+    it was read for; anything else is "not in yet" (null).
+
+    tq-scope (2026-10-25): the rule lives once, in the seam (`useSourcedFor`), and the scoreboard and the run's
+    unjudged count both read through it; scoreRead.ts and RunActs' hand-written `run_key` check are gone."""
+    seam = _src("api", "seam.ts")
+    m = re.search(r"export function useSourcedFor<T>\(key: string,.*?\n\}", seam, re.S)
+    assert m, "the seam has no keyed read"
+    assert "=== key" in m.group(0), "a held answer for another key is not dropped"
+    assert not os.path.exists(os.path.join(SRC, "discovery", "scoreRead.ts")), "scoreRead.ts is a second copy of the rule"
+    sess = _src("discovery", "session.ts")
+    assert re.search(r"useSourcedFor\(wantKey,.*?getScoreboard\(", sess, re.S), "the scoreboard is not a keyed read"
+    acts = _src("discovery", "RunsPage.tsx")
+    acts = acts[acts.index("function RunActs"):]
+    assert "useSourcedFor(" in acts and "getRunUnjudged(" in acts
+    assert "run_key === run.key" not in acts, "RunActs still filters the count by hand"
 
 
 def test_the_scoreboard_says_it_is_working_while_the_scores_are_out():
@@ -312,17 +301,32 @@ def test_the_default_state_opens_the_picker_before_show_all():
 # ── fix round (the critic, 2026-10-20) ──────────────────────────────────────
 
 def test_f2_a_failed_link_write_is_said_in_words_and_does_not_hang_the_page():
-    """A rejected putScopeLink only logged and toasted: the link target stayed set, so the page stayed on its loading
+    """A rejected link write only logged and toasted: the link target stayed set, so the page stayed on its loading
     layout under "moving the session to the linked scope..." for ever (reproduced with the PUT forced to 500). The
     failure is held, said through the scope-link-refused callout (whose button keeps the session's scope and clears
-    the keys), and the page is no longer 'writing' while it is held."""
-    src = _src("discovery", "session.ts")
-    assert "setLinkError(" in src
-    m = re.search(r"const linkWriting = ([^\n]+)", src)
-    assert m and "linkError" in m.group(1), "a held write error must end the writing state"
-    m = re.search(r"const linkRefused = ([^\n]+)", src)
-    assert m and "linkError" in m.group(1), "the write error is shown through the refusal callout"
-    assert re.search(r"const clearLinkKeys = \(\) => \{[^}]*setLinkError\(null\)", src)
+    the keys), and the page is no longer 'writing' while it is held.
+
+    tq-scope (2026-10-25): one phase in discovery/useScopeLink.ts; a held error is 'refused', never 'writing'."""
+    hook = _src("discovery", "useScopeLink.ts")
+    assert "setError(" in hook and "the bridge did not take the link's scope" in hook
+    m = re.search(r"const phase: LinkPhase = (.*?kind: 'idle' \})", hook, re.S)
+    assert m, "the hook has no single phase"
+    phase = m.group(1)
+    assert phase.index("error ?") < phase.index("'writing'"), "a held write error must end the writing state"
+    assert re.search(r"error \? \{ kind: 'refused'", phase), "the write error is shown through the refusal callout"
+    assert re.search(r"const clear = \(\) => \{[^}]*setError\(null\)", hook)
+    sess = _src("discovery", "session.ts")
+    assert "phase.kind === 'refused'" in sess and "phase.kind === 'writing'" in sess
+
+
+def test_the_session_has_no_hand_kept_link_or_switch_state():
+    """tq-scope (2026-10-25): the link's state was spread over awaitRunsOf, two refs, three link values, a key and
+    an effect in useDiscovery. A change of session is now a new key on the runs read (useSourcedFor), so the old
+    session's runs are never on screen, and the link is one hook."""
+    sess = _src("discovery", "session.ts")
+    for gone in ("awaitRunsOf", "runsNow", "recNow", "useRef", "linkWriting", "linkTarget", "setLinkError", "resolveScopeLink("):
+        assert gone not in sess, f"{gone} is still in session.ts"
+    assert re.search(r"const base = useSourcedFor\(", sess), "the runs read is not keyed by the session"
 
 
 def test_f3_the_review_flow_waits_for_the_count_before_reading_the_label():
