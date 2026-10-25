@@ -14,7 +14,11 @@ export function pickerGroups<R extends PickerRun>(runs: R[], query: string): Pic
   const hit = (r: R) => !q || r.label.toLowerCase().includes(q) || r.key.toLowerCase().includes(q)
   const real = runs.filter(r => r.kind !== 'reference')
   const sets = new Map<string, R[]>()
-  for (const r of real) if (r.bandSet) sets.set(r.bandSet, [...(sets.get(r.bandSet) ?? []), r])
+  for (const r of real) {
+    if (!r.bandSet) continue
+    const set = sets.get(r.bandSet)
+    if (set) set.push(r); else sets.set(r.bandSet, [r])
+  }
   const groups: PickerGroup<R>[] = [
     { key: 'templates', label: 'templates', folded: false, runs: real.filter(r => !r.bandSet && r.kind !== 'seed').filter(hit) },
     { key: 'seeds', label: 'seed searches', folded: false, runs: real.filter(r => !r.bandSet && r.kind === 'seed').filter(hit) },

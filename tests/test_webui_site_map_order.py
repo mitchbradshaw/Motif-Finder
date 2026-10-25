@@ -133,11 +133,11 @@ def test_the_page_draws_hidden_rows_and_columns_with_a_restore_button():
 
 
 def test_the_page_spreads_no_array_into_math_min_or_max():
-    # night (2026-10-20): `Math.max(...xs)` over ~10^5 values is a RangeError; the kit's extentOf / maxOf loop instead
+    # night (2026-10-20): `Math.max(...xs)` over ~10^5 values is a RangeError; charts/domain's extentOf / maxOf loop instead
     src = _page()
     assert "Math.min(...finite)" not in src and "Math.max(...finite)" not in src
     assert "...cell.counts)" not in src
-    assert "from '../kit/extent'" in src
+    assert "from '../charts/domain'" in src
 
 
 def test_the_dataset_level_marks_a_stale_answer_on_its_wrap():
