@@ -51,6 +51,9 @@ export type BasisKind = 'shape-distance' | 'sequence-similarity' | 'amplitude' |
 export interface Grouping {
   id: string; unit: Unit; basis: BasisKind; basisLabel: string; params: string; chip: [string, string]
   computed: string; motifs: number; families: number; omitted: number; handEditsKept: number; note?: string
+  /** tq-grouping: fields the bridge's grouping payload carries (`library._grouping_payload`) and the fixtures do not —
+   *  the registered method, the Ward cut, the core's recipe hash and the kept tree's key */
+  method?: string | null; cut?: number | null; recipeHash?: string | null; treeKey?: string | null
 }
 export const GROUPINGS: Grouping[] = [
   { id: 'g-07', unit: 'motifs', basis: 'shape-distance', basisLabel: 'shape distance · Ward', params: 'cut 0.42', chip: ['shape distance', 'Ward · cut 0.42'], computed: '14 Sep 2026', motifs: 1402, families: 10, omitted: 38, handEditsKept: 14 },

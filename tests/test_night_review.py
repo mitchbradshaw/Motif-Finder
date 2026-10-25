@@ -135,7 +135,9 @@ def test_the_advance_after_a_verdict_is_a_frame_not_a_third_of_a_second():
 
 # ── 2. the grouping tree by default ──────────────────────────────────────────
 
-TREE_TS = os.path.join(LIBRARY, "treeSource.ts")
+# tq-grouping: `treeSource.ts` is gone. The tree test is `isTreeGrouping` in the pure draft module; the pick itself is
+# chrome's `newestGrouping` over the tree groupings, in the editor.
+TREE_TS = os.path.join(LIBRARY, "groupingDraft.ts")
 
 G = [
     {"id": "g-04", "unit": "motifs", "basis": "shape-distance", "method": "ward"},
@@ -147,30 +149,30 @@ G = [
 ]
 
 
-def _source(unit, current_id):
-    cur = next((g for g in G if g["id"] == current_id), None)
-    r = _node(TREE_TS, f"M.treeSource({json.dumps(G)}, {json.dumps(unit)}, {json.dumps(cur)})")
-    return r and r["id"]
-
-
 def test_the_editor_opens_on_a_tree_grouping_when_the_current_one_has_no_tree():
-    assert _source("motifs", "g-09") == "g-05", "the newest Ward grouping of the unit"
-    assert _source("motifs", "g-10") == "g-05", "an HDBSCAN grouping builds no tree either"
-    assert _source("motifs", "g-04") == "g-04", "a current Ward grouping is kept (from g-04 means g-04)"
-    assert _source("sequences", "g-06") == "g-06"
-    assert _source("spike-trains", None) is None
+    tree = dict(_node(TREE_TS, f"{json.dumps(G)}.map(g => [g.id, M.isTreeGrouping(g)])"))
+    assert tree == {"g-04": True, "g-05": True, "g-06": True, "g-08": True, "g-09": False, "g-10": False}, \
+        "Ward on a distance basis is a tree grouping; feature bins and HDBSCAN build none"
+    code = _code(_read("library", "GroupingPage.tsx"))
+    # the current grouping of this unit when it has a tree (from g-04 means g-04), else the newest tree grouping of
+    # the unit, else the current one of this unit
+    assert "currentAny?.unit === d.unit ? currentAny : undefined" in code
+    assert ("isTreeGrouping(currentOfUnit) ? currentOfUnit : newestGrouping(all.filter(isTreeGrouping), d.unit) "
+            "?? currentOfUnit") in code
 
 
 def test_the_editor_seeds_from_the_tree_grouping_and_builds_a_missing_tree_at_once():
+    # tq-grouping: the build is decided in the editor (an `autoBuilt` state, once per editor) and the panel, now in
+    # TreePanel.tsx, is told `building`. The pins moved with the code.
     code = _code(_read("library", "GroupingPage.tsx"))
-    assert "treeSource(" in code, "the editor still opens on the newest grouping, tree or not"
+    assert "newestGrouping(all.filter(isTreeGrouping)" in code, "the editor still opens on the newest grouping, tree or not"
     # an address naming a basis still wins (a feature-bin link opens on its bins)
-    assert re.search(r"basisQ[^\n]*treeSource\(|treeSource\([^\n]*basisQ", code), \
+    assert "basisQ && !DISTANCE_BASES.includes(basisQ) ? currentAny" in code, \
         "a ?basis= in the address no longer opens the editor on that basis"
-    assert "autoBuild=" in code, "the tree panel is not told to build a missing tree"
-    assert 'data-testid="tree-building"' in code, "while the tree is built the panel says nothing"
-    panel = re.search(r"function TreePanel\((.*?)\n}\n", code, re.S).group(1)
-    assert "autoBuild" in panel and "builtOnce" in panel, "the panel can start more than one build per editor"
+    assert "if (autoBuilt || !treeMissing || busy) return" in code, "a missing tree is not built"
+    assert "setAutoBuilt(true)" in code, "the editor can start more than one build"
+    assert "building={autoBuilt && busy}" in code, "the tree panel is not told a build is under way"
+    assert 'data-testid="tree-building"' in _read("library", "TreePanel.tsx"), "while the tree is built the panel says nothing"
 
 
 def test_a_carry_that_reaches_no_row_of_this_queue_does_not_re_read_every_row():
@@ -190,7 +192,7 @@ def test_the_automatic_build_is_for_motif_shape_trees_only():
     ("tree.tree_key and tree.from_fit disagree"): a red card and a server traceback where a button used to wait.
     Sequences keep the button until that is fixed in the core."""
     code = _code(_read("library", "GroupingPage.tsx"))
-    assert re.search(r"autoBuild=\{d\.unit === 'motifs' && d\.basis === 'shape-distance' && ", code)
+    assert re.search(r"if \(!\(d\.unit === 'motifs' && d\.basis === 'shape-distance' && ", code)
 
 
 # ── fix round (the critic, 2026-10-21 00:40) ─────────────────────────────────
@@ -208,14 +210,14 @@ def test_f1_the_carry_fields_come_from_the_fresh_row_first():
 
 def test_f2_a_grouping_job_is_cancelled_on_every_exit():
     """The automatic build was left running on browser back, a nav link, a hash change, or a close before the job
-    id arrived. The hook cancels its live job on unmount and cancels a job whose id arrives after it was abandoned."""
-    code = _code(_read("library", "GroupingPage.tsx"))
-    hook = re.search(r"function useGroupingJob\(\) \{(.*?)\n}\n", code, re.S).group(1)
-    assert "liveJob.current" in hook and "gen.current" in hook
-    assert re.search(r"useEffect\(\(\) => \(\) => \{[^\n]*liveJob\.current[^\n]*cancelJob", hook), \
-        "unmount does not cancel the live job"
-    assert re.search(r"if \(!alive\.current \|\| mine !== gen\.current\) \{ void cancelJob\(j\.job_id\)", hook), \
-        "a job abandoned before its id arrived keeps running"
+    id arrived. The hook cancels its live job on unmount and cancels a job whose id arrives after it was abandoned.
+    tq-grouping: one AbortController per start (`library/useGroupingJob.ts`) replaced `alive`, `gen` and `liveJob`;
+    the pins moved with it."""
+    hook = _code(_read("library", "useGroupingJob.ts"))
+    assert "new AbortController()" in hook
+    assert "useEffect(() => abort, [])" in hook, "unmount does not cancel the live job"
+    assert "const onAbort = () => { stop(); void cancelJob(jobId)" in hook, "an abort leaves the job running"
+    assert "if (signal.aborted) { void cancelJob(j.job_id)" in hook, "a job abandoned before its id arrived keeps running"
 
 
 def test_f3_undo_clears_the_pending_advance_and_navigates_from_where_the_researcher_is():
