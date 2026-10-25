@@ -272,7 +272,7 @@ def _qid(value) -> int:
         raise HTTPException(status_code=404, detail=f"no review queue {value!r}")
 
 
-def _queue_payload(conn, q: dict, *, exclude_recording_ids=None, counts=None, filters=True,
+def _queue_payload(conn, q: dict, *, exclude_recording_ids=None, counts=None, filters="full",
                    detections=None) -> dict:
     """The stored queue columns plus its counts. The client derives icon,
     order text and rank kind from `source_kind`; nothing is invented here.
@@ -281,16 +281,23 @@ def _queue_payload(conn, q: dict, *, exclude_recording_ids=None, counts=None, fi
     them (one resolve per request, not one per reader). `filters_json` is not
     served — it is `filters` again as a string, and a Discovery picked queue's
     filter is its whole detection list (10,000 ids twice over in every queue
-    header). `filters=False` leaves the list itself out too: an item's queue
-    header is read on every step and nothing on the item card reads it; the
-    queue listing still carries it."""
+    header). `filters` says how much of `filters` itself is served: "full"
+    (the queue's own read), "summary" (the queue listing — night-a: a picked
+    queue's `detection_ids` list, 9,743 ids and 78 kB at scale, becomes
+    `detection_ids_count`; the listing says how many and no reader of it uses
+    the ids) or "none" (an item's queue header, read on every step; nothing on
+    the item card reads it)."""
     if counts is None:
         counts = q.get("counts") or queues_mod.queue_counts(
             conn, int(q["id"]),
             exclude_recording_ids=(exclude_recording_ids
                                    if exclude_recording_ids is not None
                                    else _held_out_ids(conn)))
-    out = {k: v for k, v in q.items() if k != "filters_json" and (filters or k != "filters")}
+    out = {k: v for k, v in q.items() if k != "filters_json" and (filters != "none" or k != "filters")}
+    f = out.get("filters")
+    if filters == "summary" and isinstance(f, dict) and isinstance(f.get("detection_ids"), list):
+        out["filters"] = {**{k: v for k, v in f.items() if k != "detection_ids"},
+                          "detection_ids_count": len(f["detection_ids"])}
     out["id"] = int(q["id"])
     out.update({"total": int(counts.get("total", 0)),
                 "judged": int(counts.get("judged", 0)),
@@ -487,7 +494,7 @@ def _detail(conn, queue: dict, item: dict, index: dict, *, rank: int | None = No
     and at a resolution the card can use (fixup-g)."""
     rid = item.get("recording_id")
     rec = index.get(int(rid)) if rid is not None else None
-    qp = _queue_payload(conn, queue, counts=counts, filters=False, detections=detections)
+    qp = _queue_payload(conn, queue, counts=counts, filters="none", detections=detections)
     entry = _entry_payload(conn, item, queue, index, rank=rank)
     if rec and rec["held_out"]:
         why = refusal(rec["label"])
@@ -748,14 +755,7 @@ def get_queues(request: Request, include_closed: int = Query(default=0)):
         # AR: one count per queue, with the held-out set (it was counted twice, once without it)
         for q in queues_mod.list_queues(conn, include_closed=bool(include_closed), exclude_recording_ids=held):
             counts = {k: q[k] for k in ("total", "judged", "remaining")}
-            row = _queue_payload(conn, q, counts=counts, detections=q.get("detections"))
-            # night-a: a Discovery picked queue's filter is its whole detection list (9,743 ids, 78 kB at scale) and no
-            # reader of the listing uses it: the listing says how many; the queue's own read still carries them
-            f = row.get("filters")
-            if isinstance(f, dict) and isinstance(f.get("detection_ids"), list):
-                row["filters"] = {**{k: v for k, v in f.items() if k != "detection_ids"},
-                                  "detection_ids_count": len(f["detection_ids"])}
-            out.append(row)
+            out.append(_queue_payload(conn, q, counts=counts, filters="summary", detections=q.get("detections")))
         return out
     finally:
         conn.close()

@@ -708,16 +708,15 @@ def spans(conn, recording_id: int, t0_s: float, t1_s: float, fs: float, cap: int
     ann = conn.execute(
         "SELECT id, start_idx, end_idx, verdict, tag, note, source FROM annotations WHERE recording_id = ? AND deleted_at IS NULL "
         "AND end_idx > ? AND start_idx < ? ORDER BY start_idx LIMIT ?", (recording_id, s0, s1, cap + 1)).fetchall()
-    # legacy relative rows must be shifted before the window test. The SQL states `_absolute`'s
-    # shift as a CASE so only the window's rows come back (it fetched every detection on the
+    # legacy relative rows must be shifted before the window test. `spans.absolute_sql` states `_absolute`'s
+    # shift in the query so only the window's rows come back (it fetched every detection on the
     # channel, 300k+ rows, on every zoom step: 5-9 s a call in the smoke walk, perf 2026-10-18);
     # the Python test below is unchanged and still decides.
-    shifted = "(IFNULL(r.span_start, 0) != 0 AND d.start_idx < r.span_start)"
+    abs_a, abs_b = SPANS.absolute_sql("d", "r")
     det_all = conn.execute(
         "SELECT d.id, d.start_idx, d.end_idx, d.score, d.run_id, r.span_start, r.span_end, r.started_at FROM detections d JOIN runs r ON r.id = d.run_id "
         "WHERE r.recording_id = ? AND " + q.not_surrogate("r") + " AND " + q.not_window_part("r") + " "
-        f"AND (CASE WHEN {shifted} THEN d.end_idx + r.span_start ELSE d.end_idx END) > ? "
-        f"AND (CASE WHEN {shifted} THEN d.start_idx + r.span_start ELSE d.start_idx END) < ? "
+        f"AND {abs_b} > ? AND {abs_a} < ? "
         "ORDER BY d.start_idx", (recording_id, s0, s1)).fetchall()
     det = []
     suspect = {}

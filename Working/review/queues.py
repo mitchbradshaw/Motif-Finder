@@ -433,14 +433,7 @@ def queue_counts(conn, queue_id, *, exclude_recording_ids=None):
     # of the question the queue is putting, so counting it inflates `total` and
     # "N need you" and breaks total == judged + remaining for every reader.
     if q["source_kind"] in _DETECTION_KINDS:
-        # AR, fix round S3: from the remembered structure, without building an item per row — the queue list and
-        # the header re-count every open queue after each verdict (1.4-3 s with 20 queues on the scale fixture)
-        structure = _cached_structure(conn, q)
-        served = _structure_views(q, structure, exclude_recording_ids)["served_members"]
-        adjudicated = {r[0] for r in conn.execute("SELECT detection_id FROM adjudications").fetchall()}
-        # review-carry: an item is an overlap set, judged when any of its detections is
-        judged = sum(1 for ms in served if _set_judged(ms, adjudicated))
-        return {"total": len(served), "judged": judged, "remaining": len(served) - judged}
+        return _detection_counts(conn, q, exclude_recording_ids)
     return _counts_of(select_items(q, _resolve(conn, q), include_judged=True,
                                    exclude_recording_ids=exclude_recording_ids))
 
@@ -457,9 +450,17 @@ def unwritten_counts(conn, *, source_kind, filters=None, source_ref=None, cap=No
     q = {"id": None, "source_kind": source_kind, "source_ref": None if source_ref is None else str(source_ref),
          "filters": dict(filters or {}), "cap": cap}
     key = ("unwritten", source_kind, q["source_ref"], repr(sorted(_normalised_filters(filters).items())), cap)
-    structure = _cached_structure(conn, q, cache_key=key)
-    served = _structure_views(q, structure, None)["served_members"]
+    return _detection_counts(conn, q, None, cache_key=key)
+
+
+def _detection_counts(conn, q, exclude_recording_ids, cache_key=None):
+    """`queue_counts` for a detection queue, written or not (tq-rules): from the remembered structure, without
+    building an item per row (AR, fix round S3 — the queue list and the header re-count every open queue after
+    each verdict: 1.4-3 s with 20 queues on the scale fixture)."""
+    structure = _cached_structure(conn, q, cache_key=cache_key)
+    served = _structure_views(q, structure, exclude_recording_ids)["served_members"]
     adjudicated = {r[0] for r in conn.execute("SELECT detection_id FROM adjudications").fetchall()}
+    # review-carry: an item is an overlap set, judged when any of its detections is
     judged = sum(1 for ms in served if _set_judged(ms, adjudicated))
     return {"total": len(served), "judged": judged, "remaining": len(served) - judged}
 

@@ -10,14 +10,19 @@ offset — while every reader treats the table as channel-absolute. The
 executor adds the offset on write now; a legacy row is recognisable because
 its start lies below its run's ``span_start``. This was the P0 the data-truth
 critic found in Prompt 01 and it is the same rule the bridge applies in
-``webui/server/corpus.py::_absolute``, which delegates here.
+``webui/server/corpus.py::_absolute``, which delegates here. ``absolute_sql``
+is the same rule as SQL, for the reads that must filter or merge in the query.
 
 Interval merging is not reimplemented: ``Working.database.queries.
-merge_intervals`` is the codebase's one definition and is imported.
+merge_intervals`` is the codebase's one definition and is imported;
+``merged_rows`` is its numpy form for a recording's ~385 k detections.
 """
 
 import json
 import logging
+from itertools import chain
+
+import numpy as np
 
 from Working.database.queries import merge_intervals
 
@@ -33,6 +38,15 @@ def absolute_bounds(start_idx, end_idx, span_start):
     if o and s < o:
         return s + o, e + o
     return s, e
+
+
+def absolute_sql(d="d", r="r"):
+    """``absolute_bounds`` as SQL: ``(start_expr, end_expr)`` over a ``detections`` alias `d` joined to its
+    ``runs`` alias `r` (tq-rules, 2026-10-25: the corpus window read, the library's detection union and
+    Discovery's fires card each restated it). A NULL or 0 ``span_start`` shifts nothing."""
+    shifted = f"(IFNULL({r}.span_start, 0) != 0 AND {d}.start_idx < {r}.span_start)"
+    return (f"(CASE WHEN {shifted} THEN {d}.start_idx + {r}.span_start ELSE {d}.start_idx END)",
+            f"(CASE WHEN {shifted} THEN {d}.end_idx + {r}.span_start ELSE {d}.end_idx END)")
 
 
 # span-plot (2026-10-18): the one case the rule above cannot settle. A spanned run longer than its offset
@@ -115,6 +129,21 @@ def clip(spans, lo, hi):
 def merged(spans):
     """Non-overlapping, ascending coverage from possibly overlapping spans."""
     return [tuple(s) for s in merge_intervals([(int(a), int(b)) for a, b in spans])]
+
+
+def merged_rows(rows):
+    """``merge_intervals`` (overlapping and touching spans merge) over many ``(start, end)`` rows, in numpy:
+    `merge_intervals` over a scale recording's ~385 k detections costs seconds; this costs a fraction of one.
+    The library's quiet-window null reads it (night-b)."""
+    if not rows:
+        return []
+    # fromiter: np.asarray over 385 k tuples cost ~1.5 s a recording
+    arr = np.fromiter(chain.from_iterable(rows), dtype=np.int64, count=2 * len(rows)).reshape(-1, 2)
+    arr = arr[np.argsort(arr[:, 0], kind="stable")]      # sorted here: ORDER BY in SQL cost ~0.4 s more
+    s, e = arr[:, 0], np.maximum.accumulate(arr[:, 1])
+    first = np.flatnonzero(np.r_[True, s[1:] > e[:-1]])          # a row past every earlier end starts a new run
+    last = np.r_[first[1:] - 1, len(s) - 1]
+    return list(zip(s[first].tolist(), e[last].tolist()))
 
 
 def total_length(spans):

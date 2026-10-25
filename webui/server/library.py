@@ -53,6 +53,7 @@ from pydantic import BaseModel, Field
 from Working import cross_channel as xc
 from Working.cross_channel import ARTIFACT, INDEPENDENT_RECURRENCE, PROPAGATION
 from Working.database import queries as dbq
+from Working.discovery import spans as spans_mod
 from Working.distances import DISTANCE_NATIVE_LENGTH, DISTANCE_SCALE_INVARIANT, DISTANCE_SYMBOLIC
 from Working.library import hand_edits as hand_edits_mod
 from Working.library import matching as matching_mod
@@ -1434,22 +1435,11 @@ def _library_detections(conn, recording_id) -> list:
     night-b: returned as their merged UNION, sorted — all the quiet-window null reads of them is a mask of
     "touches a detection", and a scale recording holds ~385 k rows (a family's first open spent 18 s here in a
     per-row `absolute_bounds` call, then the mask walked every row again). The legacy span-relative shift is
-    `Working.discovery.spans.absolute_bounds`'s rule, stated in SQL as `corpus.spans` states it; ~0.9 s a recording."""
-    shifted = "(IFNULL(u.span_start, 0) != 0 AND d.start_idx < u.span_start)"
-    rows = conn.execute(
-        f"SELECT CASE WHEN {shifted} THEN d.start_idx + u.span_start ELSE d.start_idx END AS a, "
-        f"CASE WHEN {shifted} THEN d.end_idx + u.span_start ELSE d.end_idx END AS b "
-        "FROM detections d JOIN runs u ON u.id = d.run_id WHERE u.recording_id = ?",
-        (int(recording_id),)).fetchall()
-    if not rows:
-        return []
-    from itertools import chain   # fromiter: np.asarray over 385 k tuples cost ~1.5 s a recording
-    arr = np.fromiter(chain.from_iterable(rows), dtype=np.int64, count=2 * len(rows)).reshape(-1, 2)
-    arr = arr[np.argsort(arr[:, 0], kind="stable")]          # sorted here: ORDER BY in SQL cost ~0.4 s more
-    s, e = arr[:, 0], np.maximum.accumulate(arr[:, 1])
-    first = np.flatnonzero(np.r_[True, s[1:] > e[:-1]])          # a row past every earlier end starts a new run
-    last = np.r_[first[1:] - 1, len(s) - 1]
-    return list(zip(s[first].tolist(), e[last].tolist()))
+    `spans.absolute_sql`, the merge `spans.merged_rows` (tq-rules); ~0.9 s a recording."""
+    a, b = spans_mod.absolute_sql("d", "u")
+    rows = conn.execute(f"SELECT {a}, {b} FROM detections d JOIN runs u ON u.id = d.run_id WHERE u.recording_id = ?",
+                        (int(recording_id),)).fetchall()
+    return spans_mod.merged_rows(rows)
 
 
 def _library_background(conn, index, members, *, prepare="envelope", px=64):
