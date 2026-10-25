@@ -73,33 +73,39 @@ def watch_parent():
     threading.Thread(target=_watch, daemon=True, name="corpus-map-parent-watch").start()
 
 
-def fingerprinted(conn, source_file: str, settings_keys, compute, **kw):
-    """`(stable fingerprint, map)` where the fingerprint names the state the map was computed from — never the state
-    some earlier reader saw (critic, corpus-map S5: a map stored under the scheduling read's fingerprint was served
-    as fresh after the database reverted to that state).
+def snapshot_read(conn, digest, compute) -> tuple:
+    """`(digest(conn), compute(conn))` from one state of the database: the one snapshot-read every map cache keeps
+    its answers under (tq-mapcache, 2026-10-25: three copies of this block became this one). The fingerprint names
+    the state the answer was READ from, never the state some earlier reader saw (critic, corpus-map S5: a map stored
+    under the scheduling read's fingerprint was served as fresh after the database reverted to that state).
 
     On a WAL database both are read inside one read transaction, i.e. one snapshot. On any other journal mode a long
-    read transaction would hold writers off for the whole recompute, so the fingerprint is taken before and after
-    instead; if they differ the fingerprint is None and the caller keeps nothing. `compute(conn, source_file, **kw)`
-    is the map's computation (`compute_conn`, or the bridge's patchable `_coverage`)."""
-    from Working.discovery import scoreboard as SB
-
-    def digest():
-        ids = [int(r["id"]) for r in q.list_recordings(conn, source_file)]
-        return SB.channels_fingerprint(conn, ids, {}, settings_keys=settings_keys, stable=True)
-
+    read transaction would hold writers off for the whole compute, so the digest is taken before and after instead;
+    if they differ the fingerprint is None and the caller keeps nothing."""
     wal = str(conn.execute("PRAGMA journal_mode").fetchone()[0]).lower() == "wal"
     if wal:
         conn.execute("BEGIN")
     try:
-        fp = digest()
-        out = compute(conn, source_file, **kw)
-        if not wal and digest() != fp:
+        fp = digest(conn)
+        out = compute(conn)
+        if not wal and digest(conn) != fp:
             fp = None
     finally:
         if wal:
             conn.execute("COMMIT")
     return fp, out
+
+
+def fingerprinted(conn, source_file: str, settings_keys, compute, **kw):
+    """`snapshot_read` of the corpus map: `(stable fingerprint of the recording's channels, map)`.
+    `compute(conn, source_file, **kw)` is the map's computation (`compute_conn`, or the bridge's patchable
+    `_coverage`)."""
+    from Working.discovery import scoreboard as SB
+
+    def digest(c):
+        ids = [int(r["id"]) for r in q.list_recordings(c, source_file)]
+        return SB.channels_fingerprint(c, ids, {}, settings_keys=settings_keys, stable=True)
+    return snapshot_read(conn, digest, lambda c: compute(c, source_file, **kw))
 
 
 def compute_fingerprinted(db_path: str, source_file: str, settings_keys, **kw):

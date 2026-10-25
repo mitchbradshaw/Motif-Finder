@@ -312,10 +312,11 @@ def coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = No
                 out = copy.deepcopy(hit[1])
             else:
                 disk_fp = SB.channels_fingerprint(conn, rec_ids, memo, settings_keys=COVERAGE_SETTINGS, stable=True)
-                out = _disk_read(key, disk_fp)
+                held = disk_read_any(key)
+                out = held[1] if held is not None and held[0] == disk_fp else None
                 if out is None:
                     out = _coverage(conn, source_file, bins=bins, verdicts=verdicts, run_ids=run_ids, method=method)
-                    _disk_write(key, disk_fp, out)
+                    disk_write(key, disk_fp, out)
                 _remember(key, fp, out)
     out["compute_ms"] = (time.perf_counter() - t0) * 1e3
     return out
@@ -334,7 +335,7 @@ def _read_behind(conn, key, fp, rec_ids, db_path, memo=None) -> dict:
     import copy
 
     disk_fp = SB.channels_fingerprint(conn, rec_ids, memo, settings_keys=COVERAGE_SETTINGS, stable=True)
-    held = _disk_read_any(key)
+    held = disk_read_any(key)
     if held is not None and held[0] == disk_fp:
         _remember(key, fp, held[1])
         return copy.deepcopy(held[1])
@@ -373,7 +374,7 @@ def _while_queued(conn, key):
     if queued is None:
         return None
     hit = _COVERAGE_CACHE.get(key)
-    held = None if hit is not None else _disk_read_any(key)
+    held = None if hit is not None else disk_read_any(key)
     last = hit[1] if hit is not None else (held[1] if held is not None else None)
     if last is None:
         out = _CM.empty(conn, key[0], bins=key[1], held_out=key[5])
@@ -410,29 +411,15 @@ DISK_CACHE_DIR: str | None = None
 
 def _disk_path(key, kind: str = "coverage") -> str | None:
     """`<runtime root>/cache/<kind>/<sha1 of the key>.json`: `coverage` for the corpus maps, `map` for Discovery ›
-    Map's overview (map-overview-cache shares these helpers rather than keeping a second copy)."""
+    Map's overview (map-overview-cache shares these helpers rather than keeping a second copy; tq-mapcache made
+    `disk_write` and `disk_read_any` public for it, so `discovery_map` reaches no private of this module)."""
     if not DISK_CACHE_DIR:
         return None
     import hashlib
     return os.path.join(DISK_CACHE_DIR, kind, hashlib.sha1(repr(key).encode("utf-8")).hexdigest() + ".json")
 
 
-def _disk_read(key, fp):
-    path = _disk_path(key)
-    if not path or not os.path.isfile(path):
-        return None
-    try:
-        with open(path, encoding="utf-8") as fh:
-            held = json.load(fh)
-    except (OSError, ValueError):
-        logging.getLogger("webui.corpus").warning("unreadable corpus-map cache file %s; recomputing", path)
-        return None
-    if held.get("fp") != fp or held.get("key") != repr(key):
-        return None
-    return held.get("payload")
-
-
-def _disk_write(key, fp, out, kind: str = "coverage"):
+def disk_write(key, fp, out, kind: str = "coverage"):
     path = _disk_path(key, kind)
     if not path:
         return
@@ -531,7 +518,7 @@ def _coverage(conn, source_file: str, bins: int = 57, verdicts: tuple | None = N
     return _CM.compute_conn(conn, source_file, bins=bins, verdicts=verdicts, run_ids=run_ids, method=method, **kw)
 
 
-def _disk_read_any(key, kind: str = "coverage"):
+def disk_read_any(key, kind: str = "coverage"):
     """The map kept on disk for `key` whatever state it was computed from: `(stable fingerprint, payload)`, or None.
     The last known map a stale read serves."""
     path = _disk_path(key, kind)
@@ -635,7 +622,7 @@ def _drain():
             else:
                 # kept under the state it READ; in memory (keyed by the scheduling read's in-process digest) only
                 # when that is the state the read saw, so a map is never served as fresh for another state
-                _disk_write(key, got_fp, out)
+                disk_write(key, got_fp, out)
                 with _WORK_LOCK:
                     if got_fp == job["disk_fp"]:
                         _remember(key, job["fp"], out)

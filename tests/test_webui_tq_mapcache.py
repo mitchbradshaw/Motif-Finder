@@ -60,21 +60,18 @@ def bridge(tmp_path_factory):
 
 
 def _view_compute_count(monkeypatch, go):
-    """Counts every level compute (`DM.compute` with a view, or the old `DM.compute_level`); the off-request
-    recompute waits for `go`."""
+    """Counts every level compute (`DM.compute(db_path, exclude, view, ...)`); the off-request recompute waits for
+    `go`."""
     calls = []
-    for name in ("compute", "compute_level"):
-        real = getattr(DM, name, None)
-        if real is None:
-            continue
+    real = DM.compute
 
-        def counted(*a, _real=real, _name=name, **kw):
-            if _name == "compute_level" or len(a) > 2 or "view" in kw:
-                calls.append(threading.current_thread().name)
-                if threading.current_thread().name.startswith("discovery-map-level"):
-                    assert go.wait(120), "never released"
-            return _real(*a, **kw)
-        monkeypatch.setattr(DM, name, counted)
+    def counted(*a, **kw):
+        if len(a) > 2:
+            calls.append(threading.current_thread().name)
+            if threading.current_thread().name.startswith("discovery-map-level"):
+                assert go.wait(120), "never released"
+        return real(*a, **kw)
+    monkeypatch.setattr(DM, "compute", counted)
     return calls
 
 

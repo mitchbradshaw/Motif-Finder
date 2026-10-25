@@ -12,8 +12,9 @@ level-1 bins. Pinned here:
 * `_counts` equals the histogram of `_starts` (the old answer) for every row and channel, at 1, 2, 4 and 8 slices
   and at level-1 bin widths, including runs whose detections are stored span-relative (legacy rows);
 * `channel_map` at 1-8 slices fetches no detection row (only counts);
-* `compute_level(db_path, ...)` returns ``(fingerprint, payload)`` for levels 2 and 1 — what the bridge's cache
-  keeps — equal to `channel_map` / `timeline_map` and fingerprinted like the overview.
+* `compute(db_path, exclude, view, ...)` returns ``(fingerprint, payload)`` for levels 2 and 1 — what the bridge's
+  cache keeps — equal to `channel_map` / `timeline_map` and fingerprinted like the overview (tq-mapcache: the view is
+  passed as a function; `compute_level`'s level string and args dict are gone).
 
 Pure core, conda interpreter.
 """
@@ -109,7 +110,7 @@ def test_level_two_counts_without_fetching_a_detection_row(db):
     assert not fetches, f"{len(fetches)} detection fetches, e.g. {fetches[:1]}"
 
 
-def test_compute_level_returns_the_fingerprint_and_the_payload(db):
+def test_compute_returns_a_levels_fingerprint_and_payload(db):
     c = _conn(db["db"])
     try:
         want2 = DM.channel_map(c, perf_fixture.SOURCE_FILE, chunks=4)
@@ -118,12 +119,8 @@ def test_compute_level_returns_the_fingerprint_and_the_payload(db):
         want_fp = DM.overview_fingerprint(c, ())
     finally:
         c.close()
-    fp2, got2 = DM.compute_level(db["db"], "dataset", perf_fixture.SOURCE_FILE, {"chunks": 4}, ())
-    fp1, got1 = DM.compute_level(db["db"], "channel", perf_fixture.SOURCE_FILE, {"channel": ch, "bin_h": 3.0}, ())
+    fp2, got2 = DM.compute(db["db"], (), DM.channel_map, perf_fixture.SOURCE_FILE, chunks=4)
+    fp1, got1 = DM.compute(db["db"], (), DM.timeline_map, perf_fixture.SOURCE_FILE, channel=ch, bin_h=3.0)
     assert got2 == want2 and got1 == want1
     assert fp2 == fp1 == want_fp
 
-
-def test_compute_level_refuses_an_unknown_level(db):
-    with pytest.raises(ValueError):
-        DM.compute_level(db["db"], "galaxy", perf_fixture.SOURCE_FILE, {}, ())
