@@ -74,6 +74,14 @@ def test_the_keyed_form_shares_only_the_read_in_flight_by_default():
     assert got["again"] == "a:3", "with no TTL a settled read is not kept: a re-read after a write is real"
 
 
+def test_an_in_flight_only_read_keeps_no_value_after_it_settles():
+    """With no TTL and no `initial` nothing can serve or show the answer again, so the snapshot must not hold it
+    (a whole channel's spans is ~90 k detections, kept alive after the page went away)."""
+    got = _node("const s = M.makeSharedRead(fetcher);\n"
+                "const x = await s.read('a');\nconst out = { x, empty: s.snapshot().value === undefined };")
+    assert got["x"] == "a:1" and got["empty"], "a ttl-0 read without `initial` keeps nothing past settle"
+
+
 def test_invalidate_bumps_the_version_and_the_snapshot_is_stable_between_changes():
     got = _node("const s = M.makeSharedRead(fetcher, { ttlMs: 1000, now: () => now });\n"
                 "let told = 0; s.subscribe(() => told++);\n"
