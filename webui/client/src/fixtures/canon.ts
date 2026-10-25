@@ -120,7 +120,7 @@ export const LOCAL_LIMITS = { analyse: '20 min', discovery: '20 min', models: '2
 export const STATUS_BADGES = ['cached', 'stale', 'new', 'running', 'paused', 'failed', 'on cluster', 'invalid'] as const
 
 /* `DEMO_NEED_YOU = 3` lived here. The header reads `/api/review/counts` now
- * (`api/needYou.ts`); the constant is gone rather than left unused, because a
+ * (`shell/needYouShared.ts`); the constant is gone rather than left unused, because a
  * dead fixture beside a live number is how this defect came back a second time
  * after being reported fixed. `tests/test_webui_header_counts.py` is the pin. */
 
