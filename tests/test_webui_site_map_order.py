@@ -179,7 +179,7 @@ def test_the_dataset_level_marks_a_stale_answer_on_its_wrap():
 def test_the_hide_sort_code_is_written_once():
     src = _page()
     assert "byId.get(" not in src and "by.get(k)!" not in src, "arrange hands back items: no key→object round trip"
-    assert src.count("function arrangeColumns") == 1 and src.count("arrangeColumns(") >= 3, \
+    assert src.count("function arrangeColumns") == 1 and src.count("arrangeColumns(d") == 2, \
         "level 3 and level 2 order their columns through one helper"
     assert src.count("function orderRows") == 1
     hs = _map_file("hideSort.tsx")
