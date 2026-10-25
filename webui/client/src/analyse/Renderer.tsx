@@ -4,6 +4,7 @@
    keeps the seam, the error card, and the fixture renderers of the concept-frame demo chains. Every
    time-aligned view draws against the caller's xScale so all rows on a chain page share one time axis. */
 import type { EnvelopeSeries, ErrorPayload, Payload } from '../api'
+import { extentOf } from '../charts/domain'
 import { EnvelopePath, SpanBands, YLabels } from '../charts/primitives'
 import { makeY, type XScale } from '../charts/scale'
 import type { DisplayUnit } from '../charts/units'
@@ -43,12 +44,6 @@ export function renderByType(payload: Payload | DemoPayload, ctx: RenderCtx): Re
 }
 
 /* ---------- helpers ---------- */
-function finiteRange(v: (number | null)[]): [number, number] | null {
-  let lo = Infinity, hi = -Infinity
-  for (const x of v) if (x !== null && Number.isFinite(x)) { if (x < lo) lo = x; if (x > hi) hi = x }
-  return lo <= hi ? [lo, hi] : null
-}
-
 /* ---------- demo payloads ---------- */
 /** k 5 letters d D S U u and k 3 down / same / up (frame chain-3 legend). */
 export const SYM5 = ['#8e2b1e', '#f59e0b', '#d4d4d8', '#9db8e8', '#2c5aa0']
@@ -92,7 +87,7 @@ function DemoStripsR({ p, ctx }: { p: DemoStripsPayload; ctx: RenderCtx }) {
   )
 }
 function DemoSpansR({ p, ctx }: { p: DemoSpansPayload; ctx: RenderCtx }) {
-  const r = finiteRange(p.ghost.v) ?? [0, 1]
+  const r = extentOf(p.ghost.v) ?? [0, 1]
   const y = makeY(r[0], r[1], ctx.height, 8, 8)
   return (
     <svg width={ctx.width} height={ctx.height} data-render="demo-spans">
@@ -118,7 +113,7 @@ function DemoScoresR({ p, ctx }: { p: DemoScoresPayload; ctx: RenderCtx }) {
   )
 }
 function DemoWindowsR({ p, ctx }: { p: DemoWindowsPayload; ctx: RenderCtx }) {
-  const r = finiteRange(p.ghost.v) ?? [0, 1]
+  const r = extentOf(p.ghost.v) ?? [0, 1]
   const y = makeY(r[0], r[1], ctx.height - 16, 6, 4)
   return (
     <svg width={ctx.width} height={ctx.height} data-render="demo-windows">
