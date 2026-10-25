@@ -130,30 +130,13 @@ export async function getSession(): Promise<Sourced<SessionData>> {
   }))
 }
 
-/** A changed scope is written to the session row; every later read resolves against it. */
-export const putScope = (body: { recording: string; channels: string[]; section: [number, number] }) =>
+/** A changed scope is written to the session row; every later read resolves against it. tq-scope (2026-10-25): the one
+ *  scope write (it was putScope, putScopeLink and putRecording, which differed only in the fields they sent). A field
+ *  left out is left as the session has it: a change of recording sends the recording alone, and the bridge opens that
+ *  recording's own session AS IT WAS LEFT (night-disc item 3: sending this page's channels and 0–174 h with it wrote
+ *  them over that session's saved scope — "demo · talk" became 3 channels × 174 h and its seed search found 49, not 155). */
+export const writeSession = (body: { recording?: string; channels?: string[]; section?: [number, number] }) =>
   putDiscoverySession(body).then(p => {
-    RECORDINGS = p.recordings.map(toRecording)
-    SCOPE = { channels: p.session.channels, section: p.session.section }
-    return p
-  })
-
-/** site-runs item 5: a deep link's scope, the same write as `putScope`. `section` null leaves the opened session's
- *  own section in place — another recording is another session, and the old recording's hours are not its. */
-export const putScopeLink = (body: { recording: string; channels: string[]; section: [number, number] | null }) =>
-  putDiscoverySession(body.section ? { recording: body.recording, channels: body.channels, section: body.section }
-    : { recording: body.recording, channels: body.channels }).then(p => {
-    RECORDINGS = p.recordings.map(toRecording)
-    SCOPE = { channels: p.session.channels, section: p.session.section }
-    return p
-  })
-
-/** night-disc item 3: a change of recording, and nothing else. The bridge opens that recording's own session AS IT WAS
- *  LEFT (its channels and its section), or builds one with its own defaults when there is none. Sending the first three
- *  channels and 0–174 h with it (as the Scope card did) wrote those defaults OVER the target session's saved scope —
- *  "demo · talk" became 3 channels × 174 h and its seed search found 49 instead of 155. */
-export const putRecording = (recording: string) =>
-  putDiscoverySession({ recording }).then(p => {
     RECORDINGS = p.recordings.map(toRecording)
     SCOPE = { channels: p.session.channels, section: p.session.section }
     return p

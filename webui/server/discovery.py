@@ -53,7 +53,7 @@ from Working.discovery import divergence as DIV
 from Working.discovery import fanout, seed_job, seeded_search
 from Working.discovery import scoreboard as SB
 from Working.discovery.matching import match_span_sets, rule_from_settings
-from Working.discovery.spans import absolute_bounds, clip, merged, total_length
+from Working.discovery.spans import absolute_bounds, absolute_sql, clip, merged, total_length
 from Working.review import queues as queues_mod
 
 from . import corpus, worker
@@ -1093,13 +1093,13 @@ def _run_detections(conn, run_ids, recording_id, span):
 def _run_starts(conn, run_ids, recording_id, span):
     """The channel-absolute starts `_run_detections` would return, and nothing else, as one int64 array (AR, the
     speed pass). The fires card only histograms the starts; building a dict per detection per channel per run was
-    most of a 147 s read on the real session. `absolute_bounds`' shift is stated in SQL (a legacy span-relative row
-    — start below a non-zero `span_start` — is shifted by it) and the section test is the same half-open one."""
+    most of a 147 s read on the real session. `absolute_bounds`' shift is stated in SQL (`absolute_sql`: a legacy
+    span-relative row — start below a non-zero `span_start` — is shifted by it) and the section test is the same
+    half-open one."""
     if not run_ids:
         return np.zeros(0, dtype=np.int64)
     marks = ",".join(str(int(i)) for i in run_ids)
-    a = ("CASE WHEN COALESCE(r.span_start, 0) != 0 AND d.start_idx < COALESCE(r.span_start, 0) "
-         "THEN d.start_idx + r.span_start ELSE d.start_idx END")
+    a = absolute_sql("d", "r")[0]
     sql = ("SELECT " + a + " FROM detections d JOIN runs r ON r.id = d.run_id WHERE r.id IN (" + marks + ") "
            "AND r.recording_id = ? AND " + q.not_surrogate("r"))
     params = [int(recording_id)]

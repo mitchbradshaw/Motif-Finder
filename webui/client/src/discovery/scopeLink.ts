@@ -4,7 +4,7 @@
  * Explore › Cross-channel › *Apply a template across these N channels* opened Discovery with channel IDS and no
  * recording; the session (on another recording) was then asked for channels named `667…`. A link is now resolved
  * here first: it names a recording key and channel NAMES, every name must be a channel of that recording, and only
- * then does session.ts write it to the session through `putScope` — the Scope card's own write. */
+ * then does useScopeLink.ts write it to the session through `writeSession` — the Scope card's own write. */
 
 export interface LinkRecording { key: string; label?: string; channels: string[]; hours: number; heldOut?: boolean }
 export interface LinkScope { recording: string; channels: string[]; section: [number, number] }
@@ -41,7 +41,7 @@ export interface SessionLike {
   nulls?: { template: { method: string | null; n: number } }
 }
 
-/** The page's scope from the bridge's session — the first read's and every `putScope` answer's, so a change of
+/** The page's scope from the bridge's session — the first read's and every `writeSession` answer's, so a change of
  *  recording shows the session the bridge OPENED (its name included), never the old one with a patch merged in. */
 export function scopeFromSession(s: SessionLike) {
   return {

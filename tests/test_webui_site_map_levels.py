@@ -72,14 +72,15 @@ class _Count:
         self.go = threading.Event()
         if not hold:
             self.go.set()
-        real = DM.compute_level
+        real = DM.compute
 
         def counted(*a, **kw):
-            self.calls += 1
-            if threading.current_thread().name.startswith("discovery-map-level"):   # the off-request recompute
-                assert self.go.wait(120), "never released"
+            if len(a) > 2:                  # a level: `compute(db_path, exclude, view, ...)` (tq-mapcache)
+                self.calls += 1
+                if threading.current_thread().name.startswith("discovery-map-level"):   # the off-request recompute
+                    assert self.go.wait(120), "never released"
             return real(*a, **kw)
-        monkeypatch.setattr(DM, "compute_level", counted)
+        monkeypatch.setattr(DM, "compute", counted)
 
 
 def _edit(rt, sql, args=()):

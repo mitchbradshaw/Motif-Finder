@@ -93,12 +93,10 @@ def _discovery_runs(conn):
     """Every Discovery run the researcher has not removed, newest first, with
     its session's name. Discarded (superseded) ones are kept: their rows say
     `discarded` on the map, they just name no row of their own."""
-    cols = {c["name"] for c in conn.execute("PRAGMA table_info(discovery_runs)")}
-    removed = " WHERE d.removed_at IS NULL" if "removed_at" in cols else ""
     return conn.execute(
         "SELECT d.*, s.name AS session_name FROM discovery_runs d "
         "JOIN discovery_sessions s ON s.id = d.session_id "
-        f"{removed} ORDER BY d.id DESC").fetchall()
+        "WHERE d.removed_at IS NULL ORDER BY d.id DESC").fetchall()
 
 
 def _runs_by_id(conn, ids):
@@ -609,69 +607,27 @@ def any_running(conn) -> bool:
     """Whether a Discovery run is still going here (queued or running, not discarded or removed): its runs write as
     they go, so any overview is about to be out of date and the page says so. A run on the cluster is not going
     HERE: its results arrive by import, which changes the fingerprint like any other write."""
-    cols = {c[1] for c in conn.execute("PRAGMA table_info(discovery_runs)")}
-    removed = " AND removed_at IS NULL" if "removed_at" in cols else ""
-    return conn.execute("SELECT 1 FROM discovery_runs WHERE status IN ('running', 'queued') AND superseded_at IS NULL"
-                        + removed + " LIMIT 1").fetchone() is not None
+    return conn.execute("SELECT 1 FROM discovery_runs WHERE status IN ('running', 'queued') AND superseded_at IS NULL "
+                        "AND removed_at IS NULL LIMIT 1").fetchone() is not None
 
 
-def compute(db_path: str, exclude_files=()) -> tuple:
-    """The overview read from the database at `db_path` on a read-only connection of its own: the bridge's worker
-    process calls this. Returns ``(fingerprint, overview)`` where the fingerprint names the state the overview was
-    READ from (never the state the request that asked saw).
+def compute(db_path: str, exclude_files=(), view=None, *args, **kw) -> tuple:
+    """One view of the map read from the database at `db_path` on a read-only connection of its own:
+    ``view(conn, *args, exclude_files=..., **kw)`` — the overview (`dataset_map`, the default: the bridge's worker
+    process calls this), level 2 (`channel_map`) or level 1 (`timeline_map`). Returns ``(fingerprint, payload)``,
+    the `overview_fingerprint` of the state the payload was READ from (every level reads the rows the overview reads),
+    never the state the request that asked saw; None when a non-WAL database changed meanwhile and the caller keeps
+    nothing (`coverage_map.snapshot_read`).
 
-    On a WAL database (the real one and its sandbox copies) both come from one read transaction, one snapshot. On
-    any other journal mode a long read transaction would hold writers off, so the fingerprint is taken before and
-    after; if they differ the fingerprint is None and the caller keeps nothing (as `coverage_map.fingerprinted`)."""
-    from Working.discovery.coverage_map import connect_read_only
+    tq-mapcache (2026-10-25): the view is passed as itself. `compute_level(db_path, "dataset" | "channel", ..., args)`
+    named it by a string and unpacked a dict only because the bridge keyed its cache that way."""
+    from Working.discovery.coverage_map import connect_read_only, snapshot_read
 
     exclude_files = tuple(exclude_files)
+    view = view or dataset_map
     conn = connect_read_only(db_path)
     try:
-        wal = str(conn.execute("PRAGMA journal_mode").fetchone()[0]).lower() == "wal"
-        if wal:
-            conn.execute("BEGIN")
-        try:
-            fp = overview_fingerprint(conn, exclude_files)
-            out = dataset_map(conn, exclude_files=exclude_files)
-            if not wal and overview_fingerprint(conn, exclude_files) != fp:
-                fp = None
-        finally:
-            if wal:
-                conn.execute("COMMIT")
-        return fp, out
-    finally:
-        conn.close()
-
-
-def compute_level(db_path: str, level: str, source_file: str, args: dict, exclude_files=()) -> tuple:
-    """Level 2 (``level="dataset"``, ``args={"chunks"}``) or level 1 (``level="channel"``, ``args={"channel",
-    "bin_h"}``) read from the database at `db_path` on a read-only connection of its own, as `compute` reads the
-    overview: ``(fingerprint, payload)``, the fingerprint `overview_fingerprint` of the state the payload was READ
-    from (both levels read the rows the overview reads), or None on a non-WAL database that changed meanwhile.
-    The bridge keeps the payload under that fingerprint (site-map, 2026-10-20)."""
-    from Working.discovery.coverage_map import connect_read_only
-
-    if level not in ("dataset", "channel"):
-        raise ValueError(f"level must be 'dataset' or 'channel', not {level!r}")
-    exclude_files = tuple(exclude_files)
-    conn = connect_read_only(db_path)
-    try:
-        wal = str(conn.execute("PRAGMA journal_mode").fetchone()[0]).lower() == "wal"
-        if wal:
-            conn.execute("BEGIN")
-        try:
-            fp = overview_fingerprint(conn, exclude_files)
-            if level == "dataset":
-                out = channel_map(conn, source_file, chunks=int(args["chunks"]), exclude_files=exclude_files)
-            else:
-                out = timeline_map(conn, source_file, args["channel"], bin_h=float(args["bin_h"]),
-                                   exclude_files=exclude_files)
-            if not wal and overview_fingerprint(conn, exclude_files) != fp:
-                fp = None
-        finally:
-            if wal:
-                conn.execute("COMMIT")
-        return fp, out
+        return snapshot_read(conn, lambda c: overview_fingerprint(c, exclude_files),
+                             lambda c: view(c, *args, exclude_files=exclude_files, **kw))
     finally:
         conn.close()

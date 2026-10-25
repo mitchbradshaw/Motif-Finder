@@ -248,9 +248,8 @@ export function ScopeCard({ dx, previewable = true }: { dx: Discovery; previewab
     const r = dx.recordings.find(x => x.key === key)!
     /* night-disc item 3: the recording alone — the bridge opens that recording's session as it was left (its channels,
      * its section). The first three channels and 0–174 h used to go with it and overwrote that session's saved scope.
-     * A held-out recording is never written (the card refuses it from this copy), so it is still shown on defaults. */
-    if (r.heldOut) dx.setScope({ recording: key, channels: r.channels.slice(0, Math.min(3, r.channels.length)), section: [0, Math.min(r.hours, 174)] })
-    else dx.setScope({ recording: key })
+     * A held-out recording is never written: setScope shows it from this copy, on defaults. */
+    dx.setScope({ recording: key })
     /* the runs shown next are the opened session's own, made on its own scope: nothing there is stale */
     dx.setStale(!!r.heldOut); dx.setChPage(1)
     recordDemoWrite('discovery', 'change-recording', { recording: key })
@@ -572,9 +571,37 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
       })
       .finally(() => setExtending(false))
   }
-  const hasActions = (missing.length > 0 && extendable && (status === 'done' || status === 'failed'))
-    || (status === 'paused' && !!run.id) || (status === 'on cluster' && run.hpc?.kind === 'chain')
-    || status === 'failed'
+  /* tq-scope (2026-10-25): the row's extra actions, built once; the line is drawn when there is one (a hand-kept
+   * flag repeated these conditions, and an action added here and forgotten there vanished) */
+  const actions = [
+    missing.length > 0 && extendable && (status === 'done' || status === 'failed') && (
+      <Button key="missing" variant="primary" size="sm" icon="play" loading={extending} disabled={extending} onClick={extend} testid={`run-missing-${run.key}`}
+        title={`run ${run.label} on ${missing.join(', ')} too — the same run gains the channel${missing.length === 1 ? '' : 's'} (its key stays) while the template is unchanged`}>
+        {extending ? 'Starting…' : `Run on the missing ${missing.length}`}</Button>
+    ),
+    status === 'paused' && !!run.id && <Button key="jobs" variant="link" size="sm" icon="external" onClick={() => navigate('jobs')} testid={`open-in-jobs-${run.key}`}>Open in Jobs</Button>,
+    // round A_2 (P2): the chain job's results are back — verified, the cache restored, the run written here
+    status === 'on cluster' && run.hpc?.kind === 'chain' && <Button key="import" variant="primary" size="sm" icon="download" loading={importing} disabled={importing} onClick={() => {
+      setImporting(true)   // ux-1018: the button shows the import is under way — the POST verifies and restores every task before it answers
+      importDiscoveryChain(run.key)
+        .then(ack => { dx.reload(); toast.push({ text: `${run.label}: ${ack.note}`, action: { label: 'Open Jobs', onClick: () => navigate('jobs') } }) })
+        .catch(e => { dx.reload(); toast.push({ text: `${run.label} was not imported · ${(e instanceof Error ? e.message : String(e)).replace(/^\d{3} /, '')}` }) })
+        .finally(() => setImporting(false))
+    }} testid={`chain-import-${run.key}`} title="verify the tasks' results against this machine, restore their step cache, and write the run's channels here">{importing ? 'Importing…' : 'Import results'}</Button>,
+    /* a real retry: a seed run is started again from its seed and cut, a template run from its template, over the
+       scope. It used to mark the row `new` in the page's memory, which the Seed page then took for a pending run of
+       this search and greyed *Run seed search* out. */
+    status === 'failed' && <Button key="retry" variant="primary" size="sm" icon="refresh" onClick={() => {
+      const s = dx.scope
+      if (!s) return
+      const again = run.kind === 'seed' && run.seedId
+        ? runDiscoverySeedSearchOnce({ seedId: run.seedId, channels: s.channels, t0: s.section[0], t1: s.section[1], k: 200, label: run.label,
+          ...(run.cut != null ? { cut: run.cut } : {}), ...(run.scales?.length ? { scales: run.scales } : {}) })
+        : run.template ? applyDiscoveryTemplates([run.template], s.channels, s.section[0], s.section[1]) : null
+      if (!again) return
+      again.then(() => dx.reload()).catch(e => console.error('the run could not be retried', e))
+    }} testid={`retry-${run.key}`}>Retry</Button>,
+  ].filter(Boolean)
   const kindBadge = run.kind === 'reference' ? <span className="k-badge t-grey">reference</span> : run.kind === 'seed' ? <span className="k-badge t-purple">seed</span> : run.kind === 'draft' ? <span className="k-badge t-amber">draft</span> : <span className="k-badge t-blue">template</span>
   let line: ReactNode = null
   switch (status) {
@@ -615,37 +642,7 @@ function RunRow({ dx, run, selected, onSelect, mode }: { dx: Discovery; run: Dis
           </span>
         </button>
         {run.extendError && <span className="dsc-run-line small" style={{ color: 'var(--red)' }} title={run.extendError} data-testid={`extend-error-${run.key}`}>{run.extendError}</span>}
-        {hasActions && (
-          <div className="dsc-run-actions">
-          {missing.length > 0 && extendable && (status === 'done' || status === 'failed') && (
-            <Button variant="primary" size="sm" icon="play" loading={extending} disabled={extending} onClick={extend} testid={`run-missing-${run.key}`}
-              title={`run ${run.label} on ${missing.join(', ')} too — the same run gains the channel${missing.length === 1 ? '' : 's'} (its key stays) while the template is unchanged`}>
-              {extending ? 'Starting…' : `Run on the missing ${missing.length}`}</Button>
-          )}
-          {status === 'paused' && run.id && <Button variant="link" size="sm" icon="external" onClick={() => navigate('jobs')} testid={`open-in-jobs-${run.key}`}>Open in Jobs</Button>}
-          {/* round A_2 (P2): the chain job's results are back — verified, the cache restored, the run written here */}
-          {status === 'on cluster' && run.hpc?.kind === 'chain' && <Button variant="primary" size="sm" icon="download" loading={importing} disabled={importing} onClick={() => {
-            setImporting(true)   // ux-1018: the button shows the import is under way — the POST verifies and restores every task before it answers
-            importDiscoveryChain(run.key)
-              .then(ack => { dx.reload(); toast.push({ text: `${run.label}: ${ack.note}`, action: { label: 'Open Jobs', onClick: () => navigate('jobs') } }) })
-              .catch(e => { dx.reload(); toast.push({ text: `${run.label} was not imported · ${(e instanceof Error ? e.message : String(e)).replace(/^\d{3} /, '')}` }) })
-              .finally(() => setImporting(false))
-          }} testid={`chain-import-${run.key}`} title="verify the tasks' results against this machine, restore their step cache, and write the run's channels here">{importing ? 'Importing…' : 'Import results'}</Button>}
-          {/* a real retry: a seed run is started again from its seed and cut, a template run from its template, over the
-              scope. It used to mark the row `new` in the page's memory, which the Seed page then took for a pending run of
-              this search and greyed *Run seed search* out. */}
-          {status === 'failed' && <Button variant="primary" size="sm" icon="refresh" onClick={() => {
-            const s = dx.scope
-            if (!s) return
-            const again = run.kind === 'seed' && run.seedId
-              ? runDiscoverySeedSearchOnce({ seedId: run.seedId, channels: s.channels, t0: s.section[0], t1: s.section[1], k: 200, label: run.label,
-                ...(run.cut != null ? { cut: run.cut } : {}), ...(run.scales?.length ? { scales: run.scales } : {}) })
-              : run.template ? applyDiscoveryTemplates([run.template], s.channels, s.section[0], s.section[1]) : null
-            if (!again) return
-            again.then(() => dx.reload()).catch(e => console.error('the run could not be retried', e))
-          }} testid={`retry-${run.key}`}>Retry</Button>}
-          </div>
-        )}
+        {actions.length > 0 && <div className="dsc-run-actions">{actions}</div>}
       </div>
       <div className="dsc-run-right">
         {/* fixup-unpick: the x and the A/B box are separate targets — the x sat over the badge once and took its clicks.
