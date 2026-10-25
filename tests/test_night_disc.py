@@ -55,10 +55,13 @@ def test_a_run_row_is_three_columns():
     right = body[body.index('className="dsc-run-right"'):]
     # left: the glyph, under it the kind tag, under that the coverage
     assert left.index("RunGlyph") < left.index("kindBadge") < left.index("CoverageStrip")
-    # middle: the name, its bare facts, and the run's extra actions as small buttons
+    # middle: the name, its bare facts, and the run's extra actions as small buttons (tq-scope: the actions are
+    # built once above the JSX, and the middle column draws their one line)
     assert "title={run.label}" in mid and "dsc-run-line" in mid
+    assert "{actions}" in mid, "the actions line is not in the middle column"
+    acts = _between(body, "const actions = [", "].filter(Boolean)")
     for tid in ("run-missing-", "chain-import-", "retry-", "open-in-jobs-"):
-        assert tid in mid, f"{tid} is not in the middle column"
+        assert tid in acts, f"{tid} is not one of the row's actions"
     assert "report-" not in mid, "the Report button belongs to the right column"
     # right: the x in the corner, beneath it the A/B box, beneath that the Report icon
     assert right.index("remove-") < right.index("pick-") < right.index("report-")

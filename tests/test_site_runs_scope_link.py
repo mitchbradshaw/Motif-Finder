@@ -216,8 +216,10 @@ def test_a_run_row_puts_its_actions_on_their_own_line():
     src = _src("discovery", "chrome.tsx")
     start = src.index("function RunRow")
     body = src[start:src.index("/* ------------------------------------------------------------------ coverage strip")]
-    assert 'className="dsc-run-actions"' in body
-    acts = body[body.index('className="dsc-run-actions"'):body.index('className="dsc-run-right"')]
+    # tq-scope (2026-10-25): the actions are built once (`const actions = [...]`) and drawn as one line
+    line = body[body.index('className="dsc-run-actions"'):body.index('className="dsc-run-right"')]
+    assert "{actions}" in line
+    acts = body[body.index("const actions = ["):body.index("].filter(Boolean)")]
     for tid in ("run-missing-", "retry-", "chain-import-", "open-in-jobs-"):
         assert tid in acts, f"{tid} is not on the actions line"
     # the x, the pick box and the Report icon come AFTER the actions, in the right column

@@ -6,7 +6,7 @@ import {
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
 import { navigate } from '../state'
-import { useSourced } from '../api/seam'
+import { useSourced, useSourcedFor } from '../api/seam'
 import { applyDiscoveryTemplates, discardDiscoveryRun, sendDetectionsToReview, sendDiscoveryRunToReview } from '../api'
 import {
   getDetectionWindow, getDetections, getFires, getRunUnjudged, fmtMin, type Detection, type DiscoveryRun, type FiresData, type Recall, type ScoreRow, type ScoreRun,
@@ -505,13 +505,14 @@ function RunActs({ dx, run }: { dx: Discovery; run: DiscoveryRun | null }) {
   const toast = useToast()
   const notWired = useNotWired()
   /* site-runs item 4: the count is a read of its own (GET /api/discovery/runs/{key}/unjudged: Review's own count of what the send would queue) — it
-   * was `found − judged` off the scoreboard, which took 461 s cold over the real session and printed 0 until then */
+   * was `found − judged` off the scoreboard, which took 461 s cold over the real session and printed 0 until then.
+   * Keyed by the run (useSourcedFor): another run's count is never shown while this one's is out. */
   const countable = !!run && run.kind !== 'reference' && hasResults(run)
-  const count = useSourced(() => countable ? getRunUnjudged(run!.key) : Promise.resolve({ data: null, source: 'live' as const }), [run?.key, run?.status, countable])
+  const count = useSourcedFor(run?.key ?? '', () => countable ? getRunUnjudged(run!.key) : Promise.resolve({ data: null, source: 'live' as const }), [run?.key, run?.status, countable])
   if (!run) return null
   const total = dx.scores?.find(s => s.run === run.key)?.total
   const results = hasResults(run)
-  const counted = count.data && count.data.run_key === run.key ? count.data : null
+  const counted = count.data
   /* "unjudged" is `found - judged`. It was `found - reviewed`, and `reviewed`
    * counts the detections a human COULD have judged (those inside the reviewed
    * coverage), not the ones carrying a verdict — so the button offered to send
