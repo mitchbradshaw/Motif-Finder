@@ -9,6 +9,7 @@
    state and says so (`error`), never a guess. */
 import { useEffect } from 'react'
 import { getHeldOutLock } from '../api'
+import { makeSharedRead } from '../api/sharedRead'
 import { getDemo, setDemo, useDemoState } from '../kit/store'
 
 /** The demo-store key the lock lives under — the one Settings › Datasets writes on save. */
@@ -34,30 +35,23 @@ export function heldOutLocked(): boolean {
   return getDemo<HeldOutLock>(HELD_OUT_LOCK_KEY, init).on !== false
 }
 
-let inflight: Promise<void> | null = null
-let answeredAt = 0
-
-/** Ask the bridge for the lock: one request in flight at most, and none within a second of the last answer
- *  unless `force`. An answer that lands after Settings › Datasets saved a new state is dropped (that save is
- *  newer than the question). */
-export function refreshHeldOutLock(force = false): Promise<void> {
-  if (inflight) return inflight
-  if (!force && Date.now() - answeredAt < 1000) return Promise.resolve()
+/** Ask the bridge for the lock (api/sharedRead.ts): one request in flight at most, and none within a second of the
+ *  last answer. An answer that lands after Settings › Datasets saved a new state is dropped (that save is newer than
+ *  the question). The read itself never fails: a failure is written into the lock's `error`. */
+const LOCK_READ = makeSharedRead(() => {
   const asked = getDemo<HeldOutLock>(HELD_OUT_LOCK_KEY, init)
-  inflight = getHeldOutLock()
+  return getHeldOutLock()
     .then(s => setDemo<HeldOutLock>(HELD_OUT_LOCK_KEY, prev => (prev !== undefined && prev !== asked ? prev
       : { on: s.locked, recording: s.recording, unlock: s.unlock, error: null })))
     .catch(e => setDemo<HeldOutLock>(HELD_OUT_LOCK_KEY, prev => ({ ...(prev ?? DEFAULT), error: e instanceof Error ? e.message : String(e) })))
-    .finally(() => { inflight = null; answeredAt = Date.now() })
-  return inflight
-}
+}, { ttlMs: 1000 })
 
 /** The lock, subscribed: the caller re-renders when it changes. Asks the bridge on mount and on window focus. */
 export function useHeldOutLock(): HeldOutLock {
   const [lock] = useDemoState<HeldOutLock>(HELD_OUT_LOCK_KEY, init)
   useEffect(() => {
-    void refreshHeldOutLock()
-    const onFocus = () => { void refreshHeldOutLock() }
+    void LOCK_READ.read()
+    const onFocus = () => { void LOCK_READ.read() }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [])
