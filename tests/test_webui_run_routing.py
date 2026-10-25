@@ -153,6 +153,7 @@ def fake_block_cost(tmp_path, monkeypatch):
         return {name: 1e-3 for name in names}
 
     monkeypatch.setattr(block_cost, "calibrate", _calibrate)
+    monkeypatch.setattr(chain, "CALIBRATOR", chain._calibrate_on_thread)    # a fake cannot be timed in a child
     yield state
     chain.reset_block_calibration()
 
