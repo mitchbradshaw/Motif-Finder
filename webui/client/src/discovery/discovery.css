@@ -473,7 +473,7 @@ span.dsc-run-glyph { cursor: default; color: var(--muted); }
 .dsc-fires-picker-group > summary { cursor: pointer; color: var(--muted); }
 .dsc-fires-picker-group .k-check .lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* night-disc item 4: level 3's thin scrollbar above the table, synced with the table's own (MapPage TopScrollbar); it
+/* night-disc item 4: level 3's thin scrollbar above the table, synced with the table's own (map/TopScrollbar.tsx); it
  * keeps its height when the table fits so nothing below it jumps */
 .dsc-map-topscroll { overflow-x: auto; overflow-y: hidden; height: 12px; margin: 0 14px 2px; scrollbar-width: thin; }
 .dsc-map-topscroll > div { height: 1px; }

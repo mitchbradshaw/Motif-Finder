@@ -94,3 +94,11 @@ def test_overlay_gain_rows_and_fit_centre():
     assert model.count("Math.min(gainLanes * lane, 0.9 * blockPx)") == 1, "the gain target is computed twice"
     # a lane exactly as tall as the block lands where the deleted branch put it (its top at the block's top)
     assert _node(("explore", "overlayModel.ts"), "[M.fitCentre(10, 1, 3, 100, 400), M.fitCentre(390, 3, 1, 100, 400)]") == [100, 300]
+
+
+def test_the_renderer_draws_its_ghost_range_with_the_one_extent_rule():
+    """tq-polish (2026-10-26): analyse/Renderer.tsx kept the last private copy of the finite min/max loop; it reads
+    charts/domain.ts's extentOf like every other view."""
+    src = io.open(os.path.join(SRC, "analyse", "Renderer.tsx"), encoding="utf-8").read()
+    assert "function finiteRange" not in src, "Renderer.tsx still carries its own copy of the extent loop"
+    assert "extentOf(p.ghost.v)" in src

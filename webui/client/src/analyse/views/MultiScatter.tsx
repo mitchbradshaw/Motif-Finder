@@ -43,7 +43,7 @@ export function useSeriesToggle(keys: readonly string[], defaults: readonly stri
   return { shown, toggle }
 }
 
-export const SERIES_COLOURS =['#2563eb', '#e8900c', '#22a06b', '#d6336c', '#8e5cf7', '#0f766e', '#a16207', '#0891b2', '#6b7280', '#b91c1c']
+export const SERIES_COLOURS = ['#2563eb', '#e8900c', '#22a06b', '#d6336c', '#8e5cf7', '#0f766e', '#a16207', '#0891b2', '#6b7280', '#b91c1c']
 
 /** The show / hide legend: a checkbox per series, its colour, and its real range. */
 export function SeriesLegend({ series, shown, onToggle, testid, note }: {
