@@ -33,8 +33,8 @@ MODE = "process"
 #: how long the first start of the shared worker may take (a spawned interpreter importing numpy and the core)
 POOL_START_TIMEOUT_S = 180.0
 #: how long one job may take in the shared worker before it is given up as hung (the pool is replaced and the
-#: failure raised): twice the corpus maps' warm wait (`corpus.WARM_WAIT_S`) — a real recompute is 100–260 s on the
-#: post-RQ4 database
+#: failure raised) — a real corpus-map recompute is 100–260 s on the post-RQ4 database. The corpus maps' start-up warm
+#: waits half of it (`corpus.WARM_WAIT_S` is derived from this)
 RESULT_TIMEOUT_S = 3600.0
 
 _POOL = {"pool": None, "pid": None, "failed": None, "gen": 0}

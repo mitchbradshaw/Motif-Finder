@@ -233,9 +233,9 @@ def test_f6_at_most_one_calibration_child_at_a_time_and_the_others_read_calibrat
 
 
 def test_f6_the_starting_request_never_waits_past_calibration_wait_s_while_the_corpus_worker_starts(fresh, monkeypatch):
-    """F6: the shared worker holds `worker._POOL_LOCK` while it starts (up to 180 s); a calibration never waits on it
-    (its child is its own, `worker.run_alone`), and its start happens on the calibration's own thread, so the validate
-    that started it still answers in time."""
+    """F6: the shared worker holds `worker._POOL_LOCK` while it starts (up to 180 s); the timing starts on the
+    calibration's own thread, so the validate that started it answers within CALIBRATION_WAIT_S — "local" when a quick
+    model lands inside the wait (it does not queue behind the shared worker's start), "unknown" when it does not."""
     import time as _t
     chain, block_cost, path = fresh
     from server import worker
@@ -246,7 +246,24 @@ def test_f6_the_starting_request_never_waits_past_calibration_wait_s_while_the_c
         t0 = _t.time()
         out = chain.route_local(recipe, 20_000, 1.0, ceiling_s=900)
         waited = _t.time() - t0
-    assert waited < 2.0 and out["route"] == "unknown", (waited, out["route"])
+    assert waited < 2.0 and out["route"] in ("unknown", "local"), (waited, out["route"])
+
+
+def test_f6_a_calibration_never_waits_on_the_shared_workers_start(fresh):
+    """tq-worker: a calibration's child is its own (`worker.run_alone`), never the shared worker, so a shared worker
+    starting (holding `worker._POOL_LOCK`, up to 180 s) does not hold a timing back."""
+    import threading
+    chain, block_cost, path = fresh
+    from server import worker
+    out = {}
+    with worker._POOL_LOCK:
+        t = threading.Thread(target=lambda: out.setdefault("pid", chain._calibrate_in_process(NAME, str(path))),
+                             daemon=True)
+        t.start()
+        t.join(120)
+        assert not t.is_alive(), "the calibration waited on the shared worker's start lock"
+    assert out["pid"] != os.getpid()
+    assert json.load(open(path, encoding="utf-8")), "the timing was stored"
 
 
 # ── gate round (2026-10-20, merged main d3ce03c) ─────────────────────────────────────────────────────────────────

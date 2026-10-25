@@ -467,8 +467,9 @@ def wait_for_quiet(quiet_s: float = 2.0, max_wait_s: float = 30.0) -> float:
 HOME_COVERAGE = {"bins": 57, "verdicts": ("seed", "interesting")}
 
 #: how long the start-up warm waits for the worker to finish the maps it scheduled before it logs and returns (the
-#: template-score warm follows it); a map still computing then simply lands later
-WARM_WAIT_S = 1800.0
+#: template-score warm follows it); a map still computing then simply lands later — half the time one job may take in
+#: the shared worker (`worker.RESULT_TIMEOUT_S`, the source of both)
+WARM_WAIT_S = worker.RESULT_TIMEOUT_S / 2
 
 
 def _db_file(conn) -> str:
