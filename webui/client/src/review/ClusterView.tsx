@@ -16,7 +16,7 @@ import { goUnit, judgedRecord, nextUnjudgedAfter, relTime, step, type UnitRef } 
 import { AnnotateCard, ArtifactPill, ContextCard, EvidenceRail, Pill, PromotionPanel, VerdictCard, editInExplore, useNow, type PreviousLine } from './parts'
 import { Loading, NotFound, previousLines } from './common'
 import {
-  VERDICT_LABEL, amendWrite, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, writesInFlight, getWriteError, key, lastLive, nextRedo, patchRecord,
+  VERDICT_LABEL, amendWrite, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive, patchRecord,
   rawRecord, releaseExemplar, resend, seedUndoneBatch, useAutoAdvance, useDrafts, usePad, useRecords, useReviewVersion, useStack, useWriteError, writeLabel,
   type Draft, type SessionWrite, type VerdictRecord,
 } from './store'
@@ -186,10 +186,9 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
 
   /* The SERVER owns undo: one POST reverses the audit row, restoring each target's prior verdict. */
   const undo = async () => {
-    if (writesInFlight()) return say('a verdict is still being written — try again')
-    const w = lastLive(q)
-    if (!w) return say('nothing to undo in this queue')
-    if (!await commitUndo(() => postUndo(q), w)) return refused()
+    const r = await commitUndo(q, () => postUndo(q))
+    if (!('w' in r)) return 'say' in r ? say(r.say) : refused()
+    const { w } = r
     if (w.kind === 'batch') {
       if (w.verdict === 'seed') { const ex = Object.values(w.after).find(r => r?.exemplarId)?.exemplarId; if (ex) { releaseExemplar(ex); recordDemoWrite('library', 'exemplar.remove', { id: ex, cluster: no, reason: 'batch undone' }) } say(`promotion undone · exemplar ${ex} removed with the batch`) }
       if (w.clusterNo === no) setQuery({ state: 'undone' }, true)
@@ -200,10 +199,9 @@ function ClusterInner({ data, no }: { data: QueueData; no: number }) {
     if (!cl.members.includes(w.items[0])) navigate(`review/queue/${q}/${w.items[0]}`)
   }
   const redo = async () => {
-    if (writesInFlight()) return say('a verdict is still being written — try again')
-    const w = nextRedo(q)
-    if (!w) return say('nothing to redo')
-    if (!await commitRedo(() => resend(q, w), w)) return refused()
+    const r = await commitRedo(q, w => resend(q, w))
+    if (!('w' in r)) return 'say' in r ? say(r.say) : refused()
+    const { w } = r
     say(`redone · ${w.label}`)
     if (w.kind === 'batch' && w.clusterNo === no) setQuery({ state: w.verdict === 'seed' ? 'promoted' : null }, true)
     else navigate(w.kind === 'batch' ? `review/queue/${q}/cluster/${w.clusterNo}` : `review/queue/${q}/${w.items[0]}`)

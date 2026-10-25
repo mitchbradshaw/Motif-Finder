@@ -102,10 +102,11 @@ def test_auto_advance_never_moves_a_researcher_who_already_stepped_on():
     """Driven on the scale fixture: I on item A, then two quick arrow presses, landed on the item after A, not two
     on — the auto-advance timer scheduled for A (350 ms, and only after A's POST came back) fired after the
     researcher had moved, and navigated from A. The timer belongs to the item it was set on."""
+    # tq-review: the cursor (`cursor.ts`, run under Node by tests/test_tq_review.py) holds the one pending advance
     code = _code(_src("Inspector.tsx"))
-    assert "onItem.current === id" in code, "the delayed advance does not check it is still on its item"
-    assert re.search(r"useEffect\(\(\) => \{[^}]*timers\.current[^}]*\}, \[id\]\)", code), \
-        "pending timers are not cleared when the item changes"
+    assert "cursor.after(id, " in code, "the delayed advance does not check it is still on its item"
+    assert re.search(r"useEffect\(\(\) => \{ cursor\.moveTo\(id\);[^}]*\}, \[cursor, id\]\)", code), \
+        "the pending advance is not dropped when the item changes"
 
 
 def test_stepping_fast_does_not_queue_a_read_for_every_item_passed():
@@ -114,13 +115,13 @@ def test_stepping_fast_does_not_queue_a_read_for_every_item_passed():
     so a key pressed three times wrote the same item three times. An item not yet held is read only once it has
     been on screen for a moment, a superseded read is never sent, and the neighbours are prefetched only from an
     item the researcher stopped on."""
+    # tq-review: the item's landing (`cursor.ts`) is the settle, the read and the prefetch chain on one signal, which
+    # the read hook aborts when the item changes; tests/test_tq_review.py drives it under Node
     code = _code(_src("Inspector.tsx"))
-    assert "useAbortableSourced(" in code and "signal.aborted" in code, "a superseded item read is still sent"
-    assert "STEP_SETTLE_MS" in code
-    # the prefetch loop itself sits inside a timer that the effect clears (night-review: the window grew to five
-    # ahead and is read one at a time; `tests/test_night_review.py` pins its shape)
-    assert re.search(r"const t = window\.setTimeout\(async \(\) => \{.*?\}, STEP_SETTLE_MS\)\s*"
-                     r"return \(\) => \{ live = false; window\.clearTimeout\(t\) \}", code, re.S), \
+    assert "useAbortableSourced(" in code and "land(id, signal," in code, "a superseded item read is still sent"
+    cursor = _code(_src("cursor.ts"))
+    assert "export const STEP_SETTLE_MS = 150" in cursor
+    assert "void settled.then(" in cursor and "if (!stayed) return" in cursor, \
         "the neighbours are still prefetched from every item passed"
 
 
@@ -130,17 +131,22 @@ def test_undo_and_redo_wait_for_a_write_in_flight():
     """DATA RISK: I on item B on a slow bridge, Ctrl Z inside the round trip, undid A's verdict (B's write joins the
     stack only on its ack) and B's still landed — two rows wrong, the toast naming A. Every commit counts itself in
     flight; undo and redo refuse while one is."""
+    # tq-review: the refusal was copied into both pages' undo and redo; `commitUndo`/`commitRedo` now decide it
+    # themselves, first, before looking for a write to reverse (the same order and the same text as the copies)
     store = _code(_src("store.ts"))
-    assert "export const writesInFlight" in store
     for fn in ("commitWrite", "commitUndo", "commitRedo"):
         body = re.search(r"export async function " + fn + r"\(.*?\n}\n", store, re.S).group(0)
         assert "inFlight++" in body and "finally" in body and "inFlight--" in body, f"{fn} is not counted in flight"
+        if fn != "commitWrite":
+            first = body.splitlines()[1]
+            assert "if (inFlight) return { say: BUSY }" in first, f"{fn} does not refuse while a write is in flight"
+    assert "const BUSY = 'a verdict is still being written — try again'" in store
     for name in ("Inspector.tsx", "ClusterView.tsx"):
         code = _code(_src(name))
-        for fn in ("undo", "redo"):
+        for fn, commit in (("undo", "commitUndo"), ("redo", "commitRedo")):
             body = re.search(r"const " + fn + r" = async \(\) => \{(.*?)\n  \}", code, re.S).group(1)
             first = body.strip().splitlines()[0]
-            assert "writesInFlight()" in first and "still being written" in first, f"{name} {fn} does not wait"
+            assert f"await {commit}(q, " in first, f"{name} {fn} does not go through the store's refusal"
 
 
 def test_a_class_key_on_a_prior_only_row_writes_instead_of_labelling_the_session():
@@ -161,8 +167,10 @@ def test_a_class_key_on_a_prior_only_row_writes_instead_of_labelling_the_session
 
 
 def test_the_verdict_flash_belongs_to_its_item():
+    # tq-review: the flash is set only when the cursor accepts the advance for this item
     code = _code(_src("Inspector.tsx"))
-    assert "if (opts.flash !== false && onItem.current === id)" in code
+    assert "const flashes = opts.flash !== false" in code
+    assert "cursor.after(id, () => { setFlash(null); if (advances) advance() }) && flashes) setFlash(v)" in code
 
 
 # ── a span queue read as finished while 622 were left (agent B's drive, Explore → Take span → Open Review) ──

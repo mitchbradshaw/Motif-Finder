@@ -104,33 +104,36 @@ def test_the_window_size_is_a_parameter_and_the_cache_holds_it():
 
 
 def test_the_inspector_keeps_the_window_warm_one_read_at_a_time_from_an_item_stopped_on():
+    # tq-review: the landing (`review/cursor.ts`) owns the settle and the one-at-a-time chain, and the next item
+    # aborts it; `tests/test_tq_review.py` runs it under Node. The Inspector hands it this window.
     code = _code(_read("review", "Inspector.tsx"))
     assert "prefetchIds(" in code, "the Inspector does not read the five-ahead window"
-    # only from an item the researcher stopped on, and the chain stops the moment they move
-    m = re.search(r"const t = window\.setTimeout\(async \(\) => \{(.*?)\}, STEP_SETTLE_MS\)\s*"
-                  r"return \(\) => \{ live = false; window\.clearTimeout\(t\) \}", code, re.S)
-    assert m, "the window is not prefetched from a settle timer that the next item cancels"
-    body = m.group(1)
-    assert "if (!live) return" in body and "await prefetchItemThen(" in body, \
+    assert "return land(id, signal, {" in code and "warm: i => prefetchItemThen(q, i, opts)" in code, \
+        "the window is not read by the item's landing"
+    cursor = _code(_read("review", "cursor.ts"))
+    assert "if (signal.aborted) return" in cursor and "await io.warm(" in cursor, \
         "the window's reads are not sent one at a time, nearest first, stopping when the item changes"
 
 
 def test_an_item_already_being_read_does_not_wait_the_settle():
     code = _code(_read("review", "Inspector.tsx"))
-    assert re.search(r"if \(peekItem\(q, id, opts\) \|\| itemHeld\(q, id, opts\)\) return getItem\(q, id, opts\)", code), \
+    # tq-review: `peekItem(…) || itemHeld(…)` was `itemHeld(…)` — a settled read is always also held
+    assert "held: i => itemHeld(q, i, opts)" in code, \
         "an item whose prefetch is in flight still waits 150 ms before joining it (night-a #24)"
+    assert "if (!io.held(id) && !await settled)" in _code(_read("review", "cursor.ts"))
     api = _code(_read("api", "review.ts"))
     assert "export function itemHeld(" in api and "export function prefetchItemThen(" in api
 
 
 def test_the_advance_after_a_verdict_is_a_frame_not_a_third_of_a_second():
-    code = _code(_read("review", "Inspector.tsx"))
-    ms = int(re.search(r"const ADVANCE_MS = (\d+)", code).group(1))
+    ms = int(re.search(r"export const ADVANCE_MS = (\d+)", _code(_read("review", "cursor.ts"))).group(1))
     assert ms <= 80, f"auto-advance waits {ms} ms after the write was accepted"
-    # …and still only after the write was accepted, and only from the item it was given on
-    assert "if (opts.advance && auto) later(() => { if (onItem.current === id) advance() }, ADVANCE_MS)" in code
+    # …and still only after the write was accepted, and only from the item it was given on (the cursor refuses
+    # `after()` off that item and drops a pending one when the researcher moves)
+    code = _code(_read("review", "Inspector.tsx"))
     w = re.search(r"async function write\(.*?\n  \}\n", code, re.S).group(0)
-    assert w.index("await commitWrite(") < w.index("advance()"), "the advance no longer waits for the bridge"
+    assert "cursor.after(id, () => { setFlash(null); if (advances) advance() })" in w
+    assert w.index("await commitWrite(") < w.index("cursor.after("), "the advance no longer waits for the bridge"
 
 
 # ── 2. the grouping tree by default ──────────────────────────────────────────
@@ -221,8 +224,10 @@ def test_f2_a_grouping_job_is_cancelled_on_every_exit():
 def test_f3_undo_clears_the_pending_advance_and_navigates_from_where_the_researcher_is():
     code = _code(_read("review", "Inspector.tsx"))
     body = re.search(r"const undo = async \(\) => \{(.*?)\n  \}", code, re.S).group(1)
-    assert body.index("timers.current.forEach(t => window.clearTimeout(t))") < body.index("await commitUndo(")
-    assert "if (onItem.current !== w.items[0]) navigate(" in body
+    # tq-review: the pending advance is dropped as the undo is sent (inside the send `commitUndo` calls once its
+    # refusals have passed), and the cursor says where the researcher is
+    assert "await commitUndo(q, () => { cursor.cancel();" in body
+    assert "if (cursor.at !== w.items[0]) navigate(" in body
 
 
 def test_f4_the_detection_index_reads_the_bridge_field():
