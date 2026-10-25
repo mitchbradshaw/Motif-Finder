@@ -13,7 +13,8 @@ import { useToast } from '../shell/Toast'
 import { navigate, setQuery, useApp } from '../state'
 import { GROUPING_G09, UNIT_LABEL, getGroupings, getLibraryCounts, getOmitted, motifShape, type Grouping, type OmittedEntry, type Unit } from '../api/library'
 import { useSourced, type SourcedState } from '../api/seam'
-import { sharedRead } from './groupingsRead'
+import { makeSharedRead } from '../api/sharedRead'
+import { useSharedRead } from '../api/useSharedRead'
 import { LIB_VIEW_DEFAULT, type LibFamilyFlags, type LibFitSummary, type LibView, type LibViewReport } from '../api'
 
 /* ================================================================ store ================================================================ */
@@ -163,12 +164,11 @@ export interface LibraryFilters { adjudicated: boolean; minMembers: number; extr
 export const useFilters = () => useDemoState<LibraryFilters>('library.filters', () => ({ adjudicated: false, minMembers: 10, extra: [] }))
 
 /** All groupings: fixture ones plus the ones saved in this session. */
-const GROUPINGS = sharedRead(getGroupings)
+const GROUPINGS = makeSharedRead(getGroupings, { ttlMs: 2000 })
 export function useAllGroupings(): SourcedState<Grouping[]> & { all: Grouping[] } {
   // night-b: every caller on a page shares one read (the atlas made ten at once), and a reload re-reads for all
-  const [v, setV] = useState(GROUPINGS.version)
-  useEffect(() => GROUPINGS.subscribe(() => setV(GROUPINGS.version())), [])
-  const g = useSourced(() => GROUPINGS.read(), [v])
+  const { version } = useSharedRead(GROUPINGS)
+  const g = useSourced(() => GROUPINGS.read(), [version])
   const [saved] = useSavedGroupings()
   const all = useMemo(() => [...(g.data ?? []), ...saved.filter(s => !(g.data ?? []).some(x => x.id === s.id))], [g.data, saved])
   return { ...g, reload: GROUPINGS.invalidate, all }

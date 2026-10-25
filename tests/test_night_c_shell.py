@@ -96,21 +96,23 @@ def test_header_search_label_folds_away_on_a_narrow_window():
 # ── the header's "N need you": one shared read, not one per header mount ──────────────────────────────────────
 # `/api/review/counts` costs ~2.5 s on the scale fixture (10 k-item queue), and every Header mount asked again (a
 # page renders its loading header, then its loaded one): four reads in the first 10 s of the Review inspector, and
-# the chip flashed "0 need you" grey on each remount. `shell/sharedRead.ts` holds one answer for every header.
+# the chip flashed "0 need you" grey on each remount. One shared read holds one answer for every header (tq-reads,
+# 2026-10-25: the night-c module `shell/sharedRead.ts` became the one primitive `api/sharedRead.ts`, so these run it
+# there: `refresh()` is `read()`, `get()` is `snapshot().value`, and the header's failure rule is `onFailure: 'hold'`).
 import json  # noqa: E402
 import shutil  # noqa: E402
 import subprocess  # noqa: E402
 
 import pytest  # noqa: E402
 
-SHARED_TS = os.path.join(SRC, "shell", "sharedRead.ts")
+SHARED_TS = os.path.join(SRC, "api", "sharedRead.ts")
 
 
 def _node(body: str):
     node = shutil.which("node")
     if node is None:
         pytest.skip("node is not on PATH")
-    assert os.path.isfile(SHARED_TS), "shell/sharedRead.ts is missing"
+    assert os.path.isfile(SHARED_TS), "api/sharedRead.ts is missing"
     url = "file:///" + SHARED_TS.replace("\\", "/").lstrip("/")
     script = (f"import * as M from {json.dumps(url)};\n(async () => {{ {body} }})()"
               ".then(v => console.log(JSON.stringify(v)), e => { console.error(e); process.exit(1) })")
@@ -124,9 +126,9 @@ def test_shared_read_asks_once_for_many_mounts():
     out = _node("""
       let calls = 0
       const s = M.makeSharedRead(async () => { calls++; await new Promise(r => setTimeout(r, 20)); return 7 }, { ttlMs: 10000, initial: 0 })
-      await Promise.all([s.refresh(), s.refresh(), s.refresh()])
-      await s.refresh()
-      return { calls, value: s.get() }
+      await Promise.all([s.read(), s.read(), s.read()])
+      await s.read()
+      return { calls, value: s.snapshot().value }
     """)
     assert out == {"calls": 1, "value": 7}
 
@@ -136,14 +138,16 @@ def test_shared_read_keeps_the_last_answer_and_refreshes_after_its_ttl():
       let n = 0
       const s = M.makeSharedRead(async () => ++n, { ttlMs: 30, initial: 0 })
       const seen = []
-      const off = s.subscribe(() => seen.push(s.get()))
-      await s.refresh()
-      const kept = s.get()
+      const off = s.subscribe(() => seen.push(s.snapshot().value))
+      await s.read()
+      await s.read()
+      const kept = s.snapshot().value
       await new Promise(r => setTimeout(r, 50))
-      await s.refresh()
+      await s.read()
       off()
-      await s.refresh(true)
-      return { kept, now: s.get(), seen }
+      s.invalidate()
+      await s.read()
+      return { kept, now: s.snapshot().value, seen }
     """)
     assert out == {"kept": 1, "now": 3, "seen": [1, 2]}
 
@@ -151,11 +155,11 @@ def test_shared_read_keeps_the_last_answer_and_refreshes_after_its_ttl():
 def test_shared_read_failure_keeps_the_last_value_and_reports_it():
     out = _node("""
       let fail = false
-      const s = M.makeSharedRead(async () => { if (fail) throw new Error('503 down'); return 5 }, { ttlMs: 0, initial: 0 })
-      await s.refresh()
+      const s = M.makeSharedRead(async () => { if (fail) throw new Error('503 down'); return 5 }, { ttlMs: 0, initial: 0, onFailure: 'hold' })
+      await s.read()
       fail = true
-      await s.refresh()
-      return { value: s.get(), error: s.error() }
+      const error = await s.read().then(() => null, e => e.message)
+      return { value: s.snapshot().value, error }
     """)
     assert out == {"value": 5, "error": "503 down"}
 

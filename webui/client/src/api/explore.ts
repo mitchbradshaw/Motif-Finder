@@ -16,7 +16,7 @@ import {
 } from '../api'
 import { ANCHOR_RANK, CROSS_MAX_SPAN_S, anchorIndex, crossDetrendFor, orderSpans, resolveCrossWindow, spanLabel, windowParam, type CrossWindow } from '../explore/crossModel'
 import { demo, live, type Sourced } from './seam'
-import { coalesced } from '../explore/coalesce'
+import { makeSharedRead } from './sharedRead'
 import { ApiError } from '../api'   // edit-span: the span-edit routes' error contract
 import {
   SHORTCUTS, type AnnotationRow, type CanonChannelRef, type CorpusDemo, type CrossDemo, type DemoRun, type DetectionRow,
@@ -90,12 +90,12 @@ function detectionRow(d: Detection, fs: number, runs: Map<number, DemoRun>): Det
            score: d.score ?? 0, adjudication: 'unadjudicated', family: null }
 }
 
-const wholeSpans = coalesced((k: { id: number; dur: number }) => getSpans(k.id, 0, k.dur), k => `${k.id}|${k.dur}`)
+const wholeSpans = makeSharedRead(([id, dur]: [number, number]) => getSpans(id, 0, dur))
 /** night-b: every span on a channel, the read the Signal page made twice at once (its data and its ‹ N / M › list)
- *  and Cross-channel a third way — one read while one is in flight (`explore/coalesce.ts`), never cached past it. */
-export const getWholeChannelSpans = (id: number, durationS: number): Promise<Spans> => wholeSpans({ id, dur: durationS })
+ *  and Cross-channel a third way — one read while one is in flight (`./sharedRead.ts`), never cached past it. */
+export const getWholeChannelSpans = (id: number, durationS: number): Promise<Spans> => wholeSpans.read([id, durationS])
 /** night-b: the channel read, shared the same way (Cross-channel made it twice at once: its window and its chip). */
-export const getChannelShared = coalesced((id: number) => getChannel(id))
+export const getChannelShared = makeSharedRead((id: number) => getChannel(id)).read
 
 /** Runs with methods and colours, plus the annotation / detection rows of the channel — live.
  *  Adjudications, families and the medoid have no live source yet (Prompts 03 and 05) and are empty. */

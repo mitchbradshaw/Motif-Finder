@@ -107,7 +107,7 @@ def test_every_user_reads_through_the_one_module():
     assert "makeSharedRead" in _src("shell", "needYouShared.ts")
     assert "makeSharedRead" in _src("library", "chrome.tsx")
     explore = _src("api", "explore.ts")
-    assert "makeSharedRead" in explore and "../explore/" not in explore, "the api layer no longer imports from explore/"
+    assert "makeSharedRead" in explore and "explore/coalesce" not in explore, "the api layer reads through its own module"
     for parts in (("shell", "heldOutLock.ts"), ("analyse", "useAdapters.ts")):
         text = _src(*parts)
         assert "makeSharedRead" in text, f"{'/'.join(parts)} hand-rolls its own in-flight share"
