@@ -8,6 +8,7 @@ import { useSize } from '../../charts/useSize'
 import type { DisplayUnit } from '../../charts/units'
 import type { SlideTrace } from '../../kit'
 import type { SourceSpan } from '../../state'
+import { fmtN } from '../fmtNum'
 
 /** What a type view draws against. The chain row and the block page hand over the same thing; the block page
  *  sets `interactive`, and that flag is the WHOLE difference between the two tiers — one component per view. */
@@ -49,19 +50,12 @@ export interface ProcessProps {
   chainName: string
 }
 
-export function finiteRange(v: ReadonlyArray<number | null | undefined>): [number, number] | null {
-  let lo = Infinity, hi = -Infinity
-  for (const x of v) if (x !== null && x !== undefined && Number.isFinite(x)) { if (x < lo) lo = x; if (x > hi) hi = x }
-  return lo <= hi ? [lo, hi] : null
-}
+/* tq-analyse (2026-10-25): the views' extent and number format are the app's one rule each, re-exported under the
+ * names the views already import (`finiteRange` was `extentOf` written again; `fmtN` moved to the pure fmtNum.ts). */
+export { extentOf as finiteRange } from '../../charts/domain'
+export { fmtN }
 
 export const Empty = ({ text }: { text: string }) => <div className="an-plot-empty">{text}</div>
-
-export const fmtN = (v: number): string => {
-  if (!Number.isFinite(v)) return '—'
-  const a = Math.abs(v)
-  return a === 0 ? '0' : a >= 1000 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : a >= 0.01 ? v.toFixed(3) : v.toExponential(2)
-}
 
 /** How a series was drawn, in words that can be checked: every sample, or a min/max envelope of how many. */
 export function resolutionWords(env: { n_source?: number; n_points?: number; decimated?: boolean } | null | undefined, fs?: number): string {
