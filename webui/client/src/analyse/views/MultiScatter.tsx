@@ -23,7 +23,27 @@ export interface ScatterSeries {
   idx: number[]; t: (number | null)[]; v: (number | null)[]
 }
 
-export const SERIES_COLOURS = ['#2563eb', '#e8900c', '#22a06b', '#d6336c', '#8e5cf7', '#0f766e', '#a16207', '#0891b2', '#6b7280', '#b91c1c']
+/* tq-analyse (2026-10-25): the two pages that feed this scatter (Event shape, Intervals) each wrote the marked-event
+ * and the legend state again, the legend with opposite models (a `hidden` set; a `shown` set or null). One of each. */
+
+/** The event marked everywhere on a page: the hovered one, else the picked one; picking it again lets it go. */
+export function useMarkedEvent() {
+  const [hover, setHover] = useState<number | null>(null)
+  const [picked, setPicked] = useState<number | null>(null)
+  const pick = (i: number) => setPicked(p => (i === p ? null : i))
+  return { mark: hover ?? picked, hover, picked, setHover, pick }
+}
+
+/** Which series are shown: `defaults` (every key unless told) until a key is ticked or unticked, which is remembered
+ *  by key, so a series the payload brings back keeps its switch. `shown` is in the order of `keys`. */
+export function useSeriesToggle(keys: readonly string[], defaults: readonly string[] = keys) {
+  const [flipped, setFlipped] = useState<ReadonlyMap<string, boolean>>(new Map())
+  const shown = useMemo(() => new Set(keys.filter(k => flipped.get(k) ?? defaults.includes(k))), [keys, defaults, flipped])
+  const toggle = (k: string) => setFlipped(m => new Map(m).set(k, !shown.has(k)))
+  return { shown, toggle }
+}
+
+export const SERIES_COLOURS =['#2563eb', '#e8900c', '#22a06b', '#d6336c', '#8e5cf7', '#0f766e', '#a16207', '#0891b2', '#6b7280', '#b91c1c']
 
 /** The show / hide legend: a checkbox per series, its colour, and its real range. */
 export function SeriesLegend({ series, shown, onToggle, testid, note }: {
