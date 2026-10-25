@@ -447,7 +447,7 @@ def test_the_coverage_route_answers_at_once_and_never_computes_in_the_bridge(bri
 def test_a_failed_recompute_reaches_the_page_as_a_loud_error(bridge, monkeypatch):
     client, rt, info = bridge
     url = f"/api/corpus/{perf_fixture.SOURCE_FILE}/coverage?bins=28"
-    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+    monkeypatch.setattr(corpus.worker, "MODE", "thread")
     corpus.reset_coverage_worker()
 
     def broken(*a, **kw):

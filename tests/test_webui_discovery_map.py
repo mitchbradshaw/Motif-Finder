@@ -13,7 +13,7 @@ result of the talk and the page examiners click. Now:
 * a Discovery run still going marks the served overview stale with ``running: true`` and the page's polls do not
   schedule a compute each;
 * a compute that raises reaches the read as a 500 whose body names ``MapFailed`` — never a blank map;
-* in the default mode the compute runs in the bridge's one worker process (`corpus.coverage_pool`), not the bridge.
+* in the default mode the compute runs in the bridge's one worker process (`worker.run_in_worker`), not the bridge.
 
 Read timings are the route's own (`read_ms`), not the HTTP round trip. FastAPI lives only in `webui/.venv`; under
 the conda pytest this file skips. The core half is `tests/test_discovery_map_cache.py`.
@@ -66,7 +66,7 @@ def fresh(bridge, monkeypatch):
     """No overview held anywhere (memory or disk), nothing scheduled; the compute on a thread unless a test asks for
     the process."""
     client, rt, info = bridge
-    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+    monkeypatch.setattr(corpus.worker, "MODE", "thread")
     DMAP.reset_map_cache()
     shutil.rmtree(os.path.join(rt.cache_dir, "map"), ignore_errors=True)
     yield client, rt, info

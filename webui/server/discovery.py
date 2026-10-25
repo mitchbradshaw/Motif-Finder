@@ -56,7 +56,7 @@ from Working.discovery.matching import match_span_sets, rule_from_settings
 from Working.discovery.spans import absolute_bounds, clip, merged, total_length
 from Working.review import queues as queues_mod
 
-from . import corpus
+from . import corpus, worker
 from .runtime import HELD_OUT_FILE, REPO_ROOT
 from .serialize import _clean
 
@@ -1325,9 +1325,8 @@ def _score_row(row):
     }
 
 
-#: night-a: one lock per scoreboard read in flight, so the same read arriving again waits and is then a cache hit
-_SB_LOCKS: dict = {}
-_SB_LOCKS_GUARD = threading.Lock()
+#: night-a: one flight per scoreboard read, so the same read arriving again waits and is then a cache hit
+_SB_FLIGHT = worker.OneFlight()
 
 
 @router.get("/api/discovery/scoreboard")
@@ -1336,17 +1335,8 @@ def get_scoreboard(request: Request, runs: str = "", channels: str = "", t0: flo
     8 min, and each page visit in that window started its own copy (night-a). An identical read waits for the one
     in flight and is answered from `SB.score_runs_cached`; different reads still run side by side."""
     key = (request.app.state.rt.db_path, runs, channels, t0, t1)
-    with _SB_LOCKS_GUARD:
-        entry = _SB_LOCKS.setdefault(key, [threading.Lock(), 0])
-        entry[1] += 1
-    try:
-        with entry[0]:
-            return _scoreboard_read(request, runs, channels, t0, t1)
-    finally:
-        with _SB_LOCKS_GUARD:
-            entry[1] -= 1
-            if entry[1] == 0:
-                _SB_LOCKS.pop(key, None)
+    with _SB_FLIGHT(key):
+        return _scoreboard_read(request, runs, channels, t0, t1)
 
 
 def _scoreboard_read(request: Request, runs: str, channels: str, t0: float, t1: float):

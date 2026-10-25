@@ -120,17 +120,17 @@ def _fake_main(tmp_path):
 
 def test_the_worker_child_imports_no_ui_module(tmp_path, monkeypatch):
     from Working.discovery import coverage_map as CM
-    from webui.server import corpus
+    from webui.server import worker
     monkeypatch.setitem(sys.modules, "__main__", _fake_main(tmp_path))
-    corpus.shutdown_coverage_pool()
+    worker.shutdown()
     try:
-        pool = corpus.coverage_pool()
+        pool = worker.pool()
         assert pool is not None, "the worker pool did not start"
         loaded = pool.submit(CM.child_modules, UI_MODULES).result(timeout=180)
         assert loaded == [], f"the worker child imported UI modules: {loaded}"
         assert pool.submit(CM.child_modules, ("Working.discovery.coverage_map",)).result(timeout=60)
     finally:
-        corpus.shutdown_coverage_pool()
+        worker.shutdown()
 
 
 def test_without_the_guard_a_spawned_child_would_import_the_bridge(tmp_path, monkeypatch):
@@ -175,11 +175,11 @@ def test_the_worker_dies_with_a_bridge_killed_hard_even_mid_compute(tmp_path):
     script.write_text(
         "import sys, time\n"
         f"sys.path.insert(0, {PROJECT_ROOT!r})\n"
-        "from webui.server import corpus\n"
-        "pool = corpus.coverage_pool()\n"
+        "from webui.server import worker\n"
+        "pool = worker.pool()\n"
         "pool.submit(time.sleep, 600)\n"                  # busy: a map in flight
         "time.sleep(1)\n"
-        "print(corpus.coverage_status()['pool_pid'], flush=True)\n"
+        "print(worker.status()['pid'], flush=True)\n"
         "time.sleep(600)\n", encoding="utf-8")
     proc = subprocess.Popen([sys.executable, str(script)], stdout=subprocess.PIPE, text=True)
     try:
@@ -199,15 +199,15 @@ def test_stopping_the_worker_does_not_wait_for_the_map_in_flight():
     terminated, not joined."""
     import time
 
-    from webui.server import corpus
-    corpus.shutdown_coverage_pool()
-    pool = corpus.coverage_pool()
+    from webui.server import worker
+    worker.shutdown()
+    pool = worker.pool()
     assert pool is not None
-    pid = corpus.coverage_status()["pool_pid"]
+    pid = worker.status()["pid"]
     pool.submit(time.sleep, 600)
     time.sleep(0.5)
     t0 = time.time()
-    corpus.shutdown_coverage_pool()
+    worker.shutdown()
     assert time.time() - t0 < 15, f"stopping the worker took {time.time() - t0:.0f} s"
     deadline = time.time() + 15
     while _alive(pid) and time.time() < deadline:
