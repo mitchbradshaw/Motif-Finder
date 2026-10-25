@@ -12,6 +12,7 @@
  *   const reg = useSourced(getRegistry, [])
  */
 import { useEffect, useState, type DependencyList } from 'react'
+import { heldFor } from './keyedRead'
 
 export type Source = 'demo' | 'live'
 export interface Sourced<T> { data: T; source: Source }
@@ -39,11 +40,11 @@ export function useSourced<T>(fn: () => Promise<Sourced<T>>, deps: DependencyLis
  *  answer while the next read is out, which is right for a reload and wrong when the question changed: the scoreboard
  *  of another run set, another run's unjudged count, the runs of the session the page just left. This one answers
  *  `data: null` ("not in yet") while the answer it holds was read for another key, and is `loading` from the render
- *  the key changes in (before the new read's effect has run), unless the read failed. Opt-in; `deps` defaults to `[key]`. */
+ *  the key changes in (before the new read's effect has run), unless the read failed (the rule: ./keyedRead.ts).
+ *  Opt-in; `deps` defaults to `[key]`, and custom `deps` must include `key`, or a new key never reads and loads forever. */
 export function useSourcedFor<T>(key: string, fn: () => Promise<Sourced<T>>, deps: DependencyList = [key]): SourcedState<T> {
   const read = useSourced(() => fn().then(r => ({ ...r, data: { key, value: r.data } })), deps)
-  const fresh = !!read.data && read.data.key === key
-  return { ...read, data: fresh ? read.data!.value : null, loading: read.loading || (!fresh && !read.error) }
+  return { ...read, ...heldFor(read, key) }
 }
 
 /** `useSourced` for a read that takes an AbortSignal (AR, the speed pass): the signal fires when the read is

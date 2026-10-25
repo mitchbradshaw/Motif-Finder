@@ -25,7 +25,9 @@ export function useScopeLink<S extends LinkScope>(scope0: S | null, recordings: 
   const [error, setError] = useState<string | null>(null)
   const link = scope0 && recordings ? resolveScopeLink(recordingQ, channelsQ, scope0, recordings) : null
   const asked = link && 'scope' in link ? link : null
-  const clear = () => { setError(null); setChannelsQ(null); setRecordingQ(null) }
+  /* a key is set only when it is there: every set replaces the hash and fires 'hashchange', and the toast host drops
+   * toasts older than 1 s on each one ("opened the X session as it was left" vanished after every scope edit) */
+  const clear = () => { setError(null); if (channelsQ) setChannelsQ(null); if (recordingQ) setRecordingQ(null) }
 
   const askedKey = asked ? `${asked.scope.recording}|${asked.scope.channels.join(',')}|${asked.scope.section?.join(',') ?? 'own'}` : ''
   useEffect(() => {
@@ -62,7 +64,7 @@ export function useScopeLink<S extends LinkScope>(scope0: S | null, recordings: 
   /** After the Scope card's own write: a new recording or new channels end the link (critic, night-disc: a bare
    *  `?recording=` view must go once the researcher picks another recording, or the page keeps drawing it over the
    *  session the bridge just opened). A section alone leaves it. */
-  const settle = (patch: { recording?: string; channels?: string[] }) => { if (patch.recording !== undefined || patch.channels) clear() }
+  const settle = (patch: { recording?: string; channels?: string[] }) => { if ((channelsQ || recordingQ || error) && (patch.recording !== undefined || patch.channels)) clear() }
 
   return { phase, scope, clear, settle }
 }
