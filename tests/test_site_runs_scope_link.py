@@ -167,8 +167,7 @@ def test_an_answer_read_for_another_question_is_not_the_answer():
     unjudged count both read through it; scoreRead.ts and RunActs' hand-written `run_key` check are gone."""
     seam = _src("api", "seam.ts")
     m = re.search(r"export function useSourcedFor<T>\(key: string,.*?\n\}", seam, re.S)
-    assert m, "the seam has no keyed read"
-    assert "=== key" in m.group(0), "a held answer for another key is not dropped"
+    assert m and "heldFor(" in m.group(0), "useSourcedFor does not answer through the pure keyedRead.heldFor"
     assert not os.path.exists(os.path.join(SRC, "discovery", "scoreRead.ts")), "scoreRead.ts is a second copy of the rule"
     sess = _src("discovery", "session.ts")
     assert re.search(r"useSourcedFor\(wantKey,.*?getScoreboard\(", sess, re.S), "the scoreboard is not a keyed read"
@@ -176,6 +175,71 @@ def test_an_answer_read_for_another_question_is_not_the_answer():
     acts = acts[acts.index("function RunActs"):]
     assert "useSourcedFor(" in acts and "getRunUnjudged(" in acts
     assert "run_key === run.key" not in acts, "RunActs still filters the count by hand"
+
+
+KEYED_TS = os.path.join(SRC, "api", "keyedRead.ts")
+
+
+def _held(cases):
+    """Run keyedRead.heldFor(held, key) under Node for each (held, key)."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not on PATH")
+    assert os.path.isfile(KEYED_TS), "webui/client/src/api/keyedRead.ts does not exist"
+    url = "file:///" + KEYED_TS.replace("\\", "/").lstrip("/")
+    lines = [f"import * as K from {json.dumps(url)};",
+             f"const cases = {json.dumps(cases)};",
+             "process.stdout.write(JSON.stringify(cases.map(([h, k]) => K.heldFor("
+             "{ ...h, error: h.error ? new Error(h.error) : null }, k))));"]
+    r = subprocess.run([node, "--no-warnings", "--input-type=module", "-e", "\n".join(lines)],
+                       capture_output=True, text=True, encoding="utf-8", timeout=60)
+    assert r.returncode == 0, r.stderr
+    return json.loads(r.stdout)
+
+
+def _h(key, value, loading=False, error=None):
+    return {"data": None if key is None else {"key": key, "value": value}, "loading": loading, "error": error}
+
+
+def test_the_keyed_read_answers_only_its_own_key():
+    """tq-scope (2026-10-25, critic): the rule useSourcedFor applies to the read it holds, run under Node. The
+    read state is {data: {key, value} | null, loading, error}; the answer is {data, loading} for the wanted key."""
+    out = _held([
+        [_h(None, None, loading=True), "A"],          # mounted, nothing in yet
+        [_h("A", "answerA"), "A"],                    # answered
+        [_h("A", "answerA"), "B"],                    # key changed: first render, before B's effect has run
+        [_h("A", "answerA", loading=True), "B"],      # B's read is out
+        [_h("A", "answerA", loading=True), "A"],      # back to the held key while a read is out
+        [_h("B", "answerB-late"), "A"],               # an answer for another key is never this key's
+        [_h("A", []), "A"],                           # an empty answer for THIS key is an answer
+        [_h("A", "answerA", error="boom"), "C"],      # C's read failed: not loading, nothing shown
+    ])
+    assert out == [
+        {"data": None, "loading": True},
+        {"data": "answerA", "loading": False},
+        {"data": None, "loading": True},
+        {"data": None, "loading": True},
+        {"data": "answerA", "loading": True},
+        {"data": None, "loading": True},
+        {"data": [], "loading": False},
+        {"data": None, "loading": False},
+    ]
+
+
+def test_settling_a_scope_write_never_touches_absent_link_keys():
+    """tq-scope (2026-10-25, critic): every setQuery replaces the hash and fires 'hashchange', and the toast host
+    drops toasts older than 1 s on each one, so clearing absent keys after every recording or channel edit wiped
+    "opened the X session as it was left". The old clearLink touched a key only when it was there; so do these."""
+    hook = _src("discovery", "useScopeLink.ts")
+    clear = re.search(r"const clear = \(\) => \{([^}]*)\}", hook)
+    assert clear, "no clear()"
+    body = clear.group(1)
+    assert "if (channelsQ) setChannelsQ(null)" in body, "clear() sets ?channels= even when absent"
+    assert "if (recordingQ) setRecordingQ(null)" in body, "clear() sets ?recording= even when absent"
+    assert hook.count("setChannelsQ(null)") == 1 and hook.count("setRecordingQ(null)") == 1, \
+        "a link key is set outside clear()'s guard"
+    settle = re.search(r"const settle = [^\n]*", hook).group(0)
+    assert "channelsQ || recordingQ || error" in settle, "settle() runs with no link keys and no held error"
 
 
 def test_the_scoreboard_says_it_is_working_while_the_scores_are_out():
