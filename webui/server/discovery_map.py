@@ -32,7 +32,7 @@ from fastapi.responses import JSONResponse
 
 from Working.discovery import detection_map as DM
 
-from . import corpus
+from . import corpus, worker
 from .discovery import _conn, _file_for_key, _refuse_held_out, _session, _stem
 from .runtime import HELD_OUT_FILE
 
@@ -87,7 +87,7 @@ def get_map(request: Request):
 # The corpus map's pattern (`corpus.coverage`, corpus-map-off-the-request): the read fingerprints what the overview
 # reads (`detection_map.overview_fingerprint`) and answers the overview held for that state — memory, else the copy
 # under `<runtime root>/cache/map/` — or the last one marked stale, or `pending` when there has never been one, and
-# schedules ONE recompute in the worker process the corpus maps use (`corpus.run_in_worker`: there is one pool).
+# schedules ONE recompute in the worker process the corpus maps use (`worker.run_in_worker`: there is one pool).
 
 class MapFailed(RuntimeError):
     """The last recompute of the overview failed. A read raises it with the sentence (the app's loud handler makes it
@@ -191,13 +191,13 @@ def _close_probe_locked():
 
 
 def close_probe():
-    """Close the change-counter connection (the runtime's `restore()`, through `corpus.shutdown_coverage_pool`, so
+    """Close the change-counter connection (the runtime's `restore()`, through `worker.shutdown`, so
     the sandbox copy can be removed; tests)."""
     with _PROBE_LOCK:
         _close_probe_locked()
 
 
-corpus.on_worker_stop(close_probe)
+worker.on_stop(close_probe)
 
 
 def _held(key):
@@ -255,7 +255,7 @@ def _recompute(key, asked_fp, db_path, exclude):
     log = logging.getLogger("webui.discovery_map")
     t0 = time.perf_counter()
     try:
-        mode, (fp, out) = corpus.run_in_worker(DM.compute, db_path, exclude, what="the Discovery map overview",
+        mode, (fp, out) = worker.run_in_worker(DM.compute, db_path, exclude, what="the Discovery map overview",
                                                fallback=lambda: _compute_here(db_path, exclude))
         if fp is None:
             log.info("map overview: the database changed while it was computed; not kept, the next read schedules it")
@@ -268,7 +268,7 @@ def _recompute(key, asked_fp, db_path, exclude):
                 _STATE["mode"] = mode
                 _STATE["stored"] = fp
             log.info("map overview recomputed (%.1f s, in a %s)", time.perf_counter() - t0, mode)
-    except corpus._Stopped:
+    except worker.Stopped:
         log.info("map overview abandoned: the worker was stopped")
     except BaseException as exc:            # noqa: B902 - recorded, never swallowed into a blank
         sentence = f"the Discovery map overview could not be computed: {type(exc).__name__}: {exc}"

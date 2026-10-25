@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react'
 import { live, type Sourced } from './seam'
 import { ApiError, fetchBridge } from '../api'
 import { CLASSES, MORPHOLOGY_TAGS, RECORDINGS, VERDICTS } from '../fixtures/canon'
+import { rowJudged } from '../review/judged'
 import {
   CLUSTERS, REVIEW_TAG_SUGGESTIONS,
   type ArtifactFactors, type Evidence, type NearestFamily, type QueueEntry, type ReviewCluster, type ReviewQueue, type QueueSource, type Unit, type Verdict,
@@ -31,10 +32,10 @@ export { CONTEXT_PAD_MAX } from '../fixtures/review'
 
 /** `judged` is the DATABASE's answer, not the session's: `queue_items` reports whether this target already
  *  carries a verdict in the table the queue writes. It carries no verdict VALUE (see `rowOf`), so it is kept
- *  as its own flag instead of being turned into a `baseVerdict` nobody sent. */
-export interface QueueRow extends QueueEntry { thumb: number[]; family: string; judged: boolean
-  /** night-a: the bridge's own judged flag when it sent one (`review/judged.ts`) — a row's verdict alone does not make it judged */
-  servedJudged?: boolean }
+ *  as its own flag instead of being turned into a `baseVerdict` nobody sent; a row's verdict alone does not make
+ *  it judged (night-a, `review/judged.ts`). `carry` is the review-carry fields the bridge sent, and `detection` the
+ *  bridge's `detection_id` (a detection item's own id; absent on spans, windows and members). */
+export interface QueueRow extends QueueEntry { thumb: number[]; family: string; judged: boolean; carry: CarryFields; detection?: string }
 /** `thumbsServed: false` (AR): the rows came without their thumbnails — `useThumbs` pages in the ones on screen.
  *  `thumbPeaks`: the smallest positive and the largest row peak (`baselinePeak` of every row's thumbnail), which is
  *  all the Shape card's queue-wide reference bar reads; empty when no row has a positive peak. */
@@ -130,6 +131,8 @@ export interface ItemDetail {
    *  `nearestComputed: false` means nobody looked; with `true` it means nothing is near. */
   nearestComputed?: boolean
   artifact: ArtifactPanel; evidence: Evidence; thumb: number[]
+  /** review-carry: the entry's carry fields, as `QueueRow.carry` */
+  carry: CarryFields
   /** Set when the item belongs to a held-out recording (D6): nothing else is served. */
   refused?: string
   /** fixup-AD: a *Suspected artifact* queue's item — every channel over the member's span, one mV axis. */
@@ -247,8 +250,9 @@ function rowOf(raw: any, queueId: string): QueueRow {
     id: String(raw?.id ?? ''),
     queueId,
     baseVerdict: base ? (base as Verdict) : undefined,
-    judged: raw?.judged === true || raw?.judged === 1 || !!base,
-    servedJudged: raw?.judged == null ? undefined : raw.judged === true || raw.judged === 1,
+    judged: rowJudged(raw),
+    carry: carryOf(raw),
+    detection: raw?.detection_id != null ? String(raw.detection_id) : undefined,
     thumb: Array.isArray(raw?.thumb) ? raw.thumb as number[] : [],
     family: String(raw?.family ?? raw?.familyId ?? ''),
     tags: Array.isArray(raw?.tags) ? raw.tags as string[] : [],
@@ -272,6 +276,7 @@ function detailOf(raw: any, fallbackQueue?: ReviewQueue): ItemDetail {
     artifact: raw?.artifact,
     evidence: raw?.evidence,
     thumb: Array.isArray(raw?.thumb) ? raw.thumb : [],
+    carry: carryOf(raw?.entry),
     /* by the bridge's own flag, never by matching the label: a display name is not an identifier (fixup-f) */
     refused: raw?.refused ?? (entry?.heldOut ? refusal(entry.recording) : undefined),
     suspectedArtifact: raw?.suspectedArtifact ? {
@@ -602,7 +607,16 @@ export interface MemberBand { id: string; t0_s: number; t1_s: number }
 /** What the bridge adds to a detection item: the overlap set it stands for, the class stored with its verdict,
  *  and — for a verdict carried from another run's detection — that detection's id. */
 export interface CarryFields { members?: number[]; memberBands?: MemberBand[]; classLabel?: string; carriedFrom?: number }
-export const carryOf = (e: unknown): CarryFields => (e ?? {}) as CarryFields
+/** tq-review: the four fields, picked (it was a bare cast, so a spread of it carried the whole entry, thumbnails and
+ *  all). A field the bridge did not send stays absent, so `{ ...detail.carry, ...row.carry }` keeps the detail's. */
+function carryOf(raw: any): CarryFields {
+  const c: CarryFields = {}
+  if (raw?.members !== undefined) c.members = raw.members
+  if (raw?.memberBands !== undefined) c.memberBands = raw.memberBands
+  if (raw?.classLabel !== undefined) c.classLabel = raw.classLabel
+  if (raw?.carriedFrom !== undefined) c.carriedFrom = raw.carriedFrom
+  return c
+}
 
 /** "312 events from 340 detections" — only when sets merged something (a queue of single detections says nothing). */
 function eventsLine(q: SrvQueue): string {
@@ -626,8 +640,32 @@ export function prefetchItemThen(queueId: string, itemId: string, opts: TraceOpt
   return p ? p.then(() => undefined, () => undefined) : Promise.resolve()
 }
 
-/** night-review fix round (F1, append-only): drop every cached item that is not of this queue — a carry that reached
- *  no row of the queue on screen can still have reached rows of others, whose cached details predate it. */
-export function clearItemCacheExcept(queueId: string) {
-  for (const k of [...ITEMS.keys()]) if (!k.startsWith(`${queueId}/`)) { ITEMS.delete(k); SETTLED.delete(k) }
+/* night-review: what a verdict carried to other runs' detections of the same event invalidates. It used to re-read
+ * every row and empty the item cache — 1.6 s and 6 MB at 8,700 rows, and the next card then cold — although the
+ * carried detections were in no row of the queue. Only a carry INTO this queue can change one of its rows; one that is
+ * not changes the counts, which every accepted write re-reads anyway. The index (each row's detection id — its own id
+ * when the bridge names none — and every overlap-set member) is built once per queue read. */
+const DETECTIONS = new WeakMap<QueueData, Set<string>>()
+function queueHoldsAny(data: QueueData, ids: (number | string)[]): boolean {
+  let s = DETECTIONS.get(data)
+  if (!s) {
+    s = new Set()
+    for (const r of data.rows) {
+      s.add(r.detection ?? r.id)                                  // the bridge's `detection_id` (F4)
+      for (const m of r.carry.members ?? []) s.add(String(m))
+    }
+    DETECTIONS.set(data, s)
+  }
+  return ids.some(id => s!.has(String(id)))
+}
+
+/** tq-review: the which-caches-to-drop decision after a carry, beside the caches it drops. True when this queue's rows
+ *  must be re-read (the carry reached one of them, or the bridge named no ids — an older bridge); the caller bumps the
+ *  review version, which empties the item cache. Otherwise (F1) only other queues' cached items are dropped — the
+ *  carried detections may be rows of theirs, whose cached details predate the carry — and this queue's stay warm. */
+export function invalidateAfterCarry(data: QueueData, carriedIds: number[]): boolean {
+  if (!carriedIds.length || queueHoldsAny(data, carriedIds)) return true
+  const own = `${data.queue.id}/`
+  for (const k of [...ITEMS.keys()]) if (!k.startsWith(own)) { ITEMS.delete(k); SETTLED.delete(k) }
+  return false
 }

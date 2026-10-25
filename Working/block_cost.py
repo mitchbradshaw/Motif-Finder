@@ -20,6 +20,10 @@ Calibrate from a shell (a few seconds per block):
 
     python -c "from Working.block_cost import calibrate; print(calibrate())"
 
+`calibrate` is `time_model` (time one model, return its entry, write nothing)
+then `store_entries` (the locked read-merge-write); a caller that times in
+another process — the web bridge — uses the two pieces (tq-worker, 2026-10-25).
+
 No UI imports; plain numpy and json.
 """
 
@@ -91,6 +95,44 @@ def _save(data, path=None):
         raise
 
 
+def time_model(name, n=CALIBRATION_N, fs=1.0, *, prewarm=False):
+    """Time the cost model `name` once on a synthetic signal of `n` samples and
+    return ``(key, entry)`` — the calibration file's key and value for it on
+    this machine. Writes nothing. The block's warm-up (`WARM_UPS`), if it
+    registered one, runs first, untimed.
+
+    `prewarm` also runs the block once, untimed, on a small synthetic series
+    before the timed call: a fresh interpreter (the web bridge times in a
+    process of its own) pays the model's lazy imports and numba compile on its
+    FIRST call — interrogation.trains read k 2.2e-4 cold against 1.6e-6 warm,
+    and a k is kept for good (fix round F1)."""
+    exponent, run_once = MODELS[name]
+    if name in WARM_UPS:
+        WARM_UPS[name]()
+    if prewarm:
+        run_once(np.cumsum(np.random.default_rng(0).standard_normal(1000)) * 1e-3, fs)
+    x = np.cumsum(np.random.default_rng(0).standard_normal(int(n))) * 1e-3
+    t0 = time.perf_counter()
+    run_once(x, fs)
+    elapsed = time.perf_counter() - t0
+    k = elapsed / (float(n) ** exponent)
+    return _key(name), {"k": k, "exponent": exponent, "n": int(n), "elapsed_s": elapsed,
+                        "calibrated_at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+
+
+def store_entries(entries, path=None):
+    """Merge `entries` ({key: entry}, as `time_model` returns them) into the
+    calibration file at `path` (default `CALIBRATION_PATH`, read at call time).
+    It re-reads before writing: another process — or another thread timing
+    another model (the web bridge times models side by side) — may have stored
+    a model meanwhile. The lock covers only this read-merge-write, never a
+    timing."""
+    with _FILE_LOCK:
+        merged = _load(path)
+        merged.update(entries)
+        _save(merged, path)
+
+
 def calibrate(names=None, force=False, n=CALIBRATION_N, fs=1.0, path=None):
     """Time every registered cost model (or the `names` given) once on a
     synthetic signal and store `k`. Returns {name: k}.
@@ -102,30 +144,16 @@ def calibrate(names=None, force=False, n=CALIBRATION_N, fs=1.0, path=None):
     path = path or CALIBRATION_PATH
     names = list(MODELS) if names is None else list(names)
     data = _load(path)
-    out = {}
+    out, fresh = {}, {}
     for name in names:
-        exponent, run_once = MODELS[name]
         key = _key(name)
         if not force and key in data:
             out[name] = data[key]["k"]
             continue
-        x = np.cumsum(np.random.default_rng(0).standard_normal(int(n))) * 1e-3
-        if name in WARM_UPS:
-            WARM_UPS[name]()
-        t0 = time.perf_counter()
-        run_once(x, fs)
-        elapsed = time.perf_counter() - t0
-        k = elapsed / (float(n) ** exponent)
-        data[key] = {"k": k, "exponent": exponent, "n": int(n), "elapsed_s": elapsed,
-                     "calibrated_at": time.strftime("%Y-%m-%dT%H:%M:%S")}
-        out[name] = k
-    # re-read before writing: another process — or another thread timing another model (the web bridge times
-    # models side by side) — may have stored a model while this one was timing. The lock covers only this
-    # read-merge-write, never the timing.
-    with _FILE_LOCK:
-        merged = _load(path)
-        merged.update({_key(name): data[_key(name)] for name in names if _key(name) in data})
-        _save(merged, path)
+        key, entry = time_model(name, n, fs)
+        fresh[key] = entry
+        out[name] = entry["k"]
+    store_entries(fresh, path)
     return out
 
 

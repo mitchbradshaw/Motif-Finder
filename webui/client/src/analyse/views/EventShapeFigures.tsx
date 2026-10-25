@@ -14,13 +14,14 @@
  * re-derived here. */
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { SpansetPayload } from '../../api'
-import { makeX, makeY } from '../../charts/scale'
+import { extentOf } from '../../charts/domain'
+import { clamp, makeX, makeY, polylinePath, type XScale } from '../../charts/scale'
 import { useSize } from '../../charts/useSize'
 import { InfoTip, type SlideTrace } from '../../kit'
 import { fmtHours } from '../../state'
 import { labelOf, unitOf } from '../EventFeatures'
 import { alignOnSteepest, evenSample, rampColour, type Aligned } from './eventFigures'
-import { MultiScatter, SERIES_COLOURS, type ScatterSeries } from './MultiScatter'
+import { MultiScatter, SERIES_COLOURS, useMarkedEvent, useSeriesToggle, type ScatterSeries } from './MultiScatter'
 import { SpanSetView } from './SpanSetView'
 import { Surface, fmtN, loadWindow, type ProcessProps } from './common'
 
@@ -33,6 +34,7 @@ const ONE_READ_SAMPLES = 16000
 const NOT_A_MEASURE = (c: string) => c.endsWith('_idx') || c === 'polarity' || c === 'group' || c === 'family'
 const DEFAULT_SHOWN = ['event_amplitude_mv', 'duration_s', 'max_slope_mv_s']
 
+/** the measure scatter's legend and tip: three significant figures, no trailing zeros (0.5, not fmtN's 0.500) */
 const short = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0) : String(+v.toPrecision(3)))
 
 /** The time an event sits at on the shared axis: its onset where the bridge names one, else its span's start. */
@@ -41,7 +43,7 @@ const eventTime = (p: SpansetPayload, i: number) => p.marks?.onset_s[i] ?? p.sta
 type Motifs = { state: 'loading'; done: number; of: number } | { state: 'error'; message: string } | { state: 'ready'; rows: { i: number; a: Aligned }[]; perEvent: boolean; decimated: number }
 
 /** Read and align the drawn events' waveforms. */
-function useMotifs(p: SpansetPayload, rec: number, t0: number, t1: number, flip: boolean): { motifs: Motifs; picks: number[] } {
+function useMotifs(p: SpansetPayload, rec: number, t0: number, t1: number, flip: boolean): { motifs: Motifs; picks: number[]; order: number[] } {
   const n = p.start_s.length
   const order = useMemo(() => Array.from({ length: n }, (_, i) => i).sort((a, b) => p.start_s[a] - p.start_s[b] || a - b), [p, n])
   const oneRead = (t1 - t0) * p.fs <= ONE_READ_SAMPLES
@@ -89,41 +91,25 @@ function useMotifs(p: SpansetPayload, rec: number, t0: number, t1: number, flip:
       e => { if (live) setMotifs({ state: 'error', message: e instanceof Error ? e.message : String(e) }) })
     return () => { live = false }
   }, [p, rec, t0, t1, picks, oneRead, flip])
-  return { motifs, picks }
+  return { motifs, picks, order }
 }
 
 /** 1. The motif overlay. */
 function MotifOverlay({ p, rec, t0, t1, mark, flip }: { p: SpansetPayload; rec: number; t0: number; t1: number; mark: number | null; flip: boolean }) {
-  const { motifs, picks } = useMotifs(p, rec, t0, t1, flip)
+  const { motifs, picks, order } = useMotifs(p, rec, t0, t1, flip)
   const [ref, size] = useSize<HTMLDivElement>()
   const w = Math.max(10, size.width), h = 170
   const n = p.start_s.length
   const drawn = motifs.state === 'ready' ? motifs.rows : []
   const geom = useMemo(() => {
-    let lo = Infinity, hi = -Infinity, zlo = Infinity, zhi = -Infinity
-    for (const { a } of drawn) {
-      lo = Math.min(lo, a.dt[0]); hi = Math.max(hi, a.dt[a.dt.length - 1])
-      for (const z of a.z) if (z !== null) { zlo = Math.min(zlo, z); zhi = Math.max(zhi, z) }
-    }
-    return lo < hi ? { lo, hi, zlo: Math.max(-6, zlo), zhi: Math.min(6, zhi) } : null
+    // each `dt` runs earliest → latest, so the x extent is that of the first and last offsets
+    const t = extentOf(drawn.map(({ a }) => a.dt[0]), drawn.map(({ a }) => a.dt[a.dt.length - 1]))
+    const z = extentOf(...drawn.map(({ a }) => a.z)) ?? [Infinity, -Infinity]
+    return t && t[0] < t[1] ? { lo: t[0], hi: t[1], zlo: Math.max(-6, z[0]), zhi: Math.min(6, z[1]) } : null
   }, [drawn])
   // the colour is the event's place in time over the whole set (earliest → latest), not its place among the drawn
-  const rank = useMemo(() => {
-    const r = new Map<number, number>()
-    const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => p.start_s[a] - p.start_s[b] || a - b)
-    order.forEach((i, k) => r.set(i, n > 1 ? k / (n - 1) : 0))
-    return r
-  }, [p, n])
-  const path = (a: Aligned, x: (v: number) => number, y: (v: number) => number) => {
-    let d = '', pen = false
-    for (let k = 0; k < a.dt.length; k++) {
-      const z = a.z[k]
-      if (z === null) { pen = false; continue }
-      d += `${pen ? 'L' : 'M'}${x(a.dt[k]).toFixed(1)} ${y(Math.max(-6, Math.min(6, z))).toFixed(1)}`
-      pen = true
-    }
-    return d
-  }
+  const rank = useMemo(() => new Map(order.map((i, k) => [i, n > 1 ? k / (n - 1) : 0])), [order, n])
+  const path = (a: Aligned, x: XScale, y: XScale) => polylinePath(a.dt, a.z.map(z => (z === null ? null : clamp(z, -6, 6))), x, y)
   const words = motifs.state === 'ready'
     ? `${drawn.length.toLocaleString()} of ${n.toLocaleString()} event${n === 1 ? '' : 's'} drawn${picks.length < n ? `, evenly sampled through time (at most ${motifs.perEvent ? MOTIF_CAP_PER_EVENT : MOTIF_CAP})` : ''}${picks.length > drawn.length ? ` · ${picks.length - drawn.length} with no finite samples, not drawn` : ''}${motifs.decimated ? ` · ${motifs.decimated} long enough to come back as a min/max envelope` : ''}`
     : ''
@@ -190,17 +176,13 @@ export function measureSeries(p: SpansetPayload): ScatterSeries[] {
 
 /** The Event shape page's figures; `rose` is the rose card as the page already draws it. */
 export function EventShapeFigures({ q, p, rose }: { q: ProcessProps; p: SpansetPayload; rose: ReactNode }) {
-  const [hover, setHover] = useState<number | null>(null)
-  const [picked, setPicked] = useState<number | null>(null)
-  const mark = hover ?? picked
+  const { mark, hover, picked, setHover, pick } = useMarkedEvent()
   const series = useMemo(() => measureSeries(p), [p])
-  const [shown, setShown] = useState<Set<string> | null>(null)
-  const shownSet = useMemo(() => {
-    if (shown) return shown
-    const d = series.filter(s => DEFAULT_SHOWN.includes(s.key)).map(s => s.key)
-    return new Set(d.length ? d : series.slice(0, 3).map(s => s.key))
-  }, [shown, series])
-  const toggle = (k: string) => { const s = new Set(shownSet); if (s.has(k)) s.delete(k); else s.add(k); setShown(s) }
+  const [keys, defaults] = useMemo(() => {
+    const k = series.map(s => s.key), d = k.filter(c => DEFAULT_SHOWN.includes(c))
+    return [k, d.length ? d : k.slice(0, 3)]
+  }, [series])
+  const { shown, toggle } = useSeriesToggle(keys, defaults)
   const { t0, t1 } = q.ctx
   return (
     <div className="stack" style={{ gap: 10 }} data-testid="event-shape-figures">
@@ -216,11 +198,11 @@ export function EventShapeFigures({ q, p, rose }: { q: ProcessProps; p: SpansetP
         <div className="bp-card-title"><h3 style={{ fontSize: 13 }}>Where the events are, and what each measured</h3>
           <span className="sg">the block's input signal; beneath it each event's measures on the same time axis</span></div>
         <Surface height={120} t0={t0} t1={t1} testid="event-shape-signal" axis={false}>
-          {(x, w) => <SpanSetView p={p} ctx={{ ...q.ctx, x, width: w, height: 120, interactive: true }} selected={mark} onSelect={i => setPicked(i === picked ? null : i)} />}
+          {(x, w) => <SpanSetView p={p} ctx={{ ...q.ctx, x, width: w, height: 120, interactive: true }} selected={mark} onSelect={pick} />}
         </Surface>
         {series.length === 0
           ? <div className="muted mono small" data-testid="measure-scatter-none">{p.features ? `${p.features.n_columns} measures per event · the table is too large to ship, so there is nothing to plot here` : 'this block returned its spans with no measures attached'}</div>
-          : <MultiScatter series={series} t0={t0} t1={t1} shown={shownSet} onToggle={toggle} hover={mark} onHover={setHover} onPick={i => setPicked(i === picked ? null : i)}
+          : <MultiScatter series={series} t0={t0} t1={t1} shown={shown} onToggle={toggle} hover={mark} onHover={setHover} onPick={pick}
               testid="measure-scatter" what="one event's measure" />}
         {mark !== null && <div className="mono small" data-testid="event-shape-marked">event #{mark + 1} at {fmtHours(eventTime(p, mark), 3)} marked on the signal{picked !== null && hover === null ? ' · click it again to let go' : ''}</div>}
       </div>

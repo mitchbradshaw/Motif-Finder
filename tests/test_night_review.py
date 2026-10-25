@@ -104,38 +104,43 @@ def test_the_window_size_is_a_parameter_and_the_cache_holds_it():
 
 
 def test_the_inspector_keeps_the_window_warm_one_read_at_a_time_from_an_item_stopped_on():
+    # tq-review: the landing (`review/cursor.ts`) owns the settle and the one-at-a-time chain, and the next item
+    # aborts it; `tests/test_tq_review.py` runs it under Node. The Inspector hands it this window.
     code = _code(_read("review", "Inspector.tsx"))
     assert "prefetchIds(" in code, "the Inspector does not read the five-ahead window"
-    # only from an item the researcher stopped on, and the chain stops the moment they move
-    m = re.search(r"const t = window\.setTimeout\(async \(\) => \{(.*?)\}, STEP_SETTLE_MS\)\s*"
-                  r"return \(\) => \{ live = false; window\.clearTimeout\(t\) \}", code, re.S)
-    assert m, "the window is not prefetched from a settle timer that the next item cancels"
-    body = m.group(1)
-    assert "if (!live) return" in body and "await prefetchItemThen(" in body, \
+    assert "return land(id, signal, {" in code and "warm: i => prefetchItemThen(q, i, opts)" in code, \
+        "the window is not read by the item's landing"
+    cursor = _code(_read("review", "cursor.ts"))
+    assert "if (signal.aborted) return" in cursor and "await io.warm(" in cursor, \
         "the window's reads are not sent one at a time, nearest first, stopping when the item changes"
 
 
 def test_an_item_already_being_read_does_not_wait_the_settle():
     code = _code(_read("review", "Inspector.tsx"))
-    assert re.search(r"if \(peekItem\(q, id, opts\) \|\| itemHeld\(q, id, opts\)\) return getItem\(q, id, opts\)", code), \
+    # tq-review: `peekItem(…) || itemHeld(…)` was `itemHeld(…)` — a settled read is always also held
+    assert "held: i => itemHeld(q, i, opts)" in code, \
         "an item whose prefetch is in flight still waits 150 ms before joining it (night-a #24)"
+    assert "if (!io.held(id) && !await settled)" in _code(_read("review", "cursor.ts"))
     api = _code(_read("api", "review.ts"))
     assert "export function itemHeld(" in api and "export function prefetchItemThen(" in api
 
 
 def test_the_advance_after_a_verdict_is_a_frame_not_a_third_of_a_second():
-    code = _code(_read("review", "Inspector.tsx"))
-    ms = int(re.search(r"const ADVANCE_MS = (\d+)", code).group(1))
+    ms = int(re.search(r"export const ADVANCE_MS = (\d+)", _code(_read("review", "cursor.ts"))).group(1))
     assert ms <= 80, f"auto-advance waits {ms} ms after the write was accepted"
-    # …and still only after the write was accepted, and only from the item it was given on
-    assert "if (opts.advance && auto) later(() => { if (onItem.current === id) advance() }, ADVANCE_MS)" in code
+    # …and still only after the write was accepted, and only from the item it was given on (the cursor refuses
+    # `after()` off that item and drops a pending one when the researcher moves)
+    code = _code(_read("review", "Inspector.tsx"))
     w = re.search(r"async function write\(.*?\n  \}\n", code, re.S).group(0)
-    assert w.index("await commitWrite(") < w.index("advance()"), "the advance no longer waits for the bridge"
+    assert "cursor.after(id, () => { setFlash(null); if (advances) advance() })" in w
+    assert w.index("await commitWrite(") < w.index("cursor.after("), "the advance no longer waits for the bridge"
 
 
 # ── 2. the grouping tree by default ──────────────────────────────────────────
 
-TREE_TS = os.path.join(LIBRARY, "treeSource.ts")
+# tq-grouping: `treeSource.ts` is gone. The rule is `openingGrouping` in the pure draft module: `isTreeGrouping` and
+# `newestGrouping` (moved there from chrome.tsx, which re-exports it).
+TREE_TS = os.path.join(LIBRARY, "groupingDraft.ts")
 
 G = [
     {"id": "g-04", "unit": "motifs", "basis": "shape-distance", "method": "ward"},
@@ -149,7 +154,7 @@ G = [
 
 def _source(unit, current_id):
     cur = next((g for g in G if g["id"] == current_id), None)
-    r = _node(TREE_TS, f"M.treeSource({json.dumps(G)}, {json.dumps(unit)}, {json.dumps(cur)})")
+    r = _node(TREE_TS, f"M.openingGrouping({json.dumps(G)}, {json.dumps(unit)}, {json.dumps(cur)}) ?? null")
     return r and r["id"]
 
 
@@ -159,18 +164,21 @@ def test_the_editor_opens_on_a_tree_grouping_when_the_current_one_has_no_tree():
     assert _source("motifs", "g-04") == "g-04", "a current Ward grouping is kept (from g-04 means g-04)"
     assert _source("sequences", "g-06") == "g-06"
     assert _source("spike-trains", None) is None
+    assert "openingGrouping(all, d.unit, currentAny)" in _code(_read("library", "GroupingPage.tsx"))
 
 
 def test_the_editor_seeds_from_the_tree_grouping_and_builds_a_missing_tree_at_once():
+    # tq-grouping: the build is decided in the editor (an `autoBuilt` state, once per editor) and the panel, now in
+    # TreePanel.tsx, is told `building`. The pins moved with the code.
     code = _code(_read("library", "GroupingPage.tsx"))
-    assert "treeSource(" in code, "the editor still opens on the newest grouping, tree or not"
+    assert "openingGrouping(" in code, "the editor still opens on the newest grouping, tree or not"
     # an address naming a basis still wins (a feature-bin link opens on its bins)
-    assert re.search(r"basisQ[^\n]*treeSource\(|treeSource\([^\n]*basisQ", code), \
+    assert "basisQ && !DISTANCE_BASES.includes(basisQ) ? currentAny" in code, \
         "a ?basis= in the address no longer opens the editor on that basis"
-    assert "autoBuild=" in code, "the tree panel is not told to build a missing tree"
-    assert 'data-testid="tree-building"' in code, "while the tree is built the panel says nothing"
-    panel = re.search(r"function TreePanel\((.*?)\n}\n", code, re.S).group(1)
-    assert "autoBuild" in panel and "builtOnce" in panel, "the panel can start more than one build per editor"
+    assert "if (autoBuilt || !treeMissing || busy) return" in code, "a missing tree is not built"
+    assert "setAutoBuilt(true)" in code, "the editor can start more than one build"
+    assert "building={autoBuilt && busy}" in code, "the tree panel is not told a build is under way"
+    assert 'data-testid="tree-building"' in _read("library", "TreePanel.tsx"), "while the tree is built the panel says nothing"
 
 
 def test_a_carry_that_reaches_no_row_of_this_queue_does_not_re_read_every_row():
@@ -178,11 +186,13 @@ def test_a_carry_that_reaches_no_row_of_this_queue_does_not_re_read_every_row():
     page then re-read all 8,700 rows (1.6 s, 6 MB) and emptied the item cache, so the next card waited 2.4-4.6 s for
     a cold read behind the re-read. The carried detections were in no row of the queue. Only a carry INTO this
     queue re-reads its rows now; an ack that names no ids re-reads as before."""
-    queue = _code(_read("review", "queue.ts"))
-    assert "export function queueHoldsAny(" in queue and "carryOf(r).members" in queue
+    # tq-review: the decision and its index live beside the caches, in api/review.ts
+    api = _code(_read("api", "review.ts"))
+    assert "function queueHoldsAny(" in api and "r.carry.members" in api
+    assert "if (!carriedIds.length || queueHoldsAny(data, carriedIds)) return true" in api
     insp = _code(_read("review", "Inspector.tsx"))
     assert "carriedIds = ack.carriedIds ?? []" in insp
-    assert "if (!carriedIds.length || queueHoldsAny(data, carriedIds)) bumpReviewVersion()" in insp
+    assert "if (invalidateAfterCarry(data, carriedIds)) bumpReviewVersion()" in insp
 
 
 def test_the_automatic_build_is_for_motif_shape_trees_only():
@@ -190,7 +200,7 @@ def test_the_automatic_build_is_for_motif_shape_trees_only():
     ("tree.tree_key and tree.from_fit disagree"): a red card and a server traceback where a button used to wait.
     Sequences keep the button until that is fixed in the core."""
     code = _code(_read("library", "GroupingPage.tsx"))
-    assert re.search(r"autoBuild=\{d\.unit === 'motifs' && d\.basis === 'shape-distance' && ", code)
+    assert re.search(r"if \(!\(d\.unit === 'motifs' && d\.basis === 'shape-distance' && ", code)
 
 
 # ── fix round (the critic, 2026-10-21 00:40) ─────────────────────────────────
@@ -200,31 +210,38 @@ def test_f1_the_carry_fields_come_from_the_fresh_row_first():
     before the carry came back from the cache without its `carriedFrom`: the carried line vanished. The row (re-read
     on every queue open) wins over the cached detail, and the other queues' cached items are dropped."""
     insp = _code(_read("review", "Inspector.tsx"))
-    assert "const carry: CarryFields = { ...carryOf(d?.entry), ...carryOf(row) }" in insp
-    assert "clearItemCacheExcept(q)" in insp
+    # tq-review: the carry fields are typed on the row and the detail (`carryOf` picks them, absent stays absent)
+    assert "const carry: CarryFields = { ...d?.carry, ...row.carry }" in insp
     api = _code(_read("api", "review.ts"))
-    assert "export function clearItemCacheExcept(" in api
+    assert "carry: carryOf(raw)" in api and "carry: carryOf(raw?.entry)" in api
+    inv = re.search(r"export function invalidateAfterCarry\(.*?\n}", api, re.S).group(0)
+    assert "if (!k.startsWith(own)) { ITEMS.delete(k); SETTLED.delete(k) }" in inv, \
+        "a carry that reached no row of this queue no longer drops the other queues' cached items"
 
 
 def test_f2_a_grouping_job_is_cancelled_on_every_exit():
     """The automatic build was left running on browser back, a nav link, a hash change, or a close before the job
-    id arrived. The hook cancels its live job on unmount and cancels a job whose id arrives after it was abandoned."""
-    code = _code(_read("library", "GroupingPage.tsx"))
-    hook = re.search(r"function useGroupingJob\(\) \{(.*?)\n}\n", code, re.S).group(1)
-    assert "liveJob.current" in hook and "gen.current" in hook
-    assert re.search(r"useEffect\(\(\) => \(\) => \{[^\n]*liveJob\.current[^\n]*cancelJob", hook), \
-        "unmount does not cancel the live job"
-    assert re.search(r"if \(!alive\.current \|\| mine !== gen\.current\) \{ void cancelJob\(j\.job_id\)", hook), \
-        "a job abandoned before its id arrived keeps running"
+    id arrived. The hook cancels its live job on unmount and cancels a job whose id arrives after it was abandoned.
+    tq-grouping: one AbortController per start (`library/useGroupingJob.ts`) replaced `alive`, `gen` and `liveJob`;
+    the pins moved with it."""
+    hook = _code(_read("library", "useGroupingJob.ts"))
+    assert "new AbortController()" in hook
+    assert "useEffect(() => abort, [])" in hook, "unmount does not cancel the live job"
+    assert "const onAbort = () => { stop(); void cancelJob(jobId)" in hook, "an abort leaves the job running"
+    assert "if (signal.aborted) { void cancelJob(j.job_id)" in hook, "a job abandoned before its id arrived keeps running"
 
 
 def test_f3_undo_clears_the_pending_advance_and_navigates_from_where_the_researcher_is():
     code = _code(_read("review", "Inspector.tsx"))
     body = re.search(r"const undo = async \(\) => \{(.*?)\n  \}", code, re.S).group(1)
-    assert body.index("timers.current.forEach(t => window.clearTimeout(t))") < body.index("await commitUndo(")
-    assert "if (onItem.current !== w.items[0]) navigate(" in body
+    # tq-review: the pending advance is dropped as the undo is sent (inside the send `commitUndo` calls once its
+    # refusals have passed), and the cursor says where the researcher is
+    assert "await commitUndo(q, () => { cursor.cancel();" in body
+    assert "if (cursor.at !== w.items[0]) navigate(" in body
 
 
 def test_f4_the_detection_index_reads_the_bridge_field():
-    queue = _code(_read("review", "queue.ts"))
-    assert "detection_id" in queue and "r.detectionId" not in queue
+    # tq-review: `rowOf` types the bridge's field as `QueueRow.detection`; the index reads it (with no cast)
+    api = _code(_read("api", "review.ts"))
+    assert "detection: raw?.detection_id != null ? String(raw.detection_id) : undefined" in api
+    assert "s.add(r.detection ?? r.id)" in api and "r.detectionId" not in api

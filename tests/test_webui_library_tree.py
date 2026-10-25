@@ -230,8 +230,11 @@ def test_the_library_dendrogram_reads_heights_on_a_square_root_axis():
     src = os.path.join(PROJECT_ROOT, "webui", "client", "src")
     with open(os.path.join(src, "analyse", "views", "TreePage.tsx"), encoding="utf-8") as f:
         tree = f.read()
-    with open(os.path.join(src, "library", "GroupingPage.tsx"), encoding="utf-8") as f:
-        page = f.read()
+    # tq-grouping: the tree panel moved out of GroupingPage.tsx into TreePanel.tsx; the pin reads both
+    page = ""
+    for name in ("GroupingPage.tsx", "TreePanel.tsx"):
+        with open(os.path.join(src, "library", name), encoding="utf-8") as f:
+            page += f.read()
     assert "heightScale = 'linear'" in tree
     assert 'heightScale="sqrt"' in page
     assert "treeMax * 1.05" not in page

@@ -15,14 +15,17 @@ against every other request — with `detection.rupture` (≈447 s to time) GET 
 database's block_calibration.json (rupture, trains, cycle_shapes, snippets, cnn window scores, ...).
 
 The fix keeps the estimate and the cache keys exactly as they were and moves only WHERE the timing runs: in a
-process of its own, so the bridge's request threads never wait on its GIL. A stand-in `calibrate` (the tests' fake
-in test_webui_run_routing.py) cannot cross a process boundary and still runs on the thread.
+process of its own, so the bridge's request threads never wait on its GIL. Where it runs is one strategy,
+`chain.CALIBRATOR` (tq-worker, 2026-10-25): `_calibrate_in_process` by default, `_calibrate_on_thread` for the tests'
+fake `calibrate` (test_webui_run_routing.py); a stand-in child is a top-level function below, which the spawned
+child imports by name.
 
     python -m pytest tests/test_webui_site_x_calibration.py
 """
 import json
 import os
 import sys
+import time
 
 import pytest
 
@@ -33,6 +36,21 @@ for p in (PROJECT_ROOT, WEBUI_DIR):
         sys.path.insert(0, p)
 
 NAME = "preprocessing.invert"     # a registered cost model that times in milliseconds
+
+
+# stand-in calibration children: top-level, so the spawned child imports them by name (this module)
+def _hang(name, module):
+    time.sleep(120)
+
+
+def _two_seconds(name, module):
+    time.sleep(2)
+
+
+def _slow_child(name, module):
+    from server import calibrate_child
+    time.sleep(12)
+    return calibrate_child.calibrate_in_child(name, module)
 
 
 @pytest.fixture
@@ -70,8 +88,9 @@ def test_a_block_calibration_is_timed_in_a_process_of_its_own_not_on_a_bridge_th
     assert data[block_cost._key(NAME)]["k"] > 0
 
 
-def test_a_stand_in_calibrate_cannot_cross_a_process_and_runs_on_the_thread(fresh, monkeypatch):
+def test_the_thread_strategy_times_on_the_calling_thread(fresh, monkeypatch):
     chain, block_cost, path = fresh
+    monkeypatch.setattr(chain, "CALIBRATOR", chain._calibrate_on_thread)
     calls = []
 
     def fake(names=None, force=False, path=None, **kw):
@@ -114,6 +133,7 @@ def test_only_the_request_that_starts_a_timing_waits_for_it_a_re_validate_answer
         block_cost._save(data, path)
         return {n: 1e-3 for n in names}
     monkeypatch.setattr(block_cost, "calibrate", slow)
+    monkeypatch.setattr(chain, "CALIBRATOR", chain._calibrate_on_thread)
     monkeypatch.setattr(chain, "CALIBRATION_WAIT_S", 1.0)
     recipe = make_recipe(1, [{"stage": "detection", "algorithm": "deconvolve", "params": {}}], span=[0, 20_000])
     try:
@@ -130,8 +150,8 @@ def test_only_the_request_that_starts_a_timing_waits_for_it_a_re_validate_answer
 
 def test_the_child_hands_its_timing_back_and_the_bridge_alone_writes_the_shared_calibration_file(fresh, monkeypatch):
     """The calibration file is read by every validate (`calibration_status`) and written by every timing. The child
-    times into a scratch file of its own and RETURNS the entry; the bridge merges it into the shared file under
-    `block_cost._FILE_LOCK`, as it always did — so two children timing two models never race a read-merge-write
+    RETURNS the entry (`block_cost.time_model`); the bridge merges it into the shared file
+    (`block_cost.store_entries`, under the core's file lock), as it always did — so two children timing two models never race a read-merge-write
     across processes, and an `os.replace` onto the shared file never happens outside the bridge. The child writes
     no database row and no cache."""
     chain, block_cost, path = fresh
@@ -179,12 +199,13 @@ def test_f2_a_child_that_hangs_is_stopped_and_the_model_reads_failed_in_words(fr
     import time as _t
     chain, block_cost, path = fresh
     monkeypatch.setattr(chain, "CALIBRATION_TIMEOUT_S", 3.0)
-    monkeypatch.setattr(chain, "_child_call", lambda name, module: (_t.sleep, (120,)))
+    from server import calibrate_child, worker
+    monkeypatch.setattr(calibrate_child, "calibrate_in_child", _hang)
     t0 = _t.time()
     st = _calibrate(chain, path)
     assert _t.time() - t0 < 30
     assert st["state"] == "failed" and "timed out after 3 s" in st["error"], st
-    assert not chain._BC_POOLS, "the hung child's pool is terminated, not left running"
+    assert not worker._ALONE, "the hung child's pool is terminated, not left running"
 
 
 def test_f6_at_most_one_calibration_child_at_a_time_and_the_others_read_calibrating(fresh, monkeypatch):
@@ -193,7 +214,8 @@ def test_f6_at_most_one_calibration_child_at_a_time_and_the_others_read_calibrat
     import threading
     import time as _t
     chain, block_cost, path = fresh
-    monkeypatch.setattr(chain, "_child_call", lambda name, module: (_t.sleep, (2,)))
+    from server import calibrate_child, worker
+    monkeypatch.setattr(calibrate_child, "calibrate_in_child", _two_seconds)
     names = ["preprocessing.invert", "interrogation.intervals"]
     gens = {}
     threads = []
@@ -205,25 +227,43 @@ def test_f6_at_most_one_calibration_child_at_a_time_and_the_others_read_calibrat
         t.start()
     peak = 0
     while any(t.is_alive() for t in threads):
-        peak = max(peak, len(chain._BC_POOLS))
+        peak = max(peak, len(worker._ALONE))
         _t.sleep(0.05)
     assert peak == 1, f"{peak} calibration children ran at once"
 
 
 def test_f6_the_starting_request_never_waits_past_calibration_wait_s_while_the_corpus_worker_starts(fresh, monkeypatch):
-    """F6: corpus.coverage_pool() holds corpus._POOL_LOCK while it starts its worker (up to 180 s); the submit that
-    needs it happens on the calibration's own thread, so the validate that started it still answers in time."""
+    """F6: the shared worker holds `worker._POOL_LOCK` while it starts (up to 180 s); the timing starts on the
+    calibration's own thread, so the validate that started it answers within CALIBRATION_WAIT_S — "local" when a quick
+    model lands inside the wait (it does not queue behind the shared worker's start), "unknown" when it does not."""
     import time as _t
     chain, block_cost, path = fresh
-    from server import corpus
+    from server import worker
     from Working.recipes import make_recipe
     monkeypatch.setattr(chain, "CALIBRATION_WAIT_S", 1.0)
     recipe = make_recipe(1, [{"stage": "preprocessing", "algorithm": "invert", "params": {}}], span=[0, 20_000])
-    with corpus._POOL_LOCK:
+    with worker._POOL_LOCK:
         t0 = _t.time()
         out = chain.route_local(recipe, 20_000, 1.0, ceiling_s=900)
         waited = _t.time() - t0
-    assert waited < 2.0 and out["route"] == "unknown", (waited, out["route"])
+    assert waited < 2.0 and out["route"] in ("unknown", "local"), (waited, out["route"])
+
+
+def test_f6_a_calibration_never_waits_on_the_shared_workers_start(fresh):
+    """tq-worker: a calibration's child is its own (`worker.run_alone`), never the shared worker, so a shared worker
+    starting (holding `worker._POOL_LOCK`, up to 180 s) does not hold a timing back."""
+    import threading
+    chain, block_cost, path = fresh
+    from server import worker
+    out = {}
+    with worker._POOL_LOCK:
+        t = threading.Thread(target=lambda: out.setdefault("pid", chain._calibrate_in_process(NAME, str(path))),
+                             daemon=True)
+        t.start()
+        t.join(120)
+        assert not t.is_alive(), "the calibration waited on the shared worker's start lock"
+    assert out["pid"] != os.getpid()
+    assert json.load(open(path, encoding="utf-8")), "the timing was stored"
 
 
 # ── gate round (2026-10-20, merged main d3ce03c) ─────────────────────────────────────────────────────────────────
@@ -239,7 +279,7 @@ def test_g1_a_run_waits_for_a_quick_model_another_request_started_and_is_routed_
     from server import calibrate_child
     from Working.recipes import make_recipe
     monkeypatch.setattr(chain, "CALIBRATION_WAIT_S", 1.0)
-    monkeypatch.setattr(chain, "_child_call", lambda name, module: (calibrate_child.calibrate_in_child, (name, module, 12.0)))
+    monkeypatch.setattr(calibrate_child, "calibrate_in_child", _slow_child)
     recipe = make_recipe(1, [{"stage": "preprocessing", "algorithm": "invert", "params": {}}], span=[0, 20_000])
     validate = chain.route_local(recipe, 20_000, 1.0, ceiling_s=900)
     assert validate["route"] == "unknown" and validate["calibrating"] == [0], "the validate starts it and answers"

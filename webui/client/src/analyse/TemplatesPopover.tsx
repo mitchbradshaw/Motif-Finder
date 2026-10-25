@@ -7,8 +7,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { ApiError, getTemplates, type Template } from '../api'
 import { TextField } from '../kit'
 import { navigate } from '../state'
+import { shortName } from './pickTemplate'
 
-export const shortName = (t: Template) => t.name.split(' · ')[0].trim()
+export { shortName }
 
 const KIND_ORDER = ['detection', 'encoding', 'training', 'interrogation']
 const KIND_LABEL: Record<string, string> = { detection: 'Detection', encoding: 'Encoding', training: 'Training', interrogation: 'Interrogation' }

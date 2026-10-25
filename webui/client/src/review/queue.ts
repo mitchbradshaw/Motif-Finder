@@ -1,8 +1,7 @@
 /* Queue order, units (item or cluster), counts and navigation — pure helpers over the queue read + the records. */
 import { navigate } from '../state'
-import { carryOf, type QueueData, type QueueRow } from '../api/review'
+import type { QueueData, QueueRow } from '../api/review'
 import { effective, key, type QueueFilters, type VerdictRecord } from './store'
-import { baseJudged } from './judged'
 
 export type UnitRef = { kind: 'item'; id: string } | { kind: 'cluster'; no: number; members: string[] }
 type Records = Record<string, VerdictRecord | null | undefined>
@@ -62,7 +61,7 @@ function buildUnits(data: QueueData, group: QueueFilters['group']): UnitRef[] {
 export function judged(records: Records, row: QueueRow): boolean {
   const k = key(row.queueId, row.id)
   if (k in records && records[k] !== undefined) return records[k] !== null
-  return baseJudged(row)
+  return row.judged
 }
 
 /** night-a: the record of a verdict the DATABASE holds for this queue (or this session wrote) — `effective()` only when
@@ -124,7 +123,7 @@ export function counts(data: QueueData, records: Records) {
     if (!(k in records) || records[k] === undefined) continue
     // the base is what the DATABASE said when the queue was last read, so a re-read after an accepted
     // write cancels its own delta instead of counting the same verdict twice
-    delta += (records[k] ? 1 : 0) - (baseJudged(r) ? 1 : 0)
+    delta += (records[k] ? 1 : 0) - (r.judged ? 1 : 0)
   }
   const judged = Math.min(data.queue.total, data.queue.judged + delta)
   return { judged, left: data.queue.total - judged, total: data.queue.total }
@@ -136,7 +135,7 @@ export function queueCounts(queueId: string, base: { judged: number; total: numb
   for (const r of rows) {
     const k = key(queueId, r.id)
     if (!(k in records) || records[k] === undefined) continue
-    delta += (records[k] ? 1 : 0) - (baseJudged(r) ? 1 : 0)
+    delta += (records[k] ? 1 : 0) - (r.judged ? 1 : 0)
   }
   return { judged: base.judged + delta, left: base.total - base.judged - delta }
 }
@@ -147,25 +146,4 @@ export function relTime(at: number, now: number) {
   if (s < 60) return `${s} s ago`
   const m = Math.round(s / 60)
   return m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`
-}
-
-/* night-review: does this queue serve any of these detections? A verdict carried to other runs' detections of the same
- * event re-read every row and emptied the item cache (`bumpReviewVersion`) — 1.6 s and 6 MB at 8,700 rows, and the next
- * card then cold — although the carried detections were in no row of this queue. Only a carry INTO this queue can
- * change one of its rows; one that is not changes the counts, which every accepted write re-reads anyway. The index
- * (row ids, their detection ids and every overlap-set member) is built once per queue read. */
-const DETECTIONS = new WeakMap<QueueData, Set<string>>()
-export function queueHoldsAny(data: QueueData, ids: (number | string)[]): boolean {
-  let s = DETECTIONS.get(data)
-  if (!s) {
-    s = new Set()
-    for (const r of data.rows) {
-      s.add(String(r.id))
-      const det = (r as unknown as { detection_id?: unknown }).detection_id    // the bridge's field (F4)
-      if (det != null) s.add(String(det))
-      for (const m of carryOf(r).members ?? []) s.add(String(m))
-    }
-    DETECTIONS.set(data, s)
-  }
-  return ids.some(id => s!.has(String(id)))
 }

@@ -33,6 +33,15 @@ def _src(*parts):
         return f.read()
 
 
+# tq-grouping: the grouping editor is split across these modules (the page, its draft model, the job hook, the tree
+# panel, section 3's parameters); a pin on "the editor" reads all of them
+GROUPING_EDITOR = ("GroupingPage.tsx", "groupingDraft.ts", "useGroupingJob.ts", "TreePanel.tsx", "GroupingParams.tsx")
+
+
+def _grouping_editor_src():
+    return "\n".join(_src("library", f) for f in GROUPING_EDITOR)
+
+
 def _smoke(name):
     with open(os.path.join(SMOKE, name), encoding="utf-8") as f:
         return json.load(f)
@@ -67,7 +76,7 @@ def test_the_three_wave2_omission_reasons_have_plain_labels():
 
 
 def test_the_grouping_editor_offers_the_registered_methods_not_a_hard_coded_ward():
-    src = _src("library", "GroupingPage.tsx")
+    src = _grouping_editor_src()
     assert "value=\"ward\" onChange={() => undefined}" not in src, "the linkage select is still a fixed Ward"
     assert "methods" in src and "testid=\"param-method\"" in src
     # the read seam maps the editor payload field by field: a field it does not map never reaches the page
@@ -134,7 +143,7 @@ def test_fix1_coherence_reads_the_cores_verdict_with_its_margin_and_caveat():
 def test_fix1_badges_seeds_and_the_refusal_card():
     chrome = _src("library", "chrome.tsx")
     assert "verdict not saved" in chrome, "a method with a null but no saved flags says so"
-    gp = _src("library", "GroupingPage.tsx")
+    gp = _grouping_editor_src()
     assert "parseParamsText(g.params, " in gp, "string params are parsed against the method's declared str params"
     assert "clearRefusal" in gp, "the refusal card goes when the settings change"
     view = _src("analyse", "views", "WindowSetView.tsx")

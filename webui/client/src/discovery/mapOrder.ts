@@ -1,8 +1,8 @@
 /* discovery.mapOrder — how Discovery › Map orders and hides its rows and columns (site-map, 2026-10-20).
  *
- * Pure, no imports (tests/test_webui_site_map_order.py runs it under Node). It orders keys; it computes no number
- * the page shows. `arrange` is the one entry point the page uses: the shown keys in the chosen order with the pinned
- * key (the human row) first, then the hidden keys in their listed order — hidden rows sink to the bottom and hidden
+ * Pure, no imports (tests/test_webui_site_map_order.py runs it under Node). It orders items; it computes no number
+ * the page shows. `arrange` is the one entry point the page uses: the shown items in the chosen order with the pinned
+ * one (the human row) first, then the hidden ones in their listed order — hidden rows sink to the bottom and hidden
  * columns to the right (the researcher, 2026-10-20), and a key brought back lands where the current order puts it.
  *
  * `cluster` is average-linkage hierarchical clustering on correlation distance (1 − Pearson r) of the values the
@@ -67,17 +67,18 @@ export function clusterOrder(vectors: number[][]): number[] {
 
 const byName = (a: OrderItem, b: OrderItem) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' })
 
-/** `{shown, hidden}` keys: shown in `mode`'s order with `pinned` first, hidden after in their listed order. */
-export function arrange(items: OrderItem[], mode: SortMode, hidden: ReadonlySet<string>, pinned?: string): { shown: string[]; hidden: string[] } {
-  const hid = items.filter(it => hidden.has(it.key)).map(it => it.key)
+/** `{shown, hidden}`: the items themselves, shown in `mode`'s order with `pinned` first, hidden after in their listed
+ *  order. tq-mappage (2026-10-25): the items, not their keys, so the page draws what comes back with no lookup. */
+export function arrange<T extends OrderItem>(items: T[], mode: SortMode, hidden: ReadonlySet<string>, pinned?: string): { shown: T[]; hidden: T[] } {
+  const hid = items.filter(it => hidden.has(it.key))
   const pin = items.filter(it => it.key === pinned && !hidden.has(it.key))
   const rest = items.filter(it => it.key !== pinned && !hidden.has(it.key))
-  let ordered: OrderItem[]
+  let ordered: T[]
   if (mode === 'name') ordered = [...rest].sort(byName)
   else if (mode === 'count') ordered = rest.map((it, i) => ({ it, i })).sort((a, b) => b.it.count - a.it.count || a.i - b.i).map(x => x.it)
   else if (mode === 'cluster') ordered = clusterOrder(rest.map(it => it.values.map(v => v ?? 0))).map(i => rest[i])
   else ordered = rest
-  return { shown: [...pin, ...ordered].map(it => it.key), hidden: hid }
+  return { shown: [...pin, ...ordered], hidden: hid }
 }
 
 /** The URL's comma lists (`hide=`, `hidecols=`). */

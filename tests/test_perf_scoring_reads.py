@@ -553,7 +553,7 @@ def test_a_poll_while_the_recompute_is_queued_does_not_fingerprint_again(scored_
     import threading
     corpus = _corpus()
     conn, path = scored_file["conn"], scored_file["path"]
-    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+    monkeypatch.setattr(corpus.worker, "MODE", "thread")
     corpus.coverage(conn, "cache.mat", bins=10, db_path=path)
     assert corpus.wait_coverage_idle(120)
     before = _without_timing(corpus.coverage(conn, "cache.mat", bins=10, db_path=path))
@@ -589,7 +589,7 @@ def test_a_job_that_raises_any_base_exception_is_a_loud_failure_and_the_queue_li
     shortcut, and no other map ever drained — the page said "recomputing…" for ever with no red card."""
     corpus = _corpus()
     conn, path = scored_file["conn"], scored_file["path"]
-    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+    monkeypatch.setattr(corpus.worker, "MODE", "thread")
 
     class Halt(BaseException):
         pass
@@ -624,7 +624,7 @@ def test_a_map_is_kept_under_the_state_it_read_not_the_state_that_asked(scored_f
     from Working.discovery import coverage_map as CM
     corpus = _corpus()
     conn, path = scored_file["conn"], scored_file["path"]
-    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+    monkeypatch.setattr(corpus.worker, "MODE", "thread")
     corpus.coverage(conn, "cache.mat", bins=10, db_path=path)
     assert corpus.wait_coverage_idle(120)
     gate = threading.Event()
@@ -669,7 +669,7 @@ def test_the_thread_fallback_yields_between_channels(scored_file, monkeypatch):
     before every channel after the first; the map it lands is the same map."""
     corpus = _corpus()
     conn, path = scored_file["conn"], scored_file["path"]
-    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+    monkeypatch.setattr(corpus.worker, "MODE", "thread")
     waits = []
     monkeypatch.setattr(corpus, "wait_for_quiet", lambda quiet_s=2.0, max_wait_s=30.0: waits.append(1) or 0.0)
     assert corpus.coverage(conn, "cache.mat", bins=10, db_path=path)["pending"] is True
@@ -683,7 +683,7 @@ def test_the_thread_fallback_yields_between_channels(scored_file, monkeypatch):
 def test_a_failed_recompute_is_a_loud_error_not_a_blank(scored_file, monkeypatch):
     corpus = _corpus()
     conn, path = scored_file["conn"], scored_file["path"]
-    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+    monkeypatch.setattr(corpus.worker, "MODE", "thread")
 
     def broken(*a, **kw):
         raise ValueError("the divergence could not be read")
@@ -697,7 +697,7 @@ def test_a_failed_recompute_is_a_loud_error_not_a_blank(scored_file, monkeypatch
 def test_a_pending_answer_has_the_maps_shape_with_empty_layers(scored_file, monkeypatch):
     corpus = _corpus()
     conn, path = scored_file["conn"], scored_file["path"]
-    monkeypatch.setattr(corpus, "COVERAGE_WORKER", "thread")
+    monkeypatch.setattr(corpus.worker, "MODE", "thread")
     gate = __import__("threading").Event()
     real = corpus._coverage
     monkeypatch.setattr(corpus, "_coverage", lambda *a, **kw: gate.wait(60) and real(*a, **kw))

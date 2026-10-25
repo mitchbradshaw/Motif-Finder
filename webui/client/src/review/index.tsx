@@ -10,6 +10,7 @@ import { useApp } from '../state'
 import { EmptyState, Button, useDemoState } from '../kit'
 import { useAbortableSourced, useSourced } from '../api/seam'
 import { clusterQueue, getQueue, getQueues } from '../api/review'
+import { ApiError } from '../api'
 import { navigate } from '../state'
 import { Inspector } from './Inspector'
 import { ClusterPage } from './ClusterView'
@@ -69,7 +70,7 @@ function QueueRoute({ queueId, rest }: { queueId: string; rest: string[] }) {
   const d = data.data && data.data.queue.id === queueId ? data.data : null
   const state = route.query.state
   const cur = d ? currentUnit(d, records) : null
-  const needsRedirect = !!d && rest.length === 0 && state !== 'empty' && state !== 'exhausted' && (d.queue.source as string) !== 'blind-test'
+  const needsRedirect = !!d && rest.length === 0 && state !== 'empty' && state !== 'exhausted' && d.queue.source !== 'blind-test'
   useEffect(() => {
     if (!needsRedirect || !d) return
     const { state: _s, ...query } = route.query
@@ -77,11 +78,11 @@ function QueueRoute({ queueId, rest }: { queueId: string; rest: string[] }) {
     else replaceHash(`review/queue/${queueId}${qs({ ...query, state: 'exhausted' })}`)
   }, [needsRedirect, cur?.kind, queueId])   // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (data.error && (data.error as { status?: number }).status === 404) return <UnknownQueue queueId={queueId} />
+  if (data.error instanceof ApiError && data.error.status === 404) return <UnknownQueue queueId={queueId} />
   if (data.error) return <><Header workspace="Review" page="Inspector" /><div className="rv-root"><div className="rv-pad"><div className="error-card" data-testid="queue-error"><h3>Queue {queueId} failed to load</h3><p className="mono">{data.error.message}</p></div></div></div></>
   if (!data.loading && data.data === null) return <UnknownQueue queueId={queueId} />
   // fixup-ah: a BLIND test queue has its own page — no queue rail, no evidence rail, nothing that could tip the answer
-  if (d && (d.queue.source as string) === 'blind-test') return <BlindTestPage queueId={queueId} showingPart={rest[0]} />
+  if (d && d.queue.source === 'blind-test') return <BlindTestPage queueId={queueId} showingPart={rest[0]} />
   if (!d || needsRedirect) return <><Header workspace="Review" page="Inspector" subtitle={`queue ${queueId}`} /><div className="rv-root"><Loading /></div></>
   if (rest.length === 0) return <QueueEndView data={d} forced={state === 'empty'} />
   if (rest[0] === 'cluster') return <ClusterPage data={d} no={Number(rest[1])} />

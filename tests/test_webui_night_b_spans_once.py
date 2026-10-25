@@ -6,9 +6,10 @@ page's own ‹ N / M › list (SignalPage.tsx) both call `getSpans(id, 0, durati
 read it a third way through `getCrossChannel`. On a channel with ~90 k detections each read is 2.5–5 s on the
 bridge, and the two concurrent copies slow each other (fixture bridge: 2.7 s + 5.4 s for one page open).
 
-`explore/coalesce.ts` hands a caller the identical read already in flight; nothing is kept once it settles, so a
-re-read after a write is a fresh read. RUN under Node (types stripped natively); skips without `node`. The source
-half pins that the three whole-channel call sites go through it.
+A shared read hands a caller the identical read already in flight; nothing is kept once it settles, so a re-read
+after a write is a fresh read. tq-reads (2026-10-25): night-b's `explore/coalesce.ts` became the keyed form of the
+one primitive `api/sharedRead.ts` (`makeSharedRead(read)`, no TTL), so this file RUNS that under Node (types
+stripped natively); skips without `node`. The source half pins that the three whole-channel call sites go through it.
 """
 import io
 import json
@@ -20,18 +21,18 @@ import pytest
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLIENT_SRC = os.path.join(PROJECT_ROOT, "webui", "client", "src")
-COALESCE_TS = os.path.join(CLIENT_SRC, "explore", "coalesce.ts")
+SHARED_TS = os.path.join(CLIENT_SRC, "api", "sharedRead.ts")
 
 
 def _run(body):
     node = shutil.which("node")
     if node is None:
         pytest.skip("node is not on PATH")
-    assert os.path.isfile(COALESCE_TS), "webui/client/src/explore/coalesce.ts does not exist"
-    url = "file:///" + COALESCE_TS.replace("\\", "/").lstrip("/")
+    assert os.path.isfile(SHARED_TS), "webui/client/src/api/sharedRead.ts does not exist"
+    url = "file:///" + SHARED_TS.replace("\\", "/").lstrip("/")
     script = (f"import * as C from {json.dumps(url)};\n"
               "let n = 0, fail = false; const read = async k => { const i = ++n; await null; if (fail) throw new Error('boom'); return k + ':' + i };\n"
-              "const once = C.coalesced(read);\n" + body + "\nprocess.stdout.write(JSON.stringify(out));\n")
+              "const once = C.makeSharedRead(read).read;\n" + body + "\nprocess.stdout.write(JSON.stringify(out));\n")
     r = subprocess.run([node, "--no-warnings", "--input-type=module", "-e", script],
                        capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stderr

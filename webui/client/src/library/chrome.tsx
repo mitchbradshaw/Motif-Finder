@@ -13,7 +13,8 @@ import { useToast } from '../shell/Toast'
 import { navigate, setQuery, useApp } from '../state'
 import { GROUPING_G09, UNIT_LABEL, getGroupings, getLibraryCounts, getOmitted, motifShape, type Grouping, type OmittedEntry, type Unit } from '../api/library'
 import { useSourced, type SourcedState } from '../api/seam'
-import { sharedRead } from './groupingsRead'
+import { makeSharedRead } from '../api/sharedRead'
+import { useSharedRead } from '../api/useSharedRead'
 import { LIB_VIEW_DEFAULT, type LibFamilyFlags, type LibFitSummary, type LibView, type LibViewReport } from '../api'
 
 /* ================================================================ store ================================================================ */
@@ -66,12 +67,10 @@ function useResolvedGroupingId(key: string, unit: Unit): [string, (next: string 
 export const useMotifGroupingId = () => useResolvedGroupingId('library.grouping.motifs', 'motifs')
 export const useSequenceGroupingId = () => useResolvedGroupingId('library.grouping.sequences', 'sequences')
 
-/** The newest grouping of one unit, by id. `undefined` when the library holds none of that unit. */
-export function newestGrouping(all: Grouping[], unit: Unit): Grouping | undefined {
-  const mine = all.filter(g => g.unit === unit)
-  if (!mine.length) return undefined
-  return mine.reduce((a, b) => (groupingNum(b.id) > groupingNum(a.id) ? b : a))
-}
+/* tq-grouping (2026-10-25): the newest-grouping rule lives in the pure `groupingDraft.ts` (so the editor's opening rule
+ * runs under Node); this module re-exports it for its existing callers. The import sits here, by the re-export. */
+import { groupingNum, newestGrouping } from './groupingDraft'
+export { groupingNum, newestGrouping }
 
 /** fixup-grouping-url: what stands between a Library URL and the pages that read "the current grouping" (atlas,
  *  family, recurrence, the grouping editor). Two jobs.
@@ -163,19 +162,15 @@ export interface LibraryFilters { adjudicated: boolean; minMembers: number; extr
 export const useFilters = () => useDemoState<LibraryFilters>('library.filters', () => ({ adjudicated: false, minMembers: 10, extra: [] }))
 
 /** All groupings: fixture ones plus the ones saved in this session. */
-const GROUPINGS = sharedRead(getGroupings)
+const GROUPINGS = makeSharedRead(getGroupings, { ttlMs: 2000 })
 export function useAllGroupings(): SourcedState<Grouping[]> & { all: Grouping[] } {
   // night-b: every caller on a page shares one read (the atlas made ten at once), and a reload re-reads for all
-  const [v, setV] = useState(GROUPINGS.version)
-  useEffect(() => GROUPINGS.subscribe(() => setV(GROUPINGS.version())), [])
-  const g = useSourced(() => GROUPINGS.read(), [v])
+  const { version } = useSharedRead(GROUPINGS)
+  const g = useSourced(() => GROUPINGS.read(), [version])
   const [saved] = useSavedGroupings()
   const all = useMemo(() => [...(g.data ?? []), ...saved.filter(s => !(g.data ?? []).some(x => x.id === s.id))], [g.data, saved])
   return { ...g, reload: GROUPINGS.invalidate, all }
 }
-/** The number in a `g-NN` id, or NaN. The bridge emits `g-` plus a zero-padded integer, but a saved grouping
- *  named anything else must not poison a Math.max into NaN. */
-export const groupingNum = (id: string) => { const m = /^g-0*(\d+)$/.exec(String(id ?? '')); return m ? Number(m[1]) : NaN }
 export const nextGroupingId = (all: Grouping[]) => {
   const nums = all.map(g => groupingNum(g.id)).filter(n => Number.isFinite(n))
   return `g-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(2, '0')}`

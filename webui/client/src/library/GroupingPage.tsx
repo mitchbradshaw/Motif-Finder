@@ -34,312 +34,27 @@
  *    ever have lied. The fabricated bar charts for polarity / tag / provenance / custom went the same way:
  *    the bridge returns no distribution for those bases, so the panel says there is none. */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  About, Button, Callout, Checkbox, Icon, InfoTip, Modal, NumberField, ProgressBar, Seg, SelectField, Slider, TextField, fmtInt, useQueryState,
-  type IconName,
-} from '../kit'
+import { Button, Callout, Checkbox, Icon, InfoTip, Modal, NumberField, ProgressBar, fmtInt, useQueryState, type IconName } from '../kit'
 import { useToast } from '../shell/Toast'
 import { navigate, useApp } from '../state'
 import { useSourced } from '../api/seam'
-import { UNIT_LABEL, getGroupingEditor, type BasisKind, type BasisOption, type FeatureBin, type Grouping, type Unit } from '../api/library'
-/* The grouping job and the grouping write have no fixture-shaped wrapper in `api/library.ts` (that module is
- * the READ seam), so they are taken from the typed bridge client directly. */
-import { ApiError, cancelJob, getJob, runLibraryGrouping, saveLibraryGrouping, subscribeJob, type LibFamilyFlags, type LibFitSummary, type LibGrouping, type LibGroupingAssignment, type LibGroupingMethod, type LibGroupingRefusal } from '../api'
-/* fixup-an: the grouping's kept Ward tree — drawn with Analyse's dendrogram (one component, not a second) and cut
- * from the bridge without a job */
-import { getLibraryGroupingCut, getLibraryGroupingTree, type LibCutPreview, type LibGroupingTree } from '../api'
-import { Dendrogram, Spark, heightFor, kAt } from '../analyse/views/TreePage'
+import { UNIT_LABEL, getGroupingEditor, type BasisKind, type BasisOption, type Grouping, type Unit } from '../api/library'
+/* The grouping write has no fixture-shaped wrapper in `api/library.ts` (that module is the READ seam), so it is
+ * taken from the typed bridge client directly. */
+import { ApiError, saveLibraryGrouping, type LibGrouping, type LibGroupingMethod, type LibGroupingRefusal } from '../api'
 /* the five omission reasons live in `chrome` so the drawer and this panel cannot word them differently */
 import { NoiseBadge, OMIT_REASON_LABEL, useExternalNavKey, useAllGroupings, useMotifGroupingId, useSavedGroupings, useSelection, useSequenceGroupingId } from './chrome'
+/* tq-grouping (2026-10-25): the draft model, the regroup job, the tree panel and section 3's parameters live in their
+ * own modules; this file is the page and the editor that ties them together */
+import { BASE, DISTANCE_BASES, METHOD_FOR, SHARED_PARAMS, binExtent, isTreeGrouping, methodOf, openingGrouping, paramsFor, seedFromGrouping, validate, type Draft } from './groupingDraft'
+import { useGroupingJob, type RunRecompute, type RunResult } from './useGroupingJob'
+import { TreePanel, useGroupingTree } from './TreePanel'
+import { Params } from './GroupingParams'
 import { AtlasPage } from './AtlasPage'
-import { TREE_BASES, treeSource } from './treeSource'
 import { FamilyPage } from './FamilyPage'
 import { RecurrencePage } from './RecurrencePage'
 
-/* ================================================================ the draft ================================================================ */
-type BinMode = 'quantiles' | 'log' | 'fixed'
-interface Draft {
-  unit: Unit; basis: BasisKind
-  bins: BinMode; nBins: number; range: [number, number] | null; edges: string
-  cut: number; nearest: number
-  tagMode: 'first' | 'each'; provBy: 'recording' | 'run' | 'spike_train'; clustering: string
-  omitSmall: boolean; minMembers: number
-  /** w2-f: the registered method for a distance basis (`ward`, `kshape`, `hdbscan`), and each non-Ward method's
-   *  own parameter values, keyed by method — so switching away and back keeps what was typed */
-  method: string; mparams: Record<string, Record<string, unknown>>
-}
-/** Spec 9.10's two defaults, and the two the core's own methods declare (`ward.DEFAULT_CUT`, `DEFAULT_OMIT_D`). */
-const BASE: Omit<Draft, 'unit' | 'basis'> = {
-  bins: 'quantiles', nBins: 6, range: null, edges: '',
-  cut: 0.42, nearest: 0.5, tagMode: 'first', provBy: 'recording', clustering: '',
-  omitSmall: true, minMembers: 10, method: 'ward', mparams: {},
-}
-
-/** Which registered method serves which basis (`Working/library/grouping/methods/*.applies_to`). */
-const METHOD_FOR: Record<BasisKind, string> = {
-  'shape-distance': 'ward', 'sequence-similarity': 'ward',
-  amplitude: 'feature_bins', timescale: 'feature_bins', 'frequency-content': 'feature_bins', polarity: 'feature_bins',
-  tag: 'labels', provenance: 'labels', custom: 'labels',
-}
-/** The three bin methods, spelled the way `bases.BIN_METHODS` spells them. */
-const BIN_METHOD: Record<BinMode, string> = { quantiles: 'quantiles', log: 'log-spaced', fixed: 'fixed edges' }
-const DISTANCE_BASES: BasisKind[] = ['shape-distance', 'sequence-similarity']
-/** The method a draft runs: the picked one on a distance basis, the basis's only method elsewhere. */
-export const methodOf = (d: Pick<Draft, 'basis' | 'method'>): string => (DISTANCE_BASES.includes(d.basis) ? d.method || 'ward' : METHOD_FOR[d.basis])
-/** The params the section-4 controls own (one rule for every method), so the method's own panel does not repeat them. */
-const SHARED_PARAMS = new Set(['min_group'])
-/** Choices for a method's `str` params, as the method's own help text names them (the registry carries no list). */
-const STR_CHOICES: Record<string, string[]> = { cluster_selection_method: ['eom', 'leaf'], distance: ['sbd', 'euclidean'] }
-/** Why a method with no tree has no merge-height histogram — said in place of the histogram, never a blank. */
-const NO_TREE_WHY: Record<string, string> = {
-  kshape: 'k-Shape builds no tree: it fits k centres and each shape joins the nearest one after sliding into place, so there is no merge height to cut. Set k instead (0 chooses it).',
-  hdbscan: 'HDBSCAN builds no tree to cut here: families are the places where shapes crowd together, so the number of families is not chosen, and stragglers are left out as “in no dense family”. Its own threshold is epsilon, a separate input — never the tree cut.',
-}
-
-/** `params_json` as the bridge renders it for the chip: `"cut 0.6 · min_group 10 · omit_d 0.5"`. That string is
- *  the only carrier the grouping payload has for `min_group`/`omit_d`, so the editor reads it back. A token it
- *  cannot parse is skipped rather than defaulted. */
-export function parseParamsText(text: string | null | undefined, strKeys: readonly string[] = []): Record<string, number> & { str?: Record<string, string> } {
-  const out: Record<string, number> & { str?: Record<string, string> } = {}
-  const str: Record<string, string> = {}
-  for (const part of String(text ?? '').split('·')) {
-    const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s+(-?[0-9.]+(?:e-?[0-9]+)?)\s*$/.exec(part)
-    if (m && Number.isFinite(Number(m[2]))) { out[m[1]] = Number(m[2]); continue }
-    // fix 1 (critic 7): a method's declared `str` params (HDBSCAN's selection and distance) are read too — they
-    // used to reseed silently at their defaults, "from g-NN" opening on somebody else's settings
-    const t = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s+(\S+)\s*$/.exec(part)
-    if (t && strKeys.includes(t[1])) str[t[1]] = t[2]
-  }
-  if (Object.keys(str).length) out.str = str
-  return out
-}
-/** The draft the Edit-grouping modal should open on when it announces "from g-NN": g-NN's OWN parameters.
- *  It used to open on the hard-coded `BASE` — cut 0.42 under the subtitle "from g-02", whose cut is 0.60, so
- *  pressing Compute and apply without touching the slider regrouped the whole catalogue at somebody else's
- *  settings while the researcher believed they had re-run the current one. A parameter the grouping does not
- *  record keeps its `BASE` default. */
-export function seedFromGrouping(g: Grouping | undefined, methods: Record<string, LibGroupingMethod[]> = {}): Partial<Draft> {
-  if (!g) return {}
-  const gm = (g as Grouping & { method?: string | null }).method
-  const spec = (methods[g.basis] ?? []).find(m => m.name === gm)
-  const strKeys = Object.entries(spec?.params ?? {}).filter(([, ps]) => ps.type === 'str' || ps.type === 'choice').map(([k]) => k)
-  const p = parseParamsText(g.params, strKeys)
-  const cut = typeof (g as Grouping & { cut?: number | null }).cut === 'number' ? (g as Grouping & { cut?: number | null }).cut as number : p.cut
-  const seed: Partial<Draft> = { basis: g.basis }
-  const method = (g as Grouping & { method?: string | null }).method
-  if (method && method !== 'ward' && DISTANCE_BASES.includes(g.basis)) {
-    seed.method = method
-    const own: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(p)) if (k !== 'min_group' && k !== 'str') own[k] = v
-    Object.assign(own, p.str ?? {})
-    seed.mparams = { [method]: own }
-  }
-  if (Number.isFinite(cut) && (cut as number) > 0) seed.cut = cut as number
-  if (Number.isFinite(p.omit_d) && p.omit_d > 0) seed.nearest = p.omit_d
-  if (Number.isFinite(p.min_group) && p.min_group >= 1) { seed.minMembers = p.min_group; seed.omitSmall = true }
-  if (Number.isFinite(p.n_bins) && p.n_bins >= 2) seed.nBins = p.n_bins
-  return seed
-}
-/** The unit each feature is measured in and the axis it reads best on. Facts of `bases.py`, not measurements:
- *  `frequency_content` returns the Welch dominant frequency in Hz, `amplitude` the peak-to-peak in the
- *  waveform's own mV, `timescale` the duration in seconds. The RANGE is never from here — it is the live
- *  distribution's own extent. */
-const FEATURE_AXIS: Partial<Record<BasisKind, { unit: string; label: string; scale: 'log' | 'linear' }>> = {
-  'frequency-content': { unit: 'Hz', label: 'dominant frequency · Welch PSD', scale: 'log' },
-  amplitude: { unit: 'mV', label: 'peak-to-peak amplitude', scale: 'linear' },
-  timescale: { unit: 's', label: 'duration', scale: 'log' },
-  polarity: { unit: '', label: 'signed polarity, −1 … +1', scale: 'linear' },
-}
 const GROUP_ICON: Record<string, IconName> = { distance: 'target', 'feature bins · no distance': 'bar-chart', labels: 'tag' }
-
-/** A distribution's own extent — the only honest source for a feature's range. */
-function extentOf(dist: FeatureBin[] | undefined): [number, number] | null {
-  if (!dist || !dist.length) return null
-  const lo = dist[0].lo, hi = dist[dist.length - 1].hi
-  return Number.isFinite(lo) && Number.isFinite(hi) && hi > lo ? [lo, hi] : null
-}
-
-export function parseEdges(s: string): { edges: number[]; error: string | null } {
-  const parts = s.split(',').map(x => x.trim()).filter(Boolean)
-  const nums = parts.map(Number)
-  if (parts.some(p => !Number.isFinite(Number(p)))) return { edges: [], error: `not a number: ${parts.find(p => !Number.isFinite(Number(p)))}` }
-  if (nums.length < 3) return { edges: nums, error: 'at least 3 edges (2 bins)' }
-  for (let i = 1; i < nums.length; i++) if (nums[i] <= nums[i - 1]) return { edges: nums, error: `edges must increase: ${nums[i]} ≤ ${nums[i - 1]} at position ${i + 1}` }
-  return { edges: nums, error: null }
-}
-
-/** Form validation only — whether the draft is a question the core can be asked. It says nothing about the
- *  answer; the answer comes from the job. */
-export function validate(d: Draft, extent: [number, number] | null): { field: string; message: string } | null {
-  const feature = !DISTANCE_BASES.includes(d.basis) && METHOD_FOR[d.basis] === 'feature_bins'
-  if (feature) {
-    if (d.bins === 'fixed') { const e = parseEdges(d.edges).error; if (e) return { field: 'edges', message: e } }
-    else {
-      if (!Number.isInteger(d.nBins) || d.nBins < 2 || d.nBins > 20) return { field: 'number of bins', message: '2 to 20 bins' }
-      const [lo, hi] = d.range ?? extent ?? [0, 0]
-      if (!(lo < hi)) return { field: 'range', message: 'the lower edge must be below the upper edge' }
-      if (d.bins === 'log' && lo <= 0) return { field: 'range', message: 'log-spaced bins need a range above 0' }
-      if (extent && (lo < extent[0] * 0.999 || hi > extent[1] * 1.001)) {
-        return { field: 'range', message: `outside the measured range: ${extent[0].toPrecision(3)}–${extent[1].toPrecision(3)}` }
-      }
-    }
-  }
-  if (DISTANCE_BASES.includes(d.basis) && methodOf(d) === 'ward' && !(d.cut > 0)) return { field: 'cut', message: 'the cut must be above 0' }
-  if (d.omitSmall && (!Number.isInteger(d.minMembers) || d.minMembers < 1 || d.minMembers > 1000)) return { field: 'minimum members', message: 'whole number from 1 to 1000' }
-  return null
-}
-
-/** The draft as the engine's `params` dict. Only keys a registered method actually declares are sent — an
- *  invented key would still land in the recipe hash and make two identical groupings look different. */
-export function paramsFor(d: Draft, extent: [number, number] | null, spec?: LibGroupingMethod): Record<string, unknown> {
-  const shared: Record<string, unknown> = { min_group: d.minMembers, omit_small: d.omitSmall }
-  const method = methodOf(d)
-  if (method === 'ward') return { ...shared, cut: d.cut, omit_d: d.nearest }
-  if (DISTANCE_BASES.includes(d.basis)) {
-    // w2-f: a registered non-Ward method — its declared params at the value typed, else its own default. HDBSCAN's
-    // `epsilon` is one of them: the tree cut (`d.cut`) is Ward's and never reaches another method.
-    const own = d.mparams[method] ?? {}
-    const out: Record<string, unknown> = { ...shared }
-    for (const [k, ps] of Object.entries(spec?.params ?? {})) if (!SHARED_PARAMS.has(k)) out[k] = k in own ? own[k] : ps.default
-    if (!spec) Object.assign(out, own)
-    return out
-  }
-  if (method === 'feature_bins') {
-    const range = d.bins === 'fixed' ? parseEdges(d.edges).edges : (d.range ?? extent ?? null)
-    return { ...shared, feature: d.basis, bin_method: BIN_METHOD[d.bins], count: d.nBins, range }
-  }
-  return { ...shared, provenance_by: d.provBy, tag_mode: d.tagMode }
-}
-
-/* ================================================================ the regroup job ================================================================ */
-interface RunRecompute { seconds: number; minutes: number; where: 'local' | 'cluster' }
-interface RunHandEdits { total: number; applies: number; orphaned: number; orphan_group_label: string | null; orphan_labels: string[] }
-interface RunPreview {
-  groups: number; members: number; omitted: number; omittedByReason: Record<string, number>
-  recompute: RunRecompute; handEdits: RunHandEdits
-}
-interface RunResult {
-  unit: string; basis: string; method: string; params: Record<string, unknown>; recipeHash: string
-  preview: RunPreview; mergeHeights: number[]; assignments: LibGroupingAssignment[]
-  /** w2-b: the method's account of the fit (its null, the k rule), sent back unchanged on save */
-  fitSummary?: LibFitSummary | null
-  families?: { id: number; label: string; size: number; medoid: unknown; flags: LibFamilyFlags }[]
-  /** fixup-an: the kept tree (Ward), and the job's words for whether it was built or reused */
-  tree?: { key: string; path: string | null; reused: boolean; replaced?: string | null } | null
-  treeNote?: string | null
-}
-type Phase = 'idle' | 'running' | 'done' | 'failed' | 'cancelled'
-interface JobView {
-  phase: Phase; jobId: number | null; sig: string
-  progress: { done: number; total: number | null; message: string }
-  result: RunResult | null; error: string | null; forced?: boolean
-  /** w2-b: the bridge refused the run before starting it (422 over the local limit) — its estimate and cheaper settings */
-  refusal?: LibGroupingRefusal | null; refusalSig?: string
-}
-const IDLE: JobView = { phase: 'idle', jobId: null, sig: '', progress: { done: 0, total: null, message: '' }, result: null, error: null }
-
-const errText = (e: unknown): string => {
-  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message: unknown }).message === 'string') return (e as { message: string }).message
-  return e ? String(e) : 'the grouping job failed'
-}
-
-/** Start a `regroup` job and follow it. The SSE stream is the fast path; a stream error falls back to polling
- *  `GET /api/jobs/{id}`, the same shape `analyse/store.ts` uses, so a dropped socket never leaves the panel
- *  computing forever. */
-function useGroupingJob() {
-  const [view, setView] = useState<JobView>(IDLE)
-  const stream = useRef<{ close: () => void } | null>(null)
-  const poll = useRef<number | null>(null)
-  const then = useRef<((r: RunResult) => void) | null>(null)
-  const alive = useRef(true)
-  /* night-review fix round (F2): the job this hook started and has not seen end, and a generation that every start,
-   * cancel and reset moves on — a job id that arrives for an older generation (closed, cancelled or restarted before
-   * `runLibraryGrouping` answered), or after unmount, is cancelled at once; unmount cancels the live job. The
-   * automatic tree build was left running on browser back, a nav link or a hash change. */
-  const liveJob = useRef<number | null>(null)
-  const gen = useRef(0)
-  useEffect(() => () => { alive.current = false; stream.current?.close(); if (poll.current) window.clearInterval(poll.current); if (liveJob.current != null) { void cancelJob(liveJob.current).catch(() => undefined); liveJob.current = null } }, [])
-
-  const stop = () => { stream.current?.close(); stream.current = null; if (poll.current) { window.clearInterval(poll.current); poll.current = null } }
-
-  const settle = (status: string, result: unknown, error: unknown) => {
-    liveJob.current = null
-    if (!alive.current) return
-    stop()
-    if (status === 'completed' && result) {
-      const r = result as RunResult
-      setView(v => ({ ...v, phase: 'done', result: r, error: null }))
-      const after = then.current; then.current = null
-      if (after) after(r)
-      return
-    }
-    then.current = null
-    if (status === 'cancelled') { setView(v => ({ ...v, phase: 'cancelled', error: null })); return }
-    setView(v => ({ ...v, phase: 'failed', error: errText(error) || 'the grouping job produced no result' }))
-  }
-
-  const watch = (jobId: number) => {
-    stream.current = subscribeJob(jobId, raw => {
-      if (!alive.current) return
-      // `subscribeJob` also relays the generic-job frames (`job_start`, `progress`, `job_end`), which the
-      // chain-run `RunEvent` union does not name
-      const e = raw as unknown as { event: string; done?: number; total?: number | null; message?: string; status?: string; result?: unknown; error?: unknown }
-      if (e.event === 'progress') {
-        setView(v => (v.jobId === jobId ? { ...v, progress: { done: Number(e.done ?? 0), total: e.total ?? null, message: String(e.message ?? '') } } : v))
-      } else if (e.event === 'job_end') {
-        settle(String(e.status ?? 'failed'), e.result, e.error)
-      }
-    }, () => {
-      // the stream dropped: keep the job, watch it by polling instead
-      stream.current?.close(); stream.current = null
-      if (poll.current || !alive.current) return
-      poll.current = window.setInterval(() => {
-        getJob(jobId).then(row => {
-          if (row.status === 'running' || row.status === 'queued') {
-            const p = row.progress as { done?: number; total?: number | null; message?: string } | undefined
-            setView(v => (v.jobId === jobId ? { ...v, progress: { done: Number(p?.done ?? 0), total: p?.total ?? null, message: String(p?.message ?? 'running') } } : v))
-            return
-          }
-          settle(row.status, row.result, row.error)
-        }).catch(err => settle('failed', null, err))
-      }, 2000)
-    })
-  }
-
-  const start = (sig: string, body: { unit: string; basis: string; method: string; params: Record<string, unknown> }, after?: (r: RunResult) => void) => {
-    stop()
-    then.current = after ?? null
-    const mine = ++gen.current
-    setView({ ...IDLE, phase: 'running', sig, progress: { done: 0, total: 4, message: 'starting' } })
-    runLibraryGrouping(body).then(j => {
-      if (!alive.current || mine !== gen.current) { void cancelJob(j.job_id).catch(() => undefined); return }
-      liveJob.current = j.job_id
-      setView(v => ({ ...v, jobId: j.job_id }))
-      watch(j.job_id)
-    }).catch(err => {
-      then.current = null
-      if (!alive.current) return
-      // a 422 with `cheaper` is the cost refusal: nothing started, and there is no cluster script for a grouping
-      const d = err instanceof ApiError && err.status === 422 ? err.detail as LibGroupingRefusal | null : null
-      if (d && typeof d === 'object' && Array.isArray(d.cheaper)) { setView(v => ({ ...v, phase: 'idle', refusal: d, refusalSig: sig, error: null })); return }
-      setView(v => ({ ...v, phase: 'failed', error: err instanceof ApiError ? err.message : String(err) }))
-    })
-  }
-
-  const cancel = () => {
-    const id = view.jobId ?? liveJob.current
-    gen.current++; liveJob.current = null
-    then.current = null
-    stop()
-    setView(v => ({ ...v, phase: 'cancelled' }))
-    if (id != null) void cancelJob(id).catch(() => undefined)
-  }
-  const reset = () => { gen.current++; then.current = null; stop(); setView(IDLE) }
-  const clearRefusal = () => setView(v => ({ ...v, refusal: null, refusalSig: undefined }))
-  /** the two `?state=` deep links: a display state for the screenshot pass, never a result */
-  const force = (v: Partial<JobView>) => setView(x => ({ ...x, ...v, forced: true }))
-  return { view, start, cancel, reset, force, clearRefusal }
-}
 
 /* ================================================================ page ================================================================ */
 export function GroupingPage() {
@@ -388,7 +103,7 @@ function GroupingEditor({ from }: { from: string }) {
   const unitCount = units.find(u => u.unit === d.unit)?.count ?? null
   const basis = editor.data?.bases.find(b => b.kind === d.basis)
   const dist = editor.data?.distributions[d.basis]
-  const extent = useMemo(() => extentOf(dist), [dist])
+  const extent = useMemo(() => binExtent(dist), [dist])
   const invalid = validate(d, extent)
   // w2-f: the registered methods this basis can use (the editor read), and the one the draft runs
   const methods: LibGroupingMethod[] = editor.data?.methods?.[d.basis] ?? []
@@ -417,13 +132,11 @@ function GroupingEditor({ from }: { from: string }) {
    * default in add new grouping"). The newest grouping is often a feature-bin one (g-09 on the real database), which
    * builds no tree, so the panel was not on the page at all. Unless the address names a non-tree basis, the editor
    * seeds from the current grouping when it is Ward on a distance basis, else from the newest one of this unit that is. */
-  const current = basisQ && !TREE_BASES.includes(basisQ) ? currentAny : (treeSource(all, d.unit, currentAny) ?? undefined)
+  const current: Grouping | undefined = basisQ && !DISTANCE_BASES.includes(basisQ) ? currentAny : openingGrouping(all, d.unit, currentAny)
   // the core's own identity for "this is the grouping you already have" — the recipe hash, not a comparison
-  // against the literal settings of `g-07`
-  const currentHash = (current as (Grouping & { recipeHash?: string | null }) | undefined)?.recipeHash ?? null
-  // fixup-an: …unless this run kept a tree the current grouping lacks — "Build the tree" is exactly that re-run
-  const currentTreeKey = (current as (Grouping & { treeKey?: string | null }) | undefined)?.treeKey ?? null
-  const unchanged = !!pv && !!currentHash && currentHash === job.view.result?.recipeHash && !(job.view.result?.tree && !currentTreeKey)
+  // against the literal settings of `g-07` — unless this run kept a tree the current grouping lacks (fixup-an:
+  // "Build the tree" is exactly that re-run)
+  const unchanged = !!pv && !!current?.recipeHash && current.recipeHash === job.view.result?.recipeHash && !(job.view.result?.tree && !current.treeKey)
 
   /* "from g-02" has to mean g-02's parameters. The draft starts on `BASE` because the groupings read has not
      landed when the modal mounts; the moment the current grouping resolves, the draft is seeded FROM IT —
@@ -449,8 +162,7 @@ function GroupingEditor({ from }: { from: string }) {
     if (s !== cutQ) setCutQ(s)
   }, [d.cut, wardDraft, seededFrom]) // eslint-disable-line react-hooks/exhaustive-deps
   /* the tree panel draws the CURRENT grouping's kept tree, when it is a Ward grouping of this unit and the draft is Ward */
-  const currentMethod = (current as (Grouping & { method?: string | null }) | undefined)?.method ?? 'ward'
-  const treeGid = current && current.unit === d.unit && wardDraft && currentMethod === 'ward' && DISTANCE_BASES.includes(current.basis) ? current.id : null
+  const treeGid = current && current.unit === d.unit && wardDraft && isTreeGrouping(current) ? current.id : null
   /* ux-1018: the tree the last regroup job built for the current grouping's settings, drawn in the panel before Apply
    * saves it (Build the tree is that job; its result carries the key the server wrote) */
   const built = job.view.result
@@ -458,7 +170,9 @@ function GroupingEditor({ from }: { from: string }) {
   // fix 1 (critic 12): a refusal describes the settings it refused; once they change it is stale, so it goes
   useEffect(() => { if (job.view.refusal && job.view.refusalSig !== sig) job.clearRefusal() }, [sig, job.view.refusal, job.view.refusalSig]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const close = () => { if (job.view.phase === 'running') job.cancel(); job.reset(); navigate(`library/${from}`) }
+  const tree = useGroupingTree(treeGid, builtKey)
+  // leaving unmounts the editor, and unmount aborts the regroup job (useGroupingJob), so a close is only the navigation
+  const close = () => navigate(`library/${from}`)
 
   // ?state=running | failed — display deep links for the screenshot pass. They carry no numbers.
   useEffect(() => {
@@ -500,6 +214,21 @@ function GroupingEditor({ from }: { from: string }) {
     const nsig = JSON.stringify({ unit: next.unit, basis: next.basis, method, params: paramsFor(next, extent, methodSpec) })
     job.start(nsig, { unit: next.unit, basis: next.basis, method, params: paramsFor(next, extent, methodSpec) })
   }
+
+  /* night-review: the tree is ON by default — a grouping with no kept tree has it built the moment the editor opens on
+   * it (the same regroup *Build the tree* runs: at the grouping's own settings, nothing saved until Apply), once per
+   * editor, only while the draft is untouched and no job has run. Motifs on shape distance only: a sequence-similarity
+   * tree build fails in the core ("tree.tree_key and tree.from_fit disagree", job 727 on the sandbox), so sequences
+   * keep the button. A refused or failed build shows the button. */
+  const [autoBuilt, setAutoBuilt] = useState(false)
+  const treeMissing = !!tree.tree && !tree.tree.tree && tree.tree.canBuild
+  useEffect(() => {
+    if (autoBuilt || !treeMissing || busy) return
+    if (!(d.unit === 'motifs' && d.basis === 'shape-distance' && seededFrom === treeGid && !touched.current && !stateQ
+      && job.view.phase === 'idle' && !job.view.result && !job.view.refusal)) return
+    setAutoBuilt(true)
+    runPreview()
+  }, [autoBuilt, treeMissing, busy, d.unit, d.basis, seededFrom, treeGid, stateQ, job.view.phase, job.view.result, job.view.refusal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Write the grouping the job computed. The server assigns the id, the family counts and the `computed`
    *  stamp; nothing about the saved row is decided here. */
@@ -582,11 +311,8 @@ function GroupingEditor({ from }: { from: string }) {
       {editor.loading && <div className="skeleton" style={{ height: 420 }} />}
       {editor.data && basis && <>
         {treeGid && (
-          <TreePanel gid={treeGid} cut={d.cut} minGroup={d.minMembers} omitSmall={d.omitSmall} nearest={d.nearest}
-            onCut={c => set({ cut: c })} busy={busy} onBuild={() => runPreview()} builtKey={builtKey}
-            // night-review: motifs on shape distance only — a sequence-similarity tree build fails in the core tonight
-            // ("tree.tree_key and tree.from_fit disagree", job 727 on the sandbox), so sequences keep the button
-            autoBuild={d.unit === 'motifs' && d.basis === 'shape-distance' && seededFrom === treeGid && !touched.current && !stateQ && job.view.phase === 'idle' && !job.view.result && !job.view.refusal} />
+          <TreePanel gid={treeGid} read={tree} cut={d.cut} minGroup={d.minMembers} omitSmall={d.omitSmall} nearest={d.nearest}
+            onCut={c => set({ cut: c })} busy={busy} building={autoBuilt && busy} onBuild={() => runPreview()} builtKey={builtKey} />
         )}
         <section className="lib-ge-sec" data-testid="ge-unit">
           <h4>1&nbsp; What to group</h4>
@@ -711,303 +437,10 @@ function GroupingEditor({ from }: { from: string }) {
   )
 }
 
-/* ================================================================ the tree (fixup-an) ================================================================
- * The current grouping's kept Ward tree, drawn with Analyse's dendrogram. The amber line IS the draft's cut: dragging it
- * writes the cut field (and the address), typing the field moves the line. Every move asks the bridge for the families
- * at that cut from the kept tree (`GET /groupings/{id}/cut`) — no job, nothing refitted, nothing written — and draws a
- * card per family (its medoid and a few members). *Compute and apply* is the regroup at that cut, which reuses the tree
- * when the catalogue and the fit settings have not changed. */
-const MAX_TREE_CARDS = 40
-
-function TreePanel({ gid, cut, minGroup, omitSmall, nearest, onCut, onBuild, busy, builtKey, autoBuild = false }: {
-  gid: string; cut: number; minGroup: number; omitSmall: boolean; nearest: number
-  onCut: (c: number) => void; onBuild: () => void; busy: boolean
-  /** ux-1018: the tree the regroup job just built for this grouping's settings — drawn and cut by its key until
-   *  Apply saves it. Build the tree used to run the job and change nothing here, because the panel read only the
-   *  row, which records no tree until a save (the researcher, 2026-10-18: "build the tree not working"). */
-  builtKey: string | null
-  /** night-review: the tree is ON by default — a grouping with no kept tree has it built the moment the editor opens
-   *  on it (the same regroup *Build the tree* runs: at the grouping's own settings, nothing saved until Apply), once
-   *  per editor, and only while the draft is untouched and no job has run. A refused or failed build shows the button. */
-  autoBuild?: boolean
-}) {
-  const [tree, setTree] = useState<LibGroupingTree | null>(null)
-  const builtOnce = useRef(false)
-  const [treeErr, setTreeErr] = useState<string | null>(null)
-  useEffect(() => {
-    let alive = true
-    setTree(null); setTreeErr(null)
-    getLibraryGroupingTree(gid, builtKey).then(t => { if (alive) setTree(t) })
-      .catch(e => { if (alive) { console.error('the grouping tree did not load', e); setTreeErr(errText(e)) } })
-    return () => { alive = false }
-  }, [gid, builtKey])
-  const has = !!tree?.tree
-  const missing = !!tree && !tree.tree && tree.canBuild
-  useEffect(() => {
-    if (!missing || !autoBuild || busy || builtOnce.current) return
-    builtOnce.current = true
-    onBuild()
-  }, [missing, autoBuild, busy]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [pv, setPv] = useState<LibCutPreview | null>(null)
-  const [pvErr, setPvErr] = useState<string | null>(null)
-  /* fix round: at most one cut request in flight. A move while one is out waits as `pending` (a newer move replaces
-   * it), and is sent when the one in flight lands — so a drag costs the server two or three cuts, not one per pixel */
-  const mounted = useRef(true)
-  useEffect(() => () => { mounted.current = false }, [])
-  const inFlight = useRef(false)
-  const pending = useRef<(() => void) | null>(null)
-  useEffect(() => {
-    if (!has || !(cut > 0)) return
-    const go = () => {
-      inFlight.current = true
-      getLibraryGroupingCut(gid, cut, { min_group: omitSmall ? minGroup : 1, omit_d: nearest, samples: 5, ...(builtKey ? { key: builtKey } : {}) })
-        .then(p => { if (mounted.current) { setPv(p); setPvErr(null) } })
-        .catch(e => { console.error('the cut preview failed', e); if (mounted.current) setPvErr(errText(e)) })
-        .finally(() => { inFlight.current = false; const next = pending.current; pending.current = null; if (next) next() })
-    }
-    const h = window.setTimeout(() => { if (inFlight.current) pending.current = go; else go() }, 180)
-    return () => window.clearTimeout(h)
-  }, [gid, has, cut, minGroup, omitSmall, nearest, builtKey])
-
-  const head = (
-    <h4 className="row" style={{ gap: 6 }}>0&nbsp; The tree behind {gid}
-      <InfoTip title="what the tree is">The two most alike shapes join first, then the next pair, until everything is one trunk; the height of a join is how different the two sides were. Cutting the tree at a height gives the families: a lower cut gives more, smaller families, a higher cut fewer, bigger ones. The tree was kept when {gid} was computed; dragging the line reads it again and re-runs nothing. Compute and apply then groups the catalogue at this cut (reusing the kept tree when the catalogue and settings have not changed) and saves it as a new grouping — {gid} stays saved, and hand edits are re-applied as on every regroup.</InfoTip>
-    </h4>
-  )
-  if (treeErr) return <section className="lib-ge-sec" data-testid="ge-tree">{head}<Callout tone="red" title="The tree did not load" testid="tree-load-failed">{treeErr}</Callout></section>
-  if (!tree) return <section className="lib-ge-sec" data-testid="ge-tree">{head}<span className="mono small muted" data-testid="tree-loading">reading the tree…</span></section>
-  if (!tree.tree && builtOnce.current && busy) {
-    return (
-      <section className="lib-ge-sec" data-testid="ge-tree">{head}
-        <span className="mono small" data-testid="tree-building"><Icon name="clock" size={11} style={{ verticalAlign: -1 }} /> building the tree at {gid}'s settings. The regroup saves nothing; the tree is drawn here when it lands, and Apply saves it with a new grouping.</span>
-      </section>
-    )
-  }
-  if (!tree.tree) {
-    return (
-      <section className="lib-ge-sec" data-testid="ge-tree">{head}
-        <Callout tone="amber" title="No tree to draw" testid="tree-missing" action={tree.canBuild
-          ? <Button variant="primary" size="sm" icon="play" testid="tree-build" disabled={busy} disabledReason="a regroup is running" onClick={onBuild}>Build the tree</Button> : undefined}>
-          {tree.reason}{tree.canBuild ? ' — it computes the grouping again at the settings below and keeps its tree; Apply saves it as a new grouping.' : ''}
-        </Callout>
-      </section>
-    )
-  }
-  const d = tree.tree.dendrogram
-  const k = kAt(d.heights, cut)
-  return (
-    <section className="lib-ge-sec" data-testid="ge-tree" data-key={tree.tree.key} data-saved={tree.saved === false ? '0' : '1'}>
-      {head}
-      {tree.saved === false && (
-        <span className="mono small" style={{ color: 'var(--blue-600)' }} data-testid="tree-unsaved">
-          <Icon name="info" size={11} style={{ verticalAlign: -1 }} /> built by the regroup just run and kept on disk — not saved to {gid}. Apply saves it with the new grouping; {gid} stays as it is.
-        </span>
-      )}
-      <span className="lib-cap row" style={{ gap: 4 }}>drag the amber line to cut <InfoTip title="Cutting the tree">Drag the amber line to cut the tree somewhere else; the families below follow at once, read from the kept tree.</InfoTip></span>
-      <Dendrogram t={{ dendrogram: d }} k={k} cutHeight={cut} leafWord="members" heightScale="sqrt"
-        cutLabel={`cut ${fmtCut(cut)} · ${k} branch${k === 1 ? '' : 'es'} before the size and distance rules · drag`}
-        onK={kk => onCut(+heightFor(d.heights, d.max_height, kk).toFixed(4))} />
-      {pvErr && <Callout tone="red" title={`The families at cut ${cut} did not load`} testid="tree-cut-failed">{pvErr}</Callout>}
-      {pv && (
-        <div className="stack" style={{ gap: 6, opacity: pv.cut === cut ? 1 : 0.6 }} data-testid="tree-cut-preview" data-families={pv.nFamilies} data-cut={pv.cut}>
-          <span className="mono small">
-            cut {fmtCut(pv.cut)} · <b data-testid="tree-cut-families">{fmtInt(pv.nFamilies)}</b> famil{pv.nFamilies === 1 ? 'y' : 'ies'} · {fmtInt(pv.nAssigned)} members · <span style={{ color: '#c27400' }}>{fmtInt(pv.nOmitted)} omitted</span>
-            {pv.smallFamilies.count > 0 && <> · {fmtInt(pv.smallFamilies.count)} group{pv.smallFamilies.count === 1 ? '' : 's'} under {pv.smallFamilies.minGroup} dissolved ({fmtInt(pv.smallFamilies.members)} members)</>}
-            {' · '}<span data-testid="tree-cut-moved">{pv.change.sameFamilies ? `the same families as ${gid}` : `${fmtInt(pv.change.moved)} move family against ${gid} (${pv.change.currentFamilies} families) · ${fmtInt(pv.change.newlyOmitted)} newly omitted · ${fmtInt(pv.change.newlyAssigned)} newly in a family`}</span>
-            <InfoTip title="how moves are counted">{pv.change.rule}</InfoTip>
-          </span>
-          {Object.keys(pv.omittedByReason).length > 0 && <span className="mono small" style={{ color: '#c27400' }}>{Object.entries(pv.omittedByReason).map(([r, n]) => `${fmtInt(n)} ${OMIT_REASON_LABEL[r] ?? r}`).join(' · ')}</span>}
-          <span className="lib-cap">a card per family: its medoid (brown, the most typical member) and a few more <InfoTip title="which members">{pv.sampleRule}</InfoTip>{pv.families.length > MAX_TREE_CARDS ? ` · the ${MAX_TREE_CARDS} largest of ${pv.families.length} shown` : ''}</span>
-          <div className="sh-cards" data-testid="tree-cut-cards" data-n={Math.min(pv.families.length, MAX_TREE_CARDS)}>
-            {[...pv.families].sort((a, b) => b.size - a.size).slice(0, MAX_TREE_CARDS).map(f => (
-              <div key={f.label} className="sh-card-one" style={{ cursor: 'default' }} data-testid={`tree-cut-card-${f.label}`}>
-                <div className="cap"><b>{f.label}</b> · {fmtInt(f.size)} members</div>
-                {f.samples[0]?.trace.length ? <Spark v={f.samples[0].trace} w={150} h={46} colour="#b35900" /> : <div className="lib-cap">medoid: {f.samples[0]?.missing ?? 'no trace (its recording declares no unit, or its channel is not on disk)'}</div>}
-                <div className="mini-row">{f.samples.slice(1).map(s => s.trace.length ? <Spark key={s.ref} v={s.trace} w={34} h={22} colour="var(--text)" /> : <span key={s.ref} className="lib-cap" title={s.missing ?? 'no trace'}>·</span>)}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {!pv && !pvErr && <span className="mono small muted" data-testid="tree-cut-loading">reading the families at cut {fmtCut(cut)}…</span>}
-    </section>
-  )
-}
-const fmtCut = (c: number) => (Math.abs(c) >= 10 ? c.toFixed(1) : c.toFixed(3).replace(/0+$/, '').replace(/\.$/, ''))
-
 const fmtSeconds = (s: number): string => (s < 90 ? `${Math.max(1, Math.round(s))} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`)
 
 /** The core's own recompute estimate (`engine._recompute_cost`), rendered. Nothing is recomputed here. */
 function recomputeLabel(r: RunRecompute): string {
   const text = r.seconds < 90 ? `~${Math.max(1, Math.round(r.seconds))} s` : `~${r.minutes.toFixed(r.minutes < 10 ? 1 : 0)} min`
   return `${text}, ${r.where}`
-}
-
-/* ================================================================ parameters ================================================================ */
-function Params({ d, set, basis, dist, extent, clusterings, invalid, methods, cutMax = 1 }: {
-  d: Draft; set: (p: Partial<Draft>) => void; basis: BasisKind; dist?: FeatureBin[]; extent: [number, number] | null
-  clusterings: { value: string; label: string; scope: string }[]; invalid: { field: string; message: string } | null
-  methods: LibGroupingMethod[]
-  /** fixup-an: the slider's top — the kept tree's highest merge when there is one (Ward heights can pass 1) */
-  cutMax?: number
-}) {
-  const axis = FEATURE_AXIS[basis]
-  const err = (field: string) => invalid?.field === field ? <span className="k-field-error" role="alert" data-testid="param-error"><Icon name="alert-circle" size={11} />{invalid.message}</span> : null
-
-  if (METHOD_FOR[basis] === 'feature_bins') {
-    const [lo, hi] = d.range ?? extent ?? [0, 1]
-    const edges = d.bins === 'fixed' ? parseEdges(d.edges).edges
-      : d.bins === 'log' && lo > 0 ? Array.from({ length: d.nBins + 1 }, (_, i) => lo * Math.pow(hi / lo, i / d.nBins))
-        : dist && dist.length ? quantileEdges(dist, d.nBins) : []
-    return (
-      <div className="lib-params">
-        <div className="stack" style={{ gap: 6 }}>
-          <span className="lib-key">feature</span>
-          {/* one basis, one measurement: `bases.py` computes exactly one number per feature basis, so there is
-              no feature to choose and the old two-option select was a choice that did not exist */}
-          <div className="mono small">{axis?.label ?? basis}{axis?.unit ? ` · ${axis.unit}` : ''}</div>
-          <div className="lib-param-row"><span>bins</span><Seg size="sm" ariaLabel="bins" testid="param-bins" value={d.bins} onChange={v => set({ bins: v })} options={[{ value: 'quantiles', label: 'quantiles' }, { value: 'log', label: 'log-spaced' }, { value: 'fixed', label: 'fixed edges' }]} /></div>
-          {d.bins !== 'fixed' && <div className="lib-param-row"><span>number of bins</span><NumberField size="sm" width={64} value={d.nBins} integer min={2} max={20} showError={false} testid="param-nbins" ariaLabel="number of bins" onValid={n => set({ nBins: n })} onChange={(raw, reason) => { if (reason) set({ nBins: Number(raw) || 0 }) }} /></div>}
-          {err('number of bins')}
-          {d.bins !== 'fixed' && <div className="lib-param-row"><span>range</span><span className="row" style={{ gap: 4 }}>
-            <NumberField size="sm" width={78} value={lo} showError={false} testid="param-lo" ariaLabel="range lower" onValid={n => set({ range: [n, hi] })} />–
-            <NumberField size="sm" width={78} value={hi} unit={axis?.unit} showError={false} testid="param-hi" ariaLabel="range upper" onValid={n => set({ range: [lo, n] })} />
-          </span></div>}
-          {err('range')}
-          {d.bins === 'fixed' && <><div className="lib-param-row"><span>edges</span><TextField size="sm" value={d.edges} onChange={v => set({ edges: v })} invalid={invalid?.field === 'edges'} testid="param-edges" width={190} suffix={axis?.unit} /></div>{err('edges')}</>}
-          {d.bins === 'quantiles' && <span className="lib-cap row" style={{ gap: 4 }}>quantile edges <InfoTip title="Quantile bins">edges at the quantiles; every member falls in a bin</InfoTip></span>}
-          {extent && <span className="lib-meta">measured range {extent[0].toPrecision(3)} – {extent[1].toPrecision(3)} {axis?.unit}</span>}
-        </div>
-        {dist && dist.length
-          ? <FeatureHistogram bins={dist} edges={invalid ? [] : edges} scale={axis?.scale ?? 'linear'} unit={axis?.unit ?? ''} lo={lo} hi={hi}
-            title={`members per ${axis?.label ?? basis} · ${axis?.scale ?? 'linear'} axis · sampled from the catalogue`} />
-          : <NoDistribution what={basis} />}
-      </div>
-    )
-  }
-
-  if (DISTANCE_BASES.includes(basis)) {
-    const method = methodOf(d)
-    const spec = methods.find(m => m.name === method)
-    // w2-f: the registered methods for this basis, from the editor read (one option, Ward, when the read lists none)
-    const options = (methods.length ? methods : [{ name: 'ward', label: 'Ward linkage' } as LibGroupingMethod]).map(m => ({ value: m.name, label: m.label }))
-    const methodRow = <div className="lib-param-row"><span>method</span><SelectField size="sm" value={method} onChange={v => set({ method: v })} options={options} width={170} testid="param-method" ariaLabel="grouping method" /></div>
-    if (method !== 'ward') {
-      return (
-        <div className="lib-params">
-          <div className="stack" style={{ gap: 6 }}>
-            {methodRow}
-            {spec?.description && <About label="about this method" testid="method-about"><span data-testid="method-description">{spec.description}</span></About>}
-            {spec ? <MethodParams spec={spec} values={d.mparams[method] ?? {}} onChange={(k, v) => set({ mparams: { ...d.mparams, [method]: { ...(d.mparams[method] ?? {}), [k]: v } } })} />
-              : <span className="lib-cap">the editor read carries no parameters for {method}</span>}
-            <span className="row small" style={{ gap: 6 }}>how many families<InfoTip title="How many families">How many families this gives, and whether each beats noise of the same colour, is measured by the preview.</InfoTip></span>
-          </div>
-          <div className="k-card grey" style={{ padding: 10 }} data-testid="no-tree-line" data-method={method}>
-            <span className="lib-cap">{spec?.tree ? 'this method builds a tree, but its merge heights are not sampled for the editor yet' : (NO_TREE_WHY[method] ?? `${spec?.label ?? method} builds no tree, so there is no merge-height histogram to cut`)}</span>
-          </div>
-        </div>
-      )
-    }
-    return (
-      <div className="lib-params">
-        <div className="stack" style={{ gap: 6 }}>
-          {methodRow}
-          <div className="lib-param-row"><span>cut <InfoTip title="How many families">How many families the cut gives is measured by the preview, not guessed here.</InfoTip></span><Slider value={Math.min(d.cut, cutMax)} min={0.1} max={cutMax} step={0.01} onChange={v => set({ cut: +v.toFixed(2) })} format={v => v.toFixed(2)} width={190} testid="param-cut" ariaLabel="cut" /></div>
-          <div className="lib-param-row"><span>nearest family past</span><NumberField size="sm" width={64} value={d.nearest} min={0.1} max={1} step={0.01} testid="param-nearest" ariaLabel="nearest family distance" onValid={n => set({ nearest: n })} /></div>
-          {err('cut')}
-        </div>
-        {dist && dist.length
-          ? <FeatureHistogram bins={dist} edges={[]} scale="linear" unit="" lo={0} hi={1} cut={d.cut}
-            title={basis === 'shape-distance' ? 'Ward merge heights · sampled from the catalogue' : 'pairwise sequence similarity · sampled from the catalogue'} />
-          : <NoDistribution what={basis} />}
-      </div>
-    )
-  }
-
-  return (
-    <div className="lib-params">
-      <div className="stack" style={{ gap: 6 }}>
-        {basis === 'tag' && <>
-          <div className="lib-param-row"><span>several tags <InfoTip title="Untagged members">A member with no tag is omitted and flagged; how many that is, is what the preview measures.</InfoTip></span><Seg size="sm" value={d.tagMode} onChange={v => set({ tagMode: v })} testid="param-tag-mode" options={[{ value: 'first', label: 'first tag' }, { value: 'each', label: 'one group per tag' }]} /></div>
-        </>}
-        {basis === 'provenance' && <div className="lib-param-row"><span>by</span><Seg size="sm" value={d.provBy} onChange={v => set({ provBy: v })} testid="param-prov" options={[{ value: 'recording', label: 'recording' }, { value: 'run', label: 'run' }, { value: 'spike_train', label: 'spike train' }]} /></div>}
-        {basis === 'custom' && (clusterings.length
-          ? <>
-            <span className="lib-key">clustering</span>
-            <SelectField value={d.clustering} onChange={v => set({ clustering: v })} options={clusterings.map(c => ({ value: c.value, label: c.label }))} testid="param-clustering" />
-            <Callout tone="grey" icon="info">{clusterings.find(c => c.value === d.clustering)?.scope ?? 'registered clustering'}</Callout>
-          </>
-          : <Callout tone="amber" icon="info" testid="no-clusterings">No clustering is registered. Export one from Analyse and register it before grouping by it.</Callout>)}
-      </div>
-      <div className="k-card grey" style={{ padding: 10 }} data-testid="param-bars">
-        {/* polarity, tag, provenance and custom used to draw invented bar charts here (`vals: [388, 702, 312]`).
-            `GET /grouping-editor` returns distributions for five bases and this is not one of them. */}
-        <NoDistribution what={basis} />
-      </div>
-    </div>
-  )
-}
-
-/** w2-f: a registered method's own parameters, rendered from its spec (type, default, label, help). Numbers are
- *  number fields, a known string choice is a segmented control, anything else a text field. */
-function MethodParams({ spec, values, onChange }: { spec: LibGroupingMethod; values: Record<string, unknown>; onChange: (k: string, v: unknown) => void }) {
-  return (
-    <>
-      {Object.entries(spec.params).filter(([k]) => !SHARED_PARAMS.has(k)).map(([k, ps]) => {
-        const v = k in values ? values[k] : ps.default
-        const tip = <InfoTip title={ps.label}>{ps.help}</InfoTip>
-        if (ps.type === 'int' || ps.type === 'float') {
-          return <div key={k} className="lib-param-row"><span>{ps.label} {tip}</span>
-            <NumberField size="sm" width={78} value={typeof v === 'number' ? v : Number(v ?? 0)} integer={ps.type === 'int'} min={0} step={ps.type === 'int' ? 1 : 0.01} showError={false}
-              testid={`param-${k}`} ariaLabel={ps.label} onValid={n => onChange(k, n)} /></div>
-        }
-        const choices = STR_CHOICES[k]
-        if (choices) {
-          return <div key={k} className="lib-param-row"><span>{ps.label} {tip}</span>
-            <Seg size="sm" value={String(v)} onChange={x => onChange(k, x)} testid={`param-${k}`} ariaLabel={ps.label} options={choices.map(c => ({ value: c, label: c }))} /></div>
-        }
-        return <div key={k} className="lib-param-row"><span>{ps.label} {tip}</span><TextField size="sm" value={String(v ?? '')} onChange={x => onChange(k, x)} testid={`param-${k}`} width={120} /></div>
-      })}
-    </>
-  )
-}
-
-function NoDistribution({ what }: { what: string }) {
-  return <div className="stack" style={{ gap: 4, padding: 6 }}><span className="lib-cap">no distribution for {what} <InfoTip title="No distribution">The editor read carries distributions for amplitude, timescale, frequency content and the two distance bases; the group sizes for this basis are what the preview measures.</InfoTip></span></div>
-}
-
-function quantileEdges(dist: FeatureBin[], n: number): number[] {
-  if (!dist.length || n < 1) return []
-  const total = dist.reduce((s, b) => s + b.n, 0), out = [dist[0].lo]
-  let acc = 0, k = 1
-  for (const b of dist) { acc += b.n; while (k < n && total > 0 && acc >= (total * k) / n) { out.push(b.hi); k++ } }
-  out.push(dist[dist.length - 1].hi)
-  return out
-}
-
-/** Distribution with bin edges (or a cut) drawn on it; log or linear x. Bars outside [lo, hi] are amber.
- *  Every bar is a live count from the editor read — nothing here is generated. */
-function FeatureHistogram({ bins, edges, scale, unit, lo, hi, cut, title }: { bins: FeatureBin[]; edges: number[]; scale: 'log' | 'linear'; unit: string; lo: number; hi: number; cut?: number; title: string }) {
-  const W = 430, H = 112, padL = 8, padR = 8, padT = 22, padB = 18
-  if (!bins.length) return <div className="k-card grey" style={{ padding: 10 }}><span className="lib-cap">no distribution</span></div>
-  const x0 = bins[0].lo, x1 = bins[bins.length - 1].hi
-  const logOk = scale === 'log' && x0 > 0 && x1 > x0
-  const tx = (v: number) => padL + (logOk ? (Math.log(Math.max(v, x0)) - Math.log(x0)) / (Math.log(x1) - Math.log(x0)) : (v - x0) / (x1 - x0 || 1)) * (W - padL - padR)
-  const max = Math.max(...bins.map(b => b.n), 1)
-  const ty = (n: number) => H - padB - (n / max) * (H - padT - padB)
-  const ticks = logOk ? [lo, Math.sqrt(Math.max(lo, x0) * hi), hi].map(v => +v.toPrecision(2)) : [x0, (x0 + x1) / 2, x1].map(v => +v.toPrecision(3))
-  const outside = (b: FeatureBin) => cut == null && (b.hi > hi * 1.0001 || b.lo < lo * 0.9999)
-  return (
-    <div className="k-card grey" style={{ padding: '6px 8px' }} data-testid="feature-histogram">
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={title} style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 9 }}>
-        <text x={padL} y={11} fill="var(--muted)">{title}</text>
-        {bins.map((b, i) => <rect key={i} x={tx(b.lo) + 0.8} width={Math.max(1, tx(b.hi) - tx(b.lo) - 1.6)} y={ty(b.n)} height={H - padB - ty(b.n)} fill={outside(b) ? '#f6c27a' : '#94c2ff'}><title>{`${b.lo.toPrecision(3)}–${b.hi.toPrecision(3)} ${unit} · ${b.n} members`}</title></rect>)}
-        <line x1={padL} x2={W - padR} y1={H - padB} y2={H - padB} stroke="var(--border-strong)" />
-        {edges.map((e, i) => <line key={i} x1={tx(e)} x2={tx(e)} y1={padT - 4} y2={H - padB} stroke={i === 0 || i === edges.length - 1 ? 'var(--blue)' : '#1f2937'} strokeWidth={1} />)}
-        {cut != null && <g><line x1={tx(cut)} x2={tx(cut)} y1={padT - 6} y2={H - padB} stroke="var(--amber)" strokeWidth={1.5} strokeDasharray="4 3" /><text x={tx(cut) + 4} y={padT} fill="#c27400">cut {cut.toFixed(2)}</text></g>}
-        {cut == null && bins.some(outside) && <text x={W - padR} y={padT} textAnchor="end" fill="#c27400">outside range</text>}
-        {ticks.map((t, i) => <text key={i} x={tx(Math.min(x1, Math.max(x0, t)))} y={H - 5} textAnchor={i === 0 ? 'start' : i === ticks.length - 1 ? 'end' : 'middle'} fill="var(--muted)">{t}{i === ticks.length - 1 && unit ? ` ${unit}` : ''}</text>)}
-      </svg>
-    </div>
-  )
 }

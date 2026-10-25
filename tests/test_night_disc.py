@@ -151,11 +151,12 @@ def test_the_deep_link_still_writes_its_channels():
 # ── item 4: the map's top scrollbar ─────────────────────────────────────────
 
 def test_level_3_has_a_top_scrollbar_synced_with_the_table():
-    page = _src("discovery", "MapPage.tsx")
-    lvl = _between(page, "function DatasetsLevel", "/* ------------------------------------------------------------------ level 2")
+    # tq-mappage (2026-10-25): the map's levels live in discovery/map/, one module each
+    lvl = _src("discovery", "map", "DatasetsLevel.tsx")
+    lvl = lvl[lvl.index("function DatasetsLevel"):]
     assert "<TopScrollbar" in lvl
     assert lvl.index("<TopScrollbar") < lvl.index('data-testid="map-wrap"'), "the bar sits above the table"
-    bar = _between(page, "function TopScrollbar", "\n}\n")
+    bar = _between(_src("discovery", "map", "TopScrollbar.tsx"), "function TopScrollbar", "\n}\n")
     assert 'data-testid="map-top-scroll"' in bar
     assert "scrollLeft" in bar and "addEventListener('scroll'" in bar and "ResizeObserver" in bar
 

@@ -8,34 +8,28 @@ import { useAbortableSourced, useSourced } from '../api/seam'
 import { useSize } from '../charts/useSize'
 import { useToast } from '../shell/Toast'
 import { plotPx } from './axis'
-import { VOCABULARY, carryOf, clearItemCacheExcept, getItem, itemHeld, peekItem, prefetchItemThen, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type CarryFields, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
+import { VOCABULARY, getItem, invalidateAfterCarry, itemHeld, peekItem, prefetchItemThen, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type CarryFields, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
-import { goUnit, indexOf, isJudged, judged, judgedRecord, nextUnjudgedAfter, queueHoldsAny, relTime, step, units } from './queue'
+import { goUnit, indexOf, isJudged, judged, judgedRecord, nextUnjudgedAfter, relTime, step, units } from './queue'
+import { rowJudged } from './judged'
 import { prefetchIds } from './prefetch'
+import { createCursor, land } from './cursor'
 import {
   AnnotateCard, ArtifactPill, ContextCard, EvidenceRail, NearestFamiliesCard, Pill, PromotionPanel, ShapeCard, VerdictCard, editInExplore, statusDot, statusText, useNow,
 } from './parts'
 import { Loading, NotFound, previousLines } from './common'
 import { SuspectedArtifactCard } from './SuspectedArtifact'
 import {
-  VERDICT_LABEL, amendWrite, applyWrite, bumpReviewVersion, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, writesInFlight, getWriteError, key, lastLive, nextRedo,
+  VERDICT_LABEL, amendWrite, applyWrite, bumpReviewVersion, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive,
   patchRecord, rawRecord, releaseExemplar, resend, useAutoAdvance, useDrafts, usePad, useRecords, useReviewVersion, useStack, useWriteError, type Draft, type VerdictRecord,
 } from './store'
-
-/** night-review: how long the verdict flash shows before auto-advance moves on — counted from the bridge's accept, so
- *  a few frames, not the 350 ms it was (the researcher: "no noticeable lag between items"). The "previous" line
- *  under the verdict buttons names the write that landed. */
-const ADVANCE_MS = 60
-/** night-a: an item not yet held is read once it has been on screen this long, so stepping fast through a 10 k queue
- *  sends no read for the items passed (40 presses left the bridge 25-49 s of item reads behind) */
-const STEP_SETTLE_MS = 150
 
 export function Inspector({ data, itemId }: { data: QueueData; itemId: string }) {
   // review-carry: a detection that is one of an item's overlap set opens that item (a link by detection id from
   // Discovery or Explore names whichever detection it was)
   const row = data.rows.find(r => r.id === itemId)
-    ?? data.rows.find(r => (carryOf(r).members ?? []).some(m => String(m) === itemId))
+    ?? data.rows.find(r => (r.carry.members ?? []).some(m => String(m) === itemId))
   const [corrected] = useQueryState<string>('corrected', '')
   if (!row) return corrected ? <CorrectedItem data={data} itemId={itemId} /> : <NotFound data={data} what={itemId} />
   return <InspectorItem data={data} row={row} />
@@ -52,7 +46,7 @@ function CorrectedItem({ data, itemId }: { data: QueueData; itemId: string }) {
   if (read.loading) return <Loading />
   const entry = read.data?.entry
   if (!entry) return <NotFound data={data} what={itemId} />
-  const row: QueueRow = { thumb: [], family: '', judged: false, ...entry }
+  const row: QueueRow = { thumb: [], family: '', ...entry, judged: rowJudged(entry), carry: read.data!.carry }
   return <InspectorItem data={data} row={row} />
 }
 
@@ -67,13 +61,23 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   // exactly the window drawn. Nothing is fetched until the column has a width (one frame).
   const [measureRef, column] = useSize<HTMLDivElement>()
   const px = plotPx(column.width, window.devicePixelRatio || 1)
+  // tq-review: one landing per item (`cursor.ts`) — the settle for an item not held yet, the read, then the window a
+  // key press can go to next (AR, night-review: the next five unjudged items, the very next unit and the previous one,
+  // `prefetch.ts`), read one at a time nearest first at the width and padding this card asks for. Moving on aborts it.
   const det = useAbortableSourced(signal => {
     if (!px) return Promise.resolve({ data: null, source: 'live' as const })
     const opts = { px, padS: +pad }
-    // night-review: an item already read OR being read (the window below) joins its read at once, with no settle
-    if (peekItem(q, id, opts) || itemHeld(q, id, opts)) return getItem(q, id, opts)
-    return new Promise<void>(res => window.setTimeout(res, STEP_SETTLE_MS))
-      .then(() => signal.aborted ? Promise.reject(new DOMException('superseded', 'AbortError')) : getItem(q, id, opts))
+    return land(id, signal, {
+      held: i => itemHeld(q, i, opts),
+      read: i => getItem(q, i, opts),
+      warm: i => prefetchItemThen(q, i, opts),
+      window: got => {
+        if (!got.data) return []
+        const list = units(data)
+        const recs = getRecords()
+        return prefetchIds(list, indexOf(list, { kind: 'item', id }), i => isJudged(data, recs, list[i]))
+      },
+    })
   }, [q, id, version, px, pad])
   const records = useRecords()
   const stack = useStack()
@@ -89,42 +93,18 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const rails = useRails()
   const now = useNow(1000)
   const confirmRef = useRef<(() => void) | null>(null)
-  const timers = useRef<number[]>([])
-  useEffect(() => () => { timers.current.forEach(t => window.clearTimeout(t)) }, [])
-  // night-a: a delayed advance belongs to the item it was set on. I then two quick arrows landed on the item after
-  // the judged one: its timer (set only after the POST came back) fired after the researcher had moved on.
-  const onItem = useRef(id)
-  onItem.current = id
-  useEffect(() => { timers.current.forEach(t => window.clearTimeout(t)); timers.current = []; setFlash(null) }, [id])
+  // night-a: a delayed advance belongs to the item it was set on (I then two quick arrows landed on the item after the
+  // judged one). The cursor knows where the researcher is; moving on drops the pending advance and the flash, and the
+  // refusal card belongs to the item it was raised on (a new failure re-raises it)
+  const [cursor] = useState(createCursor)
+  useEffect(() => cursor.cancel, [cursor])
+  useEffect(() => { cursor.moveTo(id); setFlash(null); setOverlay(''); clearWriteError() }, [cursor, id])
   useEffect(() => { if (padQ === '30' || padQ === '120' || padQ === '300') setPad(padQ) }, [padQ, setPad])
-  // the refusal card belongs to the item it was raised on: moving on clears it, a new failure re-raises it
-  useEffect(() => { setOverlay(''); clearWriteError() }, [id])
 
-  // AR: a step paints from the item cache (prefetched below) in the same frame, before the read resolves; the
-  // read itself is then answered from the same cache entry
+  // AR: a step paints from the item cache (prefetched by the landing) in the same frame, before the read resolves;
+  // the read itself is then answered from the same cache entry
   const peeked = px ? peekItem(q, id, { px, padS: +pad }) : null
   const d = (det.data && det.data.entry.id === id ? det.data : null) ?? (peeked && peeked.entry.id === id ? peeked : null)
-  // AR: the moment this item is on screen, read the ones a key press can go to next, at the width and padding this
-  // card asks for, so the step is a cache hit. night-review: the window is the next five unjudged items (a run of
-  // verdicts), the very next unit (an arrow) and the previous one, read ONE AT A TIME nearest first — the next item
-  // is in hand first, and the bridge never has the whole window in flight at once. Still only from an item the
-  // researcher stopped on (STEP_SETTLE_MS), and the chain stops the moment they move: an item passed by fast
-  // stepping is never read.
-  useEffect(() => {
-    if (!d || !px) return
-    const opts = { px, padS: +pad }
-    let live = true
-    const t = window.setTimeout(async () => {
-      const list = units(data)
-      const recs = getRecords()
-      for (const pid of prefetchIds(list, indexOf(list, { kind: 'item', id }), i => isJudged(data, recs, list[i]))) {
-        if (!live) return
-        await prefetchItemThen(q, pid, opts)
-      }
-    }, STEP_SETTLE_MS)
-    return () => { live = false; window.clearTimeout(t) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d?.entry.id, px, pad, q])
   const rec = effective(records, row)
   const jrec = judgedRecord(records, row)      // night-a: what the database holds here (a prior is shown, not given)
   const k = key(q, id)
@@ -138,7 +118,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   // verdict came from — as the bridge serves them on the row (and on the detail, once read)
   // night-review fix round (F1): the ROW (re-read on every queue open) wins over the cached detail — a carry from
   // another queue no longer empties the item cache, so a detail read before it can lack the `carriedFrom` the row has
-  const carry: CarryFields = { ...carryOf(d?.entry), ...carryOf(row) }
+  const carry: CarryFields = { ...d?.carry, ...row.carry }
   const members = carry.members ?? []
   // R3: the class is stored on a detection's adjudication row; elsewhere it stays a session label
   const storesClass = queue.writes === 'adjudications'
@@ -146,7 +126,6 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const say = (text: string) => toast.push({ text })
   /** Loud, and never a blank: the bridge's own refusal text, beside the red card the render puts up. */
   const refused = () => { const f = getWriteError(); toast.push({ kind: 'error', text: `not written · ${f?.label ?? 'write'} · ${f?.message ?? 'the bridge refused it'}` }) }
-  const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)) }
   const advance = () => goUnit(q, nextUnjudgedAfter(data, getRecords(), unit))
 
   const setDraft = (next: Draft) => {
@@ -184,17 +163,16 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     if (!w) { refused(); return null }
     if (carried > 0) {
       // a carried row can judge other items of this queue (other runs' detections in it): re-read the rows — only then
-      // (night-review). A carry that reached no row of this queue changes none of its rows; the counts are re-read anyway.
-      // When the bridge names no ids (an older bridge), re-read as before.
-      if (!carriedIds.length || queueHoldsAny(data, carriedIds)) bumpReviewVersion()
-      // F1: the carried detections may be rows of OTHER queues; their cached details predate the carry
-      else clearItemCacheExcept(q)
+      // (night-review); the caches the carry can have staled are decided beside them (F1)
+      if (invalidateAfterCarry(data, carriedIds)) bumpReviewVersion()
       say(`${VERDICT_LABEL[v]} · written${members.length > 1 ? ` to the ${members.length} detections of this event` : ''} · carried to ${carried} other detection${carried === 1 ? '' : 's'} of the same event`)
     }
     // P21: the seed verdict itself creates the Library exemplar (the bridge wrote it); the panel only chooses its family
     if (v === 'seed') return next
-    if (opts.flash !== false && onItem.current === id) { setFlash(v); later(() => setFlash(null), ADVANCE_MS) }
-    if (opts.advance && auto) later(() => { if (onItem.current === id) advance() }, ADVANCE_MS)
+    // night-review: the flash, then the advance, one frame after the bridge's accept — and only if the researcher is
+    // still on this item now that the write is back (the cursor drops it if they move on before it fires)
+    const flashes = opts.flash !== false, advances = opts.advance && auto
+    if ((flashes || advances) && cursor.after(id, () => { setFlash(null); if (advances) advance() }) && flashes) setFlash(v)
     return next
   }
 
@@ -202,9 +180,9 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     if (promoted) return say('confirm or undo the promotion first (Enter / Ctrl Z)')
     if (binary && (v === 'seed' || v === 'artifact' || v === 'unsure')) return say('this queue takes binary verdicts and classes')
     // fixup-AD: a suspected-artifact queue asks "artifact, or what is it really?" — the four words its queue names
-    if ((queue.source as string) === 'suspected-artifact' && v === 'seed') return say('this queue takes artifact, interesting, not interesting or unsure — promote a seed from Explore or a detection queue')
+    if (queue.source === 'suspected-artifact' && v === 'seed') return say('this queue takes artifact, interesting, not interesting or unsure — promote a seed from Explore or a detection queue')
     // fixup-FQ: a Library family queue's member is already in the Library — the question is what it is, not whether to add it
-    if ((queue.source as string) === 'library-family' && v === 'seed') return say('this member is already in the Library — judge it interesting, not interesting, artifact or unsure')
+    if (queue.source === 'library-family' && v === 'seed') return say('this member is already in the Library — judge it interesting, not interesting, artifact or unsure')
     const next = await write(v, rec?.className, v === 'seed' ? 'promotion' : 'verdict', { advance: true })
     if (!next) return
     if (v === 'seed') {
@@ -253,12 +231,11 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
    * invent a reversal: only `review_audit.payload_json` knows whether this reverses to unjudged or back to
    * the verdict that was there before. The stack is marked undone only once the POST was accepted. */
   const undo = async () => {
-    if (writesInFlight()) return say('a verdict is still being written — try again')
-    const w = lastLive(q)
-    if (!w) return say('nothing to undo in this queue')
-    // F3: a verdict's pending advance (60 ms after its accept) must not move off the item being undone
-    timers.current.forEach(t => window.clearTimeout(t)); timers.current = []
-    if (!await commitUndo(() => postUndo(q), w)) return refused()
+    // F3: a verdict's pending advance (60 ms after its accept) must not move off the item being undone — dropped as
+    // the undo is sent, after the store's refusals (a write in flight, nothing to undo)
+    const r = await commitUndo(q, () => { cursor.cancel(); setFlash(null); return postUndo(q) })
+    if (!('w' in r)) return 'say' in r ? say(r.say) : refused()
+    const { w } = r
     if (w.kind === 'batch') { navigate(`review/queue/${q}/cluster/${w.clusterNo}?state=undone`); return }
     if (w.kind === 'promotion') {
       const ex = (w.after[key(q, w.items[0])] as VerdictRecord | null)?.exemplarId
@@ -267,13 +244,12 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
       if (w.items[0] === id) setQuery({ state: null }, true)
     } else say(`undone · ${w.label}`)
     // F3: from where the researcher IS when the undo lands, not the item this render was for
-    if (onItem.current !== w.items[0]) navigate(`review/queue/${q}/${w.items[0]}`)
+    if (cursor.at !== w.items[0]) navigate(`review/queue/${q}/${w.items[0]}`)
   }
   const redo = async () => {
-    if (writesInFlight()) return say('a verdict is still being written — try again')
-    const w = nextRedo(q)
-    if (!w) return say('nothing to redo')
-    if (!await commitRedo(() => resend(q, w), w)) return refused()
+    const r = await commitRedo(q, w => resend(q, w))
+    if (!('w' in r)) return 'say' in r ? say(r.say) : refused()
+    const { w } = r
     say(`redone · ${w.label}`)
     if (w.kind === 'batch') navigate(`review/queue/${q}/cluster/${w.clusterNo}`)
     else if (w.kind === 'promotion') navigate(`review/queue/${q}/${w.items[0]}?state=promoted`)

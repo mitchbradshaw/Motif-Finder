@@ -9,16 +9,17 @@
  *      counts and row percentages, heat-shaded.
  * All four share one time axis with the timeline (the same 8 px margins). Every interval is the bridge's; the
  * matrix only counts the order of the classes the bridge assigned. */
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import type { IntervalClasses, IntervalStats, SpansetPayload } from '../../api'
 import { EnvelopePath } from '../../charts/primitives'
+import { extentOf } from '../../charts/domain'
 import { makeX, makeY } from '../../charts/scale'
 import { useSize } from '../../charts/useSize'
 import { InfoTip } from '../../kit'
 import { fmtHours } from '../../state'
 import { IntervalTimelinePanel, classColour, fmtGap } from './IntervalTimeline'
-import { MultiScatter, SeriesLegend, type ScatterSeries } from './MultiScatter'
-import { finiteRange, type ProcessProps } from './common'
+import { MultiScatter, SeriesLegend, useMarkedEvent, useSeriesToggle, type ScatterSeries } from './MultiScatter'
+import type { ProcessProps } from './common'
 import { transitionMatrix } from './eventFigures'
 
 const PAD = 8   // IntervalTimeline's x margins, so every figure here lines up with it
@@ -29,7 +30,7 @@ function IntervalSignal({ q, p, ic, shown, mark, onPick }: { q: ProcessProps; p:
   const w = Math.max(10, size.width), h = 120
   const { t0, t1, ghost } = q.ctx
   const x = makeX(t0, t1, w, PAD, PAD)
-  const gr = ghost && ghost.t.length ? finiteRange(ghost.v) : null
+  const gr = ghost && ghost.t.length ? extentOf(ghost.v) : null
   const n = Math.min(p.start_s.length, ic.event_class.length)
   return (
     <div className="plot-surface" ref={ref} style={{ height: h, position: 'relative' }} data-testid="interval-signal" data-shown={[...shown].join('|')}>
@@ -118,13 +119,9 @@ function ClassTransitions({ ic }: { ic: IntervalClasses }) {
 }
 
 export function IntervalFigures({ q, p, ic, stats }: { q: ProcessProps; p: SpansetPayload; ic: IntervalClasses; stats?: Record<string, IntervalStats> }) {
-  const [hover, setHover] = useState<number | null>(null)
-  const [picked, setPicked] = useState<number | null>(null)
-  const mark = hover ?? picked
-  const pick = (i: number) => setPicked(i === picked ? null : i)
-  const [hidden, setHidden] = useState<Set<string>>(new Set())
-  const shown = useMemo(() => new Set(ic.classes.map(c => c.key).filter(k => !hidden.has(k))), [ic, hidden])
-  const toggle = (k: string) => { const s = new Set(hidden); if (s.has(k)) s.delete(k); else s.add(k); setHidden(s) }
+  const { mark, setHover, pick } = useMarkedEvent()
+  const keys = useMemo(() => ic.classes.map(c => c.key), [ic])
+  const { shown, toggle } = useSeriesToggle(keys)
   const { series, next } = useMemo(() => classSeries(ic), [ic])
   const { t0, t1 } = q.ctx
   return (

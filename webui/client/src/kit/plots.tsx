@@ -5,7 +5,7 @@ import { scaleLinear } from 'd3'
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { EnvelopePath, SpanBands, TimeAxis, type BandKind } from '../charts/primitives'
 import { makeX } from '../charts/scale'
-import { measuredDomain } from '../charts/domain'
+import { extentOf, measuredDomain } from '../charts/domain'
 import { useSize } from '../charts/useSize'
 import { nearestIndex } from '../charts/timeAxis'
 import { Button } from './display'
@@ -80,10 +80,9 @@ function decimate(values: number[], t: number[], buckets: number): [number[], nu
   }
   return [tt, vv]
 }
+/** The app's one extent rule (charts/domain.ts), with this kit's answer for nothing finite: [-1, 1], an axis to draw. */
 function extent(arrs: number[][]): [number, number] {
-  let lo = Infinity, hi = -Infinity
-  for (const a of arrs) for (const v of a) { if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v } }
-  return lo === Infinity ? [-1, 1] : [lo, hi]
+  return extentOf(...arrs) ?? [-1, 1]
 }
 
 /* ================= Trace ================= */
