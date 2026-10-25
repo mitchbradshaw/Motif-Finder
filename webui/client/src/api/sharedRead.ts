@@ -39,6 +39,8 @@ export function makeSharedRead<T, K = void>(fetcher: (key: K) => Promise<T>, opt
   const { ttlMs = 0, onFailure = 'drop', keyOf = (k: K) => String(k), now = () => Date.now() } = opts
   // `at` is when the read settled; null while it is in flight
   const entries = new Map<string, { p: Promise<T>; at: number | null }>()
+  // the snapshot holds an answer only when it can be served again or shown: an in-flight-only read keeps nothing
+  const keepValue = ttlMs > 0 || 'initial' in opts
   let snap: SharedSnapshot<T> = { value: opts.initial as T, version: 0 }
   const subs = new Set<() => void>()
   const emit = (next: SharedSnapshot<T>) => { snap = next; for (const f of [...subs]) f() }
@@ -56,7 +58,7 @@ export function makeSharedRead<T, K = void>(fetcher: (key: K) => Promise<T>, opt
         else entries.delete(k)
         return true
       }
-      entry.p.then(v => { if (settle(true)) emit({ ...snap, value: v }) }, () => { settle(onFailure === 'hold') })
+      entry.p.then(v => { if (settle(true) && keepValue) emit({ ...snap, value: v }) }, () => { settle(onFailure === 'hold') })
       return entry.p
     },
     snapshot: () => snap,
