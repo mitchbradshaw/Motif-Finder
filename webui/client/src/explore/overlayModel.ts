@@ -39,7 +39,9 @@ export interface LaneGain {
 export function overlayGains(spans: (number | null)[], lane: number, blockPx: number, gainLanes: number): { shared: number; medianSpan: number; rows: LaneGain[] } {
   const live = spans.filter((s): s is number => s !== null && Number.isFinite(s) && s > 0).sort((a, b) => a - b)
   const medianSpan = live.length ? live[Math.floor((live.length - 1) / 2)] : 1
-  const shared = Math.min(gainLanes * lane, 0.9 * blockPx) / medianSpan
+  // the height a channel's range is drawn to: GAIN_LANES lanes, never past 0.9 of the block
+  const target = Math.min(gainLanes * lane, 0.9 * blockPx)
+  const shared = target / medianSpan
   const many = spans.length > 1
   const rows = spans.map(s => {
     const span = s !== null && Number.isFinite(s) && s > 0 ? s : 0
@@ -47,7 +49,7 @@ export function overlayGains(spans: (number | null)[], lane: number, blockPx: nu
       const px = span * shared
       return { pxPerUnit: shared, ownScale: false, factor: 1, px, flat: span > 0 && px < FLAT_PX }
     }
-    const own = Math.min(gainLanes * lane, 0.9 * blockPx) / span
+    const own = target / span
     const factor = shared / own
     return { pxPerUnit: own, ownScale: factor > 1, factor, px: span * own, flat: false }
   })
@@ -57,10 +59,11 @@ export function overlayGains(spans: (number | null)[], lane: number, blockPx: nu
 /** Gate G2: the drawing origin for one lane, nudged so the channel's whole drawn extent — `up` units above its mean
  *  and `down` below, at `pxPerUnit` — stays inside [0, blockPx]. A channel that fits the block at the shared gain but
  *  sits in an edge lane (CO CH4 ran 46 px below the block) moves toward the middle instead of leaving it; the gain,
- *  and so how its height compares with the others', is unchanged. A lane that fits keeps its centre. */
+ *  and so how its height compares with the others', is unchanged. A lane that fits keeps its centre.
+ *  tq-analyse (2026-10-25): every lane fits — `overlayGains` draws a shared-gain lane at most `blockPx` tall and an
+ *  own-gain lane 0.9 of it — so the "cannot fit" branch is gone; at exactly `blockPx` this answers `top`, as it did. */
 export function fitCentre(centre: number, up: number, down: number, pxPerUnit: number, blockPx: number): number {
   const top = up * pxPerUnit, bottom = down * pxPerUnit
-  if (top + bottom >= blockPx) return (blockPx - bottom + top) / 2     // cannot fit (never for a shared- or own-gain lane)
   return Math.min(Math.max(centre, top), blockPx - bottom)
 }
 

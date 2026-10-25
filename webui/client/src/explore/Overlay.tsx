@@ -130,7 +130,7 @@ export function Overlay(p: OverlayProps) {
   const g = useMemo(() => overlayGeometry(channels), [channels])
   const bold = useMemo(() => new Set(selected), [selected])
   const shifts = channels.map(c => overlayShift(c, p.align, p.referenceId, p.maxLagS))
-  const yOf = (i: number) => { const m = g.stats[i]?.mean ?? 0; return scaleLinear().domain([m, m + 1]).range([g.origin[i], g.origin[i] - (g.gains[i]?.pxPerUnit ?? g.pxPerUnit)]) }
+  const yOf = (i: number) => { const m = g.stats[i]?.mean ?? 0; return scaleLinear().domain([m, m + 1]).range([g.origin[i], g.origin[i] - g.gains[i].pxPerUnit]) }
   const paths = useMemo(() => channels.map((c, i) => {
     const s = shifts[i]
     const tt = s ? c.t.map(t => t - s) : c.t
@@ -207,7 +207,7 @@ export function Overlay(p: OverlayProps) {
                 <span className={cx('sh mono', past && 'past')} data-testid={`ov-shift-${c.name}`} data-shift={s}>
                   {past ? 'past max' : c.lag_s === null ? '— s' : fmtShift(s)}
                 </span>)}
-              {g.gains[i]?.ownScale && (
+              {g.gains[i].ownScale && (
                 <span className="own mono" data-testid={`ov-own-scale-${c.name}`} data-factor={g.gains[i].factor.toFixed(1)}
                   title={`${c.name} spans ${(g.stats[i]!.hi - g.stats[i]!.lo).toFixed(places)} ${p.unitLabel ?? ''} in this window, ${g.gains[i].factor.toFixed(0)}× the median channel's range: at the shared gain it would run off the plot, so it is drawn at its own gain, ${g.gains[i].factor.toFixed(0)}× smaller — its amplitude does not compare with the others'`}>
                   ÷{g.gains[i].factor >= 10 ? g.gains[i].factor.toFixed(0) : g.gains[i].factor.toFixed(1)}</span>)}
@@ -240,7 +240,7 @@ export function Overlay(p: OverlayProps) {
                 })}
                 {(c.error || !g.stats[i]) && <text x={6} y={g.centre[i] + 4} className="mono ex-ov-lane-note" fill={c.colour} data-testid={`ov-lane-note-${c.name}`}>
                   {c.name}: {c.error ? `read failed — ${c.error.split(':')[0]}` : 'no finite sample in this window'}<title>{c.error ?? 'every value in this window is missing'}</title></text>}
-                {g.gains[i]?.flat && !c.error && <text x={6} y={g.centre[i] - 4} className="mono ex-ov-lane-note" fill={c.colour} data-testid={`ov-lane-flat-${c.name}`} data-px={g.gains[i].px.toFixed(2)}>
+                {g.gains[i].flat && !c.error && <text x={6} y={g.centre[i] - 4} className="mono ex-ov-lane-note" fill={c.colour} data-testid={`ov-lane-flat-${c.name}`} data-px={g.gains[i].px.toFixed(2)}>
                   {c.name}: flat at this gain — its range {(g.stats[i]!.hi - g.stats[i]!.lo).toFixed(places)} {p.unitLabel ?? ''} draws {g.gains[i].px.toFixed(1)} px; the stacked view's y: per channel draws its shape</text>}
                 <path d={paths[i]} fill="none" stroke={c.colour} strokeWidth={on ? 1.8 : 1} strokeOpacity={on ? 1 : selected.length ? 0.18 : 0.75}
                   strokeLinejoin="round" vectorEffect="non-scaling-stroke" data-testid={`ov-trace-${c.name}`} data-bold={on ? 'yes' : 'no'} />
