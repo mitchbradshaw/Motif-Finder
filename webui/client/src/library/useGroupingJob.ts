@@ -47,14 +47,18 @@ export function useGroupingJob() {
   const abort = () => { run.current?.abort(); run.current = null }
   useEffect(() => abort, [])
 
-  /** Follow job `jobId` until it ends or `signal` aborts; an abort before the end cancels it on the bridge. */
+  /** Follow job `jobId` until it ends or `signal` aborts; an abort before the end cancels it on the bridge. It settles
+   *  once — the after-callback is a write, and two overlapping polls both answering `completed` saved two rows. */
   const follow = (jobId: number, signal: AbortSignal, after?: (r: RunResult) => void) => {
     let stream: { close: () => void } | null = null
     let poll: number | null = null
+    let polling = false
+    let settled = false
     const stop = () => { stream?.close(); stream = null; if (poll) { window.clearInterval(poll); poll = null } }
     const onAbort = () => { stop(); void cancelJob(jobId).catch(() => undefined) }
     signal.addEventListener('abort', onAbort, { once: true })
     const settle = (status: string, result: unknown, error: unknown) => {
+      if (settled) return; settled = true
       signal.removeEventListener('abort', onAbort)
       stop()
       if (signal.aborted) return
@@ -82,6 +86,8 @@ export function useGroupingJob() {
       stream?.close(); stream = null
       if (poll || signal.aborted) return
       poll = window.setInterval(() => {
+        // one poll in flight: on a bridge slower than the interval the next tick waits rather than overlapping
+        if (polling) return; polling = true
         getJob(jobId).then(row => {
           if (row.status === 'running' || row.status === 'queued') {
             const p = row.progress as { done?: number; total?: number | null; message?: string } | undefined
@@ -89,7 +95,7 @@ export function useGroupingJob() {
             return
           }
           settle(row.status, row.result, row.error)
-        }).catch(err => settle('failed', null, err))
+        }).catch(err => settle('failed', null, err)).finally(() => { polling = false })
       }, 2000)
     })
   }

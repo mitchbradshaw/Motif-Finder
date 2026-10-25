@@ -1,6 +1,7 @@
 /* tq-grouping (2026-10-25): the Edit-grouping modal's draft — what the form holds, how a saved grouping seeds it, and
- * how it becomes the engine's `params`. Split out of GroupingPage.tsx, with `isTreeGrouping` (which replaces
- * `treeSource.ts`: the tree pick itself is chrome's `newestGrouping` over the tree groupings).
+ * how it becomes the engine's `params`. Split out of GroupingPage.tsx, with `isTreeGrouping` and `openingGrouping`
+ * (which replace `treeSource.ts`) and the one newest-grouping rule (`groupingNum`, `newestGrouping`, re-exported by
+ * chrome.tsx).
  * Pure: type-only imports, so `tests/test_tq_grouping.py` runs it under Node. */
 import type { BasisKind, FeatureBin, Grouping, Unit } from '../api/library'
 import type { LibGroupingMethod } from '../api'
@@ -42,6 +43,22 @@ export const SHARED_PARAMS = new Set(['min_group'])
  *  as the editor reads it). The editor opens on such a grouping by default, and draws its tree. */
 export function isTreeGrouping(g: Pick<Grouping, 'basis' | 'method'> | null | undefined): boolean {
   return !!g && DISTANCE_BASES.includes(g.basis) && (g.method ?? 'ward') === 'ward'
+}
+
+/** The number in a `g-NN` id, or NaN. The bridge emits `g-` plus a zero-padded integer, but a saved grouping
+ *  named anything else must not poison a Math.max into NaN. (Moved here from chrome.tsx, which re-exports it.) */
+export const groupingNum = (id: string) => { const m = /^g-0*(\d+)$/.exec(String(id ?? '')); return m ? Number(m[1]) : NaN }
+/** The newest grouping of one unit, by id. `undefined` when the library holds none of that unit. */
+export function newestGrouping<G extends Pick<Grouping, 'id' | 'unit'>>(all: G[], unit: string): G | undefined {
+  const mine = all.filter(g => g.unit === unit)
+  if (!mine.length) return undefined
+  return mine.reduce((a, b) => (groupingNum(b.id) > groupingNum(a.id) ? b : a))
+}
+/** night-review: the grouping the editor opens on, so the Ward tree is there by default — the current grouping of
+ *  this unit when it has a tree, else the newest tree grouping of the unit, else the current one of this unit. */
+export function openingGrouping<G extends Pick<Grouping, 'id' | 'unit' | 'basis' | 'method'>>(all: G[], unit: string, current: G | null | undefined): G | undefined {
+  const cur = current?.unit === unit ? current : undefined
+  return isTreeGrouping(cur) ? cur : newestGrouping(all.filter(isTreeGrouping), unit) ?? cur
 }
 
 /** `params_json` as the bridge renders it for the chip: `"cut 0.6 · min_group 10 · omit_d 0.5"`. That string is

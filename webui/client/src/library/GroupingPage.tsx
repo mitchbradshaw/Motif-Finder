@@ -43,10 +43,10 @@ import { UNIT_LABEL, getGroupingEditor, type BasisKind, type BasisOption, type G
  * taken from the typed bridge client directly. */
 import { ApiError, saveLibraryGrouping, type LibGrouping, type LibGroupingMethod, type LibGroupingRefusal } from '../api'
 /* the five omission reasons live in `chrome` so the drawer and this panel cannot word them differently */
-import { NoiseBadge, OMIT_REASON_LABEL, newestGrouping, useExternalNavKey, useAllGroupings, useMotifGroupingId, useSavedGroupings, useSelection, useSequenceGroupingId } from './chrome'
+import { NoiseBadge, OMIT_REASON_LABEL, useExternalNavKey, useAllGroupings, useMotifGroupingId, useSavedGroupings, useSelection, useSequenceGroupingId } from './chrome'
 /* tq-grouping (2026-10-25): the draft model, the regroup job, the tree panel and section 3's parameters live in their
  * own modules; this file is the page and the editor that ties them together */
-import { BASE, DISTANCE_BASES, METHOD_FOR, SHARED_PARAMS, binExtent, isTreeGrouping, methodOf, paramsFor, seedFromGrouping, validate, type Draft } from './groupingDraft'
+import { BASE, DISTANCE_BASES, METHOD_FOR, SHARED_PARAMS, binExtent, isTreeGrouping, methodOf, openingGrouping, paramsFor, seedFromGrouping, validate, type Draft } from './groupingDraft'
 import { useGroupingJob, type RunRecompute, type RunResult } from './useGroupingJob'
 import { TreePanel, useGroupingTree } from './TreePanel'
 import { Params } from './GroupingParams'
@@ -132,9 +132,7 @@ function GroupingEditor({ from }: { from: string }) {
    * default in add new grouping"). The newest grouping is often a feature-bin one (g-09 on the real database), which
    * builds no tree, so the panel was not on the page at all. Unless the address names a non-tree basis, the editor
    * seeds from the current grouping when it is Ward on a distance basis, else from the newest one of this unit that is. */
-  const currentOfUnit = currentAny?.unit === d.unit ? currentAny : undefined
-  const current: Grouping | undefined = basisQ && !DISTANCE_BASES.includes(basisQ) ? currentAny
-    : isTreeGrouping(currentOfUnit) ? currentOfUnit : newestGrouping(all.filter(isTreeGrouping), d.unit) ?? currentOfUnit
+  const current: Grouping | undefined = basisQ && !DISTANCE_BASES.includes(basisQ) ? currentAny : openingGrouping(all, d.unit, currentAny)
   // the core's own identity for "this is the grouping you already have" — the recipe hash, not a comparison
   // against the literal settings of `g-07` — unless this run kept a tree the current grouping lacks (fixup-an:
   // "Build the tree" is exactly that re-run)
