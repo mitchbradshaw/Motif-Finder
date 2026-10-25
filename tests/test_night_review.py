@@ -181,11 +181,13 @@ def test_a_carry_that_reaches_no_row_of_this_queue_does_not_re_read_every_row():
     page then re-read all 8,700 rows (1.6 s, 6 MB) and emptied the item cache, so the next card waited 2.4-4.6 s for
     a cold read behind the re-read. The carried detections were in no row of the queue. Only a carry INTO this
     queue re-reads its rows now; an ack that names no ids re-reads as before."""
-    queue = _code(_read("review", "queue.ts"))
-    assert "export function queueHoldsAny(" in queue and "carryOf(r).members" in queue
+    # tq-review: the decision and its index live beside the caches, in api/review.ts
+    api = _code(_read("api", "review.ts"))
+    assert "function queueHoldsAny(" in api and "r.carry.members" in api
+    assert "if (!carriedIds.length || queueHoldsAny(data, carriedIds)) return true" in api
     insp = _code(_read("review", "Inspector.tsx"))
     assert "carriedIds = ack.carriedIds ?? []" in insp
-    assert "if (!carriedIds.length || queueHoldsAny(data, carriedIds)) bumpReviewVersion()" in insp
+    assert "if (invalidateAfterCarry(data, carriedIds)) bumpReviewVersion()" in insp
 
 
 def test_the_automatic_build_is_for_motif_shape_trees_only():
@@ -203,10 +205,13 @@ def test_f1_the_carry_fields_come_from_the_fresh_row_first():
     before the carry came back from the cache without its `carriedFrom`: the carried line vanished. The row (re-read
     on every queue open) wins over the cached detail, and the other queues' cached items are dropped."""
     insp = _code(_read("review", "Inspector.tsx"))
-    assert "const carry: CarryFields = { ...carryOf(d?.entry), ...carryOf(row) }" in insp
-    assert "clearItemCacheExcept(q)" in insp
+    # tq-review: the carry fields are typed on the row and the detail (`carryOf` picks them, absent stays absent)
+    assert "const carry: CarryFields = { ...d?.carry, ...row.carry }" in insp
     api = _code(_read("api", "review.ts"))
-    assert "export function clearItemCacheExcept(" in api
+    assert "carry: carryOf(raw)" in api and "carry: carryOf(raw?.entry)" in api
+    inv = re.search(r"export function invalidateAfterCarry\(.*?\n}", api, re.S).group(0)
+    assert "if (!k.startsWith(own)) { ITEMS.delete(k); SETTLED.delete(k) }" in inv, \
+        "a carry that reached no row of this queue no longer drops the other queues' cached items"
 
 
 def test_f2_a_grouping_job_is_cancelled_on_every_exit():
@@ -231,5 +236,7 @@ def test_f3_undo_clears_the_pending_advance_and_navigates_from_where_the_researc
 
 
 def test_f4_the_detection_index_reads_the_bridge_field():
-    queue = _code(_read("review", "queue.ts"))
-    assert "detection_id" in queue and "r.detectionId" not in queue
+    # tq-review: `rowOf` types the bridge's field as `QueueRow.detection`; the index reads it (with no cast)
+    api = _code(_read("api", "review.ts"))
+    assert "detection: raw?.detection_id != null ? String(raw.detection_id) : undefined" in api
+    assert "s.add(r.detection ?? r.id)" in api and "r.detectionId" not in api

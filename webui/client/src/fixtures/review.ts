@@ -6,6 +6,7 @@ import { ACTOR, CLASSES, FAMILIES, FAMILY_COLOURS, MODELS, RECORDINGS, REVIEW_QU
 
 export type Verdict = 'seed' | 'interesting' | 'not_interesting' | 'artifact' | 'unsure'
 export type QueueSource = 'discovery-run' | 'seed-search' | 'explore-spans' | 'training-windows' | 'model-verification'
+  | 'suspected-artifact' | 'library-family' | 'blind-test'
 export type Unit = 'detection' | 'human span' | 'window'
 
 export interface ReviewQueue {

@@ -189,7 +189,7 @@ def _node_judged(rows):
     assert os.path.isfile(JUDGED_TS), "webui/client/src/review/judged.ts does not exist"
     url = "file:///" + JUDGED_TS.replace("\\", "/").lstrip("/")
     script = (f"import * as J from {json.dumps(url)};\n"
-              f"process.stdout.write(JSON.stringify({json.dumps(rows)}.map(r => J.baseJudged(r))));\n")
+              f"process.stdout.write(JSON.stringify({json.dumps(rows)}.map(r => J.rowJudged(r))));\n")
     r = subprocess.run([node, "--no-warnings", "--input-type=module", "-e", script], capture_output=True, text=True,
                        timeout=60)
     assert r.returncode == 0, r.stderr
@@ -200,10 +200,11 @@ def test_a_row_the_bridge_calls_unjudged_is_unjudged_whatever_verdict_it_carries
     """An explore-spans queue serves human spans already marked `seed` (`verdict: 'seed'`) that THIS queue has not
     judged (`judged: false`). The client counted any row with a verdict as judged, so the page opened on "No more
     items" while the counter said 622 left. The bridge's flag decides; the verdict is shown as a prefilled prior."""
+    # tq-review: the rule reads the bridge's raw row (`rowOf` applies it once, as `QueueRow.judged`)
     got = _node_judged([
-        {"baseVerdict": "seed", "judged": False, "servedJudged": False},
-        {"baseVerdict": "interesting", "judged": True, "servedJudged": True},
-        {"judged": True, "servedJudged": True},
+        {"verdict": "seed", "judged": False},
+        {"verdict": "interesting", "judged": True},
+        {"judged": True},
         {"baseVerdict": "interesting"},          # a fixture row with no bridge flag: its verdict says judged
         {},
     ])
@@ -211,8 +212,9 @@ def test_a_row_the_bridge_calls_unjudged_is_unjudged_whatever_verdict_it_carries
 
 
 def test_every_judged_count_in_the_queue_uses_the_one_rule():
+    # tq-review: the one rule is applied once, in `rowOf`; every count reads `row.judged`
     code = _code(_src("queue.ts"))
-    assert "baseJudged" in code
+    assert "return row.judged" in code and code.count("(r.judged ? 1 : 0)") == 2
     assert "r.baseVerdict || r.judged" not in code and "!!row.baseVerdict || row.judged" not in code
     api = _code(io.open(os.path.join(PROJECT_ROOT, "webui", "client", "src", "api", "review.ts"), encoding="utf-8").read())
-    assert "servedJudged" in api, "rowOf does not keep the bridge's own judged flag"
+    assert "judged: rowJudged(raw)" in api, "rowOf does not decide judged by the bridge's own flag"

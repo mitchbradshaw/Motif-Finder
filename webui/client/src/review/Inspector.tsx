@@ -8,10 +8,11 @@ import { useAbortableSourced, useSourced } from '../api/seam'
 import { useSize } from '../charts/useSize'
 import { useToast } from '../shell/Toast'
 import { plotPx } from './axis'
-import { VOCABULARY, carryOf, clearItemCacheExcept, getItem, itemHeld, peekItem, prefetchItemThen, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type CarryFields, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
+import { VOCABULARY, getItem, invalidateAfterCarry, itemHeld, peekItem, prefetchItemThen, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type CarryFields, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
-import { goUnit, indexOf, isJudged, judged, judgedRecord, nextUnjudgedAfter, queueHoldsAny, relTime, step, units } from './queue'
+import { goUnit, indexOf, isJudged, judged, judgedRecord, nextUnjudgedAfter, relTime, step, units } from './queue'
+import { rowJudged } from './judged'
 import { prefetchIds } from './prefetch'
 import { createCursor, land } from './cursor'
 import {
@@ -28,7 +29,7 @@ export function Inspector({ data, itemId }: { data: QueueData; itemId: string })
   // review-carry: a detection that is one of an item's overlap set opens that item (a link by detection id from
   // Discovery or Explore names whichever detection it was)
   const row = data.rows.find(r => r.id === itemId)
-    ?? data.rows.find(r => (carryOf(r).members ?? []).some(m => String(m) === itemId))
+    ?? data.rows.find(r => (r.carry.members ?? []).some(m => String(m) === itemId))
   const [corrected] = useQueryState<string>('corrected', '')
   if (!row) return corrected ? <CorrectedItem data={data} itemId={itemId} /> : <NotFound data={data} what={itemId} />
   return <InspectorItem data={data} row={row} />
@@ -45,7 +46,7 @@ function CorrectedItem({ data, itemId }: { data: QueueData; itemId: string }) {
   if (read.loading) return <Loading />
   const entry = read.data?.entry
   if (!entry) return <NotFound data={data} what={itemId} />
-  const row: QueueRow = { thumb: [], family: '', judged: false, ...entry }
+  const row: QueueRow = { thumb: [], family: '', ...entry, judged: rowJudged(entry), carry: read.data!.carry }
   return <InspectorItem data={data} row={row} />
 }
 
@@ -117,7 +118,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   // verdict came from — as the bridge serves them on the row (and on the detail, once read)
   // night-review fix round (F1): the ROW (re-read on every queue open) wins over the cached detail — a carry from
   // another queue no longer empties the item cache, so a detail read before it can lack the `carriedFrom` the row has
-  const carry: CarryFields = { ...carryOf(d?.entry), ...carryOf(row) }
+  const carry: CarryFields = { ...d?.carry, ...row.carry }
   const members = carry.members ?? []
   // R3: the class is stored on a detection's adjudication row; elsewhere it stays a session label
   const storesClass = queue.writes === 'adjudications'
@@ -162,11 +163,8 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     if (!w) { refused(); return null }
     if (carried > 0) {
       // a carried row can judge other items of this queue (other runs' detections in it): re-read the rows — only then
-      // (night-review). A carry that reached no row of this queue changes none of its rows; the counts are re-read anyway.
-      // When the bridge names no ids (an older bridge), re-read as before.
-      if (!carriedIds.length || queueHoldsAny(data, carriedIds)) bumpReviewVersion()
-      // F1: the carried detections may be rows of OTHER queues; their cached details predate the carry
-      else clearItemCacheExcept(q)
+      // (night-review); the caches the carry can have staled are decided beside them (F1)
+      if (invalidateAfterCarry(data, carriedIds)) bumpReviewVersion()
       say(`${VERDICT_LABEL[v]} · written${members.length > 1 ? ` to the ${members.length} detections of this event` : ''} · carried to ${carried} other detection${carried === 1 ? '' : 's'} of the same event`)
     }
     // P21: the seed verdict itself creates the Library exemplar (the bridge wrote it); the panel only chooses its family
@@ -182,9 +180,9 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     if (promoted) return say('confirm or undo the promotion first (Enter / Ctrl Z)')
     if (binary && (v === 'seed' || v === 'artifact' || v === 'unsure')) return say('this queue takes binary verdicts and classes')
     // fixup-AD: a suspected-artifact queue asks "artifact, or what is it really?" — the four words its queue names
-    if ((queue.source as string) === 'suspected-artifact' && v === 'seed') return say('this queue takes artifact, interesting, not interesting or unsure — promote a seed from Explore or a detection queue')
+    if (queue.source === 'suspected-artifact' && v === 'seed') return say('this queue takes artifact, interesting, not interesting or unsure — promote a seed from Explore or a detection queue')
     // fixup-FQ: a Library family queue's member is already in the Library — the question is what it is, not whether to add it
-    if ((queue.source as string) === 'library-family' && v === 'seed') return say('this member is already in the Library — judge it interesting, not interesting, artifact or unsure')
+    if (queue.source === 'library-family' && v === 'seed') return say('this member is already in the Library — judge it interesting, not interesting, artifact or unsure')
     const next = await write(v, rec?.className, v === 'seed' ? 'promotion' : 'verdict', { advance: true })
     if (!next) return
     if (v === 'seed') {
