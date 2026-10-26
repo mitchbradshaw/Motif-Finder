@@ -1,0 +1,728 @@
+{
+ "generated_by": "scripts/thesis/library_events.py",
+ "database": "DATA/db/annotations.sqlite (mode=ro)",
+ "g05_grouping_id": 5,
+ "rule": {
+  "twins": "(a) members overlapping >= 90% of both spans collapsed into one unit",
+  "container": "(b) a unit holding others (>= 90% inside, container >= 1.5x longer) is one event and lists them as parts",
+  "joined": "(c) free units joined when they overlap by >= 50% of the shorter span or abut (end-to-start within +-g); never through a container",
+  "gap_s": 3.0,
+  "twin_overlap": 0.9,
+  "nest_inside": 0.9,
+  "nest_ratio": 1.5,
+  "review_entries": "the Review-promoted entries (source_kind 'review') are regions, not events: they take no part in (a)-(c); see review_regions"
+ },
+ "library_members": 3653,
+ "review_entries_excluded": 50,
+ "library_review_verdicts": {
+  "artifact": 1,
+  "interesting": 210,
+  "not_interesting": 35,
+  "unsure": 1
+ },
+ "accepted_members_matched": 210,
+ "per_recording": {
+  "Fig2A_dt0p1.csv": {
+   "members": 2425,
+   "events": 526,
+   "channels": 5
+  },
+  "M2_aug_concat_fs1.mat": {
+   "members": 1089,
+   "events": 529,
+   "channels": 6
+  },
+  "Mushroom_260720_0509_4hrs_CH14_fs1.mat": {
+   "members": 89,
+   "events": 61,
+   "channels": 1
+  }
+ },
+ "all": {
+  "members": 3603,
+  "events": 1116,
+  "members_per_event_mean": 3.228,
+  "parts_per_event": {
+   "1": 293,
+   "2": 469,
+   "3": 146,
+   "4": 40,
+   "5": 26,
+   "6-10": 88,
+   "11-20": 40,
+   ">20": 14
+  },
+  "max_parts": 36,
+  "by_rule": {
+   "joined": 294,
+   "container": 363,
+   "single": 293,
+   "twins+joined": 33,
+   "twins": 91,
+   "twins+container": 42
+  },
+  "events_spanning_2plus_g05_families": 629,
+  "events_with_any_g05_family": 1078,
+  "events_spanning_2plus_g05_families_share_of_familied": 0.583,
+  "events_touching_a_container_unmerged": 286,
+  "accepted": {
+   "members": 210,
+   "events": 144,
+   "g05_families_of_accepted_members": 11,
+   "g05_families_of_accepted_events": 125,
+   "accepted_events_spanning_2plus_g05_families": 89
+  }
+ },
+ "without_fig2a": {
+  "members": 1178,
+  "events": 590,
+  "members_per_event_mean": 1.997,
+  "parts_per_event": {
+   "1": 251,
+   "2": 230,
+   "3": 69,
+   "4": 12,
+   "5": 6,
+   "6-10": 18,
+   "11-20": 4,
+   ">20": 0
+  },
+  "max_parts": 20,
+  "by_rule": {
+   "container": 81,
+   "twins+joined": 32,
+   "twins": 91,
+   "joined": 93,
+   "single": 251,
+   "twins+container": 42
+  },
+  "events_spanning_2plus_g05_families": 198,
+  "events_with_any_g05_family": 560,
+  "events_spanning_2plus_g05_families_share_of_familied": 0.354,
+  "events_touching_a_container_unmerged": 69,
+  "accepted": {
+   "members": 176,
+   "events": 113,
+   "g05_families_of_accepted_members": 11,
+   "g05_families_of_accepted_events": 54,
+   "accepted_events_spanning_2plus_g05_families": 58
+  }
+ },
+ "fig2a_only": {
+  "members": 2425,
+  "events": 526,
+  "members_per_event_mean": 4.61,
+  "parts_per_event": {
+   "1": 42,
+   "2": 239,
+   "3": 77,
+   "4": 28,
+   "5": 20,
+   "6-10": 70,
+   "11-20": 36,
+   ">20": 14
+  },
+  "max_parts": 36,
+  "by_rule": {
+   "joined": 201,
+   "container": 282,
+   "single": 42,
+   "twins+joined": 1
+  },
+  "events_spanning_2plus_g05_families": 431,
+  "events_with_any_g05_family": 518,
+  "events_spanning_2plus_g05_families_share_of_familied": 0.832,
+  "events_touching_a_container_unmerged": 217,
+  "accepted": {
+   "members": 34,
+   "events": 31,
+   "g05_families_of_accepted_members": 5,
+   "g05_families_of_accepted_events": 101,
+   "accepted_events_spanning_2plus_g05_families": 31
+  }
+ },
+ "gap_sensitivity_events": {
+  "0.0": {
+   "all": 2310,
+   "without_fig2a": 645,
+   "max_parts": 9
+  },
+  "1.0": {
+   "all": 1386,
+   "without_fig2a": 631,
+   "max_parts": 24
+  },
+  "2.0": {
+   "all": 1200,
+   "without_fig2a": 606,
+   "max_parts": 31
+  },
+  "3.0": {
+   "all": 1116,
+   "without_fig2a": 590,
+   "max_parts": 36
+  },
+  "5.0": {
+   "all": 961,
+   "without_fig2a": 570,
+   "max_parts": 70
+  },
+  "10.0": {
+   "all": 806,
+   "without_fig2a": 498,
+   "max_parts": 188
+  }
+ },
+ "review_regions": [
+  {
+   "member_id": 3604,
+   "entry_id": 3609,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 1209600.0,
+   "end_s": 1245600.0,
+   "length_s": 36000.0,
+   "events_inside": 22,
+   "members_inside": 52
+  },
+  {
+   "member_id": 3605,
+   "entry_id": 3610,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 962640.0,
+   "end_s": 963360.0,
+   "length_s": 720.0,
+   "events_inside": 4,
+   "members_inside": 8
+  },
+  {
+   "member_id": 3606,
+   "entry_id": 3611,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 4,
+   "start_s": 1362600.0,
+   "end_s": 1371600.0,
+   "length_s": 9000.0,
+   "events_inside": 43,
+   "members_inside": 145
+  },
+  {
+   "member_id": 3607,
+   "entry_id": 3612,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 1213520.0,
+   "end_s": 1217394.0,
+   "length_s": 3874.0,
+   "events_inside": 7,
+   "members_inside": 23
+  },
+  {
+   "member_id": 3608,
+   "entry_id": 3613,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 1132295.0,
+   "end_s": 1139400.0,
+   "length_s": 7105.0,
+   "events_inside": 14,
+   "members_inside": 91
+  },
+  {
+   "member_id": 3609,
+   "entry_id": 3614,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 1046691.0,
+   "end_s": 1056005.0,
+   "length_s": 9314.0,
+   "events_inside": 29,
+   "members_inside": 67
+  },
+  {
+   "member_id": 3610,
+   "entry_id": 3615,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 6,
+   "start_s": 1332000.0,
+   "end_s": 1656000.0,
+   "length_s": 324000.0,
+   "events_inside": 76,
+   "members_inside": 96
+  },
+  {
+   "member_id": 3611,
+   "entry_id": 3616,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 889920.0,
+   "end_s": 896400.0,
+   "length_s": 6480.0,
+   "events_inside": 48,
+   "members_inside": 116
+  },
+  {
+   "member_id": 3612,
+   "entry_id": 3617,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 16,
+   "start_s": 119520.0,
+   "end_s": 124560.0,
+   "length_s": 5040.0,
+   "events_inside": 28,
+   "members_inside": 65
+  },
+  {
+   "member_id": 3613,
+   "entry_id": 3618,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 16,
+   "start_s": 165960.0,
+   "end_s": 173520.0,
+   "length_s": 7560.0,
+   "events_inside": 42,
+   "members_inside": 111
+  },
+  {
+   "member_id": 3614,
+   "entry_id": 3619,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 16,
+   "start_s": 288360.0,
+   "end_s": 291240.0,
+   "length_s": 2880.0,
+   "events_inside": 18,
+   "members_inside": 29
+  },
+  {
+   "member_id": 3615,
+   "entry_id": 3620,
+   "file": "Mushroom_260720_0509_4hrs_CH14_fs1.mat",
+   "recording_id": 385,
+   "start_s": 6335.0,
+   "end_s": 6395.0,
+   "length_s": 60.0,
+   "events_inside": 1,
+   "members_inside": 2
+  },
+  {
+   "member_id": 3616,
+   "entry_id": 3621,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 2,
+   "start_s": 250708.0,
+   "end_s": 250813.0,
+   "length_s": 105.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3617,
+   "entry_id": 3622,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 4,
+   "start_s": 2586113.0,
+   "end_s": 2586929.0,
+   "length_s": 816.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3618,
+   "entry_id": 3623,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 16,
+   "start_s": 407640.0,
+   "end_s": 408456.0,
+   "length_s": 816.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3619,
+   "entry_id": 3624,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 16,
+   "start_s": 215706.0,
+   "end_s": 216522.0,
+   "length_s": 816.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3620,
+   "entry_id": 3625,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 2,
+   "start_s": 165708.0,
+   "end_s": 165813.0,
+   "length_s": 105.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3621,
+   "entry_id": 3626,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 2,
+   "start_s": 1100195.0,
+   "end_s": 1100300.0,
+   "length_s": 105.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3622,
+   "entry_id": 3627,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 2,
+   "start_s": 1129633.0,
+   "end_s": 1129738.0,
+   "length_s": 105.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3623,
+   "entry_id": 3628,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 2,
+   "start_s": 1076567.0,
+   "end_s": 1076672.0,
+   "length_s": 105.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3624,
+   "entry_id": 3629,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 2,
+   "start_s": 1145323.0,
+   "end_s": 1145428.0,
+   "length_s": 105.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3625,
+   "entry_id": 3630,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 6,
+   "start_s": 18771.0,
+   "end_s": 18876.0,
+   "length_s": 105.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3626,
+   "entry_id": 3631,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 7,
+   "start_s": 1329647.0,
+   "end_s": 1329752.0,
+   "length_s": 105.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3627,
+   "entry_id": 3632,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 12,
+   "start_s": 295479.0,
+   "end_s": 295685.0,
+   "length_s": 206.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3628,
+   "entry_id": 3633,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 895179.0,
+   "end_s": 895327.0,
+   "length_s": 148.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3629,
+   "entry_id": 3634,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 887830.0,
+   "end_s": 887910.0,
+   "length_s": 80.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3630,
+   "entry_id": 3635,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 1228256.0,
+   "end_s": 1230554.0,
+   "length_s": 2298.0,
+   "events_inside": 1,
+   "members_inside": 2
+  },
+  {
+   "member_id": 3631,
+   "entry_id": 3636,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 7,
+   "start_s": 1988122.0,
+   "end_s": 1988727.0,
+   "length_s": 605.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3632,
+   "entry_id": 3637,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 4,
+   "start_s": 1523650.0,
+   "end_s": 1524001.0,
+   "length_s": 351.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3633,
+   "entry_id": 3638,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 11,
+   "start_s": 40152.0,
+   "end_s": 40396.0,
+   "length_s": 244.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3634,
+   "entry_id": 3639,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 3,
+   "start_s": 2197697.0,
+   "end_s": 2197951.0,
+   "length_s": 254.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3635,
+   "entry_id": 3640,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 7,
+   "start_s": 277263.0,
+   "end_s": 277871.0,
+   "length_s": 608.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3636,
+   "entry_id": 3641,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 895860.0,
+   "end_s": 895920.0,
+   "length_s": 60.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3637,
+   "entry_id": 3642,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 4,
+   "start_s": 1485600.0,
+   "end_s": 1485960.0,
+   "length_s": 360.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3638,
+   "entry_id": 3643,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 16,
+   "start_s": 252870.0,
+   "end_s": 253482.0,
+   "length_s": 612.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3639,
+   "entry_id": 3644,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 688636.0,
+   "end_s": 689036.0,
+   "length_s": 400.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3640,
+   "entry_id": 3645,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 818777.0,
+   "end_s": 819165.0,
+   "length_s": 388.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3641,
+   "entry_id": 3646,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 7,
+   "start_s": 782860.0,
+   "end_s": 783591.0,
+   "length_s": 731.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3642,
+   "entry_id": 3647,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 888134.0,
+   "end_s": 888282.0,
+   "length_s": 148.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3643,
+   "entry_id": 3648,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 887838.0,
+   "end_s": 887986.0,
+   "length_s": 148.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3645,
+   "entry_id": 3650,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 1,
+   "start_s": 887427.0,
+   "end_s": 887575.0,
+   "length_s": 148.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3646,
+   "entry_id": 3651,
+   "file": "LM_fs2.mat",
+   "recording_id": 637,
+   "start_s": 275640.0,
+   "end_s": 275720.0,
+   "length_s": 80.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3647,
+   "entry_id": 3652,
+   "file": "M2_concat_fs1.mat",
+   "recording_id": 33,
+   "start_s": 272788.0,
+   "end_s": 273087.0,
+   "length_s": 299.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3648,
+   "entry_id": 3653,
+   "file": "LM_fs2.mat",
+   "recording_id": 637,
+   "start_s": 66486.5,
+   "end_s": 66940.0,
+   "length_s": 453.5,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3649,
+   "entry_id": 3654,
+   "file": "LM_fs2.mat",
+   "recording_id": 637,
+   "start_s": 273320.0,
+   "end_s": 273400.0,
+   "length_s": 80.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3650,
+   "entry_id": 3655,
+   "file": "M2_aug_concat_fs1.mat",
+   "recording_id": 4,
+   "start_s": 1485267.0,
+   "end_s": 1486428.0,
+   "length_s": 1161.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3651,
+   "entry_id": 3656,
+   "file": "LM_fs2.mat",
+   "recording_id": 637,
+   "start_s": 277520.0,
+   "end_s": 277560.0,
+   "length_s": 40.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3652,
+   "entry_id": 3657,
+   "file": "LM_fs2.mat",
+   "recording_id": 637,
+   "start_s": 430026.5,
+   "end_s": 430346.5,
+   "length_s": 320.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3653,
+   "entry_id": 3658,
+   "file": "LM_fs2.mat",
+   "recording_id": 637,
+   "start_s": 273660.0,
+   "end_s": 273700.0,
+   "length_s": 40.0,
+   "events_inside": 0,
+   "members_inside": 0
+  },
+  {
+   "member_id": 3654,
+   "entry_id": 3659,
+   "file": "LM_fs2.mat",
+   "recording_id": 637,
+   "start_s": 276760.5,
+   "end_s": 276982.0,
+   "length_s": 221.5,
+   "events_inside": 0,
+   "members_inside": 0
+  }
+ ]
+}

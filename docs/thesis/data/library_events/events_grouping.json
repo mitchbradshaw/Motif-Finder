@@ -1,0 +1,169 @@
+{
+ "name": "thesis \u00b7 events \u00b7 de-duplicated (2026-10-26)",
+ "method": "ward",
+ "basis": "shape-distance",
+ "params": {
+  "cut": 0.6,
+  "min_group": 10,
+  "omit_d": 0.5
+ },
+ "gap_s": 3.0,
+ "items_rule": "one representative per event of scripts/thesis/library_events.py: the container member, else the longest part; Fig2A_dt0p1 and the Review-promoted entries excluded",
+ "events": 590,
+ "items": 590,
+ "skipped": [],
+ "families": 25,
+ "assigned": 410,
+ "omitted": 180,
+ "omitted_by_reason": {
+  "group_too_small": 179,
+  "past_cut": 1
+ },
+ "members_per_recording": {
+  "M2_aug_concat_fs1.mat": {
+   "items": 529,
+   "assigned": 387
+  },
+  "Mushroom_260720_0509_4hrs_CH14_fs1.mat": {
+   "items": 61,
+   "assigned": 23
+  }
+ },
+ "families_with_2plus_recordings": [
+  "F-06",
+  "F-10",
+  "F-12",
+  "F-17",
+  "F-26",
+  "F-33",
+  "F-36",
+  "F-37"
+ ],
+ "family_sizes": {
+  "F-25": 52,
+  "F-37": 24,
+  "F-36": 23,
+  "F-54": 22,
+  "F-40": 20,
+  "F-26": 16,
+  "F-58": 16,
+  "F-15": 16,
+  "F-03": 16,
+  "F-12": 15,
+  "F-56": 15,
+  "F-08": 15,
+  "F-06": 15,
+  "F-30": 14,
+  "F-05": 14,
+  "F-13": 13,
+  "F-17": 13,
+  "F-33": 13,
+  "F-48": 12,
+  "F-02": 12,
+  "F-10": 11,
+  "F-07": 11,
+  "F-04": 11,
+  "F-43": 11,
+  "F-29": 10
+ },
+ "accepted_events": {
+  "items": 113,
+  "assigned": 80,
+  "families": 13
+ },
+ "cophenetic_correlation": 0.6555,
+ "stability": {
+  "definition": "Gaussian noise, sd = p x the item's own sd, added to each item's 64 envelope values; regrouped with the same settings; adjusted Rand index vs the saved assignment, over all items (omitted = own singleton) and over items assigned in both",
+  "repeats": 5,
+  "jitter_1pct": {
+   "ari_all_min": 0.875,
+   "ari_all_max": 1.0,
+   "ari_all_mean": 0.962,
+   "runs": [
+    {
+     "seed": 1000,
+     "families": 22,
+     "ari_all": 0.8754465796245444,
+     "ari_assigned_in_both": 0.8918857267798241,
+     "n_assigned_in_both": 389
+    },
+    {
+     "seed": 1001,
+     "families": 26,
+     "ari_all": 0.9555734105501369,
+     "ari_assigned_in_both": 0.9620463324942526,
+     "n_assigned_in_both": 409
+    },
+    {
+     "seed": 1002,
+     "families": 25,
+     "ari_all": 0.9918549264924335,
+     "ari_assigned_in_both": 1.0,
+     "n_assigned_in_both": 407
+    },
+    {
+     "seed": 1003,
+     "families": 25,
+     "ari_all": 1.0,
+     "ari_assigned_in_both": 1.0,
+     "n_assigned_in_both": 410
+    },
+    {
+     "seed": 1004,
+     "families": 26,
+     "ari_all": 0.9890993587829323,
+     "ari_assigned_in_both": 0.9965544289039002,
+     "n_assigned_in_both": 409
+    }
+   ]
+  },
+  "jitter_2pct": {
+   "ari_all_min": 0.905,
+   "ari_all_max": 0.95,
+   "ari_all_mean": 0.927,
+   "runs": [
+    {
+     "seed": 2000,
+     "families": 24,
+     "ari_all": 0.9392926310423232,
+     "ari_assigned_in_both": 0.9377170878447821,
+     "n_assigned_in_both": 410
+    },
+    {
+     "seed": 2001,
+     "families": 23,
+     "ari_all": 0.9046671412985844,
+     "ari_assigned_in_both": 0.9340407909298318,
+     "n_assigned_in_both": 382
+    },
+    {
+     "seed": 2002,
+     "families": 24,
+     "ari_all": 0.9146995838086937,
+     "ari_assigned_in_both": 0.9260222431494772,
+     "n_assigned_in_both": 399
+    },
+    {
+     "seed": 2003,
+     "families": 25,
+     "ari_all": 0.9503606636663755,
+     "ari_assigned_in_both": 0.9772697128695927,
+     "n_assigned_in_both": 397
+    },
+    {
+     "seed": 2004,
+     "families": 25,
+     "ari_all": 0.9284553788884322,
+     "ari_assigned_in_both": 0.9338523557063397,
+     "n_assigned_in_both": 409
+    }
+   ]
+  }
+ },
+ "backup": "C:\\Users\\mmebr\\Documents\\CNN\\DATA\\db\\backups\\20261026-110152.sqlite",
+ "grouping_id": 10,
+ "tree": {
+  "key": "61478fcd081218231c9ad89bf8c180c6",
+  "path": "DATA/derived/library/grouping_trees/61478fcd081218231c9ad89bf8c180c6.npz"
+ }
+}
