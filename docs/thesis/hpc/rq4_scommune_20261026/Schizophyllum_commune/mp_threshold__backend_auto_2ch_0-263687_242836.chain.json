@@ -1,0 +1,185 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "mp_threshold__backend_auto",
+  "runKey": null,
+  "sessionId": null,
+  "template": "mp_threshold__backend_auto",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "detrend",
+      "params": {
+        "mode": "rolling_mean",
+        "window_s": 600.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "matrix_profile",
+      "params": {
+        "backend": "auto",
+        "window_min": 1.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "threshold",
+      "params": {
+        "threshold": 8.0
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    263687
+  ],
+  "sourceFile": "Schizophyllum commune.txt",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": true,
+    "partition": "a100",
+    "cpus": 4,
+    "condaEnv": "torch_env",
+    "wallMinutes": 300,
+    "wallVerified": true
+  },
+  "tasks": 2,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 600,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH0.npy",
+      "npySha1": "2ee55c9027b8687032b0a165d126c8a47f35014d",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 600,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "matrix_profile",
+            "params": {
+              "backend": "auto",
+              "window_min": 1.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 8.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "6d33932e",
+      "prefixHashes": [
+        "8791314340b810a819ab0a31d077560f3268d5aab9dcd30e3e5a66a355381944",
+        "d5c93c39777640b4974804da0f07d760ff168f9efeea235fa1a793d76a8ebc1a",
+        "6d33932e7bcc0fe850aeb7c013c521621054f1aa707de497e8665f8bd8e7e3a6"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 601,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH1.npy",
+      "npySha1": "b32940f913f77549bcb8cee798a5f9f5129d8224",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 601,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "matrix_profile",
+            "params": {
+              "backend": "auto",
+              "window_min": 1.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 8.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "8d582b2b",
+      "prefixHashes": [
+        "1933420434b5f87bfc5edfe0b0561dfd2d12f52961e58ef96ce21dad6d5f5890",
+        "dac0262b2627a324d1c546e39f648ce84d2984f416a86afbf22f4aac66f351db",
+        "8d582b2b6f30226e2053a2385f4d219fe506663c0cbd3ad61ddc062a89b4cd44"
+      ],
+      "chunks": []
+    }
+  ]
+}

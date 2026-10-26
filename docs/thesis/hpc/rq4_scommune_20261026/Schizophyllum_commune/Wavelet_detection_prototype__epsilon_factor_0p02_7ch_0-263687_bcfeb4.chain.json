@@ -1,0 +1,448 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "Wavelet_detection_prototype__epsilon_factor_0p02",
+  "runKey": null,
+  "sessionId": null,
+  "template": "Wavelet_detection_prototype__epsilon_factor_0p02",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "wavelet_bands",
+      "params": {
+        "level": 2,
+        "levels": 0,
+        "wavelet": "db4"
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "dehshibi_spikes",
+      "params": {
+        "epsilon_factor": 0.02,
+        "min_roi_wavelet": 30,
+        "min_spike_duration": 60,
+        "n_p": 60
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    263687
+  ],
+  "sourceFile": "Schizophyllum commune.txt",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 7,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 600,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH0.npy",
+      "npySha1": "2ee55c9027b8687032b0a165d126c8a47f35014d",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 600,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.02,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "9b852e9a",
+      "prefixHashes": [
+        "aaf757657d5d6dd2b35989229a164cb8fd74be04a54838601921bba31c5af326",
+        "9b852e9a586c78e1f4b7e8452652adea33c6c187936a6edd77138e74a414e1a3"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 601,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH1.npy",
+      "npySha1": "b32940f913f77549bcb8cee798a5f9f5129d8224",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 601,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.02,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "d9d84c28",
+      "prefixHashes": [
+        "dfb744ca2a1229e04a0856c95f6604cface32b87cbdb09fb965f208e96cc7ff3",
+        "d9d84c2864cc2f6e983cdc3b8717eaf054edcdeb199b1297edd9dd77ed403217"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 602,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH2.npy",
+      "npySha1": "6829e0615c51f8a7afff7ecf8d248e4e838411a4",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 602,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.02,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "4ce4b8f1",
+      "prefixHashes": [
+        "091e66636611554bc806d02bcdb1f159d616d378695afee0ca74e49656c6b81d",
+        "4ce4b8f119dad117b4d07cc03b5bd0934b26222d08c46aaba66c6d4c22497bb8"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 603,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH3.npy",
+      "npySha1": "2ebbba7d7c520522dd94e9453bc39411a3da9dd9",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 603,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.02,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b127f5a7",
+      "prefixHashes": [
+        "197d393adf8449c47fec3b22c05e8ff8a885dd26fa93e1d580d1172079aab857",
+        "b127f5a7cd1aceca2ad8eed03e6bc403d524b2261d4d10dc1d610478b4d6a752"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 604,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH4.npy",
+      "npySha1": "0a0454d59e619dfb63ec777ec86d93cf34d3aff4",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 604,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.02,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "64ffb506",
+      "prefixHashes": [
+        "5313c25c8d254c9ee32158a493a5b64ffc8c73771339a44181b466447f121a2f",
+        "64ffb506d0a491c0f62cb653c0e5c29d815d71a6a65d47df21b1d5fa19c2b931"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 5,
+      "recordingId": 605,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 5,
+      "channelName": "CH6",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH5.npy",
+      "npySha1": "6bcbdb80619f8cffbda262617147ccb7dbb41b85",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 605,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.02,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "c8821e34",
+      "prefixHashes": [
+        "d8b35d8ceaa3c74f7f34bf6a1f66e6bb116aff93946d83bbde8087f2772dcd51",
+        "c8821e34072db09984b80cc281493551e25aa8799794f4a23e53a1aa60a69911"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 6,
+      "recordingId": 606,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 6,
+      "channelName": "CH7",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH6.npy",
+      "npySha1": "cea3fdd0e0403aa5471fb7ec15550c09df5ce760",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 606,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.02,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "dedcbc77",
+      "prefixHashes": [
+        "46f288d7fedd53b2bbcc494555886761c677ac115b909f20168a2624a73f0437",
+        "dedcbc77ee8e13ff9126c55f0c5390576279d75d0ae7a3867b0b4b972caa7dd7"
+      ],
+      "chunks": []
+    }
+  ]
+}

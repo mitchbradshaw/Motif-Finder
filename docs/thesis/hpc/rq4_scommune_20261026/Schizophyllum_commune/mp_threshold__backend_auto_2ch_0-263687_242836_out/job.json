@@ -1,0 +1,11 @@
+{
+  "kind": "detection_chain",
+  "specHash": "242836150bd4",
+  "tasks": 2,
+  "label": "mp_threshold__backend_auto",
+  "spec": "docs/thesis/hpc/rq4_scommune_20261026/Schizophyllum_commune/mp_threshold__backend_auto_2ch_0-263687_242836.chain.json",
+  "channels": [
+    "CH1",
+    "CH2"
+  ]
+}

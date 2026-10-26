@@ -1,0 +1,16 @@
+{
+  "kind": "detection_chain",
+  "specHash": "0f62a7e9136d",
+  "tasks": 7,
+  "label": "OASIS_Deconvolution__threshold_5",
+  "spec": "docs/thesis/hpc/rq4_scommune_20261026/Schizophyllum_commune/OASIS_Deconvolution__threshold_5_7ch_0-263687_0f62a7.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7"
+  ]
+}

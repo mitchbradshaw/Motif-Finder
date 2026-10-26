@@ -1,0 +1,503 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "cnn_recurrence_1min",
+  "runKey": null,
+  "sessionId": null,
+  "template": "cnn_recurrence_1min",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "sliding_windows",
+      "params": {
+        "gap_s": 0.0,
+        "window_s": 60.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "catalogue",
+      "algorithm": "cnn_window_scores",
+      "params": {
+        "image_type": "recurrence",
+        "model_path": "MODELS/recurrence_cnn.pth",
+        "resample_to": 600
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "threshold",
+      "params": {
+        "threshold": 0.5
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    263687
+  ],
+  "sourceFile": "Schizophyllum commune.txt",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 7,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 600,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH0.npy",
+      "npySha1": "2ee55c9027b8687032b0a165d126c8a47f35014d",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 600,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "2dab08a9",
+      "prefixHashes": [
+        "7f419043cb8a25cd4ae0ce7c1d98fd45866e267e251feccd06674e1646802a0e",
+        "5a5cf1a75839b843e12342c280f6272d42eb71dbe1fdc472aa564f5412bfc87e",
+        "2dab08a9c90d6f6b459b6d59b0abe4a3fc7f2175e0158adc8321592ed94a6d9b"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 601,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH1.npy",
+      "npySha1": "b32940f913f77549bcb8cee798a5f9f5129d8224",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 601,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "57bbd5b8",
+      "prefixHashes": [
+        "85c2b4f5d2b95b8a410cbadee33d027da654151970db44fbd2da2b64558502df",
+        "c11722d7dbea0f91827fdf7a63ca51b113155f99edb4f4d277a2ce64fa9d2f49",
+        "57bbd5b8fac066faf85dc56e2c6d0b6299b5114b16815cdefca8943fbe13acda"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 602,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH2.npy",
+      "npySha1": "6829e0615c51f8a7afff7ecf8d248e4e838411a4",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 602,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "c6971b74",
+      "prefixHashes": [
+        "c83aecb7efeb3797c7b3cbd809fd7348c2365e6ced2d7ad9637963dabe5e3acc",
+        "fe56109538ebe0cecd36d8fd112b8fbe76bc04a5d36dc077c1a56713b933af24",
+        "c6971b7454ed66c3b100ab39d0c35eaa1b45f8e9d412d3dd78f010fbecd2a69b"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 603,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH3.npy",
+      "npySha1": "2ebbba7d7c520522dd94e9453bc39411a3da9dd9",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 603,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "7ce3884a",
+      "prefixHashes": [
+        "8d95f01815839c204a59e38149f49e57fafc726118c3628b64367bddd9d15e22",
+        "e491a901a142f4fef4864760d9da0097ca179442fbb1196e7ec57aa67b859011",
+        "7ce3884a2b149ee77dbd730750fb5686fdfdb529d0cb75858bd23ca16b4583fb"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 604,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH4.npy",
+      "npySha1": "0a0454d59e619dfb63ec777ec86d93cf34d3aff4",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 604,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "d159069e",
+      "prefixHashes": [
+        "8ca25752e20ca217edc8debd0c846a826c2d1286ba9281a98d01c953b02464bb",
+        "6f240cf75ab39d9ee6fab19901379693ec6e4bf9a715612224b91338e1347a41",
+        "d159069e60beea682e441e10fb4667cc9393567205f1c939a9d812dbc9dcfcc3"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 5,
+      "recordingId": 605,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 5,
+      "channelName": "CH6",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH5.npy",
+      "npySha1": "6bcbdb80619f8cffbda262617147ccb7dbb41b85",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 605,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "ab06ade3",
+      "prefixHashes": [
+        "7366089a469b03ca79ebb8e6f2621397b536af6932bb772777bb23920aa5e894",
+        "2dfcb1e29e20314315e7eb900fa0b8727380ba76780da77bab21e423e2c42276",
+        "ab06ade3f44c2d51b475fcbe38efe3fc39dd4a41184525c39f3f9c0d1de6f5d8"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 6,
+      "recordingId": 606,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 6,
+      "channelName": "CH7",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH6.npy",
+      "npySha1": "cea3fdd0e0403aa5471fb7ec15550c09df5ce760",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 606,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 60.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "2f3d01d5",
+      "prefixHashes": [
+        "d78c563b0bed45b85dd1f18d9e06b9bf6787aac893d3131c0e98b7cb6bf3d0a1",
+        "7e7e329bfc184877d1ea73f1ce7f656bf606bf3cdf0086010047beaf64165756",
+        "2f3d01d5dcbf38701db25d542e58ecbd32e5f38db8cf10090f607fcb133f1f6a"
+      ],
+      "chunks": []
+    }
+  ]
+}

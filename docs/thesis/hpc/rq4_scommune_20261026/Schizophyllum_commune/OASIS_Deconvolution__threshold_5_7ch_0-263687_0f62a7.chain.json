@@ -1,0 +1,567 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "OASIS_Deconvolution__threshold_5",
+  "runKey": null,
+  "sessionId": null,
+  "template": "OASIS_Deconvolution__threshold_5",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "beads",
+      "params": {
+        "baseline_period_s": 7200,
+        "filter_order": 2,
+        "polarity": "drop",
+        "sparsity": 1
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "deconvolve",
+      "params": {
+        "baseline_window_s": 0,
+        "min_jump_sigma": 2,
+        "noise_scale": "level",
+        "polarity": "drop",
+        "recovery_half_s": 0,
+        "rise_s": 0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "impulse_events",
+      "params": {
+        "max_extent_s": 1200,
+        "merge_within_s": 2,
+        "pre_s": 600,
+        "threshold": 5.0
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    263687
+  ],
+  "sourceFile": "Schizophyllum commune.txt",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 7,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 600,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH0.npy",
+      "npySha1": "2ee55c9027b8687032b0a165d126c8a47f35014d",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 600,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 0,
+              "min_jump_sigma": 2,
+              "noise_scale": "level",
+              "polarity": "drop",
+              "recovery_half_s": 0,
+              "rise_s": 0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {
+              "max_extent_s": 1200,
+              "merge_within_s": 2,
+              "pre_s": 600,
+              "threshold": 5.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "10617591",
+      "prefixHashes": [
+        "c3d24a69720138f16fec0d6f24a0a4529294f17225619231513ff7bca7615141",
+        "8177de5d09a4636f71d13cadc11175aeefae8d6ba4fb38e84e460af25a64921b",
+        "10617591f848aedfc57f69dfb9a4d4a03b2e283fca96bbc19616907ad1332898"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 601,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH1.npy",
+      "npySha1": "b32940f913f77549bcb8cee798a5f9f5129d8224",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 601,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 0,
+              "min_jump_sigma": 2,
+              "noise_scale": "level",
+              "polarity": "drop",
+              "recovery_half_s": 0,
+              "rise_s": 0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {
+              "max_extent_s": 1200,
+              "merge_within_s": 2,
+              "pre_s": 600,
+              "threshold": 5.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "ecd6d415",
+      "prefixHashes": [
+        "0577131976fbabe1ba76ff5b90712da8dfad26f511d05e7cfd23072174531fee",
+        "cdda0f041fe27852b0a2aa552f3043dbe11cf5dec5c0fe6d67231f520b9d4f84",
+        "ecd6d415183f20f0896654d0e8605e44bfd538baec2a2b5332ec21bbf5787f2a"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 602,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH2.npy",
+      "npySha1": "6829e0615c51f8a7afff7ecf8d248e4e838411a4",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 602,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 0,
+              "min_jump_sigma": 2,
+              "noise_scale": "level",
+              "polarity": "drop",
+              "recovery_half_s": 0,
+              "rise_s": 0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {
+              "max_extent_s": 1200,
+              "merge_within_s": 2,
+              "pre_s": 600,
+              "threshold": 5.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "2824efe5",
+      "prefixHashes": [
+        "8bde9460c27512e48cb504a2f8d8fef6f00c29a542d45eb196a9e5a5b17d276a",
+        "de522f07cc6ee08c9f02a398e2a1317ee324de3355da6df05a92a60f0d06d1d3",
+        "2824efe50c9b74ac7aaa480b63942be3fbd9393271898c1b344bd21c60614cbf"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 603,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH3.npy",
+      "npySha1": "2ebbba7d7c520522dd94e9453bc39411a3da9dd9",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 603,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 0,
+              "min_jump_sigma": 2,
+              "noise_scale": "level",
+              "polarity": "drop",
+              "recovery_half_s": 0,
+              "rise_s": 0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {
+              "max_extent_s": 1200,
+              "merge_within_s": 2,
+              "pre_s": 600,
+              "threshold": 5.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "bbe41d58",
+      "prefixHashes": [
+        "8409a5296f9ae0af32f08b32e8229f384ee2ea227038d3d05e3cb5a4b74b888b",
+        "703a260d7d97c77fb20d054e65ae64c9ecd650298f9796401df00a481f72ceb9",
+        "bbe41d58d204e25de4e25b28f398c4a0a9f931fcc71b47a6cfe8525e6d78b81a"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 604,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH4.npy",
+      "npySha1": "0a0454d59e619dfb63ec777ec86d93cf34d3aff4",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 604,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 0,
+              "min_jump_sigma": 2,
+              "noise_scale": "level",
+              "polarity": "drop",
+              "recovery_half_s": 0,
+              "rise_s": 0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {
+              "max_extent_s": 1200,
+              "merge_within_s": 2,
+              "pre_s": 600,
+              "threshold": 5.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b6e13279",
+      "prefixHashes": [
+        "8e5685a397814b4367447dcada8b7330394bfa886088d0bdb7766ef5b592aca1",
+        "bb628b6bff9b24bd234796e9724e79e3b9c09d4ef03277c59af5505b426ae733",
+        "b6e13279f170a73addfcbbc22eeb73a7eaacb47a9fd3beaf1a3a54c581147069"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 5,
+      "recordingId": 605,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 5,
+      "channelName": "CH6",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH5.npy",
+      "npySha1": "6bcbdb80619f8cffbda262617147ccb7dbb41b85",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 605,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 0,
+              "min_jump_sigma": 2,
+              "noise_scale": "level",
+              "polarity": "drop",
+              "recovery_half_s": 0,
+              "rise_s": 0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {
+              "max_extent_s": 1200,
+              "merge_within_s": 2,
+              "pre_s": 600,
+              "threshold": 5.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "d8abb982",
+      "prefixHashes": [
+        "ed253c7d957b5e968150c9bb8a7d2a726a505356df7c63dc1e306222ded2ef24",
+        "51e83590708cc7a553ff90dbdf38d5b04dd7f0fe8f11574aca28c4e25f3761af",
+        "d8abb9820e76e9454125d6f76c8936700ba0abfa7504a891f04020dc3fe08bc5"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 6,
+      "recordingId": 606,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 6,
+      "channelName": "CH7",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH6.npy",
+      "npySha1": "cea3fdd0e0403aa5471fb7ec15550c09df5ce760",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 606,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 0,
+              "min_jump_sigma": 2,
+              "noise_scale": "level",
+              "polarity": "drop",
+              "recovery_half_s": 0,
+              "rise_s": 0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {
+              "max_extent_s": 1200,
+              "merge_within_s": 2,
+              "pre_s": 600,
+              "threshold": 5.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "d7e7a7bc",
+      "prefixHashes": [
+        "4b2627508001893bfea9b0e817ce145e3486930f93a908c053a07946c60b3a3e",
+        "058b95983bf4e0ad93c2914e6df3d583b7dd33f732819471ae528e9cc98dcfc8",
+        "d7e7a7bc46c093e980e36e1e0fe3941673cf9f9c5c4fab0683a079d39d2957e2"
+      ],
+      "chunks": []
+    }
+  ]
+}

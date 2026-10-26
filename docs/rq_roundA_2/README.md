@@ -110,6 +110,46 @@ on it time out. The states were checked by hand instead.
 4. `python scripts/m4_exam_score.py --real` (read-only): writes `DATA/derived/exam/M4/results.json` and
    `findings/m4-exam-<date>.md`. Only now are the model's scores computed on the sample.
 
+## The S. commune unseen-recording test (2026-10-26)
+
+In plain words: R4 has only ever seen UQ recordings. This is a second exam on another lab's fungus (Adamatzky's public
+*Schizophyllum commune*, 7 channels, 1 Hz, mV, 73 h), run under the M4 exam's rules but with no lock, because the
+recording is not held out.
+
+- 2026-10-26 · scommune-exam · **prepared, nothing submitted or drawn.** The rangpur sweep bundle
+  `docs/thesis/hpc/rq4_scommune_20261026/`, with its README holding the commands and the cost: 43 settings (batch 3's
+  mV set) × 7 channels, each with one phase-randomised draw. That is 296 tasks in four packs, about 1–3 CPU
+  core-hours and at most 1 A100-hour, returning about 0.2–0.8 GB. The upload archive (code, bundle, channels) is
+  `DATA/derived/hpc/rq4_scommune_20261026/rq4_scommune_upload.tar.gz`. It was built on a sandbox copy by
+  `scripts/thesis/scommune_bundle.py`. `scripts/rq4_overnight.py` now names a batch sub-folder without spaces
+  (`_folder_stem`). The exam is generalised behind `--recording`/`--manifest`, with M4's path and tests unchanged:
+  - `scripts/m4_exam_freeze.py --recording` writes an `exam: "unseen"` manifest that freezes the frame table, the
+    session's runs, R4, the CNNs inline and the known risks, and POSTs its freeze to `/api/audit`;
+  - `rq1b_candidate_events.py queue --exam-manifest` refuses another table, seed or quota;
+  - `m4_exam_score.py --manifest` refuses verdicts older than the freeze.
+
+  The door is `candidate_events.EXAM_UNSEEN_FROZEN` / `EXAM_UNSEEN_SAMPLE_DRAWN`. Tests:
+  `tests/test_unseen_exam.py`, `tests/test_scommune_bundle.py`.
+
+**The steps** (commands in the bundle's README):
+
+0. Sweep on rangpur (researcher), bring it back, open a Discovery session on S. commune
+   (`PUT /api/discovery/session`), then `rq4_overnight.py adopt`: a dry run, then `--apply --allow-project`.
+1. After the import, build the candidate-event table (`rq1b_candidate_events.py build --real --file
+   "Schizophyllum commune.txt"`).
+2. Freeze and audit the manifest (`m4_exam_freeze.py --recording ... --post-audit http://127.0.0.1:8765`).
+3. Draw the sample: queue 28's strata (agreement 1–2 / 3–4 / 5–6 / 7–8 / 9+ at 40 each, the six selective families
+   at 15 each), n ≤ 290, seed 20261027 (`queue ...` dry run).
+4. Create the blind Review queue (the same command with `--apply`; audited).
+5. The researcher judges that queue only.
+6. Score once (`m4_exam_score.py --real --manifest DATA/derived/exam/scommune/manifest.json ...`): R4 AUC and
+   balanced accuracy with the within-stratum bootstrap, the CNNs as in M4's amendment 1, detector agreement as the
+   comparator, the share real, the agreement ladder, and R4's side-feature ranges.
+
+**Known risk:** S. commune's amplitudes are about 300 times smaller than the training recordings' (std 0.15–0.6 mV
+against 50–170 mV). R4's side features may be out of range, and the fixed-mV detectors may find little. This is
+recorded in the manifest; nothing is adjusted.
+
 ## Rules (as round A)
 
 1. Move a step from *What is still needed* to *What is known*, with the date and your report's path.

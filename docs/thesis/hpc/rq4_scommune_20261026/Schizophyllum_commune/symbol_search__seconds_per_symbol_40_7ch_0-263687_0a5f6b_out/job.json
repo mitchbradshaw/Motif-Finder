@@ -1,0 +1,16 @@
+{
+  "kind": "detection_chain",
+  "specHash": "0a5f6b1c9f68",
+  "tasks": 7,
+  "label": "symbol_search__seconds_per_symbol_40",
+  "spec": "docs/thesis/hpc/rq4_scommune_20261026/Schizophyllum_commune/symbol_search__seconds_per_symbol_40_7ch_0-263687_0a5f6b.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7"
+  ]
+}

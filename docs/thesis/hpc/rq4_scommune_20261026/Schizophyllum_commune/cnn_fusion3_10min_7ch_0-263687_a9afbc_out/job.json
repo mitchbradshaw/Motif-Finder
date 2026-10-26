@@ -1,0 +1,16 @@
+{
+  "kind": "detection_chain",
+  "specHash": "a9afbc8ddec4",
+  "tasks": 7,
+  "label": "cnn_fusion3_10min",
+  "spec": "docs/thesis/hpc/rq4_scommune_20261026/Schizophyllum_commune/cnn_fusion3_10min_7ch_0-263687_a9afbc.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7"
+  ]
+}

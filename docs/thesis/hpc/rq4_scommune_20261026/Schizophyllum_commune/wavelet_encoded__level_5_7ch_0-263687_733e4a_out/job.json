@@ -1,0 +1,16 @@
+{
+  "kind": "detection_chain",
+  "specHash": "733e4a09be31",
+  "tasks": 7,
+  "label": "wavelet_encoded__level_5",
+  "spec": "docs/thesis/hpc/rq4_scommune_20261026/Schizophyllum_commune/wavelet_encoded__level_5_7ch_0-263687_733e4a.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7"
+  ]
+}

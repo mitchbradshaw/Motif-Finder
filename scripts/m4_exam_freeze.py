@@ -11,6 +11,20 @@ quietly change the rules after seeing the answers.
     python scripts/m4_exam_freeze.py            # writes DATA/derived/exam/M4/{manifest.json, detectors.json}
                                                 # and copies both to docs/rq_roundA_2/exam/
 
+**An unseen recording (2026-10-26).** The same exam for a recording that is NOT held out (the first is Adamatzky's
+*Schizophyllum commune*): no lock, the same discipline. Run AFTER its sweep is imported and its candidate-event table
+built (`scripts/rq1b_candidate_events.py build --real --file <source>`), BEFORE any sample is drawn:
+
+    python scripts/m4_exam_freeze.py --recording "Schizophyllum commune.txt" --session <its Discovery session id> \
+        --table DATA/derived/candidate_events/<table key> --slug scommune
+        # writes DATA/derived/exam/scommune/{manifest.json, detectors.json, audit_body.json} and copies the first two
+        # to docs/rq_roundA_2/exam/scommune-exam-*.json; --post-audit http://127.0.0.1:8765 also logs the freeze
+
+Its manifest says ``exam: "unseen"`` and freezes, beside what M4's says: the frame (the candidate table's key, run ids
+and file hashes: the draw and the marking refuse any other table), the reference CNNs inline in amendment 1's shape
+(so no amendment is needed), and the known risks (units and amplitude range). Its freeze is audited as
+``candidate_events.EXAM_UNSEEN_FROZEN`` (`audit_body.json`, POSTed to the bridge's ``/api/audit``).
+
 The database is opened READ-ONLY. Refuses to overwrite an existing manifest: a frozen manifest is never rewritten.
 Headless; no UI library.
 """
@@ -24,6 +38,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -238,6 +253,309 @@ def judging_protocol_block():
     }
 
 
+# ── an unseen recording (2026-10-26) ────────────────────────────────────────
+
+UNSEEN_SEED = 20261027
+UNSEEN_MODELS = ("minirocket_R4", "reference_cnns")
+#: the reference CNNs scored on the event sample, as M4's amendment 1 scores them
+CNN_CHECKPOINTS = {"GASF": ("MODELS/GASF_cnn.pth", "GASF"), "GADF": ("MODELS/GADF_cnn.pth", "GADF"),
+                   "recurrence": ("MODELS/recurrence_cnn.pth", "recurrence"),
+                   "fusion": ("MODELS/fusion_cnn_3.pth", "fusion")}
+CNN_CODE = ["scripts/rq1b_cnn_vs_minirocket.py", "scripts/rq1b_minirocket.py", "Working/Catalogue/cnn/window_scores.py",
+            "Working/Catalogue/cnn/apply_cnn.py", "Working/Catalogue/cnn/cnn_rangapur.py", "Working/units.py",
+            "Working/Catalogue/minirocket.py", "Working/distances.py"]
+#: whole-signal scale of the R4 training recordings, measured 2026-10-26 (first active channel, first 2 M samples, in
+#: mV): the signal's std, and the robust sample-to-sample noise rq1b_minirocket's side feature uses
+TRAINING_SCALE_MV = {"M2_aug_concat_fs1 (V, 1 Hz)": {"std": 166.8, "noise": 0.0268},
+                     "M2_concat_fs1 (V, 1 Hz)": {"std": 128.6, "noise": 0.0260},
+                     "LM_fs2 (V, 2 Hz)": {"std": 81.0, "noise": 0.0420},
+                     "CO_fs2 (V, 2 Hz)": {"std": 78.3, "noise": 0.0259},
+                     "L_LM_Jul_26_J_raw_fs2 (mV, 2 Hz)": {"std": 51.6, "noise": 0.0084}}
+
+
+def _rel(path):
+    a = os.path.abspath(path)
+    try:
+        r = os.path.relpath(a, ROOT)
+    except ValueError:
+        return a
+    return a if r.startswith("..") else r.replace(os.sep, "/")
+
+
+def data_block_of(conn, source_file):
+    out = []
+    for rid, ch, n, fs, units, p in conn.execute("SELECT id, channel, n_samples, fs, units, npy_path FROM recordings "
+                                                 "WHERE source_file = ? AND active = 1 ORDER BY channel",
+                                                 (source_file,)):
+        path = p if os.path.isabs(p) else os.path.join(ROOT, p)
+        out.append({"recording_id": int(rid), "channel": int(ch), "n_samples": int(n), "fs": float(fs),
+                    "units": units, "npy_path": p, "sha256": sha256_file(path) if os.path.isfile(path) else None})
+    return out
+
+
+def session_detectors_block(conn, source_file, session_id):
+    """Every real template run of Discovery session `session_id` on `source_file`: run, channel, variant, config
+    hash; plus a digest per variant (as `detectors_block` for M4, keyed by the session instead of a date)."""
+    groups = {int(g): n for g, n in conn.execute(
+        "SELECT run_group_id, template_name FROM discovery_runs WHERE session_id = ? AND kind = 'template' "
+        "AND run_group_id IS NOT NULL AND removed_at IS NULL", (int(session_id),))}
+    marks = ",".join("?" * len(groups)) or "NULL"
+    base = ("FROM runs r JOIN configs c ON c.id = r.config_id JOIN recordings rec ON rec.id = r.recording_id "
+            f"WHERE rec.source_file = ? AND r.run_group_id IN ({marks}) ")
+    rows = conn.execute("SELECT r.id, r.recording_id, rec.channel, r.run_group_id, c.config_hash, r.span_start, "
+                        "r.span_end, r.status, r.started_at " + base + "AND r.surrogate_of_run_id IS NULL "
+                        "ORDER BY r.id", (source_file, *groups)).fetchall()
+    runs = [{"run_id": int(r[0]), "recording_id": int(r[1]), "channel": int(r[2]), "variant": groups.get(int(r[3])),
+             "config_hash": r[4], "span": [int(r[5]), int(r[6])], "status": r[7], "started_at": r[8]} for r in rows]
+    by_variant = {}
+    for r in runs:
+        by_variant.setdefault(r["variant"], []).append(r["config_hash"])
+    digests = {v: {"n_runs": len(h), "sha256_of_sorted_config_hashes":
+                   hashlib.sha256("\n".join(sorted(h)).encode()).hexdigest()} for v, h in sorted(by_variant.items())}
+    (n_null,) = conn.execute("SELECT COUNT(*) " + base + "AND r.surrogate_of_run_id IS NOT NULL",
+                             (source_file, *groups)).fetchone()
+    name = conn.execute("SELECT name FROM discovery_sessions WHERE id = ?", (int(session_id),)).fetchone()
+    return {"discovery_session": {"id": int(session_id), "name": name[0] if name else None},
+            "n_real_runs": len(runs), "n_surrogate_runs": int(n_null), "variants": digests, "runs": runs}
+
+
+def frame_block(table_dir, source_file, session_runs):
+    """The frozen frame: the candidate-event table the sample is drawn from. Refuses a table of another recording,
+    or one holding a run that is not one of the session's (SystemExit, naming the runs)."""
+    with open(os.path.join(table_dir, "meta.json"), encoding="utf-8") as fh:
+        meta = json.load(fh)
+    if meta.get("source_file") != source_file:
+        raise SystemExit(f"{table_dir} is a table of {meta.get('source_file')!r}, not {source_file!r}")
+    ids = sorted(int(r["run_id"]) for r in meta.get("runs") or [])
+    foreign = sorted(set(ids) - {int(r["run_id"]) for r in session_runs})
+    if foreign:
+        raise SystemExit(f"{table_dir} holds runs that are not the session's sweep runs: {foreign[:20]}; build the "
+                         "table from the imported sweep only (or name the session it came from)")
+    return {"table_key": meta["key"], "table_dir": _rel(table_dir), "n_events": int(meta["n_events"]),
+            "n_detections": int(meta["n_detections"]), "n_runs": len(ids),
+            "runs_sha256": hashlib.sha256(",".join(map(str, ids)).encode()).hexdigest(),
+            "families": meta.get("families"), "labels": meta.get("labels"), "rule": meta.get("rule"),
+            "excluded_variants": meta.get("excluded_variants"),
+            "files": {f: sha256_file(os.path.join(table_dir, f))
+                      for f in ("meta.json", "events.parquet", "members.parquet")
+                      if os.path.isfile(os.path.join(table_dir, f))}}
+
+
+def cnn_block():
+    """The reference CNNs, in M4 amendment 1's shape (what `m4_exam_score.verify_cnn_files`/`score_cnns` read)."""
+    ck = {}
+    for name, (path, image_type) in CNN_CHECKPOINTS.items():
+        p = os.path.join(ROOT, path)
+        ck[name] = {"path": path, "image_type": image_type,
+                    "sha256": sha256_file(p) if os.path.isfile(p) else None,
+                    "bytes": os.path.getsize(p) if os.path.isfile(p) else None}
+    return {
+        "as_in": "M4 exam amendment 1 (DATA/derived/exam/M4/amendment-1.json), here part of the frozen manifest",
+        "models": {"reference_cnns": ck},
+        "input_length": 600,
+        "input": ("each answered sample item's anchor span with rq1b_minirocket.PAD (0.25) x its length of context on "
+                  "each side, clipped at the recording's ends; in mV (Working.units.read_as_mv); gaps of at most 5 % "
+                  "filled linearly, more and the item is not scored; resampled to 600 points by "
+                  "window_scores.resample_window; a flat cut is not scored (scripts/rq1b_cnn_vs_minirocket.py "
+                  "cuts600)"),
+        "score": ("window_scores.window_image (224 px), cnn_rangapur.get_transforms(224, is_train=False, "
+                  "is_rgb=(image_type == 'fusion')), window_scores.predict: softmax column 0 = P(interesting); CPU"),
+        "population": "the answered items (y in {0,1}) that MiniRocket's extract read AND cuts600 could cut; "
+                      "unweighted",
+        "metrics": {"cut": 0.5, "primary": ["AUC of P(interesting)", "balanced accuracy at P(interesting) > 0.5"],
+                    "secondary": "the same two, design-weighted by N_h / n_h",
+                    "ci": f"95 % percentile bootstrap within strata, {N_BOOT} draws, seed 0 "
+                          "(m4_exam_score.score_metrics)",
+                    "paired": "AUC(CNN) minus AUC(MiniRocket R4) on the same items, within-stratum bootstrap "
+                              "(m4_exam_score.paired_auc_difference)"},
+        "code": {rel: sha256_file(os.path.join(ROOT, rel)) for rel in CNN_CODE
+                 if os.path.isfile(os.path.join(ROOT, rel))},
+        "code_rule": "a changed checkpoint sha256 refuses the scoring; a changed code sha256 is reported as a warning",
+        "flags": "the CNNs' training data is not recorded (most likely the imported 10-minute M2_aug labels)",
+    }
+
+
+def _channel_scale(conn, source_file):
+    import numpy as np
+    out = {}
+    for ch, units, p in conn.execute("SELECT channel, units, npy_path FROM recordings WHERE source_file = ? AND "
+                                     "active = 1 ORDER BY channel", (source_file,)):
+        path = p if os.path.isabs(p) else os.path.join(ROOT, p)
+        if not os.path.isfile(path):
+            continue
+        x = np.asarray(np.load(path, mmap_mode="r"), float)
+        x = x[np.isfinite(x)] * (1000.0 if units in (None, "", "V") else 1.0)
+        if x.size < 2:
+            continue
+        d = np.diff(x)
+        out[f"CH{int(ch)}"] = {"std_mv": round(float(x.std()), 4),
+                               "p1_p99_mv": [round(float(v), 4) for v in np.percentile(x, [1, 99])],
+                               "noise_mv": round(float(np.median(np.abs(d)) * 1.4826 / np.sqrt(2.0)), 5)}
+    return out
+
+
+def known_risks_block(conn, source_file):
+    units = sorted({str(u) for (u,) in conn.execute("SELECT DISTINCT units FROM recordings WHERE source_file = ? "
+                                                    "AND active = 1", (source_file,))})
+    fs = sorted({float(f) for (f,) in conn.execute("SELECT DISTINCT fs FROM recordings WHERE source_file = ? AND "
+                                                   "active = 1", (source_file,))})
+    return {
+        "units_and_amplitude": {
+            "what": ("R4 was trained on recordings stored in V and mV at 1 and 2 Hz (all read as mV by "
+                     "Working.units.read_as_mv). This recording is " + "/".join(units) + " at "
+                     + "/".join(f"{f:g}" for f in fs) + " Hz from another lab, and its amplitudes are far smaller "
+                     "(Adamatzky reports spikes of tenths of a mV to a few mV). R4's side features (log10 duration, "
+                     "peak-to-peak mV, noise mV, SNR) may lie outside their training range; its shape features are "
+                     "z-normalised, so they are not. Recorded as a known risk; NOTHING is adjusted (no rescaling, no "
+                     "recalibration, no threshold change)."),
+            "this_recording_mv": _channel_scale(conn, source_file),
+            "training_recordings_mv": TRAINING_SCALE_MV,
+            "reported_at_scoring": "the answered items' side-feature quantiles (5/50/95 %) beside the metrics",
+        },
+        "detectors_with_fixed_mv_thresholds": (
+            "signal_threshold's mV copies (-2/-5/-10 mV), BEADs' delta_mv 5/25 and any other absolute-mV setting may "
+            "find few or no events on a recording of this amplitude: those families' strata may be empty or small "
+            "(an empty stratum is reported, never filled from another)"),
+        "another_lab": ("electrodes, sampling and preparation differ (Adamatzky's differential needle electrodes); a "
+                        "drop in R4's AUC measures transfer to another lab and species, not only to another "
+                        "recording"),
+    }
+
+
+def unseen_exposure_block(conn, ids, session_id):
+    marks = ",".join("?" * len(ids)) or "NULL"
+    reg = conn.execute(f"SELECT MIN(registered_at), MIN(registered_by) FROM recordings WHERE id IN ({marks})",
+                       ids).fetchone()
+    runs = conn.execute(f"SELECT substr(started_at, 1, 10), COUNT(*) FROM runs WHERE recording_id IN ({marks}) "
+                        "GROUP BY 1 ORDER BY 1", ids).fetchall()
+    (n_ann,) = conn.execute(f"SELECT COUNT(*) FROM annotations WHERE recording_id IN ({marks})", ids).fetchone()
+    (n_adj,) = conn.execute(f"SELECT COUNT(*) FROM adjudications a JOIN detections d ON d.id = a.detection_id "
+                            f"JOIN runs r ON r.id = d.run_id WHERE r.recording_id IN ({marks})", ids).fetchone()
+    return {"registered": {"at": reg[0], "by": reg[1]}, "runs_by_day": {str(d): int(n) for d, n in runs},
+            "annotations": int(n_ann), "adjudications_on_its_detections": int(n_adj),
+            "in_training_of_frozen_models": "no (R4's six UQ groups; the CNNs predate its registration)",
+            "sweep_session": int(session_id)}
+
+
+def build_unseen(conn, source_file, *, session_id, table_dir, slug, seed):
+    """The unseen-recording exam manifest (the detectors file's sha256 is filled by `main_unseen`)."""
+    if source_file == HELD_OUT_RECORDING_FILE:
+        raise SystemExit(f"{source_file} is held out: its exam is this script's default (M4) path, not --recording")
+    ids = [int(r[0]) for r in conn.execute("SELECT id FROM recordings WHERE source_file = ? AND active = 1 "
+                                           "ORDER BY channel", (source_file,))]
+    if not ids:
+        raise SystemExit(f"no active recordings for {source_file!r}")
+    det = session_detectors_block(conn, source_file, session_id)
+    if not det["n_real_runs"]:
+        raise SystemExit(f"Discovery session {session_id} has no real template runs on {source_file!r}: import the "
+                         "sweep (scripts/rq4_overnight.py adopt) and build the candidate table first")
+    frame = frame_block(table_dir, source_file, det["runs"])
+    design = design_block() | {
+        "frame": ("the candidate-event table frozen under 'frame' (Working/discovery/candidate_events.py build_table, "
+                  "rules 1-5, the matching rule recorded under 'matching_rule'), built from the sweep runs listed in "
+                  "detectors.json; NEGATIVE_CONTROLS excluded as for every table"),
+        "seed": int(seed),
+        "code": ("scripts/rq1b_candidate_events.py queue --exam-manifest/--exam-sha256: refuses another table, seed or "
+                 "quota than this manifest's"),
+    }
+    models = {k: v for k, v in models_block().items() if k in UNSEEN_MODELS}
+    models["reference_cnns"]["scores_on_exam"] = "the candidate-event sample, as M4's amendment 1 (see 'cnns')"
+    metrics = metrics_block() | {"outputs": [f"DATA/derived/exam/{slug}/results.json",
+                                             f"docs/rq_roundA_2/findings/{slug}-exam-<date>.md"],
+                                 "cnns": "the 'cnns' block (amendment 1's design, part of this manifest)"}
+    return {
+        "exam": ce.EXAM_UNSEEN, "name": f"{os.path.splitext(source_file)[0]} unseen-recording exam (one shot)",
+        "slug": f"{slug}-exam", "source_file": source_file, "recording_ids": ids, "held_out": False,
+        "frozen": True, "frozen_at": _now(), "git_head": _git_head(),
+        "decided": ("researcher, 2026-10-26: a second unseen-recording test on Adamatzky's public recording; sweep, "
+                    "import, freeze, one blind stratified sample, judge, score the frozen models once"),
+        "matching_rule": rule_from_settings(conn),
+        "data": data_block_of(conn, source_file),
+        "models": models,
+        "cnns": cnn_block(),
+        "detectors": {"file": "detectors.json", "sha256": None},
+        "frame": frame,
+        "sampling_design": design,
+        "metrics": metrics,
+        "known_risks": known_risks_block(conn, source_file),
+        "judging": {"lock": None,
+                    "why": (f"{source_file} is not held out: Review shows it everywhere, so the discipline is the "
+                            "researcher's"),
+                    "protocol": ["Review: open ONLY the exam queue and judge every item; do not open Discovery's "
+                                 "Map, Library or any other queue showing this recording until judging is done",
+                                 f"then scripts/m4_exam_score.py --real --manifest DATA/derived/exam/{slug}/"
+                                 "manifest.json --sha256 <sha256> --sample <sample dir> --queue <queue id> "
+                                 "(the database read-only)"]},
+        "exposure": unseen_exposure_block(conn, ids, session_id),
+        "rules": ["the sample is drawn once (save_sample refuses a different redraw); the draw refuses another table, "
+                  "seed or quota than this manifest's",
+                  "verdicts are human-only; no script writes one",
+                  "a change to this manifest after the sample is drawn voids the exam (its sha256 is in the audit log "
+                  "and the RQ logs)",
+                  "no model score is computed on the sample before judging; the marking refuses a verdict older than "
+                  "the freeze"],
+    }
+
+
+def audit_body(man, man_rel, sha, det_sha, slug):
+    """What to POST to the bridge's /api/audit: the freeze, in the sentence the exam's door reads."""
+    return {"kind": ce.EXAM_AUDIT_KIND, "what": f"{ce.EXAM_UNSEEN_FROZEN} · {man['source_file']} · sha256 {sha}",
+            "where": "Datasets", "route": f"exam/{slug}",
+            "detail": {"source_file": man["source_file"], "manifest": man_rel, "sha256": sha,
+                       "detectors_sha256": det_sha, "table_key": man["frame"]["table_key"]}}
+
+
+def post_audit(url, body):
+    req = urllib.request.Request(url.rstrip("/") + "/api/audit", data=json.dumps(body).encode("utf-8"),
+                                 headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def main_unseen(a):
+    if a.recording == HELD_OUT_RECORDING_FILE:
+        raise SystemExit(f"{a.recording} is held out: its exam is this script's default (M4) path, not --recording")
+    if a.session is None or not a.table:
+        raise SystemExit("--recording needs --session (the sweep's Discovery session id) and --table (the frame)")
+    slug = a.slug or "".join(ch if ch.isalnum() else "_" for ch in os.path.splitext(a.recording)[0]).strip("_")
+    out = a.out or os.path.join(ROOT, "DATA", "derived", "exam", slug)
+    man_path = os.path.join(out, "manifest.json")
+    if os.path.exists(man_path):
+        raise SystemExit(f"{man_path} exists: a frozen manifest is never rewritten")
+    conn = sqlite3.connect(f"file:{a.db}?mode=ro", uri=True)
+    try:
+        man = build_unseen(conn, a.recording, session_id=a.session, table_dir=os.path.abspath(a.table), slug=slug,
+                           seed=a.seed)
+        det = session_detectors_block(conn, a.recording, a.session)
+    finally:
+        conn.close()
+    os.makedirs(out, exist_ok=True)
+    det_path = os.path.join(out, "detectors.json")
+    with open(det_path, "w", encoding="utf-8") as fh:
+        json.dump(det, fh, indent=1)
+    man["detectors"].update(sha256=sha256_file(det_path), n_real_runs=det["n_real_runs"],
+                            n_surrogate_runs=det["n_surrogate_runs"], variants=det["variants"],
+                            discovery_session=det["discovery_session"])
+    with open(man_path, "w", encoding="utf-8") as fh:
+        json.dump(man, fh, indent=1)
+    sha = sha256_file(man_path)
+    os.makedirs(a.docs, exist_ok=True)
+    shutil.copyfile(man_path, os.path.join(a.docs, f"{man['slug']}-manifest.json"))
+    shutil.copyfile(det_path, os.path.join(a.docs, f"{man['slug']}-detectors.json"))
+    body = audit_body(man, _rel(man_path), sha, man["detectors"]["sha256"], slug)
+    body_path = os.path.join(out, "audit_body.json")
+    with open(body_path, "w", encoding="utf-8") as fh:
+        json.dump(body, fh, indent=1)
+    report = {"manifest": man_path, "sha256": sha, "detectors_sha256": man["detectors"]["sha256"],
+              "n_real_runs": det["n_real_runs"], "frame": man["frame"]["table_key"], "audit_body": body_path}
+    if a.post_audit:
+        report["audit"] = post_audit(a.post_audit, body)
+    else:
+        report["next"] = f"POST {body_path} to <bridge>/api/audit BEFORE drawing the sample"
+    print(json.dumps(report, indent=1))
+    return 0
+
+
 def build(conn):
     return {
         "exam": "held_out", "name": "M4 held-out exam (one shot)", "source_file": HELD_OUT_RECORDING_FILE,
@@ -262,9 +580,19 @@ def build(conn):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", default=REAL_DB)
-    ap.add_argument("--out", default=OUT)
+    ap.add_argument("--out", default=None, help="default DATA/derived/exam/M4 (exam/<slug> with --recording)")
     ap.add_argument("--docs", default=DOCS)
+    ap.add_argument("--recording", help="an UNSEEN recording's source file (not held out): its exam manifest")
+    ap.add_argument("--session", type=int, help="with --recording: the Discovery session its sweep was imported into")
+    ap.add_argument("--table", help="with --recording: the candidate-event table folder (the frame)")
+    ap.add_argument("--slug", help="with --recording: the exam's short name (folder and file names)")
+    ap.add_argument("--seed", type=int, default=UNSEEN_SEED, help=f"with --recording (default {UNSEEN_SEED})")
+    ap.add_argument("--post-audit", metavar="BRIDGE_URL",
+                    help="with --recording: POST the freeze to <bridge>/api/audit (else write audit_body.json only)")
     a = ap.parse_args(argv)
+    if a.recording:
+        return main_unseen(a)
+    a.out = a.out or OUT
     man_path = os.path.join(a.out, "manifest.json")
     if os.path.exists(man_path):
         raise SystemExit(f"{man_path} exists: a frozen manifest is never rewritten")

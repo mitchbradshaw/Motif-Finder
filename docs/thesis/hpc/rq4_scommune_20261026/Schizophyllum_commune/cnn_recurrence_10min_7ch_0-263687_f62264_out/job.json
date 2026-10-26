@@ -1,0 +1,16 @@
+{
+  "kind": "detection_chain",
+  "specHash": "f62264f0bb7a",
+  "tasks": 7,
+  "label": "cnn_recurrence_10min",
+  "spec": "docs/thesis/hpc/rq4_scommune_20261026/Schizophyllum_commune/cnn_recurrence_10min_7ch_0-263687_f62264.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7"
+  ]
+}

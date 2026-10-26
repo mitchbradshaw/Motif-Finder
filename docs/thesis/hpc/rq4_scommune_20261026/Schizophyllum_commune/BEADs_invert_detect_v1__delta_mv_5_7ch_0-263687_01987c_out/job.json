@@ -1,0 +1,16 @@
+{
+  "kind": "detection_chain",
+  "specHash": "01987c1bb772",
+  "tasks": 7,
+  "label": "BEADs_invert_detect_v1__delta_mv_5",
+  "spec": "docs/thesis/hpc/rq4_scommune_20261026/Schizophyllum_commune/BEADs_invert_detect_v1__delta_mv_5_7ch_0-263687_01987c.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7"
+  ]
+}

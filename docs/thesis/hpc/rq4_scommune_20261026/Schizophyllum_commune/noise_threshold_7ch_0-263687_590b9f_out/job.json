@@ -1,0 +1,16 @@
+{
+  "kind": "detection_chain",
+  "specHash": "590b9f0b5217",
+  "tasks": 7,
+  "label": "noise_threshold",
+  "spec": "docs/thesis/hpc/rq4_scommune_20261026/Schizophyllum_commune/noise_threshold_7ch_0-263687_590b9f.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7"
+  ]
+}

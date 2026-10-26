@@ -57,7 +57,9 @@ The rules, each one stated once
 The held-out recording (``Working.config.HELD_OUT_RECORDING_FILE``) is refused by name, whatever Settings ›
 Datasets' lock says: it is RQ1b's exam (2026-10-18). The one door through (m4-exam, 2026-10-26) is the exam's frozen
 manifest (``ExamManifest``): a file whose sha256 the caller names, that says it is the held-out exam of this recording,
-and whose freeze is already in the audit log. Creating its queue is audited too (``EXAM_SAMPLE_DRAWN``).
+and whose freeze is already in the audit log. Creating its queue is audited too (``EXAM_SAMPLE_DRAWN``). A recording
+that is not held out can sit the same exam (the unseen-recording exam, 2026-10-26): an ``exam: "unseen"`` manifest
+frozen as ``EXAM_UNSEEN_FROZEN``, its queue audited as ``EXAM_UNSEEN_SAMPLE_DRAWN``.
 
 Bulk stays on disk (CLAUDE.md rule 4): a table is ``events.parquet`` + ``members.parquet`` + ``meta.json`` under its
 key; a sample is ``sample.parquet`` + ``labels.parquet`` (the labels its frame was drawn against) + ``meta.json``.
@@ -165,6 +167,12 @@ def _families(cell):
 EXAM_AUDIT_KIND = "exam"
 EXAM_FROZEN = "held-out exam: manifest frozen"
 EXAM_SAMPLE_DRAWN = "held-out exam: sample drawn"
+#: the unseen-recording exam (2026-10-26, *S. commune*): a recording that is NOT held out, sat under the same
+#: discipline — a manifest frozen and audited before the draw — with its own two sentences, so a held-out freeze
+#: never opens an unseen exam or the reverse
+EXAM_UNSEEN = "unseen"
+EXAM_UNSEEN_FROZEN = "unseen-recording exam: manifest frozen"
+EXAM_UNSEEN_SAMPLE_DRAWN = "unseen-recording exam: sample drawn"
 
 
 @dataclass(frozen=True)
@@ -177,7 +185,12 @@ class ExamManifest:
 def verify_exam(conn, exam, source_file):
     """The exam's door, checked in full on every use; returns the manifest. Refused (``PermissionError``) unless the
     file hashes to `exam.sha256`, says it is the frozen held-out exam of `source_file`, and the audit log already
-    holds its freeze (``EXAM_FROZEN`` with that sha256): the rules were written down before anything was drawn."""
+    holds its freeze (``EXAM_FROZEN`` with that sha256): the rules were written down before anything was drawn.
+
+    For a recording that is not held out the manifest must instead say ``exam: "unseen"`` and its freeze be audited
+    as ``EXAM_UNSEEN_FROZEN`` (the unseen-recording exam, 2026-10-26); the held-out recording takes only its own."""
+    held = str(source_file) == HELD_OUT_RECORDING_FILE
+    kind, frozen_what = ("held_out", EXAM_FROZEN) if held else (EXAM_UNSEEN, EXAM_UNSEEN_FROZEN)
     if not isinstance(exam, ExamManifest):
         raise PermissionError(f"{source_file} is the held-out exam: only its frozen ExamManifest opens it")
     try:
@@ -192,19 +205,19 @@ def verify_exam(conn, exam, source_file):
         man = json.loads(raw.decode("utf-8"))
     except ValueError as e:
         raise PermissionError(f"the exam manifest {exam.path} is not JSON") from e
-    if (not isinstance(man, dict) or man.get("exam") != "held_out" or man.get("frozen") is not True
+    if (not isinstance(man, dict) or man.get("exam") != kind or man.get("frozen") is not True
             or str(man.get("source_file")) != str(source_file)):
-        raise PermissionError(f"{exam.path} is not the frozen held-out exam manifest of {source_file}")
+        raise PermissionError(f"{exam.path} is not the frozen {kind.replace('_', '-')} exam manifest of {source_file}")
     frozen = False
     for (detail,) in conn.execute("SELECT detail_json FROM audit_log WHERE kind = ? AND what LIKE ?",
-                                  (EXAM_AUDIT_KIND, EXAM_FROZEN + "%")):
+                                  (EXAM_AUDIT_KIND, frozen_what + "%")):
         try:
             frozen = frozen or (json.loads(detail or "{}").get("sha256") == sha)
         except (ValueError, AttributeError):
             continue
     if not frozen:
-        raise PermissionError(f"the audit log holds no '{EXAM_FROZEN}' entry for sha256 {sha}: freeze the manifest "
-                              "(an audited act) before drawing from the held-out recording")
+        raise PermissionError(f"the audit log holds no '{frozen_what}' entry for sha256 {sha}: freeze the manifest "
+                              f"(an audited act) before drawing from {'the held-out recording' if held else source_file}")
     return man
 
 
@@ -749,6 +762,11 @@ def create_sample_queue(conn, sample, *, name, note=None, exam=None):
     held = HELD_OUT_RECORDING_FILE in files
     if held:
         _refuse_held_out(HELD_OUT_RECORDING_FILE, conn, exam)
+    unseen = (not held) and exam is not None          # an unseen-recording exam: its door is checked the same way
+    if unseen:
+        if len(files) != 1:
+            raise PermissionError(f"an exam sample sits on one recording; this one spans {sorted(files)}")
+        verify_exam(conn, exam, next(iter(files)))
     ids = [int(d) for d in sample.sort_values("serve_rank")["detection_id"]]
     filters = {"detection_ids": ids, "order": "listed"}
     found = _queues.find_open_queue(conn, source_kind="discovery-run", filters=filters)
@@ -762,6 +780,14 @@ def create_sample_queue(conn, sample, *, name, note=None, exam=None):
         append_audit(conn, EXAM_AUDIT_KIND, f"{EXAM_SAMPLE_DRAWN} · {HELD_OUT_RECORDING_FILE} · queue {qid} · "
                      f"{len(ids)} items", "Review", route="exam/M4",
                      detail={"queue_id": qid, "n_items": len(ids), "strata": strata, **_exam_meta(exam)})
+    elif unseen:
+        from Working.registration.settings import append_audit
+        src = next(iter(files))
+        strata = {str(h): int(n) for h, n in sample.groupby("stratum").size().items()}
+        append_audit(conn, EXAM_AUDIT_KIND, f"{EXAM_UNSEEN_SAMPLE_DRAWN} · {src} · queue {qid} · {len(ids)} items",
+                     "Review", route=f"exam/{_safe(src)}",
+                     detail={"queue_id": qid, "n_items": len(ids), "strata": strata, "source_file": src,
+                             **_exam_meta(exam)})
     return qid
 
 

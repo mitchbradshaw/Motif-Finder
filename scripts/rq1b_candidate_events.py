@@ -24,6 +24,13 @@ not copied).
     python scripts/rq1b_candidate_events.py queue --table <table dir> --real --apply          # the queue
     python scripts/rq1b_candidate_events.py estimate --sample <table dir>/sample_seed0_l100_f50 --real
 
+An unseen-recording exam (2026-10-26, *S. commune*; `scripts/m4_exam_freeze.py --recording`) draws the same way with
+its own frozen manifest; the draw is refused unless the table is the manifest's frame and the seed and quotas are its
+design:
+
+    python scripts/rq1b_candidate_events.py queue --table <frame table dir> --real --apply --seed <seed> \
+        --per-level 40 --per-family 15 --exam-manifest DATA/derived/exam/<slug>/manifest.json --exam-sha256 <sha256>
+
 M4_aug (the held-out exam) is refused by name, whatever Settings › Datasets' lock says, except through its frozen
 exam manifest (m4-exam, 2026-10-26: `scripts/m4_exam_freeze.py`; the freeze must already be in the audit log):
 
@@ -152,12 +159,31 @@ def _sample_name(a):
     return f"sample_seed{int(a.seed)}_l{int(a.per_level)}_f{int(a.per_family)}"
 
 
+def check_unseen_design(man, meta, a):
+    """The unseen-recording exam (2026-10-26): the draw must be the frozen manifest's — its frame table and its
+    seed and quotas. SystemExit naming the first difference."""
+    frame = (man.get("frame") or {}).get("table_key")
+    if frame and frame != meta["key"]:
+        raise SystemExit(f"{a.table} is table {meta['key']}, not the manifest's frozen frame {frame}")
+    design = man.get("sampling_design") or {}
+    for k, got in (("seed", a.seed), ("per_level", a.per_level), ("per_family", a.per_family)):
+        if k in design and int(design[k]) != int(got):
+            raise SystemExit(f"--{k.replace('_', '-')} {got} is not the frozen manifest's {k} {design[k]}")
+
+
 def _queue(a, db, checkout):
     if a.apply and a.real and not bridge_serves_listed_order(checkout):
         raise SystemExit(f"the main checkout ({checkout}) does not serve a listed-order queue yet: merge the a2-rq1b "
                          "branch into it and restart the bridge, then --apply (a bridge on older code would fail "
                          "on every queue read, the header's count included)")
     events, members, meta = ce.load_table(a.table)
+    if a.exam is not None and meta["source_file"] != ce.HELD_OUT_RECORDING_FILE:
+        conn = _read_only(db)
+        try:
+            man = ce.verify_exam(conn, a.exam, meta["source_file"])
+        finally:
+            conn.close()
+        check_unseen_design(man, meta, a)
     if a.apply:
         conn, held = GUARD._open_for_apply(db)
     else:

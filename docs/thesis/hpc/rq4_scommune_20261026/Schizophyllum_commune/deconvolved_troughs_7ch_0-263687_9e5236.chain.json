@@ -1,0 +1,597 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "deconvolved_troughs",
+  "runKey": null,
+  "sessionId": null,
+  "template": "deconvolved_troughs",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "detrend",
+      "params": {
+        "mode": "rolling_mean",
+        "window_s": 3600.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "deconvolve",
+      "params": {
+        "baseline_window_s": 1800.0,
+        "noise_scale": "level",
+        "recovery_half_s": 120.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "impulse_events",
+      "params": {},
+      "side_inputs": {}
+    },
+    {
+      "stage": "interrogation",
+      "algorithm": "event_shape",
+      "params": {},
+      "side_inputs": {}
+    },
+    {
+      "stage": "interrogation",
+      "algorithm": "intervals",
+      "params": {},
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    263687
+  ],
+  "sourceFile": "Schizophyllum commune.txt",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 7,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 600,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH0.npy",
+      "npySha1": "2ee55c9027b8687032b0a165d126c8a47f35014d",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 600,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 120.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "0123ee88",
+      "prefixHashes": [
+        "060c209ee26d1ce7cee2b2928158d02221733417d4316fcab41f43fcfe354443",
+        "e46236b7cfecd64236ad6f314014d7008842862122fa9caca639ebb82b5e30c9",
+        "0cd55fd047966a0e4f162aa5e56cc16bf5755e4b413accddd96cccbed45af9e4",
+        "9dc280e4907670ff0b7084d8e00a50be311498451306f2c6e11ebe41db5a35a0",
+        "af4c18a0bd72aabaf52151689b3c51b39ae77ed15181795586f9d52ef18762d3"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 601,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH1.npy",
+      "npySha1": "b32940f913f77549bcb8cee798a5f9f5129d8224",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 601,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 120.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "4e27e0ff",
+      "prefixHashes": [
+        "7a6636fa8a8060c36b662d3bd73c8646eedf6860169eb313f1a036504d309652",
+        "fee0799e7b1caa09efcffcc81a24b456494c79ad10383e6c37e82f49fedf33b8",
+        "30ee0b481ab6c933a32b95b8dea9e6d787ab476c196f75994388028c0c64272f",
+        "8abd2dc0fab230c478e777ad2b0732b4348b73543e8d9956bdcea95902bfbc02",
+        "c9ae10dad4f34d88384776b3a0cb171fd10d58c5baf04d07cfc153ae1ff88987"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 602,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH2.npy",
+      "npySha1": "6829e0615c51f8a7afff7ecf8d248e4e838411a4",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 602,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 120.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "0da41f0f",
+      "prefixHashes": [
+        "822d8ab76c2b677835bab8774723a497fee7d323809aff79810e61b5a9fc547a",
+        "75bb02392d952abea9642c31b47f671579ead29186606834c2680e38d86ce37b",
+        "c7109a36180b2a77396d75c659e337a622665ba2842da4e44b6197e880f27762",
+        "18260b48bea4402246b5ce34c4c446fb9325bf07c6ee52a6f3363d51d5e6a663",
+        "48cb50b186165cbe79001daaece93d3b680660bddbca9c4bdebb56b40da853d5"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 603,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH3.npy",
+      "npySha1": "2ebbba7d7c520522dd94e9453bc39411a3da9dd9",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 603,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 120.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "91e052f5",
+      "prefixHashes": [
+        "3d92305603394d44720d1583a0af3703f3635f9f5ad6ac666e722d1ed6fe1970",
+        "7bc75c5607d5499e2a7edfd11c8b57419a4860ecdf0d67a9eeabe7f790bf8747",
+        "0a2a9067dc026b18860d2310e92bf8753e653870b0a570c5ae1038d2a2bdec29",
+        "4e32856c281d709284fd83db9ba77d3f73b7bb8db73e17edb6dbf46b93216398",
+        "d7fdcd6903a6516c1d92a9c7dfbcfb042e3a7055ca5e8725b2c008a037cda627"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 604,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH4.npy",
+      "npySha1": "0a0454d59e619dfb63ec777ec86d93cf34d3aff4",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 604,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 120.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "cd573828",
+      "prefixHashes": [
+        "0475c776414a0388751d453d8fb680746f55be03ea1d8d0572bf5ee704bdd420",
+        "2e96fd867517752cac173ddf89e4fa5b1eed22f6263998a7d93f9e87fa7d0366",
+        "6d3e19d34ada65fae1e74a9b8afa66ff34d4bd131b9d35f0f8d39f5c88123383",
+        "306e328e053bd86e94873504f1d4267f1e64135b049fa93f1007f492ef74992e",
+        "c445e3c8c38bb6333e28ee4e0101b9862f6c6f98c943201dbbb171200f1519db"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 5,
+      "recordingId": 605,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 5,
+      "channelName": "CH6",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH5.npy",
+      "npySha1": "6bcbdb80619f8cffbda262617147ccb7dbb41b85",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 605,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 120.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "cdf58427",
+      "prefixHashes": [
+        "248a0c3f3c2757e8458f46fc7b63a2b3546744fc7d0604c88c9d69120b213d50",
+        "ff7ecc7ca355f57d305694e6acd224a7cf9b4cea9d0401610938c71784cb045e",
+        "3a6ecdf59bb3974060ca51b9a30b02fcaefe69991bbeac9a362f3031cfa6634a",
+        "14472cc68091690195b9259950e61575610f675214eef77dd10ece8eaeac8abc",
+        "b0408f1e1614ee74e86a29148338c490d76835e891a4a5ad9275b274b6133d68"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 6,
+      "recordingId": 606,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 6,
+      "channelName": "CH7",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH6.npy",
+      "npySha1": "cea3fdd0e0403aa5471fb7ec15550c09df5ce760",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 606,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 120.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "29e9570d",
+      "prefixHashes": [
+        "becb0fdb100adc3a5a11915c4501becadd8545ef04cb1843e07abe4b4b6558d4",
+        "d32497f54f9fd54adf06d9b6e4ad37d7e4a1cca95aa9b5078e12a5d3c0cd9c24",
+        "757ac68bd3bffb22e10837fabb0ae2309d6a3f7c8fc25c42ee0e0858f2bb3114",
+        "96d0fb844b39a2d043b90b04445e43f098fc24914584e10aac3ab79881901087",
+        "59d46de53a64b205b430017b98031f9302e3e22bf242b791ba0c30124037c3b3"
+      ],
+      "chunks": []
+    }
+  ]
+}

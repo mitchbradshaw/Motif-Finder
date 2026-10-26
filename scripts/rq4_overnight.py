@@ -296,7 +296,7 @@ def build_batch(db, sources, *, out_rel, prefix, units=None, only=None, null_dra
                     keep.append(e)
             entries = keep
         heavy = n > HEAVY_SAMPLES
-        stem = os.path.splitext(os.path.basename(source))[0]
+        stem = _folder_stem(source)
         sub_rel = os.path.join(out_rel, stem)
         scale = {"cpu": n / M2_AUG_SAMPLES, "gpu": (n / fs) / (M2_AUG_SAMPLES / 1.0),
                  "mp": (n / M2_AUG_SAMPLES) ** 2}
@@ -335,6 +335,13 @@ def build_batch(db, sources, *, out_rel, prefix, units=None, only=None, null_dra
         json.dump(batch, f, indent=2)
     conn.close()
     return batch
+
+
+def _folder_stem(source):
+    """A recording's batch sub-folder (and task-label prefix): its source file's stem with whitespace made ``_``.
+    The pack scripts read task lines with ``read -r SPEC OUT TASK LABEL`` and `pending` splits on whitespace, so a
+    space in a path ("Schizophyllum commune.txt", 2026-10-26) would shift every field."""
+    return "_".join(os.path.splitext(os.path.basename(source))[0].split())
 
 
 def _balance(tasks, n):

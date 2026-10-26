@@ -1,0 +1,16 @@
+{
+  "kind": "detection_chain",
+  "specHash": "63b7638b2e42",
+  "tasks": 7,
+  "label": "cnn_gadf_60min",
+  "spec": "docs/thesis/hpc/rq4_scommune_20261026/Schizophyllum_commune/cnn_gadf_60min_7ch_0-263687_63b763.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7"
+  ]
+}

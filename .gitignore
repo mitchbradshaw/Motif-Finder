@@ -252,6 +252,9 @@ HPC/Training/generated/smoke/
 # stays tracked as the record of what the cluster found
 HPC/Detection/generated/**/*_out/return/*/step_cache/
 HPC/Detection/generated/**/*_out/work/
+# the same for the thesis bundles under docs/thesis/hpc/ (surrogates20_M2_aug, rq4_scommune_*; 2026-10-26)
+docs/thesis/hpc/**/*_out/return/*/step_cache/
+docs/thesis/hpc/**/*_out/work/
 # test leftovers: tests/test_job_export_paths.py's temp dirs, and the synthetic profile a webui test's sweep persists
 webui/ab_slurm_*/
 Results/Detection/matrix_profile/mp_v2_syn_*

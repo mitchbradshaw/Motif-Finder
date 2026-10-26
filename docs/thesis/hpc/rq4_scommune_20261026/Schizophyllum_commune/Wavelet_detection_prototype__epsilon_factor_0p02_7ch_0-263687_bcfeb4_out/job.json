@@ -1,0 +1,16 @@
+{
+  "kind": "detection_chain",
+  "specHash": "bcfeb4bbcb10",
+  "tasks": 7,
+  "label": "Wavelet_detection_prototype__epsilon_factor_0p02",
+  "spec": "docs/thesis/hpc/rq4_scommune_20261026/Schizophyllum_commune/Wavelet_detection_prototype__epsilon_factor_0p02_7ch_0-263687_bcfeb4.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7"
+  ]
+}

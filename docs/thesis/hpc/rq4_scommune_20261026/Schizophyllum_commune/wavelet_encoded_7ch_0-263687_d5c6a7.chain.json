@@ -1,0 +1,663 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "wavelet_encoded",
+  "runKey": null,
+  "sessionId": null,
+  "template": "wavelet_encoded",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "wavelet_bands",
+      "params": {
+        "level": 4,
+        "levels": 0,
+        "wavelet": "db4"
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "stage_encoding",
+      "params": {
+        "merge_gap_segments": 0,
+        "noise_estimator": "second_difference",
+        "same_fraction": 0.6,
+        "segment_seconds": 60,
+        "slope_sigma": 8,
+        "threshold_mode": "quantile",
+        "trend_estimator": "ols_slope"
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "drop_detection",
+      "params": {
+        "bracket_on_fall_runs": true,
+        "bracket_on_up_runs": true,
+        "bracket_rise_on_separation": false,
+        "lookahead_mult": 3,
+        "min_depth_frac": 0.1,
+        "min_fall_dominance": 0.5,
+        "min_rise_frac": 0.5,
+        "min_separation_s": 0,
+        "morphology": "auto",
+        "noise_estimator": "second_difference",
+        "slope_sigma": 8,
+        "tighten_windows": true,
+        "trough_knee_frac": 0.05,
+        "walk_onset_back": true,
+        "window_cap_mult": 6,
+        "window_pad_frac": 0.25
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    263687
+  ],
+  "sourceFile": "Schizophyllum commune.txt",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 7,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 600,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH0.npy",
+      "npySha1": "2ee55c9027b8687032b0a165d126c8a47f35014d",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 600,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 4,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "1b15b88b",
+      "prefixHashes": [
+        "990af5c1b7400be53ad12079beec25c6dbda5b6481cfa06ec1d1e1639eae65dc",
+        "a077c1da282533e2df7c191b8e94d6466ffc21db12d732760f60d644a51223c4",
+        "c3e7ff9b4b77d8aaf855a4dd85d0d9fcf7f4471c1dca18755643faf7f4886d5b"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 601,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH1.npy",
+      "npySha1": "b32940f913f77549bcb8cee798a5f9f5129d8224",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 601,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 4,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "84e2f345",
+      "prefixHashes": [
+        "ce109cfa266957c6b53a857f895f784526a1ff82b6ab3de90214348d9bc4145e",
+        "8239ff232c2c5f64961fa41c9b44b036be92f43f012b272e80ad389f6b7cbd58",
+        "5a1ae3fe78f7d03b21b7934e22d9075f2c3241dd3228d50243684ca79dc4b2a0"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 602,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH2.npy",
+      "npySha1": "6829e0615c51f8a7afff7ecf8d248e4e838411a4",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 602,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 4,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "08e2889f",
+      "prefixHashes": [
+        "936f43f26338386431d8a45a34d7dc26918c83207402d15cfbb21e9dda3d2854",
+        "e647ed1d2f6008dde83b98a8336b9433d803aff12b675f82c8adb3b529ed1da7",
+        "d902e041c8ef369fc362aa61ee250e958d1039bb42efe301d4b866d7786fe7c3"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 603,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH3.npy",
+      "npySha1": "2ebbba7d7c520522dd94e9453bc39411a3da9dd9",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 603,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 4,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "a7391a94",
+      "prefixHashes": [
+        "2a29d7b988b8020ec5bf1d5f46ea380a3f00098b380a5fbd137403a3bf7f6a03",
+        "f4a66fcd32f3cdac57a38baafb530c2d0c35fe9d3d3cc71910cfaa677e90465f",
+        "5a8e0f08954bbea7b02667c55fee00fd67bf3fa283932306177efb408e0447a1"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 604,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH4.npy",
+      "npySha1": "0a0454d59e619dfb63ec777ec86d93cf34d3aff4",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 604,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 4,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b509f78b",
+      "prefixHashes": [
+        "517742a862ada8efb023edcee07817e87a7cdf4a697561c416afb3d93c682b2f",
+        "4600549983df5a30893bf3855238cc82ee0b941ad025a55307e522db41fe93eb",
+        "a8420b50c9e2b1893ee5f80d76900d21ea353cead3f535da2d1fb7164013e017"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 5,
+      "recordingId": 605,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 5,
+      "channelName": "CH6",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH5.npy",
+      "npySha1": "6bcbdb80619f8cffbda262617147ccb7dbb41b85",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 605,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 4,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "e9e29d23",
+      "prefixHashes": [
+        "ad497676db2586a3b7c6399c28e7a0baac6052b2bf467b25ae891ea4c221a712",
+        "53328b2442513805183621105b40fa4ae778599aea0dd3205f5554f8843f53f0",
+        "03fdf9f08a43a31b2931ed5039edac6681ad0fc02e164887c8e0d1cb638f2572"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 6,
+      "recordingId": 606,
+      "sourceFile": "Schizophyllum commune.txt",
+      "channel": 6,
+      "channelName": "CH7",
+      "fs": 1.0,
+      "nSamples": 263687,
+      "globalOffset": 0,
+      "units": "mV",
+      "unitsNote": "set to mV for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/Schizophyllum_commune_fs1/CH6.npy",
+      "npySha1": "cea3fdd0e0403aa5471fb7ec15550c09df5ce760",
+      "npyBytes": 2109624,
+      "span": [
+        0,
+        263687
+      ],
+      "recipe": {
+        "recording_id": 606,
+        "span": [
+          0,
+          263687
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 4,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "904ffae1",
+      "prefixHashes": [
+        "101b230e096210af0079f2b675715823c3ffec5481e6884559bedc1442091dfc",
+        "7d048ac55ff04ec3895f77b07e1e2b9ce1a93e96bcf645e279cf4899a53bebbb",
+        "7e14e3a4a670ffbc9a2f4a559b58a8723877823a738b1526adbf3853a4b3a0bd"
+      ],
+      "chunks": []
+    }
+  ]
+}

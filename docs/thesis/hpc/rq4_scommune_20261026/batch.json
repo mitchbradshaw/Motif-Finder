@@ -1,0 +1,63 @@
+{
+  "prefix": "rq4s",
+  "datasets": [
+    {
+      "source": "Schizophyllum commune.txt",
+      "folder": "docs/thesis/hpc/rq4_scommune_20261026/Schizophyllum_commune",
+      "jobs": 43,
+      "tasks": 296,
+      "refused": [],
+      "leftOut": [],
+      "heavy": false,
+      "unit": "mV",
+      "mpChannels": [
+        "CH1",
+        "CH2"
+      ],
+      "mpLeftOut": null
+    }
+  ],
+  "inputs": [
+    "DATA/derived/channels/Schizophyllum_commune_fs1/CH0.npy",
+    "DATA/derived/channels/Schizophyllum_commune_fs1/CH1.npy",
+    "DATA/derived/channels/Schizophyllum_commune_fs1/CH2.npy",
+    "DATA/derived/channels/Schizophyllum_commune_fs1/CH3.npy",
+    "DATA/derived/channels/Schizophyllum_commune_fs1/CH4.npy",
+    "DATA/derived/channels/Schizophyllum_commune_fs1/CH5.npy",
+    "DATA/derived/channels/Schizophyllum_commune_fs1/CH6.npy",
+    "MODELS/GADF_cnn.pth",
+    "MODELS/GASF_cnn.pth",
+    "MODELS/fusion_cnn_3.pth",
+    "MODELS/recurrence_cnn.pth"
+  ],
+  "packs": [
+    {
+      "name": "rq4s_cpu1",
+      "script": "docs/thesis/hpc/rq4_scommune_20261026/rq4s_cpu1.sh",
+      "tasks": 105,
+      "parallel": 8,
+      "estimateCoreS": 1153
+    },
+    {
+      "name": "rq4s_cpu2",
+      "script": "docs/thesis/hpc/rq4_scommune_20261026/rq4s_cpu2.sh",
+      "tasks": 105,
+      "parallel": 8,
+      "estimateCoreS": 1151
+    },
+    {
+      "name": "rq4s_gpuA",
+      "script": "docs/thesis/hpc/rq4_scommune_20261026/rq4s_gpuA.sh",
+      "tasks": 44,
+      "parallel": 8,
+      "estimateCoreS": 4177
+    },
+    {
+      "name": "rq4s_gpuB",
+      "script": "docs/thesis/hpc/rq4_scommune_20261026/rq4s_gpuB.sh",
+      "tasks": 42,
+      "parallel": 8,
+      "estimateCoreS": 4176
+    }
+  ]
+}

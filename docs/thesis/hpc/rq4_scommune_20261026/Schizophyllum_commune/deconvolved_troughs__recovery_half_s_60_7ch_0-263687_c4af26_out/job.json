@@ -1,0 +1,16 @@
+{
+  "kind": "detection_chain",
+  "specHash": "c4af266f2534",
+  "tasks": 7,
+  "label": "deconvolved_troughs__recovery_half_s_60",
+  "spec": "docs/thesis/hpc/rq4_scommune_20261026/Schizophyllum_commune/deconvolved_troughs__recovery_half_s_60_7ch_0-263687_c4af26.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7"
+  ]
+}

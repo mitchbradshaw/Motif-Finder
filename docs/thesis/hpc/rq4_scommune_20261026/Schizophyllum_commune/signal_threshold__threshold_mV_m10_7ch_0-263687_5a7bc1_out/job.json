@@ -1,0 +1,16 @@
+{
+  "kind": "detection_chain",
+  "specHash": "5a7bc1b7c380",
+  "tasks": 7,
+  "label": "signal_threshold__threshold_mV_m10",
+  "spec": "docs/thesis/hpc/rq4_scommune_20261026/Schizophyllum_commune/signal_threshold__threshold_mV_m10_7ch_0-263687_5a7bc1.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7"
+  ]
+}

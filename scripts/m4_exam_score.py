@@ -27,6 +27,17 @@ mV, 600 points by the CNN block's resampler) and scored by `window_scores`' own 
 "interesting". Metrics: AUC and balanced accuracy with the same within-stratum bootstrap as MiniRocket, and the
 paired AUC difference (CNN minus MiniRocket) on the same items.
 
+**An unseen recording (2026-10-26).** `--manifest` naming an ``exam: "unseen"`` manifest (`scripts/m4_exam_freeze.py
+--recording`, the first being Adamatzky's *Schizophyllum commune*) marks that exam the same way, with three more checks
+and no amendment: the sample's table must be the manifest's frozen frame; no exam-queue verdict may be older than the
+manifest's freeze in the audit log; and the reference CNNs are the manifest's own `cnns` block (amendment 1's shape,
+same checkpoint check). Results go beside the manifest (`DATA/derived/exam/<slug>/results.json`) and to
+`docs/rq_roundA_2/findings/<slug>-<date>.md`, with the answered items' R4 side-feature quantiles (the manifest's
+known risk: units and amplitude range).
+
+    python scripts/m4_exam_score.py --real --manifest DATA/derived/exam/scommune/manifest.json --sha256 <sha256> \
+        --sample <table dir>/sample_seed20261027_l40_f15 --queue <queue id>
+
 Headless; no UI library. The real database is opened read-only (`?mode=ro`).
 """
 
@@ -182,8 +193,49 @@ def minirocket_scorer(conn, manifest):
         d = np.full(len(rows), np.nan)
         if keep.any():
             d[keep] = mr.decision(model, M[keep], side[keep].reset_index(drop=True))
+        score.last_side = side[np.asarray(keep, bool)].reset_index(drop=True)     # the unseen exam's range report
         return d, keep
+    score.last_side = None
     return score
+
+
+# ── an unseen recording (2026-10-26) ────────────────────────────────────────
+
+def _manifest_source(path):
+    """The source file a manifest names (read before its door is checked: the door checks it), else M4's."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return str(json.load(fh).get("source_file") or HELD_OUT_RECORDING_FILE)
+    except (OSError, ValueError, AttributeError):
+        return HELD_OUT_RECORDING_FILE
+
+
+def verify_unseen_order(conn, manifest_sha, queue_id):
+    """`(audit_id, at)` of the unseen exam's freeze, or SystemExit if any verdict of the exam queue is older than it:
+    the rules must have been written down before anything was judged."""
+    rows = []
+    for aid, at, detail in conn.execute("SELECT id, at, detail_json FROM audit_log WHERE kind = ? AND what LIKE ?",
+                                        (ce.EXAM_AUDIT_KIND, ce.EXAM_UNSEEN_FROZEN + "%")):
+        try:
+            if json.loads(detail or "{}").get("sha256") == manifest_sha:
+                rows.append((int(aid), at))
+        except (ValueError, AttributeError):
+            continue
+    aid, at = min(rows)                    # verify_exam has already refused a manifest with no freeze row
+    (first,) = conn.execute("SELECT MIN(created_at) FROM review_audit WHERE queue_id = ? AND action = 'verdict'",
+                            (int(queue_id),)).fetchone()
+    if first is not None and _parse_time(first) < _parse_time(at):
+        raise SystemExit(f"the first exam verdict ({first}) is older than the manifest's freeze ({at}): the rules were "
+                         "not written down before judging, so this exam cannot be marked")
+    return aid, at
+
+
+def side_feature_summary(side):
+    """5 / 50 / 95 % quantiles of R4's side features over the answered items it read (the known-risk report)."""
+    if side is None or not len(side):
+        return None
+    return {c: {"q05": float(np.nanpercentile(side[c], 5)), "q50": float(np.nanpercentile(side[c], 50)),
+                "q95": float(np.nanpercentile(side[c], 95))} for c in side.columns}
 
 
 # ── amendment 1: the reference CNNs ─────────────────────────────────────────
@@ -318,10 +370,14 @@ def mark(conn, *, manifest_path, manifest_sha, sample_dir, queue_id, scorer=None
     `verdicts`: {detection_id: verdict} to use INSTEAD of the database's (the dry run's synthetic ones).
     `amendment`: `(path, sha256)` of an amendment to verify and apply (amendment 1: the reference CNNs);
     `cnn_scorers`: {name: rows -> (P, readable)} INSTEAD of the real checkpoints (tests, the dry run)."""
-    man = ce.verify_exam(conn, ce.ExamManifest(manifest_path, manifest_sha), HELD_OUT_RECORDING_FILE)
+    man = ce.verify_exam(conn, ce.ExamManifest(manifest_path, manifest_sha), _manifest_source(manifest_path))
+    unseen = man.get("exam") == ce.EXAM_UNSEEN
     am = None
     if amendment is not None:
         am, am_audit, am_at = verify_amendment(conn, amendment[0], amendment[1], manifest_sha, queue_id)
+        code_drift = verify_cnn_files(am)
+    elif unseen and man.get("cnns"):
+        am = man["cnns"]                     # the unseen exam's CNNs are part of its frozen manifest
         code_drift = verify_cnn_files(am)
     sample, labels, smeta = ce.load_sample(sample_dir)
     if (smeta.get("exam") or {}).get("sha256") != manifest_sha:
@@ -331,6 +387,12 @@ def mark(conn, *, manifest_path, manifest_sha, sample_dir, queue_id, scorer=None
     events, members, tmeta = ce.load_table(os.path.dirname(os.path.abspath(sample_dir)))
     if tmeta["key"] != smeta["table_key"]:
         raise SystemExit(f"{sample_dir} was drawn from table {smeta['table_key']}, not {tmeta['key']}")
+    if unseen:
+        frame = (man.get("frame") or {}).get("table_key")
+        if frame != tmeta["key"]:
+            raise SystemExit(f"{sample_dir} was drawn from table {tmeta['key']}, not the manifest's frozen frame "
+                             f"{frame}")
+        freeze_audit = verify_unseen_order(conn, manifest_sha, queue_id)
     events = events.drop(columns=[c for c in LABEL_COLUMNS if c in events]).merge(labels, on="event_id", how="left")
     ce.check_sample_against(conn, sample)
     db_verdicts, vreport = exam_verdicts(conn, sample, queue_id)
@@ -361,11 +423,22 @@ def mark(conn, *, manifest_path, manifest_sha, sample_dir, queue_id, scorer=None
     extra = {}
     if am is not None:
         scorers = cnn_scorers if cnn_scorers is not None else reference_cnn_scorers(am)
-        extra = {"amendment": {"path": os.path.abspath(amendment[0]), "sha256": amendment[1], "audit_id": am_audit,
-                               "audited_at": am_at, "code_drift": code_drift},
-                 "cnns": score_cnns(answered, keep, am, scorers, n_boot=nb, synthetic=synthetic)}
+        extra = {"cnns": score_cnns(answered, keep, am, scorers, n_boot=nb, synthetic=synthetic)}
+        if amendment is not None:
+            extra["amendment"] = {"path": os.path.abspath(amendment[0]), "sha256": amendment[1], "audit_id": am_audit,
+                                  "audited_at": am_at, "code_drift": code_drift}
+        else:
+            extra["cnn_spec"] = {"from": "the frozen manifest's 'cnns' block", "code_drift": code_drift}
+    if unseen:
+        extra |= {"slug": man.get("slug") or "unseen-exam", "source_file": man.get("source_file"),
+                  "freeze_audit": {"id": freeze_audit[0], "at": freeze_audit[1]},
+                  "frame": (man.get("frame") or {}).get("table_key"),
+                  "side_features_answered": (None if synthetic else
+                                             side_feature_summary(getattr(scorer, "last_side", None))),
+                  "known_risks": man.get("known_risks")}
     return extra | {
-        "exam": "M4 held-out exam", "dry_run": synthetic, "synthetic": synthetic, "created_at": _now(),
+        "exam": (man.get("name") or "unseen-recording exam") if unseen else "M4 held-out exam",
+        "dry_run": synthetic, "synthetic": synthetic, "created_at": _now(),
         "manifest": {"path": os.path.abspath(manifest_path), "sha256": manifest_sha},
         "scorer": {"path": os.path.abspath(__file__), "sha256": _sha_file(os.path.abspath(__file__)),
                    "git_head": _git_head()},
@@ -407,11 +480,14 @@ def findings_markdown(res):
             return "—"
         lo, hi = x["ci"]
         return f"{x['value']:.2f} [{lo:.2f}–{hi:.2f}]" if lo is not None else f"{x['value']:.2f}"
-    lines = [f"# M4 held-out exam — results{' (DRY RUN, SYNTHETIC)' if res['synthetic'] else ''}", "",
+    unseen = bool(res.get("slug"))
+    title = res["exam"] if unseen else "M4 held-out exam"
+    whose = f"{res.get('source_file')}'s" if unseen else "M4's"
+    lines = [f"# {title} — results{' (DRY RUN, SYNTHETIC)' if res['synthetic'] else ''}", "",
              f"Scored {res['created_at']} by `scripts/m4_exam_score.py` (sha256 `{res['scorer']['sha256']}`) under the "
              f"frozen manifest `{res['manifest']['sha256']}`; review queue {res['queue_id']}.", "",
              "## In plain words", "",
-             "The researcher judged a fixed random sample of M4's candidate events without seeing any detector or "
+             f"The researcher judged a fixed random sample of {whose} candidate events without seeing any detector or "
              "model output. The numbers below say how often each kind of candidate was real, and how well the frozen "
              "MiniRocket model agreed with the researcher on events it had never seen.", "",
              "## The answers", "",
@@ -431,16 +507,25 @@ def findings_markdown(res):
               f"- comparator (agreement count as a score): AUC "
               f"{(res['minirocket']['comparator_n_agree'] or {}).get('auc')}",
               f"- unreadable spans {res['minirocket']['unreadable_spans']}", "",
-              "Per-setting precision and the full intervals are in `DATA/derived/exam/M4/results.json`.", ""]
+              ("Per-setting precision and the full intervals are in `results.json` beside the frozen manifest." if unseen
+               else "Per-setting precision and the full intervals are in `DATA/derived/exam/M4/results.json`."), ""]
+    if unseen and res.get("side_features_answered"):
+        lines += ["### Known risk: R4's side features on the answered items", "",
+                  "| feature | 5 % | median | 95 % |", "|---|---|---|---|"]
+        lines += [f"| {k} | {q['q05']:.4g} | {q['q50']:.4g} | {q['q95']:.4g} |"
+                  for k, q in res["side_features_answered"].items()]
+        lines += ["", "The training recordings' whole-signal scale is in the manifest's `known_risks`; nothing was "
+                  "rescaled.", ""]
     if res.get("cnns"):
         def cv(x):
             if not x or x.get("value") is None:
                 return "—"
             lo, hi = x["ci"]
             return f"{x['value']:.2f} [{lo:.2f}–{hi:.2f}]" if lo is not None else f"{x['value']:.2f}"
-        am = res["amendment"]
-        lines += ["## Reference CNNs (amendment 1)", "",
-                  f"Amendment `{am['sha256']}` (audit row {am['audit_id']}, {am['audited_at']}, before any judging). "
+        am = res.get("amendment")
+        lines += ["## Reference CNNs" + (" (amendment 1)" if am else " (part of the frozen manifest)"), "",
+                  (f"Amendment `{am['sha256']}` (audit row {am['audit_id']}, {am['audited_at']}, before any judging). "
+                   if am else "Frozen with the manifest, as the held-out exam's amendment 1 scores them. ") +
                   "The same answered events as MiniRocket; P(interesting) > 0.5 is 'interesting'. The CNNs' "
                   "training data is not recorded (most likely M2_aug labels only).", "",
                   "| CNN | AUC [95 %] | balanced accuracy [95 %] | AUC minus MiniRocket [95 %] | scored |",
@@ -449,8 +534,10 @@ def findings_markdown(res):
             m = r.get("metrics") or {}
             lines.append(f"| {name} | {cv(m.get('auc'))} | {cv(m.get('balanced_accuracy'))} | "
                          f"{cv(r.get('auc_minus_minirocket'))} | {m.get('n', 0)} |")
-        if am.get("code_drift"):
-            lines += ["", f"**Warning:** extraction code changed since the amendment: {', '.join(am['code_drift'])}."]
+        drift = (am or res.get("cnn_spec") or {}).get("code_drift")
+        if drift:
+            lines += ["", f"**Warning:** extraction code changed since the {'amendment' if am else 'freeze'}: "
+                          f"{', '.join(drift)}."]
         lines.append("")
     return "\n".join(lines)
 
@@ -475,7 +562,7 @@ def _write(res, out_dir, findings_dir):
     with open(rp, "w", encoding="utf-8") as fh:
         json.dump(res, fh, indent=1, default=float)
     os.makedirs(findings_dir, exist_ok=True)
-    fp = os.path.join(findings_dir, f"m4-exam-{datetime.date.today().isoformat()}.md")
+    fp = os.path.join(findings_dir, f"{res.get('slug') or 'm4-exam'}-{datetime.date.today().isoformat()}.md")
     with open(fp, "w", encoding="utf-8") as fh:
         fh.write(findings_markdown(res))
     return rp, fp
@@ -524,6 +611,15 @@ def main(argv=None):
     if a.amendment is None and a.sha256 == MANIFEST_SHA256:      # the real exam: amendment 1 applies by default
         a.amendment, a.amendment_sha256 = AMENDMENT, a.amendment_sha256 or AMENDMENT_SHA256
     amendment = (a.amendment, a.amendment_sha256) if a.amendment and a.amendment_sha256 else None
+    other = os.path.abspath(a.manifest) != os.path.abspath(MANIFEST)
+    if other and (os.path.abspath(a.sample) == os.path.abspath(SAMPLE) or a.queue == QUEUE_ID):
+        raise SystemExit("another exam's manifest: name its own --sample and --queue (the defaults are M4's)")
+    inline_cnns = None
+    if other:
+        with open(a.manifest, encoding="utf-8") as fh:
+            body = json.load(fh)
+        if body.get("exam") == ce.EXAM_UNSEEN and amendment is None:
+            inline_cnns = list(((body.get("cnns") or {}).get("models") or {}).get("reference_cnns") or {})
     conn = sqlite3.connect(f"file:{a.db}?mode=ro", uri=True)
     try:
         if a.dry_run:
@@ -534,6 +630,8 @@ def main(argv=None):
                 with open(amendment[0], encoding="utf-8") as fh:
                     names = list(json.load(fh)["models"]["reference_cnns"])
                 fake_cnns = {n: _synthetic_p(seed=i + 1) for i, n in enumerate(names)}
+            elif inline_cnns:
+                fake_cnns = {n: _synthetic_p(seed=i + 1) for i, n in enumerate(inline_cnns)}
             res = mark(conn, manifest_path=a.manifest, manifest_sha=a.sha256, sample_dir=a.sample, queue_id=a.queue,
                        scorer=synthetic_scorer(fake), verdicts=fake, n_boot=a.n_boot or 200, amendment=amendment,
                        cnn_scorers=fake_cnns)
@@ -545,7 +643,7 @@ def main(argv=None):
                                  "--amendment '' to mark without it only on purpose, and say so in the findings")
             res = mark(conn, manifest_path=a.manifest, manifest_sha=a.sha256, sample_dir=a.sample, queue_id=a.queue,
                        n_boot=a.n_boot, amendment=amendment)
-            paths = _write(res, a.out or OUT, FINDINGS)
+            paths = _write(res, a.out or (os.path.dirname(os.path.abspath(a.manifest)) if other else OUT), FINDINGS)
     finally:
         conn.close()
     print(json.dumps({"results": paths[0], "findings": paths[1], "dry_run": bool(a.dry_run),
