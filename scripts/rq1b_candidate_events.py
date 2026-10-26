@@ -24,7 +24,13 @@ not copied).
     python scripts/rq1b_candidate_events.py queue --table <table dir> --real --apply          # the queue
     python scripts/rq1b_candidate_events.py estimate --sample <table dir>/sample_seed0_l100_f50 --real
 
-M4_aug (the held-out exam) is refused by name, whatever Settings › Datasets' lock says.
+M4_aug (the held-out exam) is refused by name, whatever Settings › Datasets' lock says, except through its frozen
+exam manifest (m4-exam, 2026-10-26: `scripts/m4_exam_freeze.py`; the freeze must already be in the audit log):
+
+    python scripts/rq1b_candidate_events.py build --real --file M4_aug_concat_fs1.mat \\
+        --exam-manifest DATA/derived/exam/M4/manifest.json --exam-sha256 <sha256>
+    python scripts/rq1b_candidate_events.py queue --table <M4 table dir> --real --apply --seed 20261026 \\
+        --per-level 40 --per-family 15 --exam-manifest DATA/derived/exam/M4/manifest.json --exam-sha256 <sha256>
 """
 
 import argparse
@@ -63,6 +69,19 @@ def _db_options(p, *, can_apply):
     if can_apply:
         p.add_argument("--apply", action="store_true", help="write (without it: a dry run that writes nothing)")
     p.add_argument("--json", action="store_true", help="print the report as JSON")
+
+
+def _exam_options(p):
+    p.add_argument("--exam-manifest", help="the held-out exam's frozen manifest (the only way M4 is read)")
+    p.add_argument("--exam-sha256", help="the sha256 the frozen manifest must have")
+
+
+def _exam(ap, a):
+    if not (getattr(a, "exam_manifest", None) or getattr(a, "exam_sha256", None)):
+        return None
+    if not (a.exam_manifest and a.exam_sha256):
+        ap.error("--exam-manifest and --exam-sha256 go together")
+    return ce.ExamManifest(os.path.abspath(a.exam_manifest), a.exam_sha256)
 
 
 def _database(ap, a, real):
@@ -117,7 +136,7 @@ def _levels(events):
 def _build(a, db):
     conn = _read_only(db)
     try:
-        events, members, meta = ce.build_table(conn, a.file)
+        events, members, meta = ce.build_table(conn, a.file, exam=a.exam)
     finally:
         conn.close()
     meta["database"] = os.path.abspath(db)
@@ -158,7 +177,10 @@ def _queue(a, db, checkout):
                      "strata": strata, "database": os.path.abspath(db), "created_at": ce._now()}
             labels = events[["event_id"] + list(LABEL_COLUMNS)]
             where = ce.save_sample(a.table, sample, labels, smeta)
-            qid = ce.create_sample_queue(conn, sample, name=name, note=f"rq1b-sample:{meta['key']}:{smeta['name']}")
+            if a.exam is not None:
+                smeta["exam"] = {"manifest": a.exam.path, "sha256": a.exam.sha256}
+            qid = ce.create_sample_queue(conn, sample, name=name, note=f"rq1b-sample:{meta['key']}:{smeta['name']}",
+                                         exam=a.exam)
             smeta["queue_id"] = qid
             ce._atomic_json(os.path.join(where, "meta.json"), smeta)
             report.update(sample=where, queue_id=qid, queue_name=name)
@@ -200,6 +222,7 @@ def main(argv=None, real=None, checkout=None):
     _db_options(b, can_apply=False)
     b.add_argument("--file", default=DEFAULT_FILE, help=f"the recording's source file (default {DEFAULT_FILE})")
     b.add_argument("--out", default=DEFAULT_OUT, help="the folder the table's own folder goes in")
+    _exam_options(b)
     qp = sub.add_parser("queue", help="the stratified sample and its Review queue (dry run unless --apply)")
     _db_options(qp, can_apply=True)
     qp.add_argument("--table", required=True, help="a table folder `build` wrote")
@@ -207,11 +230,13 @@ def main(argv=None, real=None, checkout=None):
     qp.add_argument("--per-level", type=int, default=ce.DEFAULT_PER_LEVEL)
     qp.add_argument("--per-family", type=int, default=ce.DEFAULT_PER_FAMILY)
     qp.add_argument("--name", help="the queue's name in Review")
+    _exam_options(qp)
     e = sub.add_parser("estimate", help="precision estimates from the sample's answers so far (read-only)")
     _db_options(e, can_apply=False)
     e.add_argument("--sample", required=True, help="a sample folder `queue --apply` wrote")
     e.add_argument("--n-boot", type=int, default=1000)
     a = ap.parse_args(argv)
+    a.exam = _exam(ap, a)
     db = _database(ap, a, real)
     report = _queue(a, db, checkout) if a.cmd == "queue" else {"build": _build, "estimate": _estimate}[a.cmd](a, db)
     _print(report, a.json)

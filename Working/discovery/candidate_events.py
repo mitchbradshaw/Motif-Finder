@@ -55,7 +55,9 @@ The rules, each one stated once
    resampling the answered items within each stratum; a stratum answered in full has no sampling error.
 
 The held-out recording (``Working.config.HELD_OUT_RECORDING_FILE``) is refused by name, whatever Settings ›
-Datasets' lock says: it is RQ1b's exam (2026-10-18).
+Datasets' lock says: it is RQ1b's exam (2026-10-18). The one door through (m4-exam, 2026-10-26) is the exam's frozen
+manifest (``ExamManifest``): a file whose sha256 the caller names, that says it is the held-out exam of this recording,
+and whose freeze is already in the audit log. Creating its queue is audited too (``EXAM_SAMPLE_DRAWN``).
 
 Bulk stays on disk (CLAUDE.md rule 4): a table is ``events.parquet`` + ``members.parquet`` + ``meta.json`` under its
 key; a sample is ``sample.parquet`` + ``labels.parquet`` (the labels its frame was drawn against) + ``meta.json``.
@@ -67,10 +69,12 @@ from __future__ import annotations
 
 import datetime as _dt
 import fnmatch
+import hashlib
 import json
 import math
 import os
 from bisect import bisect_left, bisect_right
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -157,18 +161,72 @@ def _families(cell):
 
 # ── rule 1: the sweep ───────────────────────────────────────────────────────
 
-def _refuse_held_out(source_file):
+#: m4-exam: the audit-log kind and the two sentences the exam's door reads and writes
+EXAM_AUDIT_KIND = "exam"
+EXAM_FROZEN = "held-out exam: manifest frozen"
+EXAM_SAMPLE_DRAWN = "held-out exam: sample drawn"
+
+
+@dataclass(frozen=True)
+class ExamManifest:
+    """The held-out exam's frozen manifest: its path and the sha256 the caller says it has (m4-exam, 2026-10-26)."""
+    path: str
+    sha256: str
+
+
+def verify_exam(conn, exam, source_file):
+    """The exam's door, checked in full on every use; returns the manifest. Refused (``PermissionError``) unless the
+    file hashes to `exam.sha256`, says it is the frozen held-out exam of `source_file`, and the audit log already
+    holds its freeze (``EXAM_FROZEN`` with that sha256): the rules were written down before anything was drawn."""
+    if not isinstance(exam, ExamManifest):
+        raise PermissionError(f"{source_file} is the held-out exam: only its frozen ExamManifest opens it")
+    try:
+        with open(exam.path, "rb") as fh:
+            raw = fh.read()
+    except OSError as e:
+        raise PermissionError(f"the exam manifest {exam.path} cannot be read: {e}") from e
+    sha = hashlib.sha256(raw).hexdigest()
+    if sha != str(exam.sha256).strip().lower():
+        raise PermissionError(f"the exam manifest's sha256 is {sha}, not the {exam.sha256} named: it changed")
+    try:
+        man = json.loads(raw.decode("utf-8"))
+    except ValueError as e:
+        raise PermissionError(f"the exam manifest {exam.path} is not JSON") from e
+    if (not isinstance(man, dict) or man.get("exam") != "held_out" or man.get("frozen") is not True
+            or str(man.get("source_file")) != str(source_file)):
+        raise PermissionError(f"{exam.path} is not the frozen held-out exam manifest of {source_file}")
+    frozen = False
+    for (detail,) in conn.execute("SELECT detail_json FROM audit_log WHERE kind = ? AND what LIKE ?",
+                                  (EXAM_AUDIT_KIND, EXAM_FROZEN + "%")):
+        try:
+            frozen = frozen or (json.loads(detail or "{}").get("sha256") == sha)
+        except (ValueError, AttributeError):
+            continue
+    if not frozen:
+        raise PermissionError(f"the audit log holds no '{EXAM_FROZEN}' entry for sha256 {sha}: freeze the manifest "
+                              "(an audited act) before drawing from the held-out recording")
+    return man
+
+
+def _refuse_held_out(source_file, conn=None, exam=None):
     if str(source_file) == HELD_OUT_RECORDING_FILE:
-        raise PermissionError(
-            f"{source_file} is the held-out exam (RQ1b, 2026-10-18): no candidate events, sample or queue are made "
-            "from it, whatever Settings › Datasets' lock says")
+        if exam is None:
+            raise PermissionError(
+                f"{source_file} is the held-out exam (RQ1b, 2026-10-18): no candidate events, sample or queue are "
+                "made from it, whatever Settings › Datasets' lock says, except through its frozen exam manifest")
+        verify_exam(conn, exam, source_file)
 
 
-def load_sweep_detections(conn, source_file, *, exclude=NEGATIVE_CONTROLS):
+def _exam_meta(exam):
+    return None if exam is None else {"manifest": os.path.abspath(exam.path), "sha256": str(exam.sha256).lower()}
+
+
+def load_sweep_detections(conn, source_file, *, exclude=NEGATIVE_CONTROLS, exam=None):
     """Rule 1. Returns ``{recordings: {id: {channel, n_samples, fs}}, runs: [...], skipped: [...],
     excluded_variants: [...], n_degenerate: int, detections: DataFrame}``; the detections carry
-    ``detection_id, run_id, recording_id, variant, start, end`` in channel-absolute samples."""
-    _refuse_held_out(source_file)
+    ``detection_id, run_id, recording_id, variant, start, end`` in channel-absolute samples. `exam`: the held-out
+    recording's frozen manifest (``ExamManifest``), the only way it is read."""
+    _refuse_held_out(source_file, conn, exam)
     recordings = {int(r[0]): {"channel": int(r[1]), "n_samples": int(r[2]), "fs": float(r[3])}
                   for r in conn.execute("SELECT id, channel, n_samples, fs FROM recordings WHERE source_file = ? "
                                         "ORDER BY channel", (str(source_file),)).fetchall()}
@@ -527,12 +585,13 @@ def label_counts(events):
 
 # ── the table ───────────────────────────────────────────────────────────────
 
-def build_table(conn, source_file, *, exclude=NEGATIVE_CONTROLS, rule=None):
-    """Rules 1–5 for one recording. Returns ``(events, members, meta)``; `meta` says how the table was made."""
+def build_table(conn, source_file, *, exclude=NEGATIVE_CONTROLS, rule=None, exam=None):
+    """Rules 1–5 for one recording. Returns ``(events, members, meta)``; `meta` says how the table was made.
+    `exam`: the held-out recording's frozen manifest (``ExamManifest``); `meta['exam']` names it."""
     from Working.recipes import short_hash
-    _refuse_held_out(source_file)
+    _refuse_held_out(source_file, conn, exam)
     rule = normalise_rule(rule) if rule is not None else rule_from_settings(conn)
-    sweep = load_sweep_detections(conn, source_file, exclude=exclude)
+    sweep = load_sweep_detections(conn, source_file, exclude=exclude, exam=exam)
     det = sweep["detections"]
     events, members = build_events(det, rule=rule)
     events = add_agreement(events, det)
@@ -549,7 +608,7 @@ def build_table(conn, source_file, *, exclude=NEGATIVE_CONTROLS, rule=None):
             "families": sorted(members["family"].unique()) if len(members) else [],
             "recordings": {str(k): v for k, v in sweep["recordings"].items()},
             "n_detections": int(len(det)), "n_events": int(len(events)), "labels": label_counts(events),
-            "created_at": _now()}
+            "exam": _exam_meta(exam), "created_at": _now()}
     return events, members, meta
 
 
@@ -676,18 +735,34 @@ def check_sample_against(conn, sample):
                          f"recorded them (first: {bad[:5]}); was the table built on another database?")
 
 
-def create_sample_queue(conn, sample, *, name, note=None):
+def create_sample_queue(conn, sample, *, name, note=None, exam=None):
     """The sample as one blind Review queue over its anchor detections, served in its seeded order (rule 6). A
-    second call with the same sample returns the same open queue."""
+    second call with the same sample returns the same open queue. A sample on the held-out recording needs its
+    frozen manifest (`exam`), and creating its queue is written to the audit log (``EXAM_SAMPLE_DRAWN``)."""
     from Working.review import queues as _queues
     check_sample_against(conn, sample)
+    files = set()
+    for chunk in _chunks(sorted({int(r) for r in sample["recording_id"]})):
+        marks = ",".join("?" * len(chunk))
+        files |= {str(r[0]) for r in conn.execute(
+            f"SELECT DISTINCT source_file FROM recordings WHERE id IN ({marks})", chunk)}
+    held = HELD_OUT_RECORDING_FILE in files
+    if held:
+        _refuse_held_out(HELD_OUT_RECORDING_FILE, conn, exam)
     ids = [int(d) for d in sample.sort_values("serve_rank")["detection_id"]]
     filters = {"detection_ids": ids, "order": "listed"}
     found = _queues.find_open_queue(conn, source_kind="discovery-run", filters=filters)
     if found is not None:
         return int(found)
-    return int(_queues.create_queue(conn, name=name, source_kind="discovery-run", filters=filters, blind=True,
-                                    note=note))
+    qid = int(_queues.create_queue(conn, name=name, source_kind="discovery-run", filters=filters, blind=True,
+                                   note=note))
+    if held:
+        from Working.registration.settings import append_audit
+        strata = {str(h): int(n) for h, n in sample.groupby("stratum").size().items()}
+        append_audit(conn, EXAM_AUDIT_KIND, f"{EXAM_SAMPLE_DRAWN} · {HELD_OUT_RECORDING_FILE} · queue {qid} · "
+                     f"{len(ids)} items", "Review", route="exam/M4",
+                     detail={"queue_id": qid, "n_items": len(ids), "strata": strata, **_exam_meta(exam)})
+    return qid
 
 
 def read_sample_verdicts(conn, sample):

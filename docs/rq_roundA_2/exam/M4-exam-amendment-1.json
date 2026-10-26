@@ -1,0 +1,78 @@
+{
+ "amendment": 1,
+ "exam": "M4 held-out exam (one shot)",
+ "amends": {
+  "manifest": "DATA/derived/exam/M4/manifest.json",
+  "sha256": "db32fdc7ff42aa46ddfd0198993853e138e9fb958c3d4dcf83a65e5f3317e0b6",
+  "frozen_audit_id": 537,
+  "sample_audit_id": 538
+ },
+ "added_at": "2026-10-25T23:11:32+00:00",
+ "added_before_judging": true,
+ "before_judging_evidence": "at 2026-10-25T23:11:32+00:00: review_audit held 0 rows for queue 36 (290 items, none judged); audit_log max id 538. scripts/m4_exam_score.py refuses this amendment if any exam-queue verdict is older than its audit row.",
+ "decided": "researcher, 2026-10-26: score the frozen reference CNNs on the same exam events as MiniRocket, added before queue 36 is judged",
+ "what_changes": "ONLY an addition: the four reference CNNs are scored on the same answered sample items as MiniRocket R4. The manifest, its sample, its verdict rule, its MiniRocket metrics and every other rule are unchanged; the manifest file is not edited.",
+ "models": {
+  "reference_cnns": {
+   "GASF": {
+    "path": "MODELS/GASF_cnn.pth",
+    "image_type": "GASF",
+    "sha256": "40345ef691203355fb7f26ae3742850bf5c634746465b88186bf7bd8bdbee0b4",
+    "bytes": 16345501,
+    "same_as_frozen_manifest": true
+   },
+   "GADF": {
+    "path": "MODELS/GADF_cnn.pth",
+    "image_type": "GADF",
+    "sha256": "e9b1c4d428d35b8e9571c0e62bb4dc4ef17a0bd29336b69e0e3061b564b415f1",
+    "bytes": 16345501,
+    "same_as_frozen_manifest": true
+   },
+   "recurrence": {
+    "path": "MODELS/recurrence_cnn.pth",
+    "image_type": "recurrence",
+    "sha256": "1aacb43ba0effd5351be7fd6cdd0635106e2c605cc8c6919ce9e48549702f985",
+    "bytes": 16347697,
+    "same_as_frozen_manifest": true
+   },
+   "fusion": {
+    "path": "MODELS/fusion_cnn_3.pth",
+    "image_type": "fusion",
+    "sha256": "7cc7b623232b40c7fb900ac06e07dc80482ab7b7983d80fa05955dc90a0499ae",
+    "bytes": 16346233,
+    "same_as_frozen_manifest": true
+   }
+  }
+ },
+ "input_length": 600,
+ "input": "each answered sample item's anchor span (sample start/end, samples of its recording), with rq1b_minirocket.PAD (0.25) x its length of context on each side, clipped at the recording's ends; in mV (Working.units.read_as_mv); gaps of at most 5 % (Working.Catalogue.minirocket.MAX_GAP_FRAC) filled linearly, more and the item is not scored; resampled to 600 points by Working.Catalogue.cnn.window_scores.resample_window (block means / polyphase low-pass down, linear up); a flat cut is not scored. Exactly scripts/rq1b_cnn_vs_minirocket.py cuts600, the extraction of the 2026-10-26 quick comparison (docs/rq_roundA_2/findings/rq1b-minirocket-null-2026-10-26.md \u00a73).",
+ "score": "window_scores.window_image (encoded as in training, PIL bilinear to 224 px), cnn_rangapur.get_transforms(224, is_train=False, is_rgb=(image_type == 'fusion')), window_scores.predict: softmax column 0 = P(interesting); CPU; loaded by window_scores.load_scorer",
+ "population": "the answered items (y in {0,1}) that MiniRocket's extract read AND cuts600 could cut; unweighted",
+ "metrics": {
+  "cut": 0.5,
+  "primary": [
+   "AUC of P(interesting)",
+   "balanced accuracy at P(interesting) > 0.5"
+  ],
+  "secondary": "the same two, design-weighted by N_h / n_h, as the manifest's MiniRocket secondary",
+  "ci": "95 % percentile bootstrap resampling answered items within strata, the manifest's n_boot (2000) and seed 0, the same function as MiniRocket (m4_exam_score.score_metrics)",
+  "paired": "AUC(CNN) minus AUC(MiniRocket R4) on the same items, 95 % within-stratum bootstrap (m4_exam_score.paired_auc_difference)"
+ },
+ "code": {
+  "scripts/rq1b_cnn_vs_minirocket.py": "59a9781b463392690326b9350827581c5f3299eaa9e2faad8fe3c99039d819c5",
+  "scripts/rq1b_minirocket.py": "9ddf82e540b68f3bb8ec564fc01c89e34b546afdd3b736011828fc9ffd4dcd01",
+  "Working/Catalogue/cnn/window_scores.py": "fd552b88ecdc432a57bf0b95e1ccf860bf24ea85081ceb7923b95f47406c96ae",
+  "Working/Catalogue/cnn/apply_cnn.py": "f5f230bb526fddd4d3f91b2282aed98f154c6509e9dd3fb91e315a78c4685815",
+  "Working/Catalogue/cnn/cnn_rangapur.py": "d11bb94ae883b7b563827496802d497ef11d0c22f275fff6dc9e5248712fa145",
+  "Working/units.py": "4c02e69189757f21cb596ab9a10f6d5c6f265171c9d869552af93859e6415a33",
+  "Working/Catalogue/minirocket.py": "5c6f224d544b95b29417ac5d1ba9bb87ee06d0a51511f15afa68eaedb5d43359",
+  "Working/distances.py": "0381bd43ae6d1d81be96e1d7ef9db4c1f9c70f339b1c146501d0f63602ad27a2"
+ },
+ "code_rule": "a changed checkpoint sha256 refuses the scoring; a changed code sha256 is reported in results.json and the findings as a warning",
+ "flags": "the CNNs' training data is not recorded (most likely the 11,234 imported 10-minute M2_aug labels). M4_aug_concat_fs1.mat (2 Apr 2026) predates the GASF/GADF/recurrence checkpoints (12-13 Apr), so M4 is out-of-sample for them only if they were trained on M2_aug alone; the thesis says so.",
+ "when": "computed only AFTER judging, by scripts/m4_exam_score.py --real; no CNN is run on the M4 sample before",
+ "outputs": [
+  "DATA/derived/exam/M4/results.json ('cnns', 'amendment')",
+  "docs/rq_roundA_2/findings/m4-exam-<date>.md"
+ ]
+}

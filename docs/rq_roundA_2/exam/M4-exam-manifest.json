@@ -1,0 +1,615 @@
+{
+ "exam": "held_out",
+ "name": "M4 held-out exam (one shot)",
+ "source_file": "M4_aug_concat_fs1.mat",
+ "recording_ids": [
+  49,
+  50,
+  51,
+  52,
+  53,
+  54,
+  55,
+  56,
+  57,
+  58,
+  59,
+  60,
+  61,
+  62,
+  63,
+  64
+ ],
+ "frozen": true,
+ "frozen_at": "2026-10-25T22:40:10+00:00",
+ "git_head": "a399e4cdf9c177402a2c585887ed09fa0b4ced36",
+ "decided": "researcher, 2026-10-26: lock back on, freeze in writing, one blind stratified exam",
+ "matching_rule": {
+  "criterion": "reciprocal_iou_onset",
+  "iou": 0.5,
+  "onset": 0.25
+ },
+ "data": [
+  {
+   "recording_id": 49,
+   "channel": 0,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH0.npy",
+   "sha256": "dd189f4e308bd09bc7db9e72129dfc6c43bdb05d0aca741b9768ba84a0fb995b"
+  },
+  {
+   "recording_id": 50,
+   "channel": 1,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH1.npy",
+   "sha256": "eefe35def7a3c81bddc5bcee964e3f467611e52ab33d391b9299862f4d2d1e1a"
+  },
+  {
+   "recording_id": 51,
+   "channel": 2,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH2.npy",
+   "sha256": "b1934302aa078e1d14ed101f5641fdd3efce5396c940d3e714dc56bdbe993f59"
+  },
+  {
+   "recording_id": 52,
+   "channel": 3,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH3.npy",
+   "sha256": "50726dc945594696abea5e16aab62acb45762316821a63d7f09dde9559f31ad3"
+  },
+  {
+   "recording_id": 53,
+   "channel": 4,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH4.npy",
+   "sha256": "502f9536475d9edf7882222f8ef918055a85b104c8e39d9d7cfaaaf5e7a32b6f"
+  },
+  {
+   "recording_id": 54,
+   "channel": 5,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH5.npy",
+   "sha256": "05efaac195e9888f628729880963df03ff07abdcaa483d44fd7cfe87a22b93e3"
+  },
+  {
+   "recording_id": 55,
+   "channel": 6,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH6.npy",
+   "sha256": "d47c9e633b760bb0f38adf79bc62f8dbb037614c6c301a77b5d603a6ee0a6a0e"
+  },
+  {
+   "recording_id": 56,
+   "channel": 7,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH7.npy",
+   "sha256": "fee5f7c44fc4f59aa134d34c5d04f732174271f334616cefa4fbf44540384198"
+  },
+  {
+   "recording_id": 57,
+   "channel": 8,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH8.npy",
+   "sha256": "29f0ebd3c4a31007eff703553906b653c552103e13eb84b9dca43efad7b38b40"
+  },
+  {
+   "recording_id": 58,
+   "channel": 9,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH9.npy",
+   "sha256": "e71db8b2341b9e525be205d0dbc10c2c58db1b7891afeb299c13cb39fb88517e"
+  },
+  {
+   "recording_id": 59,
+   "channel": 10,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH10.npy",
+   "sha256": "a1eaa03c5ee65d894ba6f8733aafa6eacb8e3cdc58b8ec549d88fa8583a8da05"
+  },
+  {
+   "recording_id": 60,
+   "channel": 11,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH11.npy",
+   "sha256": "78c2aac856b87ec831f16181d984e35d73370e306f2eb5ea873a61b23a8684ad"
+  },
+  {
+   "recording_id": 61,
+   "channel": 12,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH12.npy",
+   "sha256": "90639fb1c351a116d9ef1abbd1274f12fac8efc2d6aff6c1851b0bebc3aa6782"
+  },
+  {
+   "recording_id": 62,
+   "channel": 13,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH13.npy",
+   "sha256": "070c98a997528f72743c05c57a7678d5a884785fdc5865e0f157d0d0f5333169"
+  },
+  {
+   "recording_id": 63,
+   "channel": 14,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH14.npy",
+   "sha256": "6c7c514f753d68f91682db1ee8e13778d322167df9e8023e599d94864d7cbb1b"
+  },
+  {
+   "recording_id": 64,
+   "channel": 15,
+   "n_samples": 1817998,
+   "fs": 1.0,
+   "npy_path": "DATA/derived/channels/M4_aug_concat_fs1/CH15.npy",
+   "sha256": "40c5039d8c98c4eb0faee4512f2dbb0c4ea2cef2e24e36395fdc2ca711067316"
+  }
+ ],
+ "models": {
+  "minirocket_R4": {
+   "dir": "DATA/derived/models/rq1b_minirocket/20261020-2343",
+   "script": "scripts/rq1b_minirocket.py",
+   "write_up": "docs/rq_roundA_2/findings/rq1b-minirocket-2026-10-20.md",
+   "scores_on_exam": "the candidate-event sample (this exam): decision() > 0 is 'interesting'",
+   "files": {
+    "model.joblib": {
+     "sha256": "fb22cb242fbce274625d2ec3f732bf9098c59201038f47c6fb3a9e65642df232",
+     "bytes": 196836
+    },
+    "manifest.json": {
+     "sha256": "c87cd41494a3de09a94f712d4757102ec6eb69a3e59ac3fd405cd5bfc28e6975",
+     "bytes": 27286
+    },
+    "predictions.parquet": {
+     "sha256": "24a4f56aecff1f04de74b0d4e56a5cfb0eab54d86de34698230d2e597a55df1c",
+     "bytes": 344715
+    }
+   }
+  },
+  "random_forest_run79": {
+   "dir": "DATA/derived/training/paired_68f57f69_run79",
+   "scores_on_exam": "exam (iii) windows only; NOT scored on this event sample (see exam_iii)",
+   "files": {
+    "paired_68f57f69_armA.joblib": {
+     "sha256": "24b65249c621e015cf16b00e65181791bcd887ff1b2091158444b63f07c68e05",
+     "bytes": 7847668
+    },
+    "paired_68f57f69_armB.joblib": {
+     "sha256": "89ef3b093cf443dd028d49f31b956db81b1536e3761461ba4bd81910d91b790e",
+     "bytes": 7915159
+    },
+    "results.json": {
+     "sha256": "2998dba3f55453eb24e0bc81ac487091bc1d7b05cd2b5ce53b1d82d8ee283390",
+     "bytes": 181444
+    }
+   }
+  },
+  "cluster_label_forest_run1613": {
+   "dir": "DATA/derived/training/shape_forest_9eccf73f_run1613",
+   "scores_on_exam": "exam (iii) windows only; NOT scored on this event sample (see exam_iii)",
+   "files": {
+    "forest_b2.joblib": {
+     "sha256": "7eb7f52b2d0f23349574ccdb04cb250e4632d822ef57408558cd4990ad23d961",
+     "bytes": 112812451
+    },
+    "results.json": {
+     "sha256": "c6582d117b55a69354d6308f3bdd3ff4ec006be381db7ec2f9fbe0b44a2dff1f",
+     "bytes": 5119
+    },
+    "predictions.parquet": {
+     "sha256": "79093ffec7385e31bb35651822e1a999d2380984e4d6b8fe31f527c7bafbd2bd",
+     "bytes": 227983
+    },
+    "blind_sample.json": {
+     "sha256": "f5d29bcfc3f430767e5ceae3f9a00f56dd3b52aa36f3ba8a24bc93e265c67cdc",
+     "bytes": 3143
+    },
+    "blind_reference.json": {
+     "sha256": "9d1b6f068aa4dec53672c8489315600c56972a42f6d763f54e7e7a0f91e43117",
+     "bytes": 2825
+    }
+   }
+  },
+  "reference_cnns": {
+   "dir": "MODELS",
+   "write_up": "docs/prompts/blocks/reports/W4-A-evaluation.md",
+   "scores_on_exam": "exam (iii) windows only; NOT scored on this event sample (see exam_iii)",
+   "files": {
+    "GASF_cnn.pth": {
+     "sha256": "40345ef691203355fb7f26ae3742850bf5c634746465b88186bf7bd8bdbee0b4",
+     "bytes": 16345501
+    },
+    "GASF_cnn.pth.manifest.json": {
+     "sha256": "1e588b22ac7d2502cc74c57343580077571099cd8670a23c7a930593e3dadfed",
+     "bytes": 6139
+    },
+    "GADF_cnn.pth": {
+     "sha256": "e9b1c4d428d35b8e9571c0e62bb4dc4ef17a0bd29336b69e0e3061b564b415f1",
+     "bytes": 16345501
+    },
+    "GADF_cnn.pth.manifest.json": {
+     "sha256": "597bbd1af97b67bdc6d6e123ebb057170247b137df9c01daa46ab9039225fc73",
+     "bytes": 6139
+    },
+    "recurrence_cnn.pth": {
+     "sha256": "1aacb43ba0effd5351be7fd6cdd0635106e2c605cc8c6919ce9e48549702f985",
+     "bytes": 16347697
+    },
+    "recurrence_cnn.pth.manifest.json": {
+     "sha256": "22f4daee371b2fc6b524d5d3eb868c1cf365390ff51c31d66deacd8a4f327862",
+     "bytes": 6169
+    },
+    "fusion_cnn_3.pth": {
+     "sha256": "7cc7b623232b40c7fb900ac06e07dc80482ab7b7983d80fa05955dc90a0499ae",
+     "bytes": 16346233
+    },
+    "fusion_cnn_3.pth.manifest.json": {
+     "sha256": "3573ce54afa9830ef6f8b5e818f4ccd160aedb892994a46b14da307f4c2eae53",
+     "bytes": 6159
+    },
+    "GASF_checkpoint.pth": {
+     "sha256": "350592d5fdbbba00703abde6f83f8328825d2e8b647700d53a8d0331b9e86302",
+     "bytes": 48613209
+    },
+    "GADF_checkpoint.pth": {
+     "sha256": "9962f5f89381363566dc97ee2fa1caffd521888cd52d76f58ff607e8809c3a4d",
+     "bytes": 48613209
+    },
+    "recurrence_checkpoint.pth": {
+     "sha256": "9e7b8658ed6bb65d97198826cfdd6ce7912145934fa5c78edbcf7de97ef4c26d",
+     "bytes": 48619239
+    },
+    "fusion_prediction_checkpoint.pth": {
+     "sha256": "cce565f35f90b094edef19b25e3441f2f037e252f0de1c19f4aa0533385aa648",
+     "bytes": 48813730
+    },
+    "fusion_prediction_cnn.pth": {
+     "sha256": "bc53676d7fee5f6c018c0a2565490b13098f3567893fd25fad8eccec63c4e684",
+     "bytes": 16411763
+    },
+    "fusion_cnn.pth": {
+     "sha256": "6336e91701e946a10dd3af1f3d11dddcf856e08fdcb3f5baee4ca68e6b0dc228",
+     "bytes": 16341113
+    },
+    "fusion_cnn_2.pth": {
+     "sha256": "466ce028cdba8f15dfd915f561f2b428c7981d183c0053ce2613774e6cbc4518",
+     "bytes": 16322553
+    }
+   }
+  }
+ },
+ "detectors": {
+  "file": "detectors.json",
+  "sha256": "f112decdffbdc7c04529cc5687823e5e85885ec858101be680496b55502c9b80",
+  "n_real_runs": 632,
+  "variants": {
+   "BEADs_invert_detect_v1": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "891868ba5283f00d239ee8b666be3749b4b834b2133d13cb649fd143e2bfb083"
+   },
+   "BEADs_invert_detect_v1__delta_mv_25": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "b94d6f0bc1af61774a77e7ade10ecebfe736a5a2520fc51ec4279bfbeae64792"
+   },
+   "BEADs_invert_detect_v1__delta_mv_5": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "8f115e60250236038cf20d21847a2b600a562303a42c0026f25c69ed7b41f960"
+   },
+   "OASIS_Deconvolution": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "3e201a7bf7abd5d45f6e473b30aece4a861ab77e51ed137c48a8f03fede0e61f"
+   },
+   "OASIS_Deconvolution__threshold_3": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "434015292c75295f1ba973e99683c3719ec6dbbe90b4f9b822753eeab6b45a02"
+   },
+   "OASIS_Deconvolution__threshold_5": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "202fc8e8ba4fded477ae6e24fc7d31a8923f996b899dad8e5a7419d951ea818c"
+   },
+   "Wavelet_detection_prototype": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "b5646217b754856e1d0f78878c381b2736514296fde079a4350235ef7e4c70df"
+   },
+   "Wavelet_detection_prototype__epsilon_factor_0p02": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "7e048daad96cfe00fad045ae2934df97c6f5e68dd6d781d8673ee24b37ac81a8"
+   },
+   "Wavelet_detection_prototype__epsilon_factor_0p1": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "8bb9a78fc5afb248a8e09bc334d49e37ff846279d8a91fb43e8af029ed069295"
+   },
+   "cnn_fusion3_10min": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "81983f3eb3f8128311b716655191a1f6954a6b3bdcd93ce75e0a0908a0e3e752"
+   },
+   "cnn_fusion3_1min": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "20fdf4b4f7aa760ac5c99371b34f73fde4c25ae1fbbb766bc4f963a905638abb"
+   },
+   "cnn_fusion3_60min": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "d994538967fe7660949f1535cf27a1ac41ef77ed0717b5a79f38b569c8fbd4b4"
+   },
+   "cnn_gadf_10min": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "e097a49530b1e70ebc632106e2e7fd3acb72190e7443050e40b0c13f9547b715"
+   },
+   "cnn_gadf_1min": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "76ea37b56fce51121693ce484a783ab57ad8e5bd0e02262234b7b0cf29025066"
+   },
+   "cnn_gasf_10min": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "838ad5e4f25f8ebfbee83ec86e685a0bd3b25b9e4aad259e287347daeb7cd220"
+   },
+   "cnn_gasf_1min": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "c5b1500a1d482b782c834a76ca0339c14eb29d041ac5a696d78f35589ef14920"
+   },
+   "cnn_recurrence_10min": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "654f4a453eb0b2c439c9915d0fd89dc14231e1d058b0fa9a13ffffbf86a2ff62"
+   },
+   "cnn_recurrence_1min": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "ec7689fe827c66044b1c950bd1953010f88c6594845c445ac73df0dfb40a47ea"
+   },
+   "deconvolved_troughs": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "e187f0ab9b755ba8b4e93cd31459634cadaf5d6a89c780f754617d22150bee0d"
+   },
+   "deconvolved_troughs__recovery_half_s_240": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "ed042b17b67ad69210338d41955424ba1c5f81b55b55b0753bcb05df70626be5"
+   },
+   "deconvolved_troughs__recovery_half_s_60": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "cedf406f7aa652a0a1451970d346b993d6ad1dcaa927d88a535c8f8d01efb1c1"
+   },
+   "drop_detection_v1": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "908a3a2a0e84ee1338bf11cf1ca559fc4e80a8b44bb9084456bc0627ae40e0ff"
+   },
+   "drop_detection_v1__slope_sigma_12": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "47045cc36771b83b71edbde30d3c82604df465235b6aa6bec07a2774d315671a"
+   },
+   "drop_detection_v1__slope_sigma_4": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "b045830e25550face2bc772f416a3fd6dc46cb0fb4db3329e517a6e0af81a8ec"
+   },
+   "drop_detection_v5": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "90613609c31729f231882328ccc1bc2370bedee0cec3f77e3fdbf150a2bf5b85"
+   },
+   "drop_detection_v5__same_fraction_0p5": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "d89f72984b6e9b1852746036f70d5b45a075321fbd78856bbca1386054a51c2f"
+   },
+   "drop_detection_v5__same_fraction_0p7": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "8891f3c98cbfbe59a4283c824e8d8429b815d7dbdee1bf6e31686623a9197c94"
+   },
+   "mp_motifs__backend_auto": {
+    "n_runs": 2,
+    "sha256_of_sorted_config_hashes": "7d64db05ee3f0b69d3f8b9da4c81fb46d65265be0127909614d428e29af55da1"
+   },
+   "mp_threshold__backend_auto": {
+    "n_runs": 2,
+    "sha256_of_sorted_config_hashes": "2400b422842c47bff5cb6d2e96d48d86ce4fdae9b9bf47cc4712e9e3e3a229f9"
+   },
+   "mp_threshold__threshold_10__backend_auto": {
+    "n_runs": 2,
+    "sha256_of_sorted_config_hashes": "7eb8393f7810f4369a108fc36975e202ba7180b492430c14cfa4742682595a31"
+   },
+   "mp_threshold__threshold_6__backend_auto": {
+    "n_runs": 2,
+    "sha256_of_sorted_config_hashes": "76543193d948aa99aaf6632d96b07956a03ec6fdadfd8f43b9e66b0b6602e76c"
+   },
+   "noise_threshold": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "b53cbb067b1bd7b84a168467ab957cdbdc66e1c80ee905fad2a437f0ceeba676"
+   },
+   "noise_threshold__k_sigma_3": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "18f3ee20d0ef4b9efb1fe06c9dce669cbd6f690fa54183c29f5d69c291ae5e03"
+   },
+   "noise_threshold__k_sigma_6": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "435273e5ed27ad59231aa4963bd349169caf21343d9508fe3a2f2b1e4a63afcf"
+   },
+   "signal_threshold": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "f65365c3c0a61cb44f7f189ae07788d06b08f2752afa668b6fe1df6f57d993ae"
+   },
+   "signal_threshold__threshold_V_m0p002": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "7896fa5fc739865d3b7bde8301294c55a043cc115b590f950d672889999781b7"
+   },
+   "signal_threshold__threshold_V_m0p01": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "173133335887c73ccfd2100f43957b832a549ae3506858f1e6d12f9b754c008f"
+   },
+   "symbol_search": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "9f1b661308b14c2871a41245af406b769886f1d670825ba836a505b2af36cfa4"
+   },
+   "symbol_search__seconds_per_symbol_10": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "1040a064e6793102184b5921738a9ca993c9f14c0d9429a492f321c704de4dce"
+   },
+   "symbol_search__seconds_per_symbol_40": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "97bcff48198874de75fbf96d8f22f7a948faae1d152cf3c4fb767fdd1d449aec"
+   },
+   "wavelet_encoded": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "467a58faaeab7399f0df96b69655161dd483d4e5eb669ab4169d7485e35bb27e"
+   },
+   "wavelet_encoded__level_3": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "f8239fea40e83948d3c38d437de94fdb362e07545b3b175f08b8649c4b370b2d"
+   },
+   "wavelet_encoded__level_5": {
+    "n_runs": 16,
+    "sha256_of_sorted_config_hashes": "8377a1498afb51137473bd0898228f4b29fa8d5c5d3d8319d0df5e7591661860"
+   }
+  }
+ },
+ "sampling_design": {
+  "frame": "the M4 candidate-event table built by Working/discovery/candidate_events.py build_table (rules 1-5, the matching rule from Settings > Analysis defaults as recorded under 'matching_rule'), from the 2026-10-19 sweep runs listed in detectors.json; NEGATIVE_CONTROLS excluded as for every table",
+  "eligible": "events with no existing label (rule 6): the frame is every unjudged event, conflicts included",
+  "strata": {
+   "selective_families_first": [
+    "drop_detection_v1",
+    "drop_detection_v5",
+    "wavelet_encoded",
+    "symbol_search",
+    "BEADs_invert_detect_v1",
+    "signal_threshold"
+   ],
+   "agreement_levels": [
+    [
+     1,
+     2
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     5,
+     6
+    ],
+    [
+     7,
+     8
+    ],
+    [
+     9,
+     null
+    ]
+   ],
+   "rule": "first selective family among an event's own detectors, else its agreement level"
+  },
+  "per_level": 40,
+  "per_family": 15,
+  "seed": 20261026,
+  "as_in": "review queue 28 (per_level 40, per_family 15)",
+  "expected_n": "<= 5*40 + 6*15 = 290 (fewer when a stratum's frame is smaller than its quota)",
+  "weights": "N_h / n_h (rule 6), recomputed over answered items per stratum (rule 7)",
+  "serving": "one blind Review queue over each sampled event's anchor detection, served in the seeded random order (serve_rank); the queue shows no detector name, agreement count, distance or model score",
+  "code": "scripts/rq1b_candidate_events.py build/queue with --exam-manifest/--exam-sha256 (the exam path)"
+ },
+ "metrics": {
+  "verdict_source": "adjudications on the sample's anchor detections whose row is the researcher's own (carried_from IS NULL) AND whose detection appears as a target of a not-undone 'verdict' row of review_audit for the exam queue. Carried copies and verdicts from any other queue are not counted; such items count as unanswered and are reported.",
+  "y": {
+   "interesting": 1,
+   "not_interesting": 0,
+   "artifact": 0,
+   "unsure": "excluded (counted)"
+  },
+  "estimated_share_real": "candidate_events.estimate group 'all': weighted precision with the 95 % within-stratum bootstrap interval",
+  "agreement_ladder": "candidate_events.estimate groups 'agree:1-2' ... 'agree:9+'",
+  "per_detector_precision": "candidate_events.estimate groups 'family:*' and 'variant:*'",
+  "estimate_n_boot": 2000,
+  "estimate_seed": 0,
+  "minirocket": {
+   "model": "minirocket_R4 model.joblib (sha256 above), loaded with scripts/rq1b_minirocket.load_model",
+   "input": "each sampled event's anchor span (sample start/end), read with rq1b_minirocket.extract (pad 0.25, length the model's own), side features as at training",
+   "score": "rq1b_minirocket.decision (ridge decision); positive = decision > 0",
+   "primary": [
+    "AUC (roc_auc_score on decision)",
+    "balanced accuracy at decision > 0"
+   ],
+   "population": "answered sample items with y in {0,1} that extract() could read; unweighted (each judged event counts once), as RQ1b's queue_samples robustness row",
+   "secondary": "the same two metrics design-weighted by N_h / n_h (weighted AUC and weighted recalls)",
+   "ci": "95 % percentile bootstrap, resampling answered items within strata, 2000 draws, seed 0",
+   "comparator": "the event's agreement count n_agree as a score (AUC), as RQ1b's agreement_context",
+   "when": "computed only AFTER judging, by scripts/m4_exam_score.py; no model score is computed or looked at on the sample before then"
+  },
+  "outputs": [
+   "DATA/derived/exam/M4/results.json",
+   "docs/rq_roundA_2/findings/m4-exam-<date>.md"
+  ]
+ },
+ "exam_iii": {
+  "prepared": false,
+  "why": "the blind random-window mechanism (Working/training/blind.py, table blind_test_labels, RQ1 queue 3) refuses M4 by design and lives in Working/training, another agent's area; opening it is more than a small change. The forests and CNNs above are frozen by hash here so a later exam (iii) can name them.",
+  "planned": "about 200 ten-minute windows (+30-minute ones if needed) on M4, blind, via blind_test_labels"
+ },
+ "judging": {
+  "review_hides_held_out_when_locked": true,
+  "evidence": "webui/server/review.py _held_out_ids / _refuse_held_out: while heldout.on is true, held-out recordings' items are excluded from every queue and verdicts on them are refused (no exam exemption exists)",
+  "protocol": [
+   "Settings > Datasets: turn the held-out lock OFF (type M4_aug_concat_fs1); audited ('lock')",
+   "Review: open ONLY the exam queue; judge every item; open no other page or queue that shows M4",
+   "Settings > Datasets: turn the lock back ON straight after; audited ('lock')",
+   "run scripts/m4_exam_score.py --real (reads the DB read-only)"
+  ]
+ },
+ "exposure": {
+  "summary": "M4 was declared held out in the thesis plan (Aug 2026) but was touched twice before this exam; the thesis discloses both.",
+  "runs": {
+   "total": 1275,
+   "2026-08-04": {
+    "n": 11,
+    "what": "pipeline smoke on channel 0, samples 747652-764509 (bandpass, dehshibi_spikes x2, lowpass x5, two gramian catalogue runs; 5 failed)"
+   },
+   "2026-10-19": {
+    "n": 1264,
+    "real": 632,
+    "surrogates": 632,
+    "what": "RQ4b detector sweep batch 2 (43 template settings x 16 channels, each with a phase-randomised null), imported into Discovery session 7 via scripts/rq4_overnight.py adopt"
+   }
+  },
+  "annotations": [
+   {
+    "id": 11298,
+    "recording_id": 49,
+    "channel": 0,
+    "start": 748871,
+    "end": 763617,
+    "verdict": "interesting",
+    "source": "manual_ui",
+    "created_at": "2026-08-04"
+   }
+  ],
+  "adjudications_on_M4_detections": 0,
+  "motif_entry_or_member_rows": 0,
+  "models_trained_on_M4": "none (Working/training refuses it; exam (iii) is a 'locked' slot in Working/training/paired.py EXAM_III)",
+  "lock_history": [
+   {
+    "audit_log_id": 519,
+    "at": "2026-10-17T05:02:50Z",
+    "what": "Held-out lock turned off"
+   },
+   {
+    "audit_log_id": 536,
+    "at": "2026-10-25T22:34:13Z",
+    "what": "Held-out lock turned on"
+   }
+  ],
+  "detector_outputs_seen": "the 2026-10-19 sweep's detections were written to the DB and counted by the RQ4b write-up's batch tables; no human verdict was given on any of them"
+ },
+ "rules": [
+  "the sample is drawn once (save_sample refuses a different redraw)",
+  "verdicts are human-only; no script writes one",
+  "a change to this manifest after the sample is drawn voids the exam (its sha256 is in the audit log and the RQ logs)"
+ ]
+}
