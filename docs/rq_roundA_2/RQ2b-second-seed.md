@@ -42,6 +42,25 @@ clearly different shape, and compare how often you agree with how often you call
     run on a read-only snapshot of the real database would link **10 runs**: 4–7 and 9–12 to entry 113, 13 to entry
     125 and 19 (`trough_search`) to entry 148; none unmatched. Not applied.
 
+- **2026-10-26 · both new seeds are in Discovery, and a blind panel is ready** (findings
+  `findings/rq2-blind-2026-10-26.md`, `scripts/rq2_blind.py`).
+  - The imports were already done on 2026-10-18: drop30 is Discovery run **67** (`seed_aba099`, entry 185, spec
+    `772d402f5d05`), spike37 is run **68** (`seed_bdd3d0`, entry 289, spec `f6aab3cfb594`), each 3,200 detections
+    (k = 200 × 16, no cut stored). In the database run 67 holds 15 verdicts, all *carried* copies (no own look);
+    run 68 holds 61 own verdicts (queue 24): 51 accepted, 7 not, 2 unsure, 1 artifact, i.e. 51 / 58 decided.
+    `seed_056a5d` (run 311, entry 191 = family 30's medoid, 155 kept under a 5-draw preview null) holds no verdict
+    in this database.
+  - **The blind panel**, Review queue **35**: 100 drop30 matches under the line (d ≤ 2.208, stratified by channel),
+    29 spike37 matches under each channel's own cut (34, minus 5 already judged as human spans), 20 + 20 earlier
+    accepted dip id010 / long dip id020 matches judged again, and 80 random windows (40 × 377 s, 16 × 148 s,
+    12 × 105 s, 12 × 816 s) on the same channels in proportion, overlapping no match. 249 items, shuffled, no score;
+    every item is a fresh detection in one neutral panel run per channel, so nothing on the card says what it is.
+    Items that are the same event as an already-judged human span (Review never serves those) were left out of every
+    pool alike: 34 drop30, 5 spike37, 5 re-judges. The key: `DATA/derived/rq2_blind/20261026-rq2blind/key.json`.
+  - **The null for each seed (no judging needed):** the scrambled recording gives about 0 matches per draw at every
+    line (drop30 372 real against 0.01 per draw; spike37 16 against 0.00; long dip 124 against 0.04; dip id010 64
+    against 0.01, and 263 against 0.8 at the cut it was judged at). The table per channel is in the findings file.
+
 ## Decisions already made
 
 - 2026-10-17 (the researcher): run the second motif and adjudicate it like the first.
@@ -55,7 +74,7 @@ clearly different shape, and compare how often you agree with how often you call
 | Preview the cut against the null on a short section, then run over all channels (SLURM above the ceiling) and import | researcher |
 | *Send N unjudged to Review*, judge them (cap about 100–150 under the cut), read precision (containment and extent) and × null | researcher |
 | *Add N matches* for the new search, and for both dip searches once P4 links their catalogue-medoid seeds to Library entries (today the button refuses them), to grow the Library (it feeds RQ1b). P4 links new runs as they are made; the two existing dip searches need `scripts/backfill_seed_entry_ids.py --real --apply` once (dry run first, without `--apply`) | researcher, after P4 |
-| Optional, cheap blinded control: mix 30–50 random windows of the seed's length into the same queue | researcher |
+| ~~Optional, cheap blinded control: mix 30–50 random windows of the seed's length into the same queue~~ — built 2026-10-26 as Review queue 35 (see *What is known*); **judge it, then run `scripts/rq2_blind.py score --real --key DATA/derived/rq2_blind/20261026-rq2blind/key.json`** | researcher |
 | ~~The Seed page runs nothing until asked, and offers more seeds~~ — done, 2026-10-17 (see *What is known*) | P4 |
 
 ## How it gets answered
@@ -132,3 +151,5 @@ say whether the second shape behaves like the first.
   - Reading it: the spike seed is far more selective than the drop (372 under the line). Under one line it
     effectively searches its own channel, so judge the 34 per-channel matches if the cross-channel question
     matters.
+- 2026-10-26 · rq2-blind · drop30 and spike37 found already imported (runs 67, 68); blind mixed queue 35 built (249 items: 100 drop30, 29 spike37, 40 re-judges, 80 duration-matched random windows), key outside the app, scoring script written and dry-run on synthetic verdicts; per-seed per-channel null table in `findings/rq2-blind-2026-10-26.md`.
+- 2026-10-26 · thesis-ledger · quote the long dip as 94/103 (91 %, the 1 unsure excluded, as everywhere else) and the spike seed as 51/58 (88 %, queue 24); `docs/thesis/numbers_ledger.md`.

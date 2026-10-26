@@ -94,6 +94,22 @@ on it time out. The states were checked by hand instead.
 5. ~~**A new held-out exam for RQ1b**: M4_aug is open for the demos.~~ Decided 2026-10-18: M4_aug stays the exam,
    because the Library holds no M4 motifs (RQ1b).
 
+## The M4 held-out exam (2026-10-26)
+
+- 2026-10-26 · m4-exam · **M4 exam manifest frozen before any sample was drawn**: `DATA/derived/exam/M4/manifest.json` (copy `docs/rq_roundA_2/exam/M4-exam-manifest.json`), sha256 `db32fdc7ff42aa46ddfd0198993853e138e9fb958c3d4dcf83a65e5f3317e0b6`; detector list `detectors.json` sha256 `f112decdffbdc7c04529cc5687823e5e85885ec858101be680496b55502c9b80`. Held-out lock back ON (audit_log 536); freeze recorded as audit_log 537.
+- 2026-10-26 · m4-exam · sample drawn and blind queue made: Review queue **36** (290 items; audit_log 538), from table `DATA/derived/candidate_events/M4_aug_concat_fs1_ae545821/` sample `sample_seed20261026_l40_f15`. Code: `scripts/m4_exam_freeze.py`, `scripts/m4_exam_score.py`, the exam door in `Working/discovery/candidate_events.py` (+ `--exam-manifest`/`--exam-sha256` on `scripts/rq1b_candidate_events.py`); tests `tests/test_candidate_events_exam.py`, `tests/test_m4_exam_score.py`.
+- 2026-10-26 · rq1b-null · **M4 exam amended (1) before any judging**: the four reference CNNs (GASF, GADF, recurrence, fusion_cnn_3; same sha256 as the frozen manifest) are scored on the same answered exam events as MiniRocket R4, with the same cut-and-resample as the 2026-10-26 quick comparison, AUC and balanced accuracy at 0.5 with the within-stratum bootstrap, and the paired AUC difference against MiniRocket. `DATA/derived/exam/M4/amendment-1.json` (copy `docs/rq_roundA_2/exam/M4-exam-amendment-1.json`), sha256 `5286bac396f99c524c4e53a926ec2318e42313156aa333188d6407f962e25d14`, audit_log **539** (queue 36 had 0 review rows). The frozen manifest is not edited. `scripts/m4_exam_score.py --real` now also verifies the amendment (hash, audit row older than every exam verdict) and refuses a changed CNN checkpoint; tests in `tests/test_m4_exam_score.py`.
+
+**How the researcher sits the exam** (Review hides M4 while the lock is on, and has no exam exemption:
+`webui/server/review.py` `_held_out_ids`; with the lock on, queue 36 shows 0 items):
+
+1. Settings › Datasets: turn the held-out lock **off** (type `M4_aug_concat_fs1`). Audited.
+2. Review: open **only** queue 36, *Held-out exam · M4 · blind sample* (290 items). Judge every item once; open no
+   other page or queue that shows M4 while the lock is off.
+3. Settings › Datasets: turn the lock back **on** straight after. Audited.
+4. `python scripts/m4_exam_score.py --real` (read-only): writes `DATA/derived/exam/M4/results.json` and
+   `findings/m4-exam-<date>.md`. Only now are the model's scores computed on the sample.
+
 ## Rules (as round A)
 
 1. Move a step from *What is still needed* to *What is known*, with the date and your report's path.

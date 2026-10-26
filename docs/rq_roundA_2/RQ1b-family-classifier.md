@@ -81,7 +81,17 @@ train a CNN on window-pool clusters but not yet on Library families.
   - **Held-out results:** leave one recording out, balanced accuracy 0.92 and AUC 0.97 (0.95–0.99 per recording).
     On the stratified queue candidates alone, AUC 0.97. Inside every detector family, AUC 0.88–0.99.
   - **Baselines on the same candidates:** detector agreement alone AUC 0.86; size and noise alone 0.84–0.90.
-  - **Not yet:** the M4_aug exam, a free sliding scan, shape classes.
+  - **Not yet:** the M4_aug exam's answers, a free sliding scan, shape classes.
+- **R4 is not luck, and beats the CNNs** (2026-10-26, `findings/rq1b-minirocket-null-2026-10-26.md`):
+  - label-shuffle null, 200 shuffles over R4's folds: real AUC 0.97 against a shuffled 0.42–0.50, p = 0.005;
+  - 95 % intervals: AUC 0.971 [0.962–0.980], balanced accuracy 0.919 [0.902–0.935] (channel clusters);
+  - the four reference CNNs on the same events: AUC 0.72–0.79, below R4 on every recording;
+  - a fair CNN arm on R4's rows and folds is prepared for rangpur (`DATA/derived/hpc/rq1b_cnn_loro_20261026/`);
+  - the M4 exam scores the CNNs beside R4 (amendment 1, audit_log 539, before judging).
+- **The M4_aug exam is set** (2026-10-26, m4-exam; `exam/M4-exam-manifest.json`, sha256 `db32fdc7…`): a blind,
+  stratified sample of 290 M4 candidate events in Review queue 36, waiting to be judged. MiniRocket R4 is frozen
+  by hash and is scored on it only afterwards (`scripts/m4_exam_score.py`): AUC and balanced accuracy with
+  stratified bootstrap intervals, against detector agreement as the comparator.
 
 ## Decisions already made
 
@@ -100,6 +110,10 @@ train a CNN on window-pool clusters but not yet on Library families.
       promotion of an M4 span). The Library's importers refuse M4 by name whatever the switch says, and training
       always does.
     - Turn the lock back on after the demos.
+- **2026-10-26 (the researcher): the held-out lock goes back on today, the models and settings are frozen in
+  writing, and M4 sits ONE blind exam** (about 300 stratified candidate events judged without any detector or
+  model output, then the frozen models scored). The thesis discloses the exposure M4 already had (manifest,
+  `exposure`).
 - **2026-10-18 (the researcher): training data first.** Upload the further datasets, run the existing detectors on
   them, and review as many motifs as possible (up to about 10,000) to fill RQ1b's training data.
 - **2026-10-18 (the researcher): what is already judged is training data and is never asked again.** A new sample
@@ -183,3 +197,7 @@ train a CNN on window-pool clusters but not yet on Library families.
 - 2026-10-20 · a2-rq1b · R4: MiniRocket trained on the researcher's verdicts after queues 25 and 28 were judged.
   Interesting versus not; held out by recording, balanced accuracy 0.92 and AUC 0.97. Model in
   `DATA/derived/models/rq1b_minirocket/20261020-2343/`; `findings/rq1b-minirocket-2026-10-20.md`.
+- 2026-10-26 · m4-exam · **M4 exam manifest frozen before any sample was drawn**: `DATA/derived/exam/M4/manifest.json` (copy `docs/rq_roundA_2/exam/M4-exam-manifest.json`), sha256 `db32fdc7ff42aa46ddfd0198993853e138e9fb958c3d4dcf83a65e5f3317e0b6`; detector list `detectors.json` sha256 `f112decdffbdc7c04529cc5687823e5e85885ec858101be680496b55502c9b80`. Held-out lock back ON (audit_log 536); freeze recorded as audit_log 537.
+- 2026-10-26 · m4-exam · the exam is drawn: the M4 candidate-event table (`M4_aug_concat_fs1_ae545821`, 1,186,189 detections → 832,136 events, none judged) built through the new exam door (`candidate_events.ExamManifest`: the manifest's sha256 must match and its freeze must be in the audit log), the sample `sample_seed20261026_l40_f15` (290 items: 40 per agreement level, 15 per selective family) and blind Review queue 36; audit_log 538. Exam (iii) for the forests and CNNs is not prepared (the blind-window code is Working/training's). Judging protocol in `README.md`, *The M4 held-out exam*.
+- 2026-10-26 · rq1b-null · **R4 against chance, its intervals, and against the CNNs** (`findings/rq1b-minirocket-null-2026-10-26.md`; `scripts/rq1b_minirocket_null.py`, `scripts/rq1b_cnn_vs_minirocket.py`). Label-shuffle null, 200 shuffles over R4's own folds: real AUC 0.971 against a null mean 0.42 (max 0.49), p = 1/201; per recording null ≈ 0.50, every p = 0.005 but Mushroom (12 events). Bootstrap 95 %: AUC 0.971 [0.962–0.980], balanced accuracy 0.919 [0.902–0.935] (channel clusters). The reference CNNs on exactly R4's events: pooled AUC 0.72–0.79 (best GADF), below R4 on every recording, M2_aug (in-sample for them) included. A fair CNN arm (R4's rows and folds) is prepared for rangpur, not submitted: `DATA/derived/hpc/rq1b_cnn_loro_20261026/`. No recording outside R4's six groups has detector candidates; proposed second unseen test: *Schizophyllum commune*.
+- 2026-10-26 · rq1b-null · **M4 exam amended (1) before any judging**: the four reference CNNs (GASF, GADF, recurrence, fusion_cnn_3; same sha256 as the frozen manifest) are scored on the same answered exam events as MiniRocket R4, with the same cut-and-resample as the 2026-10-26 quick comparison, AUC and balanced accuracy at 0.5 with the within-stratum bootstrap, and the paired AUC difference against MiniRocket. `DATA/derived/exam/M4/amendment-1.json` (copy `docs/rq_roundA_2/exam/M4-exam-amendment-1.json`), sha256 `5286bac396f99c524c4e53a926ec2318e42313156aa333188d6407f962e25d14`, audit_log **539** (queue 36 had 0 review rows). The frozen manifest is not edited. `scripts/m4_exam_score.py --real` now also verifies the amendment (hash, audit row older than every exam verdict) and refuses a changed CNN checkpoint; tests in `tests/test_m4_exam_score.py`.

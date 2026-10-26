@@ -124,6 +124,16 @@ things you also agree with, and whether it finds more than it would by chance.
     bringing `<name>.result.json` back are by hand, as for every other generated job. The cluster needs the repo and
     a database whose `recordings` rows name the same source file and channel indices.
 
+- **2026-10-26 · the blinded test is set up** (`scripts/rq2_blind.py`; findings
+  `docs/rq_roundA_2/findings/rq2-blind-2026-10-26.md`). The earlier rates were judged knowing each item was a match,
+  and the 22 % base rate came from another, blind queue. Review queue **35** (*RQ2 blind panel · 20261026-rq2blind*)
+  mixes 249 items, shuffled, blind (no score, one neutral run per channel, fresh detections): 100 drop30 matches,
+  29 spike37 matches, 40 earlier-accepted dip/long-dip matches judged again, and 80 random windows of the seeds'
+  lengths on the same channels. The key is `DATA/derived/rq2_blind/20261026-rq2blind/key.json`, outside the app.
+  **The null, which needs no judging:** at each seed's line a scrambled (phase-randomised) recording gives about
+  0.01–0.04 matches per draw (95th percentile 0) against 16–372 real ones; even at the looser cut the dip id010 was
+  judged at (2.652), 263 real against 0.8 per draw (p95 2). Not judged yet.
+
 ## Decisions already made
 
 - **Q35:** a seed search draws **200** surrogates (Settings key). Every surface prints the count actually drawn.
@@ -184,3 +194,4 @@ Follow `RESEARCH_RUNBOOK.md` Q2:
 - 2026-10-09 · the 20-minute wall · one channel per submission with a time budget, the script chaining itself per channel.
 - 2026-10-13 · map · Discovery › Map draws a seed run as one row across every channel it searched (each cut, k and bank its own row) beside the templates and the human row — the first place a 16-channel seed search's coverage is seen whole.
 - 2026-10-19 · review-carry · a verdict given on a seed run's detection now carries to every other run's detection of the same event on that channel (scoreboard rule), so a second seed run over judged ground arrives with its matching detections already adjudicated (`carried_from` set) and Review does not ask about them again; its precision counts them. Report: `docs/prompts/changes/reports/review-carry-report.md`.
+- 2026-10-26 · rq2-blind · blind mixed queue 35 (249 items: drop30, spike37, 40 re-judges, 80 duration-matched random windows) built over fresh panel detections; key outside the app; `scripts/rq2_blind.py score` reads it after judging; the per-seed per-channel null table written (findings `rq2-blind-2026-10-26.md`).
