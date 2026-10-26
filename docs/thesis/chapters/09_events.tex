@@ -92,7 +92,21 @@ Grouping g-05 (Ward on the resampled, z-normalised, scale-invariant distance; cu
 \end{itemize}
 Report this honestly, as a finding about the method: a Ward cut is an imposed grouping, not a discovered partition.
 
-Then name the grouping you adopted for round B (Round 3 decision) and its stability.
+The grouping adopted for round B (decided 26 Oct) is \textbf{g-10}, ``thesis · events · de-duplicated''.
+\begin{itemize}
+  \item Partial motifs are first joined into events (\src{scripts/thesis/library_events.py}): twins collapsed;
+        containers kept with their parts; units joined at $\ge$50\,\% overlap or gaps $\le$3\,s, never through a
+        container. 3,603 members become 1,116 events. Outside Fig2A, 1,178 become 590, and 35\,\% of those events span
+        two or more g-05 families.
+  \item One representative per event outside Fig2A and the Review regions is grouped with Ward as for g-05: 590 items
+        give 25 families (410 assigned, 180 omitted). 8 families hold both recordings.
+  \item Stability: wobble ARI 0.96 at 1\,\% jitter and 0.93 at 2\,\%, against 0.73--0.78 and 0.68--0.72 for the same
+        test on all members. Part of the gain may simply be fewer items. Cophenetic correlation 0.66.
+  \item Your 210 accepted members are 144 events. 80 of the 113 outside Fig2A are assigned, in 13 families.
+  \item Limitation: g-10 holds only M2\_aug and recording 385. Bringing CO, LM, L\_LM and M2\_concat in needs a promote
+        step that writes no verdict (Round 4).
+\end{itemize}
+Sources: \src{docs/thesis/data/library_events/}.
 \end{instructions}
 
 \section{Drops across species and scales}
