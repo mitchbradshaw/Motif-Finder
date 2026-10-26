@@ -1,0 +1,26 @@
+% The seven interchange types and the moves between them.
+\begin{tikzpicture}[
+  node distance=10mm and 17mm,
+  ty/.style={draw=ubblue, rounded corners=3pt, fill=ubblue!10, font=\small\ttfamily, minimum width=2.3cm, minimum height=8mm},
+  arr/.style={-{Stealth[length=2mm]}, thick, ubgrey},
+  lbl/.style={font=\scriptsize, ubgrey, align=center}
+]
+\node[ty] (sig) {Signal};
+\node[ty, right=of sig] (span) {SpanSet};
+\node[ty, right=of span] (win) {WindowSet};
+\node[ty, below=of sig] (sco) {Scores};
+\node[ty, above right=8mm and 6mm of win] (grp) {Grouping};
+\node[ty, below right=8mm and 6mm of win] (enc) {Encoding};
+\node[ty, right=30mm of win] (mod) {Model};
+
+\draw[arr] (sig) to[out=110,in=70,looseness=5] node[above, lbl]{preprocess, surrogate} (sig);
+\draw[arr] (sig) -- node[left, lbl]{detect} (sco);
+\draw[arr] (sco) -| node[pos=0.25, below, lbl]{threshold} (span);
+\draw[arr] (sig) -- node[above, lbl]{span\\detector} (span);
+\draw[arr] (span) -- node[above, lbl]{extract} (win);
+\draw[arr] (win) -- node[above left, lbl]{cluster} (grp);
+\draw[arr] (win) -- node[below left, lbl]{encode} (enc);
+\draw[arr] (grp) -- node[above right, lbl]{labels} (mod);
+\draw[arr] (enc) -- node[below right, lbl]{train} (mod);
+\draw[arr, dashed] (mod.south) -- ++(0,-2.0) -| node[pos=0.25, below, lbl]{score windows} (sco.south);
+\end{tikzpicture}

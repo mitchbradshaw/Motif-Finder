@@ -1,0 +1,5 @@
+# Build: latexmk  (from docs/thesis). Output goes to build/ so the source folder stays clean.
+$pdf_mode = 1;
+$out_dir = 'build';
+$bibtex_use = 2;
+@default_files = ('main.tex');

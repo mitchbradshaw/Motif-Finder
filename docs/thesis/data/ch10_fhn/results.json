@@ -1,0 +1,1277 @@
+{
+ "reference": "Wilshin, Kvalheim & Revzen (2024) Biol Cybern 118:311-330, doi:10.1007/s00422-024-00997-w",
+ "caveat": "Every PRC here is the PRC of a fitted MODEL. No perturbation experiment was made on any recording; the PRCs say how the fitted FHN would respond, not how the fungus does.",
+ "identifiability": "a and z enter v(t) only through alpha = a + b z; a is reported with z = -0.4",
+ "settings": {
+  "eps": 0.01,
+  "n_base": 150,
+  "paper_delta": 0.1,
+  "null_draws": 5,
+  "restarts": 8,
+  "n_points": 200,
+  "pre_frac": 0.1,
+  "gap_rule": [
+   0.6,
+   1.6
+  ],
+  "simulated_noise_sd_model_units": 0.005
+ },
+ "paper_fhn": {
+  "period": 11.227886755645022,
+  "appendix_b_guess": 11.229,
+  "prc": {
+   "min": -3.2402955195452776,
+   "max": 1.343120992130564,
+   "n_base": 150,
+   "n_ill_conditioned": 0,
+   "max_abs_adjoint_minus_gt": 0.003974946815926472,
+   "max_abs_constant_delay_minus_gt": 37.69367342907627,
+   "max_abs_corrected_minus_gt": 0.1046482285080117,
+   "delta_model_units": 0.1,
+   "hidden_lambda": 0.45681766674220714
+  },
+  "prc_on_paper_figure_axis": {
+   "min": -2.148862345463965,
+   "max": 2.6039447534268234,
+   "note": "perturbation along the release code's figure axis (rotated -9.5 degrees about the fixed point); Fig. 4 reads ~-2.2..2.6"
+  },
+  "figures": [
+   "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\paper_fhn_fig1_style.png",
+   "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\paper_fhn_fig1_style.pdf",
+   "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\paper_fhn_fig4_style.png",
+   "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\paper_fhn_fig4_style.pdf"
+  ]
+ },
+ "sequences": [
+  {
+   "id": 3,
+   "key": "oyster_id28_ch5_1394131s",
+   "description": "oyster_id28_ch5_1394131s - M2_aug CH6 (recording 6), 387-407 h: inside the W3 chain_cycles rec 6 chain (370-470 h); the clearest morph (28/28)",
+   "species": "oyster",
+   "recording_id": 6,
+   "source_file": "M2_aug_concat_fs1.mat",
+   "stored_channel": 5,
+   "fs": 1.0,
+   "units": "V",
+   "n_events": 29,
+   "n_cycles": 27,
+   "median_cycle_s": 2631.0,
+   "mean_cycle_ptp_mV": 19.333481534816226,
+   "fits": {
+    "fhn_oscillator": {
+     "model": "fhn_oscillator",
+     "n": 200,
+     "k": 7,
+     "rss": 909.4311618953902,
+     "rmse": 2.1324061080096706,
+     "nrmse": 0.35611401428618006,
+     "r2": 0.8731828088289824,
+     "aic": 316.90038813802687,
+     "params": {
+      "alpha": -0.7251473603531848,
+      "a": -0.7037426132736798,
+      "z": -0.4,
+      "b": 0.05351186769876262,
+      "c": 3.957141800140039,
+      "u": -0.7592378841755119,
+      "v_star": -0.7579394908750425,
+      "time_ratio": 0.8738044566153833,
+      "phase_shift": 5.315308265884707,
+      "gain": -3.899316048630728,
+      "offset": -4.940771771738639,
+      "model_period": 12.619933999369124
+     }
+    },
+    "fhn_excitable": {
+     "model": "fhn_excitable",
+     "n": 200,
+     "k": 8,
+     "rss": 494.69268253974485,
+     "rmse": 1.5727248369307087,
+     "nrmse": 0.2626466661032621,
+     "r2": 0.9310167287848415,
+     "aic": 197.12387197271264,
+     "params": {
+      "alpha": -1.6205240599312933,
+      "a": -1.5983811053413686,
+      "z": -0.4,
+      "b": 0.05535738647481181,
+      "c": 1.5779150183169126,
+      "e": 0.7045287473284024,
+      "v_star": -1.6307727252281958,
+      "kick": 2.6449881248503284,
+      "span": 5.512042900095718,
+      "t0_frac": 0.12000000044325314,
+      "gain": -4.233620202858132,
+      "offset": -7.648398730125543
+     }
+    },
+    "jump_exp": {
+     "model": "jump_exp",
+     "n": 200,
+     "k": 4,
+     "rss": 1142.0062069408998,
+     "rmse": 2.3895671228706883,
+     "nrmse": 0.3990601683869775,
+     "r2": 0.8407509820069572,
+     "aic": 356.4448917605596,
+     "params": {
+      "t0_frac": 0.1325,
+      "decay_frac": 0.2217264200431204,
+      "rise_frac": 0.0,
+      "amplitude": -21.67638108661571,
+      "baseline": 2.4097418310695065
+     }
+    },
+    "jump_exp_rise": {
+     "model": "jump_exp_rise",
+     "n": 200,
+     "k": 5,
+     "rss": 308.6484558562132,
+     "rmse": 1.2422730292818347,
+     "nrmse": 0.20746087419057477,
+     "r2": 0.9569599856800826,
+     "aic": 96.77711587671195,
+     "params": {
+      "t0_frac": 0.0825,
+      "decay_frac": 0.10936724470589186,
+      "rise_frac": 0.1038988824323165,
+      "amplitude": -922.4724951901494,
+      "baseline": 2.6484934140139833
+     }
+    },
+    "sinusoid_1": {
+     "model": "sinusoid_1",
+     "n": 200,
+     "k": 3,
+     "rss": 1805.4809504472003,
+     "rmse": 3.0045639870430456,
+     "nrmse": 0.5017652775363073,
+     "r2": 0.7482316062589125,
+     "aic": 446.0529846535246,
+     "params": {
+      "coefficients": [
+       -2.3963827130246202,
+       0.15043293768904034,
+       -7.323560499694843
+      ]
+     }
+    }
+   },
+   "delta_aic_vs_best": {
+    "fhn_oscillator": 220.12327226131492,
+    "fhn_excitable": 100.34675609600069,
+    "jump_exp": 259.66777588384764,
+    "jump_exp_rise": 0.0,
+    "sinusoid_1": 349.2758687768127
+   },
+   "regime_by_aic": "excitable",
+   "best_model_by_aic": "jump_exp_rise",
+   "nulls": {
+    "r2": {
+     "quiet": {
+      "fhn_oscillator": [
+       0.8680053781038118,
+       0.8458541660832563,
+       0.9774557452202106,
+       0.9579433916491428,
+       0.5795177749962861,
+       0.8444103744647226,
+       0.9023299530057438,
+       0.9208115902454104,
+       0.8587622127171037,
+       0.6275324963403838
+      ],
+      "fhn_excitable": [
+       0.835051507553426,
+       0.8426590569771413,
+       0.9555906992316966,
+       0.9005827697062896,
+       0.5963138284882581,
+       0.8764817765030151,
+       0.8235580155639024,
+       0.9477866404623126,
+       0.787312110444756,
+       0.6148513361011454
+      ],
+      "jump_exp": [
+       0.7175492495465694,
+       0.5721433645969323,
+       0.7196210674437364,
+       0.5534636220684894,
+       0.3623501334952438,
+       0.6163433636427863,
+       0.6379560293333346,
+       0.6217777751452942,
+       0.6180770861689715,
+       0.535114654151749
+      ],
+      "jump_exp_rise": [
+       0.8905950837987315,
+       0.8023851932595706,
+       0.9132466791180265,
+       0.9443658482284458,
+       0.4739015410789139,
+       0.7717378486026677,
+       0.8823456108560794,
+       0.7502878007321713,
+       0.8072333367845721,
+       0.642101293888778
+      ],
+      "sinusoid_1": [
+       0.7642745752639959,
+       0.8067725300013817,
+       0.9102914253842938,
+       0.8945104914207384,
+       0.2968492646548446,
+       0.7226553986013093,
+       0.8943705008178018,
+       0.49226069548616713,
+       0.7470539027503564,
+       0.5263110026208357
+      ],
+      "fhn_gain_over_sinusoid": [
+       0.10373080283981595,
+       0.03908163608187454,
+       0.06716431983591686,
+       0.06343290022840442,
+       0.29946456383341347,
+       0.15382637790170572,
+       0.007959452187942029,
+       0.4555259449761455,
+       0.1117083099667473,
+       0.10122149371954803
+      ]
+     },
+     "surrogate": {
+      "fhn_oscillator": [
+       0.9280824155359205,
+       0.8341850891335192,
+       0.9276497524635305,
+       0.6712972998612855,
+       0.3649438388752916,
+       0.5567479906636905,
+       0.9531630312364702,
+       0.6805303421159608,
+       0.9102189294120687,
+       0.8678390826866056
+      ],
+      "fhn_excitable": [
+       0.8967058236011436,
+       0.46242755650606127,
+       0.8483795253405972,
+       0.78870860122707,
+       0.4008896578556247,
+       0.558211183836359,
+       0.9213613367519093,
+       0.7311521748901464,
+       0.8417206389467241,
+       0.8865119366389485
+      ],
+      "jump_exp": [
+       0.6442706334448983,
+       0.6723674020808572,
+       0.6717962141660015,
+       0.729132971049598,
+       0.29313664252174887,
+       0.5416752496768555,
+       0.5524251764074241,
+       0.7201612849970986,
+       0.6683452548600568,
+       0.6234900923937787
+      ],
+      "jump_exp_rise": [
+       0.9424898487376195,
+       0.840939104417732,
+       0.8610716695916778,
+       0.7574306711350528,
+       0.31194786301151856,
+       0.6303055050682576,
+       0.8758487954560694,
+       0.8802504614693883,
+       0.8844607953553703,
+       0.7183155359553381
+      ],
+      "sinusoid_1": [
+       0.8732272574307884,
+       0.6890470887040248,
+       0.8523501748858499,
+       0.3232346553787675,
+       0.18791092797989406,
+       0.27868356313585174,
+       0.9397933437065967,
+       0.6212258984828457,
+       0.7811729718911676,
+       0.6581644043147918
+      ],
+      "fhn_gain_over_sinusoid": [
+       0.054855158105132085,
+       0.14513800042949443,
+       0.07529957757768069,
+       0.4654739458483025,
+       0.21297872987573063,
+       0.2795276207005073,
+       0.013369687529873442,
+       0.10992627640730068,
+       0.1290459575209011,
+       0.2283475323241566
+      ]
+     }
+    },
+    "quiet_windows_available": 94,
+    "mean_ptp_mV": {
+     "quiet": 1.8129817613534747,
+     "surrogate": 5.557700502295916
+    },
+    "verdict": {
+     "fhn_oscillator": {
+      "real": 0.8731828088289824,
+      "quiet": {
+       "draws": 10,
+       "null_max": 0.9774557452202106,
+       "null_median": 0.8633837954104577,
+       "beats_every_draw": false
+      },
+      "surrogate": {
+       "draws": 10,
+       "null_max": 0.9531630312364702,
+       "null_median": 0.8510120859100624,
+       "beats_every_draw": false
+      }
+     },
+     "fhn_excitable": {
+      "real": 0.9310167287848415,
+      "quiet": {
+       "draws": 10,
+       "null_max": 0.9555906992316966,
+       "null_median": 0.8388552822652837,
+       "beats_every_draw": false
+      },
+      "surrogate": {
+       "draws": 10,
+       "null_max": 0.9213613367519093,
+       "null_median": 0.815214620086897,
+       "beats_every_draw": true
+      }
+     },
+     "jump_exp": {
+      "real": 0.8407509820069572,
+      "quiet": {
+       "draws": 10,
+       "null_max": 0.7196210674437364,
+       "null_median": 0.6172102249058788,
+       "beats_every_draw": true
+      },
+      "surrogate": {
+       "draws": 10,
+       "null_max": 0.729132971049598,
+       "null_median": 0.6563079441524775,
+       "beats_every_draw": true
+      }
+     },
+     "jump_exp_rise": {
+      "real": 0.9569599856800826,
+      "quiet": {
+       "draws": 10,
+       "null_max": 0.9443658482284458,
+       "null_median": 0.8048092650220713,
+       "beats_every_draw": true
+      },
+      "surrogate": {
+       "draws": 10,
+       "null_max": 0.9424898487376195,
+       "null_median": 0.851005387004705,
+       "beats_every_draw": true
+      }
+     },
+     "sinusoid_1": {
+      "real": 0.7482316062589125,
+      "quiet": {
+       "draws": 10,
+       "null_max": 0.9102914253842938,
+       "null_median": 0.7556642390071762,
+       "beats_every_draw": false
+      },
+      "surrogate": {
+       "draws": 10,
+       "null_max": 0.9397933437065967,
+       "null_median": 0.6736057465094083,
+       "beats_every_draw": false
+      }
+     },
+     "fhn_gain_over_sinusoid": {
+      "real": 0.18278512252592904,
+      "quiet": {
+       "draws": 10,
+       "null_max": 0.4555259449761455,
+       "null_median": 0.10247614827968199,
+       "beats_every_draw": false
+      },
+      "surrogate": {
+       "draws": 10,
+       "null_max": 0.4654739458483025,
+       "null_median": 0.13709197897519776,
+       "beats_every_draw": false
+      }
+     }
+    }
+   },
+   "oscillatory_fit_physical": {
+    "model_period_s": 3010.9711390017205,
+    "model_time_unit_s": 238.58829746080707,
+    "mV_per_model_unit": -3.899316048630728,
+    "refined_model_period": 12.619944779547845
+   },
+   "prc_of_oscillatory_fit": {
+    "min": -0.6740534228339756,
+    "max": 1.1229398477365038,
+    "n_base": 150,
+    "n_ill_conditioned": 0,
+    "max_abs_adjoint_minus_gt": 0.0005393526944670324,
+    "max_abs_constant_delay_minus_gt": 12.353511036220565,
+    "max_abs_corrected_minus_gt": 0.011353667247865573,
+    "delta_model_units": 0.1,
+    "hidden_lambda": 0.4622254371743022,
+    "rad_per_mV": {
+     "min": -0.2879837986281804,
+     "max": 0.17286452660606316
+    },
+    "seconds_advance_per_mV_max": 138.00498692577406
+   },
+   "delay_views": [
+    {
+     "label": "paper's delay: delta = 24 s = 0.101 model units",
+     "delta_s": 24.0,
+     "delta_model": 0.10059166769276211
+    },
+    {
+     "label": "quarter cycle: delta = 658 s = 2.76 model units",
+     "delta_s": 658.0,
+     "delta_model": 2.757888222576561
+    }
+   ],
+   "figures": [
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq3_fit.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq3_fit.pdf",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq3_fig1_style.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq3_fig1_style.pdf",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq3_fig4_style.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq3_fig4_style.pdf",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq3_delay.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq3_delay.pdf"
+   ],
+   "settings": {
+    "eps": 0.01,
+    "n_base": 150,
+    "paper_delta": 0.1,
+    "null_draws": 10,
+    "restarts": 8,
+    "n_points": 200,
+    "pre_frac": 0.1,
+    "gap_rule": [
+     0.6,
+     1.6
+    ],
+    "simulated_noise_sd_model_units": 0.005,
+    "null_nfev": 300
+   }
+  },
+  {
+   "id": 7,
+   "key": "oyster_id35_ch15_288397s",
+   "description": "oyster_id35_ch15_288397s - M2_aug CH16 (recording 16), 80 h: 18 drops at a 131 s beat (17/17 morph)",
+   "species": "oyster",
+   "recording_id": 16,
+   "source_file": "M2_aug_concat_fs1.mat",
+   "stored_channel": 15,
+   "fs": 1.0,
+   "units": "V",
+   "n_events": 18,
+   "n_cycles": 16,
+   "median_cycle_s": 130.5,
+   "mean_cycle_ptp_mV": 6.756107924743105,
+   "fits": {
+    "fhn_oscillator": {
+     "model": "fhn_oscillator",
+     "n": 200,
+     "k": 7,
+     "rss": 26.40413506496219,
+     "rmse": 0.3633464948569216,
+     "nrmse": 0.16944624853550602,
+     "r2": 0.9712879688572436,
+     "aic": -390.95934748251835,
+     "params": {
+      "alpha": 0.6409310345745005,
+      "a": 0.8017335712377153,
+      "z": -0.4,
+      "b": 0.4020063416580369,
+      "c": 1.6687055912721958,
+      "u": 0.978866830184435,
+      "v_star": 0.9054550781641186,
+      "time_ratio": 1.1259770480706388,
+      "phase_shift": 4.367379534632935,
+      "gain": -3.4540218044495807,
+      "offset": -0.4739402615539918,
+      "model_period": 8.295312898241392
+     }
+    },
+    "fhn_excitable": {
+     "model": "fhn_excitable",
+     "n": 200,
+     "k": 8,
+     "rss": 17.69602165879084,
+     "rmse": 0.2974560611148379,
+     "nrmse": 0.13871831536425056,
+     "r2": 0.9807572289825043,
+     "aic": -468.9955034543532,
+     "params": {
+      "alpha": -0.3294171564492069,
+      "a": 0.050582770571366176,
+      "z": -0.4,
+      "b": 0.9499998175514326,
+      "c": 3.179950130044431,
+      "e": 0.010000000000000002,
+      "v_star": -0.9613494829507571,
+      "kick": 0.18053772009955932,
+      "span": 9.676050726474186,
+      "t0_frac": -0.19999999999999998,
+      "gain": 7.8894751454783725,
+      "offset": 3.856400221174326
+     }
+    },
+    "jump_exp": {
+     "model": "jump_exp",
+     "n": 200,
+     "k": 4,
+     "rss": 146.72365492160012,
+     "rmse": 0.8565151922809079,
+     "nrmse": 0.39943494212822384,
+     "r2": 0.8404517270070224,
+     "aic": -53.95328949772934,
+     "params": {
+      "t0_frac": 0.1625,
+      "decay_frac": 1.3590357346040494,
+      "rise_frac": 0.0,
+      "amplitude": -6.840458663582591,
+      "baseline": 6.436935189855576
+     }
+    },
+    "jump_exp_rise": {
+     "model": "jump_exp_rise",
+     "n": 200,
+     "k": 5,
+     "rss": 14.498540525881994,
+     "rmse": 0.26924468913872746,
+     "nrmse": 0.1255619722728606,
+     "r2": 0.9842341911189494,
+     "aic": -514.8538751149697,
+     "params": {
+      "t0_frac": 0.1375,
+      "decay_frac": 0.2608271862044447,
+      "rise_frac": 0.09310966830092186,
+      "amplitude": -17.766771132416288,
+      "baseline": 0.12043921848579849
+     }
+    },
+    "sinusoid_1": {
+     "model": "sinusoid_1",
+     "n": 200,
+     "k": 3,
+     "rss": 182.5126777591575,
+     "rmse": 0.9552818373630828,
+     "nrmse": 0.4454946612296905,
+     "r2": 0.8015345068158433,
+     "aic": -12.299545752951424,
+     "params": {
+      "coefficients": [
+       -2.8594873319977836,
+       2.0445936212438616,
+       -1.7862536580044288
+      ]
+     }
+    }
+   },
+   "delta_aic_vs_best": {
+    "fhn_oscillator": 123.89452763245134,
+    "fhn_excitable": 45.85837166061651,
+    "jump_exp": 460.9005856172404,
+    "jump_exp_rise": 0.0,
+    "sinusoid_1": 502.5543293620183
+   },
+   "regime_by_aic": "excitable",
+   "best_model_by_aic": "jump_exp_rise",
+   "nulls": {
+    "r2": {
+     "quiet": {
+      "fhn_oscillator": [
+       0.8792624505382712,
+       0.42722383650564644,
+       0.8390878565455437,
+       0.9465569712794889,
+       0.8175056253332228,
+       0.971511437474701,
+       0.9890876254518549,
+       0.8141430985585267,
+       0.963069072146457,
+       0.9744411858462791
+      ],
+      "fhn_excitable": [
+       0.36860535087744484,
+       0.4166162605212552,
+       0.8891099214491442,
+       0.991559305352374,
+       0.9300359231913731,
+       0.9717684231509074,
+       0.9121319362020713,
+       0.6944021365592697,
+       0.6739593980550665,
+       0.9512470379150876
+      ],
+      "jump_exp": [
+       0.5606676484275596,
+       0.47253864691907965,
+       0.7451292192060471,
+       0.8843736671448515,
+       0.7392131101594095,
+       0.7578953316777028,
+       0.7139216930199785,
+       0.8562593953093993,
+       0.6928602462300597,
+       0.7732180009268038
+      ],
+      "jump_exp_rise": [
+       0.6718165561776197,
+       0.4816639973645831,
+       0.8769051239436518,
+       0.8914336816919655,
+       0.9163974159184551,
+       0.9276195373311504,
+       0.9788093162905577,
+       0.8800960375634459,
+       0.9330511705417719,
+       0.957955437527245
+      ],
+      "sinusoid_1": [
+       0.6360319947304386,
+       0.06409361170492622,
+       0.7936373791884453,
+       0.7782396214316403,
+       0.7383290807285894,
+       0.9338710015745684,
+       0.947485310836099,
+       0.6975558248451326,
+       0.8054986526777391,
+       0.9366993829078284
+      ],
+      "fhn_gain_over_sinusoid": [
+       0.24323045580783265,
+       0.3631302248007202,
+       0.0954725422606989,
+       0.21331968392073375,
+       0.1917068424627837,
+       0.03789742157633902,
+       0.04160231461575592,
+       0.11658727371339417,
+       0.15757041946871786,
+       0.03774180293845075
+      ]
+     },
+     "surrogate": {
+      "fhn_oscillator": [
+       0.9755293886156079,
+       0.46031016951173287,
+       0.9869690412185074,
+       0.9158428289982672,
+       0.9204766945896649,
+       0.968954328425547,
+       0.9036818485330032,
+       0.9773766699136829,
+       0.9848509595289402,
+       0.7793442345073088
+      ],
+      "fhn_excitable": [
+       0.8770673037804024,
+       0.8179286123024789,
+       0.7928879129984722,
+       0.8469835898864922,
+       0.9361978658767305,
+       0.9645121462817843,
+       0.8622156333905184,
+       0.9663753255780597,
+       0.9489482253664389,
+       0.7381173760899771
+      ],
+      "jump_exp": [
+       0.7779275184731942,
+       0.509749825437398,
+       0.6868757816681836,
+       0.7018895677667315,
+       0.7418833969750305,
+       0.6647384692293834,
+       0.7961061756954979,
+       0.6255593495868627,
+       0.6350906012678414,
+       0.6385125640416314
+      ],
+      "jump_exp_rise": [
+       0.9547298165453837,
+       0.6339680725958918,
+       0.9207481659738329,
+       0.9192684472274407,
+       0.9292942986994001,
+       0.9038094595312688,
+       0.8974703825446132,
+       0.9271954401025954,
+       0.9352532225483539,
+       0.6978184389482183
+      ],
+      "sinusoid_1": [
+       0.8239745311485024,
+       0.1779599562879841,
+       0.946128748411272,
+       0.8031187468872185,
+       0.7166684638106238,
+       0.7529609218714831,
+       0.6580179825102743,
+       0.9322024212428256,
+       0.9609345445850261,
+       0.31445965758395256
+      ],
+      "fhn_gain_over_sinusoid": [
+       0.1515548574671055,
+       0.6399686560144948,
+       0.040840292807235334,
+       0.11272408211104867,
+       0.21952940206610672,
+       0.21599340655406385,
+       0.24566386602272883,
+       0.04517424867085729,
+       0.023916414943914055,
+       0.4648845769233563
+      ]
+     }
+    },
+    "quiet_windows_available": 4800,
+    "mean_ptp_mV": {
+     "quiet": 1.56157204777422,
+     "surrogate": 2.5836949093542216
+    },
+    "verdict": {
+     "fhn_oscillator": {
+      "real": 0.9712879688572436,
+      "quiet": {
+       "draws": 10,
+       "null_max": 0.9890876254518549,
+       "null_median": 0.9129097109088801,
+       "beats_every_draw": false
+      },
+      "surrogate": {
+       "draws": 10,
+       "null_max": 0.9869690412185074,
+       "null_median": 0.9447155115076059,
+       "beats_every_draw": false
+      }
+     },
+     "fhn_excitable": {
+      "real": 0.9807572289825043,
+      "quiet": {
+       "draws": 10,
+       "null_max": 0.991559305352374,
+       "null_median": 0.9006209288256077,
+       "beats_every_draw": false
+      },
+      "surrogate": {
+       "draws": 10,
+       "null_max": 0.9663753255780597,
+       "null_median": 0.8696414685854604,
+       "beats_every_draw": true
+      }
+     },
+     "jump_exp": {
+      "real": 0.8404517270070224,
+      "quiet": {
+       "draws": 10,
+       "null_max": 0.8843736671448515,
+       "null_median": 0.7421711646827283,
+       "beats_every_draw": false
+      },
+      "surrogate": {
+       "draws": 10,
+       "null_max": 0.7961061756954979,
+       "null_median": 0.6758071254487835,
+       "beats_every_draw": true
+      }
+     },
+     "jump_exp_rise": {
+      "real": 0.9842341911189494,
+      "quiet": {
+       "draws": 10,
+       "null_max": 0.9788093162905577,
+       "null_median": 0.9039155488052103,
+       "beats_every_draw": true
+      },
+      "surrogate": {
+       "draws": 10,
+       "null_max": 0.9547298165453837,
+       "null_median": 0.9200083066006368,
+       "beats_every_draw": true
+      }
+     },
+     "sinusoid_1": {
+      "real": 0.8015345068158433,
+      "quiet": {
+       "draws": 10,
+       "null_max": 0.947485310836099,
+       "null_median": 0.7859385003100428,
+       "beats_every_draw": false
+      },
+      "surrogate": {
+       "draws": 10,
+       "null_max": 0.9609345445850261,
+       "null_median": 0.7780398343793509,
+       "beats_every_draw": false
+      }
+     },
+     "fhn_gain_over_sinusoid": {
+      "real": 0.17922272216666102,
+      "quiet": {
+       "draws": 10,
+       "null_max": 0.3631302248007202,
+       "null_median": 0.13707884659105601,
+       "beats_every_draw": false
+      },
+      "surrogate": {
+       "draws": 10,
+       "null_max": 0.6399686560144948,
+       "null_median": 0.18377413201058468,
+       "beats_every_draw": false
+      }
+     }
+    }
+   },
+   "oscillatory_fit_physical": {
+    "model_period_s": 115.89934290722151,
+    "model_time_unit_s": 13.971660551153803,
+    "mV_per_model_unit": -3.4540218044495807,
+    "refined_model_period": 8.295316256996406
+   },
+   "prc_of_oscillatory_fit": {
+    "min": -17.406964660065793,
+    "max": 21.582950432827296,
+    "n_base": 150,
+    "n_ill_conditioned": 0,
+    "max_abs_adjoint_minus_gt": 0.24523865713648618,
+    "max_abs_constant_delay_minus_gt": 303.68639697768253,
+    "max_abs_corrected_minus_gt": 1.4032200622466995,
+    "delta_model_units": 0.1,
+    "hidden_lambda": 0.6931483595294321,
+    "rad_per_mV": {
+     "min": -6.248643365546637,
+     "max": 5.039622111719615
+    },
+    "seconds_advance_per_mV_max": 115.26218386411261
+   },
+   "delay_views": [
+    {
+     "label": "paper's delay: delta = 1 s = 0.0716 model units",
+     "delta_s": 1.0,
+     "delta_model": 0.07157342477861282
+    },
+    {
+     "label": "quarter cycle: delta = 33 s = 2.36 model units",
+     "delta_s": 33.0,
+     "delta_model": 2.361923017694223
+    }
+   ],
+   "figures": [
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq7_fit.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq7_fit.pdf",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq7_fig1_style.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq7_fig1_style.pdf",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq7_fig4_style.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq7_fig4_style.pdf",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq7_delay.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq7_delay.pdf"
+   ],
+   "settings": {
+    "eps": 0.01,
+    "n_base": 150,
+    "paper_delta": 0.1,
+    "null_draws": 10,
+    "restarts": 8,
+    "n_points": 200,
+    "pre_frac": 0.1,
+    "gap_rule": [
+     0.6,
+     1.6
+    ],
+    "simulated_noise_sd_model_units": 0.005,
+    "null_nfev": 300
+   }
+  },
+  {
+   "id": 22,
+   "key": "reishi_id901_ch1_461s",
+   "description": "reishi_id901_ch1_461s - Fig2A CH2 (recording 467), 10 Hz: 57 drops at a ~2 s beat, drifting",
+   "species": "reishi",
+   "recording_id": 467,
+   "source_file": "Fig2A_dt0p1.csv",
+   "stored_channel": 1,
+   "fs": 10.0,
+   "units": "V",
+   "n_events": 57,
+   "n_cycles": 42,
+   "median_cycle_s": 2.0,
+   "mean_cycle_ptp_mV": 0.22286454111158985,
+   "fits": {
+    "fhn_oscillator": {
+     "model": "fhn_oscillator",
+     "n": 200,
+     "k": 7,
+     "rss": 0.0034227923171748008,
+     "rmse": 0.004136902414352314,
+     "nrmse": 0.055630199485150106,
+     "r2": 0.9969052809052424,
+     "aic": -2181.1231921146723,
+     "params": {
+      "alpha": 0.8955286731695233,
+      "a": 0.9155816491010632,
+      "z": -0.4,
+      "b": 0.050132439828849566,
+      "c": 1.1186866177602743,
+      "u": 0.9478812213496942,
+      "v_star": 0.9287015094652226,
+      "time_ratio": 0.9881526054717039,
+      "phase_shift": 3.713618284559428,
+      "gain": -0.14889833742175385,
+      "offset": 0.02884919420015698,
+      "model_period": 6.879943414989133
+     }
+    },
+    "fhn_excitable": {
+     "model": "fhn_excitable",
+     "n": 200,
+     "k": 8,
+     "rss": 0.003893266727552206,
+     "rmse": 0.004412066821543054,
+     "nrmse": 0.05933041992306211,
+     "r2": 0.9964799012717531,
+     "aic": -2153.3648129187604,
+     "params": {
+      "alpha": -0.969222127159272,
+      "a": -0.94922212713405,
+      "z": -0.4,
+      "b": 0.05000000006305526,
+      "c": 1.9628567835385868,
+      "e": 0.010000000001452099,
+      "v_star": -1.002555133821171,
+      "kick": 0.2810223397446239,
+      "span": 6.815315569719836,
+      "t0_frac": -0.027570198474638596,
+      "gain": 0.3495636785144525,
+      "offset": 0.23984710380673582
+     }
+    },
+    "jump_exp": {
+     "model": "jump_exp",
+     "n": 200,
+     "k": 4,
+     "rss": 0.2906172053633791,
+     "rmse": 0.03811936550910699,
+     "nrmse": 0.512602835435986,
+     "r2": 0.7372383331029875,
+     "aic": -1298.8131379606525,
+     "params": {
+      "t0_frac": 0.2575,
+      "decay_frac": 3.2456595494042446,
+      "rise_frac": 0.0,
+      "amplitude": -0.22136441677761895,
+      "baseline": 0.6095774230565651
+     }
+    },
+    "jump_exp_rise": {
+     "model": "jump_exp_rise",
+     "n": 200,
+     "k": 5,
+     "rss": 0.015243874463555233,
+     "rmse": 0.00873037068616082,
+     "nrmse": 0.11739998051814611,
+     "r2": 0.9862172445743389,
+     "aic": -1886.3789795381083,
+     "params": {
+      "t0_frac": 0.145,
+      "decay_frac": 0.34088541289198226,
+      "rise_frac": 0.3238411417807534,
+      "amplitude": -15.559272591420052,
+      "baseline": 0.15629541649523598
+     }
+    },
+    "sinusoid_1": {
+     "model": "sinusoid_1",
+     "n": 200,
+     "k": 3,
+     "rss": 0.06496425186986188,
+     "rmse": 0.018022798321828643,
+     "nrmse": 0.24235811375331365,
+     "r2": 0.9412625446979359,
+     "aic": -1600.4470996314164,
+     "params": {
+      "coefficients": [
+       -0.10889603911100429,
+       0.10203167443332377,
+       3.900821096183444e-05
+      ]
+     }
+    }
+   },
+   "delta_aic_vs_best": {
+    "fhn_oscillator": 0.0,
+    "fhn_excitable": 27.758379195911857,
+    "jump_exp": 882.3100541540198,
+    "jump_exp_rise": 294.744212576564,
+    "sinusoid_1": 580.6760924832558
+   },
+   "regime_by_aic": "oscillatory",
+   "best_model_by_aic": "fhn_oscillator",
+   "nulls": {
+    "r2": {
+     "quiet": {
+      "fhn_oscillator": [
+       0.8541653251586073,
+       0.8898822162638017,
+       0.6759118252367362,
+       0.9894343744784251,
+       0.6731199820850123
+      ],
+      "fhn_excitable": [
+       0.8747860004751566,
+       0.6951915709218076,
+       0.3480762543584547,
+       0.9816415544177973,
+       0.4281263805360914
+      ],
+      "jump_exp": [
+       0.7554897005588173,
+       0.6596366034469222,
+       0.44938146565771575,
+       0.7563574332833738,
+       0.4561085932505978
+      ],
+      "jump_exp_rise": [
+       0.8309275381980229,
+       0.8407612628209713,
+       0.5608851598867706,
+       0.977030675162208,
+       0.5783198888922199
+      ],
+      "sinusoid_1": [
+       0.7312641125072948,
+       0.6919515099319624,
+       0.3007208040261605,
+       0.8540590806655988,
+       0.16945311529155527
+      ],
+      "fhn_gain_over_sinusoid": [
+       0.1435218879678618,
+       0.1979307063318393,
+       0.3751910212105757,
+       0.13537529381282631,
+       0.5036668667934571
+      ]
+     },
+     "surrogate": {
+      "fhn_oscillator": [
+       0.9082609384206914,
+       0.9245172987852995,
+       0.9439258412739054,
+       0.5093221125894437,
+       0.9898926309877896
+      ],
+      "fhn_excitable": [
+       0.8954627613763528,
+       0.8927053303158989,
+       0.9117251490779937,
+       0.6125029366893682,
+       0.9803636925447005
+      ],
+      "jump_exp": [
+       0.5368794728121107,
+       0.660891319539862,
+       0.74018953449199,
+       0.4525567088812221,
+       0.6750331933285709
+      ],
+      "jump_exp_rise": [
+       0.8394393015387278,
+       0.8756626842857074,
+       0.9141465024271298,
+       0.5036941459486345,
+       0.8524661148487913
+      ],
+      "sinusoid_1": [
+       0.8884173339171816,
+       0.9306703244935255,
+       0.9147909912152421,
+       0.36480768667730135,
+       0.9574574453440362
+      ],
+      "fhn_gain_over_sinusoid": [
+       0.01984360450350986,
+       -0.0061530257082259565,
+       0.029134850058663342,
+       0.24769525001206683,
+       0.03243518564375336
+      ]
+     }
+    },
+    "quiet_windows_available": 236,
+    "mean_ptp_mV": {
+     "quiet": 0.019117638040953743,
+     "surrogate": 0.06241886764477846
+    },
+    "verdict": {
+     "fhn_oscillator": {
+      "real": 0.9969052809052424,
+      "quiet": {
+       "draws": 5,
+       "null_max": 0.9894343744784251,
+       "null_median": 0.8541653251586073,
+       "beats_every_draw": true
+      },
+      "surrogate": {
+       "draws": 5,
+       "null_max": 0.9898926309877896,
+       "null_median": 0.9245172987852995,
+       "beats_every_draw": true
+      }
+     },
+     "fhn_excitable": {
+      "real": 0.9964799012717531,
+      "quiet": {
+       "draws": 5,
+       "null_max": 0.9816415544177973,
+       "null_median": 0.6951915709218076,
+       "beats_every_draw": true
+      },
+      "surrogate": {
+       "draws": 5,
+       "null_max": 0.9803636925447005,
+       "null_median": 0.8954627613763528,
+       "beats_every_draw": true
+      }
+     },
+     "jump_exp": {
+      "real": 0.7372383331029875,
+      "quiet": {
+       "draws": 5,
+       "null_max": 0.7563574332833738,
+       "null_median": 0.6596366034469222,
+       "beats_every_draw": false
+      },
+      "surrogate": {
+       "draws": 5,
+       "null_max": 0.74018953449199,
+       "null_median": 0.660891319539862,
+       "beats_every_draw": false
+      }
+     },
+     "jump_exp_rise": {
+      "real": 0.9862172445743389,
+      "quiet": {
+       "draws": 5,
+       "null_max": 0.977030675162208,
+       "null_median": 0.8309275381980229,
+       "beats_every_draw": true
+      },
+      "surrogate": {
+       "draws": 5,
+       "null_max": 0.9141465024271298,
+       "null_median": 0.8524661148487913,
+       "beats_every_draw": true
+      }
+     },
+     "sinusoid_1": {
+      "real": 0.9412625446979359,
+      "quiet": {
+       "draws": 5,
+       "null_max": 0.8540590806655988,
+       "null_median": 0.6919515099319624,
+       "beats_every_draw": true
+      },
+      "surrogate": {
+       "draws": 5,
+       "null_max": 0.9574574453440362,
+       "null_median": 0.9147909912152421,
+       "beats_every_draw": false
+      }
+     },
+     "fhn_gain_over_sinusoid": {
+      "real": 0.05564273620730653,
+      "quiet": {
+       "draws": 5,
+       "null_max": 0.5036668667934571,
+       "null_median": 0.1979307063318393,
+       "beats_every_draw": false
+      },
+      "surrogate": {
+       "draws": 5,
+       "null_max": 0.24769525001206683,
+       "null_median": 0.029134850058663342,
+       "beats_every_draw": false
+      }
+     }
+    }
+   },
+   "oscillatory_fit_physical": {
+    "model_period_s": 2.0239788762640374,
+    "model_time_unit_s": 0.29418534287161563,
+    "mV_per_model_unit": -0.14889833742175385,
+    "refined_model_period": 6.879944651584205
+   },
+   "prc_of_oscillatory_fit": {
+    "min": -4.369434531722105,
+    "max": 3.3688730011709693,
+    "n_base": 150,
+    "n_ill_conditioned": 0,
+    "max_abs_adjoint_minus_gt": 0.21758104812265033,
+    "max_abs_constant_delay_minus_gt": 55.6941373771137,
+    "max_abs_corrected_minus_gt": 0.0038660341507630314,
+    "delta_model_units": 0.1,
+    "hidden_lambda": 0.9490646027538387,
+    "rad_per_mV": {
+     "min": -22.625323153398632,
+     "max": 29.345086099555978
+    },
+    "seconds_advance_per_mV_max": 9.452822331976009
+   },
+   "delay_views": [
+    {
+     "label": "paper's delay: delta = 0.1 s = 0.34 model units",
+     "delta_s": 0.1,
+     "delta_model": 0.3399216896166688
+    },
+    {
+     "label": "quarter cycle: delta = 0.5 s = 1.7 model units",
+     "delta_s": 0.5,
+     "delta_model": 1.699608448083344
+    }
+   ],
+   "figures": [
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq22_fit.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq22_fit.pdf",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq22_fig1_style.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq22_fig1_style.pdf",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq22_fig4_style.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq22_fig4_style.pdf",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq22_delay.png",
+    "C:\\Users\\mmebr\\Documents\\CNN\\docs\\thesis\\data\\ch10_fhn\\seq22_delay.pdf"
+   ],
+   "settings": {
+    "null_draws": 5,
+    "restarts": 8,
+    "null_nfev": 60
+   }
+  }
+ ],
+ "elapsed_s": 149.33902072906494
+}

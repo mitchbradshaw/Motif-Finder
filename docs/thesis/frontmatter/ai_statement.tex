@@ -1,0 +1,100 @@
+\chapter{Use of AI Statement}
+\label{ch:aiuse}
+
+\begin{instructions}
+Drafted 2026-10-26 from the repository record, as decided in the planning session (answer Q6: rewrite to match what
+happened). Check every factual sentence before signing. Counts come from \src{git log} on main at commit a399e4c,
+\src{orchestrator/} run reports, and \src{docs/prompts/}. The DeepSeek wording follows your instruction: assistance in
+building the earlier, Panel-based version and its structures. The detailed method is in Section~\ref{sec:buildmethod};
+keep this statement to about one and a half pages.
+\end{instructions}
+
+\emph{I acknowledge the use of generative AI tools in completing this
+assessment. Details of which tools were used and how they were used are
+provided in the table below, along with appropriate in-text and full
+references. I take responsibility for critically evaluating and
+integrating the AI generated content, and ensuring it adheres to
+academic integrity standards.}
+
+\bigskip
+
+Generative AI was used throughout this project, and the extent of that use grew substantially after the thesis plan was submitted in August 2026. This statement describes what changed, so that it can be read against the statement in that plan.
+
+\textbf{Reading and writing support.} Perplexity was used early in the project to locate papers, and ChatGPT~4o to check reference formatting and to summarise papers I had already located. Papers were read, summarised and cited by me. This use was unchanged in character from the project proposal.
+
+\textbf{Building the software.} Almost all of the analysis software, \tool{}, was implemented by AI coding agents from specifications I wrote, under a structured method adapted from Matt Pocock's agent skills~\cite{pocockskills}. A design was first stress-tested by adversarial questioning (``grilling''). The settled decisions were then written into a specification, and the specification was decomposed into independently testable vertical slices (``tickets''). Each ticket was implemented test-first by its own agent: the first commit of every ticket had to contain a failing test. The method, its gates and its numbers are described in Section~\ref{sec:buildmethod}.
+
+Two generations of the software were built this way:
+\begin{itemize}
+  \item The first, a Panel/HoloViz interface and the core structures beneath it, was built in August and September 2026 by an automated orchestrator that ran one coding agent per ticket. Until 25~August those agents were Claude models (Haiku, Sonnet and Opus). From 25~August most ticket implementations were produced by DeepSeek~V4 models (flash and pro), with review and fix rounds on Claude: 50 of the orchestrator's 55 merged tickets.
+  \item That interface was retired on 21~September 2026. The current React and FastAPI web application was built afterwards in Claude Code sessions, using implementer agents and separate critic agents that reviewed every prompt-sized change.
+\end{itemize}
+
+Of the 1,779 commits in the repository, 1,574 carry an AI co-author line. I wrote the specifications, made every design decision and reviewed the changes. I can explain the algorithms the software implements, and I did not use AI to implement methods I did not understand.
+
+\textbf{Analysis.} This is the largest change from the thesis plan, which stated that no AI tool had been given the recordings or asked to analyse them. That is no longer true. During the second half of the project, Claude agents wrote analysis scripts and ran them against the recordings and the project database under my direction. They computed several reported numbers, such as detector precision tables, catalogue statistics and classifier evaluations. I chose every analysis and fixed every protocol: the surrogate nulls, the blind and stratified review queues, and the held-out exam with its manifest frozen before sampling. I checked every number reported in this thesis against the file that produced it; the trail is in Appendix~\ref{app:ledger}.
+
+No AI tool made a human judgement. Every verdict used as a label or as ground truth in this thesis was given by me, in the application's review queues. The data model keeps machine detections and human verdicts in separate tables, so they cannot be confused (Section~\ref{sec:adjudication}).
+
+\textbf{Figures.} Data figures are produced by code, much of it AI-written, from the recorded signals and my verdicts. The schematic diagrams were drafted with AI assistance from my specification and edited by me. The project poster was laid out with Claude through the Canva connector.
+
+\textbf{Research questions and text.} The research questions originate in my reading and in supervisor meetings. Claude was used to press each draft question until it named a baseline, a null and a measurable discriminator. This document was scaffolded with AI assistance from my notes, the repository record and my prior assessed work: the chapter structure, the content notes and the collation of numbers and figures. The prose is my own, and AI was also used for \LaTeX{} syntax, grammar and phrasing.
+
+\bigskip
+
+{\small
+\begin{tabular}{
+|c|c|c|c|c|c|c|c|c|c|c|
+>{\centering\arraybackslash}p{3.3cm}|
+}
+\hline
+\multirow{2}{*}{%
+  \parbox{2.1cm}{%
+    \centering
+     \textbf{AI model and date}
+  }%
+}
+& \multicolumn{11}{c|}{%
+    \textbf{Artificial Intelligence (AI) tool usage}
+    (tick all that apply)
+  }
+\\ \cline{2-12}
+& \rotatedheading{Topic exploration}
+& \rotatedheading{Research question}
+& \rotatedheading{Literature review}
+& \rotatedheading{Methodological support}
+& \rotatedheading{Data analysis}
+& \rotatedheading{Visual content creation}
+& \rotatedheading{Written content creation}
+& \rotatedheading{Language translation}
+& \rotatedheading{Grammar/style/spelling}
+& \rotatedheading{Feedback on content}
+& \makecell[c]{Other use\\(provide details)}
+\\ \hline
+% ChatGPT
+\makecell{ChatGPT 4o\\ 23/02/26 -- 14/08/26}
+& & & \(\checkmark\) & & & & & & \(\checkmark\) & \(\checkmark\)
+& \makecell{reference formatting;\\ summarising papers\\ already located}
+\\ \hline
+% Perplexity
+\makecell{Perplexity\\ 23/03/26 -- 23/04/26}
+& \(\checkmark\) & & \(\checkmark\) & & & & & & &
+& \makecell{locating candidate\\ papers for reading}
+\\ \hline
+% Claude
+\makecell{Claude (Anthropic;\\ Haiku, Sonnet,\\ Opus, Fable)\\ 15/03/26 -- 09/11/26}
+& & \(\checkmark\) & & \(\checkmark\) & \(\checkmark\) & \(\checkmark\) & \(\checkmark\) & & \(\checkmark\) & \(\checkmark\)
+& \makecell{implementation code\\ from my specifications;\\ grilling, spec, tickets;\\ analysis scripts run\\ under my direction;\\ poster layout (Canva)}
+\\ \hline
+% DeepSeek
+\makecell{DeepSeek V4\\ (flash, pro)\\ 25/08/26 -- 09/26}
+& & & & & & & & & &
+& \makecell{implementation code\\ for tickets of the first,\\ Panel-based version\\ and its structures}
+\\ \hline
+\end{tabular}
+}
+
+\begin{instructions}
+Check: the Claude model families and the date range (session logs); the DeepSeek end date (the last orchestrator run in
+\src{orchestrator/} reports); and whether Canva's own AI features were used. If they were, add a Canva row.
+\end{instructions}

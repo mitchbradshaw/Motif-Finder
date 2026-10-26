@@ -1,0 +1,125 @@
+{
+ "n_tasks_all_sessions": 1880,
+ "n_tasks_real_le_sur_all": 849,
+ "draws_per_task": {
+  "1": 1862,
+  "20": 17,
+  "2": 1
+ },
+ "batch3_statement": {
+  "tasks": 552,
+  "real_le_sur": 255,
+  "by_family": {
+   "BEADs_invert_detect_v1": {
+    "tasks": 39,
+    "real_le_sur": 27,
+    "both_zero": 3
+   },
+   "OASIS_Deconvolution": {
+    "tasks": 39,
+    "real_le_sur": 0,
+    "both_zero": 0
+   },
+   "Wavelet_detection_prototype": {
+    "tasks": 39,
+    "real_le_sur": 26,
+    "both_zero": 0
+   },
+   "cnn_10min": {
+    "tasks": 52,
+    "real_le_sur": 21,
+    "both_zero": 0
+   },
+   "cnn_1min": {
+    "tasks": 52,
+    "real_le_sur": 36,
+    "both_zero": 0
+   },
+   "cnn_60min": {
+    "tasks": 52,
+    "real_le_sur": 20,
+    "both_zero": 0
+   },
+   "deconvolved_troughs": {
+    "tasks": 39,
+    "real_le_sur": 0,
+    "both_zero": 0
+   },
+   "drop_detection_v1": {
+    "tasks": 39,
+    "real_le_sur": 11,
+    "both_zero": 0
+   },
+   "drop_detection_v5": {
+    "tasks": 39,
+    "real_le_sur": 9,
+    "both_zero": 0
+   },
+   "matrix_profile": {
+    "tasks": 6,
+    "real_le_sur": 0,
+    "both_zero": 0
+   },
+   "noise_threshold": {
+    "tasks": 39,
+    "real_le_sur": 0,
+    "both_zero": 0
+   },
+   "signal_threshold": {
+    "tasks": 39,
+    "real_le_sur": 27,
+    "both_zero": 0
+   },
+   "symbol_search": {
+    "tasks": 39,
+    "real_le_sur": 39,
+    "both_zero": 0
+   },
+   "wavelet_encoded": {
+    "tasks": 39,
+    "real_le_sur": 39,
+    "both_zero": 0
+   }
+  },
+  "by_recording": {
+   "CO_fs2": {
+    "tasks": 170,
+    "real_le_sur": 79
+   },
+   "LM_fs2": {
+    "tasks": 170,
+    "real_le_sur": 84
+   },
+   "L_LM_fs2": {
+    "tasks": 212,
+    "real_le_sur": 92
+   }
+  }
+ },
+ "by_recording": {
+  "CO_fs2": {
+   "tasks": 170,
+   "real_le_sur": 79
+  },
+  "LM_fs2": {
+   "tasks": 170,
+   "real_le_sur": 84
+  },
+  "L_LM_10Hz": {
+   "tasks": 70,
+   "real_le_sur": 20
+  },
+  "L_LM_fs2": {
+   "tasks": 212,
+   "real_le_sur": 92
+  },
+  "M2_aug": {
+   "tasks": 618,
+   "real_le_sur": 277
+  },
+  "M2_concat": {
+   "tasks": 610,
+   "real_le_sur": 280
+  }
+ }
+}

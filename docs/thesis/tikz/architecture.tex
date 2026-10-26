@@ -1,0 +1,25 @@
+% MycoWave architecture: a browser client over a FastAPI bridge over the UI-free core.
+\begin{tikzpicture}[
+  node distance=8mm and 7mm,
+  box/.style={draw, rounded corners=2pt, align=center, font=\footnotesize, minimum height=10mm, text width=3.8cm, fill=white},
+  arr/.style={-{Stealth[length=2mm]}, thick, ubgrey},
+  lbl/.style={font=\scriptsize, ubgrey}
+]
+\node[box, fill=ubblue!10, text width=4.6cm] (client) {\textbf{Browser client}\\React 19, TypeScript, d3\\50 pages};
+\node[box, below=of client, fill=ubblue!10] (bridge) {\textbf{FastAPI bridge}\\\texttt{webui/server}\\sandbox or project mode};
+\node[box, below=of bridge, fill=instruc!8, text width=4.6cm] (core) {\textbf{UI-free core} \texttt{Working/}\\execution, recipes, discovery,\\review, library, training};
+\node[box, left=of core, text width=3.2cm] (adapters) {\textbf{Analysis blocks}\\\texttt{Adapters/}\\59 typed blocks};
+\node[box, right=of core, text width=3.2cm] (pipes) {\textbf{Batch pipelines}\\\texttt{Pipelines/}\\run a recipe headless};
+\node[box, below=of core, xshift=-2.6cm] (db) {\textbf{SQLite}, plain SQL\\48 tables: runs, detections,\\verdicts, library};
+\node[box, below=of core, xshift=2.6cm] (disk) {\textbf{Bulk arrays on disk}\\\texttt{DATA/derived}\\referenced by path};
+\node[box, right=22mm of bridge, fill=ubgrey!8, text width=3.2cm] (hpc) {\textbf{rangpur HPC}\\SLURM job from\\\texttt{recipe.json}};
+
+\draw[arr, {Stealth[length=2mm]}-{Stealth[length=2mm]}] (client) -- node[right, lbl]{JSON over HTTP} (bridge);
+\draw[arr] (bridge) -- (core);
+\draw[arr] (core) -- (adapters);
+\draw[arr] (core) -- (pipes);
+\draw[arr] (core) -- (db);
+\draw[arr] (core) -- (disk);
+\draw[arr, {Stealth[length=2mm]}-{Stealth[length=2mm]}] (bridge) -- node[above, lbl]{export} node[below, lbl]{import} (hpc);
+\draw[arr, dashed] (hpc) -- (pipes);
+\end{tikzpicture}

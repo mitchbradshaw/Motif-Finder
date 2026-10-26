@@ -1,0 +1,34 @@
+\chapter{Repository and reproducibility}
+\label{app:code}
+
+All code developed for this thesis is in a public repository \cite{thesisrepo}. The submitted results correspond to commit \texttt{[hash at submission]}. The earlier summer research code, written in MATLAB before the thesis began (Section~\ref{sec:lituq}), is held separately \cite{summerrepo} and is not part of the work submitted here.
+
+\begin{table}[htbp]
+\caption{Repository map.}
+\label{tab:repomap}
+\small
+\begin{tabularx}{\textwidth}{p{4.2cm} X}
+\toprule
+\textbf{Path} & \textbf{Contents}\\
+\midrule
+\texttt{Working/} & The UI-free core: configuration, execution, recipes, database schema (plain SQL), discovery, review, library, training, HPC export\\
+\texttt{Adapters/} & The 59 analysis blocks and their registry\\
+\texttt{Pipelines/} & Headless pipelines, including \texttt{run\_recipe} (the cluster entry point), \texttt{drop\_motifs} and \texttt{fhn}\\
+\texttt{webui/} & The web application: \texttt{client/} (React, TypeScript), \texttt{server/} (FastAPI bridge), \texttt{smoke.py} (the page walk)\\
+\texttt{tests/} & The pytest suite (5,567 passing in the 21 Oct daily run)\\
+\texttt{scripts/} & Research scripts: \texttt{rq1b\_*}, \texttt{rq2\_blind.py}, \texttt{m4\_exam\_*}, \texttt{rq4\_overnight.py}, \texttt{thesis/}\\
+\texttt{docs/} & Specification (\texttt{PIPELINE\_PRD.md}), ADR, tickets, prompts, research-question files, the user manual (\texttt{manual/}), this thesis (\texttt{thesis/})\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{instructions}
+At submission:
+\begin{itemize}
+  \item tag the commit and give its hash here;
+  \item give the commands that rebuild every figure: \src{scripts/thesis/}, \src{Plots/poster/make_panels.py},
+        \src{Pipelines/drop_motifs/run_drop12b_figures.py};
+  \item give one line on how to rerun the exam scorer, and how to rerun a chain from its recipe.
+\end{itemize}
+Keep this appendix to one page.
+\end{instructions}

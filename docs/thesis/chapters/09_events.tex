@@ -1,0 +1,187 @@
+\chapter{What the accepted events look like}
+\label{ch:events}
+
+\begin{instructions}
+About 5 pages. This is the chapter your supervisor reads: spike- and event-level statistics, families, scale and
+species. Sources:
+\begin{itemize}
+  \item \src{docs/rq_roundA_2/findings/catalogue-stats-2026-10-26.md} (recomputed 26 Oct, read-only);
+  \item the spiking-families pass of 19 Aug (rec 385);
+  \item \src{docs/rq_roundA_2/findings/library-fragments-and-duplicates.md} and the 26 Oct grouping survey;
+  \item the drop-motif study: \src{Plots/drop_motifs10/CLAIMS.md} and \src{Plots/drop_motifs12b/FIGURES.md}, whose
+        captions are ready to paste;
+  \item \src{docs/rq_roundB/notes/drop-motif-sequences.md}.
+\end{itemize}
+Present single-recording results as case studies, not as facts about fungi.
+\end{instructions}
+
+\section{Aims}
+
+The research questions test the instrument. This chapter uses it to describe what it found: the size, duration, polarity and timing of the events a human accepted, how they group into families, and how far shape survives a change of scale and species. Its descriptions are the raw material for the morphology vocabulary (Appendix~\ref{app:vocab}) and for the spiking-family taxonomy the supervisor proposed.
+
+\section{The catalogue of accepted events}
+\label{sec:catalogue}
+
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{data/ch9_catalogue/swing_hist.png}\caption{Swing (mV)}\end{subfigure}\hfill
+\begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{data/ch9_catalogue/duration_hist.png}\caption{Duration}\end{subfigure}
+
+\medskip
+\begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{data/ch9_catalogue/drop_share.png}\caption{Falls among accepted and rejected events}\end{subfigure}\hfill
+\begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{data/ch9_catalogue/intervals_hist.png}\caption{Intervals (seed searches)}\end{subfigure}
+\caption{Accepted blind-judged events (716, five recordings): swing, duration, polarity and recurrence intervals. Quick-look plots from \texttt{scripts/thesis/catalogue\_stats.py}; to be restyled.}
+\label{fig:catalogue}
+\end{figure}
+
+\begin{instructions}
+The recomputed numbers. Use these, not the poster's:
+\begin{itemize}
+  \item \textbf{swing}: median 19.8\,mV, 14--30\,mV per recording; top 5\,\% above 122\,mV; smallest 0.17\,mV;
+  \item \textbf{duration}: median 603\,s (5--95\,\%: 40--1,272\,s). Much of this is detector framing: 24\,\% of spans
+        are about 600-s windows. Say so. The poster's ``several hours'' does not reproduce; the maximum is about 2\,h;
+  \item \textbf{polarity}: 68\,\% of accepted events are falls in potential pooled, 57--80\,\% per recording, against
+        about half of rejected candidates. The poster's ``73\,\% (56--86\,\%)'' does not reproduce. The tool's own
+        fastest-edge rule gives 9\,\% because it misreads dips; state which rule you use;
+  \item \textbf{size against judgement}: accepted events are much larger than rejected ones. This is partly circular,
+        because size is one thing you judged by: it describes what ``an event'' meant in practice;
+  \item \textbf{recurrence}: intervals mean something only for the fully judged seed searches. The 105-s dip recurs
+        with a median of 53 minutes, and in bursts.
+\end{itemize}
+\end{instructions}
+
+\section{One recording in detail: spiking families}
+\label{sec:spikingfamilies}
+
+\begin{instructions}
+The 19 Aug spiking-families pass on Mushroom\_260720 channel 14 (recording 385, 4\,h, 1\,Hz). It was made for the
+supervisor's Izhikevich-style taxonomy. Findings, as a case study:
+\begin{itemize}
+  \item the 1-minute matrix-profile scale suits single spikes; at 3 and 10 minutes the window is mostly baseline;
+  \item two amplitude regimes, about 7--14\,mV peak to peak and a separate sub-mV mode at about 0.4--0.6\,mV;
+  \item some families are amplitude-stereotyped (s.d.\ of peak to peak about 0.15\,mV), others are not (1.6--3.1\,mV);
+  \item the median inter-occurrence interval is 900--1,400\,s.
+\end{itemize}
+Add the later \texttt{motif\_lengths} result: on recording 385 every judged length from 30\,s to 16\,min repeats beyond
+AAFT noise, strongest at 30\,s. So the pan picture, not a single window, is where a scale is read
+(\src{docs/prompts/blocks/reports/W3-evaluation.md}). Use the overlay figure from the motif report tool if you want a
+picture of a family.
+\end{instructions}
+
+\section{Shape families in the Library}
+\label{sec:families}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{screens/library_family_f30.jpg}
+\caption{One Library family (F-30, grouping g-05): 79 members around their medoid, all judged.}
+\label{fig:familyf30}
+\end{figure}
+
+\begin{instructions}
+Grouping g-05 (Ward on the resampled, z-normalised, scale-invariant distance; cut 0.60; minimum 10; omit distance
+0.5):
+\begin{itemize}
+  \item 149 families from 3,239 assigned members (364 omitted); family size median 18 (10--79);
+  \item 67\,\% of members are overlapping 2-second pieces of one 20-minute reishi recording (Fig2A), dominating 115
+        families;
+  \item human review: 247 Library verdicts (210 interesting, 35 not, 1 unsure, 1 artifact). The 210 accepted members
+        are 152 distinct events in 11 families;
+  \item the tree is fragile: a 1\,\% jitter of the waveforms changes membership to an ARI of 0.78--0.80, and 2\,\% to
+        0.68--0.74. The 21 Sep re-derivation (about 3\,\%) gave ARI 0.57 against the stored g-05.
+\end{itemize}
+Report this honestly, as a finding about the method: a Ward cut is an imposed grouping, not a discovered partition.
+
+Then name the grouping you adopted for round B (Round 3 decision) and its stability.
+\end{instructions}
+
+\section{Drops across species and scales}
+\label{sec:dropmotifs}
+
+\begin{instructions}
+The August--September drop-motif study, built before the web tool, with its own claims ledger (Appendix~\ref{app:claims}).
+The store holds 4,023 events: oyster 754 (M2\_aug), reishi 2,425 (Fig2A, 10\,Hz) and lion's mane 844 (L\_LM, region B
+only, so a lower bound). Give one paragraph on detection: the drop detector, and its slope gate.
+\end{instructions}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{drop_motifs/S2_2_scale_collapse.png}
+\caption{Drop shape in native units (left) and after normalising each event by its own fall (right), forty seeded events per species. Median falls of 30\,s, 1.25\,s and 0.65\,s become one approach--fall--recovery shape. Nothing is resampled.}
+\label{fig:scalecollapse}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{drop_motifs/ATLAS_shapes.pdf}
+\caption{Forty family medoids from four corpora, placed by native fall duration: 0.3--266\,s, 2.9 orders of magnitude.}
+\label{fig:atlas}
+\end{figure}
+
+\begin{instructions}
+The findings to state, each with its ledger row (\src{Plots/drop_motifs10/CLAIMS.md}):
+\begin{itemize}
+  \item scale collapse: drops spanning 3.6 orders of magnitude of duration and 4.2 of amplitude share one relative
+        shape after normalisation. Not that the species have the same waveform (S2.2);
+  \item \textbf{normalisation is not invariance} (row 9): the 200-point z-normalised vector still predicts how many
+        samples an event was built from, at 0.753 balanced accuracy against a chance of 0.25 ($n=3,012$);
+  \item species is recoverable from absolute scale at 0.781 against a chance of 0.333 (row 12), and from normalised
+        shape at 0.614 (row 13, falsifying ``shape is species-invariant''). But one feature, the number of samples in
+        the fall, already gives 0.575 (row 14);
+  \item family membership tracks resolution at least as strongly as species: matched rate and framing,
+        $V=0.087$ for species against $0.277$ for samples per event (rows 6--8, 10);
+  \item family transfer between species is partial and asymmetric: reishi to oyster ARI 0.52, oyster to sp385 0.03
+        (row 16). Yet one species' events sit closer to another's medoids than a surrogate allows, 1.5--8.4$\times$
+        (row 17);
+  \item the duty-cycle reversal: reishi's drops are the broadest relative to their spacing (0.308, against oyster 0.111
+        and lion's mane 0.0046) while being the shortest in absolute time (0.7\,s, against 26\,s and 1.5\,s) (S2.3).
+\end{itemize}
+What this means for the plan's RQ3: scale is not cleanly a property of the motif. The representation carries
+resolution and context. This is the negative result the plan said would be reportable.
+\end{instructions}
+
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{drop_motifs/SPECIES_vs_RESOLUTION.png}\caption{Species against resolution}\end{subfigure}\hfill
+\begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{drop_motifs/DECODE_species.png}\caption{Decoding species}\end{subfigure}
+\caption{Family membership and species decoding against measurement resolution, with permutation nulls.}
+\label{fig:speciesres}
+\end{figure}
+
+\section{Sequences of drops}
+\label{sec:sequences}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{drop_motifs/S3_1_sequence_morph_oyster_id28_ch5_1394131s.png}
+\caption{A drop sequence that morphs: oyster channel 5 at 1,394,131\,s. Every step-to-step shape change is smaller than the change from first to last drop.}
+\label{fig:sequence}
+\end{figure}
+
+\begin{instructions}
+From \src{docs/rq_roundB/notes/drop-motif-sequences.md}:
+\begin{itemize}
+  \item a sequence is at least 5 drops on one channel, with no gap longer than 2$\times$ that channel's typical gap,
+        and either regular (gap CV $\le$ 0.5) or trending (R$^2\ge0.7$);
+  \item 125 sequences of 1,686 events: oyster 19, reishi 98, lion's mane 8;
+  \item of the 15 drawn (S3.1), 4 morph and 11 return to near where they started;
+  \item isolated pairs show no effect (S3.3, not drawn).
+\end{itemize}
+Name the seeds for round B: oyster id28 (DB sequence 3, all 28 steps smaller than the end-to-end change), oyster id35
+(sequence 7), reishi id901 (sequence 22, which morphs while its beat drifts). Caveat: \texttt{oyster\_id22} is 10 real
+cycles stored as 20 events.
+\end{instructions}
+
+\section{Discussion}
+
+\begin{instructions}
+Points to argue:
+\begin{itemize}
+  \item What generalises across recordings: drops dominate; the size and duration ranges.
+  \item What is a case study: recording 385's amplitude regimes.
+  \item What the vocabulary can and cannot rest on: a Ward cut is not a taxonomy, and normalised shape carries
+        resolution, so shape names must be checked at matched rates.
+  \item Which morphology tags have a measurable counterpart: sharkfin as dSAX \texttt{U+ S? D+}; drop as the drop
+        detector; spike as the inverted drop detector.
+\end{itemize}
+\end{instructions}

@@ -1,0 +1,232 @@
+\chapter{Electrical signalling in fungi and modern time-series analysis}
+\chaptermark{Fungal signalling and time-series analysis}
+\label{ch:litreview}
+
+\begin{instructions}
+About 8 pages; Background is 20\,\% of the mark. Sections 2.1--2.5, 2.11 and 2.12 carry over from the plan, corrected.
+Sections 2.6--2.10 are new and cover the methods the thesis actually uses: borrowed detectors, label-free classifiers,
+surrogate testing, human labels as ground truth, and excitable-system models. Every new method cited in
+Chapters~\ref{ch:rq1}--\ref{ch:roundb} needs its source here. Bibliography entries added on 2026-10-26 are marked
+VERIFY in \src{docs/thesis/bib/thesis.bib}; check each against the paper.
+\end{instructions}
+
+The literature review provides context on related research: its methods, results and reproducibility, and how each relates to the present work. Section~\ref{sec:litfungi} sets out what is known about measuring and analysing mycelium bio-electric signals, and identifies the key limitations of existing methods. Section~\ref{sec:litvocab} argues that the absence of a shared signal vocabulary is the specific obstacle that has stalled progress, drawing the comparison with EEG and ECG analysis. Sections~\ref{sec:littsa} to~\ref{sec:litmp} review general time-series analysis, image-based CNNs and matrix profiling. Sections~\ref{sec:litdetectors} to~\ref{sec:litmodels} review the methods this thesis borrows from other fields: detectors, label-free classifiers, surrogate testing, human judgement as ground truth, and excitable-system models. Section~\ref{sec:lituq} describes the prior work at UQ on which this thesis builds, and Section~\ref{sec:litgaps} consolidates the gaps.
+
+\section{Analysis of electrical signals in fungi}
+\label{sec:litfungi}
+
+Only recently has the idea of communication within fungi networks via neuron-like transmission become popularised \cite{hunter} \cite{buffi2025review}. The earliest recorded study on the electrical signals in fungi was recorded by Clifford Slayman, Scott Long and Dietrich Gradman in 1976 \cite{slayman}, after which there was a significant stall in the progress made in this field \cite{buffi2025review}. From inserting 1--3 micro-electrodes directly into the hyphae (mycelium cells) of a small inoculum of \emph{Neurospora crassa} on the surface of scratched cellophane, they found quasi-sinusoidal fluctuation of 10--20\,mV amplitude, persisting for varying intervals of time, `\emph{from 10-15 minutes to 1 hour or more, and which has a constant period of 34 minutes}'. They describe the oscillatory behaviour as a sharp depolarisation phase followed by a slow re-polarisation phase, a trend also observed in similar studies on electrical signals \cite{adamatzky2023} \cite{springer}. Multiple scales of these behaviours have been observed in mycelium, and these behaviours are often species-specific.
+
+Efforts have been made to begin to understand the functions of these signalling characteristics. More recent work has examined additional species and recording configurations in order to characterise these signals more fully and test their response to external stimuli. Adamatzky et al. \cite{adamatzky2023} recorded multi-scale electrical spiking in \emph{Schizophyllum commune} using a multi-electrode array, modelling the signal using the FitzHugh--Nagumo system and detecting and characterising individual spike events via a simple thresholding algorithm. Dehshibi and Adamatzky \cite{dehshibi} extended this spike detection approach, implementing a more complex Morse wavelet transform combined with a signal envelope threshold. They evaluated their results with entropy-based complexity analysis, finding that spike family characteristics are different amongst scales, and comparable to the complexity of modern languages, similar to the findings of another study by Adamatzky \cite{adamatzky2022}. Buffi et al. \cite{buffi} grew mycelium across two electrodes inside a Faraday cage and used the Short-Term Fourier Transform to extract spike frequency content, showing that the fungicide cycloheximide had a significant dampening effect on frequency activity. A study by Olsson and Hansson \cite{olsson} found that action-potential frequency in \emph{Pleurotus ostreatus} and \emph{Armillaria bulbosa} increases in response to injected negative current, indicating a difference in the behaviour of these action potentials from that observed in animal nerve cells.
+
+There is also research into the propagation of these signals across the mycelium substrate. Mayne et al. \cite{mayne} measured the propagation of electrical signals between electrodes and found that the mycelium substrate exhibits low-pass filter characteristics, relevant to its proposed use as a medium for data transmission \cite{phillips}.
+
+The recording and analysis parameters across these key studies are summarised in Table~\ref{tab:params}. It is worth noting that sampling rates are not consistently reported across the literature, and where they are, resampling to 1\,Hz appears to have become an implicit standard, as used notably in Adamatzky's language analysis \cite{adamatzky2022}. It can be seen that a variety of fungi are studied with a variety of techniques, suggesting that there is still a large degree of exploration in this field. The goals of each paper vary significantly, with more emphasis often on methods for producing and detecting significant events rather than classifying or explaining their functionality.
+
+\begin{table}[htbp]
+\caption{Comparison of recording and analysis parameters across selected studies. Sampling rates are taken from full paper methods sections where stated.}
+\label{tab:params}
+\footnotesize
+\begin{tabularx}{\textwidth}{p{2.1cm} p{2.3cm} p{2.2cm} p{1.7cm} p{2.4cm} X}
+\toprule
+\textbf{Study} & \textbf{Species} & \textbf{Electrode type} & \textbf{Sample rate} & \textbf{Preprocessing} & \textbf{Analysis / key finding}\\
+\midrule
+Slayman et al.\ \cite{slayman}, 1976 & \emph{Neurospora crassa} & 1--3 intracellular microelectrodes & Not stated & Electrometer amplification & Oscillogram inspection; 34-min oscillation, action-potential spikes\\
+\addlinespace
+Adamatzky et al.\ \cite{adamatzky2023}, 2023 & \emph{Schizophyllum commune} & Multi-electrode array & 1\,Hz (600 per s, averaged) & Resampled to 1\,Hz & FitzHugh--Nagumo modelling; species-specific spike families\\
+\addlinespace
+Dehshibi \& Adamatzky \cite{dehshibi}, 2021 & \emph{Pleurotus ostreatus} & Iridium-coated stainless-steel subdermal & 1\,Hz (600 per s, averaged) & Morse wavelet + envelope threshold & Morse wavelet spike detection; entropy complexity analysis\\
+\addlinespace
+Buffi et al.\ \cite{buffi}, 2025 & \emph{Fusarium oxysporum} & 2-electrode (2\,mm), Faraday cage & 17\,Hz & NaN values removed, low-pass to 4\,Hz, subsampled to 8\,Hz & STFT spike frequency extraction; cycloheximide dampens activity\\
+\addlinespace
+Adamatzky \cite{adamatzky2022}, 2022 & \emph{Omphalotus nidiformis}; \emph{Flammulina velutipes}; \emph{S.\ commune}; \emph{Cordyceps militaris} & Iridium-coated stainless-steel subdermal & 1\,Hz (600 per s, averaged) & Resampled to 1\,Hz & SAX language encoding of spike trains; \emph{S.\ commune} most complex\\
+\addlinespace
+Olsson \& Hansson \cite{olsson}, 1995 & \emph{P.\ ostreatus}; \emph{Armillaria bulbosa} & Glass microelectrode & Not stated & Electrometer amplification & AP frequency increases with negative current; unlike animal neurons\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{instructions}
+Retyped from the plan's image of this table. Consider adding a final row for this thesis:
+\emph{P.\ ostreatus} (16-channel arrays, 1\,Hz) plus lion's mane, reishi and Adamatzky's public four-species data;
+native rates from 0.8 to 10\,Hz kept; detector sweep, seeds and classifiers judged against blind verdicts.
+\end{instructions}
+
+A further trait of interest in the signal's behaviour is the observation that motifs of interest often occur in groupings, referred to as spike-trains. This behaviour has led to comparisons with the patterns seen in neuronal EEG recordings and cardiac ECG recordings \cite{slayman}, \cite{adamatzky2023}. A language analysis by Adamatzky \cite{adamatzky2022}, for example, treated these spike-trains as symbolic sequences and found that \emph{Schizophyllum commune} generates the most complex ``sentences'' compared to three other species when analysed at 1\,Hz, suggesting that there is meaningful structure in the timing and grouping of these events.
+
+Note that there are many studies which examine the biological mechanisms of the measured potential differences, suggesting a propagation of calcium ions Ca\textsuperscript{+}, Ca\textsuperscript{2+} and potassium ions K\textsuperscript{+} through hyphae cell membranes both in general function and in response to stressors \cite{brand,itani,houdinet}. However, while this background is important for providing context about the potential origins of both the signal's shape and behaviours, this project is not concerned with the intracellular mechanisms that generate these signals, as it is deemed unnecessary for developing a comprehensive analysis pipeline and outside of the proposed scope.
+
+A main drawback in this field is that it is relatively small, especially in comparison to the quantity of research in parallel fields on EEG and ECG analysis. This is most likely due to the fact that there is as of yet no clear financial incentive for investors to fund more extensive research into fungi signalling behaviour. As a result of this, there are many researchers who appear commonly across papers, most notably Andrew Adamatzky and Matteo Buffi. This implies that there is a certain risk in the current findings presented, as the biases within the work can be traced to only a handful of parties involved. A further consequence of this is that none of the analysis tools described in these studies have been released as public software, and preprocessing procedures are rarely described in sufficient detail to reproduce results independently.
+
+\begin{instructions}
+Qualify the last sentence with what this project found. Adamatzky's four-species recordings are public on Zenodo
+\cite{adamatzky2021data}, and Dehshibi and Adamatzky released MATLAB code \cite{dehshibi2020code}. Porting that code
+showed it differs from the printed paper in about ten places (Q33). Keep the point, that preprocessing and parameters
+are rarely reproducible from the papers, but be precise about which tools are and are not released.
+\end{instructions}
+
+\section{The absence of a shared signal vocabulary}
+\label{sec:litvocab}
+
+The closest parallel domain to mycelium signal analysis is Electroencephalogram (EEG) and Electrocardiogram (ECG) analysis, in which a large body of methodological work has been possible precisely because a canonical event taxonomy was established early --- canonical sleep stages, R-peaks, and wave types are defined consistently enough across laboratories that automated classifiers can be trained on one dataset and evaluated on another \cite{murungi} \cite{mohammed}. The abundance of labelled datasets has allowed the machine-learning advances discussed in Section~\ref{sec:litnn}. Mycelium research lacks this foundation entirely, and the absence of a shared labelling standard is most likely a significant contributor to the stall in progress noted in Section~\ref{sec:litfungi}.
+
+The consequence is concrete and is worth stating plainly, because it motivates the structure of this thesis. A comprehensive benchmark of modern time-series classification methods is provided by Bagnall et al.\ \cite{bagnall}, who compared 18 algorithms across a large suite of standard datasets and found that the best performing systems were ensemble and transformer-based classifiers that combined multiple feature representations. An important observation for the present project is that all benchmark datasets in that study were fully labelled prior to testing. A classifier cannot be trained or fairly evaluated without labels, and as such unsupervised discovery methods must precede any supervised approach. Where no ground truth exists, the ordering of work is forced: discovery first, then labelling, then classification --- and the labels themselves must be treated as a claim to be tested rather than as given.
+
+\section{Analysis of time-series data}
+\label{sec:littsa}
+
+In today's information age, time-series analysis is a quickly growing field with many exciting concepts for extracting information from ever-more complex dynamical systems \cite{cabauatan}, \cite{gao}. Traditional methods of decomposition and smoothing --- including autoregressive integrated moving average (ARIMA) models and autocorrelation-based approaches --- assume that the statistical properties of a signal do not change over time, a property which is often violated by biological signals such as those produced by mycelium networks. The field has consequently moved towards more flexible methods involving machine learning and feedback-based approaches, leveraging the increase in processing power and memory available today \cite{gao}, \cite{milvus}.
+
+\section{Analysis of time-series data with neural networks}
+\label{sec:litnn}
+
+Neural networks are a popular choice for time-series classification tasks due to their accuracy and flexibility \cite{bagnall}. Recurrent architectures such as LSTMs were initially favoured for sequential data, however Convolutional Neural Networks (CNNs) have become competitive --- and in many cases superior --- when time-series data is first encoded as a two-dimensional image. By converting a time-series into a structured image representation, the well-developed image classification capabilities of CNNs can be directly applied to temporal data. Some of the more common methods for transforming time-series data into images are Recurrence Plots, Gramian Angular Fields, Markov Transition Fields, and spectrograms generated via the Continuous Wavelet Transform or Short-Time Fourier Transform. Each captures a different structural property of the signal, and choosing among them for a given domain is non-trivial.
+
+In the field of EEG analysis, studies on the implementation of Neural Network models in classification have been published since as early as 2016 \cite{mohammed}. A study in the University of Thi-Qar Journal for Engineering Sciences \cite{mohammed} surveyed the current collection of machine learning algorithms in EEG analysis, finding that some of the more powerful algorithms achieved accuracies of over 90\%, and discussed hybrid models achieving up to 99\% accuracy and sensitivity. A separate study performed by Murungi et al.\ \cite{murungi} highlighted that the field of machine learning within EEG analysis is largely a result of the abundance of high-quality readily available datasets, another factor which the field of mycelium signal analysis lacks. They found that the most popular algorithm for Neural Network analysis was Convolutional Neural Networks, often trained on EEG spectrograms, followed closely by Recurrent Neural Networks (RNNs).
+
+In the paper by Mariani, Appiah and Tweneboah \cite{mariani}, they propose a new methodology for image creation for the purpose of training a CNN, combining a Gramian Angular Difference Field, Gramian Angular Summation Field and Recurrence plot into a single three-channel RGB input, and using Bayesian optimisation for hyperparameter tuning. They claim that fusion plots enrich the structural encoding of temporal dynamics, finding that on seven separate univariate datasets, their method significantly outperforms other classification algorithms such as Dynamic Time Warping (DTW) and Shapelet Transforms. The datasets used are also non-stationary, including facial outlines mapped into 1D series and word height profiles, but none have behavioural characteristics similar to bio-electric signals.
+
+Initial experiments in this project tested four encodings as CNN inputs, on about 10,000 labelled 10-minute windows drawn at random from all 16 channels. The windows were labelled by hand as `interesting' or `not interesting', meaning behaviour judged unlikely to be noise or chance. That labelling carries a bias the project set out to address. Chapter~\ref{ch:rq3} reports what became of those models when they were scored against blind labels.
+
+A further consideration for the CNN approach in this domain is the bootstrap problem: supervised classifiers require labelled training data, which does not currently exist in any standardised form for mycelium signals. Initial labels must therefore be generated by unsupervised methods before a classification model can be trained and evaluated. This is the role that matrix profiling and clustering are intended to play within the pipeline, connecting the following section directly to the proposed methodology.
+
+\section{Analysis of time-series data with matrix profiling}
+\label{sec:litmp}
+
+Time series motif discovery is a complex problem whose results influence classification, clustering and rule discovery \cite{linardi}. The Matrix Profile algorithm was first proposed in 2016 by the University of California, Riverside by a collection of authors including Chin-Chia Michael Yeh and Eamonn Keogh \cite{yeh}. Building on existing work in the field of all-pairs similarity searching, they propose an efficient parallelisable method for large time-series datasets that reduces the previously prohibitive $O(n^2)$ complexity to $O(n\log n)$ via the STOMP and SCRIMP++ algorithms \cite{stumpy}. The core output of the matrix profile is a vector storing the nearest neighbour distance for every subsequence in the dataset: low values indicate locations of recurring motifs, and high values indicate discords --- anomalous or rare subsequences. A key advantage of this technique is that it is exact, guaranteeing the most similar patterns are discovered, unlike earlier approximation-based approaches.
+
+Crucially, before the introduction of the Matrix Profile, there were no attempts to discover motifs more than approximately 900 data points long \cite{zhu2020}. At a sampling rate of 1\,Hz, mycelium motifs of interest span 60 to 3600 data points (1 minute to 1 hour), placing them squarely in the range that matrix profiling first made tractable. This makes the technique particularly well-suited to the analysis of bio-electric signals in fungi.
+
+A number of extensions to the core algorithm are of relevance to this project. Time Series Chains \cite{zhu2017} detect evolving or drifting motifs, which is relevant to the slow biological trends in mycelium signals where waveform shape may shift gradually over many hours. Variable-length motif discovery \cite{linardi} removes the requirement for a fixed subsequence length, which is important given that spike duration in mycelium varies across both time and species. The pan matrix profile \cite{madrid2019pan} computes the profile at every length in a range, and FLUSS \cite{gharghabi2017fluss} uses the profile's arc structure for semantic segmentation without labels. MPdist \cite{gharghabi2018mpdist} turns the profile into a distance between whole series that tolerates differences in length.
+
+The fact that matrix profiling can support such a wide range of information-producing computations makes it a powerful tool for analysing an unpredictable, non-stationary signal like those produced by mycelium networks. Its use cases have extended across many domains, and several of these are directly analogous to the problem at hand. Shi et al.\ \cite{shi} applied it to power systems synchrophasor data to automatically discover and label event types without prior templates --- a setting that is structurally very similar to the present problem, where signal events are non-stationary and not catalogued in advance. Ponganis et al.\ \cite{ponganis} used matrix profiling for respiratory cycle identification in penguins without requiring manually defined breath templates. Liu et al.\ \cite{liu} applied discord detection to Apollo seismic data to identify rare anomalous events in long recordings. Athira et al.\ \cite{athira} applied matrix profiling to multi-channel recordings of \emph{Ciona intestinalis} behavioural dynamics, a setting that is most structurally similar to the multi-electrode mycelium data used in this project.
+
+A key advantage for the present project is that matrix profiling requires no labels, meaning motifs can be discovered in a fully unsupervised manner. It is also the mechanism underlying seeded search (RQ2): an exemplar accepted by a human can be used directly as a query, and the resulting matches presented for adjudication.
+
+\begin{instructions}
+Add one sentence on cost, from this project. A whole-signal matrix profile on this machine is estimated at about 40\,h
+for M2\_concat and 260\,h for M2\_aug. A seeded search takes about 4\,s per query. This is why seeded search became the
+practical cross-channel method (memory note: m2-datasets-and-seeds).
+\end{instructions}
+
+\section{Detectors borrowed from other fields}
+\label{sec:litdetectors}
+
+\begin{instructions}
+New section, about one page. The detector sweep (Chapter~\ref{ch:rq1}) runs 14 detector families, most of them from
+outside mycology. For each, one or two sentences: what it was built for, and why it might apply to fungal recordings.
+\begin{itemize}
+  \item OASIS deconvolution, from calcium imaging \cite{friedrich2017oasis}: a spike train convolved with an
+        exponential decay, i.e.\ a jump followed by recovery.
+  \item BEADS, from chromatography \cite{ning2014beads}: sparse peaks on a drifting baseline.
+  \item Continuous-wavelet ridge peak detection, from mass spectrometry \cite{du2006cwt}.
+  \item Change-point detection \cite{truong2020ruptures} and FLUSS segmentation \cite{gharghabi2017fluss}.
+  \item Multiscale entropy, from physiology and heart-rate analysis \cite{costa2002mse}.
+  \item Burst detection by logISI \cite{pasquale2010logisi}, and the interval-irregularity measures CV2 \cite{holt1996cv2}
+        and LV \cite{shinomoto2003lv}, from neuroscience.
+  \item Wavelet scattering \cite{bruna2013scattering}.
+  \item The in-field contrast: the Dehshibi--Adamatzky wavelet detector \cite{dehshibi}, ported from the authors' own
+        code \cite{dehshibi2020code}.
+\end{itemize}
+Sources for the block designs: \src{docs/research/analysis-blocks-from-literature.md} and
+\src{docs/research/analysis-blocks-primary-sources.md}.
+\end{instructions}
+
+\section{Classification without hand-crafted features}
+\label{sec:litclassifiers}
+
+\begin{instructions}
+New section, about half a page. Cover:
+\begin{itemize}
+  \item ROCKET \cite{dempster2020rocket} and MiniRocket \cite{dempster2021minirocket}: thousands of fixed random
+        convolution kernels, with only a linear classifier trained on top, near state of the art on the UCR benchmarks
+        at a fraction of the cost.
+  \item catch22 \cite{lubba2019catch22}, a canonical set of 22 time-series features, used with random forests
+        \cite{breiman2001rf}.
+  \item EfficientNet \cite{tan2019efficientnet}, the CNN backbone of the image-encoded models.
+\end{itemize}
+Why these three: they span hand-designed features, random features and learned features, so a comparison between them
+asks what kind of structure the labels carry.
+\end{instructions}
+
+\section{Surrogate data and significance in signal analysis}
+\label{sec:litsurrogates}
+
+\begin{instructions}
+New section, about half a page. The method of surrogate data \cite{theiler1992surrogate}; amplitude-adjusted and
+iterated surrogates \cite{schreiber1996iaaft,schreiber2000surrogate}; their use in EEG and physiology to separate linear
+spectral structure from anything more. Make the point for the fungal field: none of the reviewed fungal studies reports
+a detector's output against a surrogate of the same signal.
+\end{instructions}
+
+\section{Human judgement as ground truth}
+\label{sec:lithuman}
+
+\begin{instructions}
+New section, about half a page.
+\begin{itemize}
+  \item Where no labels exist, a human's verdict is the reference, so its reliability has to be measured: intra-rater
+        agreement and Cohen's $\kappa$ \cite{cohen1960kappa}.
+  \item Blind presentation, and stratified sampling so rare strata are seen.
+  \item Proportions with Wilson intervals \cite{wilson1927}; differences with Newcombe's method \cite{newcombe1998}.
+  \item This project's own number: you agree with yourself on 94\,\% of 98 blind repeats ($\kappa$ 0.84). That is the
+        ceiling any classifier can be measured against.
+\end{itemize}
+\end{instructions}
+
+\section{Excitable-system models and phase response}
+\label{sec:litmodels}
+
+\begin{instructions}
+New section, about half a page, supporting the modelling work in Chapter~\ref{ch:roundb}.
+\begin{itemize}
+  \item FitzHugh--Nagumo \cite{fitzhugh1961,nagumo1962}, already used for \emph{S.\ commune} \cite{adamatzky2023}.
+  \item Izhikevich's taxonomy of spiking regimes \cite{izhikevich2003}, which is the supervisor's framing of ``spiking
+        families''.
+  \item Phase response curves, and the caution of Wilshin, Kvalheim and Revzen \cite{wilshin2024prc}: the PRC with
+        respect to a measured coordinate depends on which hidden coordinates are held constant, so a delay-embedding
+        reconstruction from voltage alone does not determine the voltage PRC.
+\end{itemize}
+\end{instructions}
+
+\section{Prior research at UQ}
+\label{sec:lituq}
+
+Before beginning this thesis, I participated in the Underground Brains research project at The University of Queensland (see \url{https://eecs.uq.edu.au/project/fungi}) as part of a summer research program. The research involved the initial analysis of about 1,000 hours of bio-electric recordings on \emph{Pleurotus ostreatus}, more commonly known as oyster mushrooms. The recordings were made with 16 electrodes distributed across the fruiting bodies, sharing a common ground, and logged at 1\,Hz. The mushrooms were grown inside Faraday cages to limit outside interference.
+
+The research was largely exploratory, and involved the development of a pipeline for effective data analysis in \textbf{MATLAB}. Using this pipeline, experimental analysis was performed which included ratio encoding and discovery, Symbolic Aggregate Approximation (SAX) encoding and discovery, Gramian Angular Field encoding, and wavelet and frequency analysis. The full repository developed can be found on Github \cite{summerrepo}. This experience involved developing a familiarity with the behaviour evident in the time-series recordings, early research into the field of time-series analysis and the initial implementations of several algorithms for analysis and motif extraction. While the current thesis builds on the knowledge developed here, particularly for the techniques in Gramian Angular Field Imaging as discussed in Section~\ref{sec:litnn}, the files, code and algorithms remain separated and unique, and can be found in a separate repository \cite{thesisrepo}.
+
+The goal of UQ's Underground Brains project is to study the electromagnetic communication system of mycelium. As part of that, there are four main areas of research focus:
+
+\begin{enumerate}
+  \item Designing next generation sensors for environmental sensing
+  \item Developing new recording and analysis techniques for the electromagnetic properties of mycelium
+  \item Investigation of the communication and multi scale dynamics of the underground networks of mycelium
+  \item Bridging art, science and engineering to help contribute to the public understanding of AI, STEM and fungi
+\end{enumerate}
+
+The motivation behind the project lies in the importance of fungi in the growth and stability of ecosystems. They are symbiotic with 90\% of plants, particularly in the diverse climates of Australia. However, fungi, in particular Australian species, have many distinct bio-chemical and electro-magnetic properties which are not well understood. Advances in how they communicate, grow and interact with their surrounding ecosystems has vital applications for Australian agriculture and ecosystem health.
+
+The present thesis contributes primarily to the second of these areas, by developing the analytical tools and pipeline infrastructure needed to process and interpret the electromagnetic recordings described above.
+
+\begin{instructions}
+The ``about 1,000 hours'' is the two M2 oyster recordings together: M2\_aug 721\,h and M2\_concat 282.5\,h. The plan's
+``over 1000 hours'' for the primary recording alone is not right. Say which other UQ recordings joined the corpus during
+the year: lion's mane, reishi Fig2A, CO/LM/SH/SO, F2B and L\_R. Chapter~\ref{ch:method} has the full table.
+\end{instructions}
+
+\section{Gaps in knowledge}
+\label{sec:litgaps}
+
+The literature reviewed in this chapter reveals three interconnected gaps that the present project is designed to address.
+
+The first is the absence of modern time-series analysis methods in the study of fungal bio-electric signals. Despite the rapid growth of these methods in related domains --- including EEG analysis, power systems monitoring, and respiratory biology --- no published work has applied matrix profiling or image-based CNN classification to mycelium recordings. The analyses that do exist are bespoke, manually parameterised, and not released in reproducible form \cite{dehshibi}, \cite{buffi}, meaning the body of findings cannot be built upon incrementally.
+
+The second, and arguably more fundamental, gap is the lack of a foundational classification framework for mycelium signal types. Individual studies describe oscillatory behaviour at multiple time-scales \cite{adamatzky2023}, \cite{dehshibi}, identify spike-trains with varying morphology \cite{slayman}, \cite{adamatzky2022}, and note species-specific differences in signal complexity \cite{adamatzky2022}, but no study has attempted to define a reproducible taxonomy of signal states. Without such a taxonomy, supervised learning approaches cannot be validated across datasets, and findings from one species or experimental condition cannot be compared with those from another. This mirrors a challenge that the EEG field resolved through the establishment of canonical sleep-staging definitions, which subsequently enabled decades of automated classifier development. For mycelium signals, that equivalent groundwork has not been laid.
+
+The third gap is the absence of a shared computational pipeline that a researcher can use to interrogate a new recording. Existing tools are described only in methods sections, are not released, and are not designed to be repurposed. A researcher studying a new species or a new experimental condition currently has no standard starting point for analysis. The present project is designed to address all three of these gaps in a single integrated framework.
+
+\begin{instructions}
+Add the fourth gap if you used it in Section~\ref{sec:gaps}: no fungal study measures any detector's precision against
+blind human judgement, or against a surrogate of the same signal. That is the gap RQ1 fills.
+\end{instructions}

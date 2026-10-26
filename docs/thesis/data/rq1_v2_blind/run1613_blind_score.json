@@ -1,0 +1,1987 @@
+{
+ "run_id": 1613,
+ "k": 7,
+ "mapping": {
+  "k": 7,
+  "clusters": {
+   "1": {
+    "name": "noise curved",
+    "class": "not_interesting"
+   },
+   "2": {
+    "name": "noise flat",
+    "class": "not_interesting"
+   },
+   "3": {
+    "name": "ridge",
+    "class": "interesting"
+   },
+   "4": {
+    "name": "spike",
+    "class": "interesting"
+   },
+   "5": {
+    "name": "U trough",
+    "class": "interesting"
+   },
+   "6": {
+    "name": "V trough",
+    "class": "interesting"
+   },
+   "7": {
+    "name": "drop",
+    "class": "interesting"
+   }
+  }
+ },
+ "pool": {
+  "id": 8,
+  "name": "pool_712f477b",
+  "version": 1,
+  "key": "712f477b262b2fd8"
+ },
+ "arm": {
+  "name": "B.2",
+  "label": "B.2 cluster labels \u00b7 trace shape",
+  "k": 7,
+  "linkage": "ward"
+ },
+ "template": {
+  "id": 15,
+  "name": "shape_clusters"
+ },
+ "exam_titles": {
+  "i_later_block": "exam (i) \u00b7 the later block of the training channels",
+  "ii_unseen_channels": "exam (ii) \u00b7 channels never trained on"
+ },
+ "predicted": {
+  "i_later_block": {
+   "n": 5878,
+   "by_class": {
+    "interesting": 4575,
+    "not_interesting": 1303
+   },
+   "by_cluster": {
+    "1": 969,
+    "2": 334,
+    "3": 1195,
+    "4": 548,
+    "5": 1725,
+    "6": 324,
+    "7": 783
+   },
+   "status": "scored"
+  },
+  "ii_unseen_channels": {
+   "n": 10377,
+   "by_class": {
+    "interesting": 8353,
+    "not_interesting": 2024
+   },
+   "by_cluster": {
+    "1": 1148,
+    "2": 876,
+    "3": 2166,
+    "4": 808,
+    "5": 3302,
+    "6": 1113,
+    "7": 964
+   },
+   "status": "scored"
+  }
+ },
+ "queue_id": 3,
+ "status": "labelled",
+ "progress": {
+  "total": 1100,
+  "judged": 1100,
+  "remaining": 0,
+  "pace_s": 0.87
+ },
+ "verdicts": {
+  "interesting": 235,
+  "not_interesting": 849,
+  "unsure": 3,
+  "artifact": 13
+ },
+ "sample": {
+  "params": {
+   "n": 1000,
+   "repeat_frac": 0.1,
+   "seed": 0
+  },
+  "drawn_at": "2026-10-07T17:19:48",
+  "run_id": 1613,
+  "pool": {
+   "id": 8,
+   "name": "pool_712f477b",
+   "version": 1,
+   "key": "712f477b262b2fd8"
+  },
+  "summary": {
+   "n": 1000,
+   "n_showings": 1100,
+   "n_repeats": 100,
+   "min_gap": 254,
+   "strata": [
+    {
+     "exam": "i_later_block",
+     "cluster": 1,
+     "class": "not_interesting",
+     "name": "noise curved",
+     "population": 969,
+     "drawn": 72,
+     "weight": 13.458333333333334
+    },
+    {
+     "exam": "i_later_block",
+     "cluster": 2,
+     "class": "not_interesting",
+     "name": "noise flat",
+     "population": 334,
+     "drawn": 72,
+     "weight": 4.638888888888889
+    },
+    {
+     "exam": "i_later_block",
+     "cluster": 3,
+     "class": "interesting",
+     "name": "ridge",
+     "population": 1195,
+     "drawn": 72,
+     "weight": 16.59722222222222
+    },
+    {
+     "exam": "i_later_block",
+     "cluster": 4,
+     "class": "interesting",
+     "name": "spike",
+     "population": 548,
+     "drawn": 71,
+     "weight": 7.71830985915493
+    },
+    {
+     "exam": "i_later_block",
+     "cluster": 5,
+     "class": "interesting",
+     "name": "U trough",
+     "population": 1725,
+     "drawn": 71,
+     "weight": 24.295774647887324
+    },
+    {
+     "exam": "i_later_block",
+     "cluster": 6,
+     "class": "interesting",
+     "name": "V trough",
+     "population": 324,
+     "drawn": 71,
+     "weight": 4.563380281690141
+    },
+    {
+     "exam": "i_later_block",
+     "cluster": 7,
+     "class": "interesting",
+     "name": "drop",
+     "population": 783,
+     "drawn": 71,
+     "weight": 11.028169014084508
+    },
+    {
+     "exam": "ii_unseen_channels",
+     "cluster": 1,
+     "class": "not_interesting",
+     "name": "noise curved",
+     "population": 1148,
+     "drawn": 72,
+     "weight": 15.944444444444445
+    },
+    {
+     "exam": "ii_unseen_channels",
+     "cluster": 2,
+     "class": "not_interesting",
+     "name": "noise flat",
+     "population": 876,
+     "drawn": 72,
+     "weight": 12.166666666666666
+    },
+    {
+     "exam": "ii_unseen_channels",
+     "cluster": 3,
+     "class": "interesting",
+     "name": "ridge",
+     "population": 2166,
+     "drawn": 72,
+     "weight": 30.083333333333332
+    },
+    {
+     "exam": "ii_unseen_channels",
+     "cluster": 4,
+     "class": "interesting",
+     "name": "spike",
+     "population": 808,
+     "drawn": 71,
+     "weight": 11.380281690140846
+    },
+    {
+     "exam": "ii_unseen_channels",
+     "cluster": 5,
+     "class": "interesting",
+     "name": "U trough",
+     "population": 3302,
+     "drawn": 71,
+     "weight": 46.50704225352113
+    },
+    {
+     "exam": "ii_unseen_channels",
+     "cluster": 6,
+     "class": "interesting",
+     "name": "V trough",
+     "population": 1113,
+     "drawn": 71,
+     "weight": 15.67605633802817
+    },
+    {
+     "exam": "ii_unseen_channels",
+     "cluster": 7,
+     "class": "interesting",
+     "name": "drop",
+     "population": 964,
+     "drawn": 71,
+     "weight": 13.577464788732394
+    }
+   ],
+   "by_scale": [
+    {
+     "exam": "i_later_block",
+     "scale_min": 1.0,
+     "drawn": 82
+    },
+    {
+     "exam": "i_later_block",
+     "scale_min": 10.0,
+     "drawn": 218
+    },
+    {
+     "exam": "i_later_block",
+     "scale_min": 30.0,
+     "drawn": 200
+    },
+    {
+     "exam": "ii_unseen_channels",
+     "scale_min": 1.0,
+     "drawn": 103
+    },
+    {
+     "exam": "ii_unseen_channels",
+     "scale_min": 10.0,
+     "drawn": 218
+    },
+    {
+     "exam": "ii_unseen_channels",
+     "scale_min": 30.0,
+     "drawn": 179
+    }
+   ],
+   "by_exam": {
+    "i_later_block": 500,
+    "ii_unseen_channels": 500
+   },
+   "rule": "test and exam windows only; N split equally between the two exams, then evenly per predicted cluster (a cluster smaller than its share gives all it has); weight = the stratum's windows / the windows drawn from it; a fraction shown twice, at least a quarter of the queue apart; the order a seeded shuffle"
+  }
+ },
+ "exams": {
+  "i_later_block": {
+   "title": "exam (i) \u00b7 the later block of the training channels",
+   "status": "labelled",
+   "n_sample": 500,
+   "n_labelled": 500,
+   "n_scored": 496,
+   "excluded": {
+    "unsure": 2,
+    "artifact": 2,
+    "not_yet_labelled": 0
+   },
+   "self_agreement": {
+    "n_pairs": 50,
+    "n_answered_pairs": 50,
+    "n_scored_pairs": 49,
+    "agree": 44,
+    "share": 0.8979591836734694,
+    "any_word_share": 0.88,
+    "kappa": 0.7552447552447552,
+    "note": "the same window shown twice, at least a quarter of the queue apart: how often the human gave the same interesting / not answer. No model can be expected to agree with the human more than the human agrees with themself"
+   },
+   "unit": "24 h of one channel",
+   "confusion_labels": [
+    "interesting",
+    "not_interesting"
+   ],
+   "confusion_note": "rows: the blind human \u00b7 columns: the model (its cluster through the frozen mapping)",
+   "per_cluster": [
+    {
+     "cluster": 1,
+     "name": "noise curved",
+     "class": "not_interesting",
+     "n_sample": 72,
+     "n": 72,
+     "human_interesting": 8,
+     "share_interesting": 0.1111111111111111,
+     "agrees_with_mapping": 0.8888888888888888,
+     "population": 969
+    },
+    {
+     "cluster": 2,
+     "name": "noise flat",
+     "class": "not_interesting",
+     "n_sample": 72,
+     "n": 72,
+     "human_interesting": 0,
+     "share_interesting": 0.0,
+     "agrees_with_mapping": 1.0,
+     "population": 334
+    },
+    {
+     "cluster": 3,
+     "name": "ridge",
+     "class": "interesting",
+     "n_sample": 72,
+     "n": 72,
+     "human_interesting": 22,
+     "share_interesting": 0.3055555555555556,
+     "agrees_with_mapping": 0.3055555555555556,
+     "population": 1195
+    },
+    {
+     "cluster": 4,
+     "name": "spike",
+     "class": "interesting",
+     "n_sample": 71,
+     "n": 70,
+     "human_interesting": 13,
+     "share_interesting": 0.18571428571428572,
+     "agrees_with_mapping": 0.18571428571428572,
+     "population": 548
+    },
+    {
+     "cluster": 5,
+     "name": "U trough",
+     "class": "interesting",
+     "n_sample": 71,
+     "n": 71,
+     "human_interesting": 15,
+     "share_interesting": 0.2112676056338028,
+     "agrees_with_mapping": 0.2112676056338028,
+     "population": 1725
+    },
+    {
+     "cluster": 6,
+     "name": "V trough",
+     "class": "interesting",
+     "n_sample": 71,
+     "n": 70,
+     "human_interesting": 17,
+     "share_interesting": 0.24285714285714285,
+     "agrees_with_mapping": 0.24285714285714285,
+     "population": 324
+    },
+    {
+     "cluster": 7,
+     "name": "drop",
+     "class": "interesting",
+     "n_sample": 71,
+     "n": 69,
+     "human_interesting": 37,
+     "share_interesting": 0.5362318840579711,
+     "agrees_with_mapping": 0.5362318840579711,
+     "population": 783
+    }
+   ],
+   "macro_f1": 0.48171368861024033,
+   "macro_f1_ci": [
+    0.42616278175742545,
+    0.5364441171468451
+   ],
+   "accuracy": 0.4838709677419355,
+   "balanced_accuracy": 0.6413690476190477,
+   "kappa": 0.1607445008460237,
+   "kappa_ci": [
+    0.10860399552383128,
+    0.2199146305657986
+   ],
+   "confusion": [
+    [
+     104,
+     8
+    ],
+    [
+     248,
+     136
+    ]
+   ],
+   "interesting": {
+    "precision": 0.29545454545454547,
+    "recall": 0.9285714285714286,
+    "f1": 0.4482758620689655,
+    "f1_ci": [
+     0.375789686825054,
+     0.5188212681313278
+    ],
+    "n_human": 112,
+    "n_model": 352
+   },
+   "not_interesting": {
+    "precision": 0.9444444444444444,
+    "recall": 0.3541666666666667,
+    "f1": 0.5151515151515151,
+    "n": 384,
+    "n_predicted": 144
+   },
+   "null": {
+    "n": 1000,
+    "mean": 0.3821257836990596,
+    "q95": 0.40882967607105536,
+    "p": 0.000999000999000999,
+    "rule": "the human's answers permuted against the model's fixed calls"
+   },
+   "n_units": 107,
+   "reweighted": {
+    "precision": 0.2897227900353026,
+    "recall": 0.9243488809821813,
+    "f1": 0.44116824921831277,
+    "accuracy": 0.4296734822313274,
+    "note": "each labelled window weighted by its stratum's windows / the windows drawn from it (exam \u00d7 predicted cluster): an estimate for every test window of this exam, not only the sample, which over-represents rare clusters on purpose"
+   },
+   "per_scale": [
+    {
+     "scale_min": 1.0,
+     "outside_training_scale": true,
+     "n": 82,
+     "human_interesting": 3,
+     "model_interesting": 43,
+     "agreement": 0.5121951219512195,
+     "one_class": false,
+     "macro_f1": 0.39572586588061903,
+     "kappa": 0.06659077973819019,
+     "precision": 0.06976744186046512,
+     "recall": 1.0
+    },
+    {
+     "scale_min": 10.0,
+     "outside_training_scale": false,
+     "n": 214,
+     "human_interesting": 38,
+     "model_interesting": 151,
+     "agreement": 0.43457943925233644,
+     "one_class": false,
+     "macro_f1": 0.4267561045803724,
+     "kappa": 0.10617880566102869,
+     "precision": 0.2251655629139073,
+     "recall": 0.8947368421052632
+    },
+    {
+     "scale_min": 30.0,
+     "outside_training_scale": true,
+     "n": 200,
+     "human_interesting": 71,
+     "model_interesting": 158,
+     "agreement": 0.525,
+     "one_class": false,
+     "macro_f1": 0.514798641436196,
+     "kappa": 0.18678308508816996,
+     "precision": 0.4240506329113924,
+     "recall": 0.9436619718309859
+    }
+   ],
+   "per_recording": [
+    {
+     "recording": "M2_aug_concat_fs1.mat",
+     "n": 354,
+     "human_interesting": 82,
+     "model_interesting": 245,
+     "agreement": 0.5169491525423728,
+     "one_class": false,
+     "macro_f1": 0.5141226612728456,
+     "kappa": 0.1990526343644975,
+     "precision": 0.3183673469387755,
+     "recall": 0.9512195121951219
+    },
+    {
+     "recording": "M2_concat_fs1.mat",
+     "n": 142,
+     "human_interesting": 30,
+     "model_interesting": 107,
+     "agreement": 0.4014084507042254,
+     "one_class": false,
+     "macro_f1": 0.4006653756393068,
+     "kappa": 0.07396041123216207,
+     "precision": 0.24299065420560748,
+     "recall": 0.8666666666666667
+    }
+   ]
+  },
+  "ii_unseen_channels": {
+   "title": "exam (ii) \u00b7 channels never trained on",
+   "status": "labelled",
+   "n_sample": 500,
+   "n_labelled": 500,
+   "n_scored": 490,
+   "excluded": {
+    "unsure": 1,
+    "artifact": 9,
+    "not_yet_labelled": 0
+   },
+   "self_agreement": {
+    "n_pairs": 50,
+    "n_answered_pairs": 50,
+    "n_scored_pairs": 49,
+    "agree": 48,
+    "share": 0.9795918367346939,
+    "any_word_share": 0.96,
+    "kappa": 0.9432213209733488,
+    "note": "the same window shown twice, at least a quarter of the queue apart: how often the human gave the same interesting / not answer. No model can be expected to agree with the human more than the human agrees with themself"
+   },
+   "unit": "24 h of one channel",
+   "confusion_labels": [
+    "interesting",
+    "not_interesting"
+   ],
+   "confusion_note": "rows: the blind human \u00b7 columns: the model (its cluster through the frozen mapping)",
+   "per_cluster": [
+    {
+     "cluster": 1,
+     "name": "noise curved",
+     "class": "not_interesting",
+     "n_sample": 72,
+     "n": 71,
+     "human_interesting": 8,
+     "share_interesting": 0.11267605633802817,
+     "agrees_with_mapping": 0.8873239436619719,
+     "population": 1148
+    },
+    {
+     "cluster": 2,
+     "name": "noise flat",
+     "class": "not_interesting",
+     "n_sample": 72,
+     "n": 72,
+     "human_interesting": 1,
+     "share_interesting": 0.013888888888888888,
+     "agrees_with_mapping": 0.9861111111111112,
+     "population": 876
+    },
+    {
+     "cluster": 3,
+     "name": "ridge",
+     "class": "interesting",
+     "n_sample": 72,
+     "n": 72,
+     "human_interesting": 18,
+     "share_interesting": 0.25,
+     "agrees_with_mapping": 0.25,
+     "population": 2166
+    },
+    {
+     "cluster": 4,
+     "name": "spike",
+     "class": "interesting",
+     "n_sample": 71,
+     "n": 68,
+     "human_interesting": 15,
+     "share_interesting": 0.22058823529411764,
+     "agrees_with_mapping": 0.22058823529411764,
+     "population": 808
+    },
+    {
+     "cluster": 5,
+     "name": "U trough",
+     "class": "interesting",
+     "n_sample": 71,
+     "n": 68,
+     "human_interesting": 21,
+     "share_interesting": 0.3088235294117647,
+     "agrees_with_mapping": 0.3088235294117647,
+     "population": 3302
+    },
+    {
+     "cluster": 6,
+     "name": "V trough",
+     "class": "interesting",
+     "n_sample": 71,
+     "n": 70,
+     "human_interesting": 10,
+     "share_interesting": 0.14285714285714285,
+     "agrees_with_mapping": 0.14285714285714285,
+     "population": 1113
+    },
+    {
+     "cluster": 7,
+     "name": "drop",
+     "class": "interesting",
+     "n_sample": 71,
+     "n": 69,
+     "human_interesting": 25,
+     "share_interesting": 0.36231884057971014,
+     "agrees_with_mapping": 0.36231884057971014,
+     "population": 964
+    }
+   ],
+   "macro_f1": 0.4504672897196262,
+   "macro_f1_ci": [
+    0.4041926844619322,
+    0.4952119686650636
+   ],
+   "accuracy": 0.45510204081632655,
+   "balanced_accuracy": 0.625,
+   "kappa": 0.12802090137165245,
+   "kappa_ci": [
+    0.08501195944568866,
+    0.17282645944392366
+   ],
+   "confusion": [
+    [
+     89,
+     9
+    ],
+    [
+     258,
+     134
+    ]
+   ],
+   "interesting": {
+    "precision": 0.2564841498559078,
+    "recall": 0.9081632653061225,
+    "f1": 0.4,
+    "f1_ci": [
+     0.3333129584352078,
+     0.45903034530868503
+    ],
+    "n_human": 98,
+    "n_model": 347
+   },
+   "not_interesting": {
+    "precision": 0.9370629370629371,
+    "recall": 0.34183673469387754,
+    "f1": 0.5009345794392523,
+    "n": 392,
+    "n_predicted": 143
+   },
+   "null": {
+    "n": 1000,
+    "mean": 0.36814852462459313,
+    "q95": 0.396954741152998,
+    "p": 0.000999000999000999,
+    "rule": "the human's answers permuted against the model's fixed calls"
+   },
+   "n_units": 155,
+   "reweighted": {
+    "precision": 0.26854881147739623,
+    "recall": 0.939898514266635,
+    "f1": 0.4177403905631872,
+    "accuracy": 0.3995620895457229,
+    "note": "each labelled window weighted by its stratum's windows / the windows drawn from it (exam \u00d7 predicted cluster): an estimate for every test window of this exam, not only the sample, which over-represents rare clusters on purpose"
+   },
+   "per_scale": [
+    {
+     "scale_min": 1.0,
+     "outside_training_scale": true,
+     "n": 103,
+     "human_interesting": 8,
+     "model_interesting": 57,
+     "agreement": 0.5048543689320388,
+     "one_class": false,
+     "macro_f1": 0.4268412438625205,
+     "kappa": 0.09164793359847823,
+     "precision": 0.12280701754385964,
+     "recall": 0.875
+    },
+    {
+     "scale_min": 10.0,
+     "outside_training_scale": false,
+     "n": 215,
+     "human_interesting": 42,
+     "model_interesting": 155,
+     "agreement": 0.4558139534883721,
+     "one_class": false,
+     "macro_f1": 0.45197272390579724,
+     "kappa": 0.1424919038690984,
+     "precision": 0.25806451612903225,
+     "recall": 0.9523809523809523
+    },
+    {
+     "scale_min": 30.0,
+     "outside_training_scale": true,
+     "n": 172,
+     "human_interesting": 48,
+     "model_interesting": 135,
+     "agreement": 0.42441860465116277,
+     "one_class": false,
+     "macro_f1": 0.42205478057224316,
+     "kappa": 0.08036292935839276,
+     "precision": 0.3111111111111111,
+     "recall": 0.875
+    }
+   ],
+   "per_recording": [
+    {
+     "recording": "M2_aug_concat_fs1.mat",
+     "n": 300,
+     "human_interesting": 80,
+     "model_interesting": 230,
+     "agreement": 0.44666666666666666,
+     "one_class": false,
+     "macro_f1": 0.4460511679644049,
+     "kappa": 0.11387900355871888,
+     "precision": 0.3130434782608696,
+     "recall": 0.9
+    },
+    {
+     "recording": "M2_concat_fs1.mat",
+     "n": 190,
+     "human_interesting": 18,
+     "model_interesting": 117,
+     "agreement": 0.46842105263157896,
+     "one_class": false,
+     "macro_f1": 0.41980347694633413,
+     "kappa": 0.10486052803433159,
+     "precision": 0.1452991452991453,
+     "recall": 0.9444444444444444
+    }
+   ]
+  }
+ },
+ "self_agreement": {
+  "n_pairs": 100,
+  "n_answered_pairs": 100,
+  "n_scored_pairs": 98,
+  "agree": 92,
+  "share": 0.9387755102040817,
+  "any_word_share": 0.92,
+  "kappa": 0.8430325680726108,
+  "note": "the same window shown twice, at least a quarter of the queue apart: how often the human gave the same interesting / not answer. No model can be expected to agree with the human more than the human agrees with themself"
+ },
+ "shared": null,
+ "reference": {
+  "status": "computed",
+  "computed_at": "2026-10-07T18:39:38",
+  "n_windows": 1000,
+  "rows": [
+   {
+    "model": "GASF_cnn",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\GASF_cnn.pth",
+    "image": "GASF",
+    "kind": "cnn",
+    "scale_min": 1.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n GASF image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "a Gramian field of the window's own samples: no fixed-sample parameter, but each pixel covers n / 224 samples",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 82,
+       "human_interesting": 3,
+       "model_interesting": 65,
+       "agreement": 0.21951219512195122,
+       "one_class": false,
+       "macro_f1": 0.19607843137254902,
+       "kappa": -0.011955264172772817,
+       "precision": 0.03076923076923077,
+       "recall": 0.6666666666666666
+      },
+      "no_earlier_label": {
+       "n": 70,
+       "human_interesting": 3,
+       "model_interesting": 53,
+       "agreement": 0.2571428571428571,
+       "one_class": false,
+       "macro_f1": 0.22619047619047616,
+       "kappa": -0.010549694614103327,
+       "precision": 0.03773584905660377,
+       "recall": 0.6666666666666666
+      },
+      "n_overlapping_earlier_label": 12
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 103,
+       "human_interesting": 8,
+       "model_interesting": 87,
+       "agreement": 0.21359223300970873,
+       "one_class": false,
+       "macro_f1": 0.20881934566145094,
+       "kappa": 0.005957345406886719,
+       "precision": 0.08045977011494253,
+       "recall": 0.875
+      },
+      "no_earlier_label": {
+       "n": 93,
+       "human_interesting": 7,
+       "model_interesting": 80,
+       "agreement": 0.1935483870967742,
+       "one_class": false,
+       "macro_f1": 0.19017763845350052,
+       "kappa": -0.0005738057667479312,
+       "precision": 0.075,
+       "recall": 0.8571428571428571
+      },
+      "n_overlapping_earlier_label": 10
+     }
+    }
+   },
+   {
+    "model": "GASF_cnn",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\GASF_cnn.pth",
+    "image": "GASF",
+    "kind": "cnn",
+    "scale_min": 10.0,
+    "outside_training_scale": false,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n GASF image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "a Gramian field of the window's own samples: no fixed-sample parameter, but each pixel covers n / 224 samples",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 214,
+       "human_interesting": 38,
+       "model_interesting": 31,
+       "agreement": 0.9392523364485982,
+       "one_class": false,
+       "macro_f1": 0.8876912518671027,
+       "kappa": 0.7758259468170832,
+       "precision": 0.9032258064516129,
+       "recall": 0.7368421052631579
+      },
+      "no_earlier_label": {
+       "n": 152,
+       "human_interesting": 25,
+       "model_interesting": 21,
+       "agreement": 0.9342105263157895,
+       "one_class": false,
+       "macro_f1": 0.8719245028648467,
+       "kappa": 0.7441938741164593,
+       "precision": 0.8571428571428571,
+       "recall": 0.72
+      },
+      "n_overlapping_earlier_label": 62
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 215,
+       "human_interesting": 42,
+       "model_interesting": 30,
+       "agreement": 0.8976744186046511,
+       "one_class": false,
+       "macro_f1": 0.816495965238982,
+       "kappa": 0.6350308641975309,
+       "precision": 0.8333333333333334,
+       "recall": 0.5952380952380952
+      },
+      "no_earlier_label": {
+       "n": 176,
+       "human_interesting": 29,
+       "model_interesting": 21,
+       "agreement": 0.9090909090909091,
+       "one_class": false,
+       "macro_f1": 0.8135099337748344,
+       "kappa": 0.6285940385122657,
+       "precision": 0.8095238095238095,
+       "recall": 0.5862068965517241
+      },
+      "n_overlapping_earlier_label": 39
+     }
+    }
+   },
+   {
+    "model": "GASF_cnn",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\GASF_cnn.pth",
+    "image": "GASF",
+    "kind": "cnn",
+    "scale_min": 30.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n GASF image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "a Gramian field of the window's own samples: no fixed-sample parameter, but each pixel covers n / 224 samples",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 200,
+       "human_interesting": 71,
+       "model_interesting": 66,
+       "agreement": 0.885,
+       "one_class": false,
+       "macro_f1": 0.872332158419139,
+       "kappa": 0.7448413578877302,
+       "precision": 0.8636363636363636,
+       "recall": 0.8028169014084507
+      },
+      "no_earlier_label": {
+       "n": 135,
+       "human_interesting": 49,
+       "model_interesting": 47,
+       "agreement": 0.8962962962962963,
+       "one_class": false,
+       "macro_f1": 0.8868534482758621,
+       "kappa": 0.7737610725401004,
+       "precision": 0.8723404255319149,
+       "recall": 0.8367346938775511
+      },
+      "n_overlapping_earlier_label": 65
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 172,
+       "human_interesting": 48,
+       "model_interesting": 54,
+       "agreement": 0.8255813953488372,
+       "one_class": false,
+       "macro_f1": 0.790957705396208,
+       "kappa": 0.5825242718446603,
+       "precision": 0.6666666666666666,
+       "recall": 0.75
+      },
+      "no_earlier_label": {
+       "n": 112,
+       "human_interesting": 27,
+       "model_interesting": 34,
+       "agreement": 0.8482142857142857,
+       "one_class": false,
+       "macro_f1": 0.8085084984411144,
+       "kappa": 0.6188951160928743,
+       "precision": 0.6470588235294118,
+       "recall": 0.8148148148148148
+      },
+      "n_overlapping_earlier_label": 60
+     }
+    }
+   },
+   {
+    "model": "GADF_cnn",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\GADF_cnn.pth",
+    "image": "GADF",
+    "kind": "cnn",
+    "scale_min": 1.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n GADF image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "a Gramian field of the window's own samples: no fixed-sample parameter, but each pixel covers n / 224 samples",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 82,
+       "human_interesting": 3,
+       "model_interesting": 64,
+       "agreement": 0.23170731707317074,
+       "one_class": false,
+       "macro_f1": 0.2051084782274196,
+       "kappa": -0.01095890410958902,
+       "precision": 0.03125,
+       "recall": 0.6666666666666666
+      },
+      "no_earlier_label": {
+       "n": 70,
+       "human_interesting": 3,
+       "model_interesting": 52,
+       "agreement": 0.2714285714285714,
+       "one_class": false,
+       "macro_f1": 0.2363636363636364,
+       "kappa": -0.00904465799886945,
+       "precision": 0.038461538461538464,
+       "recall": 0.6666666666666666
+      },
+      "n_overlapping_earlier_label": 12
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 103,
+       "human_interesting": 8,
+       "model_interesting": 82,
+       "agreement": 0.2815533980582524,
+       "one_class": false,
+       "macro_f1": 0.26992337164750957,
+       "kappa": 0.042221663734606674,
+       "precision": 0.0975609756097561,
+       "recall": 1.0
+      },
+      "no_earlier_label": {
+       "n": 93,
+       "human_interesting": 7,
+       "model_interesting": 77,
+       "agreement": 0.24731182795698925,
+       "one_class": false,
+       "macro_f1": 0.24019607843137253,
+       "kappa": 0.033264033264033266,
+       "precision": 0.09090909090909091,
+       "recall": 1.0
+      },
+      "n_overlapping_earlier_label": 10
+     }
+    }
+   },
+   {
+    "model": "GADF_cnn",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\GADF_cnn.pth",
+    "image": "GADF",
+    "kind": "cnn",
+    "scale_min": 10.0,
+    "outside_training_scale": false,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n GADF image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "a Gramian field of the window's own samples: no fixed-sample parameter, but each pixel covers n / 224 samples",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 214,
+       "human_interesting": 38,
+       "model_interesting": 31,
+       "agreement": 0.9299065420560748,
+       "one_class": false,
+       "macro_f1": 0.87041298292358,
+       "kappa": 0.7413376309427883,
+       "precision": 0.8709677419354839,
+       "recall": 0.7105263157894737
+      },
+      "no_earlier_label": {
+       "n": 152,
+       "human_interesting": 25,
+       "model_interesting": 22,
+       "agreement": 0.9276315789473685,
+       "one_class": false,
+       "macro_f1": 0.8615779451941386,
+       "kappa": 0.7233620119126408,
+       "precision": 0.8181818181818182,
+       "recall": 0.72
+      },
+      "n_overlapping_earlier_label": 62
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 215,
+       "human_interesting": 42,
+       "model_interesting": 42,
+       "agreement": 0.8790697674418605,
+       "one_class": false,
+       "macro_f1": 0.8076658409028351,
+       "kappa": 0.6153316818056703,
+       "precision": 0.6904761904761905,
+       "recall": 0.6904761904761905
+      },
+      "no_earlier_label": {
+       "n": 176,
+       "human_interesting": 29,
+       "model_interesting": 28,
+       "agreement": 0.9034090909090909,
+       "one_class": false,
+       "macro_f1": 0.8220636336604222,
+       "kappa": 0.6441484300666035,
+       "precision": 0.7142857142857143,
+       "recall": 0.6896551724137931
+      },
+      "n_overlapping_earlier_label": 39
+     }
+    }
+   },
+   {
+    "model": "GADF_cnn",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\GADF_cnn.pth",
+    "image": "GADF",
+    "kind": "cnn",
+    "scale_min": 30.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n GADF image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "a Gramian field of the window's own samples: no fixed-sample parameter, but each pixel covers n / 224 samples",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 200,
+       "human_interesting": 71,
+       "model_interesting": 66,
+       "agreement": 0.885,
+       "one_class": false,
+       "macro_f1": 0.872332158419139,
+       "kappa": 0.7448413578877302,
+       "precision": 0.8636363636363636,
+       "recall": 0.8028169014084507
+      },
+      "no_earlier_label": {
+       "n": 135,
+       "human_interesting": 49,
+       "model_interesting": 48,
+       "agreement": 0.8888888888888888,
+       "one_class": false,
+       "macro_f1": 0.8793278112150646,
+       "kappa": 0.758670003575259,
+       "precision": 0.8541666666666666,
+       "recall": 0.8367346938775511
+      },
+      "n_overlapping_earlier_label": 65
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 172,
+       "human_interesting": 48,
+       "model_interesting": 56,
+       "agreement": 0.8372093023255814,
+       "one_class": false,
+       "macro_f1": 0.8070512820512821,
+       "kappa": 0.6150895140664963,
+       "precision": 0.6785714285714286,
+       "recall": 0.7916666666666666
+      },
+      "no_earlier_label": {
+       "n": 112,
+       "human_interesting": 27,
+       "model_interesting": 30,
+       "agreement": 0.8303571428571429,
+       "one_class": false,
+       "macro_f1": 0.7764471057884231,
+       "kappa": 0.5533165407220826,
+       "precision": 0.6333333333333333,
+       "recall": 0.7037037037037037
+      },
+      "n_overlapping_earlier_label": 60
+     }
+    }
+   },
+   {
+    "model": "recurrence_cnn",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\recurrence_cnn.pth",
+    "image": "recurrence",
+    "kind": "cnn",
+    "scale_min": 1.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n recurrence image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "the recurrence image's embedding (m = 3, \u03c4 = 4 samples) is fixed in SAMPLES, so it is not scale-free: the same shape at 1, 10 and 30 minutes gives a different recurrence image",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 82,
+       "human_interesting": 3,
+       "model_interesting": 41,
+       "agreement": 0.5121951219512195,
+       "one_class": false,
+       "macro_f1": 0.3787878787878788,
+       "kappa": 0.024390243902439046,
+       "precision": 0.04878048780487805,
+       "recall": 0.6666666666666666
+      },
+      "no_earlier_label": {
+       "n": 70,
+       "human_interesting": 3,
+       "model_interesting": 34,
+       "agreement": 0.5285714285714286,
+       "one_class": false,
+       "macro_f1": 0.3938598792967725,
+       "kappa": 0.031852472757753714,
+       "precision": 0.058823529411764705,
+       "recall": 0.6666666666666666
+      },
+      "n_overlapping_earlier_label": 12
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 103,
+       "human_interesting": 8,
+       "model_interesting": 73,
+       "agreement": 0.2912621359223301,
+       "one_class": false,
+       "macro_f1": 0.2573827160493827,
+       "kappa": -0.0479442508710801,
+       "precision": 0.0547945205479452,
+       "recall": 0.5
+      },
+      "no_earlier_label": {
+       "n": 93,
+       "human_interesting": 7,
+       "model_interesting": 70,
+       "agreement": 0.25806451612903225,
+       "one_class": false,
+       "macro_f1": 0.23543429048016207,
+       "kappa": -0.03818152402523867,
+       "precision": 0.05714285714285714,
+       "recall": 0.5714285714285714
+      },
+      "n_overlapping_earlier_label": 10
+     }
+    }
+   },
+   {
+    "model": "recurrence_cnn",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\recurrence_cnn.pth",
+    "image": "recurrence",
+    "kind": "cnn",
+    "scale_min": 10.0,
+    "outside_training_scale": false,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n recurrence image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "the recurrence image's embedding (m = 3, \u03c4 = 4 samples) is fixed in SAMPLES, so it is not scale-free: the same shape at 1, 10 and 30 minutes gives a different recurrence image",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 214,
+       "human_interesting": 38,
+       "model_interesting": 26,
+       "agreement": 0.9158878504672897,
+       "one_class": false,
+       "macro_f1": 0.8346497252747253,
+       "kappa": 0.6713310580204778,
+       "precision": 0.8846153846153846,
+       "recall": 0.6052631578947368
+      },
+      "no_earlier_label": {
+       "n": 152,
+       "human_interesting": 25,
+       "model_interesting": 17,
+       "agreement": 0.9078947368421053,
+       "one_class": false,
+       "macro_f1": 0.806615776081425,
+       "kappa": 0.6154680159016989,
+       "precision": 0.8235294117647058,
+       "recall": 0.56
+      },
+      "n_overlapping_earlier_label": 62
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 215,
+       "human_interesting": 42,
+       "model_interesting": 32,
+       "agreement": 0.8976744186046511,
+       "one_class": false,
+       "macro_f1": 0.8204524749468569,
+       "kappa": 0.6422628951747087,
+       "precision": 0.8125,
+       "recall": 0.6190476190476191
+      },
+      "no_earlier_label": {
+       "n": 176,
+       "human_interesting": 29,
+       "model_interesting": 23,
+       "agreement": 0.9204545454545454,
+       "one_class": false,
+       "macro_f1": 0.842051282051282,
+       "kappa": 0.6848298797646455,
+       "precision": 0.8260869565217391,
+       "recall": 0.6551724137931034
+      },
+      "n_overlapping_earlier_label": 39
+     }
+    }
+   },
+   {
+    "model": "recurrence_cnn",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\recurrence_cnn.pth",
+    "image": "recurrence",
+    "kind": "cnn",
+    "scale_min": 30.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n recurrence image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "the recurrence image's embedding (m = 3, \u03c4 = 4 samples) is fixed in SAMPLES, so it is not scale-free: the same shape at 1, 10 and 30 minutes gives a different recurrence image",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 200,
+       "human_interesting": 71,
+       "model_interesting": 69,
+       "agreement": 0.88,
+       "one_class": false,
+       "macro_f1": 0.8681318681318682,
+       "kappa": 0.7362927150862543,
+       "precision": 0.8405797101449275,
+       "recall": 0.8169014084507042
+      },
+      "no_earlier_label": {
+       "n": 135,
+       "human_interesting": 49,
+       "model_interesting": 51,
+       "agreement": 0.8814814814814815,
+       "one_class": false,
+       "macro_f1": 0.8729411764705882,
+       "kappa": 0.7459421312632323,
+       "precision": 0.8235294117647058,
+       "recall": 0.8571428571428571
+      },
+      "n_overlapping_earlier_label": 65
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 172,
+       "human_interesting": 48,
+       "model_interesting": 72,
+       "agreement": 0.7209302325581395,
+       "one_class": false,
+       "macro_f1": 0.6928571428571428,
+       "kappa": 0.3986013986013985,
+       "precision": 0.5,
+       "recall": 0.75
+      },
+      "no_earlier_label": {
+       "n": 112,
+       "human_interesting": 27,
+       "model_interesting": 47,
+       "agreement": 0.6785714285714286,
+       "one_class": false,
+       "macro_f1": 0.6367567567567567,
+       "kappa": 0.29878260869565226,
+       "precision": 0.40425531914893614,
+       "recall": 0.7037037037037037
+      },
+      "n_overlapping_earlier_label": 60
+     }
+    }
+   },
+   {
+    "model": "fusion_cnn_2",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\fusion_cnn_2.pth",
+    "image": "fusion",
+    "kind": "cnn",
+    "scale_min": 1.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n fusion image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "fusion's blue channel is the recurrence image, whose embedding (m = 3, \u03c4 = 4 samples) is fixed in samples: not scale-free",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 82,
+       "human_interesting": 3,
+       "model_interesting": 64,
+       "agreement": 0.23170731707317074,
+       "one_class": false,
+       "macro_f1": 0.2051084782274196,
+       "kappa": -0.01095890410958902,
+       "precision": 0.03125,
+       "recall": 0.6666666666666666
+      },
+      "no_earlier_label": {
+       "n": 70,
+       "human_interesting": 3,
+       "model_interesting": 53,
+       "agreement": 0.2571428571428571,
+       "one_class": false,
+       "macro_f1": 0.22619047619047616,
+       "kappa": -0.010549694614103327,
+       "precision": 0.03773584905660377,
+       "recall": 0.6666666666666666
+      },
+      "n_overlapping_earlier_label": 12
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 103,
+       "human_interesting": 8,
+       "model_interesting": 85,
+       "agreement": 0.21359223300970873,
+       "one_class": false,
+       "macro_f1": 0.20610904938624036,
+       "kappa": -0.01508699355152697,
+       "precision": 0.07058823529411765,
+       "recall": 0.75
+      },
+      "no_earlier_label": {
+       "n": 93,
+       "human_interesting": 7,
+       "model_interesting": 77,
+       "agreement": 0.20430107526881722,
+       "one_class": false,
+       "macro_f1": 0.19677871148459386,
+       "kappa": -0.021978021978021962,
+       "precision": 0.06493506493506493,
+       "recall": 0.7142857142857143
+      },
+      "n_overlapping_earlier_label": 10
+     }
+    }
+   },
+   {
+    "model": "fusion_cnn_2",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\fusion_cnn_2.pth",
+    "image": "fusion",
+    "kind": "cnn",
+    "scale_min": 10.0,
+    "outside_training_scale": false,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n fusion image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "fusion's blue channel is the recurrence image, whose embedding (m = 3, \u03c4 = 4 samples) is fixed in samples: not scale-free",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 214,
+       "human_interesting": 38,
+       "model_interesting": 31,
+       "agreement": 0.9299065420560748,
+       "one_class": false,
+       "macro_f1": 0.87041298292358,
+       "kappa": 0.7413376309427883,
+       "precision": 0.8709677419354839,
+       "recall": 0.7105263157894737
+      },
+      "no_earlier_label": {
+       "n": 152,
+       "human_interesting": 25,
+       "model_interesting": 21,
+       "agreement": 0.9210526315789473,
+       "one_class": false,
+       "macro_f1": 0.846309403437816,
+       "kappa": 0.6930326489397509,
+       "precision": 0.8095238095238095,
+       "recall": 0.68
+      },
+      "n_overlapping_earlier_label": 62
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 215,
+       "human_interesting": 42,
+       "model_interesting": 41,
+       "agreement": 0.9023255813953488,
+       "one_class": false,
+       "macro_f1": 0.8432346099093782,
+       "kappa": 0.6864801055482256,
+       "precision": 0.7560975609756098,
+       "recall": 0.7380952380952381
+      },
+      "no_earlier_label": {
+       "n": 176,
+       "human_interesting": 29,
+       "model_interesting": 27,
+       "agreement": 0.9090909090909091,
+       "one_class": false,
+       "macro_f1": 0.8301158301158301,
+       "kappa": 0.6603136308805789,
+       "precision": 0.7407407407407407,
+       "recall": 0.6896551724137931
+      },
+      "n_overlapping_earlier_label": 39
+     }
+    }
+   },
+   {
+    "model": "fusion_cnn_2",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\fusion_cnn_2.pth",
+    "image": "fusion",
+    "kind": "cnn",
+    "scale_min": 30.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n fusion image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "fusion's blue channel is the recurrence image, whose embedding (m = 3, \u03c4 = 4 samples) is fixed in samples: not scale-free",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 200,
+       "human_interesting": 71,
+       "model_interesting": 75,
+       "agreement": 0.88,
+       "one_class": false,
+       "macro_f1": 0.8705641246898932,
+       "kappa": 0.7412398921832885,
+       "precision": 0.8133333333333334,
+       "recall": 0.8591549295774648
+      },
+      "no_earlier_label": {
+       "n": 135,
+       "human_interesting": 49,
+       "model_interesting": 53,
+       "agreement": 0.8962962962962963,
+       "one_class": false,
+       "macro_f1": 0.8897058823529411,
+       "kappa": 0.7796175373134328,
+       "precision": 0.8301886792452831,
+       "recall": 0.8979591836734694
+      },
+      "n_overlapping_earlier_label": 65
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 172,
+       "human_interesting": 48,
+       "model_interesting": 66,
+       "agreement": 0.8255813953488372,
+       "one_class": false,
+       "macro_f1": 0.8032036613272311,
+       "kappa": 0.6112115732368898,
+       "precision": 0.6363636363636364,
+       "recall": 0.875
+      },
+      "no_earlier_label": {
+       "n": 112,
+       "human_interesting": 27,
+       "model_interesting": 36,
+       "agreement": 0.8303571428571429,
+       "one_class": false,
+       "macro_f1": 0.7902001380262249,
+       "kappa": 0.5837245696400627,
+       "precision": 0.6111111111111112,
+       "recall": 0.8148148148148148
+      },
+      "n_overlapping_earlier_label": 60
+     }
+    }
+   },
+   {
+    "model": "fusion_cnn_3",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\fusion_cnn_3.pth",
+    "image": "fusion",
+    "kind": "cnn",
+    "scale_min": 1.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n fusion image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "fusion's blue channel is the recurrence image, whose embedding (m = 3, \u03c4 = 4 samples) is fixed in samples: not scale-free",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 82,
+       "human_interesting": 3,
+       "model_interesting": 58,
+       "agreement": 0.3048780487804878,
+       "one_class": false,
+       "macro_f1": 0.25608785611968804,
+       "kappa": -0.0042973785990545075,
+       "precision": 0.034482758620689655,
+       "recall": 0.6666666666666666
+      },
+      "no_earlier_label": {
+       "n": 70,
+       "human_interesting": 3,
+       "model_interesting": 47,
+       "agreement": 0.34285714285714286,
+       "one_class": false,
+       "macro_f1": 0.28444444444444444,
+       "kappa": -0.000621504039776266,
+       "precision": 0.0425531914893617,
+       "recall": 0.6666666666666666
+      },
+      "n_overlapping_earlier_label": 12
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 103,
+       "human_interesting": 8,
+       "model_interesting": 80,
+       "agreement": 0.24271844660194175,
+       "one_class": false,
+       "macro_f1": 0.22630970724191063,
+       "kappa": -0.03211716341212744,
+       "precision": 0.0625,
+       "recall": 0.625
+      },
+      "no_earlier_label": {
+       "n": 93,
+       "human_interesting": 7,
+       "model_interesting": 74,
+       "agreement": 0.21505376344086022,
+       "one_class": false,
+       "macro_f1": 0.2017636684303351,
+       "kappa": -0.0449438202247191,
+       "precision": 0.05405405405405406,
+       "recall": 0.5714285714285714
+      },
+      "n_overlapping_earlier_label": 10
+     }
+    }
+   },
+   {
+    "model": "fusion_cnn_3",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\fusion_cnn_3.pth",
+    "image": "fusion",
+    "kind": "cnn",
+    "scale_min": 10.0,
+    "outside_training_scale": false,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n fusion image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "fusion's blue channel is the recurrence image, whose embedding (m = 3, \u03c4 = 4 samples) is fixed in samples: not scale-free",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 214,
+       "human_interesting": 38,
+       "model_interesting": 27,
+       "agreement": 0.9018691588785047,
+       "one_class": false,
+       "macro_f1": 0.8095359186268277,
+       "kappa": 0.6210153482880756,
+       "precision": 0.8148148148148148,
+       "recall": 0.5789473684210527
+      },
+      "no_earlier_label": {
+       "n": 152,
+       "human_interesting": 25,
+       "model_interesting": 17,
+       "agreement": 0.8947368421052632,
+       "one_class": false,
+       "macro_f1": 0.7789894583787713,
+       "kappa": 0.560534875316227,
+       "precision": 0.7647058823529411,
+       "recall": 0.52
+      },
+      "n_overlapping_earlier_label": 62
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 215,
+       "human_interesting": 42,
+       "model_interesting": 32,
+       "agreement": 0.8976744186046511,
+       "one_class": false,
+       "macro_f1": 0.8204524749468569,
+       "kappa": 0.6422628951747087,
+       "precision": 0.8125,
+       "recall": 0.6190476190476191
+      },
+      "no_earlier_label": {
+       "n": 176,
+       "human_interesting": 29,
+       "model_interesting": 22,
+       "agreement": 0.9147727272727273,
+       "one_class": false,
+       "macro_f1": 0.8280242329489935,
+       "kappa": 0.6571428571428571,
+       "precision": 0.8181818181818182,
+       "recall": 0.6206896551724138
+      },
+      "n_overlapping_earlier_label": 39
+     }
+    }
+   },
+   {
+    "model": "fusion_cnn_3",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\fusion_cnn_3.pth",
+    "image": "fusion",
+    "kind": "cnn",
+    "scale_min": 30.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n fusion image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "fusion's blue channel is the recurrence image, whose embedding (m = 3, \u03c4 = 4 samples) is fixed in samples: not scale-free",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 200,
+       "human_interesting": 71,
+       "model_interesting": 70,
+       "agreement": 0.855,
+       "one_class": false,
+       "macro_f1": 0.8411785645828199,
+       "kappa": 0.6823658269441402,
+       "precision": 0.8,
+       "recall": 0.7887323943661971
+      },
+      "no_earlier_label": {
+       "n": 135,
+       "human_interesting": 49,
+       "model_interesting": 52,
+       "agreement": 0.8592592592592593,
+       "one_class": false,
+       "macro_f1": 0.8497275763079266,
+       "kappa": 0.6996135378849982,
+       "precision": 0.7884615384615384,
+       "recall": 0.8367346938775511
+      },
+      "n_overlapping_earlier_label": 65
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 172,
+       "human_interesting": 48,
+       "model_interesting": 58,
+       "agreement": 0.8255813953488372,
+       "one_class": false,
+       "macro_f1": 0.7954653559537022,
+       "kappa": 0.5925457991156033,
+       "precision": 0.6551724137931034,
+       "recall": 0.7916666666666666
+      },
+      "no_earlier_label": {
+       "n": 112,
+       "human_interesting": 27,
+       "model_interesting": 32,
+       "agreement": 0.8125,
+       "one_class": false,
+       "macro_f1": 0.7583975346687211,
+       "kappa": 0.5180327868852459,
+       "precision": 0.59375,
+       "recall": 0.7037037037037037
+      },
+      "n_overlapping_earlier_label": 60
+     }
+    }
+   },
+   {
+    "model": "catch22_rf_prelabeled",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\catch22_rf_prelabeled.joblib",
+    "image": null,
+    "kind": "rf",
+    "scale_min": 1.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is (its n samples) to the catch22 pipeline, P(interesting) = class 1; nothing resampled",
+    "embedding": "catch22's features are length-dependent (autocorrelation lags, histogram counts): not scale-free",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 82,
+       "human_interesting": 3,
+       "model_interesting": 12,
+       "agreement": 0.8658536585365854,
+       "one_class": false,
+       "macro_f1": 0.596420581655481,
+       "kappa": 0.22107081174438703,
+       "precision": 0.16666666666666666,
+       "recall": 0.6666666666666666
+      },
+      "no_earlier_label": {
+       "n": 70,
+       "human_interesting": 3,
+       "model_interesting": 12,
+       "agreement": 0.8428571428571429,
+       "one_class": false,
+       "macro_f1": 0.5893333333333334,
+       "kappa": 0.21267893660531678,
+       "precision": 0.16666666666666666,
+       "recall": 0.6666666666666666
+      },
+      "n_overlapping_earlier_label": 12
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 103,
+       "human_interesting": 8,
+       "model_interesting": 10,
+       "agreement": 0.883495145631068,
+       "one_class": false,
+       "macro_f1": 0.6347517730496454,
+       "kappa": 0.27036599763872454,
+       "precision": 0.3,
+       "recall": 0.375
+      },
+      "no_earlier_label": {
+       "n": 93,
+       "human_interesting": 7,
+       "model_interesting": 6,
+       "agreement": 0.9032258064516129,
+       "one_class": false,
+       "macro_f1": 0.6278345931525122,
+       "kappa": 0.25600000000000006,
+       "precision": 0.3333333333333333,
+       "recall": 0.2857142857142857
+      },
+      "n_overlapping_earlier_label": 10
+     }
+    }
+   },
+   {
+    "model": "catch22_rf_prelabeled",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\catch22_rf_prelabeled.joblib",
+    "image": null,
+    "kind": "rf",
+    "scale_min": 10.0,
+    "outside_training_scale": false,
+    "how_fed": "the raw window as it is (its n samples) to the catch22 pipeline, P(interesting) = class 1; nothing resampled",
+    "embedding": "catch22's features are length-dependent (autocorrelation lags, histogram counts): not scale-free",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 214,
+       "human_interesting": 38,
+       "model_interesting": 23,
+       "agreement": 0.9018691588785047,
+       "one_class": false,
+       "macro_f1": 0.7992584982355831,
+       "kappa": 0.6025119405625333,
+       "precision": 0.8695652173913043,
+       "recall": 0.5263157894736842
+      },
+      "no_earlier_label": {
+       "n": 152,
+       "human_interesting": 25,
+       "model_interesting": 15,
+       "agreement": 0.8947368421052632,
+       "one_class": false,
+       "macro_f1": 0.7696969696969698,
+       "kappa": 0.5437148217636022,
+       "precision": 0.8,
+       "recall": 0.48
+      },
+      "n_overlapping_earlier_label": 62
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 215,
+       "human_interesting": 42,
+       "model_interesting": 16,
+       "agreement": 0.8697674418604651,
+       "one_class": false,
+       "macro_f1": 0.7209862810530219,
+       "kappa": 0.45892504044580235,
+       "precision": 0.9375,
+       "recall": 0.35714285714285715
+      },
+      "no_earlier_label": {
+       "n": 176,
+       "human_interesting": 29,
+       "model_interesting": 12,
+       "agreement": 0.8920454545454546,
+       "one_class": false,
+       "macro_f1": 0.737746059132617,
+       "kappa": 0.48711656441717843,
+       "precision": 0.9166666666666666,
+       "recall": 0.3793103448275862
+      },
+      "n_overlapping_earlier_label": 39
+     }
+    }
+   },
+   {
+    "model": "catch22_rf_prelabeled",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\catch22_rf_prelabeled.joblib",
+    "image": null,
+    "kind": "rf",
+    "scale_min": 30.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is (its n samples) to the catch22 pipeline, P(interesting) = class 1; nothing resampled",
+    "embedding": "catch22's features are length-dependent (autocorrelation lags, histogram counts): not scale-free",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "scored",
+    "reason": null,
+    "exams": {
+     "i_later_block": {
+      "all": {
+       "n": 200,
+       "human_interesting": 71,
+       "model_interesting": 5,
+       "agreement": 0.67,
+       "one_class": false,
+       "macro_f1": 0.46393762183235865,
+       "kappa": 0.08902691511387192,
+       "precision": 1.0,
+       "recall": 0.07042253521126761
+      },
+      "no_earlier_label": {
+       "n": 135,
+       "human_interesting": 49,
+       "model_interesting": 4,
+       "agreement": 0.6666666666666666,
+       "one_class": false,
+       "macro_f1": 0.4717850621685071,
+       "kappa": 0.10173000147863352,
+       "precision": 1.0,
+       "recall": 0.08163265306122448
+      },
+      "n_overlapping_earlier_label": 65
+     },
+     "ii_unseen_channels": {
+      "all": {
+       "n": 172,
+       "human_interesting": 48,
+       "model_interesting": 1,
+       "agreement": 0.7267441860465116,
+       "one_class": false,
+       "macro_f1": 0.4407471463161536,
+       "kappa": 0.0297647623619783,
+       "precision": 1.0,
+       "recall": 0.020833333333333332
+      },
+      "no_earlier_label": {
+       "n": 112,
+       "human_interesting": 27,
+       "model_interesting": 1,
+       "agreement": 0.7678571428571429,
+       "one_class": false,
+       "macro_f1": 0.4693877551020408,
+       "kappa": 0.055158987670344474,
+       "precision": 1.0,
+       "recall": 0.037037037037037035
+      },
+      "n_overlapping_earlier_label": 60
+     }
+    }
+   },
+   {
+    "model": "fusion_cnn",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\fusion_cnn.pth",
+    "image": "fusion",
+    "kind": "cnn",
+    "scale_min": 1.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n fusion image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "fusion's blue channel is the recurrence image, whose embedding (m = 3, \u03c4 = 4 samples) is fixed in samples: not scale-free",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "not scored",
+    "reason": "fusion_cnn.pth has 1 output class, not interesting / not: its softmax is 1.0 for every window (AB measured it calling everything interesting)",
+    "exams": {}
+   },
+   {
+    "model": "fusion_cnn",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\fusion_cnn.pth",
+    "image": "fusion",
+    "kind": "cnn",
+    "scale_min": 10.0,
+    "outside_training_scale": false,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n fusion image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "fusion's blue channel is the recurrence image, whose embedding (m = 3, \u03c4 = 4 samples) is fixed in samples: not scale-free",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "not scored",
+    "reason": "fusion_cnn.pth has 1 output class, not interesting / not: its softmax is 1.0 for every window (AB measured it calling everything interesting)",
+    "exams": {}
+   },
+   {
+    "model": "fusion_cnn",
+    "file": "C:\\Users\\mmebr\\Documents\\CNN\\MODELS\\fusion_cnn.pth",
+    "image": "fusion",
+    "kind": "cnn",
+    "scale_min": 30.0,
+    "outside_training_scale": true,
+    "how_fed": "the raw window as it is: its n samples \u2192 an n \u00d7 n fusion image, resized to 224 \u00d7 224 by the network's own transform; nothing resampled. P(interesting) = class 0, as the window matrix reads it",
+    "embedding": "fusion's blue channel is the recurrence image, whose embedding (m = 3, \u03c4 = 4 samples) is fixed in samples: not scale-free",
+    "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+    "status": "not scored",
+    "reason": "fusion_cnn.pth has 1 output class, not interesting / not: its softmax is 1.0 for every window (AB measured it calling everything interesting)",
+    "exams": {}
+   }
+  ],
+  "n_labelled": 986,
+  "n_overlapping_earlier_label": 248,
+  "contamination": "very likely trained on M2_aug's 2025\u201326 manual labels (no provenance was recorded): a blind window that overlaps one of those labels is not unseen for it. 'all' scores every blind-labelled window; 'no earlier label' only the windows that overlap no earlier human label (every M2_concat_fs1 window qualifies)",
+  "training_scale_min": 10.0
+ }
+}

@@ -1,0 +1,57 @@
+\documentclass[12pt,openany,a4paper]{book}
+\input{preamble}
+
+\begin{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Front matter %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\let\origcleardoublepage\cleardoublepage
+\let\cleardoublepage\clearpage
+\frontmatter
+\let\cleardoublepage\origcleardoublepage
+
+\input{frontmatter/titlepage}
+\input{frontmatter/letter}
+\input{frontmatter/declaration}
+\input{frontmatter/ai_statement}
+\input{frontmatter/acknowledgements}
+\input{frontmatter/abstract}
+
+\tableofcontents
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
+\listoftables
+\addcontentsline{toc}{chapter}{List of Tables}
+\cleardoublepage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Main matter %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\mainmatter
+\input{chapters/01_introduction}
+\input{chapters/02_background}
+\input{chapters/03_theory}
+\input{chapters/04_mycowave}
+\input{chapters/05_methodology}
+\input{chapters/06_rq1_detectors}
+\input{chapters/07_rq2_seeds}
+\input{chapters/08_rq3_classifiers}
+\input{chapters/09_events}
+\input{chapters/10_roundb}
+\input{chapters/11_discussion}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Bibliography %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Bibliography}
+\bibliographystyle{IEEEtran}
+\bibliography{bib/thesis}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Appendices %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\appendix
+\input{appendices/A_repository}
+\input{appendices/B_blocks}
+\input{appendices/C_vocabulary}
+\input{appendices/D_numbers_ledger}
+\input{appendices/E_claims_ledger}
+\input{appendices/F_exam_record}
+\input{appendices/G_decision_log}
+
+\end{document}

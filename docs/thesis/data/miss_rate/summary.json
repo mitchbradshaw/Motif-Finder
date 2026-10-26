@@ -1,0 +1,187 @@
+{
+ "labels": {
+  "not_interesting": 8773,
+  "interesting": 2333,
+  "artifact": 128
+ },
+ "source": "annotations.source = 'imported_10min' (created 2026-08-03 by the importer; the 2025-26 manual 10-minute window labels, 600 samples at 1 Hz)",
+ "n_variants": 46,
+ "union_all": {
+  "variants": 46,
+  "all_windows": {
+   "n_interesting": 2333,
+   "n_not": 8773,
+   "interesting_touched_by_none": 0,
+   "share_interesting_untouched": 0.0,
+   "share_not_untouched": 0.00011398609369656902
+  },
+  "windows_on_CH1_CH2": {
+   "n_interesting": 272,
+   "n_not": 1058,
+   "interesting_touched_by_none": 0,
+   "share_interesting_untouched": 0.0,
+   "share_not_untouched": 0.0
+  }
+ },
+ "union_no_cnn": {
+  "variants": 34,
+  "all_windows": {
+   "n_interesting": 2333,
+   "n_not": 8773,
+   "interesting_touched_by_none": 18,
+   "share_interesting_untouched": 0.007715387912558937,
+   "share_not_untouched": 0.04639234013450359
+  },
+  "windows_on_CH1_CH2": {
+   "n_interesting": 272,
+   "n_not": 1058,
+   "interesting_touched_by_none": 0,
+   "share_interesting_untouched": 0.0,
+   "share_not_untouched": 0.0
+  }
+ },
+ "union_no_1min_cnn": {
+  "variants": 42,
+  "all_windows": {
+   "n_interesting": 2333,
+   "n_not": 8773,
+   "interesting_touched_by_none": 1,
+   "share_interesting_untouched": 0.0004286326618088298,
+   "share_not_untouched": 0.02541889889433489
+  },
+  "windows_on_CH1_CH2": {
+   "n_interesting": 272,
+   "n_not": 1058,
+   "interesting_touched_by_none": 0,
+   "share_interesting_untouched": 0.0,
+   "share_not_untouched": 0.0
+  }
+ },
+ "union_selective": {
+  "variants": 9,
+  "all_windows": {
+   "n_interesting": 2333,
+   "n_not": 8773,
+   "interesting_touched_by_none": 2011,
+   "share_interesting_untouched": 0.8619802828975568,
+   "share_not_untouched": 0.9753790037615411
+  },
+  "windows_on_CH1_CH2": {
+   "n_interesting": 272,
+   "n_not": 1058,
+   "interesting_touched_by_none": 225,
+   "share_interesting_untouched": 0.8272058823529411,
+   "share_not_untouched": 0.9546313799621928
+  }
+ },
+ "untouched_interesting_no_cnn": [
+  {
+   "id": 310,
+   "recording_id": 3,
+   "s": 1923000,
+   "e": 1923600
+  },
+  {
+   "id": 352,
+   "recording_id": 3,
+   "s": 1313400,
+   "e": 1314000
+  },
+  {
+   "id": 605,
+   "recording_id": 3,
+   "s": 1413000,
+   "e": 1413600
+  },
+  {
+   "id": 713,
+   "recording_id": 3,
+   "s": 2131200,
+   "e": 2131800
+  },
+  {
+   "id": 985,
+   "recording_id": 3,
+   "s": 2036200,
+   "e": 2036800
+  },
+  {
+   "id": 738,
+   "recording_id": 4,
+   "s": 2013000,
+   "e": 2013600
+  },
+  {
+   "id": 747,
+   "recording_id": 4,
+   "s": 2230800,
+   "e": 2231400
+  },
+  {
+   "id": 1406,
+   "recording_id": 4,
+   "s": 285800,
+   "e": 286400
+  },
+  {
+   "id": 1433,
+   "recording_id": 4,
+   "s": 2475000,
+   "e": 2475600
+  },
+  {
+   "id": 2041,
+   "recording_id": 4,
+   "s": 1131200,
+   "e": 1131800
+  },
+  {
+   "id": 481,
+   "recording_id": 5,
+   "s": 675400,
+   "e": 676000
+  },
+  {
+   "id": 1639,
+   "recording_id": 5,
+   "s": 2206200,
+   "e": 2206800
+  },
+  {
+   "id": 2043,
+   "recording_id": 7,
+   "s": 186000,
+   "e": 186600
+  },
+  {
+   "id": 221,
+   "recording_id": 9,
+   "s": 2328200,
+   "e": 2328800
+  },
+  {
+   "id": 1090,
+   "recording_id": 9,
+   "s": 2421200,
+   "e": 2421800
+  },
+  {
+   "id": 421,
+   "recording_id": 10,
+   "s": 873000,
+   "e": 873600
+  },
+  {
+   "id": 829,
+   "recording_id": 12,
+   "s": 1335200,
+   "e": 1335800
+  },
+  {
+   "id": 1474,
+   "recording_id": 15,
+   "s": 945000,
+   "e": 945600
+  }
+ ]
+}

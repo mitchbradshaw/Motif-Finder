@@ -1,0 +1,47 @@
+\chapter{Morphology tag vocabulary}
+\label{app:vocab}
+
+The following controlled vocabulary of shape names was developed over the course of manual annotation. It is recorded here in full because it is an output of the project in its own right, and because the thesis treats it as a hypothesis under test rather than as ground truth (Section~\ref{sec:position}).
+
+The vocabulary is descriptive, not interpretive: each name refers to a visual morphology in the recorded trace and carries no claim about what produces it. Names were coined during annotation and retained where they proved stable across sessions.
+
+\begin{table}[htbp]
+\caption{Element tags (\texttt{Working/database/vocabulary.py}), with instance counts. [Descriptions, durations and thumbnails to fill.]}
+\label{tab:vocab}
+\small
+\begin{tabularx}{\textwidth}{p{3.0cm} X p{1.6cm} p{1.4cm} p{1.4cm}}
+\toprule
+\textbf{Tag} & \textbf{Morphology} & \textbf{Duration} & \textbf{Human} & \textbf{Library}\\
+\midrule
+sharkfin & & & 17 & 772\\
+crestedwave & & & 2 & \\
+furrycaterpillar & & & 2 & \\
+rollinghill & & & & \\
+halfdome & & & 3 & \\
+ridge & & & 2 & \\
+trough & & & & 2,827\\
+sharp\_trough & & & & \\
+spike & & & & \\
+spore\_drop & & & & \\
+stegasaurus & & & & \\
+tonic\_bursting & & & & \\
+cycle\_sequence & & & & \\
+other & & & & \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{instructions}
+Fill in the table:
+\begin{itemize}
+  \item one line of morphology per tag, in your words;
+  \item a typical duration range;
+  \item a thumbnail. Good sources: \src{Plots/family_search/catalogue_M2aug/} (sharkfin, crestedwave, halfdome,
+        furrycaterpillar/rollinghill) and \src{Plots/drop_motifs/}. No thumbnails exist for spore\_drop, stegasaurus or
+        tonic\_bursting;
+  \item counts. The human-side counts are the catalogue spreadsheet's 34 element-tag links (early October); the Library
+        counts are machine-side (\src{docs/RESEARCH_READINESS.md}). Recount both at the freeze.
+\end{itemize}
+Mark which tags were added late and therefore have low counts. Say what Chapter~\ref{ch:events} found about which tags
+have a measurable counterpart.
+\end{instructions}

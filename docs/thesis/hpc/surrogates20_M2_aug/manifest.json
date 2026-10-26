@@ -1,0 +1,270 @@
+{
+  "source": "M2_aug_concat_fs1.mat",
+  "span": [
+    0,
+    2595600
+  ],
+  "jobs": [
+    {
+      "label": "drop_detection_v1",
+      "template": "drop_detection_v1",
+      "specHash": "0c9abde6bf64",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/surrogates20_M2_aug/drop_detection_v1_16ch_0-2595600_0c9abd.chain.json",
+      "out": "docs/thesis/hpc/surrogates20_M2_aug/drop_detection_v1_16ch_0-2595600_0c9abd_out",
+      "channels": [
+        "CH1_A1",
+        "CH2_A1",
+        "CH3_A2",
+        "CH4_A2",
+        "CH5_B1",
+        "CH6_B1",
+        "CH7_B2",
+        "CH8_B2",
+        "CH9_C1",
+        "CH10_C1",
+        "CH11_C2",
+        "CH12_C2",
+        "CH13_D1",
+        "CH14_D1",
+        "CH15_D2",
+        "CH16_D2"
+      ],
+      "draws": 20,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "drop_detection_v1__slope_sigma_4",
+      "template": "drop_detection_v1__slope_sigma_4",
+      "specHash": "e6f9baf8cc3f",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/surrogates20_M2_aug/drop_detection_v1__slope_sigma_4_16ch_0-2595600_e6f9ba.chain.json",
+      "out": "docs/thesis/hpc/surrogates20_M2_aug/drop_detection_v1__slope_sigma_4_16ch_0-2595600_e6f9ba_out",
+      "channels": [
+        "CH1_A1",
+        "CH2_A1",
+        "CH3_A2",
+        "CH4_A2",
+        "CH5_B1",
+        "CH6_B1",
+        "CH7_B2",
+        "CH8_B2",
+        "CH9_C1",
+        "CH10_C1",
+        "CH11_C2",
+        "CH12_C2",
+        "CH13_D1",
+        "CH14_D1",
+        "CH15_D2",
+        "CH16_D2"
+      ],
+      "draws": 20,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "drop_detection_v5__same_fraction_0p7",
+      "template": "drop_detection_v5__same_fraction_0p7",
+      "specHash": "ffe0c77ada07",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/surrogates20_M2_aug/drop_detection_v5__same_fraction_0p7_16ch_0-2595600_ffe0c7.chain.json",
+      "out": "docs/thesis/hpc/surrogates20_M2_aug/drop_detection_v5__same_fraction_0p7_16ch_0-2595600_ffe0c7_out",
+      "channels": [
+        "CH1_A1",
+        "CH2_A1",
+        "CH3_A2",
+        "CH4_A2",
+        "CH5_B1",
+        "CH6_B1",
+        "CH7_B2",
+        "CH8_B2",
+        "CH9_C1",
+        "CH10_C1",
+        "CH11_C2",
+        "CH12_C2",
+        "CH13_D1",
+        "CH14_D1",
+        "CH15_D2",
+        "CH16_D2"
+      ],
+      "draws": 20,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "wavelet_encoded__level_5",
+      "template": "wavelet_encoded__level_5",
+      "specHash": "9e9dfc7570e4",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/surrogates20_M2_aug/wavelet_encoded__level_5_16ch_0-2595600_9e9dfc.chain.json",
+      "out": "docs/thesis/hpc/surrogates20_M2_aug/wavelet_encoded__level_5_16ch_0-2595600_9e9dfc_out",
+      "channels": [
+        "CH1_A1",
+        "CH2_A1",
+        "CH3_A2",
+        "CH4_A2",
+        "CH5_B1",
+        "CH6_B1",
+        "CH7_B2",
+        "CH8_B2",
+        "CH9_C1",
+        "CH10_C1",
+        "CH11_C2",
+        "CH12_C2",
+        "CH13_D1",
+        "CH14_D1",
+        "CH15_D2",
+        "CH16_D2"
+      ],
+      "draws": 20,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_gadf_10min",
+      "template": "cnn_gadf_10min",
+      "specHash": "2613f163d758",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/surrogates20_M2_aug/cnn_gadf_10min_16ch_0-2595600_2613f1.chain.json",
+      "out": "docs/thesis/hpc/surrogates20_M2_aug/cnn_gadf_10min_16ch_0-2595600_2613f1_out",
+      "channels": [
+        "CH1_A1",
+        "CH2_A1",
+        "CH3_A2",
+        "CH4_A2",
+        "CH5_B1",
+        "CH6_B1",
+        "CH7_B2",
+        "CH8_B2",
+        "CH9_C1",
+        "CH10_C1",
+        "CH11_C2",
+        "CH12_C2",
+        "CH13_D1",
+        "CH14_D1",
+        "CH15_D2",
+        "CH16_D2"
+      ],
+      "draws": 20,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_recurrence_10min",
+      "template": "cnn_recurrence_10min",
+      "specHash": "69aa5daa5cb8",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/surrogates20_M2_aug/cnn_recurrence_10min_16ch_0-2595600_69aa5d.chain.json",
+      "out": "docs/thesis/hpc/surrogates20_M2_aug/cnn_recurrence_10min_16ch_0-2595600_69aa5d_out",
+      "channels": [
+        "CH1_A1",
+        "CH2_A1",
+        "CH3_A2",
+        "CH4_A2",
+        "CH5_B1",
+        "CH6_B1",
+        "CH7_B2",
+        "CH8_B2",
+        "CH9_C1",
+        "CH10_C1",
+        "CH11_C2",
+        "CH12_C2",
+        "CH13_D1",
+        "CH14_D1",
+        "CH15_D2",
+        "CH16_D2"
+      ],
+      "draws": 20,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    }
+  ],
+  "refused": [],
+  "packs": [
+    {
+      "name": "th20_cpu1",
+      "script": "docs/thesis/hpc/surrogates20_M2_aug/th20_cpu1.sh",
+      "tasks": 32,
+      "parallel": 8,
+      "estimateCoreS": 3000
+    },
+    {
+      "name": "th20_cpu2",
+      "script": "docs/thesis/hpc/surrogates20_M2_aug/th20_cpu2.sh",
+      "tasks": 32,
+      "parallel": 8,
+      "estimateCoreS": 3000
+    },
+    {
+      "name": "th20_gpuA",
+      "script": "docs/thesis/hpc/surrogates20_M2_aug/th20_gpuA.sh",
+      "tasks": 16,
+      "parallel": 8,
+      "estimateCoreS": 3520
+    },
+    {
+      "name": "th20_gpuB",
+      "script": "docs/thesis/hpc/surrogates20_M2_aug/th20_gpuB.sh",
+      "tasks": 16,
+      "parallel": 8,
+      "estimateCoreS": 3520
+    }
+  ],
+  "inputs": [
+    "DATA/derived/channels/M2_aug_concat_fs1/CH0.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH1.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH10.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH11.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH12.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH13.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH14.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH15.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH2.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH3.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH4.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH5.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH6.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH7.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH8.npy",
+    "DATA/derived/channels/M2_aug_concat_fs1/CH9.npy"
+  ],
+  "draws": 20,
+  "note": "prepared by scripts/thesis/surrogates20_bundle.py on a sandbox copy; NOT submitted. Estimates per pack are the overnight script's balancing figures (real + 1 draw, measured on a loaded PC, halved) scaled by the chain's run count; see the findings file"
+}

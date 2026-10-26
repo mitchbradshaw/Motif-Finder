@@ -1,0 +1,2167 @@
+{
+ "recordings": {
+  "files_excluding_M4": {
+   "M2_aug_concat_fs1.mat": {
+    "channels": 16,
+    "fs": 1.0,
+    "hours": 721.0,
+    "units": "V",
+    "active": 1,
+    "species": "oyster (Pleurotus ostreatus)"
+   },
+   "M2_aug_concat_fs2.mat": {
+    "channels": 16,
+    "fs": 2.0,
+    "hours": 708.9998611111112,
+    "units": "V",
+    "active": 1,
+    "species": null
+   },
+   "M2_concat_fs1.mat": {
+    "channels": 16,
+    "fs": 1.0,
+    "hours": 282.4866666666667,
+    "units": "V",
+    "active": 1,
+    "species": null
+   },
+   "Mushroom_260720_0509_4hrs_CH14_fs1.mat": {
+    "channels": 1,
+    "fs": 1.0,
+    "hours": 4.000277777777778,
+    "units": "V",
+    "active": 1,
+    "species": "lion's mane (Hericium erinaceus)"
+   },
+   "Fig2A_dt0p1.csv": {
+    "channels": 5,
+    "fs": 10.0,
+    "hours": 0.3333611111111111,
+    "units": "V",
+    "active": 1,
+    "species": null
+   },
+   "L_LM_Jul_26_J_raw.mat": {
+    "channels": 5,
+    "fs": 10.0,
+    "hours": 635.91025,
+    "units": "mV",
+    "active": 1,
+    "species": "lion's mane (Hericium erinaceus)"
+   },
+   "M1.mat": {
+    "channels": 13,
+    "fs": 10.0,
+    "hours": 301.90555555555557,
+    "units": null,
+    "active": 0,
+    "species": null
+   },
+   "M100.mat": {
+    "channels": 13,
+    "fs": 10.0,
+    "hours": 301.90555555555557,
+    "units": null,
+    "active": 0,
+    "species": null
+   },
+   "M101_t.mat": {
+    "channels": 13,
+    "fs": 10.0,
+    "hours": 301.6676388888889,
+    "units": null,
+    "active": 0,
+    "species": null
+   },
+   "MJu26a.mat": {
+    "channels": 16,
+    "fs": 7.246376815848827,
+    "hours": 564.3756096686335,
+    "units": "V",
+    "active": 1,
+    "species": "lion's mane (Hericium erinaceus)"
+   },
+   "Schizophyllum commune.txt": {
+    "channels": 7,
+    "fs": 1.0,
+    "hours": 73.24638888888889,
+    "units": "mV",
+    "active": 1,
+    "species": "split gill (Schizophyllum commune)"
+   },
+   "record-mfs2-2026-09-01-14-31-11.csv": {
+    "channels": 4,
+    "fs": 0.8,
+    "hours": 0.265625,
+    "units": "mV",
+    "active": 1,
+    "species": null
+   },
+   "record-mfs2-2026-09-01-15-22-51.csv": {
+    "channels": 4,
+    "fs": 0.8,
+    "hours": 17.445138888888888,
+    "units": "mV",
+    "active": 1,
+    "species": null
+   },
+   "Cordyceps militari.txt": {
+    "channels": 7,
+    "fs": 1.0,
+    "hours": 527.8180555555556,
+    "units": "mV",
+    "active": 1,
+    "species": "caterpillar fungus (Cordyceps militaris)"
+   },
+   "Enoki fungi Flammulina velutipes.txt": {
+    "channels": 7,
+    "fs": 1.0,
+    "hours": 299.565,
+    "units": "mV",
+    "active": 1,
+    "species": "enoki (Flammulina velutipes)"
+   },
+   "record-mfs2-2026-09-02-08-49-40.csv": {
+    "channels": 4,
+    "fs": 0.8,
+    "hours": 8.296180555555555,
+    "units": "mV",
+    "active": 1,
+    "species": null
+   },
+   "record-mfs2-2026-09-08-09-49-38.csv": {
+    "channels": 4,
+    "fs": 0.8,
+    "hours": 29.297916666666666,
+    "units": "mV",
+    "active": 1,
+    "species": null
+   },
+   "LM_fs2.mat": {
+    "channels": 4,
+    "fs": 2.0,
+    "hours": 480.0,
+    "units": "V",
+    "active": 1,
+    "species": null
+   },
+   "CO_fs2.mat": {
+    "channels": 4,
+    "fs": 2.0,
+    "hours": 480.0,
+    "units": "V",
+    "active": 1,
+    "species": null
+   },
+   "L_LM_Jul_26_J_raw_fs2.mat": {
+    "channels": 5,
+    "fs": 2.0,
+    "hours": 635.9101388888889,
+    "units": "mV",
+    "active": 1,
+    "species": null
+   },
+   "MJu26a_fs10.mat": {
+    "channels": 16,
+    "fs": 10.0,
+    "hours": 635.91025,
+    "units": "V",
+    "active": 1,
+    "species": null
+   },
+   "SH.mat": {
+    "channels": 4,
+    "fs": 10.0,
+    "hours": 480.0000277777778,
+    "units": "V",
+    "active": 1,
+    "species": null
+   },
+   "SO.mat": {
+    "channels": 4,
+    "fs": 10.0,
+    "hours": 480.0000277777778,
+    "units": "V",
+    "active": 1,
+    "species": null
+   },
+   "F2B.mat": {
+    "channels": 5,
+    "fs": 10.0,
+    "hours": 144.00002777777777,
+    "units": "mV",
+    "active": 1,
+    "species": null
+   },
+   "L_R_Aug_26_PD_raw.mat": {
+    "channels": 13,
+    "fs": 10.0,
+    "hours": 106.9875,
+    "units": "V",
+    "active": 1,
+    "species": null
+   }
+  },
+  "n_files_excluding_M4": 25,
+  "n_active_files_excluding_M4": 22,
+  "n_active_channels_excluding_M4": 167,
+  "species_declared": [
+   "caterpillar fungus (Cordyceps militaris)",
+   "enoki (Flammulina velutipes)",
+   "lion's mane (Hericium erinaceus)",
+   "oyster (Pleurotus ostreatus)",
+   "split gill (Schizophyllum commune)"
+  ],
+  "active_channel_hours_excluding_M4": 69285.6,
+  "note": "M4_aug_concat_fs1 (the held-out exam) is left out of every figure here; add 1 file / 16 channels for the corpus as registered"
+ },
+ "human_labels": {
+  "cutoff": "2026-10-26T00:00:00",
+  "annotations_by_source_verdict": [
+   {
+    "source": "blind_test_review",
+    "verdict": "artifact",
+    "n": 13
+   },
+   {
+    "source": "blind_test_review",
+    "verdict": "interesting",
+    "n": 235
+   },
+   {
+    "source": "blind_test_review",
+    "verdict": "not_interesting",
+    "n": 849
+   },
+   {
+    "source": "blind_test_review",
+    "verdict": "unsure",
+    "n": 3
+   },
+   {
+    "source": "excel_catalog",
+    "verdict": "interesting",
+    "n": 18
+   },
+   {
+    "source": "excel_catalog",
+    "verdict": "not_interesting",
+    "n": 3
+   },
+   {
+    "source": "excel_catalog",
+    "verdict": "seed",
+    "n": 10
+   },
+   {
+    "source": "explore.take_for_review",
+    "verdict": "seed",
+    "n": 1
+   },
+   {
+    "source": "imported_10min",
+    "verdict": "artifact",
+    "n": 128
+   },
+   {
+    "source": "imported_10min",
+    "verdict": "interesting",
+    "n": 2333
+   },
+   {
+    "source": "imported_10min",
+    "verdict": "not_interesting",
+    "n": 8773
+   },
+   {
+    "source": "library_review",
+    "verdict": "artifact",
+    "n": 1
+   },
+   {
+    "source": "library_review",
+    "verdict": "interesting",
+    "n": 210
+   },
+   {
+    "source": "library_review",
+    "verdict": "not_interesting",
+    "n": 35
+   },
+   {
+    "source": "library_review",
+    "verdict": "unsure",
+    "n": 1
+   },
+   {
+    "source": "manual_ui",
+    "verdict": "interesting",
+    "n": 3
+   },
+   {
+    "source": "review-span-edit",
+    "verdict": "interesting",
+    "n": 2
+   },
+   {
+    "source": "review-span-edit",
+    "verdict": "not_interesting",
+    "n": 1
+   }
+  ],
+  "annotations_by_source": {
+   "blind_test_review": 1100,
+   "excel_catalog": 31,
+   "explore.take_for_review": 1,
+   "imported_10min": 11234,
+   "library_review": 247,
+   "manual_ui": 3,
+   "review-span-edit": 3
+  },
+  "annotations_total": 12619,
+  "adjudications_own": 2766,
+  "adjudications_carried_copies": 35073,
+  "adjudications_by_verdict": [
+   {
+    "verdict": "artifact",
+    "own": 0,
+    "n": 743
+   },
+   {
+    "verdict": "interesting",
+    "own": 0,
+    "n": 20793
+   },
+   {
+    "verdict": "not_interesting",
+    "own": 0,
+    "n": 12570
+   },
+   {
+    "verdict": "unsure",
+    "own": 0,
+    "n": 967
+   },
+   {
+    "verdict": "artifact",
+    "own": 1,
+    "n": 26
+   },
+   {
+    "verdict": "interesting",
+    "own": 1,
+    "n": 1370
+   },
+   {
+    "verdict": "not_interesting",
+    "own": 1,
+    "n": 1227
+   },
+   {
+    "verdict": "seed",
+    "own": 1,
+    "n": 39
+   },
+   {
+    "verdict": "unsure",
+    "own": 1,
+    "n": 104
+   }
+  ],
+  "window_verdicts": 0,
+  "total_own_human_judgements": 15385,
+  "total_if_carried_copies_counted": 50458
+ },
+ "seed_and_demo_run_groups": {
+  "9": {
+   "detections": 263,
+   "own": {
+    "interesting": 248,
+    "not_interesting": 7,
+    "seed": 8
+   },
+   "carried": {},
+   "accepted": 256,
+   "not": 7,
+   "judged_any_word": 263,
+   "precision_yes_over_yes_no": 0.973384030418251,
+   "precision_artifact_as_not": 0.973384030418251
+  },
+  "12": {
+   "detections": 115,
+   "own": {
+    "interesting": 91,
+    "not_interesting": 9,
+    "seed": 3,
+    "unsure": 1
+   },
+   "carried": {},
+   "accepted": 94,
+   "not": 9,
+   "judged_any_word": 104,
+   "precision_yes_over_yes_no": 0.912621359223301,
+   "precision_artifact_as_not": 0.912621359223301
+  },
+  "18": {
+   "detections": 9,
+   "own": {},
+   "carried": {},
+   "accepted": 0,
+   "not": 0,
+   "judged_any_word": 0,
+   "precision_yes_over_yes_no": null,
+   "precision_artifact_as_not": null
+  },
+  "66": {
+   "detections": 3200,
+   "own": {},
+   "carried": {
+    "interesting": 11,
+    "not_interesting": 4
+   },
+   "accepted": 0,
+   "not": 0,
+   "judged_any_word": 0,
+   "precision_yes_over_yes_no": null,
+   "precision_artifact_as_not": null
+  },
+  "67": {
+   "detections": 3200,
+   "own": {
+    "artifact": 1,
+    "interesting": 47,
+    "not_interesting": 7,
+    "seed": 4,
+    "unsure": 2
+   },
+   "carried": {
+    "not_interesting": 1
+   },
+   "accepted": 51,
+   "not": 7,
+   "judged_any_word": 61,
+   "precision_yes_over_yes_no": 0.8793103448275862,
+   "precision_artifact_as_not": 0.864406779661017
+  },
+  "308": {
+   "detections": 365,
+   "own": {},
+   "carried": {
+    "interesting": 3
+   },
+   "accepted": 0,
+   "not": 0,
+   "judged_any_word": 0,
+   "precision_yes_over_yes_no": null,
+   "precision_artifact_as_not": null
+  },
+  "309": {
+   "detections": 155,
+   "own": {},
+   "carried": {},
+   "accepted": 0,
+   "not": 0,
+   "judged_any_word": 0,
+   "precision_yes_over_yes_no": null,
+   "precision_artifact_as_not": null
+  }
+ },
+ "ladder": {
+  "CO_fs2_d8362297": {
+   "answered": 282,
+   "unsure": 8,
+   "pending": 0,
+   "queue_id": 28,
+   "created_at": "2026-10-20T21:20:45+00:00",
+   "groups": {
+    "all": {
+     "n_events": 229807,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 229807,
+     "n_sampled": 282,
+     "precision": 0.09755600024477823,
+     "ci": [
+      0.06505776125281841,
+      0.134442634760619
+     ]
+    },
+    "agree:1-2": {
+     "n_events": 42989,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 42989,
+     "n_sampled": 39,
+     "precision": 0.05128205128205128,
+     "ci": [
+      0.0,
+      0.1282051282051282
+     ]
+    },
+    "agree:3-4": {
+     "n_events": 83960,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 83960,
+     "n_sampled": 39,
+     "precision": 0.025641025641025633,
+     "ci": [
+      0.0,
+      0.07692307692307691
+     ]
+    },
+    "agree:5-6": {
+     "n_events": 63517,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 63517,
+     "n_sampled": 44,
+     "precision": 0.07409788153740147,
+     "ci": [
+      0.0003626320527380544,
+      0.1702827048539166
+     ]
+    },
+    "agree:7-8": {
+     "n_events": 27030,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 27030,
+     "n_sampled": 75,
+     "precision": 0.3124870168743566,
+     "ci": [
+      0.1969810721723873,
+      0.4344987564422752
+     ]
+    },
+    "agree:9+": {
+     "n_events": 12311,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 12311,
+     "n_sampled": 85,
+     "precision": 0.3998770276986561,
+     "ci": [
+      0.2619953305105431,
+      0.5408589145544118
+     ]
+    },
+    "family:BEADs_invert_detect_v1": {
+     "n_events": 1482,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 1482,
+     "n_sampled": 28,
+     "precision": 0.7671325824399511,
+     "ci": [
+      0.5482001058675092,
+      0.9428892196314076
+     ]
+    },
+    "family:OASIS_Deconvolution": {
+     "n_events": 27181,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 27181,
+     "n_sampled": 56,
+     "precision": 0.39914777320190986,
+     "ci": [
+      0.23866081719440366,
+      0.6096167945905033
+     ]
+    },
+    "family:Wavelet_detection_prototype": {
+     "n_events": 20944,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 20944,
+     "n_sampled": 28,
+     "precision": 0.11810428371866327,
+     "ci": [
+      0.012295469337616192,
+      0.2643099410695643
+     ]
+    },
+    "family:cnn_10min": {
+     "n_events": 1302,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 1302,
+     "n_sampled": 8,
+     "precision": 1.0,
+     "ci": [
+      1.0,
+      1.0
+     ]
+    },
+    "family:cnn_60min": {
+     "n_events": 483,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 483,
+     "n_sampled": 1,
+     "precision": 1.0,
+     "ci": [
+      1.0,
+      1.0
+     ]
+    },
+    "family:deconvolved_troughs": {
+     "n_events": 91013,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 91013,
+     "n_sampled": 112,
+     "precision": 0.06935209314263809,
+     "ci": [
+      0.02232120611839727,
+      0.1353475330534107
+     ]
+    },
+    "family:drop_detection_v1": {
+     "n_events": 100,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 100,
+     "n_sampled": 15,
+     "precision": 0.9333333333333335,
+     "ci": [
+      0.8,
+      1.0
+     ]
+    },
+    "family:drop_detection_v5": {
+     "n_events": 191,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 191,
+     "n_sampled": 18,
+     "precision": 1.0,
+     "ci": [
+      1.0,
+      1.0
+     ]
+    },
+    "family:matrix_profile": {
+     "n_events": 89220,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 89220,
+     "n_sampled": 48,
+     "precision": 0.0,
+     "ci": [
+      0.0,
+      0.0
+     ]
+    },
+    "family:noise_threshold": {
+     "n_events": 4646,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 4646,
+     "n_sampled": 16,
+     "precision": 0.2697566164180179,
+     "ci": [
+      0.044782566831052015,
+      0.8331021622715412
+     ]
+    },
+    "family:signal_threshold": {
+     "n_events": 4606,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 4606,
+     "n_sampled": 15,
+     "precision": 0.4381946369494639,
+     "ci": [
+      0.1735943622940527,
+      0.7267857867329579
+     ]
+    },
+    "family:symbol_search": {
+     "n_events": 172,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 172,
+     "n_sampled": 14,
+     "precision": 0.5,
+     "ci": [
+      0.21428571428571427,
+      0.7857142857142856
+     ]
+    },
+    "family:wavelet_encoded": {
+     "n_events": 452,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 452,
+     "n_sampled": 15,
+     "precision": 1.0,
+     "ci": [
+      1.0,
+      1.0
+     ]
+    }
+   }
+  },
+  "LM_fs2_11d7e7e9": {
+   "answered": 282,
+   "unsure": 8,
+   "pending": 0,
+   "queue_id": 28,
+   "created_at": "2026-10-20T21:20:48+00:00",
+   "groups": {
+    "all": {
+     "n_events": 295239,
+     "n_judged_before": 17,
+     "positives_before": 17,
+     "n_unjudged": 295222,
+     "n_sampled": 282,
+     "precision": 0.1600178634462723,
+     "ci": [
+      0.11973199720354565,
+      0.20469035255688822
+     ]
+    },
+    "agree:1-2": {
+     "n_events": 32350,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 32350,
+     "n_sampled": 40,
+     "precision": 0.0,
+     "ci": [
+      0.0,
+      0.0
+     ]
+    },
+    "agree:3-4": {
+     "n_events": 92410,
+     "n_judged_before": 1,
+     "positives_before": 1,
+     "n_unjudged": 92409,
+     "n_sampled": 42,
+     "precision": 0.025517600269686372,
+     "ci": [
+      1.076017015415737e-05,
+      0.07693309631895745
+     ]
+    },
+    "agree:5-6": {
+     "n_events": 85945,
+     "n_judged_before": 5,
+     "positives_before": 5,
+     "n_unjudged": 85940,
+     "n_sampled": 50,
+     "precision": 0.13274130347774532,
+     "ci": [
+      0.04605973464603678,
+      0.2376445967164501
+     ]
+    },
+    "agree:7-8": {
+     "n_events": 55302,
+     "n_judged_before": 7,
+     "positives_before": 7,
+     "n_unjudged": 55295,
+     "n_sampled": 59,
+     "precision": 0.3068248791308877,
+     "ci": [
+      0.18553287141029232,
+      0.4476577081883169
+     ]
+    },
+    "agree:9+": {
+     "n_events": 29232,
+     "n_judged_before": 4,
+     "positives_before": 4,
+     "n_unjudged": 29228,
+     "n_sampled": 91,
+     "precision": 0.6048915443082478,
+     "ci": [
+      0.45676969685903945,
+      0.7561748375989948
+     ]
+    },
+    "family:BEADs_invert_detect_v1": {
+     "n_events": 2689,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 2689,
+     "n_sampled": 26,
+     "precision": 0.8175074183976261,
+     "ci": [
+      0.6261494474924659,
+      1.0
+     ]
+    },
+    "family:OASIS_Deconvolution": {
+     "n_events": 63809,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 63809,
+     "n_sampled": 84,
+     "precision": 0.5786545235983527,
+     "ci": [
+      0.4347853405296455,
+      0.7284254245864226
+     ]
+    },
+    "family:Wavelet_detection_prototype": {
+     "n_events": 16948,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 16948,
+     "n_sampled": 25,
+     "precision": 0.040722677111854545,
+     "ci": [
+      0.002069552267648089,
+      0.1327444363534356
+     ]
+    },
+    "family:cnn_10min": {
+     "n_events": 2472,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 2472,
+     "n_sampled": 6,
+     "precision": 1.0,
+     "ci": [
+      1.0,
+      1.0
+     ]
+    },
+    "family:cnn_60min": {
+     "n_events": 467,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 467,
+     "n_sampled": 0,
+     "precision": null,
+     "ci": [
+      null,
+      null
+     ]
+    },
+    "family:deconvolved_troughs": {
+     "n_events": 125900,
+     "n_judged_before": 17,
+     "positives_before": 17,
+     "n_unjudged": 125883,
+     "n_sampled": 92,
+     "precision": 0.036618874444635255,
+     "ci": [
+      0.0012584099875671084,
+      0.08067329714835923
+     ]
+    },
+    "family:drop_detection_v1": {
+     "n_events": 322,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 322,
+     "n_sampled": 15,
+     "precision": 1.0,
+     "ci": [
+      1.0,
+      1.0
+     ]
+    },
+    "family:drop_detection_v5": {
+     "n_events": 424,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 424,
+     "n_sampled": 21,
+     "precision": 1.0,
+     "ci": [
+      1.0,
+      1.0
+     ]
+    },
+    "family:matrix_profile": {
+     "n_events": 84589,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 84589,
+     "n_sampled": 43,
+     "precision": 0.0,
+     "ci": [
+      0.0,
+      0.0
+     ]
+    },
+    "family:noise_threshold": {
+     "n_events": 4858,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 4858,
+     "n_sampled": 3,
+     "precision": 0.5181445866274621,
+     "ci": [
+      0.0,
+      1.0
+     ]
+    },
+    "family:signal_threshold": {
+     "n_events": 8121,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 8121,
+     "n_sampled": 12,
+     "precision": 0.10885294348910386,
+     "ci": [
+      0.0,
+      0.3008817177237556
+     ]
+    },
+    "family:symbol_search": {
+     "n_events": 55,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 55,
+     "n_sampled": 16,
+     "precision": 1.0,
+     "ci": [
+      1.0,
+      1.0
+     ]
+    },
+    "family:wavelet_encoded": {
+     "n_events": 394,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 394,
+     "n_sampled": 17,
+     "precision": 1.0,
+     "ci": [
+      1.0,
+      1.0
+     ]
+    }
+   }
+  },
+  "L_LM_Jul_26_J_raw_fs2_6e58f5b2": {
+   "answered": 272,
+   "unsure": 18,
+   "pending": 0,
+   "queue_id": 28,
+   "created_at": "2026-10-20T21:20:55+00:00",
+   "groups": {
+    "all": {
+     "n_events": 616299,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 616299,
+     "n_sampled": 272,
+     "precision": 0.1414115518392121,
+     "ci": [
+      0.0992194972478018,
+      0.18620807264739786
+     ]
+    },
+    "agree:1-2": {
+     "n_events": 70461,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 70461,
+     "n_sampled": 42,
+     "precision": 0.0,
+     "ci": [
+      0.0,
+      0.0
+     ]
+    },
+    "agree:3-4": {
+     "n_events": 216429,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 216429,
+     "n_sampled": 46,
+     "precision": 0.0,
+     "ci": [
+      0.0,
+      0.0
+     ]
+    },
+    "agree:5-6": {
+     "n_events": 190094,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 190094,
+     "n_sampled": 47,
+     "precision": 0.18235212258803787,
+     "ci": [
+      0.07778593738812713,
+      0.31298167986505526
+     ]
+    },
+    "agree:7-8": {
+     "n_events": 92119,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 92119,
+     "n_sampled": 62,
+     "precision": 0.3700684286459201,
+     "ci": [
+      0.2183282149620906,
+      0.5238082975511887
+     ]
+    },
+    "agree:9+": {
+     "n_events": 47196,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 47196,
+     "n_sampled": 75,
+     "precision": 0.39674945179043297,
+     "ci": [
+      0.26494292728299396,
+      0.539508280441635
+     ]
+    },
+    "family:BEADs_invert_detect_v1": {
+     "n_events": 1634,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 1634,
+     "n_sampled": 19,
+     "precision": 0.7590636992316679,
+     "ci": [
+      0.5345272495197534,
+      0.9416924179796383
+     ]
+    },
+    "family:OASIS_Deconvolution": {
+     "n_events": 191406,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 191406,
+     "n_sampled": 85,
+     "precision": 0.41811362550864584,
+     "ci": [
+      0.30360384850820304,
+      0.5388066728974076
+     ]
+    },
+    "family:Wavelet_detection_prototype": {
+     "n_events": 35374,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 35374,
+     "n_sampled": 25,
+     "precision": 0.005804672753992574,
+     "ci": [
+      0.002282751738531034,
+      0.013259750012928954
+     ]
+    },
+    "family:cnn_10min": {
+     "n_events": 4270,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 4270,
+     "n_sampled": 5,
+     "precision": 0.6933015638633466,
+     "ci": [
+      0.17361425083642282,
+      1.0
+     ]
+    },
+    "family:cnn_60min": {
+     "n_events": 954,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 954,
+     "n_sampled": 0,
+     "precision": null,
+     "ci": [
+      null,
+      null
+     ]
+    },
+    "family:deconvolved_troughs": {
+     "n_events": 258593,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 258593,
+     "n_sampled": 83,
+     "precision": 0.009710589495136682,
+     "ci": [
+      0.00010072907272399498,
+      0.02926950877996356
+     ]
+    },
+    "family:drop_detection_v1": {
+     "n_events": 512,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 512,
+     "n_sampled": 13,
+     "precision": 0.9230769230769231,
+     "ci": [
+      0.7692307692307693,
+      1.0
+     ]
+    },
+    "family:drop_detection_v5": {
+     "n_events": 504,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 504,
+     "n_sampled": 18,
+     "precision": 0.9481911394853936,
+     "ci": [
+      0.8321003134796239,
+      1.0
+     ]
+    },
+    "family:matrix_profile": {
+     "n_events": 126755,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 126755,
+     "n_sampled": 37,
+     "precision": 0.0,
+     "ci": [
+      0.0,
+      0.0
+     ]
+    },
+    "family:noise_threshold": {
+     "n_events": 7094,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 7094,
+     "n_sampled": 5,
+     "precision": 0.0033374720127518605,
+     "ci": [
+      0.0,
+      0.2266226622662266
+     ]
+    },
+    "family:signal_threshold": {
+     "n_events": 2600,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 2600,
+     "n_sampled": 9,
+     "precision": 0.22222222222222224,
+     "ci": [
+      0.0,
+      0.4444444444444445
+     ]
+    },
+    "family:symbol_search": {
+     "n_events": 5560,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 5560,
+     "n_sampled": 14,
+     "precision": 0.0,
+     "ci": [
+      0.0,
+      0.0
+     ]
+    },
+    "family:wavelet_encoded": {
+     "n_events": 706,
+     "n_judged_before": 0,
+     "positives_before": 0,
+     "n_unjudged": 706,
+     "n_sampled": 13,
+     "precision": 0.9212932841755221,
+     "ci": [
+      0.75,
+      1.0
+     ]
+    }
+   }
+  },
+  "M2_aug_concat_fs1_bf098c00": {
+   "answered": 754,
+   "unsure": 46,
+   "pending": 0,
+   "queue_id": 25,
+   "created_at": "2026-10-20T02:44:35+00:00",
+   "groups": {
+    "all": {
+     "n_events": 1502319,
+     "n_judged_before": 137314,
+     "positives_before": 24911,
+     "n_unjudged": 1364994,
+     "n_sampled": 754,
+     "precision": 0.24623702954906598,
+     "ci": [
+      0.21334850252552304,
+      0.28037346831584864
+     ]
+    },
+    "agree:1-2": {
+     "n_events": 95605,
+     "n_judged_before": 11374,
+     "positives_before": 56,
+     "n_unjudged": 84231,
+     "n_sampled": 95,
+     "precision": 0.038003344751379474,
+     "ci": [
+      0.009921432312096167,
+      0.07556034322449205
+     ]
+    },
+    "agree:3-4": {
+     "n_events": 507792,
+     "n_judged_before": 57223,
+     "positives_before": 1580,
+     "n_unjudged": 450567,
+     "n_sampled": 107,
+     "precision": 0.05840753253785312,
+     "ci": [
+      0.021829704378712098,
+      0.10340423279698811
+     ]
+    },
+    "agree:5-6": {
+     "n_events": 487326,
+     "n_judged_before": 39197,
+     "positives_before": 6765,
+     "n_unjudged": 448125,
+     "n_sampled": 126,
+     "precision": 0.22085460244974262,
+     "ci": [
+      0.1522606248255494,
+      0.2999691428960022
+     ]
+    },
+    "agree:7-8": {
+     "n_events": 300682,
+     "n_judged_before": 21326,
+     "positives_before": 11065,
+     "n_unjudged": 279351,
+     "n_sampled": 178,
+     "precision": 0.5442282731283651,
+     "ci": [
+      0.45700821559758664,
+      0.628268962659207
+     ]
+    },
+    "agree:9+": {
+     "n_events": 110914,
+     "n_judged_before": 8194,
+     "positives_before": 5445,
+     "n_unjudged": 102720,
+     "n_sampled": 248,
+     "precision": 0.5854057921140398,
+     "ci": [
+      0.4968317988993415,
+      0.6682215448657598
+     ]
+    },
+    "family:BEADs_invert_detect_v1": {
+     "n_events": 10165,
+     "n_judged_before": 659,
+     "positives_before": 391,
+     "n_unjudged": 9506,
+     "n_sampled": 89,
+     "precision": 0.6753494591594226,
+     "ci": [
+      0.5571733115637933,
+      0.7811419836231112
+     ]
+    },
+    "family:OASIS_Deconvolution": {
+     "n_events": 664997,
+     "n_judged_before": 60668,
+     "positives_before": 24078,
+     "n_unjudged": 604320,
+     "n_sampled": 344,
+     "precision": 0.4383986270879409,
+     "ci": [
+      0.3788564171458567,
+      0.4992491506458809
+     ]
+    },
+    "family:Wavelet_detection_prototype": {
+     "n_events": 66438,
+     "n_judged_before": 5397,
+     "positives_before": 367,
+     "n_unjudged": 61040,
+     "n_sampled": 66,
+     "precision": 0.28320931319022097,
+     "ci": [
+      0.1151889599957707,
+      0.46166094610384373
+     ]
+    },
+    "family:cnn_10min": {
+     "n_events": 10899,
+     "n_judged_before": 628,
+     "positives_before": 436,
+     "n_unjudged": 10270,
+     "n_sampled": 19,
+     "precision": 0.9450442093247865,
+     "ci": [
+      0.687782072841399,
+      0.9788236931478049
+     ]
+    },
+    "family:cnn_60min": {
+     "n_events": 3223,
+     "n_judged_before": 18,
+     "positives_before": 9,
+     "n_unjudged": 3205,
+     "n_sampled": 2,
+     "precision": 0.0012250541065563728,
+     "ci": [
+      0.0004672547153788361,
+      0.5
+     ]
+    },
+    "family:deconvolved_troughs": {
+     "n_events": 702691,
+     "n_judged_before": 64291,
+     "positives_before": 733,
+     "n_unjudged": 638396,
+     "n_sampled": 232,
+     "precision": 0.07262468844552428,
+     "ci": [
+      0.039965148374291014,
+      0.11056927263933533
+     ]
+    },
+    "family:drop_detection_v1": {
+     "n_events": 967,
+     "n_judged_before": 59,
+     "positives_before": 53,
+     "n_unjudged": 908,
+     "n_sampled": 49,
+     "precision": 0.9554692611274086,
+     "ci": [
+      0.8979802882890487,
+      0.9937952430196484
+     ]
+    },
+    "family:drop_detection_v5": {
+     "n_events": 1022,
+     "n_judged_before": 56,
+     "positives_before": 45,
+     "n_unjudged": 966,
+     "n_sampled": 57,
+     "precision": 0.811504089031279,
+     "ci": [
+      0.7151308336558089,
+      0.9044743155249679
+     ]
+    },
+    "family:matrix_profile": {
+     "n_events": 44288,
+     "n_judged_before": 6493,
+     "positives_before": 0,
+     "n_unjudged": 37795,
+     "n_sampled": 12,
+     "precision": 0.0,
+     "ci": [
+      0.0,
+      0.0
+     ]
+    },
+    "family:noise_threshold": {
+     "n_events": 31241,
+     "n_judged_before": 2004,
+     "positives_before": 55,
+     "n_unjudged": 29237,
+     "n_sampled": 25,
+     "precision": 0.1601551377381658,
+     "ci": [
+      0.0579650477772716,
+      0.41918833406961237
+     ]
+    },
+    "family:signal_threshold": {
+     "n_events": 22326,
+     "n_judged_before": 681,
+     "positives_before": 5,
+     "n_unjudged": 21645,
+     "n_sampled": 39,
+     "precision": 0.42721760911994194,
+     "ci": [
+      0.2747692520904524,
+      0.6072355394635477
+     ]
+    },
+    "family:symbol_search": {
+     "n_events": 2383,
+     "n_judged_before": 91,
+     "positives_before": 20,
+     "n_unjudged": 2292,
+     "n_sampled": 53,
+     "precision": 0.6447529364706425,
+     "ci": [
+      0.5032939481372763,
+      0.7639417762221399
+     ]
+    },
+    "family:wavelet_encoded": {
+     "n_events": 1083,
+     "n_judged_before": 105,
+     "positives_before": 88,
+     "n_unjudged": 978,
+     "n_sampled": 59,
+     "precision": 0.8620177555726045,
+     "ci": [
+      0.7771122005475881,
+      0.9388606264291168
+     ]
+    }
+   }
+  },
+  "M2_concat_fs1_a74ddbe2": {
+   "answered": 274,
+   "unsure": 15,
+   "pending": 1,
+   "queue_id": 28,
+   "created_at": "2026-10-20T21:20:51+00:00",
+   "groups": {
+    "all": {
+     "n_events": 455907,
+     "n_judged_before": 3563,
+     "positives_before": 48,
+     "n_unjudged": 452344,
+     "n_sampled": 274,
+     "precision": 0.13225771002604636,
+     "ci": [
+      0.09726561828837835,
+      0.17122565075677518
+     ]
+    },
+    "agree:1-2": {
+     "n_events": 71719,
+     "n_judged_before": 1314,
+     "positives_before": 2,
+     "n_unjudged": 70405,
+     "n_sampled": 50,
+     "precision": 2.6170405981507996e-05,
+     "ci": [
+      2.4635153378464938e-05,
+      2.7911601324942945e-05
+     ]
+    },
+    "agree:3-4": {
+     "n_events": 165752,
+     "n_judged_before": 1746,
+     "positives_before": 17,
+     "n_unjudged": 164006,
+     "n_sampled": 49,
+     "precision": 0.05089797136527087,
+     "ci": [
+      0.00010439573598686827,
+      0.1257080833217354
+     ]
+    },
+    "agree:5-6": {
+     "n_events": 119438,
+     "n_judged_before": 418,
+     "positives_before": 6,
+     "n_unjudged": 119020,
+     "n_sampled": 56,
+     "precision": 0.07914607010184953,
+     "ci": [
+      0.006753801971370535,
+      0.17572001072998578
+     ]
+    },
+    "agree:7-8": {
+     "n_events": 67834,
+     "n_judged_before": 60,
+     "positives_before": 7,
+     "n_unjudged": 67774,
+     "n_sampled": 53,
+     "precision": 0.34294238146554185,
+     "ci": [
+      0.21071964133770826,
+      0.473822679502379
+     ]
+    },
+    "agree:9+": {
+     "n_events": 31164,
+     "n_judged_before": 25,
+     "positives_before": 16,
+     "n_unjudged": 31139,
+     "n_sampled": 66,
+     "precision": 0.6286843470632772,
+     "ci": [
+      0.47954831118045793,
+      0.778469928144388
+     ]
+    },
+    "family:BEADs_invert_detect_v1": {
+     "n_events": 3372,
+     "n_judged_before": 19,
+     "positives_before": 1,
+     "n_unjudged": 3353,
+     "n_sampled": 23,
+     "precision": 0.5767246379761263,
+     "ci": [
+      0.34591075757085976,
+      0.8061351809460364
+     ]
+    },
+    "family:OASIS_Deconvolution": {
+     "n_events": 146170,
+     "n_judged_before": 536,
+     "positives_before": 37,
+     "n_unjudged": 145634,
+     "n_sampled": 105,
+     "precision": 0.37333057806096165,
+     "ci": [
+      0.2722964586953845,
+      0.4833046116659596
+     ]
+    },
+    "family:Wavelet_detection_prototype": {
+     "n_events": 29466,
+     "n_judged_before": 489,
+     "positives_before": 4,
+     "n_unjudged": 28977,
+     "n_sampled": 21,
+     "precision": 0.01135534658802853,
+     "ci": [
+      0.00010859162982213586,
+      0.0334613935920394
+     ]
+    },
+    "family:cnn_10min": {
+     "n_events": 3222,
+     "n_judged_before": 44,
+     "positives_before": 6,
+     "n_unjudged": 3178,
+     "n_sampled": 7,
+     "precision": 0.3183766661299408,
+     "ci": [
+      0.020965246573565258,
+      0.989788376566881
+     ]
+    },
+    "family:deconvolved_troughs": {
+     "n_events": 213894,
+     "n_judged_before": 1644,
+     "positives_before": 1,
+     "n_unjudged": 212250,
+     "n_sampled": 93,
+     "precision": 0.017068940411030263,
+     "ci": [
+      0.0032414048602044956,
+      0.0350753510902562
+     ]
+    },
+    "family:drop_detection_v1": {
+     "n_events": 433,
+     "n_judged_before": 2,
+     "positives_before": 2,
+     "n_unjudged": 431,
+     "n_sampled": 14,
+     "precision": 0.9289013526888814,
+     "ci": [
+      0.7867040580666446,
+      1.0
+     ]
+    },
+    "family:drop_detection_v5": {
+     "n_events": 526,
+     "n_judged_before": 1,
+     "positives_before": 1,
+     "n_unjudged": 525,
+     "n_sampled": 18,
+     "precision": 0.946263045951427,
+     "ci": [
+      0.8277742549143944,
+      1.0
+     ]
+    },
+    "family:matrix_profile": {
+     "n_events": 26464,
+     "n_judged_before": 178,
+     "positives_before": 0,
+     "n_unjudged": 26286,
+     "n_sampled": 10,
+     "precision": 0.0,
+     "ci": [
+      0.0,
+      0.0
+     ]
+    },
+    "family:noise_threshold": {
+     "n_events": 16620,
+     "n_judged_before": 162,
+     "positives_before": 0,
+     "n_unjudged": 16458,
+     "n_sampled": 13,
+     "precision": 0.09607525976775858,
+     "ci": [
+      0.0015606645748050115,
+      0.326056176469431
+     ]
+    },
+    "family:signal_threshold": {
+     "n_events": 17511,
+     "n_judged_before": 60,
+     "positives_before": 0,
+     "n_unjudged": 17451,
+     "n_sampled": 13,
+     "precision": 0.08292073974698531,
+     "ci": [
+      0.0,
+      0.24913379915689784
+     ]
+    },
+    "family:symbol_search": {
+     "n_events": 19174,
+     "n_judged_before": 570,
+     "positives_before": 1,
+     "n_unjudged": 18604,
+     "n_sampled": 15,
+     "precision": 5.2222048148728395e-05,
+     "ci": [
+      5.2222048148728395e-05,
+      5.2222048148728395e-05
+     ]
+    },
+    "family:wavelet_encoded": {
+     "n_events": 2540,
+     "n_judged_before": 17,
+     "positives_before": 3,
+     "n_unjudged": 2523,
+     "n_sampled": 20,
+     "precision": 0.3142544678967968,
+     "ci": [
+      0.10504168351856802,
+      0.5580870616957333
+     ]
+    }
+   }
+  }
+ },
+ "templates": [
+  {
+   "id": 1,
+   "name": "drop_detection_v1",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "The canonical drop detector (D1): baseline removal \u2192 five-stage encoding with th"
+  },
+  {
+   "id": 2,
+   "name": "dehshibi_spikes",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "Dehshibi & Adamatzky 2021 as three blocks, following the authors' own code: Mors"
+  },
+  {
+   "id": 3,
+   "name": "mp_threshold",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "Baseline \u2192 matrix profile \u2192 threshold to spans."
+  },
+  {
+   "id": 4,
+   "name": "mp_motifs",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "Baseline \u2192 matrix profile \u2192 motif groups (seed + nearest neighbours, labelled by"
+  },
+  {
+   "id": 5,
+   "name": "dsax_encoding",
+   "kind": "encoding",
+   "builtin": 1,
+   "description": "Baseline \u2192 symbolic encoding (dSAX, alphabet 3)."
+  },
+  {
+   "id": 6,
+   "name": "symbol_search",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "Baseline \u2192 dSAX letters \u2192 regular-expression search over the symbol string (D2)."
+  },
+  {
+   "id": 7,
+   "name": "windows_model",
+   "kind": "training",
+   "builtin": 1,
+   "description": "Sliding windows + features \u2192 hierarchical cluster \u2192 classifier (the training cha"
+  },
+  {
+   "id": 9,
+   "name": "gramian_gasf",
+   "kind": "encoding",
+   "builtin": 1,
+   "description": "Baseline \u2192 Gramian GASF image (needs a span \u2264 5000 samples)."
+  },
+  {
+   "id": 10,
+   "name": "drop_event_features",
+   "kind": "interrogation",
+   "builtin": 1,
+   "description": "The drop detector (drop_detection_v1's three blocks) \u2192 Event shape (amplitude, w"
+  },
+  {
+   "id": 11,
+   "name": "spike_event_features",
+   "kind": "interrogation",
+   "builtin": 1,
+   "description": "Invert \u2192 the drop detector \u2192 Event shape told the chain inverted (so the events "
+  },
+  {
+   "id": 12,
+   "name": "manual_labels_model",
+   "kind": "training",
+   "builtin": 1,
+   "description": "10-minute windows on the labels' 600/200 grid + features \u2192 manual labels (human "
+  },
+  {
+   "id": 13,
+   "name": "Wavelet_detection_prototype",
+   "kind": "detection",
+   "builtin": 0,
+   "description": ""
+  },
+  {
+   "id": 14,
+   "name": "shape_clusters",
+   "kind": "training",
+   "builtin": 0,
+   "description": ""
+  },
+  {
+   "id": 15,
+   "name": "shape_clusters",
+   "kind": "training",
+   "builtin": 0,
+   "description": ""
+  },
+  {
+   "id": 16,
+   "name": "dip_search",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "seed search \u00b7 105 samples \u00b7 this exemplar travels with the template"
+  },
+  {
+   "id": 17,
+   "name": "dip_search_allch",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "seed search \u00b7 105 samples \u00b7 this exemplar travels with the template"
+  },
+  {
+   "id": 18,
+   "name": "wavelet_encoded",
+   "kind": "detection",
+   "builtin": 0,
+   "description": ""
+  },
+  {
+   "id": 19,
+   "name": "drop_detection_v5",
+   "kind": "detection",
+   "builtin": 0,
+   "description": ""
+  },
+  {
+   "id": 20,
+   "name": "trough_search",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "seed search \u00b7 327 samples \u00b7 this exemplar travels with the template"
+  },
+  {
+   "id": 21,
+   "name": "signal_threshold",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "Baseline \u2192 signal threshold to spans: every stretch of the detrended trace under"
+  },
+  {
+   "id": 22,
+   "name": "noise_threshold",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "Baseline \u2192 noise threshold: every stretch of the detrended trace more than 4 \u03c3_n"
+  },
+  {
+   "id": 23,
+   "name": "deconvolved_troughs",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "Troughs as deconvolved jumps (Friedrich, Zhou & Paninski 2017, OASIS). The recov"
+  },
+  {
+   "id": 24,
+   "name": "cwt_events",
+   "kind": "interrogation",
+   "builtin": 1,
+   "description": "Drops (troughs) at every duration: CWT ridges (Du, Kibbe & Lin 2006: troughs at "
+  },
+  {
+   "id": 25,
+   "name": "OASIS_Deconvolution",
+   "kind": "detection",
+   "builtin": 0,
+   "description": ""
+  },
+  {
+   "id": 26,
+   "name": "minirocket_manual_labels",
+   "kind": "training",
+   "builtin": 1,
+   "description": "RQ1's manual-label arm on a shape fingerprint: 10-minute windows on the labels' "
+  },
+  {
+   "id": 27,
+   "name": "complexity_fingerprint",
+   "kind": "training",
+   "builtin": 1,
+   "description": "A complexity fingerprint per recording: the slow drift is removed (a 2 h rolling"
+  },
+  {
+   "id": 28,
+   "name": "chain_cycles",
+   "kind": "interrogation",
+   "builtin": 1,
+   "description": "The shape of every cycle of a chain of drops, and where it changes: baseline rem"
+  },
+  {
+   "id": 29,
+   "name": "motif_lengths",
+   "kind": "encoding",
+   "builtin": 1,
+   "description": "At which window lengths does anything repeat? Baseline removal (2 h rolling mean"
+  },
+  {
+   "id": 30,
+   "name": "BEADs_invert_detect_v1",
+   "kind": "detection",
+   "builtin": 0,
+   "description": ""
+  },
+  {
+   "id": 31,
+   "name": "drop_detection_v1__slope_sigma_4",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of drop_detection_v1 (template 1): slope_sigma = 4"
+  },
+  {
+   "id": 32,
+   "name": "drop_detection_v1__slope_sigma_12",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of drop_detection_v1 (template 1): slope_sigma = 1"
+  },
+  {
+   "id": 33,
+   "name": "drop_detection_v5__same_fraction_0p5",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of drop_detection_v5 (template 19): same_fraction "
+  },
+  {
+   "id": 34,
+   "name": "drop_detection_v5__same_fraction_0p7",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of drop_detection_v5 (template 19): same_fraction "
+  },
+  {
+   "id": 35,
+   "name": "wavelet_encoded__level_3",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of wavelet_encoded (template 18): level = 3 on wav"
+  },
+  {
+   "id": 36,
+   "name": "wavelet_encoded__level_5",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of wavelet_encoded (template 18): level = 5 on wav"
+  },
+  {
+   "id": 37,
+   "name": "dehshibi_spikes__epsilon_factor_0p02",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of dehshibi_spikes (template 2): epsilon_factor = "
+  },
+  {
+   "id": 38,
+   "name": "dehshibi_spikes__epsilon_factor_0p1",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of dehshibi_spikes (template 2): epsilon_factor = "
+  },
+  {
+   "id": 39,
+   "name": "Wavelet_detection_prototype__epsilon_factor_0p02",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of Wavelet_detection_prototype (template 13): epsi"
+  },
+  {
+   "id": 40,
+   "name": "Wavelet_detection_prototype__epsilon_factor_0p1",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of Wavelet_detection_prototype (template 13): epsi"
+  },
+  {
+   "id": 41,
+   "name": "mp_threshold__threshold_6",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of mp_threshold (template 3): threshold = 6 on thr"
+  },
+  {
+   "id": 42,
+   "name": "mp_threshold__threshold_10",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of mp_threshold (template 3): threshold = 10 on th"
+  },
+  {
+   "id": 43,
+   "name": "symbol_search__seconds_per_symbol_10",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of symbol_search (template 6): seconds_per_symbol "
+  },
+  {
+   "id": 44,
+   "name": "symbol_search__seconds_per_symbol_40",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of symbol_search (template 6): seconds_per_symbol "
+  },
+  {
+   "id": 45,
+   "name": "noise_threshold__k_sigma_3",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of noise_threshold (template 22): k_sigma = 3 on n"
+  },
+  {
+   "id": 46,
+   "name": "noise_threshold__k_sigma_6",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of noise_threshold (template 22): k_sigma = 6 on n"
+  },
+  {
+   "id": 47,
+   "name": "signal_threshold__threshold_V_m0p002",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of signal_threshold (template 21): threshold = -0."
+  },
+  {
+   "id": 48,
+   "name": "signal_threshold__threshold_V_m0p01",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of signal_threshold (template 21): threshold = -0."
+  },
+  {
+   "id": 49,
+   "name": "signal_threshold__threshold_mV_m2",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of signal_threshold (template 21): threshold = -2 "
+  },
+  {
+   "id": 50,
+   "name": "signal_threshold__threshold_mV_m5",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of signal_threshold (template 21): threshold = -5 "
+  },
+  {
+   "id": 51,
+   "name": "signal_threshold__threshold_mV_m10",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of signal_threshold (template 21): threshold = -10"
+  },
+  {
+   "id": 52,
+   "name": "deconvolved_troughs__recovery_half_s_60",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of deconvolved_troughs (template 23): recovery_hal"
+  },
+  {
+   "id": 53,
+   "name": "deconvolved_troughs__recovery_half_s_240",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of deconvolved_troughs (template 23): recovery_hal"
+  },
+  {
+   "id": 54,
+   "name": "OASIS_Deconvolution__threshold_3",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of OASIS_Deconvolution (template 25): threshold = "
+  },
+  {
+   "id": 55,
+   "name": "OASIS_Deconvolution__threshold_5",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of OASIS_Deconvolution (template 25): threshold = "
+  },
+  {
+   "id": 56,
+   "name": "BEADs_invert_detect_v1__delta_mv_5",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of BEADs_invert_detect_v1 (template 30): delta_mv "
+  },
+  {
+   "id": 57,
+   "name": "BEADs_invert_detect_v1__delta_mv_25",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of BEADs_invert_detect_v1 (template 30): delta_mv "
+  },
+  {
+   "id": 58,
+   "name": "fin_search",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "seed search \u00b7 816 samples \u00b7 this exemplar travels with the template"
+  },
+  {
+   "id": 59,
+   "name": "cnn_fusion3_1min",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "The researcher's trained CNN 'fusion_cnn_3.pth' slid along the recording in 1-mi"
+  },
+  {
+   "id": 60,
+   "name": "cnn_fusion3_10min",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "The researcher's trained CNN 'fusion_cnn_3.pth' slid along the recording in 10-m"
+  },
+  {
+   "id": 61,
+   "name": "cnn_fusion3_60min",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "The researcher's trained CNN 'fusion_cnn_3.pth' slid along the recording in 60-m"
+  },
+  {
+   "id": 62,
+   "name": "cnn_gadf_1min",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "The researcher's trained CNN 'GADF_cnn.pth' slid along the recording in 1-minute"
+  },
+  {
+   "id": 63,
+   "name": "cnn_gadf_10min",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "The researcher's trained CNN 'GADF_cnn.pth' slid along the recording in 10-minut"
+  },
+  {
+   "id": 64,
+   "name": "cnn_gadf_60min",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "The researcher's trained CNN 'GADF_cnn.pth' slid along the recording in 60-minut"
+  },
+  {
+   "id": 65,
+   "name": "cnn_gasf_1min",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "The researcher's trained CNN 'GASF_cnn.pth' slid along the recording in 1-minute"
+  },
+  {
+   "id": 66,
+   "name": "cnn_gasf_10min",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "The researcher's trained CNN 'GASF_cnn.pth' slid along the recording in 10-minut"
+  },
+  {
+   "id": 67,
+   "name": "cnn_gasf_60min",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "The researcher's trained CNN 'GASF_cnn.pth' slid along the recording in 60-minut"
+  },
+  {
+   "id": 68,
+   "name": "cnn_recurrence_1min",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "The researcher's trained CNN 'recurrence_cnn.pth' slid along the recording in 1-"
+  },
+  {
+   "id": 69,
+   "name": "cnn_recurrence_10min",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "The researcher's trained CNN 'recurrence_cnn.pth' slid along the recording in 10"
+  },
+  {
+   "id": 70,
+   "name": "cnn_recurrence_60min",
+   "kind": "detection",
+   "builtin": 1,
+   "description": "The researcher's trained CNN 'recurrence_cnn.pth' slid along the recording in 60"
+  },
+  {
+   "id": 71,
+   "name": "mp_threshold__backend_auto",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of mp_threshold (template 3): backend = auto on ma"
+  },
+  {
+   "id": 72,
+   "name": "mp_threshold__threshold_6__backend_auto",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of mp_threshold__threshold_6 (template 41): backen"
+  },
+  {
+   "id": 73,
+   "name": "mp_threshold__threshold_10__backend_auto",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of mp_threshold__threshold_10 (template 42): backe"
+  },
+  {
+   "id": 74,
+   "name": "mp_motifs__backend_auto",
+   "kind": "detection",
+   "builtin": 0,
+   "description": "[rq4-sweep] RQ4 sweep variant of mp_motifs (template 4): backend = auto on matri"
+  },
+  {
+   "id": 75,
+   "name": "demo \u00b7 drop detector",
+   "kind": "detection",
+   "builtin": 0,
+   "description": ""
+  }
+ ],
+ "blocks": {
+  "error": "TypeError(\"'<' not supported between instances of 'AdapterSpec' and 'AdapterSpec'\")"
+ }
+}

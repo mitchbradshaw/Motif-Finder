@@ -1,0 +1,168 @@
+\chapter{Introduction}
+\label{ch:intro}
+
+\begin{instructions}
+About 4--5 pages. Sections 1.1--1.3 carry over from the August plan with small corrections. Section 1.4 is new: the
+plan's broad question kept, the poster's three questions as the research questions, and a mapping table that accounts
+for every one of the plan's six. Section 1.5 (contributions) is new; 1.6 carries over; 1.7 is rewritten for the new
+structure.
+\end{instructions}
+
+\section{Problem space}
+
+Bio-electrical potential has been observed and measured in mycelium networks for the past five decades. Early work by Slayman, Long and Gradmann \cite{slayman} measured the potential differences exhibited by the fungus \emph{Neurospora crassa} and found that the signal demonstrates evidence of ``action potential''-like spikes. The measured action potentials in the hyphae of the mycelium exhibited characteristics not unlike those measured in cardiac fibres, although at four orders of magnitude larger, with rapid polarisation and slow depolarisation behaviour. Further work on measuring these signals \cite{adamatzky2023} \cite{dehshibi} \cite{mayne} has found multiple families and scales of oscillatory behaviour across different species of fungi, with unique but distinctive patterns of activity.
+
+Bio-electric signalling behaviour across many domains is increasingly being recognised as a fundamental basis for development, regeneration and communication within biological networks \cite{zhang}. Understanding the mechanisms and purposes of signalling behaviour can lead to significant discoveries in creating systems to control the behaviour of cellular collectives and reduce undesirable effects. Bioelectric stimulation has been used to trigger transient permeabilization to enhance local uptakes of drugs that kill dividing cancer cells, to generate reversible nano-pores in membranes to treat skin lesions, and to modify membrane potentials of brain tissue to reverse abnormal brain and eye morphologies created by ethanol exposure \cite{nuccitelli}.
+
+There are many open questions that the existence of these bio-electrical signals in mycelium networks propose. More notably, there arise the questions of determining the meaning of the signals in the context of the growth and functions of a network, using this to predict responses of a network based on current recordings or stimuli, and leveraging this knowledge to manipulate mycelium growth and behaviour. There is also research into the prospect of using mycelium networks as a medium for information exchange via signal propagation \cite{mayne} \cite{phillips}.
+
+Parallel to the field of bio-electrics is time-series analysis, which is a collection of techniques and algorithms for extracting information from measured data in time. Time-series analysis is a significant branch of both mathematics and statistics, useful across the domains of finance, business, energy and biological systems, to name a few. As scientific research collects more data from increasingly complex dynamical systems, the methods have adapted to describe them. Traditional methods of decomposition and smoothing algorithms have moved towards more flexible methods that involve machine learning and feedback-based approaches, leveraging the increase in processing power and memory available today \cite{cabauatan} \cite{gao} \cite{milvus}.
+
+The models for time-series analysis are constantly improving and changing, and their applications to different fields are always lagging slightly behind. The application of some of the more modern techniques of time-series analysis to the electrical potentials recorded for mycelium networks is severely under-examined and could present novel ideas about their behaviour and functions. Also missing is a standard theoretical framework for the identification and classification of the families of subsequences seen in mycelium signals across species.
+
+\begin{instructions}
+Add one paragraph in your own words on the motivation as you experienced it, reworked from your note to the demo
+session (20 Oct). Paraphrase of that note: you were handed about 1,000 hours of raw recordings with no field standard
+for what to look for; exploratory algorithms gave wildly different answers that could not be compared; each new
+combination of ideas was a one-off script that was then lost; fungi have no defined alphabet, let alone a language.
+
+Back it with numbers:
+\begin{itemize}
+  \item 721\,h + 282.5\,h $\approx$ 1,003\,h across the two primary oyster recordings, each 16 channels;
+  \item OASIS marks 61--65\,\% of M2\_aug's time as events, while drop\_detection\_v1 finds about a thousand;
+  \item a seed bundle whose generator scripts were deleted, so it cannot be regenerated
+        (\src{DATA/library_seed/PROVENANCE.md}).
+\end{itemize}
+\end{instructions}
+
+\section{Scope of previous research}
+
+Research into the bio-electric signals of mycelium networks has developed across a small number of broad areas. The earliest and most established of these is the recording and characterisation of the signals themselves, with studies across multiple species documenting the waveform morphology, amplitude, and oscillatory periods of the measured potentials \cite{slayman,adamatzky2023,dehshibi}. A parallel body of work has focused on the analysis of these recordings, using spike-detection algorithms and simple frequency methods to extract and describe the behaviour of individual events within the signal \cite{adamatzky2023,dehshibi,buffi}.
+
+More recently, attention has turned to questions of what these signals might mean and what they might be used for. Some work has explored the propagation of signals across the mycelium substrate and the feasibility of using mycelium networks as a medium for data transmission, finding that the substrate exhibits low-pass filter characteristics relevant to this application \cite{mayne,phillips}. Others have taken a more interpretive approach, treating the spike-trains as a form of language and performing linguistic analysis to compare the complexity of signals across species \cite{adamatzky2022}. There is also a smaller body of work examining the biological response of the signals to external stimuli such as injected current and chemical agents, with the aim of understanding whether and how the signals can be manipulated \cite{buffi,olsson}.
+
+Each of these areas is reviewed in further detail in Chapter~\ref{ch:litreview}.
+
+\section{Gaps in knowledge}
+\label{sec:gaps}
+
+In today's information age, time-series analysis is a quickly growing field with many exciting concepts for extracting information from ever-more complex dynamical systems. However little to no research has explored the impact of multi-technique analysis, matrix profiling methods or machine-learning methods on the bio-electric signals of mycelium networks. These methods are fairly recent innovations in comparison to the scope of research on mycelium networks, and biological systems as a whole, and as such it is expected that their implementation into these fields has a period of lag. Existing examples of their implementations in similar fields examining non-stationary, multi-scalar time-series data has yielded exciting results \cite{shi} \cite{ponganis} \cite{liu}, suggesting that there is value to be found in these algorithms.
+
+A second significant area in mycelium research which requires more attention is the idea of a standard of classifying and clustering similar signal families and similar motif structures. While similar motifs have been identified across papers and across species, no significant attempt has been made to generalise and group these due to their variability, and appearance across multiple time-scales. The ad hoc nature of existing labelling --- typically manual, species-specific, and non-transferable --- means that analysis results cannot be compared across datasets or used to train generalisable predictive models. Before these signals can be interpreted as separate events relating to significant biological functions, there must first be a system to extract and separate them automatically from a set of raw time-series data.
+
+A third gap is the lack of any shared, publicly available computational pipeline for analysing these signals. The tools described in existing literature are typically bespoke, undocumented, and not released alongside papers \cite{dehshibi,buffi2025review}. This creates a reproducibility problem and prevents incremental progress from building on a shared foundation. Promising results are discovered and then lost, because the parameters and ordering that produced them were never captured as a reusable object.
+
+\begin{instructions}
+Consider adding a fourth gap from the project's own evidence: published detectors cannot be compared because they
+disagree by orders of magnitude on the same recording, and no study reports a detector's precision against blind human
+judgement. Chapter~\ref{ch:rq1} measures exactly this.
+
+Also note the Dehshibi finding. The authors' released MATLAB differs from the printed paper in about ten places, and the
+printed Algorithm 3 read literally yields inverted regions (\src{Working/Detection/analysis/dehshibi_authors.py},
+QUESTIONS.md Q33). This is concrete evidence for the reproducibility gap.
+\end{instructions}
+
+\section{Research questions}
+\label{sec:rqs}
+
+The overall question this thesis addresses is unchanged from the thesis plan:
+
+\begin{quote}
+\textbf{Can the recurring structures present in mycelium bio-electric signals be automatically detected and characterised using modern time-series analysis methods?}
+\end{quote}
+
+The thesis plan approached this through six sub-questions, each naming a baseline, a null and a discriminator. Building the instrument showed which of them could be answered within the project, and in what form. The thesis therefore answers three research questions. Each is a question about what the instrument makes possible, and each is tested against blind human judgement and a matched null:
+
+\begin{description}
+  \item[RQ1 --- Detectors at scale.] Can multiple detection algorithms be compared at scale, across recordings, against blind human judgement and matched surrogates? And does agreement between independent detectors predict what a human accepts? (Chapter~\ref{ch:rq1})
+  \item[RQ2 --- Seeds.] Can a human-checked motif from the library, used as a seed, find new instances that a human judging blind also accepts, more often than duration-matched random windows and far more often than the same search finds in a surrogate? (Chapter~\ref{ch:rq2})
+  \item[RQ3 --- Classifiers.] Can labels gathered through the tool train a classifier that works on recordings it never saw, beating a label-shuffle null and the detectors' own vote? (Chapter~\ref{ch:rq3})
+\end{description}
+
+Two further chapters use the instrument to describe what it found. Chapter~\ref{ch:events} covers the shape, size, scale and timing of the accepted events, including an earlier cross-species study of drop events. Chapter~\ref{ch:roundb} covers a set of shorter questions about the nature of the signals.
+
+Table~\ref{tab:rqmap} accounts for each of the plan's six questions. Figure~\ref{fig:rqmap} draws the same mapping.
+
+\begin{table}[htbp]
+\caption{Where each research question of the thesis plan (August 2026) is answered.}
+\label{tab:rqmap}
+\small
+\begin{tabularx}{\textwidth}{p{4.2cm} p{2.2cm} X}
+\toprule
+\textbf{Plan question} & \textbf{Answered in} & \textbf{Status and form}\\
+\midrule
+RQ1 Cluster-derived vs manual labels & RQ3, Ch.~\ref{ch:rq3} & Answered as a baseline (forest on manual labels vs cluster labels, with shuffle null and blind labels), and extended to MiniRocket trained on judged events.\\
+\addlinespace
+RQ2 Seeded search precision vs surrogate & RQ2, Ch.~\ref{ch:rq2} & Answered; blind re-test in queue 35.\\
+\addlinespace
+RQ3 Identity under scale normalisation & Ch.~\ref{ch:rq2} (pilot), Ch.~\ref{ch:events} & Partial: banked scale searches are a pilot; the drop-motif study shows normalisation does not remove resolution or species.\\
+\addlinespace
+RQ4 Bands + symbols vs raw signal & RQ1, Ch.~\ref{ch:rq1} & Generalised into the 45-setting detector sweep; the two-chain band pilot was negative.\\
+\addlinespace
+RQ5 Human vs machine divergence & RQ1, Ch.~\ref{ch:rq1} & Rejection and miss rates per detector answered; the morphology arm was not answerable (verdicts carry no shape tags).\\
+\addlinespace
+RQ6 Recurrence across channels & Ch.~\ref{ch:roundb} (pilot) & Machinery built and tested against chance; a preliminary count only.\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\input{tikz/rq_mapping}
+\caption{The plan's six questions (left) and the three research questions the thesis answers (right). Solid arrows: answered within; dashed: reported as a pilot.}
+\label{fig:rqmap}
+\end{figure}
+
+\begin{instructions}
+Explain the change in one paragraph in your own words. The point is not that you ran out of time. Building the
+instrument showed that four of the six questions were questions about comparing analysis chains against human
+judgement, and those collapse into RQ1 and RQ2 once the comparison is done at scale. Keep the ``RQ3 is worth singling
+out'' sentence from the plan, but point it at the evidence in Chapter~\ref{ch:events}, which bears directly on whether
+scale is a property of the motif.
+\end{instructions}
+
+\section{Contributions}
+\label{sec:contributions}
+
+\begin{instructions}
+New section, written by you. Suggested list:
+\begin{enumerate}
+  \item \tool{}, a composable, human-in-the-loop application for long unlabelled bio-electric recordings: 59 typed
+        analysis blocks, 24 templates, a recipe hash on every result, surrogate nulls, a held-out lock, and an HPC route.
+        Machine detections and human verdicts are stored apart.
+  \item The first comparison of fungal spike and event detectors against blind, stratified human judgement at scale:
+        1,960 verdicts across five recordings, with a detector-agreement ladder that holds on every recording.
+  \item Seeded motif search shown to recover human-accepted events far above chance [numbers from queue 35].
+  \item A classifier trained only on the tool's verdicts that transfers to unseen recordings (AUC 0.97 leave-one-out)
+        and to the held-out recording [M4 exam].
+  \item A characterisation of accepted events: drops dominate; amplitude and duration ranges; scale collapse across
+        three species; the finding that normalised shape still encodes resolution and species.
+  \item A transferable method: recipes, nulls and a 342-page user manual (cited, not appended).
+\end{enumerate}
+\end{instructions}
+
+\section{Scope and position on interpretation}
+\label{sec:position}
+
+This thesis measures recurrence and structure. It makes no claim about meaning, signalling, or communication.
+
+This is a deliberate position rather than an omission. The framing of fungal electrical activity as ``communication'' or as a ``language'' is a live methodological criticism within the field \cite{buffi2025review}, and interpretive claims have in several cases run ahead of the evidence that recurring structure exists at all in a form that survives a statistical control. The order of operations adopted here is the opposite: confirm that patterns recur, at rates that exceed what a matched surrogate produces, and describe them in terms that another researcher could apply to their own recording --- before attempting to decode what they might correspond to biologically.
+
+Three consequences follow, and they shape the whole document:
+\begin{itemize}
+  \item Every reported detection result is set against a null. For runs, that is the identical chain rerun on a phase-randomised or otherwise matched surrogate of the same signal (Section~\ref{sec:surrogates}). For human acceptance rates, it is a blind base rate.
+  \item Cross-channel co-occurrence is not treated as evidence of anything until it has been separated from common-mode contamination through the shared ground, and from single propagating events (Section~\ref{sec:crosschannel}).
+  \item The morphology vocabulary developed over the course of this project, the shape names in Appendix~\ref{app:vocab}, is treated as a hypothesis under test, not as ground truth.
+\end{itemize}
+
+Biological interpretation is out of scope. It is recorded in Section~\ref{sec:futurework} as future work, tied to the effectiveness of forecasting: a structure that can be used to predict what follows it is a considerably better candidate for interpretation than one that merely repeats.
+
+\begin{instructions}
+Chapter~\ref{ch:roundb} fits excitable-system models (FitzHugh--Nagumo) to common motifs. State here that a fitted
+model is a description of shape and timing, not a claim about mechanism. Its phase response curve is the model's, not a
+measured one, because no perturbation experiments were made.
+\end{instructions}
+
+\section{Overview of the thesis}
+
+Chapter~\ref{ch:litreview} reviews prior work on fungal electrical signals, the time-series methods used here, and why the two have not yet met. Chapter~\ref{ch:theory} sets out the theory the methods and controls depend on. Chapter~\ref{ch:pipeline} describes \tool{}, the instrument built to make the research questions answerable: its design, how it was built and how it was evaluated. Chapter~\ref{ch:method} describes the corpus, the judging protocol, the controls and the held-out exam. Chapters~\ref{ch:rq1}, \ref{ch:rq2} and~\ref{ch:rq3} answer RQ1 to RQ3. Chapter~\ref{ch:events} characterises the accepted events, and Chapter~\ref{ch:roundb} reports a set of shorter questions about the signals. Chapter~\ref{ch:discussion} draws the results together, reviews the project critically against its plan and schedule, and sets out what should be done next.

@@ -1,0 +1,214 @@
+\chapter{RQ3: Training classifiers on the tool's labels}
+\label{ch:rq3}
+
+\begin{instructions}
+About 5 pages. Answers RQ3; it absorbs the plan's RQ1 (cluster against manual labels) and holds the held-out exam.
+Sources:
+\begin{itemize}
+  \item \src{docs/rq_roundA/RQ1-cluster-vs-manual-labels.md} (run 79);
+  \item \src{docs/rq_roundA_2/findings/rq1-v2-blind-2026-10-26.md} (run 1613 against blind labels; from the 26 Oct
+        read-only analyses);
+  \item \src{docs/prompts/blocks/reports/W4-A-evaluation.md} (the CNNs);
+  \item \src{docs/rq_roundA_2/findings/rq1b-minirocket-2026-10-20.md} and \src{rq1b-minirocket-null-2026-10-26.md}
+        (R4);
+  \item \src{DATA/derived/models/rq1b_cnn_vs_minirocket/reference_20261026/} (the CNN comparison);
+  \item \src{docs/rq_roundA_2/findings/m4-exam-<date>.md}, once queue 36 is scored.
+\end{itemize}
+\end{instructions}
+
+\section{Aims}
+
+RQ3 asks whether labels gathered through the tool can train a classifier that works on recordings it never saw. The classifier must beat a label-shuffle null and the detectors' own vote. The plan's RQ1 asked a narrower version: whether cluster-derived labels give a better classifier than manual labels, judged on the held-out recording.
+
+\section{Methods}
+
+\begin{instructions}
+Three label sources:
+\begin{itemize}
+  \item the imported manual 10-minute window labels: 11,234 windows (2,333 interesting, 8,773 not, 128 artifact);
+  \item cluster labels: v1 is Ward $k=4$ on the 24 features (run 79); v2 is 7 Ward shape clusters (noise curved, noise
+        flat, ridge, spike, U trough, V trough, drop) mapped to interesting/not (run 1613);
+  \item judged candidate events from queues 25 and 28 plus the Library review: 2,456 events, plus 3,000 judged windows.
+\end{itemize}
+Three model families:
+\begin{itemize}
+  \item a random forest on catch22 plus entropy features (24 features, 100 trees);
+  \item EfficientNet-B0 on GASF, GADF, recurrence and fusion images of 600-sample windows;
+  \item MiniRocket with a ridge classifier (R4).
+\end{itemize}
+Exams:
+\begin{itemize}
+  \item (i) a later time block;
+  \item (ii) unseen channels;
+  \item blind labels from queue 3 (986 scored);
+  \item leave-one-recording-out;
+  \item the M4 exam.
+\end{itemize}
+Nulls: 200 label shuffles. Baselines: the majority class, detector agreement, and size and noise alone.
+\end{instructions}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.8\textwidth]{poster/models.png}
+\caption{The three model routes from one judged event: image encodings into a CNN, random convolution features into MiniRocket, and summary features into a random forest.}
+\label{fig:models}
+\end{figure}
+
+\section{Results}
+
+\subsection{Cluster labels against manual labels (the plan's RQ1)}
+
+\begin{table}[htbp]
+\caption{Random forests trained on manual and on cluster-derived labels (run 79, M2\_aug, 10-minute windows; macro F1 with 95\,\% intervals).}
+\label{tab:forests}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Exam} & \textbf{Manual labels (A)} & \textbf{Cluster labels (B)} & \textbf{Shuffle null}\\
+\midrule
+(ii) unseen channels & 0.793 [0.764--0.819] & 0.635 [0.594--0.674] & $\approx$0.43\\
+(i) later block & 0.884 & 0.607 & --\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{instructions}
+Report it honestly. 979 of the 1,271 interesting training windows (77\,\%) sit in clusters that translate to
+``not interesting'', so A beating B was close to built in. It is not a finding about clustering.
+
+Then v2 (run 1613), scored against blind labels (\src{docs/rq_roundA_2/findings/rq1-v2-blind-2026-10-26.md}):
+\begin{itemize}
+  \item unseen channels: macro F1 0.450 [0.404--0.495] against a null of 0.368 ($p=0.001$); balanced accuracy 0.625
+        [0.586--0.664]; $\kappa$ 0.13; precision 0.256; recall 0.908;
+  \item later block: 0.482 [0.426--0.536] against 0.382; balanced accuracy 0.641; $\kappa$ 0.16.
+\end{itemize}
+Like-for-like on the same blind windows, arm A wins on macro F1 (about 0.70 against 0.44), while balanced accuracy is
+close (0.66 against 0.64) because the two fail in opposite directions. Arm A's 0.79 was partly in-sample: on windows
+with no earlier label it drops to 0.70, and on M2\_concat to 0.59. Make a table of this.
+
+The conclusion for the plan's RQ1: unsupervised shape clusters, mapped to interesting/not, recover most interesting
+windows but with many false alarms. They do not replace human labels.
+\end{instructions}
+
+\subsection{The CNNs}
+
+\begin{table}[htbp]
+\caption{Reference CNNs scored against blind labels (queue 3): balanced accuracy at a 0.5 cut, AUC in brackets.}
+\label{tab:cnns}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Window} & \textbf{GASF} & \textbf{GADF} & \textbf{Recurrence} & \textbf{Fusion}\\
+\midrule
+10\,min (M2\_aug) & 0.82 (0.96) & 0.83 (0.95) & 0.79 (0.95) & 0.78 (0.93)\\
+10\,min (M2\_concat, out of sample) & 0.68 & 0.63 & -- & 0.64\\
+30\,min (M2\_concat, out of sample) & 0.86 & 0.87 & -- & 0.77\\
+1\,min & \multicolumn{4}{c}{0.39--0.51 (AUC 0.30--0.46): no better than chance}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{instructions}
+Reconcile with the plan's figures. GASF 91.98\,\%, GADF 91.84\,\%, recurrence 92.26\,\% and fusion 91.00\,\% were plain
+accuracy on a random 9:1 split of overlapping windows. A model that always answers ``not interesting'' scores about 0.81
+accuracy on these labels, and the training data was never recorded. The poster's bars round two of these up: on the
+blind labels GADF is 0.90 and recurrence 0.91 in plain accuracy, and the poster's fusion checkpoint is unnamed
+(ledger). Quote balanced accuracy, 0.78--0.83.
+\end{instructions}
+
+\subsection{MiniRocket on judged events}
+
+\begin{table}[htbp]
+\caption{MiniRocket R4, leave-one-recording-out: AUC and balanced accuracy with bootstrap 95\,\% intervals, against a 200-shuffle label null ($p=0.005$, the floor, on every recording).}
+\label{tab:r4}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Held out} & \textbf{AUC} & \textbf{Balanced accuracy}\\
+\midrule
+CO\_fs2 & 0.989 [0.976--0.998] & 0.954 [0.92--0.98]\\
+LM\_fs2 & 0.995 [0.990--0.999] & 0.955 [0.93--0.98]\\
+L\_LM & 0.984 [0.972--0.992] & 0.925 [0.90--0.95]\\
+M2\_aug & 0.951 [0.938--0.963] & 0.886 [0.87--0.90]\\
+M2\_concat & 0.961 [0.927--0.987] & 0.909 [0.87--0.95]\\
+\midrule
+Pooled & 0.971 [0.965--0.977] & 0.919 [0.907--0.930]\\
+Shuffle null (pooled) & mean 0.42, max 0.49 & mean 0.44, max 0.49\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{instructions}
+Add:
+\begin{itemize}
+  \item on the 1,689 random queue candidates, R4 has AUC 0.97 against 0.86 for counting detector agreement, and about
+        0.84--0.90 for size and noise alone (the ledger settles which);
+  \item within each detector family R4 still scores AUC 0.88--0.99, so it judges shape, not which detector proposed
+        the span;
+  \item intervals resampling whole channels (46) are wider but still above 0.96;
+  \item the preliminary run (queue 25 only) was superseded.
+\end{itemize}
+Why the pooled null sits at 0.42 rather than 0.5: see the null findings file.
+\end{instructions}
+
+\subsection{CNN against MiniRocket on the same events}
+
+\begin{table}[htbp]
+\caption{AUC of the reference CNNs and MiniRocket R4 on R4's 2,456 judged events, by held-out recording. ``Out'': not in the CNNs' training data.}
+\label{tab:cnnvsr4}
+\footnotesize
+\begin{tabular}{llccccc}
+\toprule
+\textbf{Recording} & \textbf{CNN data} & \textbf{R4} & \textbf{GASF} & \textbf{GADF} & \textbf{Recurrence} & \textbf{Fusion}\\
+\midrule
+CO\_fs2 & out & 0.989 & 0.740 & 0.803 & 0.684 & 0.785\\
+LM\_fs2 & out & 0.995 & 0.676 & 0.720 & 0.586 & 0.636\\
+L\_LM & out & 0.984 & 0.791 & 0.869 & 0.766 & 0.783\\
+M2\_concat & probably out & 0.961 & 0.573 & 0.608 & 0.568 & 0.585\\
+M2\_aug & in & 0.951 & 0.796 & 0.838 & 0.801 & 0.801\\
+\midrule
+Pooled & mixed & 0.971 & 0.737 & 0.790 & 0.722 & 0.738\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{instructions}
+This comparison is not fully fair to the CNNs, which learned from an older labelling of fixed 10-minute windows. A fair
+arm, the same network trained on R4's rows with R4's folds, is prepared for rangpur
+(\src{DATA/derived/hpc/rq1b_cnn_loro_20261026/}; about 1.6 GPU-hours). Report it if you submit it before the freeze;
+otherwise say why the gap is still informative. R4 minus GADF: $+0.18$ [0.16--0.20] pooled, and $+0.11$ even on M2\_aug,
+which the CNNs were trained on.
+\end{instructions}
+
+\subsection{The held-out exam}
+
+\begin{table}[htbp]
+\caption{The M4 exam: frozen models scored once on 290 blind-judged candidate events. [To be filled by \texttt{scripts/m4\_exam\_score.py}.]}
+\label{tab:exam}
+\centering
+\figplaceholder{3.5cm}{Rows: MiniRocket R4; GASF, GADF, recurrence, fusion CNNs; detector agreement. Columns: AUC and balanced accuracy with within-stratum bootstrap intervals; paired AUC difference from R4. Plus the share real on M4, the agreement ladder, and per-detector precision on M4.}
+\end{table}
+
+\begin{instructions}
+Report the exam exactly as the manifest specifies, one-shot, including if it disappoints. Compare with
+leave-one-recording-out. Restate the exposure in one sentence and point to Table~\ref{tab:exposure}.
+\end{instructions}
+
+\section{Discussion}
+
+\begin{instructions}
+Points to argue:
+\begin{itemize}
+  \item Labels gathered through the tool are good enough to teach a machine your judgement across recordings, rates
+        and units.
+  \item The ceiling is your own re-test agreement, 94\,\%: R4's balanced accuracy of 0.92 is close to it.
+  \item Why random features beat both the CNNs and the forest here: variable-length events and scale features.
+\end{itemize}
+Limitations:
+\begin{itemize}
+  \item R4 judges detector-proposed spans, not a free scan of the signal;
+  \item a single labeller;
+  \item two classes only: no shape-family classes yet, because the Library has no verified named classes (the round-B
+        CNN-on-the-library idea needs a background class and 100--200 verified members per class).
+\end{itemize}
+\end{instructions}

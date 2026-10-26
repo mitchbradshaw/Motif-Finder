@@ -1,0 +1,23 @@
+% Propose and adjudicate: machine output and human verdicts live in separate tables and meet only in Review.
+\begin{tikzpicture}[
+  node distance=9mm and 11mm,
+  mach/.style={draw=ubgrey, rounded corners=2pt, fill=ubgrey!8, font=\footnotesize, text width=3.8cm, align=center, minimum height=11mm},
+  hum/.style={draw=instruc, rounded corners=2pt, fill=instruc!8, font=\footnotesize, text width=3.8cm, align=center, minimum height=11mm},
+  arr/.style={-{Stealth[length=2mm]}, thick, ubgrey},
+  lbl/.style={font=\scriptsize, ubgrey, align=center}
+]
+\node[mach] (runs) {Detector, seed and model runs\\(recipe hash, surrogate pair)};
+\node[mach, right=of runs] (det) {\texttt{detections}\\machine rows only};
+\node[hum, right=of det] (queue) {Review queue\\blind, stratified sample};
+\node[hum, below=of queue] (verd) {\texttt{adjudications}\\human verdicts only: seed, interesting, not, artifact, unsure};
+\node[hum, below=of det] (lib) {Library families\\accepted members};
+\node[mach, below=of runs] (seed) {Seeds and training sets};
+
+\draw[arr] (runs) -- (det);
+\draw[arr] (det) -- node[above, lbl]{sample} (queue);
+\draw[arr] (queue) -- node[right, lbl]{you judge} (verd);
+\draw[arr] (verd) -- (lib);
+\draw[arr] (lib) -- (seed);
+\draw[arr] (seed) -- node[left, lbl]{seeded search,\\classifier} (runs);
+\node[font=\scriptsize, red!60!black, align=center, above=3mm of det] {machine rows and human verdicts are never merged};
+\end{tikzpicture}

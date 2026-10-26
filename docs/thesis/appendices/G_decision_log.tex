@@ -1,0 +1,34 @@
+\chapter{Decision log}
+\label{app:decisions}
+
+The research decisions that shaped the results, with their dates and the record in which each was made (\texttt{QUESTIONS.md} rows are cited by number).
+
+\begin{table}[htbp]
+\caption{Research decisions.}
+\label{tab:decisions}
+\footnotesize
+\begin{tabularx}{\textwidth}{p{1.7cm} X p{2.6cm}}
+\toprule
+\textbf{Date} & \textbf{Decision} & \textbf{Record}\\
+\midrule
+15 Sep 2026 & Rebuild the interface in React and FastAPI after prototyping three stacks & ADR 0001\\
+21 Sep & Retire the Panel interface & tag \texttt{archive/panel-ui}\\
+23 Sep & Deadline moved: a polished tool by 21 Oct, then answer questions with it & CLAUDE.md\\
+1 Oct & Port the Dehshibi detector from the authors' code, not the printed paper & Q33\\
+5 Oct & Fix the verdict vocabulary at five words & Q45\\
+14 Oct & Skip gaps (NaN-aware) rather than refuse & NaN policy\\
+15 Oct & Declare units per dataset; read every block's millivolts through one function & drop-detector fix\\
+17 Oct & Switch the held-out lock off for the demonstrations & audit 519\\
+18 Oct & M4 stays the exam; the Library holds no M4 motifs & RQ4b log\\
+26 Oct & Answer three research questions; report the other plan questions as pilots & thesis planning\\
+26 Oct & Blind seed panel with duration-matched controls (queue 35) & RQ2 log\\
+26 Oct & Lock on; freeze the exam manifest; add the CNNs before judging & audits 536--539\\
+{[28 Oct]} & Round-B questions, the grouping, and the partial-motif rule & [to record]\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{instructions}
+Check each row against \src{docs/prompts/fixup/QUESTIONS.md} and the research-question logs. Add any decision you
+consider shaped a result. Keep to one page.
+\end{instructions}

@@ -1,0 +1,29 @@
+% Plan RQs (left) to thesis RQs and chapters (right). Solid: answered within; dashed: pilot.
+\begin{tikzpicture}[
+  plan/.style={draw=ubgrey, rounded corners=2pt, fill=ubgrey!8, font=\footnotesize, text width=5.9cm, minimum height=7mm, align=left},
+  rq/.style={draw=ubblue, rounded corners=2pt, fill=ubblue!10, font=\footnotesize, text width=5.9cm, minimum height=8mm, align=left},
+  ch/.style={draw=instruc, rounded corners=2pt, fill=instruc!8, font=\footnotesize, text width=5.9cm, minimum height=8mm, align=left},
+  ans/.style={-{Stealth[length=2mm]}, thick, ubblue},
+  pil/.style={-{Stealth[length=2mm]}, thick, instruc, dashed}
+]
+\node[plan] (p1) at (0,0)    {Plan RQ1: cluster vs manual labels};
+\node[plan] (p2) at (0,-1.2) {Plan RQ2: seeded search vs surrogate};
+\node[plan] (p3) at (0,-2.4) {Plan RQ3: identity under scale};
+\node[plan] (p4) at (0,-3.6) {Plan RQ4: bands + symbols vs raw signal};
+\node[plan] (p5) at (0,-4.8) {Plan RQ5: human vs machine divergence};
+\node[plan] (p6) at (0,-6.0) {Plan RQ6: recurrence across channels};
+
+\node[rq] (t1) at (8.6,-0.6) {RQ1 Detectors at scale (Ch.~\ref{ch:rq1})};
+\node[rq] (t2) at (8.6,-2.0) {RQ2 Seeds find new motifs (Ch.~\ref{ch:rq2})};
+\node[rq] (t3) at (8.6,-3.4) {RQ3 Classifiers on tool labels (Ch.~\ref{ch:rq3})};
+\node[ch] (c9) at (8.6,-4.8) {What the events look like (Ch.~\ref{ch:events})};
+\node[ch] (c10) at (8.6,-6.0) {Round B: questions about the signals (Ch.~\ref{ch:roundb})};
+
+\draw[ans] (p1.east) -- (t3.west);
+\draw[ans] (p2.east) -- (t2.west);
+\draw[pil] (p3.east) -- (t2.west);
+\draw[pil] (p3.east) -- (c9.west);
+\draw[ans] (p4.east) -- (t1.west);
+\draw[ans] (p5.east) -- (t1.west);
+\draw[pil] (p6.east) -- (c10.west);
+\end{tikzpicture}

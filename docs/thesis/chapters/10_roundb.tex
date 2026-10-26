@@ -1,0 +1,185 @@
+\chapter{Round B: questions about the signals}
+\label{ch:roundb}
+
+\begin{instructions}
+About 5--6 pages for 6--10 short studies, each about half a page plus one figure. The list is fixed in Round 3
+(Wed 28 Oct) and run from Thu 29 Oct; experiments freeze Tue 3 Nov.
+
+Two decisions come first, and every study states them:
+\begin{itemize}
+  \item which Library grouping is used. The survey's recommendation: one new grouping on de-duplicated M2\_aug and
+        Mushroom members, excluding Fig2A pieces, cited by id with a stability (wobble ARI) beside it;
+  \item how partial motifs become events. The survey's rule: collapse twins ($\ge$90\,\% mutual overlap), keep a
+        container and list its nested parts, and join abutting or partly overlapping members but never through a
+        container. Without that last clause, one union chains 104 parts.
+\end{itemize}
+Candidate list and evidence: \src{docs/rq_roundB/README.md} and \src{docs/rq_roundB/notes/drop-motif-sequences.md}.
+\end{instructions}
+
+The three research questions asked what the instrument can do. This chapter uses it to ask what the signals do: a set of shorter questions about sequences, models, channels, conditions, and methods borrowed from other fields. Each is answered with the site as it stood, and each is judged against a null.
+
+\section{How the questions were chosen}
+
+\begin{instructions}
+Rules: answerable with the site with little new building; one null per question; one figure; a stated claim and a
+stated non-claim. Give a table of the questions chosen, with their effort class (none / template / small block).
+\end{instructions}
+
+\section{Study template}
+
+\begin{instructions}
+Copy this template once per study:
+\begin{enumerate}
+  \item \textbf{Question} (one sentence);
+  \item \textbf{Why it matters}, in plain words;
+  \item \textbf{Chain and data}: the recipe hash and the recordings;
+  \item \textbf{Null or control};
+  \item \textbf{Result}: the number, its interval and the null;
+  \item \textbf{Figure};
+  \item \textbf{What it does not show}.
+\end{enumerate}
+\end{instructions}
+
+\section{Sequences and timing}
+\label{sec:rb_sequences}
+
+\begin{instructions}
+Candidates:
+\begin{itemize}
+  \item \textbf{B1}: do drop sequences morph step by step more than chance? Measure: the fraction of steps smaller than
+        the end-to-end change. Null: the same events in shuffled order. Data: the 117 sequences in the database.
+  \item \textbf{B2}: are the gaps between drops more regular than chance? Measure: LV \cite{shinomoto2003lv} and CV2
+        \cite{holt1996cv2}. Null: shuffled intervals or rate-matched Poisson (LV $=1$). Data: \texttt{chain\_cycles}
+        chains and the seed matches. Effort: none.
+  \item \textbf{B3}: is the sharkfin plateau a stable signature per organism? Measure: the cycle-stack floor fraction,
+        against the quiet-stretch null, on recordings 2, 3, 6 and 542. Effort: a small floor measure.
+\end{itemize}
+\end{instructions}
+
+\section{Modelling common motifs}
+\label{sec:rb_models}
+
+\begin{instructions}
+Candidates:
+\begin{itemize}
+  \item \textbf{B4}: does a FitzHugh--Nagumo model fit common motif cycles better than a jump plus exponential
+        recovery? Measure: AIC. Null: pseudo-cycles from quiet stretches.
+  \item \textbf{B5}: do fitted FHN parameters separate families or species once duration is controlled?
+\end{itemize}
+The fitter is \src{Pipelines/fhn/} (or \src{scripts/fhn/}). Figures go to \src{docs/thesis/data/ch10_fhn/} and the
+findings to \src{docs/rq_roundA_2/findings/fhn-fit-2026-10-26.md}.
+
+Present the phase response curves in the manner of Wilshin, Kvalheim and Revzen \cite{wilshin2024prc}: the
+phase-coloured limit cycle with isochron ticks, and the PRC against phase. Say plainly that these are PRCs of the fitted
+model. No perturbation experiment was made, and the paper's lesson applies: the voltage PRC depends on which hidden
+variable is held constant.
+\end{instructions}
+
+\begin{instructions}
+First results (\src{docs/rq_roundA_2/findings/fhn-fit-2026-10-26.md}; code \src{Pipelines/fhn/}; 11 tests). The fitter
+reproduces the paper's FHN period ($T=11.2279$, against $3\times3.743$) and its Fig.~4 PRC. It was then fitted to the
+mean drop cycle of three sequences:
+\begin{itemize}
+  \item oyster sequence 3 (27 cycles of 44\,min);
+  \item oyster sequence 7 (16 cycles of 130\,s);
+  \item reishi sequence 22 (42 cycles of 2\,s).
+\end{itemize}
+Findings:
+\begin{itemize}
+  \item On both oyster sequences, a fall plus smooth recovery fits best by AIC (R$^2$ 0.957 and 0.984). Of the two FHN
+        regimes the excitable one wins: a single kicked excursion, not a limit cycle.
+  \item On reishi, oscillatory FHN is best (R$^2$ 0.997), but that mean cycle is nearly a sine wave.
+  \item The decisive caveat: FHN fits the quiet-stretch and scrambled fake cycles just as well (R$^2$ up to 0.99). What
+        separates real cycles from fakes is their height (4--12$\times$), not their shape. Only 10 + 10 fake draws were
+        made (5 + 5 for reishi), so ``beats every draw'' means $p\lesssim$ 0.1--0.2.
+  \item Several parameters sit on their bounds and are not biological estimates. $a$ and $z$ are not separately
+        identifiable from voltage alone; only $\alpha=a+bz$ is.
+\end{itemize}
+What the study can claim: a ranking of shape models on these sequences, and a demonstration that a voltage-only
+model's PRC depends on the hidden coordinate held fixed. What it cannot claim: that fungi are FHN-like, any measured
+phase response, or a spiking-family taxonomy.
+\end{instructions}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{data/ch10_fhn/seq7_fit.png}
+\caption{Oyster sequence 7: the mean of 16 recorded drop cycles with four fitted models (left), and the same fits on quiet-stretch and scrambled fake cycles (right). A fall plus smooth recovery fits best; FHN fits the fakes about as well as the recording.}
+\label{fig:fhnfit}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{data/ch10_fhn/seq7_fig1_style.png}
+\caption{The oscillatory FHN fitted to sequence 7, drawn in the manner of Wilshin et al.\ \cite{wilshin2024prc}: the limit cycle with phase-coloured isochron ticks (left), and the model's voltage PRC under four choices of what is held fixed (right). This is the PRC of the fitted model, not a measured one.}
+\label{fig:fhn}
+\end{figure}
+
+\section{Activity across channels and datasets}
+\label{sec:rb_channels}
+
+\begin{instructions}
+Candidates:
+\begin{itemize}
+  \item \textbf{B7}: is there a consistent propagation lag between electrodes? This is the plan's RQ6. First judge the
+        64 flagged pairs on M2\_aug. Report the three bins with their random-time nulls. Preliminary: 123 near-copy
+        pairs, 97 of which beat their own null (chance would pass about 6); no propagation survives on the current
+        families.
+  \item \textbf{B8}: do channels' hourly drop rates rise and fall together? Null: circular shift.
+  \item \textbf{B9}: do the same families recur across datasets? Needs Library members imported from LM, CO and L\_LM.
+\end{itemize}
+\end{instructions}
+
+\section{Activity against environment}
+\label{sec:rb_environment}
+
+\begin{instructions}
+Only M101\_t has an environment log on disk: \texttt{SD}, 19,438$\times$5 at 60\,s steps over 13.5 days, with
+unlabelled columns that look like °C, \%RH (only 9 distinct values), hPa, perhaps CO$_2$ ppm, and one unknown. There is
+no absolute timestamp: both clocks start at 0, and the log runs about 22\,h longer than the signal.
+
+\textbf{B10}: does event rate track temperature? Use a selective detector on M101's 13 channels, hourly bins, and a
+circular-shift null. Report across the plausible offsets, 0 to $-22$\,h, because the alignment is unknown. Humidity is
+weak (9 distinct values).
+
+Other datasets' logs are pending from the supervisor. If they arrive before the freeze, use them. The Explore
+environment view is a separate decision (Round 3).
+\end{instructions}
+
+\section{Methods from other fields}
+\label{sec:rb_methods}
+
+\begin{instructions}
+Candidates (each: what method X from field Y reveals on fungal signals, and whether it beats its null):
+\begin{itemize}
+  \item \textbf{Multiscale entropy} (physiology): do complexity curves separate the four Adamatzky species beyond AAFT?
+        Silhouette 0.428 against 0.22--0.37 for AAFT so far, mostly noise colour. Register Ghost fungi properly first.
+  \item \textbf{The matrix profile as a prevalence measure} (data mining): how often a verified motif recurs per hour
+        per channel, against phase-randomised and AAFT nulls. Needs $k$ raised above 200, or an uncapped threshold
+        count.
+  \item \textbf{logISI, LV, CV2} (neuroscience): are fungal event onsets bursty or regular beyond Poisson? Onsets from
+        drop\_detection\_v1 over 721\,h.
+  \item \textbf{Cycle shapes} (ECG wave-shape): do drop-chain cycle shapes differ between chains and organisms?
+        $\sigma^2$ against the quiet-stretch null.
+  \item \textbf{CWT ridges} (mass spectrometry): is event duration multimodal, as Adamatzky's three scales suggest?
+        Modes of \texttt{best\_scale\_s} against AAFT.
+  \item \textbf{BEADS and OASIS} (chromatography, calcium imaging): does deconvolution recover a stable recovery time
+        per organism?
+\end{itemize}
+State the general finding as the chapter's conclusion: which borrowed methods transfer, and which only measure the
+spectrum.
+\end{instructions}
+
+\section{A second unseen recording}
+\label{sec:rb_unseen}
+
+\begin{instructions}
+Optional (Round 3): sweep \emph{S.\ commune} (Adamatzky; 73\,h, 1\,Hz, mV) on rangpur, build its candidate table, and
+draw a stratified blind sample of 300 (about 10--15 minutes of judging). Score the frozen R4 once. It would be a new
+lab, rig and species. If fewer than about 30 interesting events come back, use enoki next.
+\end{instructions}
+
+\section{Summary}
+
+\begin{instructions}
+One table: question, null, result, verdict (supported / bounded / not supported), and what it changes.
+\end{instructions}

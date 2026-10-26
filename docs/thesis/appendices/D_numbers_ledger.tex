@@ -1,0 +1,35 @@
+\chapter{Numbers ledger}
+\label{app:ledger}
+
+Every number reported in the results chapters is traced here to the file that produced it and the script or route that wrote that file. The full ledger, with about 90 rows, is kept in the repository as \texttt{docs/thesis/numbers\_ledger.md}. This appendix carries the headline rows and the resolution of every disagreement between earlier documents. Status \emph{verified} means recomputed from the database (read-only) or read from a machine-written results file.
+
+\begin{table}[htbp]
+\caption{Disagreements between earlier documents (poster, demonstration, research-question files) and their resolution.}
+\label{tab:ledgerfix}
+\footnotesize
+\begin{tabularx}{\textwidth}{p{4.2cm} p{2.6cm} X}
+\toprule
+\textbf{Claim} & \textbf{Correct figure} & \textbf{Why}\\
+\midrule
+Long-dip seed acceptance & 94/103 (91\,\%) & Unsure verdicts excluded throughout\\
+Top rung of the agreement ladder & 40--63\,\% & All five estimate files; 50--67\,\% does not reproduce\\
+Drop detector v1 precision & 92--100\,\% & Blind, event by event; the demo's 83\,\% was containment in old window labels\\
+Number of recordings & 26 registered, 23 active & About 18 distinct physical recordings; ``16'' fits no definition\\
+``1,000 hours'' & 721 + 282.5 h & M2\_aug alone is 721\,h\\
+Spike seed acceptance & 51/58 (88\,\%) & Judged in queue 24; ``not judged'' was stale\\
+CNN performance & balanced accuracy 0.78--0.83 & Plain accuracy is uninformative: the majority class scores 0.81\\
+Analysis blocks & 59 & Asserted by the test suite\\
+Detection algorithms & 25 detection templates, 12 families & ``24'' was the count of sweep variants\\
+Human labels & 15,385 own looks & 11,234 imported window labels; 4,151 given in the tool; carried copies excluded\\
+Accepted events that are falls & 68\,\% (57--80\,\%) & Recomputed on 716 accepted events; the poster's 73\,\% does not reproduce\\
+Cluster-label forest & balanced accuracy 0.625 & Final, not provisional\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{instructions}
+Add a headline table of the about 30 numbers the thesis quotes most, each with its value, source file and script.
+Generate it from \src{docs/thesis/numbers_ledger.md} so the two cannot drift; \src{scripts/thesis/ledger_checks.py}
+recomputes the verifiable rows. Add rows for queue 35, the M4 exam and round B once they are scored. Keep the appendix
+to two pages.
+\end{instructions}

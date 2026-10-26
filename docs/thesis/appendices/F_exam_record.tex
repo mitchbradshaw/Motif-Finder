@@ -1,0 +1,29 @@
+\chapter{Held-out exam record}
+\label{app:exam}
+
+\begin{instructions}
+One page. Summarise the frozen manifest and the amendment. Give the full sha256s here: the main text carries only
+prefixes. Point to the files.
+\end{instructions}
+
+\begin{table}[htbp]
+\caption{The M4 exam, as frozen before any judging.}
+\label{tab:examrecord}
+\footnotesize
+\begin{tabularx}{\textwidth}{p{3.4cm} X}
+\toprule
+\textbf{Item} & \textbf{Value}\\
+\midrule
+Recording & \texttt{M4\_aug\_concat\_fs1.mat}: 16 channels, 505\,h, 1\,Hz\\
+Manifest & \texttt{docs/rq\_roundA\_2/exam/M4-exam-manifest.json}\\
+Manifest sha256 & \texttt{db32fdc7ff42aa46ddfd0198993853e138e9fb958c3d4dcf83a65e5f3317e0b6} (audit 537)\\
+Amendment 1 (CNNs) & \texttt{5286bac396f99c524c4e53a926ec2318e42313156aa333188d6407f962e25d14} (audit 539)\\
+Models frozen & MiniRocket R4; forests run 79 and run 1613; CNN checkpoints (GASF, GADF, recurrence, fusion), each by file hash\\
+Detector settings & The 632 real runs of 19 Oct (43 settings), each by configuration hash\\
+Sample & 290 candidate events: agreement strata 1--2, 3--4, 5--6, 7--8 and 9+ (40 each), plus six rare-detector strata (15 each); fixed seed; queue 36\\
+Pool & 832,136 candidate events from 1,186,189 detections; none judged before\\
+Metrics & Share real; agreement ladder; per-family and per-setting precision; AUC and balanced accuracy for R4 and the CNNs, with within-stratum bootstrap intervals; paired AUC difference from R4\\
+Protocol & Lock off (audited) $\rightarrow$ judge queue 36 only $\rightarrow$ lock on (audited) $\rightarrow$ score once with \texttt{scripts/m4\_exam\_score.py}, which refuses if any hash differs\\
+\bottomrule
+\end{tabularx}
+\end{table}

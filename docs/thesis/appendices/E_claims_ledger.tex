@@ -1,0 +1,34 @@
+\chapter{Drop-motif claims ledger}
+\label{app:claims}
+
+The drop-motif study kept a ledger of every claim it tested, with the evidence, the null that bounds it and a verdict. Each falsified or bounded claim carries the sentence to use instead. Totals: 7 supported, 3 bounded, 3 not supported and 7 falsified. The full ledger is \texttt{Plots/drop\_motifs10/CLAIMS.md}.
+
+\begin{table}[htbp]
+\caption{The drop-motif claims ledger (abridged).}
+\label{tab:claims}
+\scriptsize
+\begin{tabularx}{\textwidth}{r X p{2.0cm}}
+\toprule
+\textbf{\#} & \textbf{Claim (abridged) and evidence} & \textbf{Verdict}\\
+\midrule
+1 & Detector fixes moved no human-validated count (16 of 16 controls reproduce) & supported\\
+2 & No motif enters the tree as an all-zero vector (0 of 3,511 rows) & supported\\
+3 & Both sensitivity misses were bracketing bugs, now fixed & supported\\
+4 & The 0.1\,mV floor is M2-specific (3.1--5.3$\sigma$ on M2, 15--59$\sigma$ elsewhere) & supported\\
+5 & A small repertoire of relative shapes at very different absolute scales (40 medoids, 0.3--266\,s) & bounded\\
+6--8 & Family membership tracks species rather than resolution ($V_\text{species}$ 0.087--0.250 vs $V_\text{samples}$ 0.250--0.318) & falsified\\
+9 & The 200-point normalised vector carries shape only (it predicts samples per event at 0.753 vs 0.25) & falsified\\
+10 & Shape families are species-specific (matched contrast $V=0.087$, $p=0.096$) & not supported\\
+11 & Where membership tracks a corpus label, framing rather than species explains it & supported\\
+12 & Species is recoverable from absolute scale (0.781 vs 0.333) & supported\\
+13 & Normalised shape decodes species only near chance (0.614 vs 0.333) & falsified\\
+14 & What shape knows about species is shape, not resolution (one feature gives 0.575) & not supported\\
+15 & Shape plus scale beats scale alone for species (0.741 vs 0.781) & falsified\\
+16 & Families transfer between species as well as within (ARI 0.523 down to 0.027, asymmetric) & bounded\\
+17 & One species' events sit closer to another's medoids than chance (surrogates 1.5--8.4$\times$ further) & supported\\
+18 & The Ward tree faithfully summarises the distances (cophenetic 0.577 pooled, below 0.70) & not supported\\
+19 & A 3$\sigma$ per-channel floor is one well-defined number (two estimators differ 4--6$\times$) & bounded\\
+20 & Normalised shape is blind to recording context (it carries electrode and species) & falsified\\
+\bottomrule
+\end{tabularx}
+\end{table}
