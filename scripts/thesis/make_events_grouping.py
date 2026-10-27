@@ -31,6 +31,10 @@ Run with the web UI's venv (it imports the bridge's waveform helper):
     webui/.venv/Scripts/python.exe scripts/thesis/make_events_grouping.py --apply    # backup, then save
 
 Output: docs/thesis/data/library_events/events_grouping.json (what was saved, or would be).
+
+g-11 (2026-10-27) — the same method over every ACTIVE recording (never M4 or L_R; so not Fig2A, Mushroom rec 385
+or L_LM fs2, which are inactive), after the blind-queue events were promoted by `promote_blind_accepted.py`:
+    webui/.venv/Scripts/python.exe scripts/thesis/make_events_grouping.py --active-only --apply --name "thesis · events · all active datasets (2026-10-27)" --out docs/thesis/data/library_events_all_active/events_grouping.json
 Undo: DELETE FROM grouping_assignments WHERE grouping_id = <id>; DELETE FROM groupings WHERE id = <id>; and remove
 the tree file the row names.
 """
@@ -141,6 +145,9 @@ def main(argv=None):
     ap.add_argument("--apply", action="store_true", help="take a bridge backup, then save the grouping")
     ap.add_argument("--gap-s", type=float, default=LE.GAP_S)
     ap.add_argument("--no-stability", action="store_true")
+    ap.add_argument("--active-only", action="store_true", help="active recordings only, never M4 or L_R (g-11)")
+    ap.add_argument("--name", default=NAME)
+    ap.add_argument("--out", default=OUT)
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -151,6 +158,9 @@ def main(argv=None):
     ro = LE.ro_connect(DB)
     try:
         members = LE.load_members(ro, G05)
+        if args.active_only:
+            members = LE.active_only(members)
+        species = {r[0]: r[1] for r in ro.execute("SELECT source_file, species FROM datasets")}
         accepted = LE.accepted_member_ids(ro, members)
         index = lib._recordings_index(ro)
         events = [ev for ev in LE.build_events(members, args.gap_s) if ev["file"] != LE.FIG2A_FILE]
@@ -172,6 +182,8 @@ def main(argv=None):
 
     # report
     fam_recs = collections.defaultdict(set)
+    fam_species = collections.defaultdict(set)
+    fam_per_rec = collections.defaultdict(collections.Counter)
     fam_members = collections.Counter()
     per_rec = collections.defaultdict(lambda: {"items": 0, "assigned": 0})
     for it, a in zip(items, result.assignments):
@@ -181,20 +193,35 @@ def main(argv=None):
             per_rec[f]["assigned"] += 1
             fam_recs[a.family_label].add(f)
             fam_members[a.family_label] += 1
+            fam_per_rec[a.family_label][f] += 1
+            if species.get(f):
+                fam_species[a.family_label].add(species[f])
     acc_items = [(it, a) for it, a in zip(items, result.assignments)
                  if any(m["mid"] in accepted for m in it["event"]["members"])]
     report = {
-        "name": NAME, "method": METHOD, "basis": BASIS, "params": PARAMS, "gap_s": args.gap_s,
+        "name": args.name, "active_only": bool(args.active_only), "method": METHOD, "basis": BASIS, "params": PARAMS, "gap_s": args.gap_s,
         "items_rule": ("one representative per event of scripts/thesis/library_events.py: the container member, "
-                       "else the longest part; Fig2A_dt0p1 and the Review-promoted entries excluded"),
+                       "else the longest part; " + (
+                           "active recordings only (never M4_aug_concat_fs1 or L_R_Aug_26_PD_raw), the "
+                           "Review-promoted regions excluded" if args.active_only else
+                           "Fig2A_dt0p1 and the Review-promoted entries excluded")),
         "events": len(events), "items": len(items), "skipped": skipped,
         "families": result.n_families, "assigned": result.n_assigned, "omitted": result.n_omitted,
         "omitted_by_reason": dict(result.omitted_by_reason),
         "members_per_recording": dict(per_rec),
         "families_with_2plus_recordings": sorted(f for f, r in fam_recs.items() if len(r) >= 2),
+        "species_known": {f: species.get(f) for f in sorted(per_rec)},
+        "families_with_2plus_known_species": sorted(f for f, sp in fam_species.items() if len(sp) >= 2),
+        "family_members_per_recording": {f: dict(c) for f, c in sorted(fam_per_rec.items())},
         "family_sizes": dict(sorted(fam_members.items(), key=lambda kv: -kv[1])),
         "accepted_events": {"items": len(acc_items), "assigned": sum(1 for _, a in acc_items if a.family_label),
-                            "families": len({a.family_label for _, a in acc_items if a.family_label})},
+                            "families": len({a.family_label for _, a in acc_items if a.family_label}),
+                            "per_recording": {f: {"items": sum(1 for it, _ in acc_items if it["event"]["file"] == f),
+                                                  "assigned": sum(1 for it, a in acc_items
+                                                                  if it["event"]["file"] == f and a.family_label)}
+                                              for f in sorted(per_rec)},
+                            "per_family": dict(collections.Counter(a.family_label for _, a in acc_items
+                                                                   if a.family_label).most_common())},
         "cophenetic_correlation": round(cophenetic(engine_items), 4),
     }
     if not args.no_stability:
@@ -214,17 +241,22 @@ def main(argv=None):
         fit_summary.update({"rows": len(items), "assigned": result.n_assigned,
                             "stability": report.get("stability"),
                             "cophenetic_correlation": report["cophenetic_correlation"],
-                            "items_rule": report["items_rule"], "events_table": "docs/thesis/data/library_events/"})
+                            "items_rule": report["items_rule"],
+                            "events_table": ("docs/thesis/data/library_events_all_active/" if args.active_only
+                                             else "docs/thesis/data/library_events/")})
         from webui.server import corpus
         conn = corpus.connect(DB)
         try:
             now = dt.datetime.now().isoformat(timespec="seconds")
             assigned = [a for a in result.assignments if a.family_label]
             gid = writes.write_human(conn, "groupings", {
-                "name": NAME, "unit": UNIT, "basis": BASIS, "method": METHOD,
+                "name": args.name, "unit": UNIT, "basis": BASIS, "method": METHOD,
                 "params_json": json.dumps(PARAMS, sort_keys=True), "cut": PARAMS["cut"],
                 "filters_json": json.dumps({"items": report["items_rule"], "gap_s": args.gap_s,
-                                            "excluded": ["Fig2A_dt0p1.csv (reishi_10hz)", "source_kind = 'review'"],
+                                            "excluded": (["inactive recordings (recordings.active = 0)",
+                                                          *LE.ALWAYS_EXCLUDED, "source_kind = 'review'"]
+                                                         if args.active_only else
+                                                         ["Fig2A_dt0p1.csv (reishi_10hz)", "source_kind = 'review'"]),
                                             "script": "scripts/thesis/make_events_grouping.py"}, sort_keys=True),
                 "n_families": len({a.family_label for a in assigned}), "n_assigned": len(assigned),
                 "n_omitted": len(result.assignments) - len(assigned),
@@ -246,8 +278,8 @@ def main(argv=None):
         report["grouping_id"] = gid
         report["tree"] = result.tree and {"key": result.tree["key"], "path": lib._stored_tree_path(result.tree["path"])}
         print(f"saved grouping g-{gid:02d}")
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w", encoding="utf-8") as fh:
+    os.makedirs(os.path.dirname(args.out), exist_ok=True)
+    with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(engine_mod.json_safe(report), fh, indent=1)
     return 0
 

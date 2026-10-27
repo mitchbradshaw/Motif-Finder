@@ -39,6 +39,9 @@ docs/thesis/data/library_events/{events.csv, summary.json}.
 
     "/c/ProgramData/anaconda3/python.exe" scripts/thesis/library_events.py [--gap-s 3] [--grouping 5]
 
+g-11's table (2026-10-27): every ACTIVE recording, never M4 or L_R, written beside g-10's rather than over it:
+    "/c/ProgramData/anaconda3/python.exe" scripts/thesis/library_events.py --active-only --out docs/thesis/data/library_events_all_active
+
 `build_events` is imported by `make_events_grouping.py`, so the grouping and the table use the same events.
 """
 from __future__ import annotations
@@ -84,7 +87,7 @@ def load_members(conn, grouping_id=5):
     rows = conn.execute("""
         SELECT m.id AS mid, m.entry_id, m.recording_id AS rec, m.start_idx AS s, m.end_idx AS e,
                COALESCE(e.fs, r.fs) AS fs, e.source_kind AS src, COALESCE(e.source_store, '') AS store,
-               r.source_file AS file, r.channel AS ch,
+               r.source_file AS file, r.channel AS ch, COALESCE(r.active, 1) AS active,
                (SELECT v.value FROM motif_entry_tags t JOIN tag_vocabulary v ON v.id = t.tag_id
                  WHERE t.entry_id = e.id AND v.category = 'corpus' LIMIT 1) AS corpus,
                ga.family_label AS fam, ga.omit_reason AS omit
@@ -105,6 +108,10 @@ def load_members(conn, grouping_id=5):
 
 
 def accepted_member_ids(conn, members):
+    """Members a person accepted: a Library verdict (`annotations.source = 'library_review'`, `interesting`) on the
+    member's span, or (2026-10-27) the member's revision-1 detection carrying an own Review verdict
+    (`adjudications.carried_from IS NULL`, newest own row `interesting` or `seed`) — the blind-queue events promoted
+    verdict-free by `promote_blind_accepted.py`."""
     key = {(m["rec"], m["s"], m["e"]): m["mid"] for m in members}
     ids = set()
     for r in conn.execute("SELECT recording_id, start_idx, end_idx FROM annotations "
@@ -112,7 +119,24 @@ def accepted_member_ids(conn, members):
         k = (r[0], r[1], r[2])
         if k in key:
             ids.add(key[k])
+    have = {m["mid"] for m in members}
+    for r in conn.execute("""SELECT rv.member_id,
+                                    (SELECT a.verdict FROM adjudications a WHERE a.detection_id = rv.detection_id
+                                       AND a.carried_from IS NULL ORDER BY a.id DESC LIMIT 1) v
+                               FROM motif_member_revision rv WHERE rv.revision = 1 AND rv.detection_id IS NOT NULL"""):
+        if r[0] in have and r[1] in ("interesting", "seed"):
+            ids.add(r[0])
     return ids
+
+
+#: Recordings no all-active analysis reads, whatever their `active` flag (2026-10-27): the held-out exam recording
+#: and L_R (a humidity actuator's PID oscillation contaminates it).
+ALWAYS_EXCLUDED = (HELD_OUT_FILE, "L_R_Aug_26_PD_raw.mat")
+
+
+def active_only(members):
+    """`members` on active recordings, minus `ALWAYS_EXCLUDED`."""
+    return [m for m in members if int(m.get("active", 1) or 0) == 1 and m["file"] not in ALWAYS_EXCLUDED]
 
 
 class _UF:
@@ -324,6 +348,8 @@ def main(argv=None):
     ap.add_argument("--grouping", type=int, default=5)
     ap.add_argument("--gap-s", type=float, default=GAP_S)
     ap.add_argument("--out", default=OUT)
+    ap.add_argument("--active-only", action="store_true",
+                    help="only members on active recordings, never M4 or L_R (g-11's input); use with --out")
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -331,6 +357,8 @@ def main(argv=None):
     conn = ro_connect(args.db)
     try:
         members = load_members(conn, args.grouping)
+        if args.active_only:
+            members = active_only(members)
         accepted = accepted_member_ids(conn, members)
         n_verdicts = conn.execute("SELECT verdict, COUNT(*) FROM annotations WHERE source = 'library_review' "
                                   "AND deleted_at IS NULL GROUP BY verdict").fetchall()
@@ -372,6 +400,7 @@ def main(argv=None):
         "generated_by": "scripts/thesis/library_events.py",
         "database": "DATA/db/annotations.sqlite (mode=ro)",
         "g05_grouping_id": args.grouping,
+        "active_only": bool(args.active_only),
         "rule": {**RULE_TEXT, "gap_s": args.gap_s, "twin_overlap": TWIN, "nest_inside": NEST_IN,
                  "nest_ratio": NEST_RATIO,
                  "review_entries": "the Review-promoted entries (source_kind 'review') are regions, not events: they "

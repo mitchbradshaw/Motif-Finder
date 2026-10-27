@@ -1,0 +1,507 @@
+{
+ "name": "thesis \u00b7 events \u00b7 all active datasets (2026-10-27)",
+ "active_only": true,
+ "method": "ward",
+ "basis": "shape-distance",
+ "params": {
+  "cut": 0.6,
+  "min_group": 10,
+  "omit_d": 0.5
+ },
+ "gap_s": 3.0,
+ "items_rule": "one representative per event of scripts/thesis/library_events.py: the container member, else the longest part; active recordings only (never M4_aug_concat_fs1 or L_R_Aug_26_PD_raw), the Review-promoted regions excluded",
+ "events": 1097,
+ "items": 1097,
+ "skipped": [],
+ "families": 42,
+ "assigned": 817,
+ "omitted": 280,
+ "omitted_by_reason": {
+  "group_too_small": 279,
+  "past_cut": 1
+ },
+ "members_per_recording": {
+  "CO_fs2.mat": {
+   "items": 93,
+   "assigned": 68
+  },
+  "LM_fs2.mat": {
+   "items": 100,
+   "assigned": 76
+  },
+  "M2_aug_concat_fs1.mat": {
+   "items": 830,
+   "assigned": 616
+  },
+  "M2_concat_fs1.mat": {
+   "items": 74,
+   "assigned": 57
+  }
+ },
+ "families_with_2plus_recordings": [
+  "F-04",
+  "F-05",
+  "F-06",
+  "F-07",
+  "F-08",
+  "F-10",
+  "F-11",
+  "F-12",
+  "F-13",
+  "F-14",
+  "F-21",
+  "F-24",
+  "F-25",
+  "F-26",
+  "F-29",
+  "F-30",
+  "F-32",
+  "F-37",
+  "F-38",
+  "F-40",
+  "F-42",
+  "F-43",
+  "F-50",
+  "F-56",
+  "F-57",
+  "F-60",
+  "F-61",
+  "F-62",
+  "F-63",
+  "F-66",
+  "F-67",
+  "F-68",
+  "F-74",
+  "F-75",
+  "F-76",
+  "F-78",
+  "F-79",
+  "F-86",
+  "F-89"
+ ],
+ "species_known": {
+  "CO_fs2.mat": null,
+  "LM_fs2.mat": null,
+  "M2_aug_concat_fs1.mat": "oyster (Pleurotus ostreatus)",
+  "M2_concat_fs1.mat": null
+ },
+ "families_with_2plus_known_species": [],
+ "family_members_per_recording": {
+  "F-04": {
+   "CO_fs2.mat": 1,
+   "LM_fs2.mat": 5,
+   "M2_aug_concat_fs1.mat": 27,
+   "M2_concat_fs1.mat": 2
+  },
+  "F-05": {
+   "LM_fs2.mat": 3,
+   "M2_aug_concat_fs1.mat": 8,
+   "M2_concat_fs1.mat": 2
+  },
+  "F-06": {
+   "CO_fs2.mat": 4,
+   "LM_fs2.mat": 3,
+   "M2_aug_concat_fs1.mat": 21,
+   "M2_concat_fs1.mat": 2
+  },
+  "F-07": {
+   "LM_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 16
+  },
+  "F-08": {
+   "LM_fs2.mat": 6,
+   "M2_aug_concat_fs1.mat": 2,
+   "M2_concat_fs1.mat": 2
+  },
+  "F-10": {
+   "CO_fs2.mat": 2,
+   "LM_fs2.mat": 2,
+   "M2_aug_concat_fs1.mat": 12
+  },
+  "F-11": {
+   "CO_fs2.mat": 2,
+   "M2_aug_concat_fs1.mat": 14
+  },
+  "F-12": {
+   "CO_fs2.mat": 1,
+   "LM_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 10
+  },
+  "F-13": {
+   "LM_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 11
+  },
+  "F-14": {
+   "LM_fs2.mat": 4,
+   "M2_aug_concat_fs1.mat": 14
+  },
+  "F-21": {
+   "LM_fs2.mat": 6,
+   "M2_aug_concat_fs1.mat": 58,
+   "M2_concat_fs1.mat": 1
+  },
+  "F-24": {
+   "CO_fs2.mat": 2,
+   "LM_fs2.mat": 2,
+   "M2_aug_concat_fs1.mat": 15,
+   "M2_concat_fs1.mat": 4
+  },
+  "F-25": {
+   "CO_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 10
+  },
+  "F-26": {
+   "CO_fs2.mat": 1,
+   "LM_fs2.mat": 2,
+   "M2_aug_concat_fs1.mat": 13
+  },
+  "F-29": {
+   "CO_fs2.mat": 3,
+   "LM_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 23,
+   "M2_concat_fs1.mat": 5
+  },
+  "F-30": {
+   "CO_fs2.mat": 1,
+   "LM_fs2.mat": 5,
+   "M2_aug_concat_fs1.mat": 14,
+   "M2_concat_fs1.mat": 2
+  },
+  "F-32": {
+   "M2_aug_concat_fs1.mat": 19,
+   "M2_concat_fs1.mat": 1
+  },
+  "F-35": {
+   "M2_aug_concat_fs1.mat": 11
+  },
+  "F-37": {
+   "CO_fs2.mat": 12,
+   "LM_fs2.mat": 7,
+   "M2_aug_concat_fs1.mat": 18,
+   "M2_concat_fs1.mat": 4
+  },
+  "F-38": {
+   "CO_fs2.mat": 5,
+   "LM_fs2.mat": 6,
+   "M2_aug_concat_fs1.mat": 19
+  },
+  "F-40": {
+   "CO_fs2.mat": 1,
+   "LM_fs2.mat": 5,
+   "M2_aug_concat_fs1.mat": 15,
+   "M2_concat_fs1.mat": 2
+  },
+  "F-42": {
+   "LM_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 10,
+   "M2_concat_fs1.mat": 2
+  },
+  "F-43": {
+   "CO_fs2.mat": 1,
+   "LM_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 24,
+   "M2_concat_fs1.mat": 3
+  },
+  "F-50": {
+   "CO_fs2.mat": 2,
+   "M2_aug_concat_fs1.mat": 7,
+   "M2_concat_fs1.mat": 1
+  },
+  "F-53": {
+   "M2_aug_concat_fs1.mat": 22
+  },
+  "F-56": {
+   "CO_fs2.mat": 2,
+   "M2_aug_concat_fs1.mat": 24,
+   "M2_concat_fs1.mat": 1
+  },
+  "F-57": {
+   "CO_fs2.mat": 1,
+   "LM_fs2.mat": 3,
+   "M2_aug_concat_fs1.mat": 8,
+   "M2_concat_fs1.mat": 1
+  },
+  "F-60": {
+   "LM_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 12,
+   "M2_concat_fs1.mat": 1
+  },
+  "F-61": {
+   "CO_fs2.mat": 3,
+   "M2_aug_concat_fs1.mat": 4,
+   "M2_concat_fs1.mat": 3
+  },
+  "F-62": {
+   "CO_fs2.mat": 3,
+   "LM_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 7,
+   "M2_concat_fs1.mat": 1
+  },
+  "F-63": {
+   "CO_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 11,
+   "M2_concat_fs1.mat": 1
+  },
+  "F-66": {
+   "CO_fs2.mat": 1,
+   "LM_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 16
+  },
+  "F-67": {
+   "LM_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 14,
+   "M2_concat_fs1.mat": 1
+  },
+  "F-68": {
+   "CO_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 14
+  },
+  "F-74": {
+   "CO_fs2.mat": 3,
+   "M2_aug_concat_fs1.mat": 13,
+   "M2_concat_fs1.mat": 3
+  },
+  "F-75": {
+   "CO_fs2.mat": 2,
+   "LM_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 7,
+   "M2_concat_fs1.mat": 1
+  },
+  "F-76": {
+   "CO_fs2.mat": 3,
+   "M2_aug_concat_fs1.mat": 13,
+   "M2_concat_fs1.mat": 3
+  },
+  "F-78": {
+   "CO_fs2.mat": 2,
+   "LM_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 7,
+   "M2_concat_fs1.mat": 1
+  },
+  "F-79": {
+   "CO_fs2.mat": 4,
+   "M2_aug_concat_fs1.mat": 9,
+   "M2_concat_fs1.mat": 1
+  },
+  "F-80": {
+   "M2_aug_concat_fs1.mat": 21
+  },
+  "F-86": {
+   "CO_fs2.mat": 1,
+   "LM_fs2.mat": 1,
+   "M2_aug_concat_fs1.mat": 15,
+   "M2_concat_fs1.mat": 3
+  },
+  "F-89": {
+   "CO_fs2.mat": 2,
+   "LM_fs2.mat": 4,
+   "M2_aug_concat_fs1.mat": 8,
+   "M2_concat_fs1.mat": 3
+  }
+ },
+ "family_sizes": {
+  "F-21": 65,
+  "F-37": 41,
+  "F-04": 35,
+  "F-29": 32,
+  "F-06": 30,
+  "F-38": 30,
+  "F-43": 29,
+  "F-56": 27,
+  "F-24": 23,
+  "F-40": 23,
+  "F-30": 22,
+  "F-53": 22,
+  "F-80": 21,
+  "F-86": 20,
+  "F-32": 20,
+  "F-76": 19,
+  "F-74": 19,
+  "F-66": 18,
+  "F-14": 18,
+  "F-89": 17,
+  "F-07": 17,
+  "F-10": 16,
+  "F-11": 16,
+  "F-26": 16,
+  "F-67": 16,
+  "F-68": 15,
+  "F-79": 14,
+  "F-60": 14,
+  "F-57": 13,
+  "F-63": 13,
+  "F-05": 13,
+  "F-42": 13,
+  "F-62": 12,
+  "F-12": 12,
+  "F-13": 12,
+  "F-75": 11,
+  "F-78": 11,
+  "F-25": 11,
+  "F-35": 11,
+  "F-61": 10,
+  "F-50": 10,
+  "F-08": 10
+ },
+ "accepted_events": {
+  "items": 678,
+  "assigned": 519,
+  "families": 41,
+  "per_recording": {
+   "CO_fs2.mat": {
+    "items": 93,
+    "assigned": 68
+   },
+   "LM_fs2.mat": {
+    "items": 100,
+    "assigned": 76
+   },
+   "M2_aug_concat_fs1.mat": {
+    "items": 411,
+    "assigned": 318
+   },
+   "M2_concat_fs1.mat": {
+    "items": 74,
+    "assigned": 57
+   }
+  },
+  "per_family": {
+   "F-21": 49,
+   "F-37": 35,
+   "F-38": 28,
+   "F-29": 22,
+   "F-06": 20,
+   "F-40": 17,
+   "F-30": 16,
+   "F-24": 16,
+   "F-89": 16,
+   "F-74": 16,
+   "F-86": 14,
+   "F-80": 14,
+   "F-79": 13,
+   "F-76": 13,
+   "F-56": 12,
+   "F-14": 12,
+   "F-67": 12,
+   "F-10": 11,
+   "F-43": 11,
+   "F-04": 11,
+   "F-68": 11,
+   "F-60": 11,
+   "F-78": 10,
+   "F-62": 10,
+   "F-57": 10,
+   "F-61": 10,
+   "F-66": 10,
+   "F-63": 10,
+   "F-08": 10,
+   "F-07": 10,
+   "F-75": 9,
+   "F-05": 9,
+   "F-26": 7,
+   "F-42": 7,
+   "F-12": 6,
+   "F-13": 5,
+   "F-11": 4,
+   "F-50": 4,
+   "F-25": 3,
+   "F-32": 3,
+   "F-53": 2
+  }
+ },
+ "cophenetic_correlation": 0.6485,
+ "stability": {
+  "definition": "Gaussian noise, sd = p x the item's own sd, added to each item's 64 envelope values; regrouped with the same settings; adjusted Rand index vs the saved assignment, over all items (omitted = own singleton) and over items assigned in both",
+  "repeats": 5,
+  "jitter_1pct": {
+   "ari_all_min": 0.899,
+   "ari_all_max": 0.952,
+   "ari_all_mean": 0.926,
+   "runs": [
+    {
+     "seed": 1000,
+     "families": 42,
+     "ari_all": 0.9353066880697404,
+     "ari_assigned_in_both": 0.947038884533883,
+     "n_assigned_in_both": 810
+    },
+    {
+     "seed": 1001,
+     "families": 41,
+     "ari_all": 0.9337922909295079,
+     "ari_assigned_in_both": 0.9376939901238437,
+     "n_assigned_in_both": 803
+    },
+    {
+     "seed": 1002,
+     "families": 42,
+     "ari_all": 0.9099557857965899,
+     "ari_assigned_in_both": 0.9200385279344724,
+     "n_assigned_in_both": 804
+    },
+    {
+     "seed": 1003,
+     "families": 43,
+     "ari_all": 0.9523266978673476,
+     "ari_assigned_in_both": 0.9598810372648576,
+     "n_assigned_in_both": 809
+    },
+    {
+     "seed": 1004,
+     "families": 42,
+     "ari_all": 0.8988253612693016,
+     "ari_assigned_in_both": 0.9078069434693695,
+     "n_assigned_in_both": 799
+    }
+   ]
+  },
+  "jitter_2pct": {
+   "ari_all_min": 0.855,
+   "ari_all_max": 0.914,
+   "ari_all_mean": 0.882,
+   "runs": [
+    {
+     "seed": 2000,
+     "families": 43,
+     "ari_all": 0.9144608087606355,
+     "ari_assigned_in_both": 0.9402046284412114,
+     "n_assigned_in_both": 798
+    },
+    {
+     "seed": 2001,
+     "families": 43,
+     "ari_all": 0.8852399195975326,
+     "ari_assigned_in_both": 0.8967192546179461,
+     "n_assigned_in_both": 800
+    },
+    {
+     "seed": 2002,
+     "families": 42,
+     "ari_all": 0.89524982998655,
+     "ari_assigned_in_both": 0.9107438833808038,
+     "n_assigned_in_both": 797
+    },
+    {
+     "seed": 2003,
+     "families": 41,
+     "ari_all": 0.8580534429858083,
+     "ari_assigned_in_both": 0.9043270279322806,
+     "n_assigned_in_both": 775
+    },
+    {
+     "seed": 2004,
+     "families": 44,
+     "ari_all": 0.8549461905855182,
+     "ari_assigned_in_both": 0.875812625039603,
+     "n_assigned_in_both": 790
+    }
+   ]
+  }
+ },
+ "backup": "C:\\Users\\mmebr\\Documents\\CNN\\DATA\\db\\backups\\20261027-114909.sqlite",
+ "grouping_id": 11,
+ "tree": {
+  "key": "bf0db562b63717df75e31dc87b9212bd",
+  "path": "DATA/derived/library/grouping_trees/bf0db562b63717df75e31dc87b9212bd.npz"
+ }
+}
