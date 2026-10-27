@@ -21,6 +21,7 @@ import {
 import type { SequenceFamily } from '../api/library'
 import { LoadFailed, Loading, centreTrace } from './chrome'
 import { LabelKey, SequenceStrips, SequenceTrace, fmtDur } from './SequenceStrips'
+import { SequenceMorph } from './SequenceMorph'
 
 export function SequenceFamilyPage({ f, grouping }: { f: SequenceFamily; grouping?: string }) {
   const [data, setData] = useState<LibSeqFamily | null>(null)
@@ -60,6 +61,9 @@ export function SequenceFamilyPage({ f, grouping }: { f: SequenceFamily; groupin
           </div>
           <div style={{ marginTop: 8 }}><LabelKey colours={data.colours} labels={data.labels} /></div>
         </div>
+
+        {/* round-B B2: does the shape morph along each sequence, against the same events shuffled */}
+        <SequenceMorph family={data.id} grouping={data.grouping} />
 
         <div className="k-card" style={{ padding: '12px 14px' }} data-testid="sequence-family-medoids">
           <span className="lib-h">The medoid shape at each position</span>

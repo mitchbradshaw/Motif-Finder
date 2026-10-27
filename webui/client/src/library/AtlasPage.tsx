@@ -36,6 +36,7 @@ import { AMP_DOMAIN, FAMILY_COLOURS, UNIT_LABEL, getMotifFamilies, getOmitted, g
 import type { LibFamilyView, LibFitSummary, LibViewReport } from '../api'
 import { FamilyMembersInPlace } from './MemberSlideshow'
 import { BuildSequences } from './BuildSequences'
+import { SequenceMorph } from './SequenceMorph'
 import { useToast } from '../shell/Toast'
 import {
   GroupingBar, LoadFailed, Loading, MotifPlot, MotifsActions, OMITTED_SKETCH_NOTE, OmittedDrawer, OmittedThumb, SectionBar, centreTrace, fmtMv,
@@ -335,6 +336,8 @@ function SequenceAtlas({ families, motifFamilies, grouping }: { families: Sequen
             : <span data-testid="sequences-banner-loading">Sequences only: counting what {grouping.id} left out…</span>}
           <Button variant="link" style={{ marginLeft: 'auto' }} testid="show-omitted" onClick={() => setDrawer('omitted')}>Show omitted</Button>
         </div>
+        {/* round-B B2: the morph summary over every stored sequence (rows folded) */}
+        <SequenceMorph />
         <div className="lib-grid c3" data-testid="atlas-grid" role="listbox" aria-label="sequence families" tabIndex={0} onKeyDown={onKey}>
           {visible.map(f => (
             <div key={f.id} role="option" aria-selected={f.id === selected?.id} tabIndex={-1} className={`k-card lib-fcard${f.id === selected?.id ? ' selected' : ''}`} style={{ cursor: 'pointer' }}

@@ -8,7 +8,7 @@
   {SpanSet}% output
   {Adapters/interrogation\_intervals.py}% code
   {interrogation/intervals}% hand-written folder under blocks/
-\ubblockdescription{interrogation.intervals}{The interval before and after every event, per group and never pooled across groups, with each group's median, CV (ddof=1), R\ensuremath{^2} trend and drift ratio --- the regularity gate that says when a run of events is a motif train --- plus LV and CV2, which compare each gap only with the next, so a slow speed-up over the day does not read as irregular (about 0 = clockwork, 1 = random). Put it after Event shape to time events from their onsets.}
+\ubblockdescription{interrogation.intervals}{The interval before and after every event, per group and never pooled across groups, with each group's median, CV (ddof=1), R\ensuremath{^2} trend and drift ratio --- the regularity gate that says when a run of events is a motif train --- plus LV and CV2, which compare each gap only with the next, so a slow speed-up over the day does not read as irregular (about 0 = clockwork, 1 = random), each against a rate-matched Poisson null and a shuffled-interval null (mean, 95 \% band, p). Put it after Event shape to time events from their onsets.}
 \ubblockflags{interrogation.intervals}{%
   \ubflag{estimate}{}%
 }
@@ -16,4 +16,6 @@
 }
 \ubblockparams{interrogation.intervals}{%
   \ubparam{anchor}{\texttt{onset}}{one of \texttt{onset}, \texttt{start}}{Time each event from its measured onset (Event shape upstream) or its span start}%
+  \ubparam{null\_\allowbreak{}draws}{1000}{whole number from 0 to 20000}{Draws per null for LV and CV2 (rate-matched Poisson and shuffled intervals, per group); 0 turns the nulls off}%
+  \ubparam{null\_\allowbreak{}seed}{2003}{whole number from 0 to 2147483647}{Seed of the null draws, so a group always gets the same null}%
 }

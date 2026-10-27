@@ -247,7 +247,18 @@ export interface RosePayload {
 }
 export interface IntervalStats { n_events: number; n_intervals: number; median_s: number | null; mean_s: number | null; min_s: number | null; max_s: number | null; cv: number | null; r2_trend: number | null; drift_ratio: number | null
   /** w1-g: local regularity (Shinomoto LV, Holt CV2) — about 0 clockwork, 1 Poisson; null under 3 events, with the reason */
-  lv?: number | null; cv2?: number | null; n_local_pairs?: number | null; local_note?: string | null }
+  lv?: number | null; cv2?: number | null; n_local_pairs?: number | null; local_note?: string | null
+  /** round-B B1: LV and CV2 against a rate-matched Poisson and a shuffled-interval null (the block's own groups
+   *  only; null when the block ran with null_draws = 0; absent on the per-class split) */
+  nulls?: IntervalNulls | null }
+/** One measure against one null: observed, the null's mean and 2.5–97.5 % band, two-sided p. */
+export interface IntervalNullStat { observed: number | null; null_mean: number | null; lo: number | null; hi: number | null; p: number | null; n_used: number }
+export interface IntervalNullBlock { n_draws: number; lv: IntervalNullStat | null; cv2: IntervalNullStat | null; note: string | null }
+export interface IntervalNulls {
+  n_events: number; n_intervals: number; seed: number; resolution_s: number | null
+  n_local_pairs: number; local_note: string | null; caveat: string | null
+  poisson: IntervalNullBlock; shuffle: IntervalNullBlock
+}
 export interface SpansetPayload {
   type: 'spanset'; fs: number; n: number; capped: boolean; start_s: number[]; end_s: number[]; labels: (string | null)[] | null; scores: (number | null)[] | null; summary: string
   /** fixup-d: one row of measures per span, and the feature blocks' rules / rose / interval statistics */
@@ -1758,6 +1769,19 @@ export const previewLibrarySequences = (body: LibSeqJoinBody) => post<LibSeqPrev
 export const keepLibrarySequences = (body: LibSeqJoinBody) => post<LibSeqKeep>('/api/library/sequences/keep', body)
 export const getLibrarySequenceFamily = (id: string, grouping?: string) =>
   req<LibSeqFamily>(`/api/library/sequences/${encodeURIComponent(id)}${dq({ grouping })}`)
+/** round-B B2: the morph readout (server/library.py `get_sequence_morph`, core `Working.library.morph`). */
+export interface LibSeqMorphRow {
+  sequenceId: number; id: string; recording: string | null; labels: string[]; nElements: number
+  fraction: number | null; nullMean: number | null; lo: number | null; hi: number | null; p: number | null
+  pFloor: number | null; nDraws: number; exact: boolean; tested: boolean; note: string | null
+}
+export interface LibSeqMorph {
+  family: string | null; rows: LibSeqMorphRow[]
+  summary: { nSequences: number; nScored: number; nTested: number; nBeat: number; expected: number; alpha: number; words: string }
+  distance: string; rule: string; seed: number; draws: number
+}
+export const getLibrarySequenceMorph = (family?: string, grouping?: string) =>
+  req<LibSeqMorph>(`/api/library/sequence-morph${dq({ family, grouping })}`)
 export const sendSequenceFamilyReview = (id: string, grouping?: string) =>
   post<{ queueId: number; name: string; sent: number; total: number; judged: number; remaining: number }>(
     `/api/library/sequences/${encodeURIComponent(id)}/review${dq({ grouping })}`, {})

@@ -363,7 +363,7 @@
   "state": "ig-pages-intervals-timeline-gap-labels-and-legend",
   "hash": "analyse/block/5",
   "settle_ms": 2500,
-  "_why": "ig-pages: the Intervals page leads with the timeline (events as ticks coloured by depth thirds, the distance written on each gap that fits), the legend naming the rule, the interval statistics table and the interval histogram; the rest folded. night-analyse (2026-10-20): the histogram is replaced by the per-class scatter (time until the next event of the same class), with the input signal coloured by class above and the class transition table below",
+  "_why": "ig-pages: the Intervals page leads with the timeline (events as ticks coloured by depth thirds, the distance written on each gap that fits), the legend naming the rule, the interval statistics table and the interval histogram; the rest folded. night-analyse (2026-10-20): the histogram is replaced by the per-class scatter (time until the next event of the same class), with the input signal coloured by class above and the class transition table below. round-B B1: under the statistics table, each group's LV and CV2 against a rate-matched Poisson null and a shuffled-interval null (null mean, 95 % band, p, n events), the band worded (more regular / burstier than random)",
   "actions": [
    {
     "wait_for": [
@@ -384,6 +384,7 @@
    "[data-testid=\"interval-legend-rule\"]",
    "[data-testid=\"interval-legend\"] i",
    "[data-testid=\"interval-stats\"]",
+   "[data-testid=\"interval-nulls\"] [data-testid=\"interval-null-row\"]",
    "[data-testid=\"interval-signal\"] svg",
    "[data-testid=\"interval-scatter\"] svg",
    "[data-testid=\"class-transitions\"]",

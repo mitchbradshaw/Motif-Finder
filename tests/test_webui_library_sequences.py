@@ -209,3 +209,33 @@ def test_send_to_review_queues_the_familys_unjudged_elements(seqb):
     again = _ok(client.post(f"/api/library/sequences/{CHAIN}/review?grouping={kept['grouping']}"))
     assert again["queueId"] == sent["queueId"], "one queue per family"
     assert client.post(f"/api/library/sequences/F-09.F-09/review?grouping={kept['grouping']}").status_code == 404
+
+
+def test_the_morph_route_reports_each_sequence_and_the_summary(seqb):
+    """Round-B B2: GET /api/library/sequence-morph is the core's readout
+    (`Working.library.morph.sequence_morph`) on the family's shown sequences, or
+    on every stored one. The three-element chain is scored but cannot be tested
+    (6 orders: its p floor is far above 0.05), and says so; nothing is written."""
+    client, ctx = seqb
+    kept = _ok(client.post("/api/library/sequences/keep", json={**BODY, "recording_id": ctx["rid"]}))
+    before = _counts(ctx["db"])
+    fam = _ok(client.get(f"/api/library/sequence-morph?family={CHAIN}&grouping={kept['grouping']}"))
+    assert _counts(ctx["db"]) == before, "the readout writes nothing"
+    assert len(fam["rows"]) == 1
+    row = fam["rows"][0]
+    assert row["nElements"] == 3 and row["labels"] == ["F-01", "F-02", "F-01"]
+    assert row["fraction"] is not None and row["exact"] is True and row["nDraws"] == 6
+    assert row["tested"] is False and row["pFloor"] > 0.05 and row["note"]
+    s = fam["summary"]
+    assert (s["nSequences"], s["nTested"], s["nBeat"], s["expected"]) == (1, 0, 0, 0.0)
+    assert "expected by chance" in s["words"]
+    assert "256" in fam["distance"] and fam["rule"]
+
+    every = _ok(client.get("/api/library/sequence-morph"))
+    assert len(every["rows"]) == every["summary"]["nSequences"] >= 2
+    assert {r["nElements"] for r in every["rows"]} >= {2, 3}
+    two = next(r for r in every["rows"] if r["nElements"] == 2)
+    assert two["fraction"] is None and two["note"], "a two-element sequence has nothing to compare, and says so"
+
+    missing = client.get(f"/api/library/sequence-morph?family=F-09.F-09&grouping={kept['grouping']}")
+    assert missing.status_code == 404

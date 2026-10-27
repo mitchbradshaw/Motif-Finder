@@ -2859,6 +2859,70 @@ def get_sequence_family(request: Request, family_id: str, grouping: str | None =
         conn.close()
 
 
+@router.get("/sequence-morph")
+def get_sequence_morph(request: Request, family: str | None = Query(default=None),
+                       grouping: str | None = Query(default=None)):
+    """Round-B B2, the *morph* readout (`Working.library.morph`, the core): per
+    sequence, the share of consecutive steps whose shape distance is smaller than
+    first-to-last, against the same elements in shuffled order (seeded), and the
+    summary - how many beat their null at p < 0.05 against the number expected
+    by chance. With `family` (and the sequence `grouping`), that family's shown
+    sequences (hand-removed ones left out, as on its page); without, every stored
+    sequence. Held-out recordings are left out, as every Library read leaves them
+    out. Each element is handed to the core as the decimated waveform the
+    groupings are fitted on (`_native_waveform`), so the distance is theirs on
+    their input. 404 for a family the grouping does not hold."""
+    from Working.library import morph as morph_mod
+
+    conn = _conn(request)
+    try:
+        index = _recordings_index(conn)
+        motif_g = _default_grouping(conn, "single_motifs")
+        motif_gid = int(motif_g["id"]) if motif_g is not None else None
+        if family is not None:
+            g = _resolve_grouping(conn, grouping, "sequences")
+            if g is None or str(g["unit"]) != "sequences":
+                raise HTTPException(404, f"no sequence grouping {grouping or '(none saved)'}")
+            ids = _seq_family_ids(conn, g, family)
+            if not ids:
+                raise HTTPException(404, f"no sequence family {family} in grouping {gid_str(g['id'])}")
+            keys = {int(r[0]): str(r[1]) for r in conn.execute(
+                f"SELECT id, sequence_key FROM sequences WHERE id IN ({','.join('?' * len(ids))})", ids)}
+            removed = _seq_removed(conn, set(keys.values()), family)
+            ids = [i for i in ids if keys.get(i) not in removed]
+        else:
+            ids = [int(r[0]) for r in conn.execute("SELECT id FROM sequences ORDER BY id")]
+        held = {rid for rid, m in index["by_id"].items() if m.get("held_out")}
+        ids = [int(r[0]) for r in conn.execute(
+            f"SELECT id, recording_id FROM sequences WHERE id IN ({','.join('?' * len(ids))}) ORDER BY id", ids)
+            if int(r[1] or 0) not in held] if ids else []
+
+        def waveform_of(recording_id, start_idx, end_idx):
+            w = _native_waveform(index, recording_id, start_idx, end_idx, px=64)
+            return np.asarray(w, dtype=float) if w else None
+
+        def _opt(v):
+            # an unscored sequence's measures are None (never 0, which would read as "no morph")
+            return None if v is None else _f(v, None)
+
+        out = morph_mod.sequence_morph(conn, ids, waveform_of=waveform_of, grouping_id=motif_gid)
+        rows = [{"sequenceId": r["sequence_id"], "id": f"sq-{r['sequence_id']}",
+                 "recording": (index["by_id"].get(int(r["recording_id"])) or {}).get("name"),
+                 "labels": r["labels"], "nElements": r["n_elements"], "fraction": _opt(r["fraction"]),
+                 "nullMean": _opt(r["null_mean"]), "lo": _opt(r["lo"]), "hi": _opt(r["hi"]), "p": _opt(r["p"]),
+                 "pFloor": _opt(r["p_floor"]), "nDraws": r["n_draws"], "exact": r["exact"], "tested": r["tested"],
+                 "note": r["note"]} for r in out["rows"]]
+        sm = out["summary"]
+        return {"family": family, "rows": rows,
+                "summary": {"nSequences": sm["n_sequences"], "nScored": sm["n_scored"], "nTested": sm["n_tested"],
+                            "nBeat": sm["n_beat"], "expected": sm["expected"], "alpha": sm["alpha"],
+                            "words": sm["words"]},
+                "distance": out["distance"], "rule": out["rule"], "seed": morph_mod.MORPH_SEED,
+                "draws": morph_mod.MORPH_DRAWS}
+    finally:
+        conn.close()
+
+
 @router.post("/sequences/{family_id}/review")
 def send_sequence_family_review(request: Request, family_id: str, grouping: str | None = Query(default=None)):
     """*Send to Review*: the unjudged ELEMENTS of this sequence family's shown
