@@ -410,3 +410,129 @@ def _jsonable(value):
         if isinstance(value, (list, tuple)):
             return [_jsonable(v) for v in value]
         return str(value)
+
+
+# ── the verdict-free half: promote an ALREADY-accepted detection ─────────────
+#
+# Researcher, 2026-10-26 (Q5 A). `promote` writes a verdict first, and on a
+# detection queue that verdict is a new `adjudications` row with `carried_from`
+# NULL — a new "own look" — carried to the same event in other runs. Promoting
+# the accepted items of a finished blind queue that way would double-count the
+# researcher's judgements. `promote_to_library` is the Library half alone: the
+# same identity walk (hash -> classify -> entry -> member -> rev 1), no verdict,
+# no annotation, and its record goes in `audit_log` rather than `review_audit`
+# so Review's Ctrl-Z (`verdicts.undo_last`) never meets a row it cannot reverse.
+# A span the Library already holds (exact) or nearly holds (near) is SKIPPED,
+# not merged: two promotions of one event are a twin, not a recurrence.
+
+#: The `audit_log.kind` of a verdict-free promotion, and of its undo.
+LIBRARY_PROMOTE_KIND = "library-promote"
+LIBRARY_UNPROMOTE_KIND = "library-promote-undo"
+#: The `motif_entry.source_kind` it writes. Not 'review': the events table treats those as regions.
+LIBRARY_PROMOTE_SOURCE_KIND = "review-accepted"
+
+
+def promote_to_library(conn, detection_id, *, actor, note=None, source_store=None):
+    """Put one human-accepted detection in the Library without writing a verdict.
+
+    Returns `{'status': 'promoted' | 'skipped', 'dedupe', 'entry_id', 'member_id',
+    'revision_id', 'audit_id', 'flags'}`. `skipped` writes nothing: `dedupe` is
+    'exact' (the shape is held) or 'near' (a held span of the same channel nearly
+    duplicates it), and `entry_id` / `flags` name what holds it.
+
+    Raises `ValueError` for an unknown detection, a surrogate run's detection,
+    an unregistered recording, or the held-out recording (refused by name,
+    whatever the lock says).
+    """
+    from Working.config import HELD_OUT_RECORDING_FILE
+    from Working.registration.settings import append_audit
+
+    row = conn.execute(
+        """SELECT d.id, d.start_idx, d.end_idx, d.run_id, r.recording_id,
+                  rec.source_file, rec.channel
+             FROM detections d JOIN runs r ON r.id = d.run_id
+             LEFT JOIN recordings rec ON rec.id = r.recording_id
+            WHERE d.id = ?""", (int(detection_id),)).fetchone()
+    if row is None:
+        raise ValueError(f"No detection with id={detection_id}")
+    if row["source_file"] is None:
+        raise ValueError(f"Detection {detection_id} names recording {row['recording_id']}, "
+                         "which is not registered; its span cannot be hashed.")
+    if str(row["source_file"]) == HELD_OUT_RECORDING_FILE:
+        raise ValueError(f"Detection {detection_id} is on the held-out recording "
+                         f"{HELD_OUT_RECORDING_FILE}; it cannot enter the Library.")
+    if is_surrogate_run(conn, row["run_id"]):
+        raise ValueError(f"Detection {detection_id} belongs to a surrogate run; "
+                         "surrogate-derived spans cannot enter the library.")
+
+    rec_id, channel = int(row["recording_id"]), int(row["channel"])
+    start, end = int(row["start_idx"]), int(row["end_idx"])
+    digest = hash_span(conn, rec_id, channel, start, end)
+    decision = dedupe.classify(conn, content_hash=digest, recording_id=rec_id, channel=channel,
+                               start_idx=start, end_idx=end)
+    if decision["verdict"] != dedupe.NEW:
+        held = decision["entry_id"]
+        if held is None and decision["flags"]:
+            held = decision["flags"][0]["entry_id"]
+        return {"status": "skipped", "dedupe": decision["verdict"], "entry_id": held,
+                "member_id": None, "revision_id": None, "audit_id": None,
+                "flags": [{k: f[k] for k in ("member_id", "entry_id", "iou")} for f in decision["flags"]]}
+
+    created_at = _now()
+    entry_id = R.insert_motif_entry(conn, rec_id, start, end, detection_id=int(detection_id),
+                                    notes=note, created_at=created_at, commit=False)
+    conn.execute("UPDATE motif_entry SET content_hash = ?, channel = ?, source_kind = ?, "
+                 "source_store = ? WHERE id = ?",
+                 (digest, channel, LIBRARY_PROMOTE_SOURCE_KIND, source_store, entry_id))
+    member_id = R.get_or_create_motif_member(conn, entry_id, rec_id, start, end, commit=False)
+    conn.execute("UPDATE motif_member SET content_hash = ?, channel = ? WHERE id = ?",
+                 (digest, channel, member_id))
+    revision_id = revisions.add_revision(
+        conn, member_id, origin=revisions.MACHINE, start_idx=start, end_idx=end,
+        detection_id=int(detection_id), content_hash=digest, created_at=created_at, commit=False)
+    detail = {"detection_id": int(detection_id), "entry_id": int(entry_id),
+              "member_id": int(member_id), "revision_id": revision_id,
+              "recording_id": rec_id, "channel": channel, "start_idx": start, "end_idx": end,
+              "content_hash": digest, "source_store": source_store, "note": note}
+    audit_id = append_audit(conn, LIBRARY_PROMOTE_KIND,
+                            f"detection {int(detection_id)} -> Library entry {int(entry_id)} (no verdict written)",
+                            "Library", route="Working.review.promotion.promote_to_library",
+                            actor=actor, detail=detail, commit=False)
+    conn.commit()
+    return {"status": "promoted", "dedupe": dedupe.NEW, "entry_id": int(entry_id),
+            "member_id": int(member_id), "revision_id": revision_id, "audit_id": int(audit_id),
+            "flags": []}
+
+
+def unpromote_to_library(conn, audit_id, *, actor="unpromote_to_library"):
+    """Reverse one `promote_to_library`: its revision, member and entry (the entry only
+    when no other member hangs off it), recorded as a `library-promote-undo` audit row.
+
+    Refused for a row that is not a verdict-free promotion or was already undone. Any
+    grouping assignment, tag or relation made on the member since is the caller's to
+    remove first (delete a grouping that holds it before undoing the promotion).
+    """
+    from Working.registration.settings import append_audit
+
+    row = conn.execute("SELECT * FROM audit_log WHERE id = ?", (int(audit_id),)).fetchone()
+    if row is None or row["kind"] != LIBRARY_PROMOTE_KIND:
+        raise ValueError(f"audit_log {audit_id} is not a {LIBRARY_PROMOTE_KIND!r} row")
+    for prior in conn.execute("SELECT id, detail_json FROM audit_log WHERE kind = ?",
+                              (LIBRARY_UNPROMOTE_KIND,)):
+        if json.loads(prior["detail_json"] or "{}").get("undoes") == int(audit_id):
+            raise ValueError(f"Promotion {audit_id} was already undone (audit_log {prior['id']}).")
+    detail = json.loads(row["detail_json"] or "{}")
+    entry_id, member_id = detail.get("entry_id"), detail.get("member_id")
+    conn.execute("UPDATE motif_member SET current_revision_id = NULL WHERE id = ?", (member_id,))
+    conn.execute("DELETE FROM motif_member_revision WHERE member_id = ?", (member_id,))
+    conn.execute("DELETE FROM motif_member WHERE id = ?", (member_id,))
+    left = conn.execute("SELECT COUNT(*) FROM motif_member WHERE entry_id = ?", (entry_id,)).fetchone()[0]
+    entry_removed = left == 0
+    if entry_removed:
+        conn.execute("DELETE FROM motif_entry WHERE id = ?", (entry_id,))
+    append_audit(conn, LIBRARY_UNPROMOTE_KIND, f"undo library-promote {int(audit_id)} (entry {entry_id})",
+                 "Library", route="Working.review.promotion.unpromote_to_library", actor=actor,
+                 detail={"entry_id": entry_id, "member_id": member_id, "undoes": int(audit_id)}, commit=False)
+    conn.commit()
+    return {"audit_id": int(audit_id), "entry_id": entry_id, "member_id": member_id,
+            "entry_removed": bool(entry_removed)}
