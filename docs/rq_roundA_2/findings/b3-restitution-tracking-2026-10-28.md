@@ -148,6 +148,13 @@ stored in `motif_features`: only 33 of 968 sequence-member values agree within 1
 on reishi and 38 s on oyster. The stored values look computed from different snippet values. This needs a check
 before the Library's stored recovery column is quoted anywhere.
 
+*Resolved (manager, 2026-10-28): different input, same measure, not a data bug.* `motif_features` is written by
+`Working/library/features.py`, which runs the same `measure_snippet` on the event store's **detrended** snippet
+(`detrended_mv`). That is by design: a feature row describes the waveform its content hash names. This study measured
+the **raw** channel samples (`b3_data.sequence_events` → `D.load_mv`), and detrending moves the baseline that a
+half-recovery is measured against. Quote stored recovery values as "on the detrended snippet". Whether B3's results
+hold on the detrended snippets too is an open robustness check.
+
 ## A. Per-cycle model tracking
 
 ### Design

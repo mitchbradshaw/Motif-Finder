@@ -166,6 +166,77 @@ model's PRC depends on the hidden coordinate held fixed. What it cannot claim: t
 phase response, or a spiking-family taxonomy.
 \end{instructions}
 
+\begin{instructions}
+Results of the two tests (28 Oct). Sources: \src{docs/rq_roundA_2/findings/b3-restitution-tracking-2026-10-28.md},
+which ends with a proposed paragraph for this section, and the code \src{Pipelines/fhn/run_b3.py} (21 tests).
+
+\textbf{Restitution} (Figure~\ref{fig:b3restitution}). The method:
+\begin{itemize}
+  \item recovery is Event shape's half-recovery time, measured on the raw channel samples;
+  \item the gap is onset to onset;
+  \item each train gets 1,000 permutations of its own gaps;
+  \item trains are combined by a $\sqrt{n}$-weighted signed Stouffer $z$.
+\end{itemize}
+The results:
+\begin{itemize}
+  \item \textbf{Within trains, no restitution.} Over 74 scorable sequences (987 pairs), the raw lean ($z=+2.9$)
+        vanishes given depth ($+0.6$) or event order ($+0.7$). The same correlation with the gap \emph{after} each
+        drop is larger ($+9.9$): recovery is cut off at the next drop, which is a censoring artefact. The three long
+        chains agree.
+  \item \textbf{Across census gaps, a modest relation on oyster.} Across the drop-detector census's hours-long gaps,
+        oyster shows a restitution-like relation: M2\_aug $z=+5.0$ and M2\_concat $+3.1$ (pair-weighted
+        $\rho\approx0.25$). It survives depth, order and the next gap, and is halved by the fall's duration. LM and
+        CO are not significant (3 and 2 channels).
+  \item \textbf{Not scored.} 43 of the 117 sequences, mostly reishi: 339 of 1,298 reishi events never recover halfway
+        before the next drop.
+\end{itemize}
+
+\textbf{Models} (Figure~\ref{fig:b3track}). Each cycle is predicted by a fit to the blocks on either side of it, so no
+fit sees the cycle it predicts. The score is its error against the error of the mean of the neighbouring cycles.
+\begin{itemize}
+  \item \textbf{No model beats the neighbours' mean on real cycles.} The ratios run from 0.995, a tie, to 2.06. On
+        quiet and phase-scrambled fakes every model beats it slightly (0.91--1.04). So the models do not describe the
+        drop cycle beyond what noise gives: the kernel ties and the neuron models lose.
+  \item \textbf{Drift.} Only the kernel's recovery fraction drifts. It lengthens along chain 542 ($\rho=+0.83$,
+        $p=0.001$) and chain 6 ($+0.55$, $p=0.024$). FHN's $\alpha$ does not drift anywhere. The FHN-oscillatory
+        and Izhikevich tracks are not testable: their warm-started fits drift even on fake cycles (17--25\,\% false
+        positives).
+\end{itemize}
+
+What it can claim:
+\begin{itemize}
+  \item no within-train restitution;
+  \item a modest restitution-like relation across census gaps on oyster;
+  \item no tested model forecasts a drop cycle better than its neighbours do.
+\end{itemize}
+What it cannot claim: that drops are excitable, oscillatory or Izhikevich-like, or any mechanism for the census
+relation.
+
+Caveats:
+\begin{itemize}
+  \item the FHN fits had one start per block and ran on one draw of each null;
+  \item the 0.6--1.6$\times$ gap rule removed 68 of rec 3's 115 cycles;
+  \item reishi cycles have about 20 samples;
+  \item the Library's stored recovery times are measured on detrended snippets, so they differ from these by design.
+\end{itemize}
+Open follow-up: a censoring-aware recovery, by survival analysis with the next onset as the censoring time. Choose
+which of this section's four figures the final text keeps.
+\end{instructions}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{data/ch10_fhn/b3_restitution_rho.png}
+\caption{Restitution. Each dot is one train's Spearman $\rho$ between recovery time and the gap before each drop (left) or the gap after it (right, a control). Dot size is the number of pairs, red marks permutation $p<0.05$, and bars are pair-weighted means. Recovery correlates as strongly with the gap after as with the gap before: a censoring artefact, not restitution.}
+\label{fig:b3restitution}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{data/ch10_fhn/b3_track_ratio.png}
+\caption{Held-out-cycle prediction. Each model's error on cycles it never saw, divided by the error of the mean of the neighbouring cycles; below 1, the model is better. Filled: real cycles; open: quiet (squares) and phase-scrambled (triangles) fake cycles. No model beats the neighbours' mean on real cycles, and all beat it slightly on fakes.}
+\label{fig:b3track}
+\end{figure}
+
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{data/ch10_fhn/seq7_fit.png}

@@ -144,6 +144,16 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | I4 | events table (active recordings) | 1,689 members → 1,097 events (M2_aug 830, LM 100, CO 93, M2_concat 74); 678 hold an accepted member | 1,689 | `library_events_all_active/summary.json` | library_events.py --active-only | 10-27 | verified |
 | I5 | grouping g-11 | 42 families, 817 assigned, 280 omitted; 39 hold 2+ recordings, 14 all four; ARI 0.93 (0.90–0.95) / 0.88 (0.86–0.91) at 1 % / 2 %; cophenetic 0.649; accepted events 519 assigned in 41 families | 1,097 | `library_events_all_active/events_grouping.json` | make_events_grouping.py --active-only | 10-27 | verified |
 
+## J. Round B, first reads (chapter 10)
+
+| # | claim | value | n | source | produced by | date | status |
+|---|---|---|---|---|---|---|---|
+| J1 | B1 intervals, M2_aug drop v1 | against random timing most channels sit inside the band; CH3 more regular (LV 0.72, band 0.82–1.20, p 0.004; borderline after 16-channel correction); against shuffled gaps LV below the band on 11 of 16 channels (slow rate drift) | 16 ch | `Working/interrogation/intervals.py::interval_nulls` | B1 build (headless, read-only) | 10-28 | verified (agent run; not BH-corrected) |
+| J2 | B2 morph | 0 of 5 testable sequences beat their shuffle (0.2 expected); 99 of 118 sequences sit on inactive recordings (98 Fig2A); p floor ≈ 0.05 at 20 elements | 118 | `Working/library/morph.py` | B2 build | 10-28 | verified (agent run) |
+| J3 | B3 restitution | sequences: raw Stouffer z +2.94, given depth +0.60, given order +0.70, against the gap after +9.88; census M2_aug +5.02, M2_concat +3.08 (halved by fall width: +2.46, +1.14) | 74 seqs, 987 pairs | `docs/thesis/data/ch10_fhn/b3_restitution.json` | `Pipelines/fhn/run_b3.py restitution` | 10-28 | verified (re-run identical) |
+| J4 | B3 held-out-cycle ratios | real cycles 0.995–2.06 (no model below the neighbours' mean); fake cycles 0.91–1.04 | 6 datasets × 4 models | `b3_track.json` | `run_b3.py track` | 10-28 | verified (agent run) |
+| J5 | B3 drift | kernel recovery fraction: chain 542 ρ +0.83 (p 0.001), chain 6 +0.55 (p 0.024); FHN α no drift (p ≥ 0.11); FHN-osc and Izhikevich tracks fail the fake-cycle check (17–25 % false positives) | 6 tracks | `b3_track.json` | `run_b3.py track` | 10-28 | verified (agent run) |
+
 ## The disagreements, settled
 
 | # | disagreement | correct figure | why |

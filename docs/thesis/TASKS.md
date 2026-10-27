@@ -211,7 +211,7 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
 
 | My task | Status, or what it waits on |
 |---|---|
-| **B3:** the restitution test (recovery against the gap before it, with a shuffled-gap null), and per-cycle model tracking (fall + recovery, FHN, Izhikevich) judged by held-out cycles (Round 5 Q1, A + B) | running now, backend. A site readout follows if the result deserves one |
+| **B3:** the restitution test (recovery against the gap before it, with a shuffled-gap null), and per-cycle model tracking (fall + recovery, FHN, Izhikevich) judged by held-out cycles (Round 5 Q1, A + B) | **done** 28 Oct (`7ab5071`). There is no within-train restitution, but a modest relation across census gaps on oyster. No model beats the neighbouring-cycle mean. Results are in Chapter 10 |
 | **B1 and B2:** Intervals' LV and CV2 against Poisson and shuffled nulls; the sequence morph readout (Round 4 Q3) | **done** 28 Oct (`ffc909c`). The shared client is rebuilt, so 8765 shows both once it starts |
 | Score queues 35 and 36, and put the results into Chapters 7 and 8 | your judging (§2), or run the two commands yourself |
 | *S. commune* exam: the candidate table, the frozen manifest and the blind queue; then the single score | §3a imported |
