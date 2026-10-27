@@ -12,8 +12,8 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 
 | # | claim | value | n | source | produced by | date | status |
 |---|---|---|---|---|---|---|---|
-| A1 | registered source files | 26 (25 without M4) | — | DB `recordings` | ledger_checks.py | 10-26 | verified |
-| A2 | active source files | 23 (22 without M4); 3 inactive (M1, M100, M101_t) | — | DB | ledger_checks.py | 10-26 | verified |
+| A1 | registered source files | **29** on 10-27 (26 + MJu26a_fs2, SH_fs2, SO_fs2); 26 on 10-26 | — | DB `recordings` | DB query; ledger_checks.py | 10-27 | verified |
+| A2 | active source files | **20** on 10-27: 23 on 10-26, minus 6 deactivated that day (F2B, Fig2A, L_LM fs2, M2_aug fs2, MJu26a 7.25 Hz, rec 385; audits 541–546), plus the 3 new 2 Hz copies; inactive also M1, M100, M101_t | — | DB | DB query; ledger_checks.py | 10-27 | verified (A3–A4 predate the change) |
 | A3 | active channels (without M4) | 167 | — | DB | ledger_checks.py | 10-26 | verified |
 | A4 | active channel-hours (without M4) | 69,286 (includes the fs2/fs10 copies) | — | DB | ledger_checks.py | 10-26 | verified |
 | A5 | "13 usable recordings, 129 channels, ~52,000 channel-hours" | — | — | RQ4b-detector-sweep.md, *Data and units* | prose (10-17) | 10-17 | stale (A2–A4) |
@@ -27,6 +27,9 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | A13 | judgements given in the tool | 4,151 (A12 minus the 11,234 imported) | — | DB | ledger_checks.py | to 10-25 | verified |
 | A14 | old 10-min labels | 2,333 interesting · 8,773 not · 128 artifact (600 samples each; source `imported_10min`) | 11,234 | DB; RQ1 file | miss_rate.py | 10-26 | verified |
 | A15 | demo's examiners' copy | 4 h × 5 ch of M2_aug (377–381 h), ids 1001–1005 | — | DEMO_DAY.md | prose | 10-20 | as-written |
+| A16 | L_LM is MJu26a | L_LM CH0–4 = MJu26a_fs10 CH10, CH13–16 (1-based) × 1000 plus a constant offset (−25.8, −73.0, +299.3, −304.0, −406.8 mV); whole-length r 1.00000, lag 0 | 5 ch | `docs/datasets/NEW_RAW_2026-10.md` | newsets_fs2.py llm-map | 10-27 | verified |
+| A17 | recording 385 is MJu26a | a 4 h, 1 Hz, **volts** excerpt of MJu26a CH14 (via L_LM CH2 at 10 Hz sample 15,777,590): slope 1.0009, r 0.9995 against MJu26a_fs10 CH13's 10-sample means | 14,401 samples | DB arrays | check of 10-27 (this ledger) | 10-27 | verified |
+| A18 | the 2 Hz copies | MJu26a_fs2 (ids 692–707, 16 ch, 635.9 h), SH_fs2 (708–711), SO_fs2 (712–715; 4 ch, 480.0 h each); means of 5, V, active | 24 ch | DB; `NEW_RAW_2026-10.md` | newsets_fs2.py derive | 10-27 | verified (MJu26a_fs2 CH9 equals the 5-sample mean exactly) |
 
 ## B. RQ2 — seeded search
 
@@ -86,7 +89,7 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | E2 | median swing per recording | 14.0 (L_LM) – 30.1 (M2_concat) mV | 79–341 | same | same | 10-26 | verified; poster "12–20" partly → R11 |
 | E3 | accepted duration | median 603 s, 5–95 % 40 s – 1,272 s (21.2 min), max 7,200 s | 716 | same | same | 10-26 | verified (poster reproduces; "several hours" overstated) |
 | E4 | share of accepted events that fall | 68 % pooled, 57–80 % per recording (median-excursion rule) | 716 | same | same | 10-26 | verified; poster "73 % (56–86 %)" → R12 |
-| E5 | Library accepted members | 210 members = 152 distinct events; swing median 13.8 mV | 210 | same | same | 10-26 | verified |
+| E5 | Library accepted members | 210 members = 152 distinct events by the audit's pairwise ≥ 50 % rule (**144** under the events rule, I1 — quote 144); swing median 13.8 mV | 210 | same | same | 10-26 | verified |
 | E6 | Library audit "197 accepted members = 142 distinct events" | — | — | library-fragments-and-duplicates.md | library_fragment_audit.py | 10-17 | stale (E5: 210 / 152 now) |
 | E7 | interval between accepted dips (id010) | median 53 min, 5–95 % 3.4 min – 13.5 h, CV 2.2–4.1 (bursty) | 253 intervals | same | same | 10-26 | verified |
 
@@ -130,6 +133,16 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | H10 | S3.1 morphs | 4 of 15 sequences morph; 13 of 15 end in a different family | FIGURES.md | as-written |
 | H11 | lion's mane close-pair depth ratio | 1.16×, p 0.111 over 421 pairs: no effect | FIGURES.md | as-written |
 | H12 | A100 matrix profile, one 721-h channel | 12.3 min (736 s); ~18× the 16-core PC | RQ4b, gpu_stump outputs | as-written |
+
+## I. Library events and groupings (chapters 9–10)
+
+| # | claim | value | n | source | produced by | date | status |
+|---|---|---|---|---|---|---|---|
+| I1 | events table (all members) | 3,603 non-Review members → 1,116 events; 590 outside Fig2A; the 210 accepted members are 144 events | 3,603 | `docs/thesis/data/library_events/summary.json` | library_events.py | 10-26 | verified (re-running now also reads the 600 promoted members) |
+| I2 | grouping g-10 | 590 items → 25 families, 410 assigned, 180 omitted; 8 hold both recordings (M2_aug, rec 385); ARI 0.96 / 0.93 at 1 % / 2 %; cophenetic 0.66 | 590 | `library_events/events_grouping.json` | make_events_grouping.py | 10-26 | verified |
+| I3 | verdict-free promote | 716 accepted own looks (queues 25, 28) → 600 promoted (M2_aug 321, LM 106, CO 96, M2_concat 77), 30 skipped as duplicates, 86 refused (L_LM fs2 inactive); adjudications, annotations, review_audit unchanged (37,839 / 12,622 / 4,385) | 716 | `library_events/promote_blind_accepted.json` | promote_blind_accepted.py | 10-27 | verified |
+| I4 | events table (active recordings) | 1,689 members → 1,097 events (M2_aug 830, LM 100, CO 93, M2_concat 74); 678 hold an accepted member | 1,689 | `library_events_all_active/summary.json` | library_events.py --active-only | 10-27 | verified |
+| I5 | grouping g-11 | 42 families, 817 assigned, 280 omitted; 39 hold 2+ recordings, 14 all four; ARI 0.93 (0.90–0.95) / 0.88 (0.86–0.91) at 1 % / 2 %; cophenetic 0.649; accepted events 519 assigned in 41 families | 1,097 | `library_events_all_active/events_grouping.json` | make_events_grouping.py --active-only | 10-27 | verified |
 
 ## The disagreements, settled
 

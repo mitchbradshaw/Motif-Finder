@@ -2,28 +2,64 @@
 \label{ch:roundb}
 
 \begin{instructions}
-About 5--6 pages for 6--10 short studies, each about half a page plus one figure. The list is fixed in Round 3
-(Wed 28 Oct) and run from Thu 29 Oct; experiments freeze Tue 3 Nov.
+About 7--9 pages: eleven short studies (B4 is being redesigned separately), each about half a page plus one figure.
+The list was fixed on 27 Oct (Round 4). B3's design and B4 are still open (Round 5, and the cross-channel workshop).
+Experiments freeze Tue 3 Nov.
 
-Two decisions come first (made 26 Oct), and every study states them:
+Every study states these decisions:
 \begin{itemize}
-  \item Every study uses grouping \textbf{g-10}: one representative per event, 25 families, wobble ARI 0.96 / 0.93
-        (Section~\ref{sec:families}).
-  \item Counts are of events, not members (the events table). The rule: collapse twins ($\ge$90\,\% mutual overlap);
-        keep a container with its parts; join units at $\ge$50\,\% overlap or gaps $\le$3\,s, never through a
+  \item \textbf{Grouping}: g-11, one representative per de-duplicated event over every active recording
+        (Section~\ref{sec:families}) [Round 5 Q4: rebuilt once after the 2\,Hz sweep is judged, then frozen].
+  \item \textbf{Counts are of events, not members} (the events table). The rule: collapse twins ($\ge$90\,\% mutual
+        overlap); keep a container with its parts; join units at $\ge$50\,\% overlap or gaps $\le$3\,s, never through a
         container. Joining on any overlap made one 93-minute train a single 111-part event.
+  \item \textbf{Datasets}: M2\_aug and M2\_concat (oyster, 1\,Hz); CO\_fs2 and LM\_fs2; and the 2\,Hz copies of
+        MJu26a, SH and SO (27 Oct). Excluded:
+        \begin{itemize}
+          \item L\_R, because a humidity actuator's PID oscillation is in the signal;
+          \item F2B and L\_LM, which are copies of MJu26a channels;
+          \item M4, the exam;
+          \item every other copy of a recording at another rate.
+        \end{itemize}
+  \item \textbf{On the site}: each question is answered on the site's own pages and templates. Backend or cluster
+        computation is allowed where a page cannot do the arithmetic.
 \end{itemize}
-Candidate list and evidence: \src{docs/rq_roundB/README.md} and \src{docs/rq_roundB/notes/drop-motif-sequences.md}.
+Candidate notes and evidence: \src{docs/rq_roundB/README.md} and \src{docs/rq_roundB/notes/drop-motif-sequences.md}.
 \end{instructions}
 
-The three research questions asked what the instrument can do. This chapter uses it to ask what the signals do: a set of shorter questions about sequences, models, channels, conditions, and methods borrowed from other fields. Each is answered with the site as it stood, and each is judged against a null.
+The three research questions asked what the instrument can do. This chapter uses it to ask what the signals do: a set of shorter questions about sequences, models, shapes, channels, detectors, time scales and methods borrowed from other fields. Each is answered with the site as it stood, and each is judged against a null.
 
 \section{How the questions were chosen}
 
 \begin{instructions}
-Rules: answerable with the site with little new building; one null per question; one figure; a stated claim and a
-stated non-claim. Give a table of the questions chosen, with their effort class (none / template / small block).
+Rules: answerable on the site with little new building; one null per question; one figure; a stated claim and a
+stated non-claim. Table~\ref{tab:roundb} is the list as fixed on 27 Oct. ``Small'' builds are the two approved in
+Round 4: the Intervals nulls and the sequence morph readout.
 \end{instructions}
+
+\begin{table}[htbp]
+\caption{The round-B questions: the site page that answers each, its data, its null, and the building it needed.}
+\label{tab:roundb}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3.1cm} >{\raggedright\arraybackslash}p{2.5cm} >{\raggedright\arraybackslash}p{2.3cm} >{\raggedright\arraybackslash}p{1.5cm}@{}}
+\toprule
+\textbf{\#} & \textbf{Question} & \textbf{On the site} & \textbf{Data} & \textbf{Null} & \textbf{Build}\\
+\midrule
+B1 & Are the intervals between events regular, bursty or random? & Interrogation $\rightarrow$ Intervals (LV, CV2) & drop-detector events, active sets & random timing; shuffled intervals & small\\
+B2 & Do drop sequences change shape step by step more than chance? & Library $\rightarrow$ Sequences, on g-11 & M2\_aug, M2\_concat, CO, LM & shuffled order & small\\
+B3 & Does an excitable-system model describe drop cycles better than a fall plus recovery? & \texttt{chain\_cycles} stacks; the FHN fitter (backend) & chains; three fitted sequences & quiet-stretch and scrambled cycles & open (Round 5)\\
+B4 & Is cross-channel activity propagation or a shared-ground artefact? (plan RQ6) & Explore $\rightarrow$ Cross-channel; Library $\rightarrow$ Recurrence & M2\_aug, CO, LM, MJu26a & random timing per pair & workshop\\
+B5 & What do the Discovery Maps show about when and where detectors fire? & Discovery $\rightarrow$ Map & all swept sets & paired surrogate runs; time-shifted rates & none\\
+B6 & Do the same shape families occur across recordings and species? & Library $\rightarrow$ Atlas, Recurrence, on g-11 & M2\_aug, M2\_concat, CO, LM & shuffled recording labels & none\\
+B7 & What does multiscale entropy reveal? & \texttt{complexity\_\allowbreak fingerprint} & Adamatzky's species; CO, LM, MJu26a, M2\_aug & AAFT surrogates & register ghost fungus\\
+B8 & How common is a verified motif per hour, and does an oyster motif occur elsewhere? & Discovery $\rightarrow$ Seed search & M2\_aug seeds onto CO, LM, MJu26a & scrambled copies or AAFT & none; cluster for long searches\\
+B9 & Do event durations cluster at preferred scales? & \texttt{cwt\_events} & all swept sets & AAFT surrogates & none\\
+B10 & At which time scales does structure beyond noise appear? & \texttt{motif\_lengths}; CNN templates at 1, 10, 30\,min; \texttt{spike\_event\_\allowbreak features} & M2\_aug, M2\_concat, CO, LM, MJu26a & AAFT surrogates & none\\
+B11 & Do the detectors find the same events on the newer datasets? & Discovery $\rightarrow$ Compare; Compare every stage & CO, LM, MJu26a, SH, SO & per-run surrogate & none\\
+B12 & Do spike and drop shapes and intervals differ between recordings and species? & Interrogation $\rightarrow$ Event shape, Intervals, on accepted events & M2\_aug, M2\_concat, CO, LM (\emph{S.\ commune}) & shuffled recording labels & none\\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 \section{Study template}
 
@@ -44,15 +80,20 @@ Copy this template once per study:
 \label{sec:rb_sequences}
 
 \begin{instructions}
-Candidates:
+\textbf{B1}, intervals:
 \begin{itemize}
-  \item \textbf{B1}: do drop sequences morph step by step more than chance? Measure: the fraction of steps smaller than
-        the end-to-end change. Null: the same events in shuffled order. Data: the 117 sequences in the database.
-  \item \textbf{B2}: are the gaps between drops more regular than chance? Measure: LV \cite{shinomoto2003lv} and CV2
-        \cite{holt1996cv2}. Null: shuffled intervals or rate-matched Poisson (LV $=1$). Data: \texttt{chain\_cycles}
-        chains and the seed matches. Effort: none.
-  \item \textbf{B3}: is the sharkfin plateau a stable signature per organism? Measure: the cycle-stack floor fraction,
-        against the quiet-stretch null, on recordings 2, 3, 6 and 542. Effort: a small floor measure.
+  \item Measure: LV \cite{shinomoto2003lv} and CV2 \cite{holt1996cv2} of event onsets, per channel.
+  \item Nulls: a rate-matched Poisson train (LV $=1$), and the same intervals shuffled.
+  \item Data: drop-detector events on the active sets, and the \texttt{chain\_cycles} chains.
+  \item Build: the Intervals block reports both nulls (Round 4 Q3). It is queued until memory allows the UI gate.
+\end{itemize}
+
+\textbf{B2}, sequence morph:
+\begin{itemize}
+  \item Measure: along each drop sequence, the fraction of steps smaller than the end-to-end change.
+  \item Null: the same events in shuffled order.
+  \item Data: the sequences in the database (117 on 26 Oct), on g-11.
+  \item Build: a ``morph'' readout on Library $\rightarrow$ Sequences (Round 4 Q3).
 \end{itemize}
 \end{instructions}
 
@@ -60,14 +101,20 @@ Candidates:
 \label{sec:rb_models}
 
 \begin{instructions}
-Candidates:
+\textbf{B3}: does an excitable-system model describe drop cycles better than a fall plus smooth recovery? The first fits
+(below) answer ``not on shape alone'': the FitzHugh--Nagumo model fits smoothed noise as well as it fits the recorded
+cycles. Its redesign is open (Round 5 Q1). The candidates:
 \begin{itemize}
-  \item \textbf{B4}: does a FitzHugh--Nagumo model fit common motif cycles better than a jump plus exponential
-        recovery? Measure: AIC. Null: pseudo-cycles from quiet stretches.
-  \item \textbf{B5}: do fitted FHN parameters separate families or species once duration is controlled?
+  \item \textbf{The restitution test} (cardiac electrophysiology): does a drop's recovery shorten when the gap before
+        it was short? It needs no model fit. Recovery times come from Event shape or \texttt{detection.deconvolve},
+        and the null shuffles the gaps.
+  \item \textbf{Per-cycle parameter tracking} on the three fitted sequences, judged by held-out-cycle prediction rather
+        than R$^2$. Drift in the parameters is tested against shuffled cycle order.
+  \item \textbf{A wider model panel}: Izhikevich (firing patterns, the spiking-families framing), Hindmarsh--Rose
+        (bursting), Morris--Lecar (type I/II), van der Pol (relaxation).
 \end{itemize}
-The fitter is \src{Pipelines/fhn/} (or \src{scripts/fhn/}). Figures go to \src{docs/thesis/data/ch10_fhn/} and the
-findings to \src{docs/rq_roundA_2/findings/fhn-fit-2026-10-26.md}.
+The fitter is backend computation reading the site's cycle stacks [Round 5 Q2], in \src{Pipelines/fhn/}. Figures go to
+\src{docs/thesis/data/ch10_fhn/} and the findings to \src{docs/rq_roundA_2/findings/fhn-fit-2026-10-26.md}.
 
 Present the phase response curves in the manner of Wilshin, Kvalheim and Revzen \cite{wilshin2024prc}: the
 phase-coloured limit cycle with isochron ticks, and the PRC against phase. Say plainly that these are PRCs of the fitted
@@ -114,68 +161,129 @@ phase response, or a spiking-family taxonomy.
 \label{fig:fhn}
 \end{figure}
 
-\section{Activity across channels and datasets}
+\section{Shapes and families across recordings}
+\label{sec:rb_families}
+
+\begin{instructions}
+\textbf{B6}: do the same shape families occur across recordings and species?
+\begin{itemize}
+  \item On g-11 (Section~\ref{sec:families}), 39 of the 42 families hold members of two or more recordings, and 14 hold
+        all four.
+  \item Null: recording labels shuffled across items, keeping each recording's count.
+  \item Needed first: species for CO, LM and M2\_concat in Settings $\rightarrow$ Datasets (unset on 27 Oct). Without
+        them no family can be called cross-species.
+  \item Caveat to state: on CO, LM and M2\_concat every member is an accepted detector event.
+\end{itemize}
+
+\textbf{B12}: do spike and drop shapes and intervals differ between recordings and species?
+\begin{itemize}
+  \item On the site: Interrogation $\rightarrow$ Event shape and Intervals, on accepted events.
+  \item Data: M2\_aug, M2\_concat, CO and LM, plus \emph{S.\ commune} if its exam returns enough events.
+  \item Null: recording labels shuffled.
+  \item Control for duration, which differs by detector.
+\end{itemize}
+\end{instructions}
+
+\section{Activity across channels}
 \label{sec:rb_channels}
 
 \begin{instructions}
-Candidates:
+\textbf{B4}: is cross-channel activity propagation, or an artefact of the shared ground? This is the plan's RQ6.
+Explore $\rightarrow$ Cross-channel needs more work before it can answer, and it is being redesigned in a separate
+session (the cross-channel workshop, 27 Oct). Carry its outcome over.
+
+Preliminary (\src{docs/rq_roundA/RQ6-recurrence-across-channels.md}):
 \begin{itemize}
-  \item \textbf{B7}: is there a consistent propagation lag between electrodes? This is the plan's RQ6. First judge the
-        64 flagged pairs on M2\_aug. Report the three bins with their random-time nulls. Preliminary: 123 near-copy
-        pairs, 97 of which beat their own null (chance would pass about 6); no propagation survives on the current
-        families.
-  \item \textbf{B8}: do channels' hourly drop rates rise and fall together? Null: circular shift.
-  \item \textbf{B9}: do the same families recur across datasets? Needs Library members imported from LM, CO and L\_LM.
+  \item 123 near-copy pairs on M2\_aug, 97 of which beat their own random-time null (chance would pass about 6);
+  \item 64 flagged pairs await judging;
+  \item no propagation survives on the current families.
 \end{itemize}
+\end{instructions}
+
+\section{What the detectors show}
+\label{sec:rb_detectors}
+
+\begin{instructions}
+\textbf{B5}: what do the Discovery Maps show about when and where the detectors fire?
+\begin{itemize}
+  \item On the site: Discovery $\rightarrow$ Map on every swept recording.
+  \item Null: the paired surrogate runs, and time-shifted rates.
+  \item Report what the maps show (bursts of agreement, quiet days, channel bands) and which of it a surrogate
+        reproduces. A backend export of the map's counts is allowed.
+\end{itemize}
+
+\textbf{B11}: do the detectors find the same events on the newer datasets?
+\begin{itemize}
+  \item On the site: Discovery $\rightarrow$ Compare, and Compare every stage.
+  \item Data: CO, LM and the 2\,Hz copies of MJu26a, SH and SO.
+  \item Null: each run's surrogate.
+  \item Needs the 2\,Hz sweep imported (bundle \src{docs/thesis/hpc/rq4_newsets_20261027/}).
+  \item State the lesson of Chapter~\ref{ch:rq1}: one-draw surrogate counts measure a detector's response to the
+        spectrum, not event quality.
+\end{itemize}
+\end{instructions}
+
+\section{Time scales and methods from other fields}
+\label{sec:rb_methods}
+
+\begin{instructions}
+Each study asks what a method borrowed from another field reveals on fungal signals, and whether it beats its null.
+\begin{itemize}
+  \item \textbf{B7}, multiscale entropy (physiology), on the \texttt{complexity\_fingerprint} template. Do complexity
+        curves separate species beyond AAFT? So far the four Adamatzky species give a silhouette of 0.43, against
+        0.22--0.37 for AAFT, mostly from noise colour. Add CO, LM, MJu26a and M2\_aug, compared within one setup.
+        Register the ghost fungus first.
+  \item \textbf{B8}, the matrix profile as a prevalence measure (data mining), on Discovery $\rightarrow$ Seed search
+        from verified M2\_aug families. How often does a verified motif recur per hour per channel, and does an oyster
+        motif occur on CO, LM or MJu26a? Null: scrambled copies, or AAFT. Long searches go to the cluster.
+  \item \textbf{B9}, CWT ridges (mass spectrometry), on the \texttt{cwt\_events} template. Is event duration
+        multimodal, as Adamatzky's three scales suggest? Compare the modes of \texttt{best\_scale\_s} against AAFT.
+  \item \textbf{B10}, structure across scales:
+        \begin{itemize}
+          \item on the site: \texttt{motif\_lengths} (the matrix profile at 12 lengths from 30\,s to 1\,h), the CNN
+                templates at 1, 10 and 30\,min, and \texttt{spike\_event\_features};
+          \item question: at which scales does structure beyond AAFT noise appear, per recording?
+          \item earlier result: on recording 385 every judged length from 30\,s to 16\,min repeated beyond noise, the
+                strongest at 30\,s.
+        \end{itemize}
+\end{itemize}
+State the general finding as the chapter's conclusion: which borrowed methods transfer, and which only measure the
+spectrum. Include B1's interval statistics and B3's models.
 \end{instructions}
 
 \section{Activity against environment}
 \label{sec:rb_environment}
 
 \begin{instructions}
-Only M101\_t has an environment log on disk: \texttt{SD}, 19,438$\times$5 at 60\,s steps over 13.5 days, with
-unlabelled columns that look like °C, \%RH (only 9 distinct values), hPa, perhaps CO$_2$ ppm, and one unknown. There is
-no absolute timestamp: both clocks start at 0, and the log runs about 22\,h longer than the signal.
+Parked (Round 3) until the environment logs are found and checked with the supervisor; no round-B number depends on it.
 
-\textbf{B10}: does event rate track temperature? Use a selective detector on M101's 13 channels, hourly bins, and a
-circular-shift null. Report across the plausible offsets, 0 to $-22$\,h, because the alignment is unknown. Humidity is
-weak (9 distinct values).
+If logs arrive before the freeze: compare event rate with temperature and humidity in hourly bins, against a
+circular-shift null, and report across the plausible clock offsets.
 
-Other datasets' logs are pending from the supervisor. If they arrive before the freeze, use them. The Explore
-environment view is a separate decision (Round 3).
-\end{instructions}
-
-\section{Methods from other fields}
-\label{sec:rb_methods}
-
-\begin{instructions}
-Candidates (each: what method X from field Y reveals on fungal signals, and whether it beats its null):
+The only log on disk is M101\_t's (\texttt{SD}):
 \begin{itemize}
-  \item \textbf{Multiscale entropy} (physiology): do complexity curves separate the four Adamatzky species beyond AAFT?
-        Silhouette 0.428 against 0.22--0.37 for AAFT so far, mostly noise colour. Register Ghost fungi properly first.
-  \item \textbf{The matrix profile as a prevalence measure} (data mining): how often a verified motif recurs per hour
-        per channel, against phase-randomised and AAFT nulls. Needs $k$ raised above 200, or an uncapped threshold
-        count.
-  \item \textbf{logISI, LV, CV2} (neuroscience): are fungal event onsets bursty or regular beyond Poisson? Onsets from
-        drop\_detection\_v1 over 721\,h.
-  \item \textbf{Cycle shapes} (ECG wave-shape): do drop-chain cycle shapes differ between chains and organisms?
-        $\sigma^2$ against the quiet-stretch null.
-  \item \textbf{CWT ridges} (mass spectrometry): is event duration multimodal, as Adamatzky's three scales suggest?
-        Modes of \texttt{best\_scale\_s} against AAFT.
-  \item \textbf{BEADS and OASIS} (chromatography, calcium imaging): does deconvolution recover a stable recovery time
-        per organism?
+  \item 19,438$\times$5 samples at 60\,s steps over 13.5 days;
+  \item unlabelled columns and no absolute timestamp;
+  \item about 22\,h longer than the signal.
 \end{itemize}
-State the general finding as the chapter's conclusion: which borrowed methods transfer, and which only measure the
-spectrum.
+
+The Explore environment view is a separate decision. If nothing arrives, cut this section and say so in
+Chapter~\ref{ch:discussion}.
 \end{instructions}
 
 \section{A second unseen recording}
 \label{sec:rb_unseen}
 
 \begin{instructions}
-Optional (Round 3): sweep \emph{S.\ commune} (Adamatzky; 73\,h, 1\,Hz, mV) on rangpur, build its candidate table, and
-draw a stratified blind sample of 300 (about 10--15 minutes of judging). Score the frozen R4 once. It would be a new
-lab, rig and species. If fewer than about 30 interesting events come back, use enoki next.
+\emph{S.\ commune} (Adamatzky; 73\,h, 1\,Hz, mV) is a new lab, rig and species. The steps:
+\begin{enumerate}
+  \item sweep it on rangpur (bundle \src{docs/thesis/hpc/rq4_scommune_20261026/});
+  \item build its candidate table and freeze a manifest;
+  \item draw a stratified blind sample of about 300 (10--15 minutes of judging);
+  \item score the frozen R4 once, by the ``unseen'' exam path (\src{scripts/m4_exam_freeze.py} and
+        \src{scripts/m4_exam_score.py} with \texttt{--manifest}).
+\end{enumerate}
+If fewer than about 30 interesting events come back, use enoki next.
 \end{instructions}
 
 \section{Summary}

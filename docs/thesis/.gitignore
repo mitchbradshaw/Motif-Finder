@@ -1,0 +1,14 @@
+# latexmk (latexmkrc) builds into build/, which the root .gitignore already ignores. An editor that builds main.tex in
+# place (VS Code's LaTeX Workshop) leaves these beside the sources instead.
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.synctex.gz
+*.toc
+/main.pdf

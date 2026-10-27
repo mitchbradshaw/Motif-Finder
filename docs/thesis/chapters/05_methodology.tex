@@ -16,7 +16,7 @@ This chapter describes the corpus, the preprocessing applied to it, how data are
 The recordings are long multi-electrode potential measurements from living fungal cultures. Most come from the Underground Brains research facility at UQ: \emph{Pleurotus ostreatus} (oyster) arrays of 16 electrodes with a shared ground, inside Faraday cages, plus later recordings of other species and setups. Three species come from Adamatzky's public four-species dataset \cite{adamatzky2021data}. Table~\ref{tab:corpus} lists every registered source file and its role in this thesis.
 
 \begin{table}[htbp]
-\caption{The corpus: 26 registered source files (23 active; about 18 distinct physical recordings once copies at other rates are counted once), with species, channels, native sampling rate, duration, units and role. Hours are $n_\text{samples}/f_s$.}
+\caption{The corpus: 29 registered source files (20 active), with species, channels, native sampling rate, duration, units and role. Copies of one recording at another rate share a row. Hours are $n_\text{samples}/f_s$.}
 \label{tab:corpus}
 \footnotesize
 \begin{tabularx}{\textwidth}{p{3.3cm} p{2.4cm} r r r l X}
@@ -26,15 +26,15 @@ The recordings are long multi-electrode potential measurements from living funga
 M2\_aug\_concat\_fs1 & Oyster & 16 & 1 & 721 & V & Primary; RQ1--RQ3\\
 M2\_concat\_fs1 & Oyster & 16 & 1 & 282.5 & V & Secondary; out-of-sample checks\\
 M4\_aug\_concat\_fs1 & Oyster & 16 & 1 & 505 & -- & \textbf{Held out} (exam, Section~\ref{sec:holdout})\\
-L\_LM\_Jul\_26\_J (raw, fs2) & Lion's mane & 5 & 10, 2 & 636 & mV & Detector sweep; classifier\\
-Mushroom\_260720 (rec.\ 385) & Lion's mane & 1 & 1 & 4 & mV & Spiking-families pass; Library\\
-MJu26a (and fs10) & Lion's mane & 16 & 7.25, 10 & 564 & V & Registered; not yet analysed\\
+MJu26a (fs10; fs2 derived) & Lion's mane & 16 & 10, 2 & 636 & V & Round-B sweep at 2\,Hz (MJu26a\_fs2, 27 Oct)\\
+L\_LM\_Jul\_26\_J (raw, fs2) & Lion's mane & 5 & 10, 2 & 636 & mV & Detector sweep; classifier. A copy of MJu26a CH10 and CH13--16 ($\times$1000 plus a constant offset; $r=1.00000$)\\
+Mushroom\_260720 (rec.\ 385) & Lion's mane & 1 & 1 & 4 & V & Spiking-families pass; Library. A 4\,h excerpt of MJu26a CH14 (inactive)\\
 LM\_fs2 & ? & 4 & 2 & 480 & V & Detector sweep; classifier\\
 CO\_fs2 & ? & 4 & 2 & 480 & V & Detector sweep; classifier\\
-SH, SO & ? & 4 & 10 & 480 & V & Registered\\
-F2B & ? & 5 & 10 & 144 & mV & Registered\\
-L\_R\_Aug\_26\_PD & ? & 13 & 10 & 107 & V & Registered\\
-Fig2A\_dt0p1 & Reishi & 5 & 10 & 0.3 & mV & Drop-motif study; Library\\
+SH, SO (fs2 derived) & ? & 4 & 10, 2 & 480 & V & Round-B sweep at 2\,Hz (27 Oct); 10\,Hz read from each file's time vector\\
+F2B & ? & 5 & 10 & 144 & mV & Excluded: a subset of L\_LM\\
+L\_R\_Aug\_26\_PD & ? & 13 & 10 & 107 & V & Excluded: humidity-actuator oscillation in the signal\\
+Fig2A\_dt0p1 & Reishi & 5 & 10 & 0.3 & mV & Drop-motif study; Library (inactive)\\
 M1, M100, M101\_t & Oyster & 13 & 10 & 302 & -- & Inactive; M101 has an environment log\\
 \emph{S.\ commune} \cite{adamatzky2021data} & \emph{S.\ commune} & 7 & 1 & 73 & mV & Public; proposed second unseen test\\
 \emph{C.\ militaris} & \emph{C.\ militaris} & 7 & 1 & 528 & mV & Public; complexity fingerprint\\
@@ -47,10 +47,29 @@ Dwij A--D & ? & 4 & 0.8 & 0.3--29.3 & mV & Registered\\
 \begin{instructions}
 Fill in the ``?'' species and the setup of each UQ dataset: LM, CO, SH, SO, F2B, L\_R and Dwij. Settings $\rightarrow$
 Datasets declares five species today: oyster, lion's mane, split gill (\emph{S.\ commune}), \emph{Cordyceps} and enoki.
-Reishi is undeclared (ledger A6). Check the units of the
-lion's mane excerpt and the reishi file. Facts from the \texttt{recordings} and \texttt{datasets} tables and
+Reishi is undeclared (ledger A6). Check the units of the reishi file. The lion's mane excerpt
+(recording 385) is in volts: it equals MJu26a CH14's 10-sample means (slope 1.0009, $r=0.9995$; ledger A17). State the
+number of distinct physical recordings: the earlier ``about 18'' predates finding that L\_LM and recording 385 are
+copies of MJu26a channels (ledger A16--A17). Facts from the \texttt{recordings} and \texttt{datasets} tables and
 \src{docs/datasets/}.
 
+Dataset decisions (26 Oct):
+\begin{itemize}
+  \item copies that are subsets of another recording, or the same recording at another rate, were deactivated, so
+        that every active set is an independent recording;
+  \item L\_R is excluded because the humidity actuator's PID controller in its tent oscillated, and that oscillation
+        appears in the signal: ``motifs'' there could be humidity-driven changes in electrode conductivity;
+  \item 10\,Hz sets are analysed as 2\,Hz derivations, to save compute.
+\end{itemize}
+Dataset work (27 Oct):
+\begin{itemize}
+  \item MJu26a, SH and SO were derived at 2\,Hz as CO\_fs2 and LM\_fs2 had been (non-overlapping means of five
+        samples, nothing else changed) and registered. Their sweep bundle is
+        \src{docs/thesis/hpc/rq4_newsets_20261027/}. The 10\,Hz originals stay active for now;
+  \item L\_LM is MJu26a: its five channels are MJu26a CH10 and CH13--16, $\times$1000, plus a constant offset per
+        channel (\src{docs/datasets/NEW_RAW_2026-10.md}). MJu26a\_fs2's sweep covers them again. Decide whether
+        L\_LM raw is deactivated like the other copies.
+\end{itemize}
 Corrections to the plan:
 \begin{itemize}
   \item the primary oyster recording is 721\,h, not over 1,000\,h; the ``about 1,000 hours'' is M2\_aug and M2\_concat

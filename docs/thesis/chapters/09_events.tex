@@ -86,13 +86,14 @@ Grouping g-05 (Ward on the resampled, z-normalised, scale-invariant distance; cu
   \item 67\,\% of members are overlapping 2-second pieces of one 20-minute reishi recording (Fig2A), dominating 115
         families;
   \item human review: 247 Library verdicts (210 interesting, 35 not, 1 unsure, 1 artifact). The 210 accepted members
-        are 152 distinct events in 11 families;
+        are 144 events under the events rule below (152 by the earlier audit's pairwise $\ge$50\,\% overlap rule),
+        in 11 families;
   \item the tree is fragile: a 1\,\% jitter of the waveforms changes membership to an ARI of 0.78--0.80, and 2\,\% to
         0.68--0.74. The 21 Sep re-derivation (about 3\,\%) gave ARI 0.57 against the stored g-05.
 \end{itemize}
 Report this honestly, as a finding about the method: a Ward cut is an imposed grouping, not a discovered partition.
 
-The grouping adopted for round B (decided 26 Oct) is \textbf{g-10}, ``thesis · events · de-duplicated''.
+Two event groupings were built for the thesis. The first is \textbf{g-10} (26 Oct), ``thesis · events · de-duplicated'':
 \begin{itemize}
   \item Partial motifs are first joined into events (\src{scripts/thesis/library_events.py}): twins collapsed;
         containers kept with their parts; units joined at $\ge$50\,\% overlap or gaps $\le$3\,s, never through a
@@ -103,10 +104,30 @@ The grouping adopted for round B (decided 26 Oct) is \textbf{g-10}, ``thesis · 
   \item Stability: wobble ARI 0.96 at 1\,\% jitter and 0.93 at 2\,\%, against 0.73--0.78 and 0.68--0.72 for the same
         test on all members. Part of the gain may simply be fewer items. Cophenetic correlation 0.66.
   \item Your 210 accepted members are 144 events. 80 of the 113 outside Fig2A are assigned, in 13 families.
-  \item Limitation: g-10 holds only M2\_aug and recording 385. Bringing CO, LM, L\_LM and M2\_concat in needs a promote
-        step that writes no verdict (Round 4).
+  \item g-10 holds only M2\_aug and recording 385, a 4\,h excerpt of MJu26a CH14 (lion's mane). Its 8 two-recording
+        families are therefore oyster--lion's mane overlaps.
 \end{itemize}
-Sources: \src{docs/thesis/data/library_events/}.
+The second is \textbf{g-11} (27 Oct), ``thesis · events · all active datasets''. Before it was built, the accepted events
+of blind queues 25 and 28 were filed in the Library without a second verdict (\texttt{promote\_to\_library} in
+\src{Working/review/promotion.py}): 600 promoted, 30 skipped as duplicates, and 86 refused because they sit on the
+inactive L\_LM fs2 copy. No verdict rows were written.
+\begin{itemize}
+  \item Every active recording except M4 and L\_R: 1,689 members join into 1,097 events (M2\_aug 830, LM 100, CO 93,
+        M2\_concat 74), grouped as for g-10.
+  \item 42 families (817 assigned, 280 omitted). 39 hold two or more recordings, and 14 hold all four.
+  \item Stability: wobble ARI 0.93 (0.90--0.95) at 1\,\% jitter and 0.88 (0.86--0.91) at 2\,\%; cophenetic correlation
+        0.65.
+  \item 678 events hold an accepted member; 519 of them are assigned, in 41 families.
+  \item Limitations:
+        \begin{itemize}
+          \item recording 385 is inactive, so g-11 holds no lion's mane until MJu26a's sweep is judged;
+          \item species are unset for CO, LM and M2\_concat, so no family can yet be called cross-species;
+          \item on CO, LM and M2\_concat every member is an accepted detector event, so recurrence there is of what
+                the detectors found and you kept.
+        \end{itemize}
+\end{itemize}
+Round B uses g-11 [Round 5 Q4: rebuild it once after the 2\,Hz sweep is judged, and freeze that version]. Sources:
+\src{docs/thesis/data/library_events/} (g-10) and \src{docs/thesis/data/library_events_all_active/} (g-11).
 \end{instructions}
 
 \section{Drops across species and scales}
