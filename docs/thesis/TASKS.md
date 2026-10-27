@@ -185,6 +185,12 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
   - Two agents are running now, and the limit is three.
   - *My recommendation:* S0 and S1 now, which is enough to answer B4 with its nulls; S2, S3 and S5 if they fit before
     3 Nov; the rest after the thesis.
+- [ ] **B2's morph statistic: add a step-size companion?**
+  - *Plain version:* the approved score can't tell a real morph from luck on short sequences. Below about 20 events,
+    even a perfect morph looks like chance.
+  - The companion asks whether neighbouring events are more alike than random pairs (the mean step against its
+    shuffled mean). It can judge sequences of five or more events, and costs about 1–2 hours with the UI gate.
+  - *My recommendation:* add it.
 - [ ] **Push to GitHub?** Every commit since 26 Oct exists only on this PC (`git status -sb` shows how many). Pushing backs the work up off
       this PC. Your call.
 
@@ -206,7 +212,7 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
 | My task | Status, or what it waits on |
 |---|---|
 | **B3:** the restitution test (recovery against the gap before it, with a shuffled-gap null), and per-cycle model tracking (fall + recovery, FHN, Izhikevich) judged by held-out cycles (Round 5 Q1, A + B) | running now, backend. A site readout follows if the result deserves one |
-| **B1 and B2:** Intervals' LV and CV2 against Poisson and shuffled nulls; the sequence morph readout (Round 4 Q3) | running now: a UI build on a sandbox port, with the full UI gate |
+| **B1 and B2:** Intervals' LV and CV2 against Poisson and shuffled nulls; the sequence morph readout (Round 4 Q3) | **done** 28 Oct (`ffc909c`). The shared client is rebuilt, so 8765 shows both once it starts |
 | Score queues 35 and 36, and put the results into Chapters 7 and 8 | your judging (§2), or run the two commands yourself |
 | *S. commune* exam: the candidate table, the frozen manifest and the blind queue; then the single score | §3a imported |
 | The 2 Hz blind sample, then the verdict-free promote, then g-12, frozen for Chapters 9 and 10 | §3d imported, then your judging |

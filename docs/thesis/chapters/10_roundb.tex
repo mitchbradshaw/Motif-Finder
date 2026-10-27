@@ -86,15 +86,30 @@ Copy this template once per study:
   \item Measure: LV \cite{shinomoto2003lv} and CV2 \cite{holt1996cv2} of event onsets, per channel.
   \item Nulls: a rate-matched Poisson train (LV $=1$), and the same intervals shuffled.
   \item Data: drop-detector events on the active sets, and the \texttt{chain\_cycles} chains.
-  \item Build: the Intervals block reports both nulls (Round 4 Q3). It is queued until memory allows the UI gate.
+  \item Build: done 28 Oct. The Intervals block reports both nulls, 1,000 seeded draws per group
+        (\src{Working/interrogation/intervals.py}).
+  \item First read (M2\_aug, \texttt{drop\_detection\_v1}, one 721\,h run per channel):
+        \begin{itemize}
+          \item against random timing, LV and CV2 sit inside the band on most channels. CH3 ($n=127$) is more regular:
+                LV 0.72 against 0.82--1.20, $p=0.004$, which is borderline once 16 channels are corrected for;
+          \item against shuffled gaps, LV sits below the band on 11 of 16 channels. Neighbouring gaps are more alike
+                than their mix implies: the rate drifts slowly over the 30 days.
+        \end{itemize}
+  \item Final numbers: apply Benjamini--Hochberg across channels, and repeat on CO, LM, M2\_concat and the 2\,Hz sets.
 \end{itemize}
 
 \textbf{B2}, sequence morph:
 \begin{itemize}
   \item Measure: along each drop sequence, the fraction of steps smaller than the end-to-end change.
   \item Null: the same events in shuffled order.
-  \item Data: the sequences in the database (117 on 26 Oct), on g-11.
-  \item Build: a ``morph'' readout on Library $\rightarrow$ Sequences (Round 4 Q3).
+  \item Data: the Library's sequences. Of the 118 on 28 Oct, 99 sit on inactive recordings (98 on Fig2A). Rebuild the
+        sequences on the frozen grouping (g-12) before the final read.
+  \item Build: done 28 Oct (\src{Working/library/morph.py}). Library $\rightarrow$ Sequences and the Atlas show it.
+  \item First read: 0 of 5 testable sequences beat their shuffle, against 0.2 expected by chance.
+  \item The statistic is coarse. A shuffled order also scores 1 whenever its two ends lie far apart, so even a perfect
+        morph cannot reach $p<0.05$ below about 20 elements; shorter sequences read ``not testable''. [Open: add a
+        step-size companion, the mean step distance against its shuffled mean, which can judge sequences of five or
+        more elements.]
 \end{itemize}
 \end{instructions}
 
