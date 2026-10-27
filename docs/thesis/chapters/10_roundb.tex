@@ -3,13 +3,14 @@
 
 \begin{instructions}
 About 7--9 pages: eleven short studies (B4 is being redesigned separately), each about half a page plus one figure.
-The list was fixed on 27 Oct (Round 4). B3's design and B4 are still open (Round 5, and the cross-channel workshop).
-Experiments freeze Tue 3 Nov.
+The list was fixed on 27 Oct (Round 4) and B3's design on 28 Oct (Round 5). B4's page was specified in the
+cross-channel workshop (27 Oct) but is not yet built. Experiments freeze Tue 3 Nov.
 
 Every study states these decisions:
 \begin{itemize}
   \item \textbf{Grouping}: g-11, one representative per de-duplicated event over every active recording
-        (Section~\ref{sec:families}) [Round 5 Q4: rebuilt once after the 2\,Hz sweep is judged, then frozen].
+        (Section~\ref{sec:families}). Decided 28 Oct (Round 5): rebuilt once as g-12 after the 2\,Hz sweep is imported
+        and its blind sample judged, then frozen for Chapters~\ref{ch:events} and~\ref{ch:roundb}.
   \item \textbf{Counts are of events, not members} (the events table). The rule: collapse twins ($\ge$90\,\% mutual
         overlap); keep a container with its parts; join units at $\ge$50\,\% overlap or gaps $\le$3\,s, never through a
         container. Joining on any overlap made one 93-minute train a single 111-part event.
@@ -47,8 +48,8 @@ Round 4: the Intervals nulls and the sequence morph readout.
 \midrule
 B1 & Are the intervals between events regular, bursty or random? & Interrogation $\rightarrow$ Intervals (LV, CV2) & drop-detector events, active sets & random timing; shuffled intervals & small\\
 B2 & Do drop sequences change shape step by step more than chance? & Library $\rightarrow$ Sequences, on g-11 & M2\_aug, M2\_concat, CO, LM & shuffled order & small\\
-B3 & Does an excitable-system model describe drop cycles better than a fall plus recovery? & \texttt{chain\_cycles} stacks; the FHN fitter (backend) & chains; three fitted sequences & quiet-stretch and scrambled cycles & open (Round 5)\\
-B4 & Is cross-channel activity propagation or a shared-ground artefact? (plan RQ6) & Explore $\rightarrow$ Cross-channel; Library $\rightarrow$ Recurrence & M2\_aug, CO, LM, MJu26a & random timing per pair & workshop\\
+B3 & Does an excitable-system model describe drop cycles beyond noise, and does recovery depend on the gap before it? & Event shape and Intervals (restitution); \texttt{chain\_cycles} stacks and the model fitter (backend) & sequences and chains; three fitted sequences & shuffled gaps; quiet-stretch and scrambled cycles; shuffled order & backend\\
+B4 & Is cross-channel activity propagation or a shared-ground artefact? (plan RQ6) & Explore $\rightarrow$ Cross-channel (the explorer, S0--S1 at least) & the seven sets & rotation; random time & explorer build\\
 B5 & What do the Discovery Maps show about when and where detectors fire? & Discovery $\rightarrow$ Map & all swept sets & paired surrogate runs; time-shifted rates & none\\
 B6 & Do the same shape families occur across recordings and species? & Library $\rightarrow$ Atlas, Recurrence, on g-11 & M2\_aug, M2\_concat, CO, LM & shuffled recording labels & none\\
 B7 & What does multiscale entropy reveal? & \texttt{complexity\_\allowbreak fingerprint} & Adamatzky's species; CO, LM, MJu26a, M2\_aug & AAFT surrogates & register ghost fungus\\
@@ -103,18 +104,21 @@ Copy this template once per study:
 \begin{instructions}
 \textbf{B3}: does an excitable-system model describe drop cycles better than a fall plus smooth recovery? The first fits
 (below) answer ``not on shape alone'': the FitzHugh--Nagumo model fits smoothed noise as well as it fits the recorded
-cycles. Its redesign is open (Round 5 Q1). The candidates:
+cycles. Decided 28 Oct (Round 5 Q1): run both of the tests below.
 \begin{itemize}
   \item \textbf{The restitution test} (cardiac electrophysiology): does a drop's recovery shorten when the gap before
-        it was short? It needs no model fit. Recovery times come from Event shape or \texttt{detection.deconvolve},
-        and the null shuffles the gaps.
-  \item \textbf{Per-cycle parameter tracking} on the three fitted sequences, judged by held-out-cycle prediction rather
-        than R$^2$. Drift in the parameters is tested against shuffled cycle order.
-  \item \textbf{A wider model panel}: Izhikevich (firing patterns, the spiking-families framing), Hindmarsh--Rose
-        (bursting), Morris--Lecar (type I/II), van der Pol (relaxation).
+        it was short? It needs no model fit. Recovery times come from Event shape and gaps from Intervals. The null
+        shuffles the gaps within each sequence. Primary data: trains (the Library's sequences and the
+        \texttt{chain\_cycles} chains). Secondary: consecutive events in the drop-detector census.
+  \item \textbf{Per-cycle model tracking} on the three fitted sequences and the long chains, with four models: the fall
+        plus recovery, FHN excitable and oscillatory, and Izhikevich (firing patterns; the spiking-families framing).
+        Models are judged by held-out-cycle prediction against the mean of the other cycles, not by R$^2$. Parameter
+        drift is tested against shuffled cycle order. Every number is set beside the same fit on fake cycles.
 \end{itemize}
-The fitter is backend computation reading the site's cycle stacks [Round 5 Q2], in \src{Pipelines/fhn/}. Figures go to
-\src{docs/thesis/data/ch10_fhn/} and the findings to \src{docs/rq_roundA_2/findings/fhn-fit-2026-10-26.md}.
+Hindmarsh--Rose (bursting), Morris--Lecar (type I/II) and van der Pol (relaxation) are not fitted; name them in
+Chapter~\ref{ch:discussion} as further candidates. The fitter stays backend computation reading the site's cycle stacks
+(Round 5 Q2), in \src{Pipelines/fhn/}. Figures go to \src{docs/thesis/data/ch10_fhn/}. The findings go to
+\src{docs/rq_roundA_2/findings/fhn-fit-2026-10-26.md} and \src{docs/rq_roundA_2/findings/b3-restitution-tracking-2026-10-28.md}.
 
 Present the phase response curves in the manner of Wilshin, Kvalheim and Revzen \cite{wilshin2024prc}: the
 phase-coloured limit cycle with isochron ticks, and the PRC against phase. Say plainly that these are PRCs of the fitted
@@ -189,15 +193,22 @@ phase response, or a spiking-family taxonomy.
 
 \begin{instructions}
 \textbf{B4}: is cross-channel activity propagation, or an artefact of the shared ground? This is the plan's RQ6.
-Explore $\rightarrow$ Cross-channel needs more work before it can answer, and it is being redesigned in a separate
-session (the cross-channel workshop, 27 Oct). Carry its outcome over.
-
-Preliminary (\src{docs/rq_roundA/RQ6-recurrence-across-channels.md}):
+Explore $\rightarrow$ Cross-channel cannot answer it yet. The cross-channel workshop (27 Oct) specified the explorer that
+will: \src{docs/rq_roundB/B4-cross-channel.md}, \src{docs/prompts/changes/cross-channel-explorer.md} (slices S0--S9)
+and its decisions note, which holds a paragraph for this section. The design:
 \begin{itemize}
-  \item 123 near-copy pairs on M2\_aug, 97 of which beat their own random-time null (chance would pass about 6);
-  \item 64 flagged pairs await judging;
-  \item no propagation survives on the current families.
+  \item the unit is a detector census (\texttt{drop\_detection\_v1} by default), not Library members, whose selection
+        reflects where people looked;
+  \item M2's packs A--D are separate: propagation is judged only within a pack, a cross-pack copy is an artefact, and
+        a cross-pack co-occurrence that is not a copy is a \emph{shared driver};
+  \item co-occurrence means onsets within 50\,s; the bins are artefact, propagation, shared driver and independent;
+  \item nulls: rotation for co-occurrence, random time for waveforms, a random-time lag pool for the timetable;
+        Benjamini--Hochberg at $q=0.05$ per recording;
+  \item data: the seven good datasets.
 \end{itemize}
+Correction: the earlier ``123 near-copy pairs, 97 beating chance, 64 flagged'' came from a sandbox copy on g-05
+(4--5 Oct). The real database holds no cross-channel rows. Report B4 only if the census (S0--S1) is built and run
+before the freeze; otherwise report it as designed and not run.
 \end{instructions}
 
 \section{What the detectors show}
