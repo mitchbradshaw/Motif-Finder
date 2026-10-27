@@ -185,7 +185,7 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
   - Two agents are running now, and the limit is three.
   - *My recommendation:* S0 and S1 now, which is enough to answer B4 with its nulls; S2, S3 and S5 if they fit before
     3 Nov; the rest after the thesis.
-- [ ] **Push to GitHub?** main is 22 commits ahead of origin/main, and nothing is pushed. Pushing backs the work up off
+- [ ] **Push to GitHub?** main is 23 commits ahead of origin/main (28 Oct), and nothing is pushed. Pushing backs the work up off
       this PC. Your call.
 
 ---
