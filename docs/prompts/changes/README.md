@@ -61,6 +61,16 @@ forward of main and before each smoke window.
 Parallel-safe sets (different files): {1, 5, 8, 9, 11, 12} can run together; {2 then 3}; {4, 6, 7} after AR; 13 last.
 Two Discovery prompts (6, 7) touch `discovery.py` and the Discovery pages: run them one after the other, not together.
 
+## Cross-channel explorer (the cross-channel workshop, 2026-10-27)
+
+`cross-channel-explorer.md` turns Explore › Cross-channel into the multichannel explorer that answers round-B **B4**.
+- The decisions are in `cross-channel-explorer-decisions.md` (D1–D25). X1, the timetable null, was confirmed on
+  2026-10-27; X2–X5 are smaller choices recorded there.
+- The question file is `docs/rq_roundB/B4-cross-channel.md`.
+- It is one file with ten slices in four waves: S0 (manager) → {S1, S2, S3} → {S4, S5, S6} → {S7, S8, S9}. At most
+  three agents at once; the per-merge UI gate applies; S0, S1 and S5 also run the full suite (shared core).
+- Status: written, none started.
+
 ## Still open (not written as prompts)
 
 - The blind-labelling mode's cluster-vocabulary buttons (Q42 of the older rounds): "hide the guess" exists

@@ -15,3 +15,6 @@ Created by the Round 7 grilling (`../QUESTIONS.md`), 2026-10-02.
 | `S-reports.md` | Round 7 Q1 | how plots come out on generated reports — **inherits `H`'s standard, never a second one** |
 | `U12-bridge-sigint.md` | Round 4 U12 | the phantom Ctrl-C on first bridge start. Undiagnosed; needs reproduction, not a guess |
 | `U13-global-search.md` | Round 4 U13 | the header's search box is on every page and does nothing |
+| `Z-spatial-propagation-playback.md` | cross-channel workshop Q12 (2026-10-27) | arrows on the pack map, arrival playback with the event morphing between channels, plane-wave speed and direction |
+| `Z-environment-series.md` | cross-channel workshop Q14 (2026-10-27) | register the MJu26 sensor log (temperature, humidity, CO₂, PM, four scales) as covariate series and draw them on the overlay |
+| `Z-library-classifier-on-census.md` | cross-channel workshop Q22 (2026-10-27) | re-point Library's *Classify across channels* at the census's onset window and restricted lag |
