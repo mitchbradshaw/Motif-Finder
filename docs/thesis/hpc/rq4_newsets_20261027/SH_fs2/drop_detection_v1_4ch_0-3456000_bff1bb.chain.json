@@ -1,0 +1,304 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "drop_detection_v1",
+  "runKey": null,
+  "sessionId": null,
+  "template": "drop_detection_v1",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "detrend",
+      "params": {
+        "mode": "rolling_mean_nearest",
+        "window_s": 4916.67
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "stage_encoding",
+      "params": {
+        "same_fraction": 0.6,
+        "segment_seconds": 98.33,
+        "slope_sigma": 8.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "drop_detection",
+      "params": {},
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    3456000
+  ],
+  "sourceFile": "SH_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 4,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 708,
+      "sourceFile": "SH_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/SH_fs2/CH0.npy",
+      "npySha1": "8260cbe8c89603c72e1863e00caea93713518a3b",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 708,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "24d688ef",
+      "prefixHashes": [
+        "5767d8278f9bb3667d53d5e104b455c42898583743ad0ec06c591dab25a7815b",
+        "208a3124fd9cc363412bdbdddbcb41698fbbe119b4a598c8daf24177e86a47bd",
+        "24d688ef940aabae3086eaacf071fe0e87353cc6b9b6f3243ca85805db7f3e1b"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 709,
+      "sourceFile": "SH_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/SH_fs2/CH1.npy",
+      "npySha1": "72c7ed94418ba8f3a04f9c21c65f8defdc7c59b5",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 709,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "a28cc4b5",
+      "prefixHashes": [
+        "5a0a70c39e31b335272703f8064d19ecb30b7a6a4f7d509f45e3c46feb438fdd",
+        "678ee4c4e4f6e6a0257a558b39072b08563298379f8c0717d8af86327c54aa61",
+        "a28cc4b518df7ad7e8f93f5d79f775597e5b20e73875791c9c9caf4c999940da"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 710,
+      "sourceFile": "SH_fs2.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/SH_fs2/CH2.npy",
+      "npySha1": "0e32b33a029a3972e608e93bfec3326b0e12edde",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 710,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "5285c188",
+      "prefixHashes": [
+        "4eac7e28c6f45b3da889dfdb438273df756161add654acb047e3a4aa39eeb6ab",
+        "720c49333bf7a73cb69036a5a18c31131328825fef24f4bfe5c5044daea7fdfa",
+        "5285c188f411003cb212cb766a8d4e322a94d51a111d01df97531edb93851666"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 711,
+      "sourceFile": "SH_fs2.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/SH_fs2/CH3.npy",
+      "npySha1": "deb923dfa476c22fd6c643920e13e216dd93e3a9",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 711,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "11e4de24",
+      "prefixHashes": [
+        "522b842aee0a2c8af070dbc87bfa26495d41b482653667430e67840db7b5dcb8",
+        "4addaf9674637271a749f072ae8ea6537acded348335ec63b11e58cc436489c9",
+        "11e4de241af618c5a61b29e3ccfde962e8d15dd1f5c8bc4616096d46fc3d7bf6"
+      ],
+      "chunks": []
+    }
+  ]
+}

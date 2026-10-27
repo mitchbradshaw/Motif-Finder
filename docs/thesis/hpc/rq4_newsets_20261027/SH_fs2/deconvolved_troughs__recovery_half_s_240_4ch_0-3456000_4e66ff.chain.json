@@ -1,0 +1,372 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "deconvolved_troughs__recovery_half_s_240",
+  "runKey": null,
+  "sessionId": null,
+  "template": "deconvolved_troughs__recovery_half_s_240",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "detrend",
+      "params": {
+        "mode": "rolling_mean",
+        "window_s": 3600.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "deconvolve",
+      "params": {
+        "baseline_window_s": 1800.0,
+        "noise_scale": "level",
+        "recovery_half_s": 240.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "impulse_events",
+      "params": {},
+      "side_inputs": {}
+    },
+    {
+      "stage": "interrogation",
+      "algorithm": "event_shape",
+      "params": {},
+      "side_inputs": {}
+    },
+    {
+      "stage": "interrogation",
+      "algorithm": "intervals",
+      "params": {},
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    3456000
+  ],
+  "sourceFile": "SH_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 4,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 708,
+      "sourceFile": "SH_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/SH_fs2/CH0.npy",
+      "npySha1": "8260cbe8c89603c72e1863e00caea93713518a3b",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 708,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "0eb6921d",
+      "prefixHashes": [
+        "32ce6b2a4fbb94663e4ae59a86b37179366714845ad36ab1ab01b9de79b8c446",
+        "cb2c8cd8ca9cc86c10c6986b2e9cf7c9d11a11c846e8717f0f9a777fcc3db9dd",
+        "061dfa476f8c17a94d35dc6d6e275302973395b1aaa99c27a0815945f6088180",
+        "22e07b9bdf88ad42cfcf99254d06d32cf38eee45590a34f4ec87d6794d824b06",
+        "0eb6921d9bc367ef2c015a158287dbb74da52c1cccb096c6e33fa5b632db5455"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 709,
+      "sourceFile": "SH_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/SH_fs2/CH1.npy",
+      "npySha1": "72c7ed94418ba8f3a04f9c21c65f8defdc7c59b5",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 709,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "548bcc8c",
+      "prefixHashes": [
+        "cc75689becaad01eb261c1e95fd4c5ad7b301da15f51709787d99c62b2a5f2ea",
+        "8739dc013c31ad97d1310dfaaafcf889311f2a294c28fd41f87605f68de7881f",
+        "7a506e642fc921c22c05486afa0cb8f3375685b5b1cb604140aef9355439fe50",
+        "832198926bf690c5eb9f8e0f01a9ad45ba64ad0c27e351f000e2c3705a6b62e4",
+        "548bcc8c157e08ab6bfeab2c36a716b13fbac53e927ec4ec201d7491a5ddc0b8"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 710,
+      "sourceFile": "SH_fs2.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/SH_fs2/CH2.npy",
+      "npySha1": "0e32b33a029a3972e608e93bfec3326b0e12edde",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 710,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "d9e69b02",
+      "prefixHashes": [
+        "2ca179b7f85b701efb0795bbcc20312edf63450a80b4b400896216f387e57d21",
+        "100e9b1913ded6af368025652097966f1a99b45558184c9fb83c95bcfcda3f6d",
+        "5b647e71874482bfb2f45bbd960dc5181711c9d24f37a079cff3f44c5e16b33e",
+        "7b834ec200d28f8c9ff12064889595f6170b118bd64cd94b0ae50089718dbae5",
+        "d9e69b02fcd636580aa638332174c9e2f0f9af125c98882ff1a24fda76cd1ab5"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 711,
+      "sourceFile": "SH_fs2.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/SH_fs2/CH3.npy",
+      "npySha1": "deb923dfa476c22fd6c643920e13e216dd93e3a9",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 711,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "deconvolve",
+            "params": {
+              "baseline_window_s": 1800.0,
+              "noise_scale": "level",
+              "recovery_half_s": 240.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "impulse_events",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "event_shape",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "interrogation",
+            "algorithm": "intervals",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "5449f278",
+      "prefixHashes": [
+        "420e97fcd0ab4e532d1632140f50a0f68ae7f47bb66faf9285a68ac07e1ce14c",
+        "4d90708e3f8d93eaf9e09768d9901e726b729e6d0e210fe894dd36b7d63a4a6c",
+        "3e9898cee4e00f852753f395b57ffca9cf2d08ebd301cf82fbcb28654c91d95a",
+        "84921eab3b282053aab569b66796779480ce978164786ad4e74cba31ecf04644",
+        "5449f278076096886bd305ede28bcbfa7a9ec3091ab399e18f62b9f05b4f95b6"
+      ],
+      "chunks": []
+    }
+  ]
+}

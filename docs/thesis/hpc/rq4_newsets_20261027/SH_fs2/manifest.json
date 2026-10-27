@@ -1,0 +1,1008 @@
+{
+  "source": "SH_fs2.mat",
+  "span": [
+    0,
+    3456000
+  ],
+  "jobs": [
+    {
+      "label": "drop_detection_v1",
+      "template": "drop_detection_v1",
+      "specHash": "bff1bb9a6ccd",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1_4ch_0-3456000_bff1bb.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1_4ch_0-3456000_bff1bb_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "drop_detection_v5",
+      "template": "drop_detection_v5",
+      "specHash": "19d2b53d6564",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v5_4ch_0-3456000_19d2b5.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v5_4ch_0-3456000_19d2b5_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "symbol_search",
+      "template": "symbol_search",
+      "specHash": "20348331b806",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/symbol_search_4ch_0-3456000_203483.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/symbol_search_4ch_0-3456000_203483_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "Wavelet_detection_prototype",
+      "template": "Wavelet_detection_prototype",
+      "specHash": "f6203b258ce8",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/Wavelet_detection_prototype_4ch_0-3456000_f6203b.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/Wavelet_detection_prototype_4ch_0-3456000_f6203b_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "wavelet_encoded",
+      "template": "wavelet_encoded",
+      "specHash": "74d4b7c14e5b",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/wavelet_encoded_4ch_0-3456000_74d4b7.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/wavelet_encoded_4ch_0-3456000_74d4b7_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "signal_threshold",
+      "template": "signal_threshold",
+      "specHash": "ef0a553b1a54",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/signal_threshold_4ch_0-3456000_ef0a55.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/signal_threshold_4ch_0-3456000_ef0a55_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "noise_threshold",
+      "template": "noise_threshold",
+      "specHash": "c6d26a42e5c2",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/noise_threshold_4ch_0-3456000_c6d26a.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/noise_threshold_4ch_0-3456000_c6d26a_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "deconvolved_troughs",
+      "template": "deconvolved_troughs",
+      "specHash": "fe68f44b9e33",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/deconvolved_troughs_4ch_0-3456000_fe68f4.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/deconvolved_troughs_4ch_0-3456000_fe68f4_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "OASIS_Deconvolution",
+      "template": "OASIS_Deconvolution",
+      "specHash": "376eef4f8b78",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/OASIS_Deconvolution_4ch_0-3456000_376eef.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/OASIS_Deconvolution_4ch_0-3456000_376eef_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "BEADs_invert_detect_v1",
+      "template": "BEADs_invert_detect_v1",
+      "specHash": "51947cf796ce",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/BEADs_invert_detect_v1_4ch_0-3456000_51947c.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/BEADs_invert_detect_v1_4ch_0-3456000_51947c_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "drop_detection_v1__slope_sigma_4",
+      "template": "drop_detection_v1__slope_sigma_4",
+      "specHash": "ba587f99beae",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1__slope_sigma_4_4ch_0-3456000_ba587f.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1__slope_sigma_4_4ch_0-3456000_ba587f_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "drop_detection_v1__slope_sigma_12",
+      "template": "drop_detection_v1__slope_sigma_12",
+      "specHash": "8211d4d5e509",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1__slope_sigma_12_4ch_0-3456000_8211d4.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1__slope_sigma_12_4ch_0-3456000_8211d4_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "drop_detection_v5__same_fraction_0p5",
+      "template": "drop_detection_v5__same_fraction_0p5",
+      "specHash": "61296b0bac7a",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v5__same_fraction_0p5_4ch_0-3456000_61296b.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v5__same_fraction_0p5_4ch_0-3456000_61296b_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "drop_detection_v5__same_fraction_0p7",
+      "template": "drop_detection_v5__same_fraction_0p7",
+      "specHash": "430ecc201ca6",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v5__same_fraction_0p7_4ch_0-3456000_430ecc.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v5__same_fraction_0p7_4ch_0-3456000_430ecc_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "wavelet_encoded__level_3",
+      "template": "wavelet_encoded__level_3",
+      "specHash": "1fcfb0cf63f2",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/wavelet_encoded__level_3_4ch_0-3456000_1fcfb0.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/wavelet_encoded__level_3_4ch_0-3456000_1fcfb0_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "wavelet_encoded__level_5",
+      "template": "wavelet_encoded__level_5",
+      "specHash": "49ca25ac254e",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/wavelet_encoded__level_5_4ch_0-3456000_49ca25.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/wavelet_encoded__level_5_4ch_0-3456000_49ca25_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "Wavelet_detection_prototype__epsilon_factor_0p02",
+      "template": "Wavelet_detection_prototype__epsilon_factor_0p02",
+      "specHash": "1f93c6b73dfd",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/Wavelet_detection_prototype__epsilon_factor_0p02_4ch_0-3456000_1f93c6.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/Wavelet_detection_prototype__epsilon_factor_0p02_4ch_0-3456000_1f93c6_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "Wavelet_detection_prototype__epsilon_factor_0p1",
+      "template": "Wavelet_detection_prototype__epsilon_factor_0p1",
+      "specHash": "40a206290474",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/Wavelet_detection_prototype__epsilon_factor_0p1_4ch_0-3456000_40a206.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/Wavelet_detection_prototype__epsilon_factor_0p1_4ch_0-3456000_40a206_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "symbol_search__seconds_per_symbol_10",
+      "template": "symbol_search__seconds_per_symbol_10",
+      "specHash": "3e1420cc093d",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/symbol_search__seconds_per_symbol_10_4ch_0-3456000_3e1420.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/symbol_search__seconds_per_symbol_10_4ch_0-3456000_3e1420_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "symbol_search__seconds_per_symbol_40",
+      "template": "symbol_search__seconds_per_symbol_40",
+      "specHash": "fe3ba8f16e76",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/symbol_search__seconds_per_symbol_40_4ch_0-3456000_fe3ba8.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/symbol_search__seconds_per_symbol_40_4ch_0-3456000_fe3ba8_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "noise_threshold__k_sigma_3",
+      "template": "noise_threshold__k_sigma_3",
+      "specHash": "f929f598e155",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/noise_threshold__k_sigma_3_4ch_0-3456000_f929f5.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/noise_threshold__k_sigma_3_4ch_0-3456000_f929f5_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "noise_threshold__k_sigma_6",
+      "template": "noise_threshold__k_sigma_6",
+      "specHash": "755dbc89a13d",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/noise_threshold__k_sigma_6_4ch_0-3456000_755dbc.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/noise_threshold__k_sigma_6_4ch_0-3456000_755dbc_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "signal_threshold__threshold_V_m0p002",
+      "template": "signal_threshold__threshold_V_m0p002",
+      "specHash": "4fd9ee43da77",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/signal_threshold__threshold_V_m0p002_4ch_0-3456000_4fd9ee.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/signal_threshold__threshold_V_m0p002_4ch_0-3456000_4fd9ee_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "signal_threshold__threshold_V_m0p01",
+      "template": "signal_threshold__threshold_V_m0p01",
+      "specHash": "f530a060a00b",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/signal_threshold__threshold_V_m0p01_4ch_0-3456000_f530a0.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/signal_threshold__threshold_V_m0p01_4ch_0-3456000_f530a0_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "deconvolved_troughs__recovery_half_s_60",
+      "template": "deconvolved_troughs__recovery_half_s_60",
+      "specHash": "413e4ac4ddec",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/deconvolved_troughs__recovery_half_s_60_4ch_0-3456000_413e4a.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/deconvolved_troughs__recovery_half_s_60_4ch_0-3456000_413e4a_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "deconvolved_troughs__recovery_half_s_240",
+      "template": "deconvolved_troughs__recovery_half_s_240",
+      "specHash": "4e66ff2ada17",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/deconvolved_troughs__recovery_half_s_240_4ch_0-3456000_4e66ff.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/deconvolved_troughs__recovery_half_s_240_4ch_0-3456000_4e66ff_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "OASIS_Deconvolution__threshold_3",
+      "template": "OASIS_Deconvolution__threshold_3",
+      "specHash": "6cbce73dd211",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/OASIS_Deconvolution__threshold_3_4ch_0-3456000_6cbce7.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/OASIS_Deconvolution__threshold_3_4ch_0-3456000_6cbce7_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "OASIS_Deconvolution__threshold_5",
+      "template": "OASIS_Deconvolution__threshold_5",
+      "specHash": "30057e87b81f",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/OASIS_Deconvolution__threshold_5_4ch_0-3456000_30057e.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/OASIS_Deconvolution__threshold_5_4ch_0-3456000_30057e_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "BEADs_invert_detect_v1__delta_mv_5",
+      "template": "BEADs_invert_detect_v1__delta_mv_5",
+      "specHash": "f17d9fdb6613",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/BEADs_invert_detect_v1__delta_mv_5_4ch_0-3456000_f17d9f.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/BEADs_invert_detect_v1__delta_mv_5_4ch_0-3456000_f17d9f_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "BEADs_invert_detect_v1__delta_mv_25",
+      "template": "BEADs_invert_detect_v1__delta_mv_25",
+      "specHash": "6fff5817c263",
+      "kind": "cpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/BEADs_invert_detect_v1__delta_mv_25_4ch_0-3456000_6fff58.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/BEADs_invert_detect_v1__delta_mv_25_4ch_0-3456000_6fff58_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_fusion3_10min",
+      "template": "cnn_fusion3_10min",
+      "specHash": "0d117427401d",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_fusion3_10min_4ch_0-3456000_0d1174.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_fusion3_10min_4ch_0-3456000_0d1174_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_fusion3_1min",
+      "template": "cnn_fusion3_1min",
+      "specHash": "4d7ac92c2d2b",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_fusion3_1min_4ch_0-3456000_4d7ac9.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_fusion3_1min_4ch_0-3456000_4d7ac9_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_fusion3_60min",
+      "template": "cnn_fusion3_60min",
+      "specHash": "4b145d4957eb",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_fusion3_60min_4ch_0-3456000_4b145d.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_fusion3_60min_4ch_0-3456000_4b145d_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_gadf_10min",
+      "template": "cnn_gadf_10min",
+      "specHash": "3345bd3160ee",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gadf_10min_4ch_0-3456000_3345bd.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gadf_10min_4ch_0-3456000_3345bd_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_gadf_1min",
+      "template": "cnn_gadf_1min",
+      "specHash": "d30d19ce4632",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gadf_1min_4ch_0-3456000_d30d19.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gadf_1min_4ch_0-3456000_d30d19_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_gadf_60min",
+      "template": "cnn_gadf_60min",
+      "specHash": "0a27fe9a3526",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gadf_60min_4ch_0-3456000_0a27fe.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gadf_60min_4ch_0-3456000_0a27fe_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_gasf_10min",
+      "template": "cnn_gasf_10min",
+      "specHash": "b831ea44efc0",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gasf_10min_4ch_0-3456000_b831ea.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gasf_10min_4ch_0-3456000_b831ea_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_gasf_1min",
+      "template": "cnn_gasf_1min",
+      "specHash": "42bc794fb389",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gasf_1min_4ch_0-3456000_42bc79.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gasf_1min_4ch_0-3456000_42bc79_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_gasf_60min",
+      "template": "cnn_gasf_60min",
+      "specHash": "179272714ebd",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gasf_60min_4ch_0-3456000_179272.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gasf_60min_4ch_0-3456000_179272_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_recurrence_10min",
+      "template": "cnn_recurrence_10min",
+      "specHash": "8a9b1f5a31e1",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_recurrence_10min_4ch_0-3456000_8a9b1f.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_recurrence_10min_4ch_0-3456000_8a9b1f_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_recurrence_1min",
+      "template": "cnn_recurrence_1min",
+      "specHash": "e449719c53b2",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_recurrence_1min_4ch_0-3456000_e44971.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_recurrence_1min_4ch_0-3456000_e44971_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "cnn_recurrence_60min",
+      "template": "cnn_recurrence_60min",
+      "specHash": "cd982963c523",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_recurrence_60min_4ch_0-3456000_cd9829.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_recurrence_60min_4ch_0-3456000_cd9829_out",
+      "channels": [
+        "CH1",
+        "CH2",
+        "CH3",
+        "CH4"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": false,
+        "partition": "cpu",
+        "cpus": 8,
+        "condaEnv": "aeon-env",
+        "wallMinutes": 20,
+        "wallVerified": false
+      }
+    },
+    {
+      "label": "mp_threshold__backend_auto",
+      "template": "mp_threshold__backend_auto",
+      "specHash": "60af3b36b9e9",
+      "kind": "gpu",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/mp_threshold__backend_auto_2ch_0-3456000_60af3b.chain.json",
+      "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/mp_threshold__backend_auto_2ch_0-3456000_60af3b_out",
+      "channels": [
+        "CH1",
+        "CH2"
+      ],
+      "draws": 1,
+      "profile": {
+        "gpu": true,
+        "partition": "a100",
+        "cpus": 4,
+        "condaEnv": "torch_env",
+        "wallMinutes": 300,
+        "wallVerified": true
+      }
+    }
+  ],
+  "refused": [],
+  "unit": "V",
+  "volts": true,
+  "fs": 2.0,
+  "samples": 3456000,
+  "mpChannels": [
+    "CH1",
+    "CH2"
+  ],
+  "leftOut": [],
+  "heavy": false,
+  "mpLeftOut": null
+}

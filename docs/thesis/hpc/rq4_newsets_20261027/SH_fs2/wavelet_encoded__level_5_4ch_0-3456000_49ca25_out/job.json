@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "49ca25ac254e",
+  "tasks": 4,
+  "label": "wavelet_encoded__level_5",
+  "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/wavelet_encoded__level_5_4ch_0-3456000_49ca25.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

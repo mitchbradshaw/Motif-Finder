@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "d30d19ce4632",
+  "tasks": 4,
+  "label": "cnn_gadf_1min",
+  "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gadf_1min_4ch_0-3456000_d30d19.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

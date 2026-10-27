@@ -1,0 +1,185 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "mp_threshold__backend_auto",
+  "runKey": null,
+  "sessionId": null,
+  "template": "mp_threshold__backend_auto",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "detrend",
+      "params": {
+        "mode": "rolling_mean",
+        "window_s": 600.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "matrix_profile",
+      "params": {
+        "backend": "auto",
+        "window_min": 1.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "threshold",
+      "params": {
+        "threshold": 8.0
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    4578553
+  ],
+  "sourceFile": "MJu26a_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": true,
+    "partition": "a100",
+    "cpus": 4,
+    "condaEnv": "torch_env",
+    "wallMinutes": 300,
+    "wallVerified": true
+  },
+  "tasks": 2,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 692,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH0.npy",
+      "npySha1": "2240984af748095af6252df4e87899b58128c3c5",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 692,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "matrix_profile",
+            "params": {
+              "backend": "auto",
+              "window_min": 1.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 8.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "acbb1dc6",
+      "prefixHashes": [
+        "e06d4bed7230da3415a3e145e690cdb0096da19ca61f5488d753ec2184b76aa2",
+        "12d2a54305236b858860a4849962c6aa72d41c4aa34e79f57957938951fc4050",
+        "acbb1dc6e1cafabe40403b3649c33302b5e550dc0ee1565d6a798a5775b4e1e6"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 693,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH1.npy",
+      "npySha1": "93816fcd142eb534d9bb6f3cca429c941bf97329",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 693,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean",
+              "window_s": 600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "matrix_profile",
+            "params": {
+              "backend": "auto",
+              "window_min": 1.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 8.0
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "564043c2",
+      "prefixHashes": [
+        "8df6df23ec22d0ff620e0e5f1f97a32a2cf781cd6c15025eb7a9034342e27b3e",
+        "73f1e993b0e107868db0cce46a9aa32048186fee92e9fc67f907e3595f3ef7e7",
+        "564043c2e7adbe0a7a87d4b71bd6bce2bdf90fa6d3023b617d16ae5c49f1d1d8"
+      ],
+      "chunks": []
+    }
+  ]
+}

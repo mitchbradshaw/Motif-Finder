@@ -1,0 +1,110 @@
+{
+  "prefix": "rq4n",
+  "datasets": [
+    {
+      "source": "MJu26a_fs2.mat",
+      "folder": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2",
+      "jobs": 43,
+      "tasks": 674,
+      "refused": [],
+      "leftOut": [],
+      "heavy": false,
+      "unit": "V",
+      "mpChannels": [
+        "CH1",
+        "CH2"
+      ],
+      "mpLeftOut": null
+    },
+    {
+      "source": "SH_fs2.mat",
+      "folder": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2",
+      "jobs": 43,
+      "tasks": 170,
+      "refused": [],
+      "leftOut": [],
+      "heavy": false,
+      "unit": "V",
+      "mpChannels": [
+        "CH1",
+        "CH2"
+      ],
+      "mpLeftOut": null
+    },
+    {
+      "source": "SO_fs2.mat",
+      "folder": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2",
+      "jobs": 43,
+      "tasks": 170,
+      "refused": [],
+      "leftOut": [],
+      "heavy": false,
+      "unit": "V",
+      "mpChannels": [
+        "CH1",
+        "CH2"
+      ],
+      "mpLeftOut": null
+    }
+  ],
+  "inputs": [
+    "DATA/derived/channels/MJu26a_fs2/CH0.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH1.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH2.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH3.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH4.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH5.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH6.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH7.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH8.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH9.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH10.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH11.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH12.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH13.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH14.npy",
+    "DATA/derived/channels/MJu26a_fs2/CH15.npy",
+    "DATA/derived/channels/SH_fs2/CH0.npy",
+    "DATA/derived/channels/SH_fs2/CH1.npy",
+    "DATA/derived/channels/SH_fs2/CH2.npy",
+    "DATA/derived/channels/SH_fs2/CH3.npy",
+    "DATA/derived/channels/SO_fs2/CH0.npy",
+    "DATA/derived/channels/SO_fs2/CH1.npy",
+    "DATA/derived/channels/SO_fs2/CH2.npy",
+    "DATA/derived/channels/SO_fs2/CH3.npy",
+    "MODELS/GADF_cnn.pth",
+    "MODELS/GASF_cnn.pth",
+    "MODELS/fusion_cnn_3.pth",
+    "MODELS/recurrence_cnn.pth"
+  ],
+  "packs": [
+    {
+      "name": "rq4n_cpu1",
+      "script": "docs/thesis/hpc/rq4_newsets_20261027/rq4n_cpu1.sh",
+      "tasks": 648,
+      "parallel": 8,
+      "estimateCoreS": 101465
+    },
+    {
+      "name": "rq4n_cpu2",
+      "script": "docs/thesis/hpc/rq4_newsets_20261027/rq4n_cpu2.sh",
+      "tasks": 72,
+      "parallel": 3,
+      "estimateCoreS": 24491
+    },
+    {
+      "name": "rq4n_gpuA",
+      "script": "docs/thesis/hpc/rq4_newsets_20261027/rq4n_gpuA.sh",
+      "tasks": 147,
+      "parallel": 8,
+      "estimateCoreS": 148591
+    },
+    {
+      "name": "rq4n_gpuB",
+      "script": "docs/thesis/hpc/rq4_newsets_20261027/rq4n_gpuB.sh",
+      "tasks": 147,
+      "parallel": 8,
+      "estimateCoreS": 148591
+    }
+  ]
+}

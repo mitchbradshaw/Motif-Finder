@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "57888e6df502",
+  "tasks": 4,
+  "label": "OASIS_Deconvolution",
+  "spec": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/OASIS_Deconvolution_4ch_0-3456000_57888e.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

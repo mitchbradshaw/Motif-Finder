@@ -1,0 +1,25 @@
+{
+  "kind": "detection_chain",
+  "specHash": "206e1eb2d672",
+  "tasks": 16,
+  "label": "symbol_search__seconds_per_symbol_10",
+  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/symbol_search__seconds_per_symbol_10_16ch_0-4578553_206e1e.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7",
+    "CH8",
+    "CH9",
+    "CH10",
+    "CH11",
+    "CH12",
+    "CH13",
+    "CH14",
+    "CH15",
+    "CH16"
+  ]
+}

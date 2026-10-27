@@ -1,0 +1,25 @@
+{
+  "kind": "detection_chain",
+  "specHash": "4d25ab3d21e9",
+  "tasks": 16,
+  "label": "drop_detection_v1__slope_sigma_4",
+  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/drop_detection_v1__slope_sigma_4_16ch_0-4578553_4d25ab.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7",
+    "CH8",
+    "CH9",
+    "CH10",
+    "CH11",
+    "CH12",
+    "CH13",
+    "CH14",
+    "CH15",
+    "CH16"
+  ]
+}

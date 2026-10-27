@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "1aa0d93430a9",
+  "tasks": 4,
+  "label": "deconvolved_troughs__recovery_half_s_240",
+  "spec": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/deconvolved_troughs__recovery_half_s_240_4ch_0-3456000_1aa0d9.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

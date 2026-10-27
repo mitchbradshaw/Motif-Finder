@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "e825813489e0",
+  "tasks": 4,
+  "label": "symbol_search__seconds_per_symbol_40",
+  "spec": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/symbol_search__seconds_per_symbol_40_4ch_0-3456000_e82581.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

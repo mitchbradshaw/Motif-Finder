@@ -1,0 +1,324 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "BEADs_invert_detect_v1",
+  "runKey": null,
+  "sessionId": null,
+  "template": "BEADs_invert_detect_v1",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "beads",
+      "params": {
+        "baseline_period_s": 7200,
+        "filter_order": 2,
+        "polarity": "drop",
+        "sparsity": 1
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "preprocessing",
+      "algorithm": "invert",
+      "params": {},
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "spike_v1",
+      "params": {
+        "d": 30,
+        "delta_mv": 15,
+        "polarity": "both",
+        "span_s": 400,
+        "width": 2000
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    3456000
+  ],
+  "sourceFile": "SO_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 4,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 712,
+      "sourceFile": "SO_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/SO_fs2/CH0.npy",
+      "npySha1": "ccc6fdba96150558186485e9a00455060c1a65ac",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 712,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 15,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "706c07ec",
+      "prefixHashes": [
+        "3f49849a1a56960165a97defdd811a8a47442eb8841b92d35fdd7a263099f7c2",
+        "6a7c8bdb04fe9764b36ef6770dd81e9b101f570f3d1b1e7acd92f6c3a0f20715",
+        "706c07ecb23c359fc27cee6b671f9299b3afd8e6805a9fb779f45c6e8ae9619f"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 713,
+      "sourceFile": "SO_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/SO_fs2/CH1.npy",
+      "npySha1": "6e10833f5f067523c7fdfb58ace57097f7056653",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 713,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 15,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "d77e475e",
+      "prefixHashes": [
+        "45a356590968dda5891934542556d5e9e6f3510ec3278c149be4da11cc09126a",
+        "be77ae1008db0281efe660df19502fbe122a73cfc68c64d40244ac67e1185746",
+        "d77e475e26397eddb700a0ed3620bcbf01d65ca07df8f015ed51abf85c433510"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 714,
+      "sourceFile": "SO_fs2.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/SO_fs2/CH2.npy",
+      "npySha1": "a654a405e13dd0c1a5e36386178d27215f37525d",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 714,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 15,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "c374f93f",
+      "prefixHashes": [
+        "e5484b8ca5415c37a9f7e0eefea0c5ced52b57f8406405d7c4e813250307fe0a",
+        "227c2ee00f6d5c9b844365cf15e24d9ca1884110657752b1e703657aa6283656",
+        "c374f93fa2773d94f83dcd5a9a53ede56a4753579fceee2d14752f890281b271"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 715,
+      "sourceFile": "SO_fs2.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 2.0,
+      "nSamples": 3456000,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/SO_fs2/CH3.npy",
+      "npySha1": "1f9f05ddd36f2a542f0866780dd59ce8bf3554b4",
+      "npyBytes": 27648128,
+      "span": [
+        0,
+        3456000
+      ],
+      "recipe": {
+        "recording_id": 715,
+        "span": [
+          0,
+          3456000
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "beads",
+            "params": {
+              "baseline_period_s": 7200,
+              "filter_order": 2,
+              "polarity": "drop",
+              "sparsity": 1
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "preprocessing",
+            "algorithm": "invert",
+            "params": {},
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "spike_v1",
+            "params": {
+              "d": 30,
+              "delta_mv": 15,
+              "polarity": "both",
+              "span_s": 400,
+              "width": 2000
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "6128f990",
+      "prefixHashes": [
+        "f262e2e41c7c4fdbf2889fbf943f42938d3e02902f581f12a624f823883b3e03",
+        "dfcae2ee551ebdae3155be85e24a522c6c4f0d9747ebbd1ef3f4a13030ca19f4",
+        "6128f990fb01eec2a805f04aa44dda1a19462f69e6356cfe7473b34b26e3bd4f"
+      ],
+      "chunks": []
+    }
+  ]
+}

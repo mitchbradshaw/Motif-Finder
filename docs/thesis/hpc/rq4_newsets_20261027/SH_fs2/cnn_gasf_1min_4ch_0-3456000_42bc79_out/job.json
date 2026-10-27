@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "42bc794fb389",
+  "tasks": 4,
+  "label": "cnn_gasf_1min",
+  "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gasf_1min_4ch_0-3456000_42bc79.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "51947cf796ce",
+  "tasks": 4,
+  "label": "BEADs_invert_detect_v1",
+  "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/BEADs_invert_detect_v1_4ch_0-3456000_51947c.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

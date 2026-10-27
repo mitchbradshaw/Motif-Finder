@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "1f3f6f4d2851",
+  "tasks": 4,
+  "label": "cnn_recurrence_10min",
+  "spec": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/cnn_recurrence_10min_4ch_0-3456000_1f3f6f.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "kind": "detection_chain",
+  "specHash": "4fd9ee43da77",
+  "tasks": 4,
+  "label": "signal_threshold__threshold_V_m0p002",
+  "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/signal_threshold__threshold_V_m0p002_4ch_0-3456000_4fd9ee.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4"
+  ]
+}

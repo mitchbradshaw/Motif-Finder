@@ -1,0 +1,25 @@
+{
+  "kind": "detection_chain",
+  "specHash": "5c11eec4914f",
+  "tasks": 16,
+  "label": "OASIS_Deconvolution__threshold_5",
+  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/OASIS_Deconvolution__threshold_5_16ch_0-4578553_5c11ee.chain.json",
+  "channels": [
+    "CH1",
+    "CH2",
+    "CH3",
+    "CH4",
+    "CH5",
+    "CH6",
+    "CH7",
+    "CH8",
+    "CH9",
+    "CH10",
+    "CH11",
+    "CH12",
+    "CH13",
+    "CH14",
+    "CH15",
+    "CH16"
+  ]
+}

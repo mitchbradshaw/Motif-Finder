@@ -150,6 +150,12 @@ recording is not held out.
 against 50–170 mV). R4's side features may be out of range, and the fixed-mV detectors may find little. This is
 recorded in the manifest; nothing is adjusted.
 
+## The 2 Hz new-sets sweep (2026-10-27)
+
+In plain words: three 10 Hz recordings (MJu26a, SH, SO) now have 2 Hz copies, five readings averaged into one, so they cost a fifth as much to analyse, and a cluster bundle runs the usual 43 detector settings over them (RQ4b).
+
+- 2026-10-27 · newsets-fs2 · **MJu26a, SH and SO at 2 Hz, registered; their sweep bundle prepared, nothing submitted.** `MJu26a_fs2` (ids 692–707, 16 ch, 635.9 h), `SH_fs2` (708–711) and `SO_fs2` (712–715, 4 ch, 480 h each), all V, active, block means of 5 as `derive_fs2.py` (SH/SO's 10 Hz now read from their duration vectors); the 10 Hz originals stay active. Bundle `docs/thesis/hpc/rq4_newsets_20261027/` (batch 3's 43 V settings, one phase-randomised draw: 129 jobs, 1,014 tasks; about 40–60 CPU core-hours and 12–16 A100-hours; about 10 GB back, up to ~35 GB if MJu26a returns full-length signals as L_LM did), upload archive `DATA/derived/hpc/rq4_newsets_20261027/rq4_newsets_upload.tar.gz` (660 MB); commands in its README. L_LM_Jul_26_J_raw is MJu26a_fs10 CH10/13/14/15/16 (1-based) × 1000 plus a constant offset per channel (whole-length r 1.0000; `docs/datasets/NEW_RAW_2026-10.md`), so MJu26a_fs2's sweep re-covers L_LM's five channels. Code: `scripts/thesis/newsets_fs2.py`; test `tests/test_newsets_fs2.py`.
+
 ## Rules (as round A)
 
 1. Move a step from *What is still needed* to *What is known*, with the date and your report's path.
