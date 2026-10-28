@@ -19,15 +19,21 @@ Keys, on settings page `channels-events`, with exactly the `<rec>` and `<ch>` th
     y_mm.<rec>.<ch>     its y position, mm
 
 Where a channel's pack comes from (`pack_from`), first match wins: `settings`, then `name` (the letter of
-an M2-style name in `M2_STYLE_NAMES`), then `unassigned`. Packs are compared as labels, so every
-unassigned channel is in the one `unassigned` pack (D10): two unassigned channels count as the same pack,
-which keeps propagation allowed on an unknown layout, and the layout says "packs not set — layout
-unknown". A partly set layout keeps its unset channels in that pack too; set every channel's pack for a
-full layout.
+an M2-style name in `M2_STYLE_NAMES`), then `unassigned`. A Settings label is stripped and upper-cased
+(so "b" is M2's pack B), and the word "unassigned" is reserved: setting it raises ValueError (leave the
+pack blank instead). Every unplaced channel is in the one `unassigned` pack (D10): two unassigned channels
+count as the same pack, which keeps propagation allowed on an unknown layout, and the layout says "packs
+not set — layout unknown".
 
-A position that is set but cannot be read as a number raises ValueError naming its key (loud failure:
-a typo must not quietly become "no position"). The held-out recording raises PermissionError while its
-lock is on, the same predicate as every Explore read.
+`same_pack` is three-valued (critic, 2026-10-28): True for one pack, False for two known packs, and
+**None** when exactly one of the two channels is unassigned. On a partly set layout that pair's relation
+is unknown; a quiet False would turn real propagation into a shared driver (D9), so the caller must
+count it apart.
+
+Loud failure: a position that is set but cannot be read as a number (or is a boolean) raises ValueError
+naming its key, and a key saved under a channel name the recording does not have is listed in
+`orphan_keys`, never silently dropped. The held-out recording raises PermissionError while its lock is
+on, the same predicate as every Explore read.
 
 No UI library (CLAUDE.md rule 1).
 """
@@ -70,10 +76,26 @@ def _name_pack(name: str) -> str | None:
     return m.group(1) if m else None
 
 
+def _label(values: dict, key: str) -> str | None:
+    """A Settings pack label, stripped and upper-cased; None when absent or blank."""
+    v = values.get(key)
+    if v is None:
+        return None
+    label = str(v).strip().upper()
+    if not label:
+        return None
+    if label == UNASSIGNED.upper():
+        raise ValueError(f"{key} = {v!r} in Settings › Channels & events: {UNASSIGNED!r} is reserved for channels "
+                         "with no pack; leave the pack blank instead")
+    return label
+
+
 def _mm(values: dict, key: str) -> float | None:
     v = values.get(key)
     if v is None or (isinstance(v, str) and not v.strip()):
         return None
+    if isinstance(v, bool):
+        raise ValueError(f"{key} = {v!r} in Settings › Channels & events is not a number of millimetres")
     try:
         out = float(v)
     except (TypeError, ValueError):
@@ -83,22 +105,26 @@ def _mm(values: dict, key: str) -> float | None:
     return out
 
 
-def channel_layout(conn, source_file: str) -> dict:
+def channel_layout(conn, source_file: str, registered=None) -> dict:
     """Every active channel of `source_file`: its pack and position.
 
     Returns `{source_file, rec, channels: {recording_id: {name, channel, pack, pack_from, x_mm, y_mm}},
-    packs, layout_known, positions_known, note}`. `layout_known` is true when every channel's pack comes
-    from Settings or its name; `positions_known` when every channel has both x and y; `note` is
-    `LAYOUT_UNKNOWN` whenever the layout is not known.
+    packs, layout_known, positions_known, note, orphan_keys, settings_updated_at}`. `layout_known` is true
+    when every channel's pack comes from Settings or its name; `positions_known` when every channel has both
+    x and y; `note` is `LAYOUT_UNKNOWN` whenever the layout is not known; `orphan_keys` lists this
+    recording's keys whose channel name it does not have; `settings_updated_at` is the channels-events
+    page's last save (a census hashes it, so a pack change marks it stale).
 
-    Raises LookupError for a file with no active registered channel, and PermissionError for the held-out
-    recording while its lock is on."""
+    `registered` is `list_registered(conn, "recording")` when the caller reads several files, so the
+    registry is read once. Raises LookupError for a file with no active registered channel, and
+    PermissionError for the held-out recording while its lock is on."""
     from Working.registration.core import list_registered
-    from Working.registration.settings import HELD_OUT_FILE, get_settings, held_out_locked
+    from Working.registration.settings import HELD_OUT_FILE, get_settings, held_out_locked, settings_meta
 
     if source_file == HELD_OUT_FILE and held_out_locked(conn):
         raise PermissionError(f"{source_file} is held out and locked; its layout is not read")
-    entry = next((r for r in list_registered(conn, "recording") if r["source_file"] == source_file), None)
+    entries = registered if registered is not None else list_registered(conn, "recording")
+    entry = next((r for r in entries if r["source_file"] == source_file), None)
     if entry is None:
         raise LookupError(f"no registered recording {source_file!r}")
     rec, n = entry["name"], int(entry["n_channels"])
@@ -106,8 +132,7 @@ def channel_layout(conn, source_file: str) -> dict:
     channels = {}
     for c in entry["channels"]:
         name = channel_name(source_file, c["channel"], n)
-        set_pack = values.get(pack_key(rec, name))
-        set_pack = str(set_pack).strip() if set_pack is not None else ""
+        set_pack = _label(values, pack_key(rec, name))
         letter = _name_pack(name)
         if set_pack:
             pack, pack_from = set_pack, "settings"
@@ -119,10 +144,14 @@ def channel_layout(conn, source_file: str) -> dict:
                                   "x_mm": _mm(values, x_key(rec, name)), "y_mm": _mm(values, y_key(rec, name))}
     layout_known = all(row["pack_from"] != "unassigned" for row in channels.values())
     positions_known = all(row["x_mm"] is not None and row["y_mm"] is not None for row in channels.values())
+    names = {row["name"] for row in channels.values()}
+    prefixes = [f"{field}.{rec}." for field in ("pack", "x_mm", "y_mm")]
+    orphan_keys = sorted(k for k in values for p in prefixes if k.startswith(p) and k[len(p):] not in names)
     return {"source_file": source_file, "rec": rec, "channels": channels,
             "packs": sorted({row["pack"] for row in channels.values()}),
             "layout_known": layout_known, "positions_known": positions_known,
-            "note": None if layout_known else LAYOUT_UNKNOWN}
+            "note": None if layout_known else LAYOUT_UNKNOWN, "orphan_keys": orphan_keys,
+            "settings_updated_at": settings_meta(conn, PAGE)["updated_at"]}
 
 
 def _row(layout: dict, recording_id) -> dict:
@@ -137,7 +166,11 @@ def _row(layout: dict, recording_id) -> dict:
         raise KeyError(f"recording {recording_id!r} is not a channel of {layout.get('source_file')}") from None
 
 
-def same_pack(layout: dict, a, b) -> bool:
-    """Are recordings `a` and `b` on one pack? Packs are compared as labels, so two unassigned channels are
-    on the same (unassigned) pack and propagation between them stays allowed (D10)."""
-    return _row(layout, a)["pack"] == _row(layout, b)["pack"]
+def same_pack(layout: dict, a, b) -> bool | None:
+    """Are recordings `a` and `b` on one pack? True or False when both packs are known, or both channels are
+    unassigned (one pack, D10: propagation between them stays allowed). None when exactly one of the two is
+    unassigned: on a partly set layout their relation is unknown, and the caller counts it apart."""
+    ra, rb = _row(layout, a), _row(layout, b)
+    if (ra["pack_from"] == "unassigned") != (rb["pack_from"] == "unassigned"):
+        return None
+    return ra["pack"] == rb["pack"]

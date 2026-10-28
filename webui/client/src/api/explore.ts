@@ -318,6 +318,8 @@ export const saveSpanEdit = (ref: string, body: { start_idx: number; end_idx: nu
 
 /* ---------------- cross-channel explorer S0 (2026-10-28): the channel layout ---------------- */
 
+import { fetchBridge, READ_TIMEOUT_MS } from '../api'   // S0: reads go through the bridge fetch and its read timeout
+
 /** One channel's pack and position (core `Working/channel_layout.py`, the one definition). */
 export interface ChannelLayoutRow {
   name: string; channel: number; pack: string
@@ -334,9 +336,13 @@ export interface ChannelLayout {
   packs: string[]; layout_known: boolean; positions_known: boolean
   /** "packs not set — layout unknown" whenever any channel has no pack */
   note: string | null
+  /** this recording's saved keys whose channel name it does not have (listed, never silently dropped) */
+  orphan_keys: string[]
+  /** the Channels & events page's last save: a census hashes it, so a pack change marks it stale */
+  settings_updated_at: string | null
 }
 async function exploreGet<T>(path: string): Promise<T> {
-  const r = await fetch(path, { headers: { 'content-type': 'application/json' } })
+  const r = await fetchBridge(path, { headers: { 'content-type': 'application/json' } }, READ_TIMEOUT_MS)
   if (!r.ok) {
     let b: any = null   // eslint-disable-line @typescript-eslint/no-explicit-any
     try { b = await r.json() } catch { /* not json */ }
