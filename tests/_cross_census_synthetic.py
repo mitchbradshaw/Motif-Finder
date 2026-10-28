@@ -99,6 +99,8 @@ def build(conn, root, source_file, n, plant, *, hours=60.0, fs=FS, seed=0, units
     return {"recording_ids": rids, "onsets": onsets, "n_samples": ns, "session_id": sid}
 
 
-def every(n, gap_s, first_s=1800.0):
-    """`n` onsets `gap_s` apart."""
-    return [first_s + k * gap_s for k in range(n)]
+def every(n, gap_s, first_s=1800.0, jitter_s=900.0, seed=1):
+    """`n` onsets about `gap_s` apart, each jittered by up to ±`jitter_s` (seeded): a strictly periodic train would
+    line up with itself under rotation every period, which no real recording does."""
+    rng = np.random.default_rng(seed)
+    return [first_s + jitter_s + k * gap_s + float(rng.uniform(-jitter_s, jitter_s)) for k in range(n)]

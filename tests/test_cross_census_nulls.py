@@ -64,7 +64,7 @@ def test_rotation_refuses_a_recording_too_short_to_rotate():
 
 
 def test_count_co_counts_every_pair_of_onsets_within_the_window():
-    assert cc.count_co(np.array([0.0, 100.0]), np.array([30.0, 60.0, 500.0]), 50.0) == 3
+    assert cc.count_co(np.array([0.0, 100.0]), np.array([30.0, 60.0, 500.0]), 50.0) == 2      # (0, 30) and (100, 60)
 
 
 def test_rotation_counts_observed_and_drawn():

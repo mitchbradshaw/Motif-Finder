@@ -153,7 +153,7 @@ def test_co_occurrences_pairs_events_on_different_channels_within_the_ceiling():
           {"detection_id": 4, "recording_id": 10, "onset_s": 120.0},       # same channel as 1: never paired with it
           {"detection_id": 5, "recording_id": 12, "onset_s": 50.0}]
     got = {(a["detection_id"], b["detection_id"]) for a, b in cc.co_occurrences(ev, 50.0)}
-    assert got == {(1, 2), (4, 2), (4, 3), (5, 1)}
+    assert got == {(1, 2), (4, 2), (4, 3), (1, 5)}
     for a, b in cc.co_occurrences(ev, 50.0):
         assert a["recording_id"] < b["recording_id"]                     # one orientation: lag is b relative to a
 

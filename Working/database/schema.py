@@ -1766,6 +1766,8 @@ def init_db(db_path=None):
     _migrate_adjudications_columns(conn)
     # reports (2026-10-19): a saved report snapshot's path (additive)
     _migrate_reports_table(conn)
+    # xc-S1 (2026-10-28): the cross-channel census and its co-occurrences (additive, machine-only)
+    _migrate_cross_census_tables(conn)
     return conn
 
 
@@ -1847,4 +1849,57 @@ CREATE INDEX IF NOT EXISTS idx_reports_run ON reports(kind, run_key);
 
 def _migrate_reports_table(conn):
     conn.executescript(_REPORTS_SCHEMA)
+    conn.commit()
+
+
+# xc-S1 (cross-channel explorer, 2026-10-28; D20): the census of co-occurring detector events across a recording's
+# channels (`Working/cross_census.py`). MACHINE rows only (CLAUDE.md rule 5): a bin here is the machine's reading,
+# never a verdict, and nothing here is written by a human click. The null draws are bulk arrays and live on disk
+# (`null_path`, an .npz under the step-cache root; rule 4). One row per census hash: a re-run of the same inputs
+# replaces its own row. Additive: CREATE TABLE IF NOT EXISTS only.
+_CROSS_CENSUS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS cross_census (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_file   TEXT    NOT NULL,
+    detector      TEXT    NOT NULL,
+    hash          TEXT    NOT NULL UNIQUE,
+    run_ids_json  TEXT    NOT NULL,
+    layout_json   TEXT    NOT NULL,
+    rule_json     TEXT    NOT NULL,
+    consts_json   TEXT    NOT NULL,
+    status        TEXT    NOT NULL,
+    summary_json  TEXT,
+    null_path     TEXT,
+    created_at    TEXT    NOT NULL,
+    finished_at   TEXT,
+    actor         TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_cross_census_file ON cross_census(source_file, detector);
+
+CREATE TABLE IF NOT EXISTS cross_cooccurrence (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    census_id        INTEGER NOT NULL REFERENCES cross_census(id),
+    det_a_id         INTEGER NOT NULL,
+    det_b_id         INTEGER NOT NULL,
+    rec_a_id         INTEGER NOT NULL,
+    rec_b_id         INTEGER NOT NULL,
+    onset_a_s        REAL    NOT NULL,
+    onset_b_s        REAL    NOT NULL,
+    lag_s            REAL,
+    r                REAL,
+    bin              TEXT    NOT NULL,
+    cross_pack       INTEGER,
+    instant_id       INTEGER,
+    common_mode      INTEGER NOT NULL DEFAULT 0,
+    chance_json      TEXT,
+    floor_json       TEXT,
+    amplitude_ratio  REAL
+);
+CREATE INDEX IF NOT EXISTS idx_cross_cooc_bin ON cross_cooccurrence(census_id, bin);
+CREATE INDEX IF NOT EXISTS idx_cross_cooc_pair ON cross_cooccurrence(census_id, rec_a_id, rec_b_id);
+"""
+
+
+def _migrate_cross_census_tables(conn):
+    conn.executescript(_CROSS_CENSUS_SCHEMA)
     conn.commit()
