@@ -267,6 +267,16 @@ Results (scored once, 28 Oct; \src{docs/rq_roundA_2/findings/m4-exam-2026-10-28.
 \end{itemize}
 \end{instructions}
 
+\begin{instructions}
+\textbf{A second unseen recording, from another lab.} The \textit{S.~commune} exam was frozen and drawn on 29 Oct:
+263 blind items in queue 37 (Table~\ref{tab:scommunerecord}). Its known risk is amplitudes about 300 times smaller
+than R4's training recordings.
+\begin{itemize}
+  \item If it is judged and scored before the freeze (3 Nov), report it here, beside M4, in the same form.
+  \item If it is not, keep it in Chapter~11's further work, where it is listed now.
+\end{itemize}
+\end{instructions}
+
 \section{Discussion}
 
 \begin{instructions}
@@ -275,7 +285,10 @@ Points to argue:
   \item Labels gathered through the tool are good enough to teach a machine your judgement across recordings, rates
         and units.
   \item The ceiling is your own re-test agreement, 94\,\%: R4's balanced accuracy of 0.92 is close to it.
-  \item Why random features beat both the CNNs and the forest here: variable-length events and scale features.
+  \item Why random features beat the reference CNNs and the forest here: variable-length events and scale features.
+        The fair arm qualifies it. A CNN given the same rows and folds draws level with R4
+        (Table~\ref{tab:faircnn}), so the reference CNNs' gap is their training labels. R4's edge is cost: no GPU, and
+        it was frozen before M4.
 \end{itemize}
 Limitations:
 \begin{itemize}
