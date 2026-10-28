@@ -65,6 +65,7 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | C13 | arm A vs B.2 on the same blind 10-min windows, no earlier label | A macro F1 0.702 / BA 0.659 vs B.2 0.439 / 0.642; ΔF1 [0.164, 0.357] | 328 | same | rq1_v2_blind.py | 10-26 | verified |
 | C14 | "RF cluster labels 0.63 provisional" | 0.625 BA, final (queue 3 fully judged, 1,100 / 1,100) | — | poster | — | — | stale ("provisional") |
 | C15 | M4 held-out exam (queue 36) | R4 AUC **0.98** (0.97–0.99), BA **0.93** (0.88–0.97) unweighted (primary); weighted AUC 0.96, BA 0.77; CNNs AUC 0.59–0.66 (R4 minus CNN 0.33–0.40); agreement-as-score AUC 0.85; share real 10 % (6–14); ladder 0/3/16/35/53 %; v1 precision 64 % (n 14); 276 answered of 290, 14 unsure, 12 spans unreadable by R4 | 290 | `docs/rq_roundA_2/findings/m4-exam-2026-10-28.md`, `DATA/derived/exam/M4/results.json` | m4_exam_score.py --real (once) | 10-28 | verified |
+| C16 | fair CNN arm: EfficientNet-B0 on R4's rows and folds | pooled AUC GASF **0.971** (0.965–0.977), GADF 0.970 (0.964–0.975), fusion 0.973 (0.967–0.978) vs R4 0.971; R4 minus CNN 0.000 / +0.001 / −0.002, each paired interval within ±0.007; no per-recording interval excludes zero; BA 0.915–0.916 vs 0.919 | 2,456 | `docs/rq_roundA_2/findings/rq1b-fair-cnn-2026-10-29.md` (+ `.json`), `DATA/derived/models/rq1b_cnn_vs_minirocket/fair/` | rq1b_cnn_vs_minirocket.py import | 10-29 | verified |
 
 ## D. R3 — how many candidates are real (blind stratified queues 25 and 28)
 

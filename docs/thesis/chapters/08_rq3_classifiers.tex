@@ -173,11 +173,51 @@ Pooled & mixed & 0.971 & 0.737 & 0.790 & 0.722 & 0.738\\
 \end{table}
 
 \begin{instructions}
-This comparison is not fully fair to the CNNs, which learned from an older labelling of fixed 10-minute windows. A fair
-arm, the same network trained on R4's rows with R4's folds, is prepared for rangpur
-(\src{DATA/derived/hpc/rq1b_cnn_loro_20261026/}; about 1.6 GPU-hours). Report it if you submit it before the freeze;
-otherwise say why the gap is still informative. R4 minus GADF: $+0.18$ [0.16--0.20] pooled, and $+0.11$ even on M2\_aug,
-which the CNNs were trained on.
+This comparison is not fully fair to the CNNs, which learned from an older labelling of fixed 10-minute windows. R4
+minus GADF: $+0.18$ [0.16--0.20] pooled, and $+0.11$ even on M2\_aug, which the CNNs were trained on. The fair arm
+(Table~\ref{tab:faircnn}) gives the CNN the same rows and folds as R4.
+\end{instructions}
+
+\begin{table}[htbp]
+\caption{The fair arm: EfficientNet-B0 trained on R4's own rows with R4's folds (rangpur, 28 Oct), AUC on the same 2,456 judged events. Pooled 95\,\% intervals by bootstrap within recordings. The last row is the paired difference.}
+\label{tab:faircnn}
+\footnotesize
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Held out} & \textbf{R4} & \textbf{GASF} & \textbf{GADF} & \textbf{Fusion}\\
+\midrule
+CO\_fs2 & 0.989 & 0.986 & 0.988 & 0.987\\
+LM\_fs2 & 0.995 & 0.997 & 0.998 & 0.998\\
+L\_LM & 0.984 & 0.979 & 0.978 & 0.983\\
+M2\_concat & 0.961 & 0.960 & 0.971 & 0.946\\
+M2\_aug & 0.951 & 0.957 & 0.951 & 0.960\\
+\midrule
+Pooled & 0.971 (0.965--0.977) & 0.971 (0.965--0.977) & 0.970 (0.964--0.975) & 0.973 (0.967--0.978)\\
+R4 minus CNN & -- & 0.000 ($-0.006$ to $+0.006$) & $+0.001$ ($-0.005$ to $+0.007$) & $-0.002$ ($-0.007$ to $+0.004$)\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{instructions}
+\textbf{The run.} The fair arm ran on rangpur on 28 Oct: 18 tasks, each under a minute of A100
+(\src{DATA/derived/hpc/rq1b_cnn_loro_20261026/}). The results are in
+\src{docs/rq_roundA_2/findings/rq1b-fair-cnn-2026-10-29.md}; ledger C16.
+
+\textbf{The result.} Trained on the same rows with the same folds, the CNN matches R4 on every picture type: pooled AUC
+0.970--0.973 against 0.971, and no paired difference excludes zero, pooled or per recording. Balanced accuracy is
+0.915--0.916 against R4's 0.919. So the gap in Table~\ref{tab:cnnvsr4} is what the older labelling taught the
+reference CNNs, not a ceiling on CNNs.
+
+\textbf{Say why R4 stays the exam model.} It needs no GPU, and it was frozen before M4 was judged. The fair CNN stays out
+of the exam (Appendix~G, Round 5), so its equality holds on R4's folds only.
+
+\textbf{Two caveats.}
+\begin{itemize}
+  \item L\_LM and recording 385 share MJu26a CH14 (Chapter~\ref{ch:method}). Recording 385's fold (12 events, left out
+        of both tables) therefore says nothing, and L\_LM's is slightly flattered: 12 of its 2,085 training events
+        share its signal. This holds for R4 as for the CNN.
+  \item The CNN had one seed and no tuning.
+\end{itemize}
 \end{instructions}
 
 \subsection{The held-out exam}
