@@ -4,8 +4,8 @@
 \begin{instructions}
 About 4 pages. Answers RQ2, the plan's RQ2, and carries the plan's RQ3 scale pilot. Sources:
 \src{docs/rq_roundA/RQ2-exemplar-seeded-search.md}, \src{docs/rq_roundA_2/RQ2b-second-seed.md}, and
-\src{docs/rq_roundA_2/findings/rq2-blind-2026-10-26.md} (the surrogate table now; the blind panel's scores once queue
-35 is judged and scored with \src{scripts/rq2_blind.py}). The scale pilot is
+\src{docs/rq_roundA_2/findings/rq2-blind-2026-10-26.md} (the surrogate table) and
+\src{docs/rq_roundA_2/findings/rq2-blind-2026-10-28.md} (the blind panel, queue 35, scored 28 Oct). The scale pilot is
 \src{docs/rq_roundA/RQ3-identity-under-scale.md}.
 \end{instructions}
 
@@ -51,15 +51,15 @@ Cover:
 \caption{Seed searches: matches under the null's cut against surrogate matches at the same threshold, and human acceptance. Unblinded figures from the earlier queues; blind figures from queue 35.}
 \label{tab:seeds}
 \footnotesize
-\begin{tabularx}{\textwidth}{l r r r r r X}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.1cm} r r >{\raggedright\arraybackslash}p{2.0cm} >{\raggedright\arraybackslash}p{1.2cm} >{\raggedright\arraybackslash}p{1.9cm} >{\raggedright\arraybackslash}X@{}}
 \toprule
 \textbf{Seed} & \textbf{Length} & \textbf{Ch} & \textbf{Matches} & \textbf{Null/draw} & \textbf{Unblinded} & \textbf{Blind (queue 35)}\\
 \midrule
-Dip id010 & 105\,s & 3 & 64 (263 at cut 2.652) & 0.01 (0.8) & 256/263 (97\,\%) & [re-judge 20]\\
-Long dip id020 & 816\,s & 16 & 124 & 0.04 & 94/103 (91\,\%) & [re-judge 20]\\
-Spike (entry 289) & 148\,s & 16 & 16 & 0.00 & 51/58 (88\,\%) & [29]\\
-Drop30 (entry 185) & 377\,s & 16 & 372 & 0.01 & -- & [100]\\
-Random windows & matched & -- & -- & -- & 235/1,084 (22\,\%) & [80 controls]\\
+Dip id010 & 105\,s & 3 & 64 (263 at cut 2.652) & 0.01 (0.8) & 256/263 (97\,\%) & 20/20 re-judged; matched random 1/12\\
+Long dip id020 & 816\,s & 16 & 124 & 0.04 & 94/103 (91\,\%) & 20/20 re-judged; matched random 3/12\\
+Spike (entry 289) & 148\,s & 16 & 16 & 0.00 & 51/58 (88\,\%) & 28/29 (97\,\%); matched random 2/16\\
+Drop30 (entry 185) & 377\,s & 16 & 372 & 0.01 & -- & 100/100; matched random 9/40\\
+Random windows & matched & -- & -- & -- & 235/1,084 (22\,\%) & 15/80 (19\,\%, 12--29\,\%)\\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -67,9 +67,22 @@ Random windows & matched & -- & -- & -- & 235/1,084 (22\,\%) & [80 controls]\\
 \begin{instructions}
 Unblinded rates exclude \texttt{unsure} and \texttt{artifact} verdicts, as everywhere else in the thesis: id020's
 94/103 leaves out 1 unsure, and the spike's 51/58 leaves out 2 unsure and 1 artifact (51/59 = 86\,\% if artifact counts
-as ``not''). Fill the blind column after scoring. The test RQ2 needs is each seed's blind acceptance against its own
-duration-matched controls, not against the earlier 22\,\% from a different queue. The re-judged dips tell you how much
-knowing the source inflated the unblinded rates.
+as ``not''). The test RQ2 needs is each seed's blind acceptance against its own duration-matched controls, not against
+the earlier 22\,\% from a different queue. The re-judged dips tell you how much knowing the source inflated the
+unblinded rates.
+
+Scored 28 Oct (queue 35, all 249 judged; \src{docs/rq_roundA_2/findings/rq2-blind-2026-10-28.md}):
+\begin{itemize}
+  \item every seed beats random windows of its own length, Fisher $p<0.0001$ each: drop30 100\,\% against 22\,\%
+        (+78 points, Newcombe 95\,\% interval +62 to +88), spike 97\,\% against 12\,\% (+84, +57 to +93), dip id010 100\,\%
+        against 8\,\% (+92, +60 to +99), long dip id020 100\,\% against 25\,\% (+75, +42 to +91);
+  \item knowing the source did not inflate the earlier rates: all 51 earlier yeses stayed yes when judged blind
+        (100\,\%, 95\,\% interval 93--100\,\%);
+  \item random windows were accepted 15 of 80 times (19\,\%), so a random stretch of these recordings is sometimes
+        interesting in its own right.
+\end{itemize}
+Caveat to state: the panel hides each item's source, not its shape. A judge who has learned a seed's shape can
+recognise its matches, so ``blind'' means blind to the label, which is the inflation the panel was built to measure.
 
 Report the surrogate side as it stands. Across seeds, scrambled copies of the signal give about zero matches per draw
 at each seed's cut, against 16--372 real matches. On CH2\_A1, 60 of drop30's 65 family members are among its matches.

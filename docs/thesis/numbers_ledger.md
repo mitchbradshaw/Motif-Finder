@@ -44,7 +44,7 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | B7 | trough_search | 9 matches, not judged | 9 | DB run group 18 | ledger_checks.py | 10-26 | verified |
 | B8 | random-window base rate (RQ1 blind queue) | 235 / 1,084 showings = 21.7 %; first showings 210 / 986 = 21.3 % | 986 | RQ2b; run1613_blind_score.json | rq1_v2_blind.py | 10-26 | verified |
 | B9 | nulls at the seeds' lines | drop30 372 real vs 0.01/draw; spike37 16 vs 0.00; long dip 124 vs 0.04; dip 64 vs 0.01 (263 vs 0.8 at the judged cut) | 200 draws | rq2-blind-2026-10-26.md (from result.json) | scripts/rq2_blind.py | 10-26 | as-written (machine files, not re-read) |
-| B10 | blind panel queue 35 | 249 items; not judged here | — | rq2-blind findings | — | 10-26 | as-written |
+| B10 | blind panel queue 35 | **scored 10-28**: drop30 100/100 vs matched random 9/40 (+78 pts, +62 to +88); spike37 28/29 vs 2/16 (+84); dip id010 re-judged 20/20 vs 1/12 (+92); long dip id020 re-judged 20/20 vs 3/12 (+75); all Fisher p < 0.0001; random windows 15/80 (19 %, 12–29 %); earlier yeses still yes blind 51/51 (93–100 %) | 249 | `docs/rq_roundA_2/findings/rq2-blind-2026-10-28.md` | rq2_blind.py score --real | 10-28 | verified |
 
 ## C. RQ3 poster chart and classifiers
 
