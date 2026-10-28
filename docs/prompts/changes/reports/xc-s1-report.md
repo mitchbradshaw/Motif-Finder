@@ -122,7 +122,7 @@ Created:
 - `tests/test_cross_census.py`, `tests/test_cross_census_nulls.py`, `tests/test_webui_cross_census.py`,
   `tests/test_b4_script.py`.
 - `tests/_cross_census_synthetic.py` — a fixture helper, not in the prompt's list; the four test files share it.
-- `webui/smoke_pages/zzzzzzzzzzzz_xc_s1.json`.
+- `webui/smoke_pages/zzzzzzzzzzz_w2_xc_s1.json`.
 - this report.
 
 Modified, **append-only** (shared):
@@ -187,7 +187,7 @@ What the tests pin:
 | nulls | `test_cross_census_nulls.py` | the p formula, the constants, rotation offsets ≥ 1 h pairwise and seeded, the too-short refusal, the counts, the timetable scan (never centred inside the artifact line), the timetable null and pool, the breadth null, BH through `corrected_levels` |
 | routes | `test_webui_cross_census.py` | `census: null` before a run; 423, 422 in words and 404; the job runs to done == total; the census is read back with stale False; the rows can be filtered and paged; the old `/api/cross/{id}` still answers |
 
-## Smoke states (`webui/smoke_pages/zzzzzzzzzzzz_xc_s1.json`)
+## Smoke states (`webui/smoke_pages/zzzzzzzzzzz_w2_xc_s1.json`)
 
 All three are on `explore/cross-channel/4?view=overlay` (recording 4, M2_aug):
 

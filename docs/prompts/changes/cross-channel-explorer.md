@@ -174,7 +174,9 @@ Chance co-occurrence is rare. At ~43 events per channel over 721 h, two channels
    for core tests and `webui/.venv` for `tests/test_webui_*`, and say which interpreter ran each file.
    - **S0, S1 and S5 touch the shared core** (`schema.py`, `cross_channel.py`, `matching.py`), so the manager also runs
      the **full pytest suite** before merging them.
-3. Your smoke states in `webui/smoke_pages/zzzzzzzzzzzz_xc_s<n>.json`, sorted after every existing unit. You cannot
+3. Your smoke states in `webui/smoke_pages/zzzzzzzzzzz_w2_xc_s<n>.json` (eleven z's): late in the walk, but before
+   `zzzzzzzzzzz_w3_cancel.json`, whose cancel state must run last (`tests/test_webui_w3f_ui.py`; S1's first name,
+   twelve z's, sorted after it and failed that test, renamed 2026-10-28). You cannot
    walk them: no database in a worktree. Describe, state by state, what each should show. The manager walks your units
    on a fresh `--sandbox` bridge on its own port, **never 8765**.
 4. **A critic** reviews your branch; you get one fix round.
@@ -285,7 +287,7 @@ pack and position.
 - `scripts/thesis/b4_cross_channel.py` (new);
 - tests: `tests/test_cross_census.py`, `tests/test_cross_census_nulls.py`, `tests/test_webui_cross_census.py`,
   `tests/test_b4_script.py`;
-- smoke: `webui/smoke_pages/zzzzzzzzzzzz_xc_s1.json`.
+- smoke: `webui/smoke_pages/zzzzzzzzzzz_w2_xc_s1.json`.
 
 ### Core (`Working/cross_census.py`, no UI imports)
 
@@ -398,7 +400,7 @@ data. Report the measured time.
 - `explore.css` (append-only);
 - `crossModel.ts` and `crossScale.ts`: delete what becomes dead, with its tests;
 - `tests/test_webui_cross_page.py`, `tests/test_webui_site_x_cross.py`, plus new `tests/test_webui_cross_shell.py`;
-- smoke: `zzzzzzzzzzzz_xc_s2.json`, and the three existing cross-channel smoke units (retire or re-point states).
+- smoke: `zzzzzzzzzzz_w2_xc_s2.json`, and the three existing cross-channel smoke units (retire or re-point states).
 
 ### Remove
 
@@ -479,7 +481,7 @@ miss; say what you measured.
 - `webui/client/src/api/settings.ts` and `fixtures/settings.ts` (append-only key helpers);
 - the server-side validation for page `channels-events`. Find where that page's PUT is validated and append there;
 - `tests/test_webui_layout_settings.py`;
-- smoke `zzzzzzzzzzzz_xc_s3.json`.
+- smoke `zzzzzzzzzzz_w2_xc_s3.json`.
 
 **The work:**
 - **pack**: a select of A–H plus "unassigned", the M2 default shown as a placeholder.
@@ -504,7 +506,7 @@ miss; say what you measured.
 - new `explore/MeasurePanel.tsx` plus its mount line;
 - `Overlay.tsx` (align and lag labels fed by Measure);
 - tests `tests/test_cross_measure.py`, `tests/test_webui_cross_measure.py`;
-- smoke `zzzzzzzzzzzz_xc_s4.json`.
+- smoke `zzzzzzzzzzz_w2_xc_s4.json`.
 
 **The work:**
 - **`POST /api/cross/measure`** with body `{reference_id, channel_ids, t0, t1, detrend}`. Channel ids are the bold
@@ -560,7 +562,7 @@ miss; say what you measured.
 - the vocabulary seed (additive);
 - `Working/library/matching.py`: **two lines** in `family_recurrence`, calling `instant_queue`;
 - tests `tests/test_instant_queue.py`, `tests/test_webui_instant_queue.py`, `tests/test_webui_cross_marks.py`;
-- smoke `zzzzzzzzzzzz_xc_s5.json`.
+- smoke `zzzzzzzzzzz_w2_xc_s5.json`.
 
 **The work:**
 - **The queue.** Source kind `suspected-artifact-instant`, one per census, started from the card: "Send n suspected
@@ -624,7 +626,7 @@ miss; say what you measured.
 - `Overview.tsx` (an append-only optional `marks` prop);
 - `cross_routes.py` and `api/cross.ts` (append a `family` field and `?grouping=`);
 - tests `tests/test_webui_cross_candidates.py`, plus a pure `.ts` model test;
-- smoke `zzzzzzzzzzzz_xc_s7.json`.
+- smoke `zzzzzzzzzzz_w2_xc_s7.json`.
 
 **The work:**
 - A bar above the plot: **‹ n of N ›**, plus filters for bin (propagation candidates, artifacts, shared driver,
@@ -648,7 +650,7 @@ miss; say what you measured.
 **Files:**
 - new `explore/PackMap.tsx` and `explore/LagDistance.tsx` plus their mount lines (slot `space`);
 - `cross_routes.py` (append a lag-vs-distance read, if the census summary does not already carry it);
-- tests and smoke `zzzzzzzzzzzz_xc_s8.json`.
+- tests and smoke `zzzzzzzzzzz_w2_xc_s8.json`.
 
 **The work:**
 - **PackMap.**
@@ -676,7 +678,7 @@ miss; say what you measured.
 - the shell (series model);
 - `ChannelMenu.tsx` (enables "From another dataset…");
 - `Overlay.tsx` (series `recording`, `offset_s`, `unit`; one gain per unit group);
-- tests (a pure `.ts` model) and smoke `zzzzzzzzzzzz_xc_s9.json`.
+- tests (a pure `.ts` model) and smoke `zzzzzzzzzzz_w2_xc_s9.json`.
 
 **The work (D13):**
 - **The menu.** Pick a dataset (never the held-out one, which is refused) and a channel.
