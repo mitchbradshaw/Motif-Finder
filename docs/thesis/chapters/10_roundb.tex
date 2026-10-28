@@ -105,11 +105,22 @@ Copy this template once per study:
   \item Data: the Library's sequences. Of the 118 on 28 Oct, 99 sit on inactive recordings (98 on Fig2A). Rebuild the
         sequences on the frozen grouping (g-12) before the final read.
   \item Build: done 28 Oct (\src{Working/library/morph.py}). Library $\rightarrow$ Sequences and the Atlas show it.
-  \item First read: 0 of 5 testable sequences beat their shuffle, against 0.2 expected by chance.
-  \item The statistic is coarse. A shuffled order also scores 1 whenever its two ends lie far apart, so even a perfect
-        morph cannot reach $p<0.05$ below about 20 elements; shorter sequences read ``not testable''. [Open: add a
-        step-size companion, the mean step distance against its shuffled mean, which can judge sequences of five or
-        more elements.]
+  \item First read of the morph fraction: 0 of 5 testable sequences beat their shuffle, against 0.2 expected by chance.
+        The fraction is coarse. A shuffled order also scores 1 whenever its two ends lie far apart, so even a perfect
+        morph cannot reach $p<0.05$ below about 20 elements.
+  \item The step-size companion (added 28 Oct, at the researcher's choice): the mean shape distance between
+        neighbouring events, against the same shuffled orders. It can judge sequences of five or more elements. It asks
+        a weaker question than the morph fraction: a steady morph passes it, but so do runs of near-identical events,
+        and it does not tell the two apart (a test pins this). Sequences built from label chains can pass it by
+        construction. Both p values per sequence come from the same orders, so they are not independent evidence.
+  \item First read of the step size (headless, full-resolution samples): 5 of the 19 sequences on active recordings
+        have neighbours more alike than shuffled at $p<0.05$, against 0.9 expected by chance; 4 survive
+        Benjamini--Hochberg. Their step ratios are 0.58--0.84. Two of them are long enough for the morph fraction too
+        (sq-1, 67 events; sq-4, 26): their steps are smaller than shuffled ($p=0.001$, 0.010) but their fraction is
+        not higher. That points to persistence rather than a steady morph.
+  \item Five other sequences go the other way (ratios 1.15--1.33, $p>0.97$): neighbours are less alike than random
+        pairs. Four of them alternate visibly in stretches, one family every other element (F-80 in three, F-66 in one). That
+        direction was not the question asked, so report it as an observation only.
 \end{itemize}
 \end{instructions}
 

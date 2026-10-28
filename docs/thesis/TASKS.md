@@ -185,12 +185,9 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
   - Two agents are running now, and the limit is three.
   - *My recommendation:* S0 and S1 now, which is enough to answer B4 with its nulls; S2, S3 and S5 if they fit before
     3 Nov; the rest after the thesis.
-- [ ] **B2's morph statistic: add a step-size companion?**
-  - *Plain version:* the approved score can't tell a real morph from luck on short sequences. Below about 20 events,
-    even a perfect morph looks like chance.
-  - The companion asks whether neighbouring events are more alike than random pairs (the mean step against its
-    shuffled mean). It can judge sequences of five or more events, and costs about 1–2 hours with the UI gate.
-  - *My recommendation:* add it.
+- [x] **B2's morph statistic: add a step-size companion?** Yes (28 Oct), and it's built. In 5 of 19 sequences,
+      neighbouring events are more alike than shuffled, against 0.9 expected by chance. That is persistence or a
+      gradual morph; the score can't tell which.
 - [ ] **Push to GitHub?** Every commit since 26 Oct exists only on this PC (`git status -sb` shows how many). Pushing backs the work up off
       this PC. Your call.
 
