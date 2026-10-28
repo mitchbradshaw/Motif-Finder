@@ -65,7 +65,9 @@ CENSUS_VERSION = 1
 DEFAULT_DETECTOR = "drop_detection_v1"
 #: a pair with exactly one unassigned channel (S0's `same_pack` returns None): counted apart
 PACK_UNKNOWN = "pack_unknown"
-CENSUS_BINS = (ARTIFACT, PROPAGATION, INDEPENDENT_RECURRENCE, SHARED_DRIVER, PACK_UNKNOWN)
+#: fix round: a pair whose window is flat or non-finite has no lag or r — counted apart, never as a shared driver
+UNMEASURED = "unmeasured"
+CENSUS_BINS = (ARTIFACT, PROPAGATION, INDEPENDENT_RECURRENCE, SHARED_DRIVER, PACK_UNKNOWN, UNMEASURED)
 #: detectors that are never a census detector: wavelet_encoded fires ~2,700 times on its surrogate against 5–147
 #: on the signal (Facts, 2026-10-27)
 NEVER_CENSUS = ("wavelet_encoded*",)
@@ -344,19 +346,20 @@ def census_bin(pair, layout, rule):
     """`(bin, cross_pack)` for one measured co-occurrence (D9, D16). `pair` carries `rec_a_id, rec_b_id, lag_s, r,
     chance{beats}, floor{ok}`. `cross_pack` is True/False, or None when the packs' relation is unknown (S0's
     `same_pack` None: exactly one channel unassigned). A copy is an artifact on any packs; otherwise a pack-unknown
-    pair is `pack_unknown`, a cross-pack pair `shared_driver`, and a within-pack pair propagation or independent."""
+    pair is `pack_unknown`, a cross-pack pair `shared_driver`, and a within-pack pair propagation or independent.
+    A pair with no lag and r (a flat or non-finite window) is `unmeasured` on any packs (fix round)."""
     from Working.channel_layout import same_pack
 
     sp = same_pack(layout, pair["rec_a_id"], pair["rec_b_id"])
     cross = None if sp is None else (not sp)
     if is_copy(pair, rule):
         return ARTIFACT, cross
+    if pair.get("lag_s") is None or pair.get("r") is None:
+        return UNMEASURED, cross
     if sp is None:
         return PACK_UNKNOWN, None
     if sp is False:
         return SHARED_DRIVER, True
-    if pair.get("lag_s") is None:
-        return INDEPENDENT_RECURRENCE, False
     beats = bool((pair.get("chance") or {}).get("beats"))
     above = bool((pair.get("floor") or {}).get("ok"))
     b = xc.bin_for(pair["lag_s"], pair["r"], rule, beats_chance=beats, above_floor=above)
@@ -371,7 +374,12 @@ def _pack_of(layout, rid):
 def instants(pairs, layout, n_channels, consts=DEFAULT_CONSTANTS):
     """Union-find over the copy pairs (`bin` == artifact): each connected set of events is an INSTANT, with its
     breadth (distinct channels), packs and the common-mode mark (D7). Sets `instant_id` and `common_mode` on every
-    pair whose two events fall in one instant. Returns the instants, in onset order."""
+    pair whose two events fall in one instant. Returns the instants, in onset order.
+
+    Fix round (the critic, 2026-10-28; D9 "every within-pack copy at that instant is an artifact"): a pair whose two
+    events both sit in one instant is moved to `artifact` whatever its own lag and r read, and marked `absorbed`. A1 ≈
+    B1 and A2 ≈ B1 as copies with A1–A2 at 1.5 s, r 0.97 would otherwise stay propagation and feed the timetable, and
+    repeated common-mode instants would pile up as a false timetable at 1–2 s."""
     parent = {}
 
     def find(a):
@@ -418,9 +426,30 @@ def instants(pairs, layout, n_channels, consts=DEFAULT_CONSTANTS):
         ra, rb = find(p["det_a_id"]), find(p["det_b_id"])
         if ra == rb and ra in ident:
             p["instant_id"], p["common_mode"] = ident[ra]
+            p["absorbed"] = p["bin"] != ARTIFACT
+            if p["absorbed"]:
+                p["bin_own"], p["bin"] = p["bin"], ARTIFACT
         else:
-            p["instant_id"], p["common_mode"] = None, False
+            p["instant_id"], p["common_mode"], p["absorbed"] = None, False, False
     return out
+
+
+def timetable_inputs(pairs):
+    """The lags a pair's timetable is read from: its non-copy, measured co-occurrences, ONE per distinct measured
+    window (fix round). The window is keyed on the earlier onset, so (a_i, b_j) and (a_i, b_k) cut the same samples
+    and read the same lag; a burst of three events on b after one on a would put three identical lags in one ±δ bin,
+    which a null of n independent lags cannot reproduce. Returns `{lags, windows}` in first-seen order."""
+    seen, lags, windows = set(), [], []
+    for p in pairs:
+        if p["bin"] in (ARTIFACT, UNMEASURED) or p.get("lag_s") is None:
+            continue
+        key = tuple(int(v) for v in p["window"])
+        if key in seen:
+            continue
+        seen.add(key)
+        lags.append(float(p["lag_s"]))
+        windows.append(list(key))
+    return {"lags": lags, "windows": windows}
 
 
 # ── the nulls (D18, X1) ────────────────────────────────────────────────────
@@ -458,11 +487,15 @@ def rotation_offsets(n_channels, T_s, K, min_offset_s, seed):
     return np.take_along_axis(u, perm, axis=1)
 
 
-def count_co(ta, tb, w):
-    """The number of onset pairs (i, j) with |ta_i − tb_j| ≤ w; `tb` sorted."""
+def count_co(ta, tb, w, period=None):
+    """The number of onset pairs (i, j) with |ta_i − tb_j| ≤ w; `tb` sorted. With `period` (a rotation draw's circle,
+    fix round) the distance is circular, so a pair split by the wrap point is counted as the rotation made it."""
     ta, tb = np.asarray(ta, dtype=float), np.asarray(tb, dtype=float)
     if not ta.size or not tb.size:
         return 0
+    if period is not None:
+        P = float(period)
+        tb = np.concatenate([tb - P, tb, tb + P])
     return int(np.sum(np.searchsorted(tb, ta + w, side="right") - np.searchsorted(tb, ta - w, side="left")))
 
 
@@ -482,7 +515,7 @@ def rotation_counts(onsets_s, T_s, pairs, ceiling_s, consts=DEFAULT_CONSTANTS, s
     for k in range(K):
         sh = {r: np.sort((ons[r] + off[k, col[r]]) % T) for r in rids}
         for j, (a, b) in enumerate(pairs):
-            draws[k, j] = count_co(sh[a], sh[b], ceiling_s)
+            draws[k, j] = count_co(sh[a], sh[b], ceiling_s, period=T)
     return obs, draws
 
 
@@ -563,6 +596,30 @@ def timetable_pool(x, y, windows, fs, max_lag, *, size=DEFAULT_CONSTANTS.timetab
     return np.asarray(pool, dtype=float)
 
 
+def timetable_test(lags_s, pool, consts=DEFAULT_CONSTANTS, lo_s=1.0, hi_s=50.0, seed=0):
+    """One pair's timetable, observed and against its null: `{n_noncopy, count, L_s, median_lag_s, mad_s, p, q,
+    testable, reason, pool, null_mean, null_p95, _null}`. `lags_s` are `timetable_inputs`' lags (one per distinct
+    window). Not testable, with the reason, under `timetable_min_n` lags, or when the pool holds fewer than
+    `timetable_pool_min` lags (fix round: D18 requires the full pool; a short one is said, never tested)."""
+    lags = [float(v) for v in lags_s]
+    scan = timetable_scan(lags, consts.timetable_delta_s, lo_s, hi_s)
+    pool = np.asarray(pool if pool is not None else [], dtype=float)
+    tt = {"n_noncopy": len(lags), "count": scan["count"], "L_s": scan["L_s"], "median_lag_s": scan["median_lag_s"],
+          "mad_s": scan["mad_s"], "p": None, "q": None, "testable": False, "reason": None, "pool": int(pool.size),
+          "null_mean": None, "null_p95": None, "_null": None}
+    if len(lags) < consts.timetable_min_n:
+        tt["reason"] = (f"{len(lags)} distinct non-copy window{'s' if len(lags) != 1 else ''}: a timetable needs at "
+                        f"least {consts.timetable_min_n}")
+    elif pool.size < consts.timetable_pool_min:
+        tt["reason"] = (f"only {pool.size} random-time lags could be measured; the null needs "
+                        f"{consts.timetable_pool_min}, so the timetable is not tested")
+    else:
+        null = timetable_null(len(lags), pool, consts, lo_s, hi_s, seed=seed)
+        tt.update({"testable": True, "p": p_value(scan["count"], null), "null_mean": float(null.mean()),
+                   "null_p95": float(np.percentile(null, 95)), "_null": null})
+    return tt
+
+
 def timetable_null(n, pool, consts=DEFAULT_CONSTANTS, lo_s=1.0, hi_s=50.0, seed=0):
     """X1's null: `consts.timetable_k` draws, each `n` lags resampled from `pool` and scanned as the observed."""
     rng = np.random.default_rng(seed)
@@ -572,20 +629,37 @@ def timetable_null(n, pool, consts=DEFAULT_CONSTANTS, lo_s=1.0, hi_s=50.0, seed=
 
 
 def breadth_null(onsets_s, T_s, ceiling_s, consts=DEFAULT_CONSTANTS, seed=0):
-    """D18's breadth null (conservative): at a uniformly random instant, 1 + the number of OTHER channels (all but
-    a random anchor) with any onset within ±ceiling of it. `(K,)` integers."""
-    rng = np.random.default_rng(seed)
+    """D18's breadth null, under ROTATION (fix round; it was a random-instant null): each of `consts.breadth_k` draws
+    rotates every channel's onset train by the joint offsets of `rotation_offsets(…, seed)` (every pair of channels
+    at least `min_rotation_s` apart — pass the rotation seed and the draws are the excess test's own), picks one
+    event at random as the anchor, and counts 1 + the other channels with a rotated onset within ±ceiling of it
+    (circular). An instant cannot be re-formed exactly under rotation — a copy needs the waveform, which a rotation
+    does not move — so the null's neighbourhood is the co-occurrence window, looser than a copy's: conservative.
+    `(K,)` integers."""
     rids = sorted(onsets_s)
     K = int(consts.breadth_k)
-    t = rng.uniform(0.0, float(T_s), size=K)
-    anchor = rng.integers(len(rids), size=K) if rids else np.zeros(K, dtype=int)
-    has = np.zeros((K, len(rids)), dtype=bool)
-    for j, r in enumerate(rids):
-        arr = np.sort(np.asarray(onsets_s[r], dtype=float))
-        has[:, j] = np.searchsorted(arr, t + ceiling_s, side="right") > np.searchsorted(arr, t - ceiling_s, side="left")
-    if not rids:
+    ons = [np.sort(np.asarray(onsets_s[r], dtype=float)) for r in rids]
+    sizes = np.array([o.size for o in ons], dtype=np.int64)
+    if not rids or sizes.sum() == 0:
         return np.ones(K, dtype=np.int32)
-    return (1 + has.sum(axis=1) - has[np.arange(K), anchor]).astype(np.int32)
+    T = float(T_s)
+    off = rotation_offsets(len(rids), T, K, consts.min_rotation_s, seed)
+    rng = np.random.default_rng(seed + 7)
+    pick = rng.integers(int(sizes.sum()), size=K)
+    bounds = np.cumsum(sizes)
+    chan = np.searchsorted(bounds, pick, side="right")
+    idx = pick - np.concatenate([[0], bounds[:-1]])[chan]
+    t = np.array([(ons[c][i] + off[k, c]) % T for k, (c, i) in enumerate(zip(chan, idx))])
+    out = np.ones(K, dtype=np.int32)
+    for j, o in enumerate(ons):
+        if not o.size:
+            continue
+        sh = (o[None, :] + off[:, j:j + 1]) % T                 # (K, n_j)
+        d = np.abs(sh - t[:, None])
+        d = np.minimum(d, T - d)
+        near = (d <= ceiling_s).any(axis=1) & (chan != j)
+        out += near.astype(np.int32)
+    return out
 
 
 # ── the hash and stale ─────────────────────────────────────────────────────
@@ -606,8 +680,19 @@ def census_inputs(conn, source_file, detector=DEFAULT_DETECTOR, *, rule=None, co
         runs = _run_stamps(conn, [r["run_id"] for r in sweep["runs"] if r["variant"] == detector
                                   and int(r["recording_id"]) in {int(k) for k in layout["channels"]}])
     rule = rule or xc.rule_from_settings(conn)
+    from Working.library.matching import _human_artifact_spans
+    from Working.library.view_filter import dataset_floors
+
+    fl = dataset_floors(conn).get(str(source_file)) or {"floor_mv": 0.1, "set": False}
+    spans = _human_artifact_spans(conn, [int(k) for k in layout["channels"]])
+    spans_blob = json.dumps({str(k): sorted([int(a), int(b)] for a, b in v) for k, v in sorted(spans.items())},
+                            sort_keys=True, separators=(",", ":"))
     return {"source_file": str(source_file), "detector": str(detector), "runs": [list(r) for r in runs],
             "rule": rule.as_dict(), "packs": _packs(layout), "settings_updated_at": layout.get("settings_updated_at"),
+            # fix round: the floor and the human-marked artifact spans the waveform null avoids both change the bins
+            "floor": {"floor_mv": float(fl["floor_mv"]), "set": bool(fl.get("set"))},
+            "artifact_spans": {"n": sum(len(v) for v in spans.values()),
+                               "sha256": hashlib.sha256(spans_blob.encode("utf-8")).hexdigest()},
             "consts": consts.as_dict(), "census_version": CENSUS_VERSION}
 
 
@@ -644,6 +729,14 @@ def is_stale(conn, census_row):
         why.append("Settings › Channels & events was saved since (packs are unchanged)")
     if now["consts"] != row["consts"]:
         why.append("the census's constants changed (a new census version)")
+    then = (row.get("summary") or {}).get("inputs") or {}
+    if then.get("floor") != now["floor"]:
+        why.append(f"the noise floor changed in Settings › Datasets (now {now['floor']['floor_mv']:g} mV)")
+    if then.get("artifact_spans") != now["artifact_spans"]:
+        why.append(f"the human-marked artifact spans changed (now {now['artifact_spans']['n']}): the waveform null "
+                   f"avoids them")
+    if not why and census_hash(now) != row["hash"]:
+        why.append("an input of the census changed (its hash differs)")
     return {"stale": bool(why), "why": why}
 
 
@@ -755,28 +848,18 @@ def run_census(conn, source_file, detector=DEFAULT_DETECTOR, *, progress=None, c
         if cancelled():
             return None
         ps = by_pair.get((a, b), [])
-        noncopy = [p for p in ps if p["bin"] != ARTIFACT and p["lag_s"] is not None]
-        scan = timetable_scan([p["lag_s"] for p in noncopy], consts.timetable_delta_s, lo, hi)
-        tt = {"n_noncopy": len(noncopy), "count": scan["count"], "L_s": scan["L_s"],
-              "median_lag_s": scan["median_lag_s"], "mad_s": scan["mad_s"], "p": None, "q": None,
-              "testable": False, "reason": None, "pool": 0, "null_mean": None, "null_p95": None}
-        if len(noncopy) < consts.timetable_min_n:
-            tt["reason"] = (f"{len(noncopy)} non-copy co-occurrence{'s' if len(noncopy) != 1 else ''}: a timetable "
-                            f"needs at least {consts.timetable_min_n}")
-        else:
-            pool = timetable_pool(arrays[a], arrays[b], [p["window"] for p in noncopy], fs, max_lag,
+        ti = timetable_inputs(ps)                    # fix round: one lag per distinct measured window
+        pool = None
+        if len(ti["lags"]) >= consts.timetable_min_n:
+            pool = timetable_pool(arrays[a], arrays[b], ti["windows"], fs, max_lag,
                                   size=consts.timetable_pool_min, seed=_seed(h, 2, a, b),
                                   forbidden=forbidden.get(b, ()))
-            tt["pool"] = int(pool.size)
-            if pool.size < consts.timetable_pool_min:
-                tt["reason"] = (f"only {pool.size} random-time lags could be measured (the pool needs "
-                                f"{consts.timetable_pool_min})")
-            if pool.size:
-                null = timetable_null(len(noncopy), pool, consts, lo, hi, seed=_seed(h, 3, a, b))
-                tt.update({"testable": True, "p": p_value(scan["count"], null), "null_mean": float(null.mean()),
-                           "null_p95": float(np.percentile(null, 95))})
-                tt_arrays[f"tt_{a}_{b}_pool"] = pool
-                tt_arrays[f"tt_{a}_{b}_null"] = null
+        tt = timetable_test(ti["lags"], pool, consts, lo, hi, seed=_seed(h, 3, a, b))
+        null = tt.pop("_null")
+        if pool is not None and pool.size:
+            tt_arrays[f"tt_{a}_{b}_pool"] = pool
+        if null is not None:
+            tt_arrays[f"tt_{a}_{b}_null"] = null
         d = draws[:, col[(a, b)]]
         pair_rows.append({"a": a, "b": b, "a_name": layout["channels"][a]["name"],
                           "b_name": layout["channels"][b]["name"], "pack": layout["channels"][a]["pack"],
@@ -820,7 +903,9 @@ def run_census(conn, source_file, detector=DEFAULT_DETECTOR, *, progress=None, c
     # 4. breadth
     if cancelled():
         return None
-    bnull = breadth_null(onsets, T_s, ceiling, consts, seed=_seed(h, 4))
+    # fix round: under rotation, on the excess test's own draws when the two K agree (D18)
+    bnull = breadth_null(onsets, T_s, ceiling, consts,
+                         seed=_seed(h, 1) if consts.breadth_k == consts.rotation_k else _seed(h, 4))
     breadth_rows = []
     for i in inst:
         breadth_rows.append({**{k: i[k] for k in ("instant_id", "breadth", "channels", "packs", "onset_s",
@@ -829,7 +914,7 @@ def run_census(conn, source_file, detector=DEFAULT_DETECTOR, *, progress=None, c
                              "n_events": len(i["events"]), "p": p_value(i["breadth"], bnull), "q": None})
     for row, lvl in zip(breadth_rows, bh([r["p"] for r in breadth_rows], consts.q)):
         row["q"] = lvl
-    tick(f"breadth null: {consts.breadth_k} random instants")
+    tick(f"breadth null: {consts.breadth_k} rotation draws")
 
     if cancelled():
         return None
@@ -841,6 +926,8 @@ def run_census(conn, source_file, detector=DEFAULT_DETECTOR, *, progress=None, c
         "bins": {k: sum(1 for p in pairs if p["bin"] == k) for k in CENSUS_BINS},
         "common_mode_pairs": sum(1 for p in pairs if p.get("common_mode")),
         "unmeasured": sum(1 for p in pairs if not p["measurable"]),
+        "absorbed_into_instants": sum(1 for p in pairs if p.get("absorbed")),
+        "inputs": inputs,
         "layout_known": bool(layout["layout_known"]), "layout_note": layout.get("note"),
         "pack_unknown": sum(1 for p in pairs if p["bin"] == PACK_UNKNOWN),
         "packs": layout["packs"],
@@ -880,8 +967,11 @@ def run_census(conn, source_file, detector=DEFAULT_DETECTOR, *, progress=None, c
                   p["lag_s"], p["r"], p["bin"], None if p["cross_pack"] is None else int(bool(p["cross_pack"])),
                   p.get("instant_id"), int(bool(p.get("common_mode"))),
                   json.dumps(p["chance"]) if p["chance"] else None,
-                  json.dumps(dict(p["floor"], window=p["window"], reason=p["reason"] or p["floor"].get("reason")))
-                  if p["floor"] else json.dumps({"window": p["window"], "reason": p["reason"]}),
+                  # the measured window, and (fix round) the bin the pair's own lag and r gave before its instant
+                  # absorbed it into artifact
+                  json.dumps(dict(p["floor"] or {}, window=p["window"],
+                                  reason=p["reason"] or (p["floor"] or {}).get("reason"),
+                                  absorbed=bool(p.get("absorbed")), own_bin=p.get("bin_own"))),
                   p["amplitude_ratio"]) for p in pairs[i:i + 500]])
     summary["timing_s"] = round(time.time() - t_start, 3)
     with conn:
@@ -977,7 +1067,14 @@ def rules_in_words(rule=xc.DEFAULT_RULE, consts=DEFAULT_CONSTANTS):
                            "listed for the environment work",
             PACK_UNKNOWN: "exactly one of the two channels has no pack set: whether they share a pack is unknown, so "
                           "the pair is counted apart, never as propagation or a shared driver",
+            UNMEASURED: "a flat or non-finite window on one channel: no lag and no r, counted apart",
         },
+        "bins_note": ("each bin counts per co-occurrence classifications, with no null of their own: they say what "
+                      "each pair looked like, not whether there are more of them than chance gives. The claim is the "
+                      "co-occurrence excess (against rotation) and the timetable (against its random-time lag pool), "
+                      "per within-pack pair and after Benjamini–Hochberg"),
+        "absorbed": ("a pair whose two events both sit in one instant (events joined by copies) is an artifact "
+                     "whatever its own lag and r read (D9), and never feeds a timetable"),
         "common_mode": f"an instant (events joined by copies) is common mode when it covers more than "
                        f"{f(consts.breadth_fraction * 100)} % of the channels with every copy's amplitude ratio "
                        f"within ×{f(consts.amplitude_band)}, or spans two or more packs. A mark inside artifact, "
@@ -990,9 +1087,14 @@ def rules_in_words(rule=xc.DEFAULT_RULE, consts=DEFAULT_CONSTANTS):
             "timetable": f"the largest number of a pair's non-copy lags within ±{f(consts.timetable_delta_s)} s of "
                          f"one lag L ({a} s < |L| ≤ {p} s), against {kt} draws of as many lags resampled from at "
                          f"least {consts.timetable_pool_min} lags measured between the pair's onset windows and the "
-                         f"partner channel at random other times",
-            "breadth": f"at {kb} random instants, 1 + the number of other channels with any onset within ±{p} s "
-                       f"(conservative)",
+                         f"partner channel at random other times; one lag per distinct measured window (pairs that "
+                         f"share the earlier onset share a window, so a burst counts once); a pool short of "
+                         f"{consts.timetable_pool_min} lags is not tested. Known limitation: the random times mostly "
+                         f"hold no event on the partner channel (X1, as decided)",
+            "breadth": f"rotation, {kb} draws (the excess test's own when the K agree): around a random rotated "
+                       f"event, 1 + the number of other channels with a rotated onset within ±{p} s. A copy cannot be "
+                       f"re-formed under rotation (it needs the waveform), so the null uses the co-occurrence window, "
+                       f"looser than a copy: conservative",
             "shared_driver": f"rotation, {kr} draws: cross-pack co-occurrences of any kind under rotation against "
                              f"the observed non-copy ones",
         },

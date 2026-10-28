@@ -10,8 +10,8 @@
  *  Every number and every rule's words come from the bridge; nothing here recomputes one. */
 import { ApiError, fetchBridge, READ_TIMEOUT_MS, type JobRow } from '../api'
 
-export type CensusBin = 'artifact' | 'propagation' | 'independent_recurrence' | 'shared_driver' | 'pack_unknown'
-export const CENSUS_BINS: CensusBin[] = ['artifact', 'propagation', 'independent_recurrence', 'shared_driver', 'pack_unknown']
+export type CensusBin = 'artifact' | 'propagation' | 'independent_recurrence' | 'shared_driver' | 'pack_unknown' | 'unmeasured'
+export const CENSUS_BINS: CensusBin[] = ['artifact', 'propagation', 'independent_recurrence', 'shared_driver', 'pack_unknown', 'unmeasured']
 
 export interface CensusTimetable {
   n_noncopy: number; count: number; L_s: number | null; median_lag_s: number | null; mad_s: number | null
@@ -36,6 +36,10 @@ export interface CensusInstant {
 export interface CensusRules {
   co_occurrence: string; window: string; lag_search: string; onset: string; common_mode: string; correction: string
   bins: Record<CensusBin, string>
+  /** the bins are per-co-occurrence classifications with no null; the claim is the excess and timetable tests */
+  bins_note: string
+  /** a pair inside one instant is an artifact whatever its own lag (D9) */
+  absorbed: string
   nulls: { excess: string; waveform: string; timetable: string; breadth: string; shared_driver: string }
 }
 export interface CensusSummary {
@@ -43,6 +47,8 @@ export interface CensusSummary {
   n_channels: number; n_events: number; n_cooccurrences: number
   events_per_channel: Record<string, number>; onset_from: { label: number; steepest_fall: number }
   bins: Record<CensusBin, number>; common_mode_pairs: number; unmeasured: number
+  /** pairs moved to artifact because both their events sit in one instant (fix round) */
+  absorbed_into_instants?: number
   layout_known: boolean; layout_note: string | null; pack_unknown: number; packs: string[]
   pairs: CensusPair[]
   overall: { within_pack: CensusOverall; shared_driver: CensusOverall }

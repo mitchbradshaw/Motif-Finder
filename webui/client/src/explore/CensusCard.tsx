@@ -16,10 +16,11 @@ import { navigate } from '../state'
 
 const BIN_LABEL: Record<CensusBin, string> = {
   artifact: 'artifact', propagation: 'propagation', independent_recurrence: 'independent', shared_driver: 'shared driver',
-  pack_unknown: 'pack unknown',
+  pack_unknown: 'pack unknown', unmeasured: 'unmeasured',
 }
 const BIN_TONE: Record<CensusBin, 'red' | 'amber' | 'green' | 'blue' | 'grey'> = {
   artifact: 'red', propagation: 'amber', independent_recurrence: 'green', shared_driver: 'blue', pack_unknown: 'grey',
+  unmeasured: 'grey',
 }
 
 const fmtP = (p: number | null | undefined) => p == null ? '—' : p < 0.001 ? '< 0.001' : p.toFixed(3)
@@ -36,10 +37,11 @@ function toJobState(j: JobRow): JobState {
     error: j.error ? j.error.message : null }
 }
 
-/** The time left from the job's own counts: elapsed × (total − done) / done. Null until a unit is done. */
+/** The time left from the job's own counts: elapsed × (total − done) / done. Null until a unit is done. Rough: the
+ *  units (a co-occurrence measured, a timetable, a null) do not cost the same, and the card says so. */
 function estimate(j: JobState): string | null {
   if (!j.total || !j.done || j.done >= j.total) return null
-  return `about ${fmtS(j.elapsed * (j.total - j.done) / j.done)} left`
+  return `roughly ${fmtS(j.elapsed * (j.total - j.done) / j.done)} left (the steps differ in cost)`
 }
 
 export function CensusCard({ sourceFile }: { sourceFile: string }) {
@@ -190,6 +192,11 @@ function CensusBody({ c }: { c: CensusRow }) {
         <span title={c.hash} data-testid="census-hash">census {c.hash.slice(0, 12)}</span>
         <span>{c.finishedAt}</span>
       </div>
+      <div className="small muted" data-testid="census-bins-note">
+        <b>Per co-occurrence classifications</b> — what each pair looked like, with no null of their own. The claim is
+        the co-occurrence excess and the timetable tests below, each against its null.
+        <InfoTip title="what the bins are">{r.bins_note}</InfoTip>
+      </div>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }} data-testid="census-bins">
         {CENSUS_BINS.map(b => (
           <span key={b} className="row" style={{ gap: 4, alignItems: 'center' }} data-testid={`census-bin-${b}`}>
@@ -198,6 +205,7 @@ function CensusBody({ c }: { c: CensusRow }) {
           </span>
         ))}
         {s.common_mode_pairs > 0 && <span className="small muted">{s.common_mode_pairs} artifact pairs are common mode <InfoTip title="common mode">{r.common_mode}</InfoTip></span>}
+        {(s.absorbed_into_instants ?? 0) > 0 && <span className="small muted" data-testid="census-absorbed">{s.absorbed_into_instants} of them joined an instant whatever their own lag <InfoTip title="joined an instant">{r.absorbed}</InfoTip></span>}
       </div>
 
       <div data-testid="census-overall" className="small">
@@ -235,6 +243,7 @@ function CensusBody({ c }: { c: CensusRow }) {
 
       <div data-testid="census-breadth">
         <b className="small">Instants (events joined by copies)</b> <InfoTip title="breadth">{r.nulls.breadth}. {r.common_mode}</InfoTip>
+        <div className="small muted" data-testid="census-breadth-null">breadth null: {r.nulls.breadth}</div>
         {s.breadth.length === 0 ? <div className="small muted">no copy at any instant</div> : (
           <table className="k-table" style={{ width: '100%', fontSize: 11.5 }}>
             <thead><tr><th>at</th><th>breadth</th><th>packs</th><th>common mode</th><th>p</th><th>BH</th></tr></thead>

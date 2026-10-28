@@ -131,10 +131,10 @@ def test_bh_goes_through_corrected_levels():
 # ── fix round (the critic, 2026-10-28) ─────────────────────────────────────
 
 def test_fix3_the_breadth_null_is_drawn_under_rotation():
-    # two channels whose single events coincide: under rotation every pair of channels is at least an hour apart,
+    # three channels whose single events coincide: under rotation every pair of channels is at least an hour apart,
     # so no draw can bring them back together (a random-instant null still lands near both now and then)
     T = 10 * 3600.0
-    on = {1: np.array([5000.0]), 2: np.array([5000.0]), 3: np.array([20000.0])}
+    on = {1: np.array([5000.0]), 2: np.array([5000.0]), 3: np.array([5000.0])}
     null = cc.breadth_null(on, T, 50.0, K, seed=3)
     assert null.shape == (K.breadth_k,) and null.max() == 1 and null.min() == 1
 

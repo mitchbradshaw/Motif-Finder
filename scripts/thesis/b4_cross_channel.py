@@ -7,6 +7,10 @@ row and figure carries the census hash it came from (D24).
 Reads the latest finished census per source file (of `--detector`, default drop_detection_v1) from a database
 opened read-only (`mode=ro`). The held-out recording is never read: a census row naming it is skipped by name.
 
+Fix round (the critic, 2026-10-28): each census is checked against today's inputs with `cross_census.is_stale` (a
+read), and `stale` / `staleWhy` go into b4_summary.json and both CSVs (and STALE onto the figures), so a stale census
+can never reach the thesis unmarked. A census whose freshness cannot be checked is marked stale, with the error.
+
 Writes into `--out` (default docs/thesis/data/ch10_b4/):
   b4_summary.json            per census: hash, bins, overall excess and shared driver, the BH families, layout
   b4_pairs.csv               every within-pack pair: co-occurrences against rotation, the timetable against its pool
@@ -39,7 +43,7 @@ if ROOT not in sys.path:
 DB = os.path.join(ROOT, "DATA", "db", "annotations.sqlite")
 OUT = os.path.join(ROOT, "docs", "thesis", "data", "ch10_b4")
 HELD_OUT_FILE = "M4_aug_concat_fs1.mat"
-BINS = ("artifact", "propagation", "independent_recurrence", "shared_driver", "pack_unknown")
+BINS = ("artifact", "propagation", "independent_recurrence", "shared_driver", "pack_unknown", "unmeasured")
 MAX_PANELS = 12
 
 
@@ -65,8 +69,24 @@ def _latest(conn, detector):
         for src, dst in (("summary_json", "summary"), ("layout_json", "layout"), ("consts_json", "consts"),
                          ("rule_json", "rule")):
             r[dst] = json.loads(r[src]) if r[src] else {}
+        r.update(_freshness(conn, r))
         out.append(r)
     return out, skipped
+
+
+def _freshness(conn, row):
+    """`{stale, staleWhy}` from `cross_census.is_stale` on today's (read-only) database."""
+    from Working import cross_census as cc
+    try:
+        st = cc.is_stale(conn, row)
+    except Exception as e:                       # loud: unknown freshness is never reported as fresh
+        return {"stale": True, "staleWhy": [f"could not check this census against today's inputs: "
+                                            f"{type(e).__name__}: {e}"]}
+    return {"stale": bool(st["stale"]), "staleWhy": list(st["why"])}
+
+
+def _mark(c):
+    return " · STALE: " + "; ".join(c["staleWhy"]) if c["stale"] else ""
 
 
 def _short(h):
@@ -81,7 +101,8 @@ def _pairs_rows(c):
     rows = []
     for p in c["summary"].get("pairs", []):
         t = p.get("timetable") or {}
-        rows.append({"census_hash": c["hash"], "source_file": c["source_file"], "a": p["a"], "b": p["b"],
+        rows.append({"census_hash": c["hash"], "stale": c["stale"], "stale_why": "; ".join(c["staleWhy"]),
+                     "source_file": c["source_file"], "a": p["a"], "b": p["b"],
                      "a_name": p["a_name"], "b_name": p["b_name"], "pack": p["pack"], "n": p["n"],
                      "null_mean": p["null_mean"], "null_p95": p["null_p95"], "p": p["p"], "q": p["q"],
                      "propagation": (p.get("bins") or {}).get("propagation"),
@@ -121,8 +142,8 @@ def _fig_bins(censuses, path):
     ax.set_ylabel("co-occurrences")
     ax.set_title("B4 census: co-occurrences per bin")
     ax.legend(fontsize=7)
-    fig.text(0.01, 0.01, "census " + " · ".join(f"{_stem(c['source_file'])} {_short(c['hash'])}" for c in censuses),
-             fontsize=6)
+    fig.text(0.01, 0.01, "census " + " · ".join(f"{_stem(c['source_file'])} {_short(c['hash'])}"
+                                               f"{' (STALE)' if c['stale'] else ''}" for c in censuses), fontsize=6)
     fig.tight_layout(rect=(0, 0.04, 1, 1))
     fig.savefig(path, dpi=150)
     plt.close(fig)
@@ -165,7 +186,7 @@ def _fig_lag_hist(conn, c, path):
         ax.tick_params(labelsize=6)
         ax.legend(fontsize=5)
     note = "" if draws is not None else " · null draws not on disk: observed lags only"
-    fig.text(0.01, 0.005, f"{c['source_file']} · census {c['hash']}{note}", fontsize=6)
+    fig.text(0.01, 0.005, f"{c['source_file']} · census {c['hash']}{note}{_mark(c)}", fontsize=6)
     fig.tight_layout(rect=(0, 0.03, 1, 1))
     fig.savefig(path, dpi=150)
     plt.close(fig)
@@ -185,7 +206,8 @@ def _fig_lag_distance(conn, censuses, path):
             a, b = ch[str(r[0])], ch[str(r[1])]
             xs.append(math.hypot(a["x_mm"] - b["x_mm"], a["y_mm"] - b["y_mm"]))
             ys.append(r[2])
-        ax.scatter(xs, ys, s=8, label=f"{_stem(c['source_file'])} ({_short(c['hash'])})")
+        ax.scatter(xs, ys, s=8, label=f"{_stem(c['source_file'])} ({_short(c['hash'])}"
+                                      f"{', STALE' if c['stale'] else ''})")
     ax.axhline(0, color="grey", lw=0.5)
     ax.set_xlabel("electrode distance (mm)")
     ax.set_ylabel("lag (s)")
@@ -209,6 +231,7 @@ def main(argv=None):
         summary = {"generated_at": _dt.datetime.now().isoformat(timespec="seconds"),
                    "db": os.path.abspath(args.db), "detector": args.detector, "skipped": skipped,
                    "censuses": [{"source_file": c["source_file"], "census_id": c["id"], "hash": c["hash"],
+                                 "stale": c["stale"], "staleWhy": c["staleWhy"],
                                  "finished_at": c["finished_at"], "bins": c["summary"].get("bins"),
                                  "n_events": c["summary"].get("n_events"),
                                  "n_cooccurrences": c["summary"].get("n_cooccurrences"),
@@ -228,9 +251,11 @@ def main(argv=None):
         pair_rows = [r for c in censuses for r in _pairs_rows(c)]
         _write_csv(os.path.join(args.out, "b4_pairs.csv"), pair_rows,
                    list(pair_rows[0]) if pair_rows else ["census_hash", "source_file", "a", "b", "n"])
-        bin_rows = [{"census_hash": c["hash"], "source_file": c["source_file"], "bin": b,
+        bin_rows = [{"census_hash": c["hash"], "stale": c["stale"], "stale_why": "; ".join(c["staleWhy"]),
+                     "source_file": c["source_file"], "bin": b,
                      "count": c["summary"].get("bins", {}).get(b, 0)} for c in censuses for b in BINS]
-        _write_csv(os.path.join(args.out, "b4_bins.csv"), bin_rows, ["census_hash", "source_file", "bin", "count"])
+        _write_csv(os.path.join(args.out, "b4_bins.csv"), bin_rows,
+                   ["census_hash", "stale", "stale_why", "source_file", "bin", "count"])
         if censuses:
             _fig_bins(censuses, os.path.join(args.out, "b4_bins.png"))
             for c in censuses:
@@ -253,7 +278,7 @@ def main(argv=None):
         conn.close()
     print(f"B4: {len(censuses)} census(es) -> {args.out}" + (f"; skipped: {'; '.join(skipped)}" if skipped else ""))
     for c in censuses:
-        print(f"  {c['source_file']}  census {c['hash']}  bins {c['summary'].get('bins')}")
+        print(f"  {c['source_file']}  census {c['hash']}  bins {c['summary'].get('bins')}{_mark(c)}")
     return 0
 
 
