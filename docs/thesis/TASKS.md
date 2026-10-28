@@ -13,8 +13,9 @@ Queue counts were read from the database this morning (own looks only).
 The bridge was not running this morning. Its log ends without an error, so the PC most likely restarted overnight.
 Review, the imports and every page need it.
 
-- [ ] In PowerShell, from the repo root: `webui\start.ps1 -Project`. Project mode uses the real database, and the
-      script builds the client only if none exists. Or ask me to start it.
+- [x] In PowerShell, from the repo root: `webui\start.ps1 -Project`. Project mode uses the real database, and the
+      script builds the client only if none exists. Or ask me to start it. *(Running: restarted 28 Oct 20:25 with
+      the B2 step score and a fresh client; logs `webui/runtime/bridge-8765-20261028-202539.*.log`.)*
 - [ ] Wait about two minutes for the warm-up (the log says "template scores warmed").
 
 ---
