@@ -12,7 +12,7 @@ Sources:
   \item \src{docs/rq_roundA_2/findings/rq1b-minirocket-2026-10-20.md} and \src{rq1b-minirocket-null-2026-10-26.md}
         (R4);
   \item \src{DATA/derived/models/rq1b_cnn_vs_minirocket/reference_20261026/} (the CNN comparison);
-  \item \src{docs/rq_roundA_2/findings/m4-exam-<date>.md}, once queue 36 is scored.
+  \item \src{docs/rq_roundA_2/findings/m4-exam-2026-10-28.md} (queue 36, scored once on 28 Oct).
 \end{itemize}
 \end{instructions}
 
@@ -183,15 +183,46 @@ which the CNNs were trained on.
 \subsection{The held-out exam}
 
 \begin{table}[htbp]
-\caption{The M4 exam: frozen models scored once on 290 blind-judged candidate events. [To be filled by \texttt{scripts/m4\_exam\_score.py}.]}
+\caption{The M4 exam: the frozen models scored once (28 Oct) on the 276 of 290 blind-judged candidate events that were answered (14 unsure). Within-stratum bootstrap 95\,\% intervals. Unweighted is the primary measure, as pre-registered; design-weighted reweights the strata to the whole pool of candidates.}
 \label{tab:exam}
-\centering
-\figplaceholder{3.5cm}{Rows: MiniRocket R4; GASF, GADF, recurrence, fusion CNNs; detector agreement. Columns: AUC and balanced accuracy with within-stratum bootstrap intervals; paired AUC difference from R4. Plus the share real on M4, the agreement ladder, and per-detector precision on M4.}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}X r r r@{}}
+\toprule
+\textbf{Model} & \textbf{AUC} & \textbf{Balanced accuracy} & \textbf{AUC minus R4}\\
+\midrule
+MiniRocket R4 & 0.98 (0.97--0.99) & 0.93 (0.88--0.97) & --\\
+\quad design-weighted & 0.96 (0.92--1.00) & 0.77 (0.67--0.92) & \\
+GASF CNN & 0.61 (0.55--0.67) & 0.62 (0.56--0.69) & $-0.37$ ($-0.43$ to $-0.31$)\\
+GADF CNN & 0.66 (0.60--0.71) & 0.67 (0.61--0.73) & $-0.33$ ($-0.39$ to $-0.27$)\\
+Recurrence CNN & 0.64 (0.58--0.70) & 0.68 (0.63--0.74) & $-0.34$ ($-0.41$ to $-0.28$)\\
+Fusion CNN & 0.59 (0.53--0.65) & 0.63 (0.57--0.69) & $-0.40$ ($-0.46$ to $-0.33$)\\
+Detector agreement as a score & 0.85 & -- & \\
+\bottomrule
+\end{tabularx}
 \end{table}
 
 \begin{instructions}
 Report the exam exactly as the manifest specifies, one-shot, including if it disappoints. Compare with
 leave-one-recording-out. Restate the exposure in one sentence and point to Table~\ref{tab:exposure}.
+
+Results (scored once, 28 Oct; \src{docs/rq_roundA_2/findings/m4-exam-2026-10-28.md},
+\src{DATA/derived/exam/M4/results.json}):
+\begin{itemize}
+  \item R4 generalises to the held-out recording: AUC 0.98 and balanced accuracy 0.93 (unweighted), against a pooled
+        leave-one-recording-out AUC of 0.97 on the five UQ recordings. The CNNs reach 0.59--0.66 AUC, 0.33--0.40 below
+        R4. Their training data is not recorded; most likely M2\_aug's labels only.
+  \item The design-weighted balanced accuracy (0.77) is lower because the whole pool is mostly low-agreement
+        candidates, few of them real, so a handful of real low-agreement events weigh heavily. Report both; the
+        unweighted figure is the pre-registered primary.
+  \item 12 spans could not be read by R4 (gaps over 5\,\%), and 14 items were judged unsure; both are left out.
+  \item About 10\,\% (6--14\,\%) of M4's candidate events are real. Precision climbs with how many detectors agree:
+        0\,\% at 1--2, 3\,\% at 3--4, 16\,\% at 5--6, 35\,\% at 7--8 and 53\,\% at 9 or more.
+  \item Per family, \texttt{drop\_detection\_v1} is the most precise (64\,\%, 43--86\,\%, 14 sampled), then BEADs
+        45\,\%, \texttt{wavelet\_encoded} 38\,\% and v5 36\,\%. The matrix profile and the wavelet prototype score
+        0\,\%, and \texttt{symbol\_search} 1\,\%. These feed Chapter~\ref{ch:rq1}.
+  \item During judging, M4's unit was declared V (audit 1158) so that Review could draw its traces. Both scorers
+        already read an undeclared unit as volts, so no score changed (Appendix~\ref{app:exam}).
+\end{itemize}
 \end{instructions}
 
 \section{Discussion}

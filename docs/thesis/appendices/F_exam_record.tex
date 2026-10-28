@@ -24,6 +24,10 @@ Sample & 290 candidate events: agreement strata 1--2, 3--4, 5--6, 7--8 and 9+ (4
 Pool & 832,136 candidate events from 1,186,189 detections; none judged before\\
 Metrics & Share real; agreement ladder; per-family and per-setting precision; AUC and balanced accuracy for R4 and the CNNs, with within-stratum bootstrap intervals; paired AUC difference from R4\\
 Protocol & Lock off (audited) $\rightarrow$ judge queue 36 only $\rightarrow$ lock on (audited) $\rightarrow$ score once with \texttt{scripts/m4\_exam\_score.py}, which refuses if any hash differs\\
+\midrule
+Judged (28 Oct) & Lock off, audit 1157 (10:36 UTC); all 290 items judged (276 answered, 14 unsure); lock on, audit 1159 (11:49 UTC)\\
+Unit declared & M4 declared V during judging, audit 1158, so that Review could draw its traces; the scorers already read an undeclared unit as volts, so no score changed\\
+Scored (28 Oct) & Once, 12:00 UTC, by \texttt{scripts/m4\_exam\_score.py} (sha256 \texttt{68fbecfb\ldots0588}); \texttt{DATA/derived/exam/M4/results.json}; \texttt{docs/rq\_roundA\_2/findings/m4-exam-2026-10-28.md}\\
 \bottomrule
 \end{tabularx}
 \end{table}

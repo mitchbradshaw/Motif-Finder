@@ -1,0 +1,1727 @@
+{
+ "date": "2026-10-28",
+ "rule": {
+  "alpha": 0.01,
+  "correction": "none"
+ },
+ "nulls": {
+  "drop30": {
+   "title": "drop, family 30 (Library entry 185)",
+   "result": "drop30_allch_16ch_0-2595600",
+   "specHash": "772d402f5d05",
+   "draws": 200,
+   "method": "phase_randomize",
+   "k": 200,
+   "m": 377,
+   "line": 2.2080859509008204,
+   "judged_cut": null,
+   "channels_passing": 16,
+   "channels": 16,
+   "rows": [
+    {
+     "channel": "CH2_A1",
+     "closest": 0.0,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 111,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.2080859509008204,
+      "real": 111,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH1_A1",
+     "closest": 0.810304155208422,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 54,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.5473494055456514,
+      "real": 82,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH3_A2",
+     "closest": 1.0755330393704536,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 7,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.4772202700326855,
+      "real": 12,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH4_A2",
+     "closest": 0.912571895983352,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 66,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.3520236318299967,
+      "real": 78,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH5_B1",
+     "closest": 0.6577762769629818,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 17,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.571180087063382,
+      "real": 40,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH6_B1",
+     "closest": 1.4690675822023052,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 1,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.266810200007443,
+      "real": 3,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH7_B2",
+     "closest": 1.8879422581885714,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 3,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.704088652860044,
+      "real": 20,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH8_B2",
+     "closest": 1.4123145993849593,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 14,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.681725547024242,
+      "real": 36,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH9_C1",
+     "closest": 1.3706358371546075,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 18,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.652013522098655,
+      "real": 32,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH10_C1",
+     "closest": 1.7607359602517416,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 5,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.9835149917940775,
+      "real": 32,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH11_C2",
+     "closest": 0.9670440002412999,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 17,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.9655500829413297,
+      "real": 38,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH12_C2",
+     "closest": 1.5397675114538478,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 2,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.5608469865202683,
+      "real": 7,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH13_D1",
+     "closest": 1.4965647078311692,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 8,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.522899032047581,
+      "real": 17,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH14_D1",
+     "closest": 1.4436378363310265,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 2,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.6765762374667323,
+      "real": 13,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH15_D2",
+     "closest": 1.1492816290374162,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 13,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 3.4271875709252706,
+      "real": 98,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH16_D2",
+     "closest": 1.1305474791848367,
+     "line": {
+      "cut": 2.2080859509008204,
+      "real": 34,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.530600966432166,
+      "real": 50,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    }
+   ],
+   "totals": {
+    "line": {
+     "real": 372,
+     "null_mean": 0.005,
+     "null_p95": 0.0,
+     "null_max": 1
+    }
+   },
+   "own_total": {
+    "real": 669,
+    "null_mean_sum": 0.13
+   }
+  },
+  "spike37": {
+   "title": "spike, family 37 (Library entry 289)",
+   "result": "spike37_allch_16ch_0-2595600",
+   "specHash": "f6aab3cfb594",
+   "draws": 200,
+   "method": "phase_randomize",
+   "k": 200,
+   "m": 148,
+   "line": 2.5193494004881942,
+   "judged_cut": null,
+   "channels_passing": 8,
+   "channels": 16,
+   "rows": [
+    {
+     "channel": "CH1_A1",
+     "closest": 1.6106438975427597e-05,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 16,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.5193494004881942,
+      "real": 16,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH2_A1",
+     "closest": 2.8102383210822794,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 3.420835680799999,
+      "real": 2,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH3_A2",
+     "closest": 4.9363668092729895,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": null,
+      "real": 0,
+      "null_mean": null,
+      "null_p95": null,
+      "null_max": null,
+      "draws": 0
+     }
+    },
+    {
+     "channel": "CH4_A2",
+     "closest": 2.7884760240525526,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.7884760240525526,
+      "real": 1,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH5_B1",
+     "closest": 5.076708485146955,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": null,
+      "real": 0,
+      "null_mean": null,
+      "null_p95": null,
+      "null_max": null,
+      "draws": 0
+     }
+    },
+    {
+     "channel": "CH6_B1",
+     "closest": 6.244989917672675,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": null,
+      "real": 0,
+      "null_mean": null,
+      "null_p95": null,
+      "null_max": null,
+      "draws": 0
+     }
+    },
+    {
+     "channel": "CH7_B2",
+     "closest": 4.415248162056291,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": null,
+      "real": 0,
+      "null_mean": null,
+      "null_p95": null,
+      "null_max": null,
+      "draws": 0
+     }
+    },
+    {
+     "channel": "CH8_B2",
+     "closest": 5.213214513824881,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": null,
+      "real": 0,
+      "null_mean": null,
+      "null_p95": null,
+      "null_max": null,
+      "draws": 0
+     }
+    },
+    {
+     "channel": "CH9_C1",
+     "closest": 4.148768558874068,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.345085330243412,
+      "real": 2,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH10_C1",
+     "closest": 3.5199489461216533,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.127343663223219,
+      "real": 3,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH11_C2",
+     "closest": 4.75049058044497,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": null,
+      "real": 0,
+      "null_mean": null,
+      "null_p95": null,
+      "null_max": null,
+      "draws": 0
+     }
+    },
+    {
+     "channel": "CH12_C2",
+     "closest": 3.21918966806402,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 3.8683060266723257,
+      "real": 3,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH13_D1",
+     "closest": 5.043865521853831,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": null,
+      "real": 0,
+      "null_mean": null,
+      "null_p95": null,
+      "null_max": null,
+      "draws": 0
+     }
+    },
+    {
+     "channel": "CH14_D1",
+     "closest": 6.297366255542828,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": null,
+      "real": 0,
+      "null_mean": null,
+      "null_p95": null,
+      "null_max": null,
+      "draws": 0
+     }
+    },
+    {
+     "channel": "CH15_D2",
+     "closest": 3.4740180656671313,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.298897880315979,
+      "real": 3,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH16_D2",
+     "closest": 4.290608051443254,
+     "line": {
+      "cut": 2.5193494004881942,
+      "real": 0,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.696951341463752,
+      "real": 4,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    }
+   ],
+   "totals": {
+    "line": {
+     "real": 16,
+     "null_mean": 0.0,
+     "null_p95": 0.0,
+     "null_max": 0
+    }
+   },
+   "own_total": {
+    "real": 34,
+    "null_mean_sum": 0.005
+   }
+  },
+  "longdip_id020": {
+   "title": "long dip id020 (family 23 medoid)",
+   "result": "dip_search_allch_16ch_0-2595600",
+   "specHash": "939976022bad",
+   "draws": 200,
+   "method": "phase_randomize",
+   "k": 200,
+   "m": 816,
+   "line": 3.9048096537559083,
+   "judged_cut": 3.8668,
+   "channels_passing": 16,
+   "channels": 16,
+   "rows": [
+    {
+     "channel": "CH2_A1",
+     "closest": 1.4514191546450912,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 20,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.029468430705745,
+      "real": 21,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 20,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH6_B1",
+     "closest": 2.7920058800453775,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 6,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "own": {
+      "cut": 3.9048096537559083,
+      "real": 6,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 5,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH7_B2",
+     "closest": 3.3719610381999794,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 6,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.714525122717957,
+      "real": 15,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 5,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH1_A1",
+     "closest": 3.18081123662427e-05,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 14,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.214394959653082,
+      "real": 31,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 13,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH3_A2",
+     "closest": 3.677353556865797,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 5,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.096770396251509,
+      "real": 6,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 5,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH4_A2",
+     "closest": 1.698832607195106,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 19,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.140778804209081,
+      "real": 31,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 19,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH5_B1",
+     "closest": 1.9645082078341545,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 6,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.452185658402115,
+      "real": 19,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 6,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH8_B2",
+     "closest": 2.8114456198491133,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 4,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.460890952985898,
+      "real": 10,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 3,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH9_C1",
+     "closest": 2.197033043855311,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 6,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.080999425381202,
+      "real": 8,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 4,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH10_C1",
+     "closest": 3.2905460914248623,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 7,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.636948456017925,
+      "real": 29,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 5,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH11_C2",
+     "closest": 2.8825347237459513,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 4,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.789288045662119,
+      "real": 26,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 4,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH12_C2",
+     "closest": 3.0951318933119074,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 2,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.434398454132,
+      "real": 10,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 2,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH13_D1",
+     "closest": 2.1276867946157716,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 3,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.4848278975291755,
+      "real": 5,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 3,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH14_D1",
+     "closest": 3.4614369908423024,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 4,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 4.5638483642079,
+      "real": 11,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 4,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH15_D2",
+     "closest": 3.139338106634119,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 12,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 5.1340558796805595,
+      "real": 37,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 11,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH16_D2",
+     "closest": 1.9734307050056963,
+     "line": {
+      "cut": 3.9048096537559083,
+      "real": 6,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "own": {
+      "cut": 3.9453214367104756,
+      "real": 8,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 3.8668,
+      "real": 6,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     }
+    }
+   ],
+   "totals": {
+    "line": {
+     "real": 124,
+     "null_mean": 0.035,
+     "null_p95": 0.0,
+     "null_max": 1
+    },
+    "judged": {
+     "real": 115,
+     "null_mean": 0.03,
+     "null_p95": 0.0,
+     "null_max": 1
+    }
+   },
+   "own_total": {
+    "real": 273,
+    "null_mean_sum": 0.13
+   }
+  },
+  "dip_id010": {
+   "title": "dip id010 (family 24 medoid)",
+   "result": "dip_search_3ch_0-2595600",
+   "specHash": "316de9e58495",
+   "draws": 200,
+   "method": "phase_randomize",
+   "k": 200,
+   "m": 105,
+   "line": 2.0984541212413057,
+   "judged_cut": 2.652,
+   "channels_passing": 3,
+   "channels": 3,
+   "rows": [
+    {
+     "channel": "CH2_A1",
+     "closest": 1.4165449704031687,
+     "line": {
+      "cut": 2.0984541212413057,
+      "real": 14,
+      "null_mean": 0.0,
+      "null_p95": 0.0,
+      "null_max": 0,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.24087725626395,
+      "real": 25,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 2.652,
+      "real": 39,
+      "null_mean": 0.225,
+      "null_p95": 1.0,
+      "null_max": 3,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH6_B1",
+     "closest": 1.5444911397758578,
+     "line": {
+      "cut": 2.0984541212413057,
+      "real": 12,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.0984541212413057,
+      "real": 12,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 2.652,
+      "real": 60,
+      "null_mean": 0.185,
+      "null_p95": 1.0,
+      "null_max": 3,
+      "draws": 200
+     }
+    },
+    {
+     "channel": "CH7_B2",
+     "closest": 1.2353367591028077,
+     "line": {
+      "cut": 2.0984541212413057,
+      "real": 38,
+      "null_mean": 0.005,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "own": {
+      "cut": 2.182400841153065,
+      "real": 54,
+      "null_mean": 0.01,
+      "null_p95": 0.0,
+      "null_max": 1,
+      "draws": 200
+     },
+     "judged": {
+      "cut": 2.652,
+      "real": 164,
+      "null_mean": 0.39,
+      "null_p95": 1.0,
+      "null_max": 2,
+      "draws": 200
+     }
+    }
+   ],
+   "totals": {
+    "line": {
+     "real": 64,
+     "null_mean": 0.01,
+     "null_p95": 0.0,
+     "null_max": 1
+    },
+    "judged": {
+     "real": 263,
+     "null_mean": 0.8,
+     "null_p95": 2.0,
+     "null_max": 6
+    }
+   },
+   "own_total": {
+    "real": 91,
+    "null_mean_sum": 0.025
+   }
+  }
+ },
+ "panel": {
+  "synthetic": false,
+  "queue_id": 35,
+  "stamp": "20261026-rq2blind",
+  "groups": {
+   "drop30": {
+    "judged": 100,
+    "accepted": 100,
+    "not_interesting": 0,
+    "unsure": 0,
+    "artifact": 0,
+    "rate": 1.0,
+    "ci": [
+     0.9630051925239981,
+     0.9999999999999999
+    ],
+    "decided": 100,
+    "rate_decided": 1.0,
+    "ci_decided": [
+     0.9630051925239981,
+     0.9999999999999999
+    ],
+    "in_panel": 100,
+    "carried_excluded": 0,
+    "unjudged": 0
+   },
+   "control": {
+    "judged": 80,
+    "accepted": 15,
+    "not_interesting": 63,
+    "unsure": 2,
+    "artifact": 0,
+    "rate": 0.1875,
+    "ci": [
+     0.11705207812728378,
+     0.2865852570380757
+    ],
+    "decided": 78,
+    "rate_decided": 0.19230769230769232,
+    "ci_decided": [
+     0.12015101048823744,
+     0.2933501918342978
+    ],
+    "in_panel": 80,
+    "carried_excluded": 0,
+    "unjudged": 0
+   },
+   "control@377": {
+    "judged": 40,
+    "accepted": 9,
+    "not_interesting": 29,
+    "unsure": 2,
+    "artifact": 0,
+    "rate": 0.225,
+    "ci": [
+     0.1231595325467853,
+     0.3750339640409305
+    ],
+    "decided": 38,
+    "rate_decided": 0.23684210526315788,
+    "ci_decided": [
+     0.12993561496969508,
+     0.39207119165337856
+    ],
+    "in_panel": 40,
+    "carried_excluded": 0,
+    "unjudged": 0
+   },
+   "rejudge_longdip_id020": {
+    "judged": 20,
+    "accepted": 20,
+    "not_interesting": 0,
+    "unsure": 0,
+    "artifact": 0,
+    "rate": 1.0,
+    "ci": [
+     0.8388698745050667,
+     1.0
+    ],
+    "decided": 20,
+    "rate_decided": 1.0,
+    "ci_decided": [
+     0.8388698745050667,
+     1.0
+    ],
+    "in_panel": 20,
+    "carried_excluded": 0,
+    "unjudged": 0
+   },
+   "spike37": {
+    "judged": 29,
+    "accepted": 28,
+    "not_interesting": 0,
+    "unsure": 1,
+    "artifact": 0,
+    "rate": 0.9655172413793104,
+    "ci": [
+     0.8282410893529976,
+     0.9938869433859677
+    ],
+    "decided": 28,
+    "rate_decided": 1.0,
+    "ci_decided": [
+     0.8793527963418923,
+     1.0
+    ],
+    "in_panel": 29,
+    "carried_excluded": 0,
+    "unjudged": 0
+   },
+   "control@105": {
+    "judged": 12,
+    "accepted": 1,
+    "not_interesting": 11,
+    "unsure": 0,
+    "artifact": 0,
+    "rate": 0.08333333333333333,
+    "ci": [
+     0.014864709450773478,
+     0.35388592179859524
+    ],
+    "decided": 12,
+    "rate_decided": 0.08333333333333333,
+    "ci_decided": [
+     0.014864709450773478,
+     0.35388592179859524
+    ],
+    "in_panel": 12,
+    "carried_excluded": 0,
+    "unjudged": 0
+   },
+   "control@816": {
+    "judged": 12,
+    "accepted": 3,
+    "not_interesting": 9,
+    "unsure": 0,
+    "artifact": 0,
+    "rate": 0.25,
+    "ci": [
+     0.08894003962896138,
+     0.53231033912066
+    ],
+    "decided": 12,
+    "rate_decided": 0.25,
+    "ci_decided": [
+     0.08894003962896138,
+     0.53231033912066
+    ],
+    "in_panel": 12,
+    "carried_excluded": 0,
+    "unjudged": 0
+   },
+   "rejudge_dip_id010": {
+    "judged": 20,
+    "accepted": 20,
+    "not_interesting": 0,
+    "unsure": 0,
+    "artifact": 0,
+    "rate": 1.0,
+    "ci": [
+     0.8388698745050667,
+     1.0
+    ],
+    "decided": 20,
+    "rate_decided": 1.0,
+    "ci_decided": [
+     0.8388698745050667,
+     1.0
+    ],
+    "in_panel": 20,
+    "carried_excluded": 0,
+    "unjudged": 0
+   },
+   "control@148": {
+    "judged": 16,
+    "accepted": 2,
+    "not_interesting": 14,
+    "unsure": 0,
+    "artifact": 0,
+    "rate": 0.125,
+    "ci": [
+     0.034976749337057134,
+     0.3602333143674828
+    ],
+    "decided": 16,
+    "rate_decided": 0.125,
+    "ci_decided": [
+     0.034976749337057134,
+     0.3602333143674828
+    ],
+    "in_panel": 16,
+    "carried_excluded": 0,
+    "unjudged": 0
+   }
+  },
+  "comparisons": [
+   {
+    "group": "drop30",
+    "length": 377,
+    "matched": {
+     "control_accepted": 9,
+     "control_judged": 40,
+     "diff": 0.775,
+     "ci": [
+      0.6204723126879146,
+      0.8768404674532148
+     ],
+     "fisher_p": 2.4115540839490442e-23,
+     "ratio": 4.444444444444445
+    },
+    "pooled": {
+     "control_accepted": 15,
+     "control_judged": 80,
+     "diff": 0.8125,
+     "ci": [
+      0.7067337296559627,
+      0.8829479218727162
+     ],
+     "fisher_p": 7.968864973366469e-35,
+     "ratio": 5.333333333333333
+    }
+   },
+   {
+    "group": "spike37",
+    "length": 148,
+    "matched": {
+     "control_accepted": 2,
+     "control_judged": 16,
+     "diff": 0.8405172413793104,
+     "ci": [
+      0.56815818773236,
+      0.9349048764374555
+     ],
+     "fisher_p": 1.0137228803444857e-08,
+     "ratio": 7.724137931034483
+    },
+    "pooled": {
+     "control_accepted": 15,
+     "control_judged": 80,
+     "diff": 0.7780172413793104,
+     "ci": [
+      0.6087168276838534,
+      0.8539629436153874
+     ],
+     "fisher_p": 4.417555862985696e-14,
+     "ratio": 5.149425287356322
+    }
+   },
+   {
+    "group": "rejudge_dip_id010",
+    "length": 105,
+    "matched": {
+     "control_accepted": 1,
+     "control_judged": 12,
+     "diff": 0.9166666666666666,
+     "ci": [
+      0.6017672851695504,
+      0.9851352905492264
+     ],
+     "fisher_p": 9.300560637795247e-08,
+     "ratio": 12.0
+    },
+    "pooled": {
+     "control_accepted": 15,
+     "control_judged": 80,
+     "diff": 0.8125,
+     "ci": [
+      0.6233418505474467,
+      0.8829479218727162
+     ],
+     "fisher_p": 6.059783454760921e-12,
+     "ratio": 5.333333333333333
+    }
+   },
+   {
+    "group": "rejudge_longdip_id020",
+    "length": 816,
+    "matched": {
+     "control_accepted": 3,
+     "control_judged": 12,
+     "diff": 0.75,
+     "ci": [
+      0.42494301281708313,
+      0.9110599603710386
+     ],
+     "fisher_p": 7.843472804540659e-06,
+     "ratio": 4.0
+    },
+    "pooled": {
+     "control_accepted": 15,
+     "control_judged": 80,
+     "diff": 0.8125,
+     "ci": [
+      0.6233418505474467,
+      0.8829479218727162
+     ],
+     "fisher_p": 6.059783454760921e-12,
+     "ratio": 5.333333333333333
+    }
+   }
+  ],
+  "agreement": {
+   "n": 51,
+   "earlier_accepted": 51,
+   "still_accepted": 51,
+   "still_rate": 1.0,
+   "still_ci": [
+    0.9299509861127319,
+    0.9999999999999999
+   ],
+   "table": [
+    [
+     51,
+     0
+    ],
+    [
+     0,
+     0
+    ]
+   ],
+   "kappa": null,
+   "by_group": {
+    "rejudge_longdip_id020": {
+     "interesting -> interesting": 20
+    },
+    "spike37": {
+     "interesting -> interesting": 1,
+     "interesting -> seed": 9,
+     "seed -> seed": 1
+    },
+    "rejudge_dip_id010": {
+     "interesting -> interesting": 19,
+     "interesting -> seed": 1
+    }
+   }
+  }
+ },
+ "composition": {
+  "rule": {
+   "alpha": 0.01,
+   "correction": "none"
+  },
+  "pools": {
+   "rejudge_dip_id010": 253,
+   "rejudge_longdip_id020": 92,
+   "spike37_under_cut": 34,
+   "spike37": 29,
+   "drop30_under_cut": 372,
+   "drop30": 338
+  },
+  "chosen": {
+   "rejudge_dip_id010": 20,
+   "rejudge_longdip_id020": 20,
+   "spike37": 29,
+   "drop30": 100
+  },
+  "excluded_prior": {
+   "rejudge_dip_id010": 3,
+   "rejudge_longdip_id020": 2,
+   "spike37": 5,
+   "drop30": 34
+  },
+  "seeds": {
+   "spike37": {
+    "line": 2.5193494004881942,
+    "own_cuts": {
+     "CH1_A1": 2.5193494004881942,
+     "CH2_A1": 3.420835680799999,
+     "CH3_A2": null,
+     "CH4_A2": 2.7884760240525526,
+     "CH5_B1": null,
+     "CH6_B1": null,
+     "CH7_B2": null,
+     "CH8_B2": null,
+     "CH9_C1": 4.345085330243412,
+     "CH10_C1": 4.127343663223219,
+     "CH11_C2": null,
+     "CH12_C2": 3.8683060266723257,
+     "CH13_D1": null,
+     "CH14_D1": null,
+     "CH15_D2": 4.298897880315979,
+     "CH16_D2": 4.696951341463752
+    },
+    "channels_passing": 8
+   },
+   "drop30": {
+    "line": 2.2080859509008204,
+    "own_cuts": {
+     "CH2_A1": 2.2080859509008204,
+     "CH1_A1": 2.5473494055456514,
+     "CH3_A2": 2.4772202700326855,
+     "CH4_A2": 2.3520236318299967,
+     "CH5_B1": 2.571180087063382,
+     "CH6_B1": 2.266810200007443,
+     "CH7_B2": 2.704088652860044,
+     "CH8_B2": 2.681725547024242,
+     "CH9_C1": 2.652013522098655,
+     "CH10_C1": 2.9835149917940775,
+     "CH11_C2": 2.9655500829413297,
+     "CH12_C2": 2.5608469865202683,
+     "CH13_D1": 2.522899032047581,
+     "CH14_D1": 2.6765762374667323,
+     "CH15_D2": 3.4271875709252706,
+     "CH16_D2": 2.530600966432166
+    },
+    "channels_passing": 16
+   }
+  },
+  "controls": {
+   "377": 40,
+   "148": 16,
+   "105": 12,
+   "816": 12
+  },
+  "by_group": {
+   "rejudge_dip_id010": 20,
+   "rejudge_longdip_id020": 20,
+   "spike37": 29,
+   "drop30": 100,
+   "control": 80
+  },
+  "total": 249,
+  "seed": 20261026,
+  "stamp": "20261026-rq2blind"
+ },
+ "synthetic": false
+}
