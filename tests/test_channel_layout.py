@@ -150,5 +150,56 @@ def test_same_pack_reads_a_layout_after_a_json_round_trip(conn):
     assert CL.same_pack(layout, int(ids["CH1_A1"]), int(ids["CH5_B1"])) is False
 
 
+# ── the fix round (critic, 2026-10-28) ───────────────────────────────────────
+
+def test_a_partly_set_layout_leaves_mixed_pairs_unknown(conn):
+    # one channel placed, three not: whether the placed one shares a pack with the others is UNKNOWN, never "no"
+    # (a quiet False would turn real propagation into shared driver). Two unplaced channels stay one pack (D10).
+    put_settings(conn, CL.PAGE, {CL.pack_key("CO_fs2", "CH1"): "east"})
+    layout = CL.channel_layout(conn, CO)
+    ids = {row["name"]: rid for rid, row in layout["channels"].items()}
+    assert CL.same_pack(layout, ids["CH1"], ids["CH2"]) is None
+    assert CL.same_pack(layout, ids["CH2"], ids["CH3"]) is True
+    assert layout["layout_known"] is False and layout["note"] == CL.LAYOUT_UNKNOWN
+
+
+def test_pack_labels_are_upper_cased_and_the_reserved_word_refused(conn):
+    put_settings(conn, CL.PAGE, {CL.pack_key("M2_aug_concat_fs1", "CH3_A2"): " b "})
+    layout = CL.channel_layout(conn, M2)
+    ids = {row["name"]: rid for rid, row in layout["channels"].items()}
+    assert layout["channels"][ids["CH3_A2"]]["pack"] == "B"
+    assert CL.same_pack(layout, ids["CH3_A2"], ids["CH5_B1"]) is True      # "b" is M2's pack B
+    put_settings(conn, CL.PAGE, {CL.pack_key("M2_aug_concat_fs1", "CH3_A2"): "Unassigned"})
+    with pytest.raises(ValueError, match="pack.M2_aug_concat_fs1.CH3_A2"):
+        CL.channel_layout(conn, M2)
+
+
+def test_a_boolean_position_is_refused(conn):
+    put_settings(conn, CL.PAGE, {CL.x_key("CO_fs2", "CH1"): True})
+    with pytest.raises(ValueError, match="x_mm.CO_fs2.CH1"):
+        CL.channel_layout(conn, CO)
+
+
+def test_keys_under_an_unknown_channel_are_listed_not_ignored(conn):
+    put_settings(conn, CL.PAGE, {"pack.CO_fs2.CH9": "A", "x_mm.CO_fs2.CH4_OLD": 1.0, "pack.CO_fs2.CH2": "A"})
+    layout = CL.channel_layout(conn, CO)
+    assert layout["orphan_keys"] == ["pack.CO_fs2.CH9", "x_mm.CO_fs2.CH4_OLD"]
+    assert CL.channel_layout(conn, M2)["orphan_keys"] == []                 # another recording's keys are not its own
+
+
+def test_a_prefetched_registry_gives_the_same_layout(conn):
+    reg = list_registered(conn, "recording")
+    assert CL.channel_layout(conn, CO, registered=reg) == CL.channel_layout(conn, CO)
+
+
+def test_the_layout_carries_the_settings_last_save(conn):
+    from Working.registration.settings import settings_meta
+    assert CL.channel_layout(conn, CO)["settings_updated_at"] is None
+    put_settings(conn, CL.PAGE, {CL.pack_key("CO_fs2", "CH2"): "A"})
+    layout = CL.channel_layout(conn, CO)
+    assert layout["settings_updated_at"] is not None
+    assert layout["settings_updated_at"] == settings_meta(conn, CL.PAGE)["updated_at"]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
