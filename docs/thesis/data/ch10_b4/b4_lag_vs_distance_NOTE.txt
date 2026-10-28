@@ -1,0 +1,5 @@
+Lag against distance is drawn only for recordings whose every electrode has a position (Settings › Channels & events, x_mm and y_mm). No position is set for:
+  CO_fs2.mat (census 9063f461806f1058080fe47ae13094799eaff5908c94e4b1ddd22b09468f8532)
+  LM_fs2.mat (census 9cb136f27fc9f49ca9b783cf317a3f6661c2ca98be7d271d10f8e76860d7b8ac)
+  M2_aug_concat_fs1.mat (census 227f9401169c2f838ec3a98fe85d187093a721220c01b1322076c2151c7699c9)
+  M2_concat_fs1.mat (census 4e586b9a77603ad46f81a276ea758dc30102e7138d6fea4195c48b5847aaf745)

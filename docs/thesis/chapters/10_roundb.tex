@@ -307,11 +307,42 @@ Correction: the earlier ``123 near-copy pairs, 97 beating chance, 64 flagged'' c
 (4--5 Oct). The real database holds no cross-channel rows. Report B4 only if the census (S0--S1) is built and run
 before the freeze; otherwise report it as designed and not run.
 
-Progress (28 Oct, the researcher approved S0 and S1): S0, the channel layout reader, is built
-(\src{Working/channel_layout.py}). Its packs come from Settings, else M2's electrode letter, else one ``unassigned''
-pack. S1, the census, is in progress. Until the 2\,Hz sweep returns, only M2\_aug, M2\_concat, CO and LM have a full
-detector census.
+Built and run (28 Oct; the researcher approved S0 and S1). S0 (\src{Working/channel_layout.py}) places each channel
+in a pack. S1 (\src{Working/cross_census.py}) is the census, reviewed by a critic, fixed and merged. It ran through
+the site on the four recordings with a full \texttt{drop\_detection\_v1} census. The tables come from
+\src{scripts/thesis/b4_cross_channel.py}, run on a backup taken after the census, into
+\src{docs/thesis/data/ch10_b4/}; every census is fresh, and each carries its hash.
+\begin{itemize}
+  \item \textbf{M2\_aug} (packs A--D): 688 events, 26 co-occurrences. Within packs, 8 co-occurrences against a
+        rotation null of 1.9 ($p=0.002$). After Benjamini--Hochberg over 24 within-pack pairs, one pair survives:
+        CH15\_D2--CH16\_D2 (pack D), 2 co-occurrences against 0.01 expected. Its timetable (the delay test) finds no
+        consistent lag ($L=21$\,s, $p=1.0$ on two events). \textbf{No evidence of propagation.}
+  \item Across packs, 18 co-occurrences that are not copies, against a rotation null of 6.3 ($p=0.001$). Separate
+        packs react together more often than chance, but this is a shared driver, never propagation. The likeliest
+        candidates are a common stimulus (environment) or the electrical setup.
+  \item \textbf{M2\_concat} (no packs set, one unassigned pack): 310 events and 91 co-occurrences, of which 90 are
+        copies, the same waveform at the same instant. Six pairs among channels 5--8 co-occur 12--19 times each
+        against fewer than 0.11 expected (all $q=0.0025$). Four electrodes moving identically at once point to the
+        recording setup (a shared-ground artefact), not to the mycelium. Set M2\_concat's packs before quoting it
+        further.
+  \item \textbf{CO and LM}: no co-occurrence at all (37 and 125 events on four channels each); chance gives about 0.
+  \item Not yet included: MJu26a, SH and SO, which have no detector runs until the 2\,Hz sweep returns.
+\end{itemize}
+Caveats:
+\begin{itemize}
+  \item one detector, a precise but sparse one (about 43 events per channel on M2\_aug);
+  \item onsets come from the steepest fall, because the real runs carry no onset label;
+  \item the breadth null runs under rotation as a stated deviation from D18 (Chapter~\ref{ch:method});
+  \item the bin counts in Figure~\ref{fig:b4bins} are classifications, not tests; the claims are the tests above.
+\end{itemize}
 \end{instructions}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{data/ch10_b4/b4_bins.png}
+\caption{The B4 census: co-occurring \texttt{drop\_detection\_v1} events per bin, on each recording with a full census. The bins are per-co-occurrence classifications, not tests; the tests against rotation and timetable nulls are in the text. The footer gives each census's hash.}
+\label{fig:b4bins}
+\end{figure}
 
 \section{What the detectors show}
 \label{sec:rb_detectors}

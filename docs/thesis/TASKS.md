@@ -29,8 +29,11 @@ In plain words: these are the blind piles of events that only you can sort. Each
 | 1 | **35** RQ2 blind panel | 249 of 249 | RQ2: do Library seeds find real motifs, against duration-matched controls? | `"/c/ProgramData/anaconda3/python.exe" scripts/rq2_blind.py score --real --key DATA/derived/rq2_blind/20261026-rq2blind/key.json` |
 | 2 | **36** M4 held-out exam | 290 of 290 | RQ3: does the frozen classifier work on a recording it has never seen? | `"/c/ProgramData/anaconda3/python.exe" scripts/m4_exam_score.py --real` |
 
-- [ ] **Queue 35 first, before any other seed queue.** Seeing seed matches first would break its blindness.
-- [ ] **Queue 36, step by step:**
+**Done 28 Oct:** both queues judged and scored. RQ2 is answered blind, and the M4 exam gives MiniRocket an AUC of 0.98
+and a balanced accuracy of 0.93 (Chapters 7 and 8).
+
+- [x] **Queue 35 first, before any other seed queue.** Seeing seed matches first would break its blindness.
+- [x] **Queue 36, step by step:**
   1. In Settings › Datasets › *Held-out recording*, switch the lock off (it asks you to type the name).
   2. In Review, open **only** queue 36. Open no Discovery Map, Library page or other queue while M4 is visible.
   3. Judge all 290.
@@ -213,13 +216,13 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
 |---|---|
 | **B3:** the restitution test (recovery against the gap before it, with a shuffled-gap null), and per-cycle model tracking (fall + recovery, FHN, Izhikevich) judged by held-out cycles (Round 5 Q1, A + B) | **done** 28 Oct (`7ab5071`). There is no within-train restitution, but a modest relation across census gaps on oyster. No model beats the neighbouring-cycle mean. Results are in Chapter 10 |
 | **B1 and B2:** Intervals' LV and CV2 against Poisson and shuffled nulls; the sequence morph readout (Round 4 Q3) | **done** 28 Oct (`ffc909c`). The shared client is rebuilt, so 8765 shows both once it starts |
-| Score queues 35 and 36, and put the results into Chapters 7 and 8 | your judging (§2), or run the two commands yourself |
+| Score queues 35 and 36, and put the results into Chapters 7 and 8 | **done** 28 Oct |
 | *S. commune* exam: the candidate table, the frozen manifest and the blind queue; then the single score | §3a imported |
 | The 2 Hz blind sample, then the verdict-free promote, then g-12, frozen for Chapters 9 and 10 | §3d imported, then your judging |
 | The fair-CNN comparison write-up (RQ1b) | §3b imported |
 | The 20-draw surrogate statistics (Chapter 6) | §3c imported |
 | **B4:** S0, the channel layout reader (packs and positions) | **done** 28 Oct (`44861b1`) |
-| **B4:** S1, the census of co-occurring events and its nulls. Then I walk its smoke states and run its thesis script on a bridge backup | running in its own worktree |
+| **B4:** S1, the census of co-occurring events and its nulls. Then I walk its smoke states and run its thesis script on a bridge backup | **done** 28 Oct: merged (`a68a1ff`) and run on M2_aug, M2_concat, CO and LM. No evidence of propagation on M2_aug; M2_concat's co-occurrences are copies on CH5–8. MJu26a, SH and SO wait for the 2 Hz sweep |
 | Register the ghost fungus (B7) | the bridge (§1) |
 | Run B5 and B7–B12 on the site and draft the Chapter 10 studies | the imports above |
 | Recompile the thesis and commit after each step | — |

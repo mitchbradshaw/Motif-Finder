@@ -1,0 +1,529 @@
+{
+  "generated_at": "2026-10-28T22:03:10",
+  "db": "C:\\Users\\mmebr\\Documents\\CNN\\DATA\\db\\backups\\20261028-220239.sqlite",
+  "detector": "drop_detection_v1",
+  "skipped": [],
+  "censuses": [
+    {
+      "source_file": "CO_fs2.mat",
+      "census_id": 3,
+      "hash": "9063f461806f1058080fe47ae13094799eaff5908c94e4b1ddd22b09468f8532",
+      "stale": false,
+      "staleWhy": [],
+      "finished_at": "2026-10-28T22:01:30",
+      "bins": {
+        "artifact": 0,
+        "propagation": 0,
+        "independent_recurrence": 0,
+        "shared_driver": 0,
+        "pack_unknown": 0,
+        "unmeasured": 0
+      },
+      "n_events": 37,
+      "n_cooccurrences": 0,
+      "overall": {
+        "within_pack": {
+          "n": 0,
+          "null_mean": 0.021,
+          "null_p95": 0.0,
+          "p": 1.0,
+          "pairs": 6
+        },
+        "shared_driver": {
+          "n": 0,
+          "null_mean": null,
+          "null_p95": null,
+          "p": null,
+          "pairs": 0
+        }
+      },
+      "bh": {
+        "method": "Benjamini\u2013Hochberg",
+        "q": 0.05,
+        "families": {
+          "excess": 6,
+          "timetable": 0,
+          "breadth": 0,
+          "shared_driver": 0
+        }
+      },
+      "layout_known": false,
+      "layout_note": "packs not set \u2014 layout unknown",
+      "pairs_beating_rotation": 0,
+      "timetables_beating_null": 0,
+      "shared_driver": [],
+      "breadth": []
+    },
+    {
+      "source_file": "LM_fs2.mat",
+      "census_id": 4,
+      "hash": "9cb136f27fc9f49ca9b783cf317a3f6661c2ca98be7d271d10f8e76860d7b8ac",
+      "stale": false,
+      "staleWhy": [],
+      "finished_at": "2026-10-28T22:01:39",
+      "bins": {
+        "artifact": 0,
+        "propagation": 0,
+        "independent_recurrence": 0,
+        "shared_driver": 0,
+        "pack_unknown": 0,
+        "unmeasured": 0
+      },
+      "n_events": 125,
+      "n_cooccurrences": 0,
+      "overall": {
+        "within_pack": {
+          "n": 0,
+          "null_mean": 0.331,
+          "null_p95": 1.0,
+          "p": 1.0,
+          "pairs": 6
+        },
+        "shared_driver": {
+          "n": 0,
+          "null_mean": null,
+          "null_p95": null,
+          "p": null,
+          "pairs": 0
+        }
+      },
+      "bh": {
+        "method": "Benjamini\u2013Hochberg",
+        "q": 0.05,
+        "families": {
+          "excess": 6,
+          "timetable": 0,
+          "breadth": 0,
+          "shared_driver": 0
+        }
+      },
+      "layout_known": false,
+      "layout_note": "packs not set \u2014 layout unknown",
+      "pairs_beating_rotation": 0,
+      "timetables_beating_null": 0,
+      "shared_driver": [],
+      "breadth": []
+    },
+    {
+      "source_file": "M2_aug_concat_fs1.mat",
+      "census_id": 1,
+      "hash": "227f9401169c2f838ec3a98fe85d187093a721220c01b1322076c2151c7699c9",
+      "stale": false,
+      "staleWhy": [],
+      "finished_at": "2026-10-28T22:00:43",
+      "bins": {
+        "artifact": 3,
+        "propagation": 1,
+        "independent_recurrence": 4,
+        "shared_driver": 18,
+        "pack_unknown": 0,
+        "unmeasured": 0
+      },
+      "n_events": 688,
+      "n_cooccurrences": 26,
+      "overall": {
+        "within_pack": {
+          "n": 8,
+          "null_mean": 1.877,
+          "null_p95": 4.0,
+          "p": 0.001998001998001998,
+          "pairs": 24
+        },
+        "shared_driver": {
+          "n": 18,
+          "null_mean": 6.309,
+          "null_p95": 11.0,
+          "p": 0.000999000999000999,
+          "pairs": 96
+        }
+      },
+      "bh": {
+        "method": "Benjamini\u2013Hochberg",
+        "q": 0.05,
+        "families": {
+          "excess": 24,
+          "timetable": 1,
+          "breadth": 3,
+          "shared_driver": 6
+        }
+      },
+      "layout_known": true,
+      "layout_note": null,
+      "pairs_beating_rotation": 1,
+      "timetables_beating_null": 0,
+      "shared_driver": [
+        {
+          "n": 5,
+          "null_mean": 2.391,
+          "null_p95": 5.0,
+          "p": 0.0979020979020979,
+          "pairs": 16,
+          "packs": [
+            "A",
+            "B"
+          ],
+          "copies": 0,
+          "q": null
+        },
+        {
+          "n": 0,
+          "null_mean": 1.414,
+          "null_p95": 4.0,
+          "p": 1.0,
+          "pairs": 16,
+          "packs": [
+            "A",
+            "C"
+          ],
+          "copies": 0,
+          "q": null
+        },
+        {
+          "n": 3,
+          "null_mean": 0.769,
+          "null_p95": 2.0,
+          "p": 0.04495504495504495,
+          "pairs": 16,
+          "packs": [
+            "A",
+            "D"
+          ],
+          "copies": 0,
+          "q": null
+        },
+        {
+          "n": 4,
+          "null_mean": 0.928,
+          "null_p95": 3.0,
+          "p": 0.022977022977022976,
+          "pairs": 16,
+          "packs": [
+            "B",
+            "C"
+          ],
+          "copies": 0,
+          "q": null
+        },
+        {
+          "n": 5,
+          "null_mean": 0.516,
+          "null_p95": 2.0,
+          "p": 0.001998001998001998,
+          "pairs": 16,
+          "packs": [
+            "B",
+            "D"
+          ],
+          "copies": 0,
+          "q": 0.008333333333333333
+        },
+        {
+          "n": 1,
+          "null_mean": 0.291,
+          "null_p95": 1.0,
+          "p": 0.24575424575424576,
+          "pairs": 16,
+          "packs": [
+            "C",
+            "D"
+          ],
+          "copies": 0,
+          "q": null
+        }
+      ],
+      "breadth": [
+        {
+          "instant_id": 1,
+          "breadth": 2,
+          "packs": [
+            "C"
+          ],
+          "common_mode": false,
+          "p": 0.027972027972027972,
+          "q": 0.05000000000000001
+        },
+        {
+          "instant_id": 2,
+          "breadth": 2,
+          "packs": [
+            "A"
+          ],
+          "common_mode": false,
+          "p": 0.027972027972027972,
+          "q": 0.05000000000000001
+        },
+        {
+          "instant_id": 3,
+          "breadth": 2,
+          "packs": [
+            "C"
+          ],
+          "common_mode": false,
+          "p": 0.027972027972027972,
+          "q": 0.05000000000000001
+        }
+      ]
+    },
+    {
+      "source_file": "M2_concat_fs1.mat",
+      "census_id": 2,
+      "hash": "4e586b9a77603ad46f81a276ea758dc30102e7138d6fea4195c48b5847aaf745",
+      "stale": false,
+      "staleWhy": [],
+      "finished_at": "2026-10-28T22:01:17",
+      "bins": {
+        "artifact": 90,
+        "propagation": 0,
+        "independent_recurrence": 1,
+        "shared_driver": 0,
+        "pack_unknown": 0,
+        "unmeasured": 0
+      },
+      "n_events": 310,
+      "n_cooccurrences": 91,
+      "overall": {
+        "within_pack": {
+          "n": 91,
+          "null_mean": 4.013,
+          "null_p95": 7.0499999999999545,
+          "p": 0.000999000999000999,
+          "pairs": 120
+        },
+        "shared_driver": {
+          "n": 0,
+          "null_mean": null,
+          "null_p95": null,
+          "p": null,
+          "pairs": 0
+        }
+      },
+      "bh": {
+        "method": "Benjamini\u2013Hochberg",
+        "q": 0.05,
+        "families": {
+          "excess": 120,
+          "timetable": 0,
+          "breadth": 21,
+          "shared_driver": 0
+        }
+      },
+      "layout_known": false,
+      "layout_note": "packs not set \u2014 layout unknown",
+      "pairs_beating_rotation": 6,
+      "timetables_beating_null": 0,
+      "shared_driver": [],
+      "breadth": [
+        {
+          "instant_id": 1,
+          "breadth": 3,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 2,
+          "breadth": 2,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.02097902097902098,
+          "q": 0.05
+        },
+        {
+          "instant_id": 3,
+          "breadth": 3,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 4,
+          "breadth": 4,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 5,
+          "breadth": 4,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 6,
+          "breadth": 3,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 7,
+          "breadth": 3,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 8,
+          "breadth": 4,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 9,
+          "breadth": 4,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 10,
+          "breadth": 4,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 11,
+          "breadth": 2,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.02097902097902098,
+          "q": 0.05
+        },
+        {
+          "instant_id": 12,
+          "breadth": 2,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.02097902097902098,
+          "q": 0.05
+        },
+        {
+          "instant_id": 13,
+          "breadth": 3,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 14,
+          "breadth": 4,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 15,
+          "breadth": 4,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 16,
+          "breadth": 4,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 17,
+          "breadth": 3,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 18,
+          "breadth": 3,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 19,
+          "breadth": 4,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 20,
+          "breadth": 4,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        },
+        {
+          "instant_id": 21,
+          "breadth": 4,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        }
+      ]
+    }
+  ]
+}

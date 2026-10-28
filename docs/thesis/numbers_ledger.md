@@ -64,6 +64,7 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | C12 | human self-agreement | 92 / 98 = 94 %, κ 0.84 | 98 pairs | same | same | 10-26 | verified |
 | C13 | arm A vs B.2 on the same blind 10-min windows, no earlier label | A macro F1 0.702 / BA 0.659 vs B.2 0.439 / 0.642; ΔF1 [0.164, 0.357] | 328 | same | rq1_v2_blind.py | 10-26 | verified |
 | C14 | "RF cluster labels 0.63 provisional" | 0.625 BA, final (queue 3 fully judged, 1,100 / 1,100) | — | poster | — | — | stale ("provisional") |
+| C15 | M4 held-out exam (queue 36) | R4 AUC **0.98** (0.97–0.99), BA **0.93** (0.88–0.97) unweighted (primary); weighted AUC 0.96, BA 0.77; CNNs AUC 0.59–0.66 (R4 minus CNN 0.33–0.40); agreement-as-score AUC 0.85; share real 10 % (6–14); ladder 0/3/16/35/53 %; v1 precision 64 % (n 14); 276 answered of 290, 14 unsure, 12 spans unreadable by R4 | 290 | `docs/rq_roundA_2/findings/m4-exam-2026-10-28.md`, `DATA/derived/exam/M4/results.json` | m4_exam_score.py --real (once) | 10-28 | verified |
 
 ## D. R3 — how many candidates are real (blind stratified queues 25 and 28)
 
@@ -154,6 +155,7 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | J3 | B3 restitution | sequences: raw Stouffer z +2.94, given depth +0.60, given order +0.70, against the gap after +9.88; census M2_aug +5.02, M2_concat +3.08 (halved by fall width: +2.46, +1.14) | 74 seqs, 987 pairs | `docs/thesis/data/ch10_fhn/b3_restitution.json` | `Pipelines/fhn/run_b3.py restitution` | 10-28 | verified (re-run identical) |
 | J4 | B3 held-out-cycle ratios | real cycles 0.995–2.06 (no model below the neighbours' mean); fake cycles 0.91–1.04 | 6 datasets × 4 models | `b3_track.json` | `run_b3.py track` | 10-28 | verified (agent run) |
 | J5 | B3 drift | kernel recovery fraction: chain 542 ρ +0.83 (p 0.001), chain 6 +0.55 (p 0.024); FHN α no drift (p ≥ 0.11); FHN-osc and Izhikevich tracks fail the fake-cycle check (17–25 % false positives) | 6 tracks | `b3_track.json` | `run_b3.py track` | 10-28 | verified (agent run) |
+| J6 | B4 census (drop v1) | M2_aug: 688 events, 26 co-occurrences (artifact 3, propagation 1, independent 4, shared driver 18); within-pack 8 vs rotation 1.9 (p 0.002); after BH over 24 pairs only CH15_D2–CH16_D2 survives (n 2), timetable p 1.0 (no lag); cross-pack non-copies 18 vs 6.3 (p 0.001). M2_concat: 91 co-occurrences, 90 copies, CH5–CH8 pairs 12–19 each vs < 0.11. CO, LM: 0 | 4 recordings | `docs/thesis/data/ch10_b4/` (b4_summary.json, b4_pairs.csv; census hashes 227f9401, 4e586b9a, 9063f461, 9cb136f2) | scripts/thesis/b4_cross_channel.py on backup 20261028-220239 | 10-28 | verified |
 
 ## The disagreements, settled
 
