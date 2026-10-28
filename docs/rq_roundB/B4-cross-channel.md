@@ -36,6 +36,16 @@ travelled through mycelium, which gives a built-in control for the wiring explan
 - **Chance co-occurrence is rare.** At ~43 events per channel over 721 h, two channels share an onset within ±50 s
   about 0.07 times per pair by chance. A real excess will stand out.
 - **The events are long:** v1's median is ~19 min. Their stored start is a padded window, not the onset.
+- **The census tool exists (xc-S1, 2026-10-28; `docs/prompts/changes/reports/xc-s1-report.md`), not yet run on the
+  real database.** `Working/cross_census.py` pairs every v1 event with every event on another channel within 50 s,
+  measures lag and r on 60 s before → 180 s after the earlier onset (lag searched within ±50 s), bins it (artifact,
+  propagation, independent, shared driver, and *pack unknown* for a pair with exactly one unplaced channel), and
+  sets every count beside its null (rotation K 1,000; random-time waveform K 100; the X1 timetable pool; BH q 0.05).
+  Stored in `cross_census` / `cross_cooccurrence`; Explore › Cross-channel's census card runs it as a job;
+  `scripts/thesis/b4_cross_channel.py` writes the tables and figures. On synthetic data: 16 channels × 721 h, 735
+  events, 1,229 co-occurrences, every null: 20 s. **M2_concat's channels carry no pack letter** (the M2 naming is
+  keyed on `M2_aug` file names), so its census reads as one unassigned pack — "layout unknown" — until its packs
+  are set in Settings › Channels & events.
 - **On today's page a "propagation" badge is not evidence.** It searches every lag over a long window; 49 of 300
   pairs of unrelated random walks bin propagation (RQ6, 2026-10-16).
 
@@ -67,7 +77,7 @@ The full list is in `docs/prompts/changes/cross-channel-explorer-decisions.md` (
 
 | Step | Owner |
 |---|---|
-| S0 layout reader; S1 census (core, tables, job, card, thesis script) | manager; agent (wave 1) |
+| ~~S0 layout reader; S1 census (core, tables, job, card, thesis script)~~ built 2026-10-28 (see *What is known*) | manager; agent (wave 1) |
 | S2 overlay page; S3 packs and positions in Settings | agents (wave 1) |
 | v1 runs on MJu26a_fs2, SH_fs2, SO_fs2 | the researcher |
 | What A1 and A2 mean; electrode positions from photos | the researcher |
@@ -98,3 +108,5 @@ events.)
 
 - 2026-10-27 · cross-channel workshop · file created; three grilling rounds (Q1–Q26) settled the design; prompt
   `docs/prompts/changes/cross-channel-explorer.md` (S0–S9) written; v1 census counts measured read-only.
+- 2026-10-28 · xc-S1 · the census (core, tables, job, card, thesis script) built on its branch; not yet run on the real
+  database. M2_concat reads as one unassigned pack until its packs are set.
