@@ -38,6 +38,7 @@ pytest.importorskip("httpx", reason="fastapi.testclient needs httpx (webui/.venv
 from fastapi.testclient import TestClient  # noqa: E402
 
 from Working.database.schema import init_db  # noqa: E402
+from server import discovery_map as DMAP  # noqa: E402
 from server.app import create_app  # noqa: E402
 from server.runtime import Runtime  # noqa: E402
 
@@ -131,6 +132,16 @@ def _apply(client, windows=None, run=True, template="noise_threshold"):
     return out[0]
 
 
+def _finished_map(client):
+    """The finished Map overview. Since map-cache (45afa02, 2026-10-20) a read answers at once, `pending` or the last
+    overview marked `stale`, and the compute runs off the request: read, wait, read the fresh overview."""
+    client.get("/api/discovery/map")
+    assert DMAP.wait_map_idle(120)
+    m = client.get("/api/discovery/map").json()
+    assert "pending" not in m and "stale" not in m, sorted(m)
+    return m
+
+
 def test_the_plan_says_how_many_windows_and_what_they_cost(client):
     r = _plan(client, TWO_HOURS)
     plan = r.json()
@@ -184,7 +195,7 @@ def test_a_windowed_application_is_one_discovery_run_of_stitched_runs(client):
 def test_the_map_has_the_windowed_row_beside_the_whole_span_row(client):
     whole = _apply(client)
     win = _apply(client, TWO_HOURS)
-    m = client.get("/api/discovery/map").json()
+    m = _finished_map(client)
     labels = {r["label"] for r in m["rows"] if r["kind"] != "human"}
     assert len(labels) == 2, labels
     assert any("2 h windows" in lb for lb in labels) and "noise_threshold v1" in labels

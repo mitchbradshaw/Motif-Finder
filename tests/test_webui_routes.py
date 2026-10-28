@@ -32,6 +32,7 @@ pytest.importorskip("httpx", reason="fastapi.testclient needs httpx (webui/.venv
 from fastapi.testclient import TestClient  # noqa: E402
 
 from Working.database.schema import init_db  # noqa: E402
+from server import corpus  # noqa: E402
 from server.app import create_app  # noqa: E402
 from server.runtime import Runtime  # noqa: E402
 from server.templates import CANONICAL  # noqa: E402
@@ -99,6 +100,17 @@ def _wait_job(client, job_id, timeout=120):
     raise AssertionError("job did not finish")
 
 
+def _coverage(client, query=""):
+    """The finished coverage map. Since corpus-map-off-the-request (43ee443, 2026-10-19) the route answers at once,
+    `pending` or the last map marked `stale`, and recomputes in the bridge's worker: read, wait, read the fresh map."""
+    url = f"/api/corpus/syn.mat/coverage{query}"
+    client.get(url)
+    assert corpus.wait_coverage_idle(300)
+    body = client.get(url).json()
+    assert "pending" not in body and "stale" not in body, sorted(body)
+    return body
+
+
 # ── templates ────────────────────────────────────────────────────────────────
 
 def test_templates_are_seeded_rows_with_kind_and_version(client):
@@ -161,9 +173,9 @@ def test_runs_methods_and_coverage_filters(client):
     runs = client.get("/api/corpus/syn.mat/runs").json()
     assert runs["runs"] and "rupture" in runs["methods"]
     rid = runs["runs"][0]["id"]
-    cov_all = client.get("/api/corpus/syn.mat/coverage").json()
-    cov_run = client.get(f"/api/corpus/syn.mat/coverage?run={rid}").json()
-    cov_none = client.get("/api/corpus/syn.mat/coverage?method=no_such_method").json()
+    cov_all = _coverage(client)
+    cov_run = _coverage(client, f"?run={rid}")
+    cov_none = _coverage(client, "?method=no_such_method")
     assert cov_run["run_filter"] == [rid]
     assert sum(cov_none["rows"][0]["detections"]) == 0
     assert sum(cov_all["rows"][0]["detections"]) == sum(cov_run["rows"][0]["detections"])
@@ -210,7 +222,7 @@ def test_detections_of_a_spanned_run_are_channel_absolute(client):
     mine = [d for d in inside if d["run_id"] == snap["db_run_id"]]
     assert [round(d["start_s"]) for d in mine] == [round(s) for s in payload["start_s"]]
     assert all(1000 <= d["start_s"] < 2500 for d in mine)
-    cov = client.get(f"/api/corpus/syn.mat/coverage?run={snap['db_run_id']}&bins=6").json()
+    cov = _coverage(client, f"?run={snap['db_run_id']}&bins=6")
     assert sum(cov["rows"][0]["detections"][2:5]) == len(mine) and sum(cov["rows"][0]["detections"][:2]) == 0
 
 
@@ -229,7 +241,7 @@ def test_legacy_relative_detections_are_shifted_on_every_reader(client):
     sp = client.get("/api/channels/1/spans?t0=2050&t1=2200").json()["detections"]
     assert [(d["start_s"], d["end_s"]) for d in sp if d["run_id"] == rid] == [(2100.0, 2150.0)]
     assert not [d for d in client.get("/api/channels/1/spans?t0=50&t1=200").json()["detections"] if d["run_id"] == rid]
-    cov = client.get(f"/api/corpus/syn.mat/coverage?run={rid}&bins=6").json()["rows"][0]["detections"]
+    cov = _coverage(client, f"?run={rid}&bins=6")["rows"][0]["detections"]
     assert cov == [0, 0, 0, 0, 1, 0]
     rib = client.get("/api/channels/1").json()["ribbons"]
     dens = rib["detection_density"]; b = int(2100 / 3000 * len(dens))
