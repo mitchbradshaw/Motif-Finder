@@ -82,8 +82,10 @@ def test_a_pack_saved_by_the_page_is_what_the_reader_reports(client):
     saved = client.put("/api/settings/channels-events",
                        json={"values": {"pack.CO_fs2.CH2": "east", "x_mm.CO_fs2.CH2": 12.5, "y_mm.CO_fs2.CH2": 3}})
     assert saved.status_code == 200, saved.text
-    row = _names(client.get("/api/layout/CO_fs2.mat").json())["CH2"]
-    assert (row["pack"], row["pack_from"], row["x_mm"], row["y_mm"]) == ("east", "settings", 12.5, 3.0)
+    body = client.get("/api/layout/CO_fs2.mat").json()
+    row = _names(body)["CH2"]
+    assert (row["pack"], row["pack_from"], row["x_mm"], row["y_mm"]) == ("EAST", "settings", 12.5, 3.0)
+    assert body["settings_updated_at"] and body["orphan_keys"] == []
 
 
 def test_the_held_out_file_is_refused(client):
