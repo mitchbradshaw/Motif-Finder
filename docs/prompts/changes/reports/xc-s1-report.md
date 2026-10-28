@@ -13,7 +13,56 @@ than chance would allow, it reshuffles each channel's events in time a thousand 
 count turns up by luck. B4's numbers come from this card and the thesis script. Nothing has been run on the real
 database yet: that is the manager's step after the merge.
 
+## Fix round (the critic, 2026-10-28)
+
+In plain words: two of the critic's findings could have made B4 look more significant than it is.
+- **The burst bug.** When one event on a channel was followed by a burst of three on its neighbour, the timetable
+  counted the same measured delay three times. It was like counting one train three times because three passengers
+  got off it.
+- **The common-mode leak.** A pair of electrodes caught up in one shared-ground instant could still be read as
+  propagation.
+
+Both are fixed, with a test each. The other items make the census say more about what it is.
+
+Red `72ea275` (conda, 11 failed, 35 passed); green `cacdb8a`. These **supersede the matching items under Assumed
+below**:
+
+| # | Finding | What the census does now |
+|---|---|---|
+| 1 | Duplicate timetable lags | **One lag per distinct measured window** (`timetable_inputs`). I chose dedupe over re-centring each pair's window on its own onset difference: D16 fixes the window to the earlier onset, so the pairs that share it are one measurement. The timetable's n is the count of distinct windows, and its pool is drawn from those windows. Pinned by a burst of 3 on CH2 after one event on CH1, twice: 6 co-occurrences, 2 timetable lags. |
+| 2 | Common-mode instants leaking into propagation | After `instants()`, every pair whose two events sit in one instant **is an artifact**, marked `absorbed`. Its own bin is kept as `own_bin` in `floor_json`. It never feeds a timetable or a propagation count. The card says how many pairs joined an instant. Pinned by the critic's exact example: A1≈B1, A2≈B1, A1–A2 at 1.5 s and r 0.97. |
+| 3 | The breadth null was a random-instant null | **Now under rotation**, on the excess test's own joint draws (same seed, same K). For each draw it takes a random rotated event and counts 1 + the other channels with a rotated onset within ±50 s (circular). **Stated deviation:** an instant cannot be re-formed exactly under rotation, because a copy needs the waveform match and a rotation moves only onsets. So the null's neighbourhood is the co-occurrence window, which is looser than a copy, and that makes it conservative. The card prints the null's words under the instants table. Two-channel copies still beat it easily, because chance coincidence within ±50 s really is rare at ~43 events per channel; that is not an artefact of the null. Pinned: three coinciding single events never meet under rotation. |
+| 4 | The hash missed the floor and the human artifact spans | `census_inputs` adds `floor` (`dataset_floors`: mV and whether it was set) and `artifact_spans` (a count and a sha256 of the channels' human-marked artifact spans). `is_stale` names which one changed, and says "an input changed" whenever the hash differs for any other reason. The inputs are kept in `summary.inputs`. |
+| 5 | A short timetable pool was tested | `timetable_test`: a pool short of 2,000 lags is **not testable**, with no p or BH and its reason; the card shows the reason. |
+| 6 | The thesis script did not check freshness | It calls `cross_census.is_stale` on the read-only connection. `stale` and `staleWhy` go into `b4_summary.json`, `stale` and `stale_why` into both CSVs, and "STALE: …" onto every figure. A census whose freshness cannot be checked is marked stale, with the error. |
+| 7 | The bin badges had no null beside them | The card heads them "**Per co-occurrence classifications** — what each pair looked like, with no null of their own. The claim is the co-occurrence excess and the timetable tests below". The tip is `rules.bins_note` from the bridge. |
+| nit | An unmeasurable pair counted as a shared driver | It is a sixth census bin, **`unmeasured`**, on any packs. |
+| nit | Rotation counted pairs linearly across the wrap | Rotation draws count with **circular** distance (`count_co(…, period=T)`). Observed counts stay linear: the real recording does not wrap. |
+| nit | The estimate weighted unlike steps alike | The card says "roughly … left (the steps differ in cost)". |
+
+**Known limitation, kept as designed (X1, the researcher's choice):** the timetable pool measures the partner channel
+at random times, which mostly hold no event. The critic's suggestion, recorded for later, is a pool drawn from the
+partner's own *other* events, which would ask whether the lag is specific to these pairings.
+
+One red test was corrected in the green commit. `test_fix3`'s third channel sat at 20000 s, where it can legitimately
+meet the others under rotation, so it now coincides with them. That was a test bug, not a code one.
+
+**Green, after the fix round:**
+
+| Files | Interpreter | Result |
+|---|---|---|
+| `test_cross_census.py`, `test_cross_census_nulls.py`, `test_b4_script.py`, `test_cross_channel*.py` (4), `test_channel_layout.py`, `test_import_boundaries.py`, `test_candidate_events.py` | conda, `-n 2` | 186 passed |
+| `test_webui_cross_census.py`, `test_webui_channel_layout.py`, `test_webui_cross_channel.py`, `test_webui_cross_page.py`, `test_webui_cross_window.py`, `test_webui_site_x_cross.py`, `test_webui_suspected_artifact.py`, `test_webui_jobs.py` | webui/.venv | 75 passed |
+
+`tsc -b` and `vite build` pass.
+
+**Timing re-measured:** 22.2 s on the same synthetic 16 channels × 721 h (735 events, 1,229 co-occurrences). The planted
++12 s pair now reads 21 distinct windows, L 12.0 s, p 0.001, passing BH.
+
 ## Assumed (every choice the prompt left open)
+
+(Items 2, 8 and 9 are superseded by the fix round above: unmeasurable pairs, the breadth null, and the timetable's
+lags and pool.)
 
 1. **Base.** The worktree was cut at `a399e4c`, 37 commits behind `main`, without S0 or the prompt. The branch had no
    commits of its own and a clean tree, so I moved it to `main` (`git reset --hard main`, which is not a merge or a
