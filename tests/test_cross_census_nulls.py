@@ -128,5 +128,29 @@ def test_bh_goes_through_corrected_levels():
     assert cc.bh([], 0.05) == []
 
 
+# ── fix round (the critic, 2026-10-28) ─────────────────────────────────────
+
+def test_fix3_the_breadth_null_is_drawn_under_rotation():
+    # two channels whose single events coincide: under rotation every pair of channels is at least an hour apart,
+    # so no draw can bring them back together (a random-instant null still lands near both now and then)
+    T = 10 * 3600.0
+    on = {1: np.array([5000.0]), 2: np.array([5000.0]), 3: np.array([20000.0])}
+    null = cc.breadth_null(on, T, 50.0, K, seed=3)
+    assert null.shape == (K.breadth_k,) and null.max() == 1 and null.min() == 1
+
+
+def test_fix3_the_breadth_null_counts_channels_near_a_rotated_event():
+    T = 100 * 3600.0
+    dense = {i: np.sort(np.random.default_rng(i).uniform(0, T, 400)) for i in range(4)}
+    null = cc.breadth_null(dense, T, 50.0, K, seed=2)
+    assert null.min() >= 1 and null.max() <= 4 and null.mean() > 1.0     # dense trains do meet under rotation
+
+
+def test_fix_nit_rotation_counts_across_the_wrap_point():
+    T = 10_000.0
+    assert cc.count_co(np.array([10.0]), np.array([9_980.0]), 50.0) == 0                 # the real recording: apart
+    assert cc.count_co(np.array([10.0]), np.array([9_980.0]), 50.0, period=T) == 1       # on the rotation circle: 30 s
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

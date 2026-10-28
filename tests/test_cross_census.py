@@ -363,5 +363,108 @@ def test_the_rules_come_in_words_from_the_core():
         assert words["nulls"][k]
 
 
+# ── fix round (the critic, 2026-10-28) ─────────────────────────────────────
+
+def test_fix1_a_burst_on_b_after_one_event_on_a_counts_once_in_the_timetable(conn, tmp_path):
+    # one event on CH1, then three on CH2 at +12, +30 and +45 s: the three pairs are measured on the SAME window
+    # (keyed on the earlier onset), so they are one lag, not three identical ones the null cannot reproduce
+    plant = {0: [], 1: []}
+    for k, t in enumerate(syn.every(2, 14400.0)):
+        plant[0].append((t, 100 * k))
+        plant[1] += [(t + 12.0, 100 * k), (t + 30.0, 100 * k + 1), (t + 45.0, 100 * k + 2)]
+    syn.build(conn, tmp_path, FOUR, 4, plant, hours=12)
+    s = cc.run_census(conn, FOUR)["summary"]
+    ids = _ids_by_name(conn, FOUR)
+    (pair,) = [p for p in s["pairs"] if (p["a"], p["b"]) == (ids["CH1"], ids["CH2"])]
+    assert pair["n"] == 6                                   # six co-occurrences of events …
+    assert pair["timetable"]["n_noncopy"] == 2              # … but two distinct measured windows
+    assert pair["timetable"]["count"] <= 2
+
+
+def test_fix1_timetable_inputs_take_one_lag_per_distinct_window():
+    rows = [{"bin": xc.PROPAGATION, "lag_s": 12.0, "window": [100, 340]},
+            {"bin": xc.INDEPENDENT_RECURRENCE, "lag_s": 12.0, "window": [100, 340]},
+            {"bin": xc.PROPAGATION, "lag_s": 11.0, "window": [5000, 5240]},
+            {"bin": xc.ARTIFACT, "lag_s": 0.0, "window": [9000, 9240]},
+            {"bin": cc.UNMEASURED, "lag_s": None, "window": [9900, 10140]}]
+    got = cc.timetable_inputs(rows)
+    assert got["lags"] == [12.0, 11.0] and got["windows"] == [[100, 340], [5000, 5240]]
+
+
+def _toy_layout():
+    return {"source_file": "toy", "channels": {
+        1: {"name": "CH1_A1", "pack": "A", "pack_from": "name"},
+        2: {"name": "CH3_A2", "pack": "A", "pack_from": "name"},
+        5: {"name": "CH5_B1", "pack": "B", "pack_from": "name"}}}
+
+
+def test_fix2_a_pair_inside_a_common_mode_instant_is_an_artifact_and_never_feeds_the_timetable():
+    # A1 ≈ B1 and A2 ≈ B1 are copies; A1–A2 measures 1.5 s and r 0.97, which alone would read propagation
+    pairs = [
+        {"det_a_id": 11, "det_b_id": 13, "rec_a_id": 1, "rec_b_id": 5, "onset_a_s": 100.0, "onset_b_s": 100.0,
+         "lag_s": 0.0, "r": 0.99, "bin": xc.ARTIFACT, "amplitude_ratio": 1.0, "window": [40, 280]},
+        {"det_a_id": 12, "det_b_id": 13, "rec_a_id": 2, "rec_b_id": 5, "onset_a_s": 101.0, "onset_b_s": 100.0,
+         "lag_s": 0.5, "r": 0.99, "bin": xc.ARTIFACT, "amplitude_ratio": 1.0, "window": [40, 280]},
+        {"det_a_id": 11, "det_b_id": 12, "rec_a_id": 1, "rec_b_id": 2, "onset_a_s": 100.0, "onset_b_s": 101.0,
+         "lag_s": 1.5, "r": 0.97, "bin": xc.PROPAGATION, "amplitude_ratio": 1.0, "window": [40, 280]},
+    ]
+    (inst,) = cc.instants(pairs, _toy_layout(), 3)
+    assert inst["breadth"] == 3 and inst["common_mode"] is True
+    a1a2 = pairs[2]
+    assert a1a2["bin"] == xc.ARTIFACT and a1a2["common_mode"] is True and a1a2["instant_id"] == inst["instant_id"]
+    assert a1a2["absorbed"] is True                          # says it was binned by its instant, not by its own lag
+    assert cc.timetable_inputs(pairs)["lags"] == []
+
+
+def test_fix4_the_census_goes_stale_when_the_noise_floor_or_a_human_artifact_span_changes(conn, tmp_path):
+    from Working.database import queries as q
+    from Working.library.view_filter import FLOOR_KEY, FLOOR_PAGE, dataset_floors
+    built = syn.build(conn, tmp_path, M2A, 16, {0: [(3600.0, 1)], 1: [(3612.0, 1)]}, hours=20)
+    cc.run_census(conn, M2A)
+    row = cc.latest_census(conn, M2A, cc.DEFAULT_DETECTOR)
+    assert cc.is_stale(conn, row)["stale"] is False
+    stem = dataset_floors(conn)[M2A]["stem"]
+    put_settings(conn, FLOOR_PAGE, {FLOOR_KEY.format(stem=stem): 0.5})
+    st = cc.is_stale(conn, row)
+    assert st["stale"] is True and any("floor" in w for w in st["why"])
+    cc.run_census(conn, M2A)
+    row = cc.latest_census(conn, M2A, cc.DEFAULT_DETECTOR)
+    assert cc.is_stale(conn, row)["stale"] is False
+    q.insert_annotation(conn, built["recording_ids"][5], 100, 400, "artifact", source="explore_review")
+    st = cc.is_stale(conn, row)
+    assert st["stale"] is True and any("artifact" in w for w in st["why"])
+
+
+def test_fix5_a_pool_short_of_the_required_lags_is_not_testable():
+    rng = np.random.default_rng(0)
+    short = rng.uniform(-50, 50, size=cc.DEFAULT_CONSTANTS.timetable_pool_min - 1)
+    t = cc.timetable_test([12.0, 12.1, 11.9], short, cc.DEFAULT_CONSTANTS, 1.0, 50.0, seed=1)
+    assert t["testable"] is False and t["p"] is None and t["q"] is None
+    assert str(cc.DEFAULT_CONSTANTS.timetable_pool_min) in t["reason"]
+    full = rng.uniform(-50, 50, size=cc.DEFAULT_CONSTANTS.timetable_pool_min)
+    t = cc.timetable_test([12.0, 12.1, 11.9], full, cc.DEFAULT_CONSTANTS, 1.0, 50.0, seed=1)
+    assert t["testable"] is True and t["p"] is not None and t["count"] == 3
+
+
+def test_fix_nit_an_unmeasurable_pair_is_counted_apart_never_as_a_shared_driver(conn, tmp_path):
+    syn.build(conn, tmp_path, M2A, 16, {}, hours=1)
+    from Working.channel_layout import channel_layout
+    layout = channel_layout(conn, M2A)
+    ids = _ids_by_name(conn, M2A)
+    flat = {"rec_a_id": ids["CH1_A1"], "rec_b_id": ids["CH5_B1"], "lag_s": None, "r": None, "chance": None,
+            "floor": None}
+    assert cc.census_bin(flat, layout, xc.DEFAULT_RULE) == (cc.UNMEASURED, True)
+    within = dict(flat, rec_b_id=ids["CH2_A1"])
+    assert cc.census_bin(within, layout, xc.DEFAULT_RULE) == (cc.UNMEASURED, False)
+    assert cc.UNMEASURED in cc.CENSUS_BINS
+
+
+def test_fix7_the_rules_say_the_bins_carry_no_null_and_name_the_claim():
+    words = cc.rules_in_words(xc.DEFAULT_RULE, cc.DEFAULT_CONSTANTS)
+    note = words["bins_note"]
+    assert "per co-occurrence" in note and "excess" in note and "timetable" in note
+    assert "rotation" in words["nulls"]["breadth"]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

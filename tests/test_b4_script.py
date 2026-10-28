@@ -92,3 +92,35 @@ def test_the_script_opens_the_database_read_only(db, tmp_path, monkeypatch):
     monkeypatch.setattr(b4.sqlite3, "connect", spy)
     b4.main(["--db", str(db[0]), "--out", str(tmp_path / "o")])
     assert seen and all("mode=ro" in t and uri for t, uri in seen)
+
+
+# ── fix round (the critic, 2026-10-28): a stale census never reaches the thesis unmarked ─────────────────────
+
+def test_fix6_a_fresh_census_is_marked_fresh_in_every_output(db, tmp_path):
+    import b4_cross_channel as b4
+
+    out = tmp_path / "fresh"
+    b4.main(["--db", str(db[0]), "--out", str(out)])
+    (entry,) = json.loads((out / "b4_summary.json").read_text(encoding="utf-8"))["censuses"]
+    assert entry["stale"] is False and entry["staleWhy"] == []
+    for name in ("b4_pairs.csv", "b4_bins.csv"):
+        with open(out / name, newline="", encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+        assert rows and all(r["stale"] == "False" and r["stale_why"] == "" for r in rows)
+
+
+def test_fix6_a_stale_census_says_so_in_the_summary_and_the_csvs(db, tmp_path):
+    import b4_cross_channel as b4
+    from Working import cross_channel as xc
+    from Working.registration.settings import put_settings
+
+    conn = init_db(str(db[0]))
+    put_settings(conn, xc.SETTINGS_PAGE, {xc.SETTINGS_KEYS["min_abs_r"]: 0.7})
+    conn.close()
+    out = tmp_path / "stale"
+    b4.main(["--db", str(db[0]), "--out", str(out)])
+    (entry,) = json.loads((out / "b4_summary.json").read_text(encoding="utf-8"))["censuses"]
+    assert entry["stale"] is True and any("rule" in w for w in entry["staleWhy"])
+    with open(out / "b4_pairs.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    assert all(r["stale"] == "True" and "rule" in r["stale_why"] for r in rows)
