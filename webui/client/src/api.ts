@@ -1774,11 +1774,18 @@ export interface LibSeqMorphRow {
   sequenceId: number; id: string; recording: string | null; labels: string[]; nElements: number
   fraction: number | null; nullMean: number | null; lo: number | null; hi: number | null; p: number | null
   pFloor: number | null; nDraws: number; exact: boolean; tested: boolean; note: string | null
+  /** the step-size companion (2026-10-28): mean consecutive step against the same shuffled orders; null when unscored */
+  steps: LibSeqMorphSteps | null
+}
+export interface LibSeqMorphSteps {
+  meanStep: number | null; nullMean: number | null; ratio: number | null; lo: number | null; hi: number | null
+  p: number | null; pFloor: number | null; tested: boolean; note: string | null
 }
 export interface LibSeqMorph {
   family: string | null; rows: LibSeqMorphRow[]
-  summary: { nSequences: number; nScored: number; nTested: number; nBeat: number; expected: number; alpha: number; words: string }
-  distance: string; rule: string; seed: number; draws: number
+  summary: { nSequences: number; nScored: number; nTested: number; nBeat: number; expected: number; alpha: number; words: string
+    steps: { nTested: number; nBeat: number; expected: number; words: string } }
+  distance: string; rule: string; stepRule: string; seed: number; draws: number
 }
 export const getLibrarySequenceMorph = (family?: string, grouping?: string) =>
   req<LibSeqMorph>(`/api/library/sequence-morph${dq({ family, grouping })}`)

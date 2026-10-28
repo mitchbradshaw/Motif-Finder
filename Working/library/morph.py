@@ -39,6 +39,19 @@ Rules a reader should know:
   at 9 and 0.05 at 20 (`tests/test_sequence_morph.py` pins it). "Not testable"
   is therefore common on short sequences, and is decided per sequence from its
   own null (`p_floor`), never from its length alone.
+* **The step-size companion** (researcher, 2026-10-28) asks a related, weaker
+  question that short sequences can answer: are neighbouring events more alike
+  than random pairs of the same events? A steady morph passes it, but so does
+  persistence (runs of near-identical events, AAABBB), and it does not tell the
+  two apart. Sequences built from label chains can pass it by construction.
+  Its p and the fraction's p come from the same orders, so they are not
+  independent evidence. The **mean step** is the mean shape
+  distance between consecutive elements. It is read against the same shuffled
+  orders, with a one-sided `p` (how often a shuffled order takes steps at
+  least as small) and a `ratio` (mean step / shuffled mean; below 1 means
+  smoother than shuffled). A sequence and its reverse take the same steps, so
+  its floor is 2/k! with exact enumeration: five elements can be judged, four
+  cannot. Each row's `steps` holds it, with its own `tested`.
 * **A flat element** (constant waveform) z-normalises to zeros and would read
   as a shape; the sequence is not scored and its note says which element.
 * An empty waveform is a caller's bug and raises.
@@ -74,6 +87,12 @@ RULE_WORDS = ("morph fraction = the share of consecutive steps whose shape dista
               "order scores at least as high. The readout is coarse: a shuffled order also scores 1 whenever its "
               "ends happen to lie far apart, so even a perfect morph's p cannot go below about 0.1 at 9 elements "
               "and about 0.05 at 20; a sequence whose null cannot reach p < 0.05 is reported as not testable.")
+STEP_RULE_WORDS = ("mean step = the mean shape distance between consecutive elements; ratio = mean step / the "
+                   "shuffled orders' mean (below 1 = neighbouring events more alike than random pairs: persistence or "
+                   "gradual change - it does not tell the two apart). Null: the same "
+                   "shuffled orders as the fraction; one-sided p = how often a shuffled order takes steps at least as "
+                   "small. A sequence and its reverse take the same steps, so the floor is 2/k! when every order is "
+                   "enumerated: five elements can be judged, four cannot.")
 
 
 def shape_distances(waveforms) -> np.ndarray:
@@ -106,12 +125,55 @@ def morph_fraction(d, order=None) -> float:
     return float(_fractions(d, o[None, :])[0])
 
 
+def _mean_steps(d, orders) -> np.ndarray:
+    """Mean consecutive-step distance of every row of `orders` (`(m, k)` index arrays)."""
+    o = np.asarray(orders, dtype=int)
+    return d[o[:, :-1], o[:, 1:]].mean(axis=1)
+
+
+def mean_step(d, order=None) -> float:
+    """The mean distance in the square matrix `d` between consecutive elements
+    (in `order`, default as given)."""
+    d = np.asarray(d, dtype=float)
+    o = np.arange(d.shape[0]) if order is None else np.asarray(order, dtype=int)
+    return float(_mean_steps(d, o[None, :])[0])
+
+
 def _p_ge(null, v, exact):
     """One-sided p of value(s) `v` against `null`: share at least as high
     (exact enumeration: the identity is among them), +1 corrected otherwise."""
     srt = np.sort(null)
     ge = null.size - np.searchsorted(srt, np.asarray(v) - 1e-12, side="left")
     return ge / null.size if exact else (1 + ge) / (null.size + 1)
+
+
+def _p_le(null, v, exact):
+    """One-sided p of value(s) `v` against `null`: share at most as low (smaller
+    steps), exact or +1 corrected as `_p_ge`."""
+    srt = np.sort(null)
+    le = np.searchsorted(srt, np.asarray(v) + 1e-12, side="right")
+    return le / null.size if exact else (1 + le) / (null.size + 1)
+
+
+def _step_readout(d, orders, exact, alpha) -> dict:
+    """The step-size companion of one scored sequence, on the fraction's own orders."""
+    k = d.shape[0]
+    null = _mean_steps(d, orders)
+    step = mean_step(d)
+    p = float(_p_le(null, step, exact))
+    p_floor = float(_p_le(null, null.min(), exact))
+    tested = p_floor < alpha
+    null_mean = float(null.mean())
+    lo, hi = np.percentile(null, [2.5, 97.5])
+    note = None
+    if not tested:
+        note = (f"{k} elements: the smallest p its {null.size} {'orders' if exact else 'shuffles'} allow is "
+                f"{p_floor:.3g} (a sequence and its reverse take the same steps), so it cannot beat its null at "
+                f"p < {alpha:g}")
+    return {"mean_step": step, "null_mean": null_mean, "ratio": step / null_mean if null_mean > 0 else None,
+            "lo": float(lo), "hi": float(hi), "p": p, "p_floor": p_floor,
+            "chance_rate": float(np.mean(_p_le(null, null, exact) < alpha)) if tested else 0.0,
+            "tested": bool(tested), "note": note}
 
 
 def morph_readout(waveforms, n_draws=MORPH_DRAWS, seed=MORPH_SEED, alpha=ALPHA) -> dict:
@@ -123,12 +185,14 @@ def morph_readout(waveforms, n_draws=MORPH_DRAWS, seed=MORPH_SEED, alpha=ALPHA) 
     `chance_rate` the probability under the null of p < `alpha` (what the
     summary's expected count adds up). Not scored (`fraction` None) below
     `MIN_ELEMENTS` or with a flat element; `tested` False whenever it could not
-    beat its null at `alpha`, with `note` saying why."""
+    beat its null at `alpha`, with `note` saying why. `steps` is the step-size
+    companion on the same orders (`{mean_step, null_mean, ratio, lo, hi, p,
+    p_floor, chance_rate, tested, note}`), None when the sequence is not scored."""
     ws = [np.asarray(w, dtype=float).ravel() for w in waveforms]
     k = len(ws)
     base = {"n_elements": k, "n_steps": max(0, k - 1), "fraction": None, "null_mean": None, "lo": None, "hi": None,
             "p": None, "p_floor": None, "chance_rate": 0.0, "n_draws": 0, "exact": False, "tested": False,
-            "note": None, "alpha": alpha}
+            "note": None, "alpha": alpha, "steps": None}
     d = shape_distances(ws)                         # raises on an empty / non-finite element
     if k < MIN_ELEMENTS:
         base["note"] = (f"{k} element{'s' if k != 1 else ''}: the only step is the end-to-end distance itself, "
@@ -160,7 +224,8 @@ def morph_readout(waveforms, n_draws=MORPH_DRAWS, seed=MORPH_SEED, alpha=ALPHA) 
                 f"cannot beat its null at p < {alpha:g}")
     base.update({"fraction": fraction, "null_mean": float(null.mean()), "lo": float(lo), "hi": float(hi), "p": p,
                  "p_floor": p_floor, "chance_rate": chance if tested else 0.0, "n_draws": int(null.size),
-                 "exact": bool(exact), "tested": bool(tested), "note": note})
+                 "exact": bool(exact), "tested": bool(tested), "note": note,
+                 "steps": _step_readout(d, orders, exact, alpha)})
     return base
 
 
@@ -178,8 +243,17 @@ def morph_summary(rows, alpha=ALPHA) -> dict:
     if len(rows) > len(tested):
         words += (f" ({len(rows) - len(tested)} of {len(rows)} not testable: too short, or an element flat or "
                   f"without a waveform)")
+    st_tested = [r for r in scored if (r.get("steps") or {}).get("tested")]
+    st_beat = [r for r in st_tested if r["steps"]["p"] is not None and r["steps"]["p"] < alpha]
+    st_expected = float(sum(r["steps"].get("chance_rate") or 0.0 for r in st_tested))
+    st_words = (f"step size: {len(st_beat)} of {len(st_tested)} testable sequences take smaller steps than their "
+                f"shuffled order at p < {alpha:g}; about {st_expected:.1f} expected by chance")
+    if len(rows) > len(st_tested):
+        st_words += (f" ({len(rows) - len(st_tested)} of {len(rows)} not testable: under five elements, a null that "
+                     f"cannot reach p < {alpha:g}, or not scored)")
     return {"n_sequences": len(rows), "n_scored": len(scored), "n_tested": len(tested), "n_beat": len(beat),
-            "expected": expected, "alpha": alpha, "words": words}
+            "expected": expected, "alpha": alpha, "words": words,
+            "steps": {"n_tested": len(st_tested), "n_beat": len(st_beat), "expected": st_expected, "words": st_words}}
 
 
 # ── headless: stored sequences ──────────────────────────────────────────────
@@ -240,4 +314,5 @@ def sequence_morph(conn, sequence_ids=None, *, waveform_of=None, n_draws=MORPH_D
         else:
             r = morph_readout(ws, n_draws=n_draws, seed=int(seed) + int(s.sequence_id or 0), alpha=alpha)
         rows.append({**head, **r})
-    return {"rows": rows, "summary": morph_summary(rows, alpha), "distance": DISTANCE_WORDS, "rule": RULE_WORDS}
+    return {"rows": rows, "summary": morph_summary(rows, alpha), "distance": DISTANCE_WORDS, "rule": RULE_WORDS,
+            "step_rule": STEP_RULE_WORDS}

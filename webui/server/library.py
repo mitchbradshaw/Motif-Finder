@@ -2905,20 +2905,31 @@ def get_sequence_morph(request: Request, family: str | None = Query(default=None
             # an unscored sequence's measures are None (never 0, which would read as "no morph")
             return None if v is None else _f(v, None)
 
+        def _steps(s):
+            # the step-size companion (2026-10-28); None for an unscored sequence
+            if s is None:
+                return None
+            return {"meanStep": _opt(s["mean_step"]), "nullMean": _opt(s["null_mean"]), "ratio": _opt(s["ratio"]),
+                    "lo": _opt(s["lo"]), "hi": _opt(s["hi"]), "p": _opt(s["p"]), "pFloor": _opt(s["p_floor"]),
+                    "tested": s["tested"], "note": s["note"]}
+
         out = morph_mod.sequence_morph(conn, ids, waveform_of=waveform_of, grouping_id=motif_gid)
         rows = [{"sequenceId": r["sequence_id"], "id": f"sq-{r['sequence_id']}",
                  "recording": (index["by_id"].get(int(r["recording_id"])) or {}).get("name"),
                  "labels": r["labels"], "nElements": r["n_elements"], "fraction": _opt(r["fraction"]),
                  "nullMean": _opt(r["null_mean"]), "lo": _opt(r["lo"]), "hi": _opt(r["hi"]), "p": _opt(r["p"]),
                  "pFloor": _opt(r["p_floor"]), "nDraws": r["n_draws"], "exact": r["exact"], "tested": r["tested"],
-                 "note": r["note"]} for r in out["rows"]]
+                 "note": r["note"], "steps": _steps(r.get("steps"))} for r in out["rows"]]
         sm = out["summary"]
+        st = sm["steps"]
         return {"family": family, "rows": rows,
                 "summary": {"nSequences": sm["n_sequences"], "nScored": sm["n_scored"], "nTested": sm["n_tested"],
                             "nBeat": sm["n_beat"], "expected": sm["expected"], "alpha": sm["alpha"],
-                            "words": sm["words"]},
-                "distance": out["distance"], "rule": out["rule"], "seed": morph_mod.MORPH_SEED,
-                "draws": morph_mod.MORPH_DRAWS}
+                            "words": sm["words"],
+                            "steps": {"nTested": st["n_tested"], "nBeat": st["n_beat"], "expected": st["expected"],
+                                      "words": st["words"]}},
+                "distance": out["distance"], "rule": out["rule"], "stepRule": out["step_rule"],
+                "seed": morph_mod.MORPH_SEED, "draws": morph_mod.MORPH_DRAWS}
     finally:
         conn.close()
 
