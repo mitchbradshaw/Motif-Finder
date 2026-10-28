@@ -41,6 +41,7 @@ from .cnn_routes import router as cnn_router
 from .jobs_routes import router as jobs_router   # fixup-aj
 from .registration import router as registration_router
 from .reports import router as reports_router   # reports (2026-10-19)
+from .cross_routes import router as cross_router   # xc-S1: the cross-channel census
 
 log = logging.getLogger("webui")
 
@@ -575,6 +576,7 @@ def create_app(rt: Runtime) -> FastAPI:
 
     # ---------------------------------------------- stage-3 prompt 01 routers --
     app.include_router(analyse_router)
+    app.include_router(cross_router)     # xc-S1: before explore's /api/cross/{recording_id}, which would take /api/cross/census
     app.include_router(explore_router)
     app.include_router(interrogation_router)
     app.include_router(training_router)

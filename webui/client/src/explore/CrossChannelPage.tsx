@@ -51,6 +51,7 @@ import { LockedCard } from './LockedCard'
 import { chipLabel, defaultPicker, pickerRuns, visibleRunIds, type PickerState } from './signalModel'
 import { useElementSize } from './useElementSize'
 import { asApiError, relativeTicks } from './util'
+import { CensusCard } from './CensusCard'   // xc-S1: the census (S2 moves this line into the census slot)
 
 const BIN_TONE: Record<XBin, 'blue' | 'red' | 'amber' | 'green' | 'grey'> = { reference: 'blue', artifact: 'red', propagation: 'amber', independent: 'green', 'no match': 'grey' }
 const BIN_DOT: Record<XBin, string> = { reference: 'var(--blue)', artifact: 'var(--red)', propagation: 'var(--amber)', independent: 'var(--green)', 'no match': '#9ca3af' }
@@ -502,6 +503,8 @@ function CrossBody({ data, sig }: { data: CrossRead; sig: SourcedState<SignalDem
           </div>
           </>}
         </div>
+
+        <CensusCard sourceFile={data.file} />
 
         <div className="ex-cross-bottom">
           <div className="card card-pad" data-testid="classification">

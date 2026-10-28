@@ -45,6 +45,7 @@ export interface LiveJob {
 const KIND_LABEL: Record<string, string> = {
   chain_run: 'chain run', training: 'training', sweep: 'Discovery sweep', import: 'import', regroup: 'Library grouping',
   cross_channel: 'cross-channel',
+  cross_census: 'cross-channel census',   // xc-S1
 }
 
 function when(v: number | string | null | undefined): Date | null {
