@@ -178,8 +178,8 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
 
 ## 5. Decisions waiting on you
 
-- [x] **The cross-channel explorer build (B4).** Yes, S0 and S1 (28 Oct). S0, the layout reader, is done
-      (`44861b1`). S1, the census and its nulls, is running in its own worktree. The rest waits until after the thesis.
+- [x] **The cross-channel explorer build (B4).** Yes, S0 and S1 (28 Oct). Both are built and merged: S0, the layout
+      reader (`44861b1`), and S1, the census and its nulls (`a68a1ff`). The rest waits until after the thesis.
       The original question, for the record:
   - *Plain version:* B4 asks whether activity travels from electrode to electrode, or whether shared wiring just makes
     channels move together. It can't be answered until the explorer page exists.
@@ -223,6 +223,7 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
 | The 20-draw surrogate statistics (Chapter 6) | §3c imported |
 | **B4:** S0, the channel layout reader (packs and positions) | **done** 28 Oct (`44861b1`) |
 | **B4:** S1, the census of co-occurring events and its nulls. Then I walk its smoke states and run its thesis script on a bridge backup | **done** 28 Oct: merged (`a68a1ff`) and run on M2_aug, M2_concat, CO and LM. No evidence of propagation on M2_aug; M2_concat's co-occurrences are copies on CH5–8. MJu26a, SH and SO wait for the 2 Hz sweep |
+| The full test suite for S1's merge | **done** 28 Oct. S1 broke two tests; both are fixed. One was a guard that keeps null-run events out of every count: a label lookup tripped it, and no census number changes. The other was the smoke walk's order. Four map tests have been failing since 19–26 Oct, before S0 and S1. They read the map once, and it now answers "counting…" before it counts. One seed-estimate test is a timing flake under load |
 | Register the ghost fungus (B7) | the bridge (§1) |
 | Run B5 and B7–B12 on the site and draft the Chapter 10 studies | the imports above |
 | Recompile the thesis and commit after each step | — |
