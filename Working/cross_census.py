@@ -58,6 +58,7 @@ import numpy as np
 
 from Working import cross_channel as xc
 from Working.cross_channel import ARTIFACT, INDEPENDENT_RECURRENCE, PROPAGATION, SHARED_DRIVER
+from Working.database import queries as _queries
 
 #: bumped whenever the census's arithmetic changes, so a stored census goes stale (it is in the hash)
 CENSUS_VERSION = 1
@@ -202,8 +203,9 @@ def _labels(conn, det_ids):
     ids = sorted(int(d) for d in det_ids)
     for i in range(0, len(ids), 500):
         part = ids[i:i + 500]
-        for d, meta in conn.execute(f"SELECT id, meta_json FROM detections WHERE id IN ({','.join('?' * len(part))}) "
-                                    f"AND meta_json IS NOT NULL", part):
+        for d, meta in conn.execute(f"SELECT d.id, d.meta_json FROM detections d JOIN runs r ON r.id = d.run_id "
+                                    f"WHERE d.id IN ({','.join('?' * len(part))}) AND d.meta_json IS NOT NULL "
+                                    f"AND {_queries.not_surrogate('r')}", part):
             try:
                 lab = json.loads(meta).get("label")
             except (ValueError, AttributeError):

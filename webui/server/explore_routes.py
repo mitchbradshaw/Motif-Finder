@@ -313,13 +313,13 @@ def _named_detection_ids(c, detection_ids: list[int]) -> list[int]:
         raise HTTPException(422, {"message": "no detection named: detection_ids is empty"})
     marks = ",".join("?" * len(want))
     rows = {int(r["id"]): r for r in c.execute(
-        f"SELECT d.id, r.recording_id, r.surrogate_of_run_id, "
+        f"SELECT d.id, r.recording_id, CASE WHEN {q.not_surrogate('r')} THEN 0 ELSE 1 END AS surrogate, "
         f"CASE WHEN {q.not_window_part('r')} THEN 0 ELSE 1 END AS window_part "
         f"FROM detections d JOIN runs r ON r.id = d.run_id WHERE d.id IN ({marks})", want).fetchall()}
     missing = [i for i in want if i not in rows]
     if missing:
         raise HTTPException(422, {"message": f"no detection {', '.join(map(str, missing))} in the database"})
-    fake = [i for i in want if rows[i]["surrogate_of_run_id"] is not None or rows[i]["window_part"]]
+    fake = [i for i in want if rows[i]["surrogate"] or rows[i]["window_part"]]
     if fake:
         raise HTTPException(422, {"message": f"detection {', '.join(map(str, fake))} belongs to a paired surrogate "
                                              "or a window part of a stitched run — not a detection anyone judges"})

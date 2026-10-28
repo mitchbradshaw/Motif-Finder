@@ -193,6 +193,8 @@ REASONED = {
     # round A_2, P3
     "Working/discovery/windowed.py": "stitches named window runs: a window's draw into the stitched draw, on purpose",
     "Working/discovery/chain_job.py": "a windowed task reads each named window run and draw on its scratch database",
+    # 2026-10-28: unlisted since span-plot (2026-10-18), so the guard was red on main before xc-S1
+    "Working/discovery/spans.py": "ambiguous_legacy_runs previews the legacy-shift migration, which rewrites every run's rows",
 }
 _READS = re.compile(r"\b(FROM|JOIN)\s+detections\b", re.IGNORECASE)
 
