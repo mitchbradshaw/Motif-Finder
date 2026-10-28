@@ -1,0 +1,4122 @@
+{
+ "discovery_session": {
+  "id": 12,
+  "name": "Schizophyllum_commune_rq4"
+ },
+ "n_real_runs": 302,
+ "n_surrogate_runs": 302,
+ "variants": {
+  "BEADs_invert_detect_v1": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "3166d4fbdc80bb41bc4b934d5551dab0a0f34099c85299f2a681c7bb02fb499d"
+  },
+  "BEADs_invert_detect_v1__delta_mv_25": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "635b7315247357005fa83e761250b5d3d3f10cca1172b846b87ea5f248061fc3"
+  },
+  "BEADs_invert_detect_v1__delta_mv_5": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "ae1b1c2d9b9a1e857f0d8046cf7c448c5a0ef890e49c2f6d7b9d0a5c07ab8a0c"
+  },
+  "OASIS_Deconvolution": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "4a8692e9ae8f978000c7af058f93ecab47f2967329a9841f04de22189b311aba"
+  },
+  "OASIS_Deconvolution__threshold_3": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "9f8553c37da7d4a42ef69a0f1958bc32e593bafa5b966c785093fceace5d7682"
+  },
+  "OASIS_Deconvolution__threshold_5": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "b10c6c555a0acb4d2cb54337247f598a9afe63c486337adc4ced59a0c1644390"
+  },
+  "Wavelet_detection_prototype": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "db841ddc779056cb5b6e8484d3932592c6928c399cd17276879bfd88c4d85b84"
+  },
+  "Wavelet_detection_prototype__epsilon_factor_0p02": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "a10eb876a33295a58103b3947c1e50e193b8007ad5cd4f30c35bf1ab10c80ebc"
+  },
+  "Wavelet_detection_prototype__epsilon_factor_0p1": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "27bc59454666a61a0af9f4706850d14925ed2d1611aa655714d92b612c4fe4bd"
+  },
+  "cnn_fusion3_10min": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "b43742715e4224faae1c383ef58caed08152d3bafae215b7e89be51d88d1a025"
+  },
+  "cnn_fusion3_1min": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "a9bdf06a86bba7fc30fb62b58a58231522635fdee51ca0beb03d9a926af87700"
+  },
+  "cnn_fusion3_60min": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "0f8d80a10dca94b5dd8e0200842f4ed67a09286a3ed373bc61de618f86aa24bc"
+  },
+  "cnn_gadf_10min": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "9cadeeb9d7432e76a40c1bd95c2c5f0053ab13473943cce48f32f1aa366bc411"
+  },
+  "cnn_gadf_1min": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "dd4829298ceab867c11ff1669d3a8ce2374d84bdb8bf1f3b381fe973d750fd10"
+  },
+  "cnn_gadf_60min": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "042a2d8dbd2045ad20c1f3dfdfed51aa22e5698b67d01ef1022b24adca3bad6a"
+  },
+  "cnn_gasf_10min": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "e6b82ecb078f8f42fcc27f7ad4941b4ec65f57b87955846b629e13555d12b34f"
+  },
+  "cnn_gasf_1min": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "aa7421f3876773a9a8ff590015defe0fbcdd20d3f1b48b29aeeb10950a0f2853"
+  },
+  "cnn_gasf_60min": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "459f99c81e982c73beab5d040c69d9718124c1ce27fdfe7817c6500f50f54199"
+  },
+  "cnn_recurrence_10min": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "d8945b482b36dd101080f13ad8568b241f97f14dbd44b15211adf3ca3c89a48f"
+  },
+  "cnn_recurrence_1min": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "f8d2951e2a8c3dea17035d1cf08d95b8fb35d0c737042050c0e4c117e03e11ab"
+  },
+  "cnn_recurrence_60min": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "c463aee9c0deb87e62e6fb199b47965c856906ed3562ebcaaae291e3f866bab1"
+  },
+  "deconvolved_troughs": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "e1a31e43caf3943ddd7b7d0a036ff946837a0a95be7691925e22561f0b57b691"
+  },
+  "deconvolved_troughs__recovery_half_s_240": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "f21763bb236324f896f29cf536e19ae09c841c79eac871f63a3c4909c5144089"
+  },
+  "deconvolved_troughs__recovery_half_s_60": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "55c265cc867206886597a6c93824e0b222203923daa6c5ef0ad2c45796c97e3d"
+  },
+  "drop_detection_v1": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "940c8a13939d140ca8864968df1b76fb2695422d98e870175e12ee2822a07226"
+  },
+  "drop_detection_v1__slope_sigma_12": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "3aa8ba6e1441269a7392281d39eb6b22513e40f470f44ad87330951fcd5d6b95"
+  },
+  "drop_detection_v1__slope_sigma_4": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "aae3e23875817e758a790bd2514a0356a59100176ddddb302ed9cd4a19105e08"
+  },
+  "drop_detection_v5": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "1bf8c48f864b6a1e924a26419cc38eb583179b4d8d3cac6ff5ce3d909e78bf1e"
+  },
+  "drop_detection_v5__same_fraction_0p5": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "cb9e3229ad3e6a89b0f519ad3f825f715cb636e52fe652445cc8b62632b94f7b"
+  },
+  "drop_detection_v5__same_fraction_0p7": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "810ea657c9206b08f1158c0faae8f5d2e4d0c7b4238b0f91aa183c88928fa116"
+  },
+  "mp_motifs__backend_auto": {
+   "n_runs": 2,
+   "sha256_of_sorted_config_hashes": "19d4d767ff259156127417c920560313f6c6c6af01b98ea05aaaff8d3e3a4a75"
+  },
+  "mp_threshold__backend_auto": {
+   "n_runs": 2,
+   "sha256_of_sorted_config_hashes": "7ccda09877f3beddefc4fdccb5ea451ba4824cd4c0c52a3d0b9975c23834c9e1"
+  },
+  "mp_threshold__threshold_10__backend_auto": {
+   "n_runs": 2,
+   "sha256_of_sorted_config_hashes": "e35a4ff4547fa0bece7ebf9d7cbbdb39b1d3af4aa5b55a30df3abb2e05e78b52"
+  },
+  "mp_threshold__threshold_6__backend_auto": {
+   "n_runs": 2,
+   "sha256_of_sorted_config_hashes": "66a9244302a1eda889cd73371a81f44542c602c47a1321d31d8843af6423f7e4"
+  },
+  "noise_threshold": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "e2c8329941fc7458feb7331f1f2599f12194740d12da13ac8a805c026593de22"
+  },
+  "noise_threshold__k_sigma_3": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "ea0e681eaa6ac2addf72106958aefe101233577bc9acaaa57b5b191fd4e0db55"
+  },
+  "noise_threshold__k_sigma_6": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "af5d1167f407dca4dfdc5a8d0286bd721ab6c1db81def22b153c62c38762ed30"
+  },
+  "signal_threshold__threshold_mV_m10": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "087d4c468f84d6ba561a25774829f2f810e522aa0327e54878eb25ed0c94f101"
+  },
+  "signal_threshold__threshold_mV_m2": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "b8b847d2452f711792f169508c8a235a4718f294f47209879b73a1d1eae9421f"
+  },
+  "signal_threshold__threshold_mV_m5": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "8a7f88f0b882ce4c253bfaac02cfbfd62138f67b62cd4d220d21b70a49858446"
+  },
+  "symbol_search": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "dee153dc5d1279a3231a3b0beb998e86c5b0138b3a794f42e65b91084b896150"
+  },
+  "symbol_search__seconds_per_symbol_10": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "6b002007d278f2c96851929ad96862bf911e5beb0767ded373920c2d3c6f1afe"
+  },
+  "symbol_search__seconds_per_symbol_40": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "47b1a743657b88d7fa008f7466bcf0467b9cdc207b0a57e2a0445b023b59cf7c"
+  },
+  "wavelet_encoded": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "882361b5bf64a5a34602d6f3b470a3087ee343279959cc954d0c5ece379e9e4b"
+  },
+  "wavelet_encoded__level_3": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "4cc6989ce5ad603f4f63ab27dfe2e3a84fb785c426fb1b9a0858420ae0422bac"
+  },
+  "wavelet_encoded__level_5": {
+   "n_runs": 7,
+   "sha256_of_sorted_config_hashes": "67294163d317745c0a250728e3fd10e390d26508c4b0845e47e120b76c376e81"
+  }
+ },
+ "runs": [
+  {
+   "run_id": 7477,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "drop_detection_v1",
+   "config_hash": "25fe9fde",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:25.653596+00:00"
+  },
+  {
+   "run_id": 7479,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "drop_detection_v1",
+   "config_hash": "f601bf57",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:26.639460+00:00"
+  },
+  {
+   "run_id": 7481,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "drop_detection_v1",
+   "config_hash": "f1dc7675",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:27.282806+00:00"
+  },
+  {
+   "run_id": 7483,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "drop_detection_v1",
+   "config_hash": "43d96ae8",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:27.968932+00:00"
+  },
+  {
+   "run_id": 7485,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "drop_detection_v1",
+   "config_hash": "3b672056",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:28.606867+00:00"
+  },
+  {
+   "run_id": 7487,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "drop_detection_v1",
+   "config_hash": "6f463f4f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:29.314710+00:00"
+  },
+  {
+   "run_id": 7489,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "drop_detection_v1",
+   "config_hash": "08c11be9",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:29.900679+00:00"
+  },
+  {
+   "run_id": 7491,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "drop_detection_v5",
+   "config_hash": "b48372ad",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:32.467653+00:00"
+  },
+  {
+   "run_id": 7493,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "drop_detection_v5",
+   "config_hash": "09763e5f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:33.441601+00:00"
+  },
+  {
+   "run_id": 7495,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "drop_detection_v5",
+   "config_hash": "d86a94cc",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:33.917629+00:00"
+  },
+  {
+   "run_id": 7497,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "drop_detection_v5",
+   "config_hash": "e09f2c1f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:34.348506+00:00"
+  },
+  {
+   "run_id": 7499,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "drop_detection_v5",
+   "config_hash": "51dc6a18",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:35.037429+00:00"
+  },
+  {
+   "run_id": 7501,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "drop_detection_v5",
+   "config_hash": "00431a20",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:35.697369+00:00"
+  },
+  {
+   "run_id": 7503,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "drop_detection_v5",
+   "config_hash": "8579a705",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:36.167060+00:00"
+  },
+  {
+   "run_id": 7505,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "symbol_search",
+   "config_hash": "6c3638f2",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:38.906242+00:00"
+  },
+  {
+   "run_id": 7507,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "symbol_search",
+   "config_hash": "c97d5052",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:39.998936+00:00"
+  },
+  {
+   "run_id": 7509,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "symbol_search",
+   "config_hash": "ae1e8cf7",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:40.961303+00:00"
+  },
+  {
+   "run_id": 7511,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "symbol_search",
+   "config_hash": "258617f3",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:41.987624+00:00"
+  },
+  {
+   "run_id": 7513,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "symbol_search",
+   "config_hash": "7b813d99",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:42.798292+00:00"
+  },
+  {
+   "run_id": 7515,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "symbol_search",
+   "config_hash": "6c76cfd7",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:43.752550+00:00"
+  },
+  {
+   "run_id": 7517,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "symbol_search",
+   "config_hash": "d738cd02",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:44.726238+00:00"
+  },
+  {
+   "run_id": 7519,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "Wavelet_detection_prototype",
+   "config_hash": "85b4af49",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:51.895893+00:00"
+  },
+  {
+   "run_id": 7521,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "Wavelet_detection_prototype",
+   "config_hash": "132aacad",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:54.156468+00:00"
+  },
+  {
+   "run_id": 7523,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "Wavelet_detection_prototype",
+   "config_hash": "f3092406",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:56.930291+00:00"
+  },
+  {
+   "run_id": 7525,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "Wavelet_detection_prototype",
+   "config_hash": "48a8cfa0",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:09:59.849174+00:00"
+  },
+  {
+   "run_id": 7527,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "Wavelet_detection_prototype",
+   "config_hash": "b79f405a",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:02.042827+00:00"
+  },
+  {
+   "run_id": 7529,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "Wavelet_detection_prototype",
+   "config_hash": "44ffbad4",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:04.117568+00:00"
+  },
+  {
+   "run_id": 7531,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "Wavelet_detection_prototype",
+   "config_hash": "bd0898ec",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:06.157872+00:00"
+  },
+  {
+   "run_id": 7533,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "wavelet_encoded",
+   "config_hash": "1b15b88b",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:13.291064+00:00"
+  },
+  {
+   "run_id": 7535,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "wavelet_encoded",
+   "config_hash": "84e2f345",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:15.558357+00:00"
+  },
+  {
+   "run_id": 7537,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "wavelet_encoded",
+   "config_hash": "08e2889f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:18.085400+00:00"
+  },
+  {
+   "run_id": 7539,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "wavelet_encoded",
+   "config_hash": "a7391a94",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:20.407295+00:00"
+  },
+  {
+   "run_id": 7541,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "wavelet_encoded",
+   "config_hash": "b509f78b",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:22.699860+00:00"
+  },
+  {
+   "run_id": 7543,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "wavelet_encoded",
+   "config_hash": "e9e29d23",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:26.661073+00:00"
+  },
+  {
+   "run_id": 7545,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "wavelet_encoded",
+   "config_hash": "904ffae1",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:29.567506+00:00"
+  },
+  {
+   "run_id": 7547,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "noise_threshold",
+   "config_hash": "7fd603ed",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:34.719414+00:00"
+  },
+  {
+   "run_id": 7549,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "noise_threshold",
+   "config_hash": "0da183f4",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:34.999666+00:00"
+  },
+  {
+   "run_id": 7551,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "noise_threshold",
+   "config_hash": "b7fa4c14",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:35.383597+00:00"
+  },
+  {
+   "run_id": 7553,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "noise_threshold",
+   "config_hash": "01db8703",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:35.693355+00:00"
+  },
+  {
+   "run_id": 7555,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "noise_threshold",
+   "config_hash": "1e1fba01",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:35.996679+00:00"
+  },
+  {
+   "run_id": 7557,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "noise_threshold",
+   "config_hash": "b36e814f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:36.366384+00:00"
+  },
+  {
+   "run_id": 7559,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "noise_threshold",
+   "config_hash": "563fe38d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:36.798156+00:00"
+  },
+  {
+   "run_id": 7561,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "deconvolved_troughs",
+   "config_hash": "0123ee88",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:41.305439+00:00"
+  },
+  {
+   "run_id": 7563,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "deconvolved_troughs",
+   "config_hash": "4e27e0ff",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:44.491960+00:00"
+  },
+  {
+   "run_id": 7565,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "deconvolved_troughs",
+   "config_hash": "0da41f0f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:47.603871+00:00"
+  },
+  {
+   "run_id": 7567,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "deconvolved_troughs",
+   "config_hash": "91e052f5",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:51.726602+00:00"
+  },
+  {
+   "run_id": 7569,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "deconvolved_troughs",
+   "config_hash": "cd573828",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:55.481263+00:00"
+  },
+  {
+   "run_id": 7571,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "deconvolved_troughs",
+   "config_hash": "cdf58427",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:10:58.302721+00:00"
+  },
+  {
+   "run_id": 7573,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "deconvolved_troughs",
+   "config_hash": "29e9570d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:01.876307+00:00"
+  },
+  {
+   "run_id": 7575,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "OASIS_Deconvolution",
+   "config_hash": "3ed60ec4",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:07.802228+00:00"
+  },
+  {
+   "run_id": 7577,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "OASIS_Deconvolution",
+   "config_hash": "bf63dda2",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:08.197235+00:00"
+  },
+  {
+   "run_id": 7579,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "OASIS_Deconvolution",
+   "config_hash": "561d4914",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:08.522754+00:00"
+  },
+  {
+   "run_id": 7581,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "OASIS_Deconvolution",
+   "config_hash": "7c29a5cb",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:08.882918+00:00"
+  },
+  {
+   "run_id": 7583,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "OASIS_Deconvolution",
+   "config_hash": "431f541e",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:09.326180+00:00"
+  },
+  {
+   "run_id": 7585,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "OASIS_Deconvolution",
+   "config_hash": "686d2c9c",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:09.750291+00:00"
+  },
+  {
+   "run_id": 7587,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "OASIS_Deconvolution",
+   "config_hash": "dbb00e3d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:10.067665+00:00"
+  },
+  {
+   "run_id": 7589,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "BEADs_invert_detect_v1",
+   "config_hash": "e4ea2d74",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:13.933496+00:00"
+  },
+  {
+   "run_id": 7591,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "BEADs_invert_detect_v1",
+   "config_hash": "2aca0de3",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:14.243812+00:00"
+  },
+  {
+   "run_id": 7593,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "BEADs_invert_detect_v1",
+   "config_hash": "7e81d92d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:14.540271+00:00"
+  },
+  {
+   "run_id": 7595,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "BEADs_invert_detect_v1",
+   "config_hash": "a845a7a1",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:14.774710+00:00"
+  },
+  {
+   "run_id": 7597,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "BEADs_invert_detect_v1",
+   "config_hash": "187a2a3b",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:15.047681+00:00"
+  },
+  {
+   "run_id": 7599,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "BEADs_invert_detect_v1",
+   "config_hash": "15d00a95",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:15.341071+00:00"
+  },
+  {
+   "run_id": 7601,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "BEADs_invert_detect_v1",
+   "config_hash": "494c7b9b",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:15.742591+00:00"
+  },
+  {
+   "run_id": 7603,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "drop_detection_v1__slope_sigma_4",
+   "config_hash": "27c7e4b3",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:24.292304+00:00"
+  },
+  {
+   "run_id": 7605,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "drop_detection_v1__slope_sigma_4",
+   "config_hash": "3ca7f80d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:25.735454+00:00"
+  },
+  {
+   "run_id": 7607,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "drop_detection_v1__slope_sigma_4",
+   "config_hash": "429b4300",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:27.468373+00:00"
+  },
+  {
+   "run_id": 7609,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "drop_detection_v1__slope_sigma_4",
+   "config_hash": "0d1df799",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:28.703450+00:00"
+  },
+  {
+   "run_id": 7611,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "drop_detection_v1__slope_sigma_4",
+   "config_hash": "a1a57718",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:29.747377+00:00"
+  },
+  {
+   "run_id": 7613,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "drop_detection_v1__slope_sigma_4",
+   "config_hash": "4a7ca805",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:31.426443+00:00"
+  },
+  {
+   "run_id": 7615,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "drop_detection_v1__slope_sigma_4",
+   "config_hash": "cf99c95c",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:32.477285+00:00"
+  },
+  {
+   "run_id": 7617,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "drop_detection_v1__slope_sigma_12",
+   "config_hash": "012c247c",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:36.138082+00:00"
+  },
+  {
+   "run_id": 7619,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "drop_detection_v1__slope_sigma_12",
+   "config_hash": "f8dd5e39",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:36.668955+00:00"
+  },
+  {
+   "run_id": 7621,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "drop_detection_v1__slope_sigma_12",
+   "config_hash": "80019349",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:37.138698+00:00"
+  },
+  {
+   "run_id": 7623,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "drop_detection_v1__slope_sigma_12",
+   "config_hash": "979ce89b",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:37.514151+00:00"
+  },
+  {
+   "run_id": 7625,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "drop_detection_v1__slope_sigma_12",
+   "config_hash": "88b8c0a3",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:37.991537+00:00"
+  },
+  {
+   "run_id": 7627,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "drop_detection_v1__slope_sigma_12",
+   "config_hash": "156c9893",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:38.517477+00:00"
+  },
+  {
+   "run_id": 7629,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "drop_detection_v1__slope_sigma_12",
+   "config_hash": "69b02fe0",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:38.881048+00:00"
+  },
+  {
+   "run_id": 7631,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "drop_detection_v5__same_fraction_0p5",
+   "config_hash": "eb50ba2f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:42.402906+00:00"
+  },
+  {
+   "run_id": 7633,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "drop_detection_v5__same_fraction_0p5",
+   "config_hash": "b52fa0f5",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:43.541082+00:00"
+  },
+  {
+   "run_id": 7635,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "drop_detection_v5__same_fraction_0p5",
+   "config_hash": "e3977ee7",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:43.993831+00:00"
+  },
+  {
+   "run_id": 7637,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "drop_detection_v5__same_fraction_0p5",
+   "config_hash": "777819ee",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:44.529724+00:00"
+  },
+  {
+   "run_id": 7639,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "drop_detection_v5__same_fraction_0p5",
+   "config_hash": "50f77a5d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:45.236026+00:00"
+  },
+  {
+   "run_id": 7641,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "drop_detection_v5__same_fraction_0p5",
+   "config_hash": "d3194cc3",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:45.801650+00:00"
+  },
+  {
+   "run_id": 7643,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "drop_detection_v5__same_fraction_0p5",
+   "config_hash": "2cb909a6",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:46.220596+00:00"
+  },
+  {
+   "run_id": 7645,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "drop_detection_v5__same_fraction_0p7",
+   "config_hash": "106e7c54",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:48.759989+00:00"
+  },
+  {
+   "run_id": 7647,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "drop_detection_v5__same_fraction_0p7",
+   "config_hash": "e814b13e",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:50.308443+00:00"
+  },
+  {
+   "run_id": 7649,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "drop_detection_v5__same_fraction_0p7",
+   "config_hash": "8b7a7eaf",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:50.762755+00:00"
+  },
+  {
+   "run_id": 7651,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "drop_detection_v5__same_fraction_0p7",
+   "config_hash": "6c762561",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:51.137994+00:00"
+  },
+  {
+   "run_id": 7653,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "drop_detection_v5__same_fraction_0p7",
+   "config_hash": "c32e7d6b",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:51.577196+00:00"
+  },
+  {
+   "run_id": 7655,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "drop_detection_v5__same_fraction_0p7",
+   "config_hash": "de94099e",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:52.033005+00:00"
+  },
+  {
+   "run_id": 7657,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "drop_detection_v5__same_fraction_0p7",
+   "config_hash": "33b828d0",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:11:53.355487+00:00"
+  },
+  {
+   "run_id": 7659,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "wavelet_encoded__level_3",
+   "config_hash": "38a05bac",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:00.587246+00:00"
+  },
+  {
+   "run_id": 7661,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "wavelet_encoded__level_3",
+   "config_hash": "7bcc983c",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:03.448448+00:00"
+  },
+  {
+   "run_id": 7663,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "wavelet_encoded__level_3",
+   "config_hash": "6e4e210d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:05.828977+00:00"
+  },
+  {
+   "run_id": 7665,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "wavelet_encoded__level_3",
+   "config_hash": "b3b603e2",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:08.137592+00:00"
+  },
+  {
+   "run_id": 7667,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "wavelet_encoded__level_3",
+   "config_hash": "43bc7bb8",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:10.685144+00:00"
+  },
+  {
+   "run_id": 7669,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "wavelet_encoded__level_3",
+   "config_hash": "c99314cc",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:13.172105+00:00"
+  },
+  {
+   "run_id": 7671,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "wavelet_encoded__level_3",
+   "config_hash": "793bf6fd",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:18.351775+00:00"
+  },
+  {
+   "run_id": 7673,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "wavelet_encoded__level_5",
+   "config_hash": "878588da",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:27.093999+00:00"
+  },
+  {
+   "run_id": 7675,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "wavelet_encoded__level_5",
+   "config_hash": "3afa4b3a",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:28.917406+00:00"
+  },
+  {
+   "run_id": 7677,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "wavelet_encoded__level_5",
+   "config_hash": "b6714721",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:32.004950+00:00"
+  },
+  {
+   "run_id": 7679,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "wavelet_encoded__level_5",
+   "config_hash": "bbbf587d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:34.308522+00:00"
+  },
+  {
+   "run_id": 7681,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "wavelet_encoded__level_5",
+   "config_hash": "be326560",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:36.993985+00:00"
+  },
+  {
+   "run_id": 7683,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "wavelet_encoded__level_5",
+   "config_hash": "a2cf2c6f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:39.123397+00:00"
+  },
+  {
+   "run_id": 7685,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "wavelet_encoded__level_5",
+   "config_hash": "88ae704f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:41.586485+00:00"
+  },
+  {
+   "run_id": 7687,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p02",
+   "config_hash": "9b852e9a",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:48.587493+00:00"
+  },
+  {
+   "run_id": 7689,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p02",
+   "config_hash": "d9d84c28",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:50.395382+00:00"
+  },
+  {
+   "run_id": 7691,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p02",
+   "config_hash": "4ce4b8f1",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:51.762788+00:00"
+  },
+  {
+   "run_id": 7693,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p02",
+   "config_hash": "b127f5a7",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:54.743410+00:00"
+  },
+  {
+   "run_id": 7695,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p02",
+   "config_hash": "64ffb506",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:57.223370+00:00"
+  },
+  {
+   "run_id": 7697,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p02",
+   "config_hash": "c8821e34",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:12:59.222449+00:00"
+  },
+  {
+   "run_id": 7699,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p02",
+   "config_hash": "dedcbc77",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:02.716699+00:00"
+  },
+  {
+   "run_id": 7701,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p1",
+   "config_hash": "5d0f6ba9",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:10.143505+00:00"
+  },
+  {
+   "run_id": 7703,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p1",
+   "config_hash": "c8c4305a",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:11.655812+00:00"
+  },
+  {
+   "run_id": 7705,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p1",
+   "config_hash": "3d838937",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:12.728511+00:00"
+  },
+  {
+   "run_id": 7707,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p1",
+   "config_hash": "f08e8547",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:13.285743+00:00"
+  },
+  {
+   "run_id": 7709,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p1",
+   "config_hash": "7be376aa",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:15.243328+00:00"
+  },
+  {
+   "run_id": 7711,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p1",
+   "config_hash": "90d510d8",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:18.463689+00:00"
+  },
+  {
+   "run_id": 7713,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "Wavelet_detection_prototype__epsilon_factor_0p1",
+   "config_hash": "37be40e8",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:18.988779+00:00"
+  },
+  {
+   "run_id": 7715,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "symbol_search__seconds_per_symbol_10",
+   "config_hash": "c58fbb65",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:27.428748+00:00"
+  },
+  {
+   "run_id": 7717,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "symbol_search__seconds_per_symbol_10",
+   "config_hash": "9c692668",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:29.809290+00:00"
+  },
+  {
+   "run_id": 7719,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "symbol_search__seconds_per_symbol_10",
+   "config_hash": "c113b27c",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:31.719101+00:00"
+  },
+  {
+   "run_id": 7721,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "symbol_search__seconds_per_symbol_10",
+   "config_hash": "15a58799",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:33.274842+00:00"
+  },
+  {
+   "run_id": 7723,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "symbol_search__seconds_per_symbol_10",
+   "config_hash": "dfe46eda",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:34.889197+00:00"
+  },
+  {
+   "run_id": 7725,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "symbol_search__seconds_per_symbol_10",
+   "config_hash": "0e646b32",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:36.460780+00:00"
+  },
+  {
+   "run_id": 7727,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "symbol_search__seconds_per_symbol_10",
+   "config_hash": "2a95859d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:38.382365+00:00"
+  },
+  {
+   "run_id": 7729,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "symbol_search__seconds_per_symbol_40",
+   "config_hash": "daa464f6",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:43.566382+00:00"
+  },
+  {
+   "run_id": 7731,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "symbol_search__seconds_per_symbol_40",
+   "config_hash": "9f2b3151",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:43.997835+00:00"
+  },
+  {
+   "run_id": 7733,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "symbol_search__seconds_per_symbol_40",
+   "config_hash": "3c5b2737",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:44.600436+00:00"
+  },
+  {
+   "run_id": 7735,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "symbol_search__seconds_per_symbol_40",
+   "config_hash": "c90c5ab6",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:45.237342+00:00"
+  },
+  {
+   "run_id": 7737,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "symbol_search__seconds_per_symbol_40",
+   "config_hash": "7a9e514b",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:45.926700+00:00"
+  },
+  {
+   "run_id": 7739,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "symbol_search__seconds_per_symbol_40",
+   "config_hash": "77379651",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:46.818784+00:00"
+  },
+  {
+   "run_id": 7741,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "symbol_search__seconds_per_symbol_40",
+   "config_hash": "69fc44ba",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:47.696547+00:00"
+  },
+  {
+   "run_id": 7743,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "noise_threshold__k_sigma_3",
+   "config_hash": "4e861874",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:56.044950+00:00"
+  },
+  {
+   "run_id": 7745,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "noise_threshold__k_sigma_3",
+   "config_hash": "ffa14695",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:56.472432+00:00"
+  },
+  {
+   "run_id": 7747,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "noise_threshold__k_sigma_3",
+   "config_hash": "035eab10",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:56.985325+00:00"
+  },
+  {
+   "run_id": 7749,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "noise_threshold__k_sigma_3",
+   "config_hash": "669ed4fd",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:57.449763+00:00"
+  },
+  {
+   "run_id": 7751,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "noise_threshold__k_sigma_3",
+   "config_hash": "2dd56b6a",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:57.826881+00:00"
+  },
+  {
+   "run_id": 7753,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "noise_threshold__k_sigma_3",
+   "config_hash": "800b2790",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:58.249374+00:00"
+  },
+  {
+   "run_id": 7755,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "noise_threshold__k_sigma_3",
+   "config_hash": "579e04fd",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:13:58.729570+00:00"
+  },
+  {
+   "run_id": 7757,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "noise_threshold__k_sigma_6",
+   "config_hash": "b87f8590",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:03.549987+00:00"
+  },
+  {
+   "run_id": 7759,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "noise_threshold__k_sigma_6",
+   "config_hash": "5610b20c",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:03.982878+00:00"
+  },
+  {
+   "run_id": 7761,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "noise_threshold__k_sigma_6",
+   "config_hash": "26281600",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:04.402683+00:00"
+  },
+  {
+   "run_id": 7763,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "noise_threshold__k_sigma_6",
+   "config_hash": "a6abe37a",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:04.787699+00:00"
+  },
+  {
+   "run_id": 7765,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "noise_threshold__k_sigma_6",
+   "config_hash": "7564ad4c",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:05.168068+00:00"
+  },
+  {
+   "run_id": 7767,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "noise_threshold__k_sigma_6",
+   "config_hash": "f40db04c",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:05.621873+00:00"
+  },
+  {
+   "run_id": 7769,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "noise_threshold__k_sigma_6",
+   "config_hash": "0451962e",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:05.985691+00:00"
+  },
+  {
+   "run_id": 7771,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "signal_threshold__threshold_mV_m2",
+   "config_hash": "40b9274d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:10.436963+00:00"
+  },
+  {
+   "run_id": 7773,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "signal_threshold__threshold_mV_m2",
+   "config_hash": "6c366d91",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:10.707698+00:00"
+  },
+  {
+   "run_id": 7775,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "signal_threshold__threshold_mV_m2",
+   "config_hash": "fe053e0c",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:10.957762+00:00"
+  },
+  {
+   "run_id": 7777,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "signal_threshold__threshold_mV_m2",
+   "config_hash": "87209a32",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:11.219635+00:00"
+  },
+  {
+   "run_id": 7779,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "signal_threshold__threshold_mV_m2",
+   "config_hash": "e1e0e98c",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:11.528349+00:00"
+  },
+  {
+   "run_id": 7781,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "signal_threshold__threshold_mV_m2",
+   "config_hash": "4533c414",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:11.841555+00:00"
+  },
+  {
+   "run_id": 7783,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "signal_threshold__threshold_mV_m2",
+   "config_hash": "60dc087d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:12.119569+00:00"
+  },
+  {
+   "run_id": 7785,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "signal_threshold__threshold_mV_m5",
+   "config_hash": "1b240125",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:17.599904+00:00"
+  },
+  {
+   "run_id": 7787,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "signal_threshold__threshold_mV_m5",
+   "config_hash": "a44dafd8",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:17.905969+00:00"
+  },
+  {
+   "run_id": 7789,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "signal_threshold__threshold_mV_m5",
+   "config_hash": "f82ee6b8",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:18.230688+00:00"
+  },
+  {
+   "run_id": 7791,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "signal_threshold__threshold_mV_m5",
+   "config_hash": "1f3e3928",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:18.550363+00:00"
+  },
+  {
+   "run_id": 7793,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "signal_threshold__threshold_mV_m5",
+   "config_hash": "bb9f4fc1",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:18.946322+00:00"
+  },
+  {
+   "run_id": 7795,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "signal_threshold__threshold_mV_m5",
+   "config_hash": "584dfe99",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:19.400055+00:00"
+  },
+  {
+   "run_id": 7797,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "signal_threshold__threshold_mV_m5",
+   "config_hash": "cb78e5fe",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:19.860024+00:00"
+  },
+  {
+   "run_id": 7799,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "signal_threshold__threshold_mV_m10",
+   "config_hash": "0a9c997f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:23.789037+00:00"
+  },
+  {
+   "run_id": 7801,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "signal_threshold__threshold_mV_m10",
+   "config_hash": "9d67431e",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:24.041747+00:00"
+  },
+  {
+   "run_id": 7803,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "signal_threshold__threshold_mV_m10",
+   "config_hash": "b15c7a9b",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:24.329165+00:00"
+  },
+  {
+   "run_id": 7805,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "signal_threshold__threshold_mV_m10",
+   "config_hash": "3379cb64",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:24.568359+00:00"
+  },
+  {
+   "run_id": 7807,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "signal_threshold__threshold_mV_m10",
+   "config_hash": "51d7d1c3",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:24.802488+00:00"
+  },
+  {
+   "run_id": 7809,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "signal_threshold__threshold_mV_m10",
+   "config_hash": "c2dfadbd",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:25.056705+00:00"
+  },
+  {
+   "run_id": 7811,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "signal_threshold__threshold_mV_m10",
+   "config_hash": "61a35ac9",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:25.286103+00:00"
+  },
+  {
+   "run_id": 7813,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "deconvolved_troughs__recovery_half_s_60",
+   "config_hash": "5d8830a3",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:31.026345+00:00"
+  },
+  {
+   "run_id": 7815,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "deconvolved_troughs__recovery_half_s_60",
+   "config_hash": "431b76d8",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:34.688567+00:00"
+  },
+  {
+   "run_id": 7817,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "deconvolved_troughs__recovery_half_s_60",
+   "config_hash": "c32f9744",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:37.273346+00:00"
+  },
+  {
+   "run_id": 7819,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "deconvolved_troughs__recovery_half_s_60",
+   "config_hash": "504a8a14",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:42.261132+00:00"
+  },
+  {
+   "run_id": 7821,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "deconvolved_troughs__recovery_half_s_60",
+   "config_hash": "9b314d71",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:45.854312+00:00"
+  },
+  {
+   "run_id": 7823,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "deconvolved_troughs__recovery_half_s_60",
+   "config_hash": "37a61c19",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:48.922070+00:00"
+  },
+  {
+   "run_id": 7825,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "deconvolved_troughs__recovery_half_s_60",
+   "config_hash": "b3b4eb92",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:14:52.034365+00:00"
+  },
+  {
+   "run_id": 7827,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "deconvolved_troughs__recovery_half_s_240",
+   "config_hash": "30948b69",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:02.787428+00:00"
+  },
+  {
+   "run_id": 7829,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "deconvolved_troughs__recovery_half_s_240",
+   "config_hash": "0c818dbc",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:06.232081+00:00"
+  },
+  {
+   "run_id": 7831,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "deconvolved_troughs__recovery_half_s_240",
+   "config_hash": "48af28df",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:08.931585+00:00"
+  },
+  {
+   "run_id": 7833,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "deconvolved_troughs__recovery_half_s_240",
+   "config_hash": "2835d9b6",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:11.705921+00:00"
+  },
+  {
+   "run_id": 7835,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "deconvolved_troughs__recovery_half_s_240",
+   "config_hash": "3391c0c3",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:15.166791+00:00"
+  },
+  {
+   "run_id": 7837,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "deconvolved_troughs__recovery_half_s_240",
+   "config_hash": "f5155ac8",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:17.973440+00:00"
+  },
+  {
+   "run_id": 7839,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "deconvolved_troughs__recovery_half_s_240",
+   "config_hash": "fd7827a9",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:20.381341+00:00"
+  },
+  {
+   "run_id": 7841,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "OASIS_Deconvolution__threshold_3",
+   "config_hash": "10979d97",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:29.426650+00:00"
+  },
+  {
+   "run_id": 7843,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "OASIS_Deconvolution__threshold_3",
+   "config_hash": "740a2e2a",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:29.723334+00:00"
+  },
+  {
+   "run_id": 7845,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "OASIS_Deconvolution__threshold_3",
+   "config_hash": "e4c0a598",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:30.008115+00:00"
+  },
+  {
+   "run_id": 7847,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "OASIS_Deconvolution__threshold_3",
+   "config_hash": "5f6ce123",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:30.460325+00:00"
+  },
+  {
+   "run_id": 7849,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "OASIS_Deconvolution__threshold_3",
+   "config_hash": "e15bfb0d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:30.899246+00:00"
+  },
+  {
+   "run_id": 7851,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "OASIS_Deconvolution__threshold_3",
+   "config_hash": "f6eee2b2",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:31.253241+00:00"
+  },
+  {
+   "run_id": 7853,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "OASIS_Deconvolution__threshold_3",
+   "config_hash": "6958aa4b",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:31.577083+00:00"
+  },
+  {
+   "run_id": 7855,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "OASIS_Deconvolution__threshold_5",
+   "config_hash": "10617591",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:37.535305+00:00"
+  },
+  {
+   "run_id": 7857,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "OASIS_Deconvolution__threshold_5",
+   "config_hash": "ecd6d415",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:38.034586+00:00"
+  },
+  {
+   "run_id": 7859,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "OASIS_Deconvolution__threshold_5",
+   "config_hash": "2824efe5",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:38.688444+00:00"
+  },
+  {
+   "run_id": 7861,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "OASIS_Deconvolution__threshold_5",
+   "config_hash": "bbe41d58",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:39.362584+00:00"
+  },
+  {
+   "run_id": 7863,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "OASIS_Deconvolution__threshold_5",
+   "config_hash": "b6e13279",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:39.826616+00:00"
+  },
+  {
+   "run_id": 7865,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "OASIS_Deconvolution__threshold_5",
+   "config_hash": "d8abb982",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:40.547442+00:00"
+  },
+  {
+   "run_id": 7867,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "OASIS_Deconvolution__threshold_5",
+   "config_hash": "d7e7a7bc",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:41.285763+00:00"
+  },
+  {
+   "run_id": 7869,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "BEADs_invert_detect_v1__delta_mv_5",
+   "config_hash": "97cb61e1",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:46.199246+00:00"
+  },
+  {
+   "run_id": 7871,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "BEADs_invert_detect_v1__delta_mv_5",
+   "config_hash": "64c007b2",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:46.737399+00:00"
+  },
+  {
+   "run_id": 7873,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "BEADs_invert_detect_v1__delta_mv_5",
+   "config_hash": "6321eb07",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:47.329386+00:00"
+  },
+  {
+   "run_id": 7875,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "BEADs_invert_detect_v1__delta_mv_5",
+   "config_hash": "08486d26",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:47.809446+00:00"
+  },
+  {
+   "run_id": 7877,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "BEADs_invert_detect_v1__delta_mv_5",
+   "config_hash": "446889c3",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:48.312781+00:00"
+  },
+  {
+   "run_id": 7879,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "BEADs_invert_detect_v1__delta_mv_5",
+   "config_hash": "7f439405",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:48.927885+00:00"
+  },
+  {
+   "run_id": 7881,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "BEADs_invert_detect_v1__delta_mv_5",
+   "config_hash": "ed6ff72d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:49.300294+00:00"
+  },
+  {
+   "run_id": 7883,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "BEADs_invert_detect_v1__delta_mv_25",
+   "config_hash": "92237fd7",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:54.299575+00:00"
+  },
+  {
+   "run_id": 7885,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "BEADs_invert_detect_v1__delta_mv_25",
+   "config_hash": "ab89e562",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:54.652362+00:00"
+  },
+  {
+   "run_id": 7887,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "BEADs_invert_detect_v1__delta_mv_25",
+   "config_hash": "044f76c3",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:55.010211+00:00"
+  },
+  {
+   "run_id": 7889,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "BEADs_invert_detect_v1__delta_mv_25",
+   "config_hash": "415f862d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:55.475649+00:00"
+  },
+  {
+   "run_id": 7891,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "BEADs_invert_detect_v1__delta_mv_25",
+   "config_hash": "462cd035",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:55.843913+00:00"
+  },
+  {
+   "run_id": 7893,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "BEADs_invert_detect_v1__delta_mv_25",
+   "config_hash": "a2c257da",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:56.220920+00:00"
+  },
+  {
+   "run_id": 7895,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "BEADs_invert_detect_v1__delta_mv_25",
+   "config_hash": "a556a5cc",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:15:56.562342+00:00"
+  },
+  {
+   "run_id": 7897,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "cnn_fusion3_10min",
+   "config_hash": "cdb81ac9",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:00.769951+00:00"
+  },
+  {
+   "run_id": 7899,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "cnn_fusion3_10min",
+   "config_hash": "24a54e1b",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:01.035920+00:00"
+  },
+  {
+   "run_id": 7901,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "cnn_fusion3_10min",
+   "config_hash": "acc9f5ae",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:01.299466+00:00"
+  },
+  {
+   "run_id": 7903,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "cnn_fusion3_10min",
+   "config_hash": "ec0e03b6",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:01.665436+00:00"
+  },
+  {
+   "run_id": 7905,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "cnn_fusion3_10min",
+   "config_hash": "e74a95ce",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:01.932252+00:00"
+  },
+  {
+   "run_id": 7907,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "cnn_fusion3_10min",
+   "config_hash": "4210c44a",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:02.240250+00:00"
+  },
+  {
+   "run_id": 7909,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "cnn_fusion3_10min",
+   "config_hash": "0ad6ab20",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:02.624377+00:00"
+  },
+  {
+   "run_id": 7911,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "cnn_fusion3_1min",
+   "config_hash": "c02e9b85",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:07.011491+00:00"
+  },
+  {
+   "run_id": 7913,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "cnn_fusion3_1min",
+   "config_hash": "c59db778",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:07.240705+00:00"
+  },
+  {
+   "run_id": 7915,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "cnn_fusion3_1min",
+   "config_hash": "b5d0beb1",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:07.477952+00:00"
+  },
+  {
+   "run_id": 7917,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "cnn_fusion3_1min",
+   "config_hash": "dc1ca89c",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:07.776018+00:00"
+  },
+  {
+   "run_id": 7919,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "cnn_fusion3_1min",
+   "config_hash": "48a47851",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:08.068127+00:00"
+  },
+  {
+   "run_id": 7921,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "cnn_fusion3_1min",
+   "config_hash": "14578f04",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:08.269904+00:00"
+  },
+  {
+   "run_id": 7923,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "cnn_fusion3_1min",
+   "config_hash": "6209cdf5",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:08.496828+00:00"
+  },
+  {
+   "run_id": 7925,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "cnn_fusion3_60min",
+   "config_hash": "a158ca7f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:13.249566+00:00"
+  },
+  {
+   "run_id": 7927,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "cnn_fusion3_60min",
+   "config_hash": "2aea7e34",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:13.501193+00:00"
+  },
+  {
+   "run_id": 7929,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "cnn_fusion3_60min",
+   "config_hash": "2864673f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:13.735796+00:00"
+  },
+  {
+   "run_id": 7931,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "cnn_fusion3_60min",
+   "config_hash": "641ae268",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:13.948077+00:00"
+  },
+  {
+   "run_id": 7933,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "cnn_fusion3_60min",
+   "config_hash": "6d892e66",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:14.221824+00:00"
+  },
+  {
+   "run_id": 7935,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "cnn_fusion3_60min",
+   "config_hash": "44353cf0",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:14.465210+00:00"
+  },
+  {
+   "run_id": 7937,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "cnn_fusion3_60min",
+   "config_hash": "01d5740c",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:14.736640+00:00"
+  },
+  {
+   "run_id": 7939,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "cnn_gadf_10min",
+   "config_hash": "ce5d9e1d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:19.756521+00:00"
+  },
+  {
+   "run_id": 7941,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "cnn_gadf_10min",
+   "config_hash": "185c18f9",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:20.020802+00:00"
+  },
+  {
+   "run_id": 7943,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "cnn_gadf_10min",
+   "config_hash": "3e403373",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:20.292832+00:00"
+  },
+  {
+   "run_id": 7945,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "cnn_gadf_10min",
+   "config_hash": "388639f6",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:20.593115+00:00"
+  },
+  {
+   "run_id": 7947,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "cnn_gadf_10min",
+   "config_hash": "d8658087",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:20.841865+00:00"
+  },
+  {
+   "run_id": 7949,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "cnn_gadf_10min",
+   "config_hash": "99a6a3fc",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:21.077116+00:00"
+  },
+  {
+   "run_id": 7951,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "cnn_gadf_10min",
+   "config_hash": "216e823d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:21.300605+00:00"
+  },
+  {
+   "run_id": 7953,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "cnn_gadf_1min",
+   "config_hash": "85800475",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:25.993578+00:00"
+  },
+  {
+   "run_id": 7955,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "cnn_gadf_1min",
+   "config_hash": "11ed5ad9",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:26.249265+00:00"
+  },
+  {
+   "run_id": 7957,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "cnn_gadf_1min",
+   "config_hash": "c5156dd2",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:26.497946+00:00"
+  },
+  {
+   "run_id": 7959,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "cnn_gadf_1min",
+   "config_hash": "1ca1c475",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:26.800281+00:00"
+  },
+  {
+   "run_id": 7961,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "cnn_gadf_1min",
+   "config_hash": "13007e56",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:27.034407+00:00"
+  },
+  {
+   "run_id": 7963,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "cnn_gadf_1min",
+   "config_hash": "d6ac4ac1",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:27.283207+00:00"
+  },
+  {
+   "run_id": 7965,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "cnn_gadf_1min",
+   "config_hash": "2b468227",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:27.549279+00:00"
+  },
+  {
+   "run_id": 7967,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "cnn_gadf_60min",
+   "config_hash": "b3a1b91d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:32.350075+00:00"
+  },
+  {
+   "run_id": 7969,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "cnn_gadf_60min",
+   "config_hash": "fbf336da",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:42.497742+00:00"
+  },
+  {
+   "run_id": 7971,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "cnn_gadf_60min",
+   "config_hash": "cb8cf3b1",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:45.469596+00:00"
+  },
+  {
+   "run_id": 7973,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "cnn_gadf_60min",
+   "config_hash": "b24ececa",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:48.892148+00:00"
+  },
+  {
+   "run_id": 7975,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "cnn_gadf_60min",
+   "config_hash": "eb08a207",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:51.844976+00:00"
+  },
+  {
+   "run_id": 7977,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "cnn_gadf_60min",
+   "config_hash": "45bfe360",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:54.696579+00:00"
+  },
+  {
+   "run_id": 7979,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "cnn_gadf_60min",
+   "config_hash": "04db1f37",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:16:57.248248+00:00"
+  },
+  {
+   "run_id": 7981,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "cnn_gasf_10min",
+   "config_hash": "c07ba44e",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:03.786845+00:00"
+  },
+  {
+   "run_id": 7983,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "cnn_gasf_10min",
+   "config_hash": "50dd245a",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:03.996648+00:00"
+  },
+  {
+   "run_id": 7985,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "cnn_gasf_10min",
+   "config_hash": "5ecd2e0a",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:04.234935+00:00"
+  },
+  {
+   "run_id": 7987,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "cnn_gasf_10min",
+   "config_hash": "15c9ed49",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:04.505383+00:00"
+  },
+  {
+   "run_id": 7989,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "cnn_gasf_10min",
+   "config_hash": "2f54fea2",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:04.731690+00:00"
+  },
+  {
+   "run_id": 7991,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "cnn_gasf_10min",
+   "config_hash": "b42b3853",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:04.932329+00:00"
+  },
+  {
+   "run_id": 7993,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "cnn_gasf_10min",
+   "config_hash": "5372cd81",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:05.119943+00:00"
+  },
+  {
+   "run_id": 7995,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "cnn_gasf_1min",
+   "config_hash": "621ac6c6",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:09.894138+00:00"
+  },
+  {
+   "run_id": 7997,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "cnn_gasf_1min",
+   "config_hash": "e160a4c4",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:10.092425+00:00"
+  },
+  {
+   "run_id": 7999,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "cnn_gasf_1min",
+   "config_hash": "1d36b828",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:10.318848+00:00"
+  },
+  {
+   "run_id": 8001,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "cnn_gasf_1min",
+   "config_hash": "bb0ad391",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:10.564488+00:00"
+  },
+  {
+   "run_id": 8003,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "cnn_gasf_1min",
+   "config_hash": "3be5ab3d",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:10.816564+00:00"
+  },
+  {
+   "run_id": 8005,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "cnn_gasf_1min",
+   "config_hash": "7fdcbdb8",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:10.999445+00:00"
+  },
+  {
+   "run_id": 8007,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "cnn_gasf_1min",
+   "config_hash": "96fac89f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:11.209681+00:00"
+  },
+  {
+   "run_id": 8009,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "cnn_gasf_60min",
+   "config_hash": "76e07687",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:16.277000+00:00"
+  },
+  {
+   "run_id": 8011,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "cnn_gasf_60min",
+   "config_hash": "14864311",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:18.653361+00:00"
+  },
+  {
+   "run_id": 8013,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "cnn_gasf_60min",
+   "config_hash": "06603ae8",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:21.960658+00:00"
+  },
+  {
+   "run_id": 8015,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "cnn_gasf_60min",
+   "config_hash": "db4a3510",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:22.297893+00:00"
+  },
+  {
+   "run_id": 8017,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "cnn_gasf_60min",
+   "config_hash": "27e26960",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:25.866925+00:00"
+  },
+  {
+   "run_id": 8019,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "cnn_gasf_60min",
+   "config_hash": "507f303b",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:29.397058+00:00"
+  },
+  {
+   "run_id": 8021,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "cnn_gasf_60min",
+   "config_hash": "6c79fbd5",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:29.803216+00:00"
+  },
+  {
+   "run_id": 8023,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "cnn_recurrence_10min",
+   "config_hash": "c0bdb668",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:33.418138+00:00"
+  },
+  {
+   "run_id": 8025,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "cnn_recurrence_10min",
+   "config_hash": "caea2ee4",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:33.803803+00:00"
+  },
+  {
+   "run_id": 8027,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "cnn_recurrence_10min",
+   "config_hash": "65e12c73",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:34.119086+00:00"
+  },
+  {
+   "run_id": 8029,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "cnn_recurrence_10min",
+   "config_hash": "826c5813",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:34.434394+00:00"
+  },
+  {
+   "run_id": 8031,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "cnn_recurrence_10min",
+   "config_hash": "d9a3ac5e",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:34.714911+00:00"
+  },
+  {
+   "run_id": 8033,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "cnn_recurrence_10min",
+   "config_hash": "fac5818f",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:35.022639+00:00"
+  },
+  {
+   "run_id": 8035,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "cnn_recurrence_10min",
+   "config_hash": "e87a88a3",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:35.316566+00:00"
+  },
+  {
+   "run_id": 8037,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "cnn_recurrence_1min",
+   "config_hash": "2dab08a9",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:39.677136+00:00"
+  },
+  {
+   "run_id": 8039,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "cnn_recurrence_1min",
+   "config_hash": "57bbd5b8",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:39.958692+00:00"
+  },
+  {
+   "run_id": 8041,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "cnn_recurrence_1min",
+   "config_hash": "c6971b74",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:40.204540+00:00"
+  },
+  {
+   "run_id": 8043,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "cnn_recurrence_1min",
+   "config_hash": "7ce3884a",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:40.485787+00:00"
+  },
+  {
+   "run_id": 8045,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "cnn_recurrence_1min",
+   "config_hash": "d159069e",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:40.704590+00:00"
+  },
+  {
+   "run_id": 8047,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "cnn_recurrence_1min",
+   "config_hash": "ab06ade3",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:40.915030+00:00"
+  },
+  {
+   "run_id": 8049,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "cnn_recurrence_1min",
+   "config_hash": "2f3d01d5",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:41.182569+00:00"
+  },
+  {
+   "run_id": 8051,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "cnn_recurrence_60min",
+   "config_hash": "87ac2751",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:46.303455+00:00"
+  },
+  {
+   "run_id": 8053,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "cnn_recurrence_60min",
+   "config_hash": "1a7cdb56",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:48.426499+00:00"
+  },
+  {
+   "run_id": 8055,
+   "recording_id": 602,
+   "channel": 2,
+   "variant": "cnn_recurrence_60min",
+   "config_hash": "7c9dce0a",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:51.111476+00:00"
+  },
+  {
+   "run_id": 8057,
+   "recording_id": 603,
+   "channel": 3,
+   "variant": "cnn_recurrence_60min",
+   "config_hash": "46fed421",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:53.454369+00:00"
+  },
+  {
+   "run_id": 8059,
+   "recording_id": 604,
+   "channel": 4,
+   "variant": "cnn_recurrence_60min",
+   "config_hash": "717992bb",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:55.994666+00:00"
+  },
+  {
+   "run_id": 8061,
+   "recording_id": 605,
+   "channel": 5,
+   "variant": "cnn_recurrence_60min",
+   "config_hash": "1b770a71",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:17:58.288679+00:00"
+  },
+  {
+   "run_id": 8063,
+   "recording_id": 606,
+   "channel": 6,
+   "variant": "cnn_recurrence_60min",
+   "config_hash": "632b4b81",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:18:00.674221+00:00"
+  },
+  {
+   "run_id": 8065,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "mp_threshold__backend_auto",
+   "config_hash": "6d33932e",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:18:07.562495+00:00"
+  },
+  {
+   "run_id": 8067,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "mp_threshold__backend_auto",
+   "config_hash": "8d582b2b",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:18:07.821242+00:00"
+  },
+  {
+   "run_id": 8069,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "mp_threshold__threshold_6__backend_auto",
+   "config_hash": "9b2df1a6",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:18:12.562044+00:00"
+  },
+  {
+   "run_id": 8071,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "mp_threshold__threshold_6__backend_auto",
+   "config_hash": "4ddb1600",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:18:12.788779+00:00"
+  },
+  {
+   "run_id": 8073,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "mp_threshold__threshold_10__backend_auto",
+   "config_hash": "fd735fca",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:18:17.734830+00:00"
+  },
+  {
+   "run_id": 8075,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "mp_threshold__threshold_10__backend_auto",
+   "config_hash": "d6d65372",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:18:18.089004+00:00"
+  },
+  {
+   "run_id": 8077,
+   "recording_id": 600,
+   "channel": 0,
+   "variant": "mp_motifs__backend_auto",
+   "config_hash": "ddeb78a7",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:18:22.941312+00:00"
+  },
+  {
+   "run_id": 8079,
+   "recording_id": 601,
+   "channel": 1,
+   "variant": "mp_motifs__backend_auto",
+   "config_hash": "e3a809bf",
+   "span": [
+    0,
+    263687
+   ],
+   "status": "completed",
+   "started_at": "2026-10-28T22:18:25.600689+00:00"
+  }
+ ]
+}

@@ -2,8 +2,9 @@
 \label{app:exam}
 
 \begin{instructions}
-One page. Summarise the frozen manifest and the amendment. Give the full sha256s here: the main text carries only
-prefixes. Point to the files.
+One page per exam. Summarise the frozen manifest and the amendment. Give the full sha256s here: the main text carries
+only prefixes. Point to the files. The \textit{S.~commune} exam (Table~\ref{tab:scommunerecord}) was drawn on 29 Oct;
+fill its last rows once queue 37 is judged and scored.
 \end{instructions}
 
 \begin{table}[htbp]
@@ -28,6 +29,31 @@ Protocol & Lock off (audited) $\rightarrow$ judge queue 36 only $\rightarrow$ lo
 Judged (28 Oct) & Lock off, audit 1157 (10:36 UTC); all 290 items judged (276 answered, 14 unsure); lock on, audit 1159 (11:49 UTC)\\
 Unit declared & M4 declared V during judging, audit 1158, so that Review could draw its traces; the scorers already read an undeclared unit as volts, so no score changed\\
 Scored (28 Oct) & Once, 12:00 UTC, by \texttt{scripts/m4\_exam\_score.py} (sha256 \texttt{68fbecfb\ldots0588}); \texttt{DATA/derived/exam/M4/results.json}; \texttt{docs/rq\_roundA\_2/findings/m4-exam-2026-10-28.md}\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[htbp]
+\caption{The \textit{S.~commune} exam, the second unseen recording, as frozen before any judging. It is not held out, so no lock applies: the draw and the marking refuse anything out of order instead.}
+\label{tab:scommunerecord}
+\footnotesize
+\begin{tabularx}{\textwidth}{p{3.4cm} X}
+\toprule
+\textbf{Item} & \textbf{Value}\\
+\midrule
+Recording & \texttt{Schizophyllum commune.txt} (Adamatzky's split gill): 7 channels, 73.25\,h, 1\,Hz, mV; from another lab\\
+Manifest & \texttt{docs/rq\_roundA\_2/exam/scommune-exam-manifest.json}\\
+Manifest sha256 & \texttt{e11ec64aab03bc80801afea650895802c62788ade3eb32b316d7a6d5393bf9f0} (audit 1166, 28 Oct 22:20 UTC)\\
+Detectors sha256 & \texttt{1480ee54d2eece98096b3ba9d81897d4357e250c02ca99b8c638776e4b6c22fb}\\
+Models frozen & MiniRocket R4; the four reference CNNs inline, in M4's amendment-1 form, so no amendment is needed; each by file hash\\
+Detector settings & The 302 real runs of Discovery session 12 (42 settings on 7 channels, 4 matrix-profile settings on 2), swept on rangpur and imported 29 Oct\\
+Sample & 263 candidate events: agreement strata 1--2, 3--4, 5--6, 7--8 and 9+ (40 each), plus 15 each from drop v1, drop v5, symbol search and wavelet-encoded, and BEADs (1) and signal threshold (2) taken whole; seed 20261027; queue 37 (audit 1167)\\
+Pool & 32,453 candidate events from 45,930 detections (the 1-minute CNNs left out); none judged before\\
+Known risk & Amplitudes far smaller than R4's training recordings (standard deviation 0.15--0.6\,mV against 50--170\,mV), so R4's side features may lie outside their training range; recorded, nothing adjusted\\
+Protocol & Judge queue 37 only, with no other view of \textit{S.~commune} open $\rightarrow$ score once with \texttt{scripts/m4\_exam\_score.py --manifest}, which refuses another table, seed or quota and any verdict older than the freeze\\
+\midrule
+Judged & --\\
+Scored & --\\
 \bottomrule
 \end{tabularx}
 \end{table}

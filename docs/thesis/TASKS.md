@@ -1,4 +1,4 @@
-# Your outstanding tasks (as of Wed 28 Oct 2026)
+# Your outstanding tasks (as of Thu 29 Oct 2026)
 
 **Dates:** experiments freeze **Tue 3 Nov** · full draft **Thu 5 Nov** · thesis due **Mon 9 Nov, 3 pm**.
 
@@ -28,9 +28,18 @@ In plain words: these are the blind piles of events that only you can sort. Each
 |---|---|---|---|---|
 | 1 | **35** RQ2 blind panel | 249 of 249 | RQ2: do Library seeds find real motifs, against duration-matched controls? | `"/c/ProgramData/anaconda3/python.exe" scripts/rq2_blind.py score --real --key DATA/derived/rq2_blind/20261026-rq2blind/key.json` |
 | 2 | **36** M4 held-out exam | 290 of 290 | RQ3: does the frozen classifier work on a recording it has never seen? | `"/c/ProgramData/anaconda3/python.exe" scripts/m4_exam_score.py --real` |
+| 3 | **37** *S. commune* exam | 263 of 263 | RQ3 again: does it work on a second unseen recording, from another lab? | I run it once, when you say it's done (README step 6) |
 
-**Done 28 Oct:** both queues judged and scored. RQ2 is answered blind, and the M4 exam gives MiniRocket an AUC of 0.98
-and a balanced accuracy of 0.93 (Chapters 7 and 8).
+**Done 28 Oct:** queues 35 and 36 judged and scored. RQ2 is answered blind, and the M4 exam gives MiniRocket an AUC
+of 0.98 and a balanced accuracy of 0.93 (Chapters 7 and 8).
+
+- [ ] **Queue 37, the *S. commune* exam (drawn 29 Oct).** It is 263 items, not 290, because two detector families
+      found only 1 and 2 events there. *S. commune* is not held out, so there is no lock to switch: keeping the exam
+      blind is up to you.
+  1. In Review, open **only** queue 37.
+  2. Open no Discovery Map, Library page or other queue that shows *S. commune* until it is done. Its runs are in the
+     database now, so they would show there.
+  3. Judge all 263, then tell me. The score runs once, and it refuses any verdict older than the freeze.
 
 - [x] **Queue 35 first, before any other seed queue.** Seeing seed matches first would break its blindness.
 - [x] **Queue 36, step by step:**
@@ -46,8 +55,7 @@ and a balanced accuracy of 0.93 (Chapters 7 and 8).
   - queue 7 (the long-dip census) has 11 left. Finishing it completes that census, from 104 to 115 of 115.
 
 **Coming later.** I create these; each is about 15 minutes of judging:
-- [ ] The *S. commune* exam queue (about 290 items), after its sweep is imported (§3a). The blind rules are the same:
-      open only that queue until it is done.
+- [x] The *S. commune* exam queue: it is queue 37, above.
 - [ ] The 2 Hz blind sample of MJu26a, SH and SO, after their sweep is imported (§3d). It feeds **g-12**, the grouping
       frozen for Chapters 9 and 10 (Round 5 Q4).
 - [ ] B4's artifact queue, only if the cross-channel build reaches its slice S5 (§5).
@@ -72,11 +80,12 @@ Review.
 
 ## 3. Cluster jobs (rangpur)
 
-In plain words: four bundles are built and waiting. None is confirmed submitted. They share the 30 GB quota, so bring
-each big one home, and clean up, before starting the next big one.
+In plain words: four bundles were built. (a) and (b) are done: home and imported on 29 Oct. They share the 30 GB quota,
+so bring each big one home, and clean up, before starting the next big one. Clear (a)'s and (b)'s folders on rangpur
+first; (b)'s `cache/` alone is about 1.4 GB.
 
 **Recommended order:**
-1. (a) and (b) together, now.
+1. ~~(a) and (b) together, now.~~ Done.
 2. (d) next: g-12 and four round-B questions wait on it.
 3. (c) last.
 
@@ -87,34 +96,39 @@ each big one home, and clean up, before starting the next big one.
 | c | 20-draw surrogate re-runs on M2_aug | 96 tasks; 5–18 CPU core-hours plus 1–3 GPU-hours | 10–30 GB | below (no README) |
 | d | MJu26a, SH and SO at 2 Hz | 1,014 tasks; 40–60 CPU core-hours, 12–16 A100-hours; 5–8 h wall | about 10 GB (up to about 35) | `docs/thesis/hpc/rq4_newsets_20261027/README.md` |
 
-### (a) *S. commune*
-- [ ] Copy:
+### (a) *S. commune* — done (home and imported 29 Oct)
+- [x] Copy:
   `scp DATA/derived/hpc/rq4_scommune_20261026/rq4_scommune_upload.tar.gz s4699158@rangpur.compute.eait.uq.edu.au:~/`
-- [ ] *rangpur*, in `~/CNN`:
+- [x] *rangpur*, in `~/CNN`:
   1. `sha256sum ~/rq4_scommune_upload.tar.gz` should print `7128fe033eecd38b78431820a1bd4d84199ace388ab605b88582e7ac53d15e4f`;
   2. `tar xzf ~/rq4_scommune_upload.tar.gz`;
   3. the environment checks in README step 2;
   4. `quota -s`.
-- [ ] Submit: `bash docs/thesis/hpc/rq4_scommune_20261026/submit_rq4s.sh`
-- [ ] Bring it back and import (README steps 6–8), or tell me when the archive is home and I'll run the PC side.
-      *29 Oct:* `rq4s_return.tar.gz` is in the repo root (5.4 MB, 07:54); the PC side waits on your go-ahead:
-  1. one return archive;
-  2. a backup;
-  3. a Discovery session on *S. commune*;
-  4. an `adopt` dry run, then `--apply --allow-project`;
-  5. Discovery back on M2_aug.
-- Then I build its candidate table, freeze the manifest and draw the queue (§2). The score runs once, after you judge.
+- [x] Submit: `bash docs/thesis/hpc/rq4_scommune_20261026/submit_rq4s.sh`
+- [x] Bring it back and import. The archive came home on 29 Oct (296 of 296 tasks), and I ran the PC side that morning:
+  1. the archive went to `DATA/derived/hpc/rq4_scommune_20261026/` and was unpacked;
+  2. the backup is `DATA/db/backups/pre-scommune-import-20261029.sqlite`;
+  3. the Discovery session on *S. commune* is session 12;
+  4. `adopt` imported 43 of 43 jobs, plus the 3 matrix-profile copies: 46 runs;
+  5. Discovery is back on M2_aug (session 9).
+- [x] Then the exam:
+  - the candidate table, `Schizophyllum_commune_5b54500c`: 32,453 events;
+  - the frozen manifest: sha256 `e11ec64a…5393bf9f0`, audit 1166;
+  - queue 37, 263 items: audit 1167 (§2).
 
-### (b) Fair CNN
-- [ ] Copy: `scp -r DATA/derived/hpc/rq1b_cnn_loro_20261026 s4699158@rangpur.compute.eait.uq.edu.au:CNN/DATA/derived/hpc/`
-- [ ] *rangpur*:
+  The score runs once, after you judge.
+
+### (b) Fair CNN — done (trained 28 Oct, imported 29 Oct)
+The result: the CNN matches R4 on R4's folds (Chapter 8, Table *faircnn*).
+- [x] Copy: `scp -r DATA/derived/hpc/rq1b_cnn_loro_20261026 s4699158@rangpur.compute.eait.uq.edu.au:CNN/DATA/derived/hpc/`
+- [x] *rangpur*:
   1. `git pull`. The code it needs is already on GitHub. If the pull refuses because an unpacked archive changed files,
      skip it: the archive's code is newer.
   2. Once, on the login node, to download the pretrained weights:
      `conda activate torch_env && python -c "from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights as W; efficientnet_b0(weights=W.DEFAULT)"`
-- [ ] Submit: `ENC=$(sbatch --parsable DATA/derived/hpc/rq1b_cnn_loro_20261026/encode.sh)`, then
+- [x] Submit: `ENC=$(sbatch --parsable DATA/derived/hpc/rq1b_cnn_loro_20261026/encode.sh)`, then
   `sbatch --dependency=afterok:$ENC DATA/derived/hpc/rq1b_cnn_loro_20261026/train.sh`
-- [ ] Copy `out/` back into the same folder here; leave `cache/` on the cluster (about 1.4 GB of pictures). Then:
+- [x] Copy `out/` back into the same folder here; leave `cache/` on the cluster (about 1.4 GB of pictures). Then:
   `"/c/ProgramData/anaconda3/python.exe" scripts/rq1b_cnn_vs_minirocket.py import --job DATA/derived/hpc/rq1b_cnn_loro_20261026`
 
 ### (c) 20-draw surrogate re-runs
@@ -218,9 +232,9 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
 | **B3:** the restitution test (recovery against the gap before it, with a shuffled-gap null), and per-cycle model tracking (fall + recovery, FHN, Izhikevich) judged by held-out cycles (Round 5 Q1, A + B) | **done** 28 Oct (`7ab5071`). There is no within-train restitution, but a modest relation across census gaps on oyster. No model beats the neighbouring-cycle mean. Results are in Chapter 10 |
 | **B1 and B2:** Intervals' LV and CV2 against Poisson and shuffled nulls; the sequence morph readout (Round 4 Q3) | **done** 28 Oct (`ffc909c`). The shared client is rebuilt, so 8765 shows both once it starts |
 | Score queues 35 and 36, and put the results into Chapters 7 and 8 | **done** 28 Oct |
-| *S. commune* exam: the candidate table, the frozen manifest and the blind queue; then the single score | §3a imported |
+| *S. commune* exam: the candidate table, the frozen manifest and the blind queue; then the single score | imported, frozen and drawn 29 Oct (session 12, sha256 `e11ec64a…`, queue 37). Waits on your judging of queue 37 (§2) |
 | The 2 Hz blind sample, then the verdict-free promote, then g-12, frozen for Chapters 9 and 10 | §3d imported, then your judging |
-| The fair-CNN comparison write-up (RQ1b) | §3b imported |
+| The fair-CNN comparison write-up (RQ1b) | **done** 29 Oct (`a73afd2`). Trained on R4's rows and folds, the CNN matches R4: pooled AUC 0.970–0.973 against 0.971. Chapter 8, ledger C16 |
 | The 20-draw surrogate statistics (Chapter 6) | §3c imported |
 | **B4:** S0, the channel layout reader (packs and positions) | **done** 28 Oct (`44861b1`) |
 | **B4:** S1, the census of co-occurring events and its nulls. Then I walk its smoke states and run its thesis script on a bridge backup | **done** 28 Oct: merged (`a68a1ff`) and run on M2_aug, M2_concat, CO and LM. No evidence of propagation on M2_aug; M2_concat's co-occurrences are copies on CH5–8. MJu26a, SH and SO wait for the 2 Hz sweep |
