@@ -175,7 +175,9 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
 
 ## 5. Decisions waiting on you
 
-- [ ] **The cross-channel explorer build (B4).**
+- [x] **The cross-channel explorer build (B4).** Yes, S0 and S1 (28 Oct). S0, the layout reader, is done
+      (`44861b1`). S1, the census and its nulls, is running in its own worktree. The rest waits until after the thesis.
+      The original question, for the record:
   - *Plain version:* B4 asks whether activity travels from electrode to electrode, or whether shared wiring just makes
     channels move together. It can't be answered until the explorer page exists.
   - The workshop wrote ten slices in four waves (`docs/prompts/changes/cross-channel-explorer.md`, commit `82f4fa4`).
@@ -216,6 +218,8 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
 | The 2 Hz blind sample, then the verdict-free promote, then g-12, frozen for Chapters 9 and 10 | §3d imported, then your judging |
 | The fair-CNN comparison write-up (RQ1b) | §3b imported |
 | The 20-draw surrogate statistics (Chapter 6) | §3c imported |
+| **B4:** S0, the channel layout reader (packs and positions) | **done** 28 Oct (`44861b1`) |
+| **B4:** S1, the census of co-occurring events and its nulls. Then I walk its smoke states and run its thesis script on a bridge backup | running in its own worktree |
 | Register the ghost fungus (B7) | the bridge (§1) |
 | Run B5 and B7–B12 on the site and draft the Chapter 10 studies | the imports above |
 | Recompile the thesis and commit after each step | — |
