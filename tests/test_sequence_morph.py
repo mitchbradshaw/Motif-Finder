@@ -152,9 +152,69 @@ def test_an_empty_waveform_is_refused_loudly():
         M.morph_readout(ws, n_draws=50, seed=1)
 
 
-if __name__ == "__main__":
-    sys.exit(pytest.main([__file__, "-v"]))
+# ── the step-size companion (researcher, 2026-10-28) ────────────────────────
+#
+# In plain words: are neighbouring events more alike than random pairs of the
+# same events? The mean shape distance between consecutive elements, against
+# the same shuffled orders as the fraction; one-sided p = how often a shuffled
+# order takes steps at least as small. A sequence and its reverse take the same
+# steps, so the floor is 2/k! and five elements can be judged - which the morph
+# fraction cannot do below about 20.
 
+def test_the_step_score_by_hand():
+    # distances along a line: steps 1, 1, 1 -> mean 1; the order 0, 3, 1, 2 steps 3, 2, 1 -> mean 2
+    d = np.abs(np.subtract.outer(np.arange(4.0), np.arange(4.0)))
+    assert M.mean_step(d) == 1.0
+    assert M.mean_step(d, order=[0, 3, 1, 2]) == 2.0
+
+
+def test_the_step_score_judges_a_short_steady_morph_the_fraction_cannot():
+    r = M.morph_readout(_morphing(5, noise=0.02), n_draws=1000, seed=1)
+    assert r["tested"] is False                                   # the fraction's floor is too high at 5
+    s = r["steps"]
+    assert s["tested"] is True and s["p_floor"] == pytest.approx(2 / 120)
+    assert s["p"] == pytest.approx(2 / 120)                        # the real order and its reverse take the smallest steps
+    assert s["mean_step"] < s["lo"] <= s["null_mean"] <= s["hi"]
+    assert s["ratio"] == pytest.approx(s["mean_step"] / s["null_mean"]) and s["ratio"] < 1
+
+
+def test_alternating_shapes_take_larger_steps_than_shuffled():
+    a, b = np.sin(2 * np.pi * T), np.cos(6 * np.pi * T)
+    s = M.morph_readout([a, b] * 4, n_draws=1000, seed=1)["steps"]
+    assert s["tested"] is True and s["ratio"] > 1 and s["p"] > 0.5
+
+
+def test_runs_of_like_events_also_take_smaller_steps_so_the_score_is_not_a_morph_test():
+    # A pinned property, not a bug (critic, 2026-10-28): persistence passes too. Five near-copies of one shape, then
+    # five of another (AAAAABBBBB), take small steps without any gradual change; the score cannot tell the two apart.
+    rng = np.random.default_rng(0)
+    a, b = np.sin(2 * np.pi * T), np.cos(6 * np.pi * T)
+    ws = [a + 0.01 * rng.standard_normal(T.size) for _ in range(5)]
+    ws += [b + 0.01 * rng.standard_normal(T.size) for _ in range(5)]
+    s = M.morph_readout(ws, n_draws=1000, seed=1)["steps"]
+    assert s["tested"] is True and s["ratio"] < 0.5 and s["p"] < 0.05
+
+
+def test_four_elements_cannot_be_judged_by_steps_either():
+    s = M.morph_readout(_morphing(4, noise=0.01), n_draws=100, seed=1)["steps"]
+    assert s["tested"] is False and s["p_floor"] == pytest.approx(2 / 24) and s["note"]
+
+
+def test_an_unscored_sequence_has_no_step_score():
+    assert M.morph_readout(_morphing(2), n_draws=100, seed=1)["steps"] is None
+
+
+def test_the_summary_counts_step_beaters_against_chance():
+    rows = [M.morph_readout(_morphing(6, noise=0.02, seed=s), n_draws=1000, seed=s) for s in range(4)]
+    rows += [M.morph_readout(_random(8, seed=s), n_draws=1000, seed=s) for s in range(4)]
+    rows += [M.morph_readout(_morphing(2), n_draws=100, seed=1)]
+    st = M.morph_summary(rows)["steps"]
+    assert st["n_tested"] == 8 and st["n_beat"] >= 4
+    assert 0 < st["expected"] <= 0.05 * st["n_tested"] + 1e-9
+    assert str(st["n_beat"]) in st["words"] and "smaller steps" in st["words"]
+
+
+# ── headless: stored sequences ──────────────────────────────────────────────
 
 def test_stored_waveform_reads_a_relative_npy_path_from_any_working_directory(tmp_path, monkeypatch):
     """Recordings store `npy_path` relative to the repo root (`DATA/derived/channels/...`). A headless call from
@@ -182,3 +242,7 @@ def test_stored_waveform_reads_a_relative_npy_path_from_any_working_directory(tm
     finally:
         conn.close()
     assert w is not None and list(w) == [2.0, 3.0, 4.0, 5.0]
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__, "-v"]))

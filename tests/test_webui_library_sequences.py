@@ -239,3 +239,22 @@ def test_the_morph_route_reports_each_sequence_and_the_summary(seqb):
 
     missing = client.get(f"/api/library/sequence-morph?family=F-09.F-09&grouping={kept['grouping']}")
     assert missing.status_code == 404
+
+
+def test_the_morph_route_carries_the_step_score(seqb):
+    """The step-size companion (researcher, 2026-10-28): each scored row carries `steps` - its mean
+    step against the shuffled mean, band, one-sided p, the p floor and whether it is testable; an
+    unscored row has none; the summary counts step beaters against chance. Three elements have 6
+    orders, and a sequence and its reverse take the same steps, so the floor is 2/6."""
+    client, ctx = seqb
+    kept = _ok(client.post("/api/library/sequences/keep", json={**BODY, "recording_id": ctx["rid"]}))
+    fam = _ok(client.get(f"/api/library/sequence-morph?family={CHAIN}&grouping={kept['grouping']}"))
+    st = fam["rows"][0]["steps"]
+    assert st is not None and st["meanStep"] is not None and st["nullMean"] is not None
+    assert st["tested"] is False and st["pFloor"] > 0.05 and st["note"]
+    summary = fam["summary"]["steps"]
+    assert summary["nTested"] == 0 and summary["nBeat"] == 0 and "smaller steps" in summary["words"]
+    assert fam["stepRule"]
+    every = _ok(client.get("/api/library/sequence-morph"))
+    two = next(r for r in every["rows"] if r["nElements"] == 2)
+    assert two["steps"] is None
