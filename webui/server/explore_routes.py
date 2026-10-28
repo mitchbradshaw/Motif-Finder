@@ -712,3 +712,22 @@ def post_span_edit(request: Request, ref: str, body: SpanEditBody):
                 "stale_edges": stale, "seeded_rev1": seeded_rev1}
     finally:
         c.close()
+
+
+@router.get("/api/layout/{source_file}")
+def get_channel_layout(request: Request, source_file: str):
+    """Cross-channel explorer S0: every channel's pack and position, from `Working.channel_layout` (the one
+    definition the census, the pack chips and Settings read). 423 for the held-out recording while its lock
+    is on, the same predicate and refusal as every Explore read; 404 for a file with no registered channel."""
+    from Working.channel_layout import channel_layout
+
+    c = _conn(request)
+    try:
+        if corpus.is_held_out(c, source_file):          # a2-p1: only while the lock is on
+            raise HTTPException(423, corpus.held_out_refusal("its layout is not shown"))
+        try:
+            return channel_layout(c, source_file)
+        except LookupError as e:
+            raise HTTPException(404, str(e)) from None
+    finally:
+        c.close()

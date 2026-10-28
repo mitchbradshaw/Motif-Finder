@@ -315,3 +315,36 @@ export const getSpanEdit = (ref: string): Promise<Sourced<SpanEdit>> => live(spa
 /** Save a corrected span: a new revision for a member, a human annotation for a plain detection — never the detection. */
 export const saveSpanEdit = (ref: string, body: { start_idx: number; end_idx: number; note?: string | null }) =>
   spanEditReq<SpanEditSaved>(ref, { method: 'POST', body: JSON.stringify(body) })
+
+/* ---------------- cross-channel explorer S0 (2026-10-28): the channel layout ---------------- */
+
+/** One channel's pack and position (core `Working/channel_layout.py`, the one definition). */
+export interface ChannelLayoutRow {
+  name: string; channel: number; pack: string
+  /** where the pack came from: Settings › Channels & events, the M2 electrode letter, or nowhere (one unassigned pack) */
+  pack_from: 'settings' | 'name' | 'unassigned'
+  x_mm: number | null; y_mm: number | null
+}
+export interface ChannelLayout {
+  source_file: string
+  /** the directory stem: the `<rec>` of the page's `pack.<rec>.<ch>` keys */
+  rec: string
+  /** keyed by recording id */
+  channels: Record<string, ChannelLayoutRow>
+  packs: string[]; layout_known: boolean; positions_known: boolean
+  /** "packs not set — layout unknown" whenever any channel has no pack */
+  note: string | null
+}
+async function exploreGet<T>(path: string): Promise<T> {
+  const r = await fetch(path, { headers: { 'content-type': 'application/json' } })
+  if (!r.ok) {
+    let b: any = null   // eslint-disable-line @typescript-eslint/no-explicit-any
+    try { b = await r.json() } catch { /* not json */ }
+    const msg = b?.error ?? (typeof b?.detail === 'string' ? b.detail : b?.detail?.message) ?? `${r.status} ${r.statusText}`
+    throw new ExploreApiError(r.status, msg, b?.detail ?? b, b?.traceback)
+  }
+  return r.json() as Promise<T>
+}
+/** 423 for the held-out recording while its lock is on; 404 for an unregistered file. */
+export const getChannelLayout = (sourceFile: string) =>
+  exploreGet<ChannelLayout>(`/api/layout/${encodeURIComponent(sourceFile)}`)
