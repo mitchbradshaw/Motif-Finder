@@ -96,7 +96,8 @@ each big one home, and clean up, before starting the next big one.
   3. the environment checks in README step 2;
   4. `quota -s`.
 - [ ] Submit: `bash docs/thesis/hpc/rq4_scommune_20261026/submit_rq4s.sh`
-- [ ] Bring it back and import (README steps 6–8), or tell me when the archive is home and I'll run the PC side:
+- [ ] Bring it back and import (README steps 6–8), or tell me when the archive is home and I'll run the PC side.
+      *29 Oct:* `rq4s_return.tar.gz` is in the repo root (5.4 MB, 07:54); the PC side waits on your go-ahead:
   1. one return archive;
   2. a backup;
   3. a Discovery session on *S. commune*;
@@ -223,7 +224,7 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
 | The 20-draw surrogate statistics (Chapter 6) | §3c imported |
 | **B4:** S0, the channel layout reader (packs and positions) | **done** 28 Oct (`44861b1`) |
 | **B4:** S1, the census of co-occurring events and its nulls. Then I walk its smoke states and run its thesis script on a bridge backup | **done** 28 Oct: merged (`a68a1ff`) and run on M2_aug, M2_concat, CO and LM. No evidence of propagation on M2_aug; M2_concat's co-occurrences are copies on CH5–8. MJu26a, SH and SO wait for the 2 Hz sweep |
-| The full test suite for S1's merge | **done** 28 Oct. S1 broke two tests; both are fixed. One was a guard that keeps null-run events out of every count: a label lookup tripped it, and no census number changes. The other was the smoke walk's order. Four map tests have been failing since 19–26 Oct, before S0 and S1. They read the map once, and it now answers "counting…" before it counts. One seed-estimate test is a timing flake under load |
+| The full test suite for S1's merge | **done** 28 Oct. S1 broke two tests; both are fixed. One was a guard that keeps null-run events out of every count: a label lookup tripped it, and no census number changes. The other was the smoke walk's order. Four map tests had been failing since 19–20 Oct, before S0 and S1, because they read the map once and it now answers "counting…" before it counts. They now wait for the finished map (`b0e09fa`, 29 Oct), and the maps match the core's own computation cell for cell. One seed-estimate test is a timing flake under load |
 | Register the ghost fungus (B7) | the bridge (§1) |
 | Run B5 and B7–B12 on the site and draft the Chapter 10 studies | the imports above |
 | Recompile the thesis and commit after each step | — |
