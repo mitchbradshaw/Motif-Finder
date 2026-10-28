@@ -30,6 +30,9 @@ ARTIFACT = "artifact"
 PROPAGATION = "propagation"
 INDEPENDENT_RECURRENCE = "independent_recurrence"
 BINS = (ARTIFACT, PROPAGATION, INDEPENDENT_RECURRENCE)
+#: xc-S1 (the census, D9): a co-occurrence ACROSS packs that is not a copy — both packs reacting to one stimulus,
+#: never propagation. The census's bin only: it stays outside `BINS`, which `motif_edge` and the Library keep.
+SHARED_DRIVER = "shared_driver"
 
 # ── Bin boundaries — the researcher's rule (QUESTIONS.md Q40b, Round 10 Q-W5,
 #    2026-10-03) ────────────────────────────────────────────────────────────
@@ -272,7 +275,7 @@ def _allowed_starts(n, length, start, end, gap, forbidden):
     return [(a, b) for a, b in out if b > a]
 
 
-def chance_null(x, sibling, start, end, fs, rule=DEFAULT_RULE, seed=0, forbidden=()):
+def chance_null(x, sibling, start, end, fs, rule=DEFAULT_RULE, seed=0, forbidden=(), max_lag=None):
     """The pair's null: `rule.null_k` windows of `x`'s length cut from
     `sibling` at random other times, each scored with the statistic
     `classify_waveforms` uses (|r| at the cross-correlation peak).
@@ -280,7 +283,9 @@ def chance_null(x, sibling, start, end, fs, rule=DEFAULT_RULE, seed=0, forbidden
     `x` is the member channel's window [start, end); `sibling` the WHOLE
     sibling channel (an mmap is fine); `forbidden` the sibling's human-marked
     artifact spans, `[(a, b), ...]` in samples. `seed` should come from the
-    member id (and the sibling's) so a re-run reproduces the draw.
+    member id (and the sibling's) so a re-run reproduces the draw. `max_lag`
+    (samples; xc-S1) restricts each window's peak search as
+    `cross_correlation_peak` does; None, the default, searches every lag.
 
     Returns `{k, k_requested, starts, abs_r, threshold, at, min_gap_s,
     reason}` — `threshold` the `rule.null_percentile`th percentile of `abs_r`;
@@ -312,7 +317,7 @@ def chance_null(x, sibling, start, end, fs, rule=DEFAULT_RULE, seed=0, forbidden
         if y.size != length or not np.isfinite(y).all() or y.std() == 0:
             continue
         kept_s.append(int(s0))
-        kept_r.append(abs(cross_correlation_peak(x, y)[1]))
+        kept_r.append(abs(cross_correlation_peak(x, y, max_lag=max_lag)[1]))
     out["starts"], out["abs_r"], out["k"] = kept_s, kept_r, len(kept_r)
     if kept_r:
         out["threshold"] = float(np.percentile(kept_r, rule.null_percentile))
@@ -371,18 +376,25 @@ def cross_correlate(x, y):
     return lags, correlations
 
 
-def cross_correlation_peak(x, y):
+def cross_correlation_peak(x, y, max_lag=None):
     """The inter-channel lag and waveform identity of two waveforms.
 
     The peak is the largest absolute correlation (the same shape may be
     inverted on another channel). The returned lag is signed: it is the lag
     of `y` relative to `x`, positive meaning `y` occurs later than `x`.
 
+    `max_lag` (samples; xc-S1, D16) searches only |lag| <= max_lag. Unrestricted,
+    two unrelated drifting channels peak at a median |lag| of 114 s, far past
+    any propagation ceiling. None, the default, searches every lag as before.
+
     Returns
     -------
     (lag, correlation) : (int, float)
     """
     lags, correlations = cross_correlate(x, y)
+    if max_lag is not None:
+        keep = np.abs(lags) <= max(0, int(max_lag))
+        lags, correlations = lags[keep], correlations[keep]
     peak = int(np.argmax(np.abs(correlations)))
     # `np.correlate(x, y)`'s positive lags mean `x` occurs later than `y`;
     # invert so the public lag reads as `y` relative to `x`.
