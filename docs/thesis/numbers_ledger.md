@@ -106,6 +106,7 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | F5 | interesting 10-min windows no non-CNN detector touches | 18 / 2,333 = 0.8 % (4.6 % of not-interesting) | 2,333 | miss-rate-2026-10-26.md | miss_rate.py | 10-26 | verified |
 | F6 | best lift | signal_threshold −10 mV 21.3 (12 % touched); drop detectors ≈ 5; OASIS 1.4; mp_threshold 6 0.53 | — | same | same | 10-26 | verified |
 | F7 | "only ~6 % of M2_aug caught by no detector" | — | — | rq1b-candidate-events.md | prose | 10-18 | as-written |
+| F8 | six precise variants against a 20-draw null, M2_aug, 16 channels each | real beat all 20 draws on drop v1 16/16 (pooled × 23.4), CNN GADF 10-min 16/16 (× 6.5), CNN recurrence 10-min 14/16 (× 2.7), drop v5 same-fraction 0.7 14/16 (× 2.2); fell below all 20 on wavelet-encoded level 5 16/16 (× 0.075) and drop v1 slope σ 4 12/16 (× 0.58); chance 16/21 ≈ 0.8 channels; every pooled ratio within 4 % of its 1-draw value | 96 tasks × 21 runs | `docs/rq_roundA_2/findings/surrogates20-2026-10-29.md`, `docs/thesis/data/ch06_20draw/` | scripts/thesis/surrogates20_readout.py (the returned task records) | 10-29 | verified |
 
 ## G. Demo day (DEMO_DAY.md, 2026-10-20/21)
 

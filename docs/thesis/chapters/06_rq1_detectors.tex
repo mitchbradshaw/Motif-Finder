@@ -164,8 +164,28 @@ The finding: with one draw per task, real-against-surrogate counts measure how m
 signal's spectrum, not how good its events are. This is an argument for judging precision against humans, as this
 chapter does.
 
-The 20-draw re-run bundle (six variants on M2\_aug) is ready at \src{docs/thesis/hpc/surrogates20_M2_aug/}. It needs
-5--18 CPU core-hours and 1--3 A100-hours and may return 10--30\,GB, so free cluster quota first.
+\textbf{The 20-draw re-run} (rangpur, 29 Oct; Table~\ref{tab:surr20}, Figure~\ref{fig:surr20}). The six most
+precise variants were re-run on M2\_aug with 20 phase-randomised draws per channel. The results are in
+\src{docs/rq_roundA_2/findings/surrogates20-2026-10-29.md} (ledger F8), read from the returned task records by
+\src{scripts/thesis/surrogates20_readout.py}.
+\begin{itemize}
+  \item With 20 draws, each channel's real count is ranked against its own null. The smallest attainable $p$ is
+        $1/21 \approx 0.048$, so the strongest per-channel result is ``beat all 20 draws''. Chance gives each channel
+        that with probability $1/21$, which is 0.8 of 16 channels expected.
+  \item Drop v1 beat all 20 draws on 16 of 16 channels, and the GADF CNN did too. The recurrence CNN and v5 at
+        same-fraction 0.7 did on 14 of 16. Their binomial tails are $10^{-17}$ to $10^{-22}$, and all four pass
+        Benjamini--Hochberg.
+  \item Wavelet-encoded level 5 fell \emph{below} all 20 draws on 16 of 16 channels, and v1 at slope $\sigma$ 4 on 12
+        of 16. Both fire more on the scrambled copies.
+  \item Every pooled ratio is within 4\,\% of its 1-draw value. A single draw was not noise: how a detector stands
+        against its null is a stable property of the detector.
+  \item \textbf{The point for this chapter.} The two variants below their null are among the most precise in the
+        blind estimate: wavelet-encoded level 5 at 0.92 and v1 at slope $\sigma$ 4 at 0.99. Beating a
+        phase-randomised null and being precise are separate properties. The argument above now rests on 20 draws per
+        channel, not one.
+  \item \textbf{Caveat.} The binomial tails treat channels as independent, and the B4 census found a shared driver
+        across packs (Chapter~\ref{ch:roundb}). Read them as approximate. The per-channel ranks are exact.
+\end{itemize}
 \end{instructions}
 
 \begin{table}[htbp]
@@ -174,6 +194,33 @@ The 20-draw re-run bundle (six variants on M2\_aug) is ready at \src{docs/thesis
 \centering
 \figplaceholder{3cm}{Table to be filled from \texttt{detectors-vs-surrogates-2026-10-26.md}.}
 \end{table}
+
+\begin{table}[htbp]
+\caption{Six precise variants on M2\_aug against 20 phase-randomised draws per channel (16 channels each). ``Beat all'' and ``below all'': channels whose real count lies above or below every one of its 20 draws; chance expects 0.8 of 16. Precision is from the blind queue 25 estimate.}
+\label{tab:surr20}
+\footnotesize
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Variant} & \textbf{Precision} & \textbf{Beat all} & \textbf{Below all} & \textbf{Ratio, 20} & \textbf{Ratio, 1} & \textbf{BH}\\
+\midrule
+drop v1 & 0.94 & 16/16 & 0/16 & 23.4 & 22.6 & pass\\
+CNN GADF, 10 min & 0.97 & 16/16 & 0/16 & 6.5 & 6.5 & pass\\
+CNN recurrence, 10 min & 0.96 & 14/16 & 1/16 & 2.7 & 2.6 & pass\\
+drop v5, same fraction 0.7 & 0.81 & 14/16 & 2/16 & 2.2 & 2.2 & pass\\
+drop v1, slope $\sigma$ 4 & 0.99 & 3/16 & 12/16 & 0.58 & 0.60 & --\\
+wavelet-encoded, level 5 & 0.92 & 0/16 & 16/16 & 0.075 & 0.075 & --\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.9\textwidth]{data/ch06_20draw/ratio_strip.png}
+\caption{Each channel's real count over the mean of its 20 draws (log scale). Green: above every draw; red: below every draw; the bar is the 1-draw ratio. A triangle at the right edge marks a channel whose 20 draws found nothing (8 for drop v1, 5 for v5).}
+\label{fig:surr20}
+\end{figure}
 
 \subsection{What detectors miss}
 

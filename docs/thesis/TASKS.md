@@ -131,19 +131,24 @@ The result: the CNN matches R4 on R4's folds (Chapter 8, Table *faircnn*).
 - [x] Copy `out/` back into the same folder here; leave `cache/` on the cluster (about 1.4 GB of pictures). Then:
   `"/c/ProgramData/anaconda3/python.exe" scripts/rq1b_cnn_vs_minirocket.py import --job DATA/derived/hpc/rq1b_cnn_loro_20261026`
 
-### (c) 20-draw surrogate re-runs
+### (c) 20-draw surrogate re-runs — home 29 Oct (96 of 96 tasks); statistics done, database import pending
 This bundle uses the cluster's own copy of the code, so run it after (a) or (d) has been unpacked there.
-- [ ] Copy: `ssh s4699158@rangpur.compute.eait.uq.edu.au "mkdir -p CNN/docs/thesis/hpc"`, then
+- [x] Copy: `ssh s4699158@rangpur.compute.eait.uq.edu.au "mkdir -p CNN/docs/thesis/hpc"`, then
   `scp -r docs/thesis/hpc/surrogates20_M2_aug s4699158@rangpur.compute.eait.uq.edu.au:CNN/docs/thesis/hpc/`
-- [ ] *rangpur*:
+- [x] *rangpur*:
   1. check that the 16 `DATA/derived/channels/M2_aug_concat_fs1/CH*.npy` files are present;
   2. `quota -s` (10–30 GB comes back);
   3. `bash docs/thesis/hpc/surrogates20_M2_aug/submit_th20.sh`
-- [ ] Bring every `*_out/return/` folder home, keeping the paths.
-- [ ] Before importing, check that the open M2_aug Discovery session is **session 2**, not session 9 ("demo · talk").
-- [ ] A dry run first:
-  `"/c/ProgramData/anaconda3/python.exe" scripts/rq4_overnight.py adopt --url http://127.0.0.1:8765 --out docs/thesis/hpc/surrogates20_M2_aug`
-- [ ] Then the same command with `--apply --allow-project` added.
+- [x] Bring every `*_out/return/` folder home, keeping the paths. The six folders came to 6.6 GB.
+- [x] The Chapter 6 statistics were read straight from the returned records, with no database step (§7). Chapter 6
+      `tab:surr20` and `fig:surr20`.
+- [ ] Optional, for the site: import the runs into M2_aug's **session 2**, not session 9 ("demo · talk"). Choosing
+      M2_aug reopens its newest session, which is 9, so session 2 has to be made the open one first; I can do that.
+  Import after queue 37 is judged, because it loads 8765 for several minutes. It also copies about 6.6 GB of caches
+  onto a disk with 36 GB free.
+  - A dry run first:
+    `"/c/ProgramData/anaconda3/python.exe" scripts/rq4_overnight.py adopt --url http://127.0.0.1:8765 --out docs/thesis/hpc/surrogates20_M2_aug`
+  - Then the same command with `--apply --allow-project` added.
 
 ### (d) MJu26a, SH and SO at 2 Hz
 - [ ] Copy:
@@ -235,7 +240,7 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
 | *S. commune* exam: the candidate table, the frozen manifest and the blind queue; then the single score | imported, frozen and drawn 29 Oct (session 12, sha256 `e11ec64a…`, queue 37). Waits on your judging of queue 37 (§2) |
 | The 2 Hz blind sample, then the verdict-free promote, then g-12, frozen for Chapters 9 and 10 | §3d imported, then your judging |
 | The fair-CNN comparison write-up (RQ1b) | **done** 29 Oct (`a73afd2`). Trained on R4's rows and folds, the CNN matches R4: pooled AUC 0.970–0.973 against 0.971. Chapter 8, ledger C16 |
-| The 20-draw surrogate statistics (Chapter 6) | §3c imported |
+| The 20-draw surrogate statistics (Chapter 6) | **done** 29 Oct, from the returned records. Drop v1 and the 10-min CNNs beat all 20 draws on 14–16 of 16 channels. Wavelet-encoded level 5 and v1 slope σ 4 fall below all 20, though they are 0.92 and 0.99 precise. Every ratio is within 4 % of its 1-draw value. Chapter 6, ledger F8 |
 | **B4:** S0, the channel layout reader (packs and positions) | **done** 28 Oct (`44861b1`) |
 | **B4:** S1, the census of co-occurring events and its nulls. Then I walk its smoke states and run its thesis script on a bridge backup | **done** 28 Oct: merged (`a68a1ff`) and run on M2_aug, M2_concat, CO and LM. No evidence of propagation on M2_aug; M2_concat's co-occurrences are copies on CH5–8. MJu26a, SH and SO wait for the 2 Hz sweep |
 | The full test suite for S1's merge | **done** 28 Oct. S1 broke two tests; both are fixed. One was a guard that keeps null-run events out of every count: a label lookup tripped it, and no census number changes. The other was the smoke walk's order. Four map tests had been failing since 19–20 Oct, before S0 and S1, because they read the map once and it now answers "counting…" before it counts. They now wait for the finished map (`b0e09fa`, 29 Oct), and the maps match the core's own computation cell for cell. One seed-estimate test is a timing flake under load |
