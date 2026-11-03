@@ -1,0 +1,126 @@
+{
+ "grouping": "g-11",
+ "recordings": {
+  "CO_fs2": {
+   "file": "CO_fs2.mat",
+   "species": "chocolate oyster"
+  },
+  "LM_fs2": {
+   "file": "LM_fs2.mat",
+   "species": "lion's mane (Hericium erinaceus)"
+  },
+  "M2_aug_fs1": {
+   "file": "M2_aug_concat_fs1.mat",
+   "species": "oyster (Pleurotus ostreatus)"
+  },
+  "M2_fs1": {
+   "file": "M2_concat_fs1.mat",
+   "species": "lion's mane (Hericium erinaceus)"
+  }
+ },
+ "families": 42,
+ "members": 804,
+ "draws": 10000,
+ "seed": 20261103,
+ "by": {
+  "recording": {
+   "labels": [
+    "CO_fs2",
+    "LM_fs2",
+    "M2_aug_fs1",
+    "M2_fs1"
+   ],
+   "members_per_label": {
+    "CO_fs2": 68,
+    "LM_fs2": 76,
+    "M2_aug_fs1": 603,
+    "M2_fs1": 57
+   },
+   "observed": {
+    "shared_families": 39,
+    "mi_bits": 0.21917494195461287
+   },
+   "null_mean": {
+    "shared_families": 41.3355,
+    "mi_bits": 0.12773647263083407
+   },
+   "null_range": {
+    "shared_families": [
+     37,
+     42
+    ],
+    "mi_bits": [
+     0.08217559391315493,
+     0.18012141790499486
+    ]
+   },
+   "p_fewer_shared": 0.023297670232976703,
+   "p_more_shared": 0.998000199980002,
+   "p_mi_higher": 9.999000099990002e-05
+  },
+  "species": {
+   "labels": [
+    "chocolate oyster",
+    "lion's mane (Hericium erinaceus)",
+    "oyster (Pleurotus ostreatus)"
+   ],
+   "members_per_label": {
+    "chocolate oyster": 68,
+    "lion's mane (Hericium erinaceus)": 133,
+    "oyster (Pleurotus ostreatus)": 603
+   },
+   "observed": {
+    "shared_families": 39,
+    "mi_bits": 0.1652329333356785
+   },
+   "null_mean": {
+    "shared_families": 41.3338,
+    "mi_bits": 0.08307246420722811
+   },
+   "null_range": {
+    "shared_families": [
+     37,
+     42
+    ],
+    "mi_bits": [
+     0.04588929345288383,
+     0.13329004606857667
+    ]
+   },
+   "p_fewer_shared": 0.023997600239976002,
+   "p_more_shared": 0.9972002799720028,
+   "p_mi_higher": 9.999000099990002e-05
+  },
+  "kind": {
+   "labels": [
+    "lion's mane (Hericium erinaceus)",
+    "oyster-type"
+   ],
+   "members_per_label": {
+    "lion's mane (Hericium erinaceus)": 133,
+    "oyster-type": 671
+   },
+   "observed": {
+    "shared_families": 36,
+    "mi_bits": 0.08320378705234209
+   },
+   "null_mean": {
+    "shared_families": 39.3918,
+    "mi_bits": 0.0405497871886602
+   },
+   "null_range": {
+    "shared_families": [
+     34,
+     42
+    ],
+    "mi_bits": [
+     0.011234589248954796,
+     0.07837506668177202
+    ]
+   },
+   "p_fewer_shared": 0.03189681031896811,
+   "p_more_shared": 0.993000699930007,
+   "p_mi_higher": 9.999000099990002e-05
+  }
+ }
+}
