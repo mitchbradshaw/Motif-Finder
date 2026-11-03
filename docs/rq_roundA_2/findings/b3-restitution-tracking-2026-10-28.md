@@ -360,3 +360,5 @@ p 0.02), whose fake track drifts as well (ρ −0.88). Re-running them with cold
 3. The gap rule removed 68 of rec 3's 115 cycles.
 4. Reishi cycles have about 20 samples each.
 5. The quiet null for seq 3 had 94 candidate windows.
+
+**Correction (2026-11-03).** M2_concat is lion's mane, not oyster (the researcher's species labels, now in Settings › Datasets). Read every "oyster" above that covers M2_concat as "the two M2 recordings": M2_aug (oyster) z +5.0 and M2_concat (lion's mane) z +3.1. CO_fs2 is chocolate oyster and LM_fs2 lion's mane.

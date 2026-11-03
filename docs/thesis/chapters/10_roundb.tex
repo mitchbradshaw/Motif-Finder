@@ -14,7 +14,8 @@ Every study states these decisions:
   \item \textbf{Counts are of events, not members} (the events table). The rule: collapse twins ($\ge$90\,\% mutual
         overlap); keep a container with its parts; join units at $\ge$50\,\% overlap or gaps $\le$3\,s, never through a
         container. Joining on any overlap made one 93-minute train a single 111-part event.
-  \item \textbf{Datasets}: M2\_aug and M2\_concat (oyster, 1\,Hz); CO\_fs2 and LM\_fs2; and the 2\,Hz copies of
+  \item \textbf{Datasets}: M2\_aug (oyster) and M2\_concat (lion's mane), both 1\,Hz; CO\_fs2 (chocolate oyster) and
+        LM\_fs2 (lion's mane); and the 2\,Hz copies of
         MJu26a, SH and SO (27 Oct). Excluded:
         \begin{itemize}
           \item L\_R, because a humidity actuator's PID oscillation is in the signal;
@@ -194,8 +195,9 @@ The results:
         vanishes given depth ($+0.6$) or event order ($+0.7$). The same correlation with the gap \emph{after} each
         drop is larger ($+9.9$): recovery is cut off at the next drop, which is a censoring artefact. The three long
         chains agree.
-  \item \textbf{Across census gaps, a modest relation on oyster.} Across the drop-detector census's hours-long gaps,
-        oyster shows a restitution-like relation: M2\_aug $z=+5.0$ and M2\_concat $+3.1$ (pair-weighted
+  \item \textbf{Across census gaps, a modest relation on the two M2 recordings.} Across the drop-detector census's
+        hours-long gaps, both show a restitution-like relation: M2\_aug (oyster) $z=+5.0$ and M2\_concat (lion's mane,
+        corrected 3 Nov) $+3.1$ (pair-weighted
         $\rho\approx0.25$). It survives depth, order and the next gap, and is halved by the fall's duration. LM and
         CO are not significant (3 and 2 channels).
   \item \textbf{Not scored.} 43 of the 117 sequences, mostly reishi: 339 of 1,298 reishi events never recover halfway
@@ -217,7 +219,7 @@ fit sees the cycle it predicts. The score is its error against the error of the 
 What it can claim:
 \begin{itemize}
   \item no within-train restitution;
-  \item a modest restitution-like relation across census gaps on oyster;
+  \item a modest restitution-like relation across census gaps on M2\_aug (oyster) and M2\_concat (lion's mane);
   \item no tested model forecasts a drop cycle better than its neighbours do.
 \end{itemize}
 What it cannot claim: that drops are excitable, oscillatory or Izhikevich-like, or any mechanism for the census

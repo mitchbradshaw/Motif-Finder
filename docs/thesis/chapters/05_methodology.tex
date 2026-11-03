@@ -24,13 +24,13 @@ The recordings are long multi-electrode potential measurements from living funga
 \textbf{Dataset} & \textbf{Species} & \textbf{Ch} & \textbf{$f_s$ (Hz)} & \textbf{Hours} & \textbf{Units} & \textbf{Role}\\
 \midrule
 M2\_aug\_concat\_fs1 & Oyster & 16 & 1 & 721 & V & Primary; RQ1--RQ3\\
-M2\_concat\_fs1 & Oyster & 16 & 1 & 282.5 & V & Secondary; out-of-sample checks\\
+M2\_concat\_fs1 & Lion's mane & 16 & 1 & 282.5 & V & Secondary; out-of-sample checks\\
 M4\_aug\_concat\_fs1 & Oyster & 16 & 1 & 505 & -- & \textbf{Held out} (exam, Section~\ref{sec:holdout})\\
 MJu26a (fs10; fs2 derived) & Lion's mane & 16 & 10, 2 & 636 & V & Round-B sweep at 2\,Hz (MJu26a\_fs2, 27 Oct)\\
 L\_LM\_Jul\_26\_J (raw, fs2) & Lion's mane & 5 & 10, 2 & 636 & mV & Detector sweep; classifier. A copy of MJu26a CH10 and CH13--16 ($\times$1000 plus a constant offset; $r=1.00000$)\\
 Mushroom\_260720 (rec.\ 385) & Lion's mane & 1 & 1 & 4 & V & Spiking-families pass; Library. A 4\,h excerpt of MJu26a CH14 (inactive)\\
-LM\_fs2 & ? & 4 & 2 & 480 & V & Detector sweep; classifier\\
-CO\_fs2 & ? & 4 & 2 & 480 & V & Detector sweep; classifier\\
+LM\_fs2 & Lion's mane & 4 & 2 & 480 & V & Detector sweep; classifier\\
+CO\_fs2 & Chocolate oyster & 4 & 2 & 480 & V & Detector sweep; classifier\\
 SH, SO (fs2 derived) & ? & 4 & 10, 2 & 480 & V & Round-B sweep at 2\,Hz (27 Oct); 10\,Hz read from each file's time vector\\
 F2B & ? & 5 & 10 & 144 & mV & Excluded: a subset of L\_LM\\
 L\_R\_Aug\_26\_PD & ? & 13 & 10 & 107 & V & Excluded: humidity-actuator oscillation in the signal\\
@@ -72,8 +72,9 @@ Dataset work (27 Oct):
 \end{itemize}
 Corrections to the plan:
 \begin{itemize}
-  \item the primary oyster recording is 721\,h, not over 1,000\,h; the ``about 1,000 hours'' is M2\_aug and M2\_concat
-        together;
+  \item the primary oyster recording is 721\,h, not over 1,000\,h. The ``about 1,000 hours'' is M2\_aug and M2\_concat,
+        and M2\_concat is lion's mane (the researcher, 3 Nov), so it is not 1,000 hours of oyster. The oyster recordings
+        are M2\_aug (721\,h) and the held-out M4 (505\,h); CO is chocolate oyster (480\,h at 2\,Hz);
   \item M2\_aug and M2\_concat are different data, not crops of each other (best $d/\sqrt{m}\approx0.79$);
   \item cross-species comparison is now possible in principle (Chapter~\ref{ch:events});
   \item the fourth Adamatzky species (\emph{Omphalotus nidiformis}) is in \src{DATA/raw} but not registered in the real
