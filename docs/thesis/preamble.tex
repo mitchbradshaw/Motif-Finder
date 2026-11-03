@@ -11,6 +11,7 @@
 \usepackage{microtype}
 
 \usepackage{xcolor}
+\usepackage{environ}   % the content notes' on/off switch (below)
 \usepackage{graphicx}
 \graphicspath{{figures/}}
 \usepackage{array}
@@ -44,17 +45,26 @@
 % ---------------------------------------------------------------------------
 % Content notes (the plan's own convention). Purple text is a note to the author:
 % what the paragraph must say, the numbers it carries and where they come from.
-% Every note is deleted before submission.
+%
+% THE SWITCH: one line below.
+%   \showinstructionstrue    every purple note is drawn (drafting)
+%   \showinstructionsfalse   every note is hidden: the thesis as it reads without them, and for submission
+% A clean copy beside the draft, without editing this file (run in docs/thesis):
+%   latexmk -jobname=main-clean -usepretex="\def\hideinstructions{}" main.tex    -> build/main-clean.pdf
+% A hidden note is dropped whole. A reference cited only inside notes leaves the bibliography until the
+% prose cites it. Figure placeholders (\figplaceholder) stay visible either way.
 % ---------------------------------------------------------------------------
+\newif\ifshowinstructions
+\showinstructionstrue
+\ifdefined\hideinstructions\showinstructionsfalse\fi
 \newcommand{\instructionstyle}{%
   \color{instruc}%
   \itshape%
   \fontsize{11pt}{13pt}\selectfont%
 }
-\newcommand{\instructiontext}[1]{{\instructionstyle #1}}
-\newenvironment{instructions}
-  {\par\begingroup\instructionstyle}
-  {\par\endgroup}
+\newcommand{\instructiontext}[1]{\ifshowinstructions{\instructionstyle #1}\fi}
+\NewEnviron{instructions}{%
+  \ifshowinstructions\par\begingroup\instructionstyle\BODY\par\endgroup\fi}
 
 % A source path inside a note: \src{docs/rq_roundA_2/RQ4b-detector-sweep.md}
 \newcommand{\src}[1]{{\upshape\footnotesize\path{#1}}}
