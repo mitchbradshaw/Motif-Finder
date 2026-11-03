@@ -101,7 +101,7 @@ RQ4 Bands + symbols vs raw signal & RQ1, Ch.~\ref{ch:rq1} & Generalised into the
 \addlinespace
 RQ5 Human vs machine divergence & RQ1, Ch.~\ref{ch:rq1} & Rejection and miss rates per detector answered; the morphology arm was not answerable (verdicts carry no shape tags).\\
 \addlinespace
-RQ6 Recurrence across channels & Ch.~\ref{ch:roundb} (pilot) & Machinery built and tested against chance; asked again as B4, not yet run on the real database.\\
+RQ6 Recurrence across channels & Ch.~\ref{ch:roundb} (pilot) & Asked again as B4 and run on the real database (28 Oct): no propagation beyond chance on M2\_aug, but a shared driver across electrode packs; MJu26a, SH and SO wait for the 2\,Hz sweep.\\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -132,9 +132,11 @@ New section, written by you. Suggested list:
         Machine detections and human verdicts are stored apart.
   \item The first comparison of fungal spike and event detectors against blind, stratified human judgement at scale:
         1,960 verdicts across five recordings, with a detector-agreement ladder that holds on every recording.
-  \item Seeded motif search shown to recover human-accepted events far above chance [numbers from queue 35].
+  \item Seeded motif search shown to recover human-accepted events far above chance. Judged blind, 20/20 to 100/100
+        of each seed's matches were accepted, against 1/12 to 9/40 of length-matched random windows (Fisher
+        $p<0.0001$ for each seed).
   \item A classifier trained only on the tool's verdicts that transfers to unseen recordings (AUC 0.97 leave-one-out)
-        and to the held-out recording [M4 exam].
+        and to the held-out recording (M4: AUC 0.98, balanced accuracy 0.93, scored once).
   \item A characterisation of accepted events: drops dominate; amplitude and duration ranges; scale collapse across
         three species; the finding that normalised shape still encodes resolution and species.
   \item A transferable method: recipes, nulls and a 342-page user manual (cited, not appended).
