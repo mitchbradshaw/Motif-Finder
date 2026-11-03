@@ -184,3 +184,4 @@ None.
   this question (`../rq_roundA_2/RQ4b-detector-sweep.md`; report `docs/prompts/blocks/reports/W4-A-evaluation.md`).
   10-minute CNNs agree with the blind labels (balanced accuracy 0.86–0.88 at threshold 0.1). The 1-minute ones call
   nearly every minute interesting and fail the labels. Nothing in this file's route changes.
+- 2026-11-03 · round B (B9) · **a time-frequency detector against the right null.** `cwt_events` (CWT ridges), judged on 20 one-day spans, gives more drops on AAFT copies than on the real recordings (1,087 against 632), with the same durations (KS p 0.39-0.83). W1's 'beats its null' held only against the phase null, which reshapes the value distribution and yields almost no drops. A band or ridge detector's null must keep the values (AAFT) before it supports a claim. `docs/rq_roundA_2/findings/b9-cwt-durations-2026-11-03.md`.

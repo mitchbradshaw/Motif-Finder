@@ -63,4 +63,7 @@ what is known, decisions, what is needed, how it gets answered, open decisions, 
   - **B6, the Recurrence page on g-11** (`findings/b6-families-species-2026-11-03.md`). 39 of 42 families cross recordings and 39 cross species, but the mix leans by recording: mutual information about twice its shuffled-label null, p 0.0001. The single-recording families are M2_aug only.
   - **B12, backend** (`findings/b12-shapes-intervals-2026-11-03.md`). The site's Interrogation reads only the seed families. Shapes differ a little by recording; species is not shown, since the lion's mane recordings differ among themselves more than from oyster. Intervals do not differ by species.
   - **A sign error fixed:** `scripts/thesis/catalogue_stats.py` read `event_shape`'s polarity backwards. Chapter 9's drop-share figure and the catalogue findings are corrected (`868df61`).
-  - **B9 and B10 are running** on the site.
+  - **B9 and B10, by a helper on the site** (`640c9e6`, Chapter 10 `27523cb`, ledger J10–J11).
+    - **B9 is negative** (`findings/b9-cwt-durations-2026-11-03.md`). On 20 one-day spans, `cwt_events` gives more drops on AAFT copies (1,087) than on the recordings (632), with the same durations (KS p 0.39-0.83). Its earlier 'beats the null' held only against the phase null.
+    - **B10** (`findings/b10-scales-2026-11-03.md`). `motif_lengths` on the site finds windows repeating beyond AAFT from 30 s up to 4.4-25.1 min on M2_aug, M2_concat, CO and LM, and none on the MJu26a span (a steady ~20 min oscillation). The band picks no preferred length.
+  - **The report with every website screenshot:** `docs/rq_roundB/round-b-report-2026-11-03.md`.
