@@ -155,7 +155,9 @@ def measure(c, df):
         g["swing_mv"] = feats["span_ptp_mv"].astype(float)
         g["event_amplitude_mv"] = feats["event_amplitude_mv"].astype(float)
         g["event_duration_s"] = feats["duration_s"].astype(float)
-        g["polarity_auto"] = np.where(feats["polarity"].astype(int) < 0, "rise", "drop")
+        # event_shape records DROP = -1 and SPIKE = +1 (Working/interrogation/event_shape.py); until 2026-11-03 this
+        # read the sign the other way round, so drop_share.png's grey bars showed the rise share
+        g["polarity_auto"] = np.where(feats["polarity"].astype(int) < 0, "drop", "rise")
         g["polarity_median"] = [median_polarity(np.asarray(x[int(s):int(e)], dtype=float))
                                 if int(e) - int(s) >= 3 else np.nan for s, e in zip(g["start"], g["end"])]
         out.append(g)

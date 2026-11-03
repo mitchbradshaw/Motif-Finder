@@ -37,6 +37,11 @@ meaningless and are reported only for the seed-search censuses, where every matc
   fit for these spans:** it calls 98 % of the accepted dip-census matches "rises", although every one is a match to a
   dip seed and rule (a) calls 100 % of them falls. A dip here falls slowly and recovers fast, so its fastest edge is
   the recovery. Rule (a) is used below; rule (b) is in the JSON and the plot for the record.
+  **Correction (2026-11-03): rule (b) was misread, not unfit.** The script read `event_shape`'s DROP = −1 as a rise,
+  so the "98 % rises" and the plot's grey bars were the wrong way round. Fixed: rule (b) calls 98 % of the accepted
+  dip-census matches falls, and 91 % of all accepted events (76–98 % per recording). Rule (a) stays the quoted one
+  (ledger E4: 68 %, 57–80 %). The rerun's accepted-event numbers are otherwise unchanged; the rejected ones moved by
+  one M2_concat verdict given since 10-26.
 - **Intervals**: `Working.interrogation.intervals` (the core of `interrogation.intervals`) on accepted onsets per
   channel.
 
