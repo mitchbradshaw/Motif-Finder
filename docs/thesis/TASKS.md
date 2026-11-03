@@ -216,8 +216,8 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
 - [x] **B2's morph statistic: add a step-size companion?** Yes (28 Oct), and it's built. In 5 of 19 sequences,
       neighbouring events are more alike than shuffled, against 0.9 expected by chance. That is persistence or a
       gradual morph; the score can't tell which.
-- [ ] **Push to GitHub?** Every commit since 26 Oct exists only on this PC (`git status -sb` shows how many). Pushing backs the work up off
-      this PC. Your call.
+- [x] **Push to GitHub.** Yes (3 Nov): 81 commits pushed to `mitchbradshaw/Motif-Finder` main (`a399e4c..04b173c`).
+      Later commits stay local until the next push; `git status -sb` shows how many.
 
 ---
 
