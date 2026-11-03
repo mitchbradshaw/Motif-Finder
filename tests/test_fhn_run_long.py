@@ -30,6 +30,25 @@ def test_aaft_cycles_keep_the_values_and_the_onsets():
     assert C.shape == (len(on) - 1, 50)
 
 
+def test_timewarp_null_rebuilds_a_fixed_waveform_train():
+    rng = np.random.default_rng(2)
+    L = rng.integers(150, 260, 40)
+    on = 300 + np.r_[0, np.cumsum(L)]
+    n = int(on[-1] + 600)
+    x = np.zeros(n)
+    s = np.arange(400)
+    for k in range(len(L)):
+        x[on[k]:on[k + 1]] = -5 * np.exp(-s[:L[k]] / 40.0)
+    x += 0.05 * rng.standard_normal(n)
+    from Pipelines.fhn import data as D
+    cyc = D.cycles(x, on, 100)[0]
+    d = dict(onsets=on, c100=dict(x=x, x_start=0))
+    C = RL.timewarp_cycles(d, rng)
+    assert C.shape == cyc.shape
+    # the same waveform restarted at the same onsets: the same cycles, up to the noise
+    assert np.corrcoef(C.ravel(), cyc.ravel())[0, 1] > 0.95      # the template carries the onset levels' noise
+
+
 def test_izhikevich_regular_spiking_prc_is_finite_and_advances_late():
     p = O.izhikevich_prc(0.02, 0.2, -65.0, 8.0, 10.0, n_base=24)
     z = p["ground_truth"]

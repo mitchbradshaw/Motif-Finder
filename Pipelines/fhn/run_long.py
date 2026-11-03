@@ -369,7 +369,7 @@ def null_means(d, n_draws, seed):
     return dict(quiet=q, surrogate=s, aaft=a), nw
 
 
-def run_fits(out_dir, workers, only=None, models=MEAN_MODELS):
+def run_fits(out_dir, workers, only=None, models=MEAN_MODELS, real_only=False):
     t0 = time.time()
     ds, records = datasets(only)
     tasks, meta = [], {}
@@ -386,7 +386,7 @@ def run_fits(out_dir, workers, only=None, models=MEAN_MODELS):
         for model in models:
             tasks.append((name, "real", 0, model, c["tau"], c["mean"]))
             for kind, means in nm.items():
-                if means is None:
+                if means is None or real_only:
                     continue
                 for i, m in enumerate(means):
                     if model not in FAST and i >= SLOW_NULL_DRAWS:
@@ -400,7 +400,7 @@ def run_fits(out_dir, workers, only=None, models=MEAN_MODELS):
                              real=dict(fhn_restarts=8, fhn_nfev=300, izh=(5, 200), vdp=(4, 200), ml=(3, 150)),
                              null=dict(fhn_restarts=2, fhn_nfev=60, izh=(3, 100), vdp=(2, 80), ml=(1, 60))),
                trains=meta, results=res, elapsed_s=time.time() - t0, cpu_s=float(sum(r["elapsed_s"] for r in res)))
-    fn = "fits.json" if not only else f"fits_{'_'.join(only)}.json"
+    fn = ("fits_real.json" if real_only else "fits.json") if not only else f"fits_{'_'.join(only)}.json"
     _write(out_dir, fn, out)
     log(f"fits done in {out['elapsed_s']:.0f} s wall, {out['cpu_s']:.0f} s CPU")
     return out
@@ -503,34 +503,113 @@ def fake_cycles_100(d, n_draws, seed0=0):
     return out
 
 
-def run_track(out_dir, workers, only=None, n_draws=2, models=TRACK_MODELS):
+def timewarp_cycles(d, rng, n_points=100):
+    """The time-warp null for the spontaneous estimate: one fixed waveform in ABSOLUTE time after each real onset
+    (the mean over cycles of x(onset + s) - x(onset), each cycle contributing while s < its length), restarted at
+    every onset on a baseline joining the onset levels, plus the recording's own residual phase-randomised.
+
+    Its cycles have the real lengths and no coupling at all between shape and timing - except the one that the
+    resampling to a fixed number of points makes by itself: a longer cycle is a stretched view of the same
+    waveform, so its shape at a given PHASE differs. A phase-timing estimate that does not beat this null is that
+    stretch, not a phase response."""
+    c = d["c100"]
+    x, s0 = c["x"], c["x_start"]
+    a = np.asarray(d["onsets"], int) - s0
+    L = np.diff(a)
+    Lmax = int(np.max(L))
+    acc, cnt = np.zeros(Lmax), np.zeros(Lmax)
+    for k in range(len(L)):
+        seg = x[a[k]:a[k] + L[k]] - x[a[k]]
+        acc[:seg.size] += seg
+        cnt[:seg.size] += 1
+    m = acc / np.maximum(cnt, 1)
+    y = x.copy()
+    base = np.interp(np.arange(len(x)), a, x[a])
+    for k in range(len(L)):
+        y[a[k]:a[k + 1]] = base[a[k]:a[k + 1]] + m[:L[k]]
+    noise = D.phase_randomise(x - y, rng)
+    return D.cycles(y + noise, d["onsets"], n_points, x_offset=s0)[0]
+
+
+def run_track(out_dir, workers, only=None, n_draws=2, models=TRACK_MODELS, all_slow_nulls=False, supplement=False):
     t0 = time.time()
+    """Phase 1: every model on the real cycles, and the fast models (kernel, sinusoid) on every null draw.
+    Phase 2: a slow model's null sets (draw 0 of each kind) only where its real pooled ratio is below 1 - the one
+    case in which a null can change the verdict (a model that already predicts worse than the neighbours' mean
+    does not beat it, whatever noise does). Results are written after every task."""
     real_fits, _, _ = load_fits(out_dir)
     ds, _ = datasets(only)
-    tasks, meta = [], {}
+    meta, sets_of = {}, {}
     tau = np.arange(100) / 100
     for name, d in ds.items():
-        init = real_fits.get(name, {})
         C = d["c100"]["cycles"]
         fakes = fake_cycles_100(d, n_draws)
         meta[name] = dict(n_cycles=int(len(C)), block=d["block"], median_cycle_s=d["c100"]["median_len_samples"] / d["fs"])
-        sets = [("real", 0, C)] + [(k, i, v) for k, vs in fakes.items() for i, v in enumerate(vs) if v is not None]
+        sets_of[name] = (d["block"], [("real", 0, C)] + [(k, i, v) for k, vs in fakes.items() for i, v in enumerate(vs)
+                                                         if v is not None])
+    del ds
+    fn = "track.json" if not only else f"track_{'_'.join(only)}.json"
+    res = []
+    if supplement:                    # keep track.json; add the remaining slow-model nulls (phase 3) to it
+        res = json.loads((Path(out_dir) / fn).read_text(encoding="utf-8"))["results"]
+        all_slow_nulls = True
+    settings = dict(n_points=100, null_draws=n_draws, slow_models=TRACK_SLOW,
+                    slow_nulls="draw 0 of each null kind, only where the model's real pooled ratio < 1",
+                    starts="cold: every block from the train's own mean-cycle fit (A)",
+                    fit=dict(fhn_osc=(1, 80), fhn_exc=(1, 100), izh=(2, 150), vdp=(1, 80), ml=(1, 80)))
+
+    def usable(name, model):
+        init = real_fits.get(name, {})
+        return model not in ("fhn_oscillator", "izhikevich", "van_der_pol", "morris_lecar") or \
+            (model in init and not init[model].get("error"))
+
+    def run(tasks, label):
+        tasks.sort(key=lambda t: (t[3] not in TRACK_SLOW, -len(t[5])))
+        log(f"track {label}: {len(tasks)} tasks")
+        it = None
+        pool = mp.get_context("spawn").Pool(workers) if workers > 1 else None
+        try:
+            it = pool.imap_unordered(_track_task, tasks) if pool else map(_track_task, tasks)
+            for r in it:
+                res.append(r)
+                log(f"  track {r['train']} {r['kind']}{r['draw']} {r['model']}: {r['pooled_ratio']} ({r['elapsed_s']:.0f} s)")
+                _write(out_dir, fn, dict(settings=settings, trains=meta, results=res, elapsed_s=time.time() - t0,
+                                         cpu_s=float(sum(x["elapsed_s"] for x in res)), complete=False))
+        finally:
+            if pool:
+                pool.close()
+                pool.join()
+
+    tasks = []
+    for name, (block, sets) in sets_of.items():
+        init = real_fits.get(name, {})
         for kind, draw, CC in sets:
             for model in models:
-                if model in TRACK_SLOW and kind != "real" and draw > 0:
-                    continue
-                if model in ("fhn_oscillator", "izhikevich", "van_der_pol", "morris_lecar") and \
-                        (model not in init or init[model].get("error")):
-                    continue
-                tasks.append((name, kind, draw, model, tau, CC, d["block"], init))
-    tasks.sort(key=lambda t: (t[3] not in TRACK_SLOW, t[1] != "real", -len(t[5])))
-    log(f"track: {len(tasks)} tasks over {len(ds)} trains")
-    res = _pool_map(_track_task, tasks, workers, "track")
-    out = dict(settings=dict(n_points=100, null_draws=n_draws, slow_models_on_draw0_only=TRACK_SLOW,
-                             starts="cold: every block from the train's own mean-cycle fit (A)",
-                             fit=dict(fhn_osc=(1, 80), fhn_exc=(1, 100), izh=(2, 150), vdp=(1, 80), ml=(1, 80))),
-               trains=meta, results=res, elapsed_s=time.time() - t0, cpu_s=float(sum(r["elapsed_s"] for r in res)))
-    fn = "track.json" if not only else f"track_{'_'.join(only)}.json"
+                if usable(name, model) and (kind == "real" or model not in TRACK_SLOW):
+                    tasks.append((name, kind, draw, model, tau, CC, block, init))
+    if not supplement:
+        run(tasks, "phase 1 (real + fast-model nulls)")
+    tasks = []
+    for r in list(res):
+        if r["kind"] == "real" and r["model"] in TRACK_SLOW and r["pooled_ratio"] is not None and r["pooled_ratio"] < 1:
+            block, sets = sets_of[r["train"]]
+            for kind, draw, CC in sets:
+                if kind != "real" and draw == 0:
+                    tasks.append((r["train"], kind, draw, r["model"], tau, CC, block, real_fits[r["train"]]))
+    if not supplement:
+        run(tasks, "phase 2 (slow-model nulls where the real ratio < 1)")
+    if all_slow_nulls:                # the supplement: the rest of the slow models' draw-0 nulls, as B3 ran them
+        done = {(r["train"], r["kind"], r["draw"], r["model"]) for r in res}
+        tasks = []
+        for r in list(res):
+            if r["kind"] == "real" and r["model"] in TRACK_SLOW:
+                block, sets = sets_of[r["train"]]
+                for kind, draw, CC in sets:
+                    if kind != "real" and draw == 0 and (r["train"], kind, draw, r["model"]) not in done:
+                        tasks.append((r["train"], kind, draw, r["model"], tau, CC, block, real_fits[r["train"]]))
+        run(tasks, "phase 3 (the remaining slow-model nulls, draw 0)")
+    out = dict(settings=settings, trains=meta, results=res, elapsed_s=time.time() - t0,
+               cpu_s=float(sum(r["elapsed_s"] for r in res)), complete=True)
     _write(out_dir, fn, out)
     log(f"track done in {out['elapsed_s']:.0f} s wall, {out['cpu_s']:.0f} s CPU")
     return out
@@ -584,7 +663,7 @@ def _prc_task(args):
         return dict(train=train, model=model, error=f"{type(e).__name__}: {e}", elapsed_s=time.time() - t0)
 
 
-def run_prc(out_dir, workers, only=None, n_base=100, n_null=20, n_shuffle=500):
+def run_prc(out_dir, workers, only=None, n_base=100, n_null=20, n_shuffle=500, spont_only=False):
     from Pipelines.fhn import empirical_prc as E
     t0 = time.time()
     real_fits, _, trains_meta = load_fits(out_dir)
@@ -596,8 +675,11 @@ def run_prc(out_dir, workers, only=None, n_base=100, n_null=20, n_shuffle=500):
             if m in fits and not fits[m].get("error"):
                 f = dict(fits[m], cycle_s=trains_meta[train]["median_cycle_s"])
                 tasks.append((train, m, f, n_base))
-    log(f"prc: {len(tasks)} model PRCs")
-    models = _pool_map(_prc_task, tasks, workers, "prc")
+    if spont_only:                    # keep the model PRCs already computed; redo the estimate and return map
+        models = json.loads((Path(out_dir) / "prc.json").read_text(encoding="utf-8"))["models"]
+    else:
+        log(f"prc: {len(tasks)} model PRCs")
+        models = _pool_map(_prc_task, tasks, workers, "prc")
     ds, _ = datasets(only)
     spont, rmap = {}, {}
     for name, d in ds.items():
@@ -605,6 +687,8 @@ def run_prc(out_dir, workers, only=None, n_base=100, n_null=20, n_shuffle=500):
         rmap[name] = E.return_map(c["lengths"] / d["fs"], kept=c["kept"], n_shuffle=n_shuffle, seed=7)
         if len(c["cycles"]) >= E.MIN_CYCLES:
             fakes = fake_cycles_100(d, n_null, seed0=500)
+            rng = np.random.default_rng(4000)
+            fakes["timewarp"] = [timewarp_cycles(d, rng) for _ in range(n_null)]
             spont[name] = E.estimate(c["cycles"], c["lengths"], kept=c["kept"], fake_cycles=fakes, n_shuffle=n_shuffle,
                                      n_boot=500, seed=11, fs=d["fs"])
             log(f"  spontaneous {name}: cv R2 {spont[name]['cv_r2']:.3f}, clears {spont[name]['train_clears']}, "
@@ -612,12 +696,77 @@ def run_prc(out_dir, workers, only=None, n_base=100, n_null=20, n_shuffle=500):
         else:
             spont[name] = dict(skipped=f"{len(c['cycles'])} cycles (needs {E.MIN_CYCLES})")
     out = dict(settings=dict(n_base=n_base, paper_delta=PAPER_DELTA, spont_fake_draws=n_null, n_shuffle=n_shuffle,
-                             bins=E.N_BINS, half=E.HALF),
+                             bins=E.N_BINS, half=E.HALF,
+                             spont_nulls="shuffle, quiet, surrogate, aaft, timewarp (run_long.timewarp_cycles)"),
                models=models, spontaneous=spont, return_map=rmap, elapsed_s=time.time() - t0)
     fn = "prc.json" if not only else f"prc_{'_'.join(only)}.json"
     _write(out_dir, fn, out)
     log(f"prc done in {out['elapsed_s']:.0f} s")
     return out
+
+
+def write_results(out_dir):
+    """results.json: the headline numbers of every step, read back from trains/regression/fits/track/prc.json."""
+    out_dir = Path(out_dir)
+
+    def rd(name):
+        p = out_dir / name
+        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+
+    trains, reg, fits, track, prc = (rd(n) for n in ("trains.json", "regression.json", "fits.json", "track.json",
+                                                      "prc.json"))
+    res = dict(caveat="Every model PRC is the PRC of a fitted MODEL; the spontaneous estimate is a correlation. No "
+                      "fungus was stimulated.", rule=trains and trains["rule"],
+               trains=trains and trains["trains"], chains=trains and trains["chains"],
+               not_trains=trains and trains["candidates"], hindmarsh_rose=trains and trains.get("hindmarsh_rose"),
+               regression=reg and dict(mean_cycle=reg["mean_cycle"], track=reg["track"]))
+    if fits:
+        R = fits["results"]
+        A = {}
+        for t, m in fits["trains"].items():
+            real = {r["model"]: r for r in R if r["train"] == t and r["kind"] == "real"}
+            best = min(r["aic"] for r in real.values() if r.get("aic") is not None)
+            row = {}
+            for mo, r in real.items():
+                beats = {}
+                for k in ("quiet", "surrogate", "aaft"):
+                    v = [x["r2"] for x in R if x["train"] == t and x["model"] == mo and x["kind"] == k
+                         and x.get("r2") is not None]
+                    beats[k] = dict(draws=len(v), null_max=max(v) if v else None,
+                                    beats_every_draw=bool(v) and r["r2"] > max(v))
+                row[mo] = dict(r2=r["r2"], aic=r["aic"], delta_aic=r["aic"] - best, k=r["k"], params=r["params"],
+                               on_bound=r.get("on_bound"), cls=r.get("class"), nulls=beats)
+            h = m["null_height_mV"]
+            A[t] = dict(n_cycles=m["n_cycles"], median_cycle_s=m["median_cycle_s"], models=row,
+                        height=dict(real_mV=m["real_height_mV"],
+                                    **{k: dict(median=float(np.median(v)), max=float(max(v)),
+                                               real_exceeds_every_draw=bool(m["real_height_mV"] > max(v)))
+                                       for k, v in h.items() if v}))
+        res["A_mean_cycle"] = dict(settings=fits["settings"], trains=A)
+    if track:
+        B = {}
+        for r in track["results"]:
+            b = B.setdefault(r["train"], {}).setdefault(r["model"], dict(real=None, nulls={}, drift=None))
+            if r["kind"] == "real":
+                b["real"] = r["pooled_ratio"]
+                b["median_ratio"] = r["summary"]["median_ratio"]
+                b["drift"] = r["drift"]
+            else:
+                b["nulls"][f"{r['kind']}{r['draw']}"] = r["pooled_ratio"]
+        res["B_tracking"] = dict(settings=track["settings"], trains=B)
+    if prc:
+        res["C_prc"] = dict(
+            settings=prc["settings"],
+            models=[{k: p.get(k) for k in ("train", "model", "type", "type_delay", "rad_per_mV", "agreement",
+                                           "gain_mV_per_unit", "error", "note")} for p in prc["models"]],
+            spontaneous={t: ({k: s[k] for k in ("n_cycles", "n_used", "cv_r2", "train_clears", "n_bins_clear",
+                                                "phases", "Z_rad_per_mV", "band_lo", "band_hi", "bins_clear",
+                                                "median_cycle_s")}
+                             | {"nulls": {k: {kk: v[kk] for kk in ("draws", "cv_r2_q95", "cv_r2_median", "p_cv")}
+                                          for k, v in s["nulls"].items()}})
+                         if not s.get("skipped") else s for t, s in prc["spontaneous"].items()},
+            return_map={t: {k: v for k, v in r.items() if k not in ("T", "T_next")} for t, r in prc["return_map"].items()})
+    return _write(out_dir, "results.json", res)
 
 
 def main(argv=None):
@@ -627,6 +776,9 @@ def main(argv=None):
     ap.add_argument("--workers", type=int, default=2)
     ap.add_argument("--only", nargs="*", default=None)
     ap.add_argument("--models", nargs="*", default=None)
+    ap.add_argument("--supplement", action="store_true", help="track: add the remaining slow-model nulls to track.json")
+    ap.add_argument("--spont-only", action="store_true", help="prc: keep prc.json's model PRCs, redo the estimate")
+    ap.add_argument("--real-only", action="store_true", help="fits: the recordings only (no nulls), to fits_real.json")
     args = ap.parse_args(argv)
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -636,14 +788,15 @@ def main(argv=None):
     elif args.what == "trains":
         run_trains(out_dir)
     elif args.what == "fits":
-        run_fits(out_dir, w, args.only, tuple(args.models or MEAN_MODELS))
+        run_fits(out_dir, w, args.only, tuple(args.models or MEAN_MODELS), args.real_only)
     elif args.what == "track":
-        run_track(out_dir, w, args.only, models=tuple(args.models or TRACK_MODELS))
+        run_track(out_dir, w, args.only, models=tuple(args.models or TRACK_MODELS), supplement=args.supplement)
     elif args.what == "prc":
-        run_prc(out_dir, w, args.only)
+        run_prc(out_dir, w, args.only, spont_only=args.spont_only)
     else:
         from Pipelines.fhn import long_figures as G
         G.all_figures(out_dir)
+        log(f"-> {write_results(out_dir)}")
 
 
 if __name__ == "__main__":

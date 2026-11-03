@@ -189,13 +189,15 @@ def fig_prc_spont(train, sp, prcs, path_stem):
     Z = np.asarray(sp["Z_rad_per_mV"])
     a0.fill_between(ph, sp["band_lo"], sp["band_hi"], color="#86b6ef", alpha=0.4, label="bootstrap 95 %")
     a0.plot(ph, Z, color=INK, lw=2, marker="o", ms=3, label="estimate Z(phase)")
-    for kind, ls in (("shuffle", "-"), ("quiet", ":"), ("surrogate", "--"), ("aaft", "-.")):
+    for kind, ls in (("shuffle", "-"), ("quiet", ":"), ("surrogate", "--"), ("aaft", "-."), ("timewarp", (0, (1, 3)))):
         if kind in sp["nulls"]:
             q = np.asarray(sp["nulls"][kind]["absZ_q95"])
             a0.plot(ph, q, color=GREY, ls=ls, lw=1, label=f"{kind} null |Z| 95 %")
             a0.plot(ph, -q, color=GREY, ls=ls, lw=1)
-    clr = np.asarray(sp["bins_clear"], bool)
-    a0.scatter(ph[clr], Z[clr], s=60, facecolor="none", edgecolor=RED, lw=1.5, zorder=4, label="clears every null")
+    # a bin is reported only when the train's cross-validated R2 also clears every null (else: 20 bins, chance hits)
+    clr = np.asarray(sp["bins_clear"], bool) & bool(sp["train_clears"])
+    a0.scatter(ph[clr], Z[clr], s=60, facecolor="none", edgecolor=RED, lw=1.5, zorder=4,
+               label="clears every null (bin and train)")
     a0.axvline(0.1 * 2 * np.pi, color=RED, lw=0.8, ls=":")
     a0.text(0.1 * 2 * np.pi, a0.get_ylim()[1], " drop", color=RED, fontsize=8, va="top")
     a0.axhline(0, color="0.5", lw=0.6)
@@ -234,9 +236,9 @@ def fig_returnmap(train, rm, path_stem):
     a0.set_title(f"raw: Spearman {r['rho']:+.2f}, p {r['p_two']:.2g} (shuffle 95 %: {r['null_q025']:+.2f} to "
                  f"{r['null_q975']:+.2f})", fontsize=8)
     a0.grid(alpha=0.25)
-    d = rm["detrended"]
-    a1.bar(["raw", "drift removed"], [r["rho"], d["rho"]], color=[BLUE, VIOLET])
-    for i, x in enumerate((r, d)):
+    bars = [("raw", r, BLUE)] + ([("drift removed", rm["detrended"], VIOLET)] if "rho" in rm["detrended"] else [])
+    a1.bar([b[0] for b in bars], [b[1]["rho"] for b in bars], color=[b[2] for b in bars])
+    for i, (_, x, _) in enumerate(bars):
         a1.plot([i - 0.3, i + 0.3], [x["null_q025"]] * 2, color=INK)
         a1.plot([i - 0.3, i + 0.3], [x["null_q975"]] * 2, color=INK)
         a1.text(i, x["rho"], f" p {x['p_two']:.2g}", ha="center", va="bottom", fontsize=8)
