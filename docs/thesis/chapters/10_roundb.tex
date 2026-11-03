@@ -448,19 +448,61 @@ Each study asks what a method borrowed from another field reveals on fungal sign
         from verified M2\_aug families. How often does a verified motif recur per hour per channel, and does an oyster
         motif occur on CO, LM or MJu26a? Null: scrambled copies, or AAFT. Long searches go to the cluster.
   \item \textbf{B9}, CWT ridges (mass spectrometry), on the \texttt{cwt\_events} template. Is event duration
-        multimodal, as Adamatzky's three scales suggest? Compare the modes of \texttt{best\_scale\_s} against AAFT.
-  \item \textbf{B10}, structure across scales:
+        multimodal, as Adamatzky's three scales suggest? \textbf{Answered, negative (3 Nov).}
+        Sources: \src{docs/rq_roundA_2/findings/b9-cwt-durations-2026-11-03.md}; ledger J10; Figure~\ref{fig:b9hist}.
         \begin{itemize}
-          \item on the site: \texttt{motif\_lengths} (the matrix profile at 12 lengths from 30\,s to 1\,h), the CNN
-                templates at 1, 10 and 30\,min, and \texttt{spike\_event\_features};
-          \item question: at which scales does structure beyond AAFT noise appear, per recording?
-          \item earlier result: on recording 385 every judged length from 30\,s to 16\,min repeated beyond noise, the
-                strongest at 30\,s.
+          \item \textbf{Data.} 20 one-day spans (4 channels $\times$ 5 recordings), each with one AAFT and one
+                phase-randomised copy.
+          \item \textbf{Counts.} The real recordings give 632 drops (260 clean). Their AAFT copies give 1,087 (517).
+                Only 6 of 20 spans beat their copy, and no recording does overall.
+          \item \textbf{Durations.} The same single skewed pile, from about 15\,s to minutes: KS $p=0.39$--0.83 per
+                recording, pooled 0.59. The one exception is M2\_concat, longer ($p=0.007$).
+          \item \textbf{Modes.} A mixture fit finds ``modes'' at 17\,s and 87\,s, and finds them more strongly in
+                AAFT. So they are the detector reading noise of this value distribution, not preferred event scales.
+          \item \textbf{On the site.} Analyse agrees on M2\_aug: real 93, AAFT 51, phase 0.
+          \item \textbf{Consequence.} W1's ``beats its null'' held only against the phase null, which turns the
+                lopsided value distribution into a bell curve and then yields almost no drops. Against AAFT,
+                \texttt{cwt\_events} does not find structure beyond its input's values. Re-judge it before citing it.
+        \end{itemize}
+  \item \textbf{B10}, structure across scales. \textbf{Answered (3 Nov).}
+        Sources: \src{docs/rq_roundA_2/findings/b10-scales-2026-11-03.md}; ledger J11; Figure~\ref{fig:b10motif}.
+        \begin{itemize}
+          \item \textbf{Matrix profile on the site.} \texttt{motif\_lengths} ran on one 8\,h span per recording
+                (channel 0, from the middle). The lengths that repeat beyond AAFT are:
+                \begin{itemize}
+                  \item M2\_aug 30\,s--16.3\,min, M2\_concat 30\,s--4.4\,min, CO 30\,s--25.1\,min and LM
+                        30\,s--16.3\,min;
+                  \item none on MJu26a, whose span is a steady oscillation of about 20\,min that AAFT keeps.
+                \end{itemize}
+                As in W3, the cleared lengths form one band and the strongest gap is at the shortest length, so no
+                window is preferred. The 38.8\,min and 1\,h rungs cannot be judged on 8\,h.
+          \item \textbf{CNN templates} (existing sweep, real against one phase-randomised copy): the 10-minute
+                templates beat their copy on all five recordings and the 60-minute ones on CO, M2\_aug and MJu26a.
+                The 1-minute ones beat it on none (their copies give 2--8 times more). After B9, read these margins as
+                an upper bound against AAFT.
+          \item Earlier result: on recording 385 every judged length from 30\,s to 16\,min repeated beyond noise,
+                strongest at 30\,s. \texttt{spike\_event\_features} was not run.
         \end{itemize}
 \end{itemize}
 State the general finding as the chapter's conclusion: which borrowed methods transfer, and which only measure the
-spectrum. Include B1's interval statistics and B3's models.
+spectrum. Include B1's interval statistics and B3's models. B9 and B10 add a sharper version: the matrix profile finds
+structure beyond AAFT at every judged length from 30\,s to minutes on four recordings, while \texttt{cwt\_events} does
+not beat AAFT at all. The null's choice decides the verdict, as Chapter~\ref{ch:rq1} found for the detectors.
 \end{instructions}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.78\textwidth]{roundb/b10_motif_lengths_m2aug.png}
+\caption{B10 on the site: \texttt{motif\_lengths} on M2\_aug, 356.5--364.5\,h, with the pan matrix profile, the span and the verdict per window length. The lengths that repeat beyond AAFT noise run from 30\,s to 16.3\,min.}
+\label{fig:b10motif}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{data/ch10_b9/durations_hist.png}
+\caption{B9: \texttt{cwt\_events} durations (log$_{10}$ seconds), real (blue) against AAFT copies (orange) and phase-randomised copies (grey), per recording and pooled. AAFT gives more drops than the real recordings, with the same durations.}
+\label{fig:b9hist}
+\end{figure}
 
 \section{Activity against environment}
 \label{sec:rb_environment}
