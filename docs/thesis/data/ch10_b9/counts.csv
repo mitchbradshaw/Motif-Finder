@@ -1,0 +1,7 @@
+recording,spans,real,clean_real,aaft,clean_aaft,pr,clean_pr,spans_real_gt_aaft
+CO_fs2,4,124,58,144,56,2,1,1
+LM_fs2,4,178,51,190,100,0,0,2
+M2_aug,4,144,68,243,133,1,1,1
+M2_concat,4,137,54,357,147,0,0,1
+MJu26a_fs2,4,49,29,153,81,2,0,1
+pooled,20,632,260,1087,517,5,2,6

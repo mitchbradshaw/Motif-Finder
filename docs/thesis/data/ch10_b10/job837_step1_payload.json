@@ -1,0 +1,284 @@
+{
+ "type": "encoding",
+ "kind": "image",
+ "ndim": 2,
+ "shape": [
+  12,
+  28800
+ ],
+ "n_images": null,
+ "display_shape": [
+  12,
+  254
+ ],
+ "channels": 1,
+ "value_range": [
+  0.3794938623905182,
+  0.9608691930770874
+ ],
+ "pixels_b64": "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faRZLDUXFBw/e2gUIiszLE0VJV1xSjtYSls+OyoafTUtSiUvLUOhemRjrvj48PXs7eXn6ZJMt6OddLPI08LeuWuLvp/Cw8rByM3T3bDB3OKkg7PGhd3jxXg7mcekep6rhpm/ik6/z87FhKmihKt5qMXGvqW8tF3QuauLn8XbvaiFj8HboszPtqW3mqaxy87NxauKha3i0/Hn4a7U2L6JasTb5Klqm7C35KvqnaGyu6+20MeI3oGq3KnEpLW5xceevsDQo56i08XL2JrDwpN3eY13tMK+n365vZepwJnNkHehnJi/vLyogjNXYC0kKTMjJCUqIl41JhwZISM/L0NTeV4mNh4fLCxXYSQkIzgkQSQpP1Q5N0EzQ0AvLBpZQDA9LS49Jm9kSz+D8PLq8uTi2+DhokGAmINfgJXRotXHc6qphpywq76UzZ/TtaPc5siJobGUvOOufFJZwJRhmIyMiL6PZIbMvsl7opqdlIaRttCxrLTCf5rRrKCMpt/GsaOOxNqzu9W/r6uMiMDE1+i/pZqeqtTi1+rbtb/btKeEpcTqvFqMuKvhtdm/prmywKnSy47So6PCsMGwtcS2xay9xc+7y7TWwMrjrb/MqIySon6ts7zHfb3Uxsi1oLKanLDQpcPVx7yTMUxLNi4vMzIxMDkxSzo1KSwtLEEzOUdWWjc6Liw0OURROS8yPjM6NDc4Sj89QD8+RDA2K0dJO0E2NUYxSV89NWbZ6N3r2dTM0dOyVFOUaVZfbbyKw8d6sZd3f5eOrGjGiMa0h9Xmy5CIkIex25OFXkO4gGCKe4aBtZd0cb6ewWash6eKfn2txpeWnMqSetOvp4+S1bKqmau8zL6i2La3oolwpsjX5cyqibC5y/DF6c3Dvs6nr5OXp+m4bYe5rMy2zMuktbW8n8++o7DBsLCjybjCysfCps3RysfYqdjA1t+/ytqwoKa1kq+tx9GUsdTN2cStqaa7ute6x97VwY1DTUpLQ0FERkRCSUZUSEk/REBBSENGUlJYRktBQUtNSVJMRkZQREpKTkdQTVRKVU1UQ05DTFZOTExIVUxHW0ZIXbrex97Pwb+6urBpU4VrW1ltl4yluYicjnB8k4WbWa9+tad1yOTDiIB8fZjJhnZqT5x9YXt8e4KnlX+Dsn+7YLGEooyKdZuukIeJvqR6wrWgoobMo6WQw7HCwpXNobOfi26gss/YyaiCvLTB8sLmrcG2xKesn42j1qN6jLCqvbC9ypi1tLWfv7Wxm8++uqq9yLzQydCd0de8yNi2y5zZ1cq/1qqqrcGqv8G11KWvyMnQ0qyuu7nFw7zA1tPLllpdX15iXVpiXWFfXWVfX1pdXl1fY1xnZWNhY11aYmBfYWBgX2VeX2ZoYWZfZWVmXWhdYl9kaGVkZV5lZ19oXmBqrtK4y8Czs6SmqX5ognppa3mPlZiok5GNeYeThpFnn4aflX7C37eJgnl+jLiIdn1nj39xfISIf6KQipCvf7ltsYWlkpSAlJmSlYmvn4i+tKGqgMSnmpHJsLq9m76ZtJ+YeaKpwMjDoYnArr7xweGovLS9p7emkJ/Dm4uOsaixqa/FlLW3uKOtrq+czb2/t7rIw9PB0p/H07K+zcS7mNTJwsTTsq2uwrLIyLbUrLbFxsTQr7PFu827wbrN08am",
+ "all_nan": false,
+ "nan_cells": 75,
+ "n_cells": 3048,
+ "nan_b64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+ "frames": {
+  "axis": "time",
+  "n": 113,
+  "value_range": [
+   0.3682522773742676,
+   0.9696400761604309
+  ],
+  "frame_columns": 256,
+  "shown": [
+   {
+    "index": 0,
+    "label": "columns 0\u2013256 of 28,800",
+    "shape": [
+     12,
+     256
+    ],
+    "channels": 1,
+    "t0_s": 494076.0,
+    "t1_s": 494332.0,
+    "nan_cells": 0,
+    "n_cells": 3072,
+    "pixels_b64": "k5OTk5OTk5OTk5OTk5KSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkZGRkZKSkpKSk5OTk5SUlJSVlZWVlZaWlpaWl5eXl5eYmJiYmZmZmZmampqampubm5ucnJycnJ2dnZ2dnp6enp+fn5+fn6CgoKCgoaGhoaGhoqKioqKioqOjo6Ojo6SkpKSkpKSlpaWlpaWmpqampqamp6enp6enqKioqKioqampqampqaqqqqqqqqqrq7CwsLCwsLCwsLCwsK+vr6+vr6+vr6+vrq6urq6urq2tra2tra2srKysrKysrKysq6urq6urq6qqqqqqqqqqqampqampqaioqKioqKenp6enp6empqampqalpaWlpaSkpKSko6Ojo6OioqKioqKioaGhoaCgoKCgoKCgoKCgoKCgoKCgoKCfn5+fn5+fn5+fn5+fn5+fn5+fnp6enp6enp6enp6enp6enp6enp2dnZ2dnZ2dnZ2dnZ2dnJycnJycnJycnJycnJubm5ubm5ubm5uampqampqamZmZmZmZmZiYmJiYmJiYmJiYmJiYmJeXl5eXl5eXl5eXl5eXlpaWlpawsLCwsLCwr6+vr6+vr6+vrq6urq6urq6urq6tra2tra2tra2tra2trKysrKysrKysrKysrKysrKurq6urq6urq6urq6qqqqqqqqqqqqmpqampqampqampqampqKioqKioqKioqKinp6enp6enp6ampqampqampqampaWlpaWlpaWlpaWlpKSkpKWlpKWlpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSjo6Ojo6Ojo6Ojo6OjoqKioqKioqKioqKioqKioqKioqKioaGhoaGhoaGhoaGhoaGhoaCgoKCgoKCgoKCgoKCgoJ+gn5+fn5+fn5+fn5+fn5+fn5+fn5+eysrKysrKysrKysrJycnJycnJycnJyMjIyMjIyMjIyMjIx8fHx8fHx8bHxsbGxsbGxsbFxcXFxMTExMTExMPDw8PDw8PDwsLCwsLCwcHBwMDAv7+/v7++vr69vb28vLy7u7u6urq6urq5ubm5ubm4uLi4t7e3t7e2tra2tra2tbW1tbW1tLS0tLOzs7KysrKxsbGwsLCvr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+vrq6urq6urq6urq6urq6tra2tra2srKysrKurq6qqqqqqqqmpqampqKiop6enp6enp6empqampqWlpaWlpaSkpKSkpKOjo6Ojo6KiosHBwcHBwcHBwMDAwMDAwMDBwcDAwMDAwMDAwMDAwMDAwMDAwMDAwL+/v7+/v7+/v7+/v7+/v7++v7++vr6+vr6+vr6+vr69vb29vb29vb29vLy8vLy8vLu7u7u7u7u7u7u6urq6urq6urq5ubm5ubm4uLi4uLi4t7e3t7a2tra1tbW1tbS0tLS0tLS0s7Ozs7Ozs7Ozs7KysrKysbGxsbGxsbGxsbGxsbGxsLCwsLCwsK+wr6+vr6+vr6+vr6+vr6+vrq6urq6urq6urq6tra2tra2tra2tra2tra2trKysrKysrKysrKysq6ysrKurq6urq6urq6urq6urq6urq6uxsbGysrOzs7OztLOztbW1tba2tra2tra2tre3t7e3t7e3t7e3t7a2tre3t7e3t7e3t7e3t7e3t7e2tra2tra2tra2tra2tra2trW1tbW1tbW1tbW1tba2trW1trW0tLOzs7KxsbCwsLCxsbGwsLCwr6+vrq6ura2trKysrKysrKysq6urq6qrqqmpqKioqKioqKioqKioqKeoqKioqKenpqalpaWlpaWkpKSjpKSkpKSkpKSlpaWkpaSjo6KioqKioaKioqKioaCgoKCgoJ+enp6enp2enp2enp2cnJybm5ubmpqampmZmZmZmZiYmJiXl5eWlpaWl5eWlpaWlZWUhoeHhoeHh4eIiImJiYuLi4uKiYqKiouMjI2Qj5CRkZKSkZKSk5OSlJOUlJSWlpeWl5aVlZaXl5iXlpeXl5iYmZmZmZmZmZmZmpqam5uampubmpqam5ubm5ybm5ubm5udnZ2dnJycm5ycnZ6dnZ2enZ2dnZ2enp6en5+fn5+fn5+fnp+en5+fn5+fn5+fn5+fn5+fn5+fn5+fn5+enp2dnZycm5ycnJybm5ucnJubm5ubm5ycnJycm5ubm5qZmZmYmJiXl5eXl5eYl5iYlpaWlZSUlJSUlZWVlpaWlpaWlpaWlpaVlZWWlpaVlZWWlJOTkZGQjo+Pi4yMjIyMjIuLix8iHyEgIiQiIyMlJicoKiwvMDM2NDY5PEFCR0lJTVFUVVVYVlhbXVpbXWBiZmppamtrbG1ub21tbm9wb21vb3Bxc3N0dXZ3d3h6e31/fn5/gYOCgIGDhIWGhoaHh4eIi4mJiYiIiIiJiouLioqJiIeGhoaHhoWEhYaGhYSEhISCgYF/f4CAgICAf35/fn59e319e319fXh4d3l5eHd4dXNycG1sbGxraWdoaWpsampoZ2dnZ2VkZGFiY2RmZmhpa2tpaGdlZmdoampqamlqamtucHFyc3Z5eXt6e3t6ent9fHx9f35/gIB+f3+AgIGCgYGCg4OGh4WHiIeFhoeHh4gZGBgXFhcWFRYWFxgWFBcXGRkZGBseICAeHR8fIR8eHiAjJCQmJygkJycrLi8wMS8tLi0rKicoJiYmJygpKSgnJiosKSkpKSsuLjM3OD9CREJCREdLTVBTVFdcX2BfYmJkZ2ljY2ZobG1ybm5vbHFwcHNxb2xsbG1sa21qamtsa2ppamloamxvcm1rbW9xbWxxcnF0dXVzdHR2dnVydHFsamhlZWdmZmJgYFtaXVdYU1JRSktJSEpISUlHQ0VGRENDQ0NFQ0RDQUFFRT88PDs6Pj44Njk/QEFDQEE/QEE/QEE9PDs7PD09QEA/Pj4+QkVEREM/RkdKUU9RU1haVllZJSUnKCoqKCgpJCUlJiYnKCsoLS0uLS02NDMyMjI2MTI0Njw5OTs1NDEpKCkrKSsvMDEzMCwwMDI1NjI2MDI0Li0yMzQzNDAwNjk3ODg7ODk6PDw+Pj48PTw9Pzo9PTpDREtIRkhKPz8+QD0/P0BGRkVERzw9Pj9ARkVHSUhNWVRTVlxbWl5ZXGNkV1pdYWNmbGRiZ2ZoZmdmY2RhY2lkXFtXTk5OT1FNS1BNS1NPUlNJSUdLSkhHQ0BBQ0JEQ0NOS01MREREPjtARElLRERAQUI/PkFBQUJCREJJR0hISEtNRklDQUE8NDI1PDY7QkE6NDQ2Mjs7O0VAPDU1MTAtLlBPR0FER0E8O0FLSVJPQzo2PEFBPzw+TkhISUpITk1PT09TS0tNSkdHREZHQUJGRktGR0c6Oz01Njk4PDc4ODY5NDY1NUdPU09ITEFCREVHREdBRUJEREU/PT9CP0NHR0lJTkpITVBRTE1OUFZQY2VnaWhTUENHTUtGSExHSEpOPTk9Pzw+Pzk8QkVKSURGSVVOS09UWVdbW2lpcHd4cnBqZ3ByVlxfXV1gY1RcUlNRU1RPS0tJSEc/Nzc2ODY1MzE0Njc7P0NGSEtHSUhPTkZMU05QUlxdXmBfW1tdWFhYWVJQS09TREFBPUBJS0dHQ0JEQENHRURTT05NTUhIRUJXU1ZaWU9NSkpIVXJiWVxYW0xLSE1KUFNbWVNUS0xXTVBbbnBwdXhyaGRnb2NcZmtrbGloYF5eWF1aVVFNTFBUUktOTFJZTVRIUVJjYVtZXEtTSU5jdH10ZVVZT09RWVxeWlZYW11gZFxrfW5ucYSEeYWLeHFnYF5aYWVaWFddWVFRT1RQXlRMVlNUVVdcYGJWXltfU1ZUVFpgXF9fbGhoaFllYWJram9tcnWDkYqBcWVsX2RVU1VfVldeV1dOT1RRVVdSTElGRlRcWFlJTURBQ1RQYltbWmRscl9gbHNtbnJncnBqZmVZY15VWlliYFVZU1ZhXGJjW05RVltfaXBf",
+    "nan_b64": null
+   },
+   {
+    "index": 56,
+    "label": "columns 14,336\u201314,592 of 28,800",
+    "shape": [
+     12,
+     256
+    ],
+    "channels": 1,
+    "t0_s": 508412.0,
+    "t1_s": 508668.0,
+    "nan_cells": 0,
+    "n_cells": 3072,
+    "pixels_b64": "zMzMzMzMzMzMzMzNzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NHR0dHR0dHR0dHR0by8vLy8vLy9vb29vb29vb29vb29vr6+vr6+vr6+vr6+vr6+vr6+vr6+vr6+v7+/v7+/vr6+vr6+vr6+vr6+vr6+vb29vb29vb29vLy8vLy8vLy8u7u7u7u7urq6urq5ubm5uLi4uLi4t7e3t7e3t7e2tra2tra2tra2tbW1tbW1tbW1tbS0tLS0tLS0tLS0tLS0s7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7S0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tbW1tbW1tbW1tbW1tbW1tbW1tba2tra2tra2tra2tra2tra2tra2tra3t7e3t7e3t7e3t7e3t7e3t7e3uLi4uLhXV1hYWVlaWltbW1tcXFxcXV1dXV1eXl5eXl9fX19fX19fYGBgYGBhYWFhYWFhYmJiYmJiYmJiYmJiY2NjZGRkZWVlZmZmZ2dnaGhpaWlqampra2tsbGxtbW1ubm5vb29wcHBxcXFxcnJyc3NzdHR0dXV1dnZ2dnd3d3h4eHh5eXl5enp6ent7e3t7fHx8fH19fX5+fn5+f39/f4CAgICAgIGBgYGCgoKCg4ODg4ODhISEhISEhYWFhYaGhoaHh4eHh4eIiIiIiIiIiYmJiYmJiYqKioqKioqLi4uMjIyNjY2Ojo6Oj4+PkJCQkJGRkZGRkpKSkpKSkpKTk5OTk5OTfn5+fn5+fn5+fX1+fn19fn59fn+AgYKCg4SEhYWGhoaHh4iIiImJiYqKioqLi4uLi4uLjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMi4uLi4qKioqJiYmJiIiIiIeHh4eHhoaGhoaFhYWEhISDg4ODgoKCgYGBgIB/f39+fn19fXx8fHt7e3p6enp6eXl5eXh4eHd3d3Z2dnZ1dnZ3eHh5enp6e3t7fHx8fHx8fHt7e3p6enp5eXh4eHh4d3d3d3Z2dnV1dXV0dHR0dHR0dHR0dHR0dHR1dXV2dnd4eHl5eXp6e3t8fH19fX1+fn5+f39/f39+fn18e3t6eXh2dV1dXFxcXF1dXV5eXl5eXl9fX19gYGBgYGBgYWFhYGBfX19gYWJiY2RkZWZnZ2hoaGhpaWlpamppamtsbGxsbGxsbW1tbW5tbm5ub29vb29vbm5ubm9vbm5vb3BwcHFxcHBwcXFxcXFxcHBvb29ubm5ubm5ubm5ubm5ubm5ubm5ub25ubm5ubm5ubm5ub29vcG9wb3BwcHBwcHFycnNzdHR0dnh6fH1/f3+AgYGCgoODg4ODhISFhYaGhoeHh4eHhoaGhYODg4ODg4ODgoKCgoKCgoODg4OCgoOCg4SFhoaHiImLjI2Oj5CRkpOTlJSVlZaWl5eYmJiZmZqam5ucnZ2en5+fn5+goaKjpaamp6eoqampqqqrq6urq6urq6urq6urqqqqqqmpp6elpKKgn56dnJuamZiYl5eXlpaVlZSUk5OTkpKRkZGQkI+OjYyMi4uLi4qKioqKiomJiYmJiYmIiIiIiIiHh4eHh4eHhoaGhoWFhYSEhIODg4OCg4KCgYGBgH9/fn5+fX19fXx8fHx7e3t6enp5eXl5eHd2dXV0c3JxcG9ubWxsa2pqaWhoaGdnZ2ZmZmVlZGRjYmJhYWBgX19fXl5dXV1cW1paWlpaWlpaW1xcXVxdXVxcW1tbWlpZWVlZWlpaXF9hYmRmZ2lrbG1vcHFxcnN0dHV1dnd3g4ODhISEhISEhYWFhYWFhYWGhoaGhoaGhoaGhoaGhYWFhISFhYWGhoaHiIiJiYqLjY2Oj5CRkpOWmJqbnJ2en5+foKGio6SlpqeoqamqqqurrKysra2urq+vr7CxsrGys7OysrOztLS1tbW1tbOzs7S0tLS1tbS0tbW1tra2tra3t7a2tra2tra1tbS0s7Ozs7KysbGwr6+ur62tq6mopqOhn52cm5qamZmYmJeXlpaWlZSUlJOTkpGRkJGRkZCQj46OjY2Mi4uKiomJiYmJiIiIiIiIiIiIiImKiouNjo+Pjo+Pjo2Mi4qJh4aFg4OBgH+AgYKDgoKCgH9+e3l1dqOenJqXlZORj42KhoOBfHp5eHd2dXNycG9ubGxtb3FzdXd4eXt9gIOHiYqNjIyLiIR+eXZ0c3R1dXV0dHR0dHJvbWplZmhoam1xdXZ1eHh5eXp6e3x9fn+AgYOFh4qLjI6QkZKTlZebnqChpKWlpqeoqamqqqqqqaqqqaiop6WjpaOioaCgoKCfn52cm5ubnJybmpmZmZqamp6foKCfnp6foKGhoqKkpaanqKmqq6ytra2tra2vsK+ys7S3t7i4ubq6u7u8vL2+vrqys7Kysa+urautsLS3uLq6ube1sq+rpaOioaCgnp2bmpiVlJKSk5WWmJiZmpqbm5qampmZmJe6ubi3trSyramnpaOhnZqXlJGLhn55c29samloamhpZWRgYF5cXV1eXF9iYWVlY2RlZWNfYFtbYFtWWFpeY2dqbnF0dnh4c3FzcnBvdnd4en2AgYODg4aJiYuNkJKUlJaam5yen6ChoqCioZyalpWSkpKRkZGQkJCQj4yMkJCRkpaVlJOTkpCOjIqOkZKTlZeZm5ydnp6enp2hoKCfnp2bmpeWlpacn5+goaGhoqOkp6ioqamopqShnqKjpKOkpaOin52bm5ydn5ubmZqZm52foKKjpqqusbK0tLGxsbGxsbCwr66uraysqquqq62urK6wsLCurrCwsbK0trW2t7e4ycfHxr+9urm3tbKtqqekoJiVj4qCenNtaGBaVlRSUFFUTU1KSUpJRkZGQTw7OTc4ODg3Nzk6NzUwOTw+QEREREtSUlVUVlNOS01RUl1cYmRqdnl/f3t+gH16dnhycHBobGpsc3V8gISIiYyPl5WXm5qSj4yOkJKUlpiZmpyfoqOpqaurq6qrrKqpqqurrK2rq6ekpqSjoKKfnJiUkI+KhoOAeXh5ho6Qj46Mi4yMjY2PkZWYmp+ipKWrrrO3uLq7vb+/wMDAv8PCwsTGxsXIycnKzMzKzc7N1dbS0MrJyMfFwb+8u7q3sq6ppKCYk5F+e3Z3c3Z4enp8f4OIjZSXmdDR0NLT09PNzMjAvLq3sq2oqaaioaGRiY2BdnJubmNhZGJiZGRhWlhbXFVNSERHRkc+PDs7OTpBPkBGRkREQ0FCRkVFRUNIS1FNSUZFSklHS0xQWFlbaG9pZGd2c3V1f3llYGBcW1dWVFVidH+Ghnt7dXRwa2lnZ2Vka3Z8iI+Wnaaoqayxs6yqq6mlqK6pqayrq7CysLC5ua+tq6imoZmQioV/dmmDioltamtpbn2EjZKYm52dp6qrqaiwrq2wra2sqaqttLm5uLm4uLq8wsbJzM7R0s/X2OHk4+Li4OHg3t7a2dXU0M7MzsvJxru0qqCUjoiHio2Sk5umra6mqajIzNPO0tbU0M/Py8vIxcbAvsnFwbq0rJeZlnt1dHV6gpCOk5KIjX52eHNpZWtfYl5dXllUVFBMXlVOX1hdVlpZWlJRU1BRWFhdXl1kUmFVVFhXUlNVVl5rbW9pf2xiYmRuZmZbWV1aWVBVZXl7gpWRcmdlX1pZZmJmcHKCfIN9hXxyb354dmx5dXqEk5uzt7u/wsPDxsfJ0tPJxry4sqqmoJSQio2EjZKShIiJk6GokI6OjpSVkY+dmXFlYXuUrLS2vLi4ucDHx8bFw7++v73Cw8PBvr+2tLjO1Nbf39/g4OLm5eXk4+Lg4NzX1dHQz8zDvrOsmIh+dWtfZFxSVWNo",
+    "nan_b64": null
+   },
+   {
+    "index": 112,
+    "label": "columns 28,672\u201328,800 of 28,800",
+    "shape": [
+     12,
+     128
+    ],
+    "channels": 1,
+    "t0_s": 522748.0,
+    "t1_s": 522876.0,
+    "nan_cells": 1279,
+    "n_cells": 1536,
+    "pixels_b64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKSkpqmssLS4vL3AxMfIys3P0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfIiXmpycm5mXmJ2jpaaprK6tq6qop6WekpWZn6isr7O1uLy/wcXL0NLU1djZ2tvb3Nzc3Nvb2tjYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACfoJ+ioqCempaTlJyfo6eusLOxq6OioZ6anaWpuLu8wcLBv7+/wcXJycfJzMvMzcvIxb+6u7e5vL2/xcrV19jh39/c3t7f3uDg4ODh39/g4N3d3QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALy6wsHGxLaxs7+zsrG2urW5xsbGxMHAv73DxcPEzNDPyMe2rKqtus7Q1Nfb3d/Y2tva2dnb29vY0MnEvrOml4aBhZCju8jQ2N/e3uHj4+Pl4uLi5eTi4t/f49/Uz8vGtLa4vQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "nan_b64": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+   }
+  ]
+ },
+ "summary": "12 lengths 30\u20133600 s \u00b7 clears from 30 to 264 s; strongest gap at 30 s (not an event length) \u00b7 12\u00d728800 image \u00b7 shown at 12\u00d7254 \u00b7 75 of 3,048 cells have no data",
+ "row_axis": {
+  "values": [
+   3600.0,
+   2330.0,
+   1508.0,
+   976.0,
+   631.0,
+   409.0,
+   264.0,
+   171.0,
+   111.0,
+   72.0,
+   46.0,
+   30.0
+  ],
+  "unit": "s",
+  "label": "window length",
+  "source": "lengths_s"
+ },
+ "row_verdict": {
+  "verdict": "clears from 30 to 264 s; strongest gap at 30 s (gap 21.6; not an event length) \u2014 6 of 12 lengths repeat beyond amplitude-adjusted noise of the same colour",
+  "suggested_window_s": 30.0,
+  "suggested_row": 11,
+  "cleared_s": [
+   30.0,
+   46.0,
+   72.0,
+   111.0,
+   171.0,
+   264.0
+  ],
+  "suggestion_rule": "strongest",
+  "reasons": {
+   "too_long": 2,
+   "below_cut": 4,
+   "clears": 6
+  },
+  "caveat": "The answer is the BAND of cleared lengths (cleared_s): a repeated event clears a band, because windows shorter than it repeat too (pieces of it), and so do longer windows that hold it when it dominates them. suggested_window_s (the field keeps its name; the summary says 'strongest gap at') is the cleared length with the largest gap \u2014 the rule that landed within one rung of the planted scale most often (20 of 38 suggesting spans, against 16 and 15 for the shortest-length rules) \u2014 and it is not the event's length: it leans toward the longest judged window when an event dominates long windows (a 90 s spike: 30-976 s), and toward an edge on chains (the 30-72 s fall of a drop); in a later check it fell near either planted motif in 2 of 10 seeds. It is not the event's length and not a window to hand another block (FLUSS, a seed search); read the band and the picture.",
+  "rows": [
+   {
+    "row": 0,
+    "length_s": 3600.0,
+    "judged": false,
+    "clears": false,
+    "cut": null,
+    "gap": null,
+    "reason": "too long to judge on this span: it holds 8.0 windows of this length, fewer than 14",
+    "reason_code": "too_long",
+    "n_windows_nan": 0
+   },
+   {
+    "row": 1,
+    "length_s": 2330.0,
+    "judged": false,
+    "clears": false,
+    "cut": null,
+    "gap": null,
+    "reason": "too long to judge on this span: it holds 12.4 windows of this length, fewer than 14",
+    "reason_code": "too_long",
+    "n_windows_nan": 0
+   },
+   {
+    "row": 2,
+    "length_s": 1508.0,
+    "judged": true,
+    "clears": false,
+    "cut": 7.225464190981432,
+    "gap": 3.21459047759174,
+    "reason": "gap 3.2 < 7.2",
+    "reason_code": "below_cut",
+    "n_windows_nan": 0
+   },
+   {
+    "row": 3,
+    "length_s": 976.0,
+    "judged": true,
+    "clears": false,
+    "cut": 6.0,
+    "gap": 3.988815511911119,
+    "reason": "gap 4.0 < 6",
+    "reason_code": "below_cut",
+    "n_windows_nan": 0
+   },
+   {
+    "row": 4,
+    "length_s": 631.0,
+    "judged": true,
+    "clears": false,
+    "cut": 6.0,
+    "gap": 4.302943177214099,
+    "reason": "gap 4.3 < 6",
+    "reason_code": "below_cut",
+    "n_windows_nan": 0
+   },
+   {
+    "row": 5,
+    "length_s": 409.0,
+    "judged": true,
+    "clears": false,
+    "cut": 6.0,
+    "gap": 5.974637042429323,
+    "reason": "gap 6.0 < 6",
+    "reason_code": "below_cut",
+    "n_windows_nan": 0
+   },
+   {
+    "row": 6,
+    "length_s": 264.0,
+    "judged": true,
+    "clears": true,
+    "cut": 6.0,
+    "gap": 6.338628157011415,
+    "reason": "gap 6.3 >= 6 and better than every draw",
+    "reason_code": "clears",
+    "n_windows_nan": 0
+   },
+   {
+    "row": 7,
+    "length_s": 171.0,
+    "judged": true,
+    "clears": true,
+    "cut": 6.0,
+    "gap": 7.427780492865713,
+    "reason": "gap 7.4 >= 6 and better than every draw",
+    "reason_code": "clears",
+    "n_windows_nan": 0
+   },
+   {
+    "row": 8,
+    "length_s": 111.0,
+    "judged": true,
+    "clears": true,
+    "cut": 6.0,
+    "gap": 9.402646380756,
+    "reason": "gap 9.4 >= 6 and better than every draw",
+    "reason_code": "clears",
+    "n_windows_nan": 0
+   },
+   {
+    "row": 9,
+    "length_s": 72.0,
+    "judged": true,
+    "clears": true,
+    "cut": 6.0,
+    "gap": 9.96738088099765,
+    "reason": "gap 10.0 >= 6 and better than every draw",
+    "reason_code": "clears",
+    "n_windows_nan": 0
+   },
+   {
+    "row": 10,
+    "length_s": 46.0,
+    "judged": true,
+    "clears": true,
+    "cut": 6.0,
+    "gap": 15.548603919319268,
+    "reason": "gap 15.5 >= 6 and better than every draw",
+    "reason_code": "clears",
+    "n_windows_nan": 0
+   },
+   {
+    "row": 11,
+    "length_s": 30.0,
+    "judged": true,
+    "clears": true,
+    "cut": 6.0,
+    "gap": 21.59585896242284,
+    "reason": "gap 21.6 >= 6 and better than every draw",
+    "reason_code": "clears",
+    "n_windows_nan": 0
+   }
+  ]
+ },
+ "rules": [
+  {
+   "name": "brightness",
+   "rule": "1 \u2212 d / (2\u221am), clipped to 0\u20261, where d is the z-normalised Euclidean distance from the window starting at this sample to its most similar window of the same length elsewhere (stumpy's normalisation for its pan matrix profile; the paper gives none). 1 = an identical shape exists; about 0.29 = what two windows of white noise score; 0 = anti-correlated."
+  },
+  {
+   "name": "layout",
+   "rule": "Rows are window lengths, longest first (lengths_s names them); one column per sample, start-aligned: column i holds the window STARTING at sample i, so each row's last m \u2212 1 columns are empty. A window touching a NaN gap longer than max_fill_s, or a stall (a held value, or a held value the detrend bent into a near-straight line: every second difference within 1 % of the span's typical one) lasting stall_s or more, is empty too; both are counted (n_long_gap, n_stalled, n_windows_nan per length)."
+  },
+  {
+   "name": "distinct windows",
+   "rule": "Per length, the windows sorted by distance and kept only if none already kept starts within m samples \u2014 no two overlap. N = how many; the best K = 3 are averaged (r_K), so one lucky pair of look-alikes cannot carry a length."
+  },
+  {
+   "name": "the null",
+   "rule": "Amplitude-adjusted copies of the span (AAFT, Theiler 1992; null = 'aaft', the default): the recording's own values, reordered so the spectrum is roughly kept and every shape destroyed. null = 'phase' (spectrum kept exactly, values made bell-shaped) is kept for comparison only: a lopsided recording with no structure (exp of an AR(1)) beat it 10 times in 10. Null copies are drawn only for lengths that can be judged. A quasi-periodic chain keeps its spacing in its own copies (the spectrum is kept), so a chain's period is partly in the null."
+  },
+  {
+   "name": "gap to the null",
+   "rule": "gap = N^(1/3) \u00d7 ln(z_K / r_K) / ln(z_med / z_K), where z_K and z_med are the mean of the 3 best and the median distinct distances of the null copies (averaged over the draws): how far the recording's best look-alikes reach beyond noise's best, in units of how far noise's best reach beyond its typical window \u2014 as ratios, since a distance cannot go below 0 \u2014 times N^(1/3) because with fewer windows the best few vary more by chance (the exponent is measured on synthetic noise)."
+  },
+  {
+   "name": "clears the null",
+   "rule": "A length is judged only if the span's usable samples (long gaps and stalls do not count) make at least 14 windows (else 'too long to judge on this span'; 4 h judges up to 17 min, 8 h up to 34 min, 24 h up to 1 h 43 min). It clears when the gap reaches the cut \u2014 6 once the span holds 24 windows, rising to 8.5 at 14 (false alarms gather at the longest judged length) \u2014 and r_K is below every draw's z_K. None cleared = 'no length stands out' (the shortest length is never a fallback). Measured at the defaults (AAFT, 3 draws), after a 2 h detrend: no-structure spans with a suggestion \u2014 2 h random walk 0/30, AR(1) 0.99 0/30, pink noise 0/30; 4 h random walk, AR(1) 0.95 and 0.99, pink, AR(1) + 6 h sine 0/50; 4 h exp(AR(1)) 0/10 (10/10 with the phase null); at one draw 1-7 %."
+  },
+  {
+   "name": "suggested window",
+   "rule": "The answer is the BAND of cleared lengths (cleared_s): a repeated event clears a band, because windows shorter than it repeat too (pieces of it), and so do longer windows that hold it when it dominates them. suggested_window_s (the field keeps its name; the summary says 'strongest gap at') is the cleared length with the largest gap \u2014 the rule that landed within one rung of the planted scale most often (20 of 38 suggesting spans, against 16 and 15 for the shortest-length rules) \u2014 and it is not the event's length: it leans toward the longest judged window when an event dominates long windows (a 90 s spike: 30-976 s), and toward an edge on chains (the 30-72 s fall of a drop); in a later check it fell near either planted motif in 2 of 10 seeds. It is not the event's length and not a window to hand another block (FLUSS, a seed search); read the band and the picture."
+  }
+ ]
+}

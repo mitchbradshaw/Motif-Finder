@@ -1,0 +1,93 @@
+[
+ {
+  "source_file": "M2_aug_concat_fs1.mat",
+  "recording_id": 1,
+  "channel": 0,
+  "fs": 1.0,
+  "span": [
+   1283400,
+   1312200
+  ],
+  "frac": 0.5,
+  "job_id": 836,
+  "status": "completed",
+  "seconds": 600.0,
+  "summary": null,
+  "cleared_s": null,
+  "suggested_window_s": null,
+  "per_length": null,
+  "run_id": null
+ },
+ {
+  "source_file": "M2_concat_fs1.mat",
+  "recording_id": 33,
+  "channel": 0,
+  "fs": 1.0,
+  "span": [
+   494076,
+   522876
+  ],
+  "frac": 0.5,
+  "job_id": 837,
+  "status": "completed",
+  "seconds": 126.7,
+  "summary": null,
+  "cleared_s": null,
+  "suggested_window_s": null,
+  "per_length": null,
+  "run_id": null
+ },
+ {
+  "source_file": "CO_fs2.mat",
+  "recording_id": 641,
+  "channel": 0,
+  "fs": 2.0,
+  "span": [
+   1699200,
+   1756800
+  ],
+  "frac": 0.5,
+  "job_id": 838,
+  "status": "completed",
+  "seconds": 409.4,
+  "summary": null,
+  "cleared_s": null,
+  "suggested_window_s": null,
+  "per_length": null,
+  "run_id": null
+ },
+ {
+  "source_file": "LM_fs2.mat",
+  "recording_id": 637,
+  "channel": 0,
+  "fs": 2.0,
+  "span": [
+   1699200,
+   1756800
+  ],
+  "frac": 0.5,
+  "job_id": 839,
+  "status": "completed",
+  "seconds": 281.3,
+  "summary": null,
+  "cleared_s": null,
+  "suggested_window_s": null,
+  "per_length": null,
+  "run_id": null
+ },
+ {
+  "source_file": "MJu26a_fs2.mat",
+  "recording_id": 692,
+  "channel": 0,
+  "fs": 2.0,
+  "span": [
+   2260476,
+   2318076
+  ],
+  "frac": 0.5,
+  "job_id": 840,
+  "status": "completed",
+  "seconds": 212.2,
+  "summary": "12 lengths 30\u20133600 s \u00b7 no length stands out \u00b7 12\u00d757600 image \u00b7 shown at 12\u00d7256 \u00b7 83 of 3,072 cells have no data"
+ }
+]

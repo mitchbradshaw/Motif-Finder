@@ -1,0 +1,94 @@
+[
+ {
+  "kind": "real",
+  "recording_id": 1,
+  "span": [
+   1254600,
+   1341000
+  ],
+  "job_id": 841,
+  "status": "completed",
+  "seconds": 6.1,
+  "steps": [
+   [
+    "cwt_ridges",
+    "93 spans \u00b7 mean 492.8 s \u00b7 14 features"
+   ],
+   [
+    "event_shape",
+    "93 spans \u00b7 mean 492.8 s \u00b7 28 features"
+   ],
+   [
+    "intervals",
+    "93 spans \u00b7 mean 492.8 s \u00b7 30 features"
+   ]
+  ],
+  "detections_written": 93,
+  "db_run_id": 8090,
+  "detector_step": 0
+ },
+ {
+  "kind": "aaft",
+  "recording_id": 1,
+  "span": [
+   1254600,
+   1341000
+  ],
+  "job_id": 842,
+  "status": "completed",
+  "seconds": 6.1,
+  "steps": [
+   [
+    "surrogate",
+    "86,400 samples \u00b7 -507.103 \u2026 -348.045 mV"
+   ],
+   [
+    "cwt_ridges",
+    "51 spans \u00b7 mean 860.6 s \u00b7 14 features"
+   ],
+   [
+    "event_shape",
+    "51 spans \u00b7 mean 860.6 s \u00b7 28 features"
+   ],
+   [
+    "intervals",
+    "51 spans \u00b7 mean 860.6 s \u00b7 30 features"
+   ]
+  ],
+  "detections_written": 51,
+  "db_run_id": 8091,
+  "detector_step": 1
+ },
+ {
+  "kind": "phase",
+  "recording_id": 1,
+  "span": [
+   1254600,
+   1341000
+  ],
+  "job_id": 843,
+  "status": "completed",
+  "seconds": 3.1,
+  "steps": [
+   [
+    "surrogate",
+    "86,400 samples \u00b7 -464.802 \u2026 -299.257 mV"
+   ],
+   [
+    "cwt_ridges",
+    "0 spans \u00b7 none found \u00b7 14 features"
+   ],
+   [
+    "event_shape",
+    "0 spans \u00b7 none found \u00b7 28 features"
+   ],
+   [
+    "intervals",
+    "0 spans \u00b7 none found \u00b7 30 features"
+   ]
+  ],
+  "detections_written": 0,
+  "db_run_id": 8092,
+  "detector_step": 1
+ }
+]

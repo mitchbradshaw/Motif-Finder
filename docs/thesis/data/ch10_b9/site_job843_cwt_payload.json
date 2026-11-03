@@ -1,0 +1,159 @@
+{
+ "type": "spanset",
+ "fs": 1.0,
+ "n": 0,
+ "capped": false,
+ "start_s": [],
+ "end_s": [],
+ "labels": [],
+ "scores": [],
+ "features": {
+  "n_columns": 14,
+  "columns": [
+   "peak_idx",
+   "best_scale_s",
+   "duration_s",
+   "cwt_duration_s",
+   "ridge_scales",
+   "snr",
+   "peak_coef",
+   "noise",
+   "noise_min_scale",
+   "polarity",
+   "ridge_polarity",
+   "edge_flag",
+   "step_pair",
+   "nan_in_support"
+  ],
+  "matrix": [],
+  "col_range": [
+   [
+    null,
+    null
+   ],
+   [
+    null,
+    null
+   ],
+   [
+    null,
+    null
+   ],
+   [
+    null,
+    null
+   ],
+   [
+    null,
+    null
+   ],
+   [
+    null,
+    null
+   ],
+   [
+    null,
+    null
+   ],
+   [
+    null,
+    null
+   ],
+   [
+    null,
+    null
+   ],
+   [
+    null,
+    null
+   ],
+   [
+    null,
+    null
+   ],
+   [
+    null,
+    null
+   ],
+   [
+    null,
+    null
+   ],
+   [
+    null,
+    null
+   ]
+  ]
+ },
+ "summary": "0 spans \u00b7 none found \u00b7 14 features",
+ "marks": null,
+ "window_counts": [],
+ "window_count_of": "spans",
+ "rules": [
+  {
+   "name": "scale",
+   "rule": "the Mexican-hat (Ricker) scale a, in seconds; CWT normalised by 1/a (the paper uses 1/sqrt(a)), wavelet truncated to +/- 5a (Du, Kibbe & Lin 2006)"
+  },
+  {
+   "name": "best_scale_s",
+   "rule": "the scale at which the ridge's coefficient is largest, refined by a parabola in log-scale through the top three ridge points"
+  },
+  {
+   "name": "duration_s",
+   "rule": "FWHM of a Gaussian bump whose Ricker response peaks at best_scale_s: duration_s = 2*sqrt(ln 2) * best_scale_s = 1.665 * best_scale_s"
+  },
+  {
+   "name": "cwt_duration_s",
+   "rule": "the same as duration_s, under a name Event shape does not overwrite (its own duration_s is onset to recovery)"
+  },
+  {
+   "name": "span",
+   "rule": "peak_idx +/- duration_s (twice the FWHM), clipped to the span"
+  },
+  {
+   "name": "snr",
+   "rule": "detectability at the event's own scale: the largest coefficient on the ridge (within the event's scale band) / noise, where noise = 1.96 x 1.4826 x MAD of the coefficients at the event's best scale in a window of max(noise_window_s, +/- 30 scales) around the peak less +/- 4 scales around it, floored at the span's smallest-scale noise scaled to that scale as white noise (x sqrt(a_min / a))"
+  },
+  {
+   "name": "noise_min_scale",
+   "rule": "diagnostic only (the paper's noise): the 95th percentile of |coefficients| at the smallest scale in a noise_window_s window around the peak; not used to accept events"
+  },
+  {
+   "name": "coefficient baseline",
+   "rule": "each scale's coefficients minus their running median over +/- 10 scales, so a curved drift (which the hat does not cancel) goes and an event stays"
+  },
+  {
+   "name": "peak_idx",
+   "rule": "the ridge's position at the smallest scale of the event's band whose coefficient is still >= half the event's peak (span-relative)"
+  },
+  {
+   "name": "ridge_scales",
+   "rule": "number of scales the ridge has a maximum on (gaps excluded)"
+  },
+  {
+   "name": "polarity",
+   "rule": "+1 spike (a maximum of the coefficients), -1 drop (a maximum of the negated coefficients) \u2014 Event shape's encoding; ridge_polarity says it in words and survives Event shape, which re-measures `polarity`"
+  },
+  {
+   "name": "edge_flag",
+   "rule": "the wavelet's support at best_scale_s (+/- 5a) crosses a span edge, where the trace was extended by odd reflection"
+  },
+  {
+   "name": "side lobe",
+   "rule": "a candidate is dropped when, at its own best scale, the opposite polarity reaches >= 1/0.6 times its coefficient within 2.5 scales of it (the hat's negative lobes are 0.45 of its peak)"
+  },
+  {
+   "name": "nested",
+   "rule": "every maximum of a ridge's coefficient profile over scale that passes min_snr and stands >= 1 x the local noise above its saddle is its own event (a fast event on a slow one)"
+  },
+  {
+   "name": "step_pair",
+   "rule": "at the event's best scale, an opposite-polarity coefficient within 2.5 scales is between 0.6 and 1/0.6 of its own: it may be one corner of an abrupt edge (a sharkfin's fall), not an event of its own"
+  },
+  {
+   "name": "duplicate",
+   "rule": "of two same-polarity events closer than half a scale with best scales within 1.5x, the stronger is kept"
+  }
+ ],
+ "features_unit_note": null
+}

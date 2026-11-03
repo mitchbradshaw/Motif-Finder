@@ -1,0 +1,178 @@
+[
+ {
+  "name": "b10_motif_lengths_m2aug",
+  "hash": "analyse/block/1",
+  "wait": "[data-testid=\"row-verdict\"]",
+  "element": "[data-testid=\"block-view\"]",
+  "session_storage": {
+   "ub-proto-a:source": "{\"recording_id\": 1, \"channel_name\": \"CH1_A1\", \"source_file\": \"M2_aug_concat_fs1.mat\", \"fs\": 1, \"start_idx\": 1283400, \"end_idx\": 1312200, \"label\": \"B10 \\u00b7 8 h at 50 %\"}",
+   "ub-proto-a:chain": "{\"name\": \"motif_lengths\", \"saved\": false, \"steps\": [{\"stage\": \"preprocessing\", \"algorithm\": \"detrend\", \"params\": {\"mode\": \"rolling_mean\", \"window_s\": 7200.0}}, {\"stage\": \"detection\", \"algorithm\": \"pan_matrix_profile\", \"params\": {\"min_window_s\": 30.0, \"max_window_s\": 3600.0, \"n_lengths\": 12, \"null_draws\": 3, \"null\": \"aaft\", \"seed\": 0, \"max_fill_s\": 5.0, \"stall_s\": 60.0}}], \"lastRunJobId\": 836}"
+  },
+  "viewport": [
+   1440,
+   1700
+  ],
+  "timeout_ms": 120000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "b10_motif_lengths_m2concat",
+  "hash": "analyse/block/1",
+  "wait": "[data-testid=\"row-verdict\"]",
+  "element": "[data-testid=\"block-view\"]",
+  "session_storage": {
+   "ub-proto-a:source": "{\"recording_id\": 33, \"channel_name\": \"CH1\", \"source_file\": \"M2_concat_fs1.mat\", \"fs\": 1, \"start_idx\": 494076, \"end_idx\": 522876, \"label\": \"B10 \\u00b7 8 h at 50 %\"}",
+   "ub-proto-a:chain": "{\"name\": \"motif_lengths\", \"saved\": false, \"steps\": [{\"stage\": \"preprocessing\", \"algorithm\": \"detrend\", \"params\": {\"mode\": \"rolling_mean\", \"window_s\": 7200.0}}, {\"stage\": \"detection\", \"algorithm\": \"pan_matrix_profile\", \"params\": {\"min_window_s\": 30.0, \"max_window_s\": 3600.0, \"n_lengths\": 12, \"null_draws\": 3, \"null\": \"aaft\", \"seed\": 0, \"max_fill_s\": 5.0, \"stall_s\": 60.0}}], \"lastRunJobId\": 837}"
+  },
+  "viewport": [
+   1440,
+   1700
+  ],
+  "timeout_ms": 120000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "b10_motif_lengths_co",
+  "hash": "analyse/block/1",
+  "wait": "[data-testid=\"row-verdict\"]",
+  "element": "[data-testid=\"block-view\"]",
+  "session_storage": {
+   "ub-proto-a:source": "{\"recording_id\": 641, \"channel_name\": \"CH1\", \"source_file\": \"CO_fs2.mat\", \"fs\": 2, \"start_idx\": 1699200, \"end_idx\": 1756800, \"label\": \"B10 \\u00b7 8 h at 50 %\"}",
+   "ub-proto-a:chain": "{\"name\": \"motif_lengths\", \"saved\": false, \"steps\": [{\"stage\": \"preprocessing\", \"algorithm\": \"detrend\", \"params\": {\"mode\": \"rolling_mean\", \"window_s\": 7200.0}}, {\"stage\": \"detection\", \"algorithm\": \"pan_matrix_profile\", \"params\": {\"min_window_s\": 30.0, \"max_window_s\": 3600.0, \"n_lengths\": 12, \"null_draws\": 3, \"null\": \"aaft\", \"seed\": 0, \"max_fill_s\": 5.0, \"stall_s\": 60.0}}], \"lastRunJobId\": 838}"
+  },
+  "viewport": [
+   1440,
+   1700
+  ],
+  "timeout_ms": 120000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "b10_motif_lengths_lm",
+  "hash": "analyse/block/1",
+  "wait": "[data-testid=\"row-verdict\"]",
+  "element": "[data-testid=\"block-view\"]",
+  "session_storage": {
+   "ub-proto-a:source": "{\"recording_id\": 637, \"channel_name\": \"CH1\", \"source_file\": \"LM_fs2.mat\", \"fs\": 2, \"start_idx\": 1699200, \"end_idx\": 1756800, \"label\": \"B10 \\u00b7 8 h at 50 %\"}",
+   "ub-proto-a:chain": "{\"name\": \"motif_lengths\", \"saved\": false, \"steps\": [{\"stage\": \"preprocessing\", \"algorithm\": \"detrend\", \"params\": {\"mode\": \"rolling_mean\", \"window_s\": 7200.0}}, {\"stage\": \"detection\", \"algorithm\": \"pan_matrix_profile\", \"params\": {\"min_window_s\": 30.0, \"max_window_s\": 3600.0, \"n_lengths\": 12, \"null_draws\": 3, \"null\": \"aaft\", \"seed\": 0, \"max_fill_s\": 5.0, \"stall_s\": 60.0}}], \"lastRunJobId\": 839}"
+  },
+  "viewport": [
+   1440,
+   1700
+  ],
+  "timeout_ms": 120000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "b10_motif_lengths_mju26a",
+  "hash": "analyse/block/1",
+  "wait": "[data-testid=\"row-verdict\"]",
+  "element": "[data-testid=\"block-view\"]",
+  "session_storage": {
+   "ub-proto-a:source": "{\"recording_id\": 692, \"channel_name\": \"CH1\", \"source_file\": \"MJu26a_fs2.mat\", \"fs\": 2, \"start_idx\": 2260476, \"end_idx\": 2318076, \"label\": \"B10 \\u00b7 8 h at 50 %\"}",
+   "ub-proto-a:chain": "{\"name\": \"motif_lengths\", \"saved\": false, \"steps\": [{\"stage\": \"preprocessing\", \"algorithm\": \"detrend\", \"params\": {\"mode\": \"rolling_mean\", \"window_s\": 7200.0}}, {\"stage\": \"detection\", \"algorithm\": \"pan_matrix_profile\", \"params\": {\"min_window_s\": 30.0, \"max_window_s\": 3600.0, \"n_lengths\": 12, \"null_draws\": 3, \"null\": \"aaft\", \"seed\": 0, \"max_fill_s\": 5.0, \"stall_s\": 60.0}}], \"lastRunJobId\": 840}"
+  },
+  "viewport": [
+   1440,
+   1700
+  ],
+  "timeout_ms": 120000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "b9_cwt_m2aug_real",
+  "hash": "analyse/block/0",
+  "wait": "[data-testid=\"block-view\"]",
+  "element": "[data-testid=\"block-page\"]",
+  "session_storage": {
+   "ub-proto-a:source": "{\"recording_id\": 1, \"channel_name\": \"CH1_A1\", \"source_file\": \"M2_aug_concat_fs1.mat\", \"fs\": 1, \"start_idx\": 1254600, \"end_idx\": 1341000, \"label\": \"B9 \\u00b7 24 h at 50 %\"}",
+   "ub-proto-a:chain": "{\"name\": \"cwt_events\", \"saved\": false, \"steps\": [{\"stage\": \"detection\", \"algorithm\": \"cwt_ridges\", \"params\": {\"polarity\": \"drop\"}}, {\"stage\": \"interrogation\", \"algorithm\": \"event_shape\", \"params\": {\"polarity\": \"drop\"}}, {\"stage\": \"interrogation\", \"algorithm\": \"intervals\", \"params\": {}}], \"lastRunJobId\": 841}"
+  },
+  "viewport": [
+   1440,
+   1300
+  ],
+  "timeout_ms": 120000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "b9_cwt_m2aug_real_chain",
+  "hash": "analyse/chain",
+  "wait": "[data-testid=\"row-plot-0\"] svg",
+  "element": "[data-testid=\"row-plot-0\"]",
+  "session_storage": {
+   "ub-proto-a:source": "{\"recording_id\": 1, \"channel_name\": \"CH1_A1\", \"source_file\": \"M2_aug_concat_fs1.mat\", \"fs\": 1, \"start_idx\": 1254600, \"end_idx\": 1341000, \"label\": \"B9 \\u00b7 24 h at 50 %\"}",
+   "ub-proto-a:chain": "{\"name\": \"cwt_events\", \"saved\": false, \"steps\": [{\"stage\": \"detection\", \"algorithm\": \"cwt_ridges\", \"params\": {\"polarity\": \"drop\"}}, {\"stage\": \"interrogation\", \"algorithm\": \"event_shape\", \"params\": {\"polarity\": \"drop\"}}, {\"stage\": \"interrogation\", \"algorithm\": \"intervals\", \"params\": {}}], \"lastRunJobId\": 841}"
+  },
+  "viewport": [
+   1440,
+   1100
+  ],
+  "timeout_ms": 120000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "b9_cwt_m2aug_aaft",
+  "hash": "analyse/block/1",
+  "wait": "[data-testid=\"block-view\"]",
+  "element": "[data-testid=\"block-page\"]",
+  "session_storage": {
+   "ub-proto-a:source": "{\"recording_id\": 1, \"channel_name\": \"CH1_A1\", \"source_file\": \"M2_aug_concat_fs1.mat\", \"fs\": 1, \"start_idx\": 1254600, \"end_idx\": 1341000, \"label\": \"B9 \\u00b7 24 h at 50 %\"}",
+   "ub-proto-a:chain": "{\"name\": \"cwt_events\", \"saved\": false, \"steps\": [{\"stage\": \"preprocessing\", \"algorithm\": \"surrogate\", \"params\": {\"method\": \"aaft\", \"seed\": 0}}, {\"stage\": \"detection\", \"algorithm\": \"cwt_ridges\", \"params\": {\"polarity\": \"drop\"}}, {\"stage\": \"interrogation\", \"algorithm\": \"event_shape\", \"params\": {\"polarity\": \"drop\"}}, {\"stage\": \"interrogation\", \"algorithm\": \"intervals\", \"params\": {}}], \"lastRunJobId\": 842}"
+  },
+  "viewport": [
+   1440,
+   1300
+  ],
+  "timeout_ms": 120000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "b9_cwt_m2aug_aaft_chain",
+  "hash": "analyse/chain",
+  "wait": "[data-testid=\"row-plot-1\"] svg",
+  "element": "[data-testid=\"row-plot-1\"]",
+  "session_storage": {
+   "ub-proto-a:source": "{\"recording_id\": 1, \"channel_name\": \"CH1_A1\", \"source_file\": \"M2_aug_concat_fs1.mat\", \"fs\": 1, \"start_idx\": 1254600, \"end_idx\": 1341000, \"label\": \"B9 \\u00b7 24 h at 50 %\"}",
+   "ub-proto-a:chain": "{\"name\": \"cwt_events\", \"saved\": false, \"steps\": [{\"stage\": \"preprocessing\", \"algorithm\": \"surrogate\", \"params\": {\"method\": \"aaft\", \"seed\": 0}}, {\"stage\": \"detection\", \"algorithm\": \"cwt_ridges\", \"params\": {\"polarity\": \"drop\"}}, {\"stage\": \"interrogation\", \"algorithm\": \"event_shape\", \"params\": {\"polarity\": \"drop\"}}, {\"stage\": \"interrogation\", \"algorithm\": \"intervals\", \"params\": {}}], \"lastRunJobId\": 842}"
+  },
+  "viewport": [
+   1440,
+   1100
+  ],
+  "timeout_ms": 120000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "b9_cwt_m2aug_phase",
+  "hash": "analyse/block/1",
+  "wait": "[data-testid=\"block-view\"]",
+  "element": "[data-testid=\"block-page\"]",
+  "session_storage": {
+   "ub-proto-a:source": "{\"recording_id\": 1, \"channel_name\": \"CH1_A1\", \"source_file\": \"M2_aug_concat_fs1.mat\", \"fs\": 1, \"start_idx\": 1254600, \"end_idx\": 1341000, \"label\": \"B9 \\u00b7 24 h at 50 %\"}",
+   "ub-proto-a:chain": "{\"name\": \"cwt_events\", \"saved\": false, \"steps\": [{\"stage\": \"preprocessing\", \"algorithm\": \"surrogate\", \"params\": {\"method\": \"phase_randomize\", \"seed\": 0}}, {\"stage\": \"detection\", \"algorithm\": \"cwt_ridges\", \"params\": {\"polarity\": \"drop\"}}, {\"stage\": \"interrogation\", \"algorithm\": \"event_shape\", \"params\": {\"polarity\": \"drop\"}}, {\"stage\": \"interrogation\", \"algorithm\": \"intervals\", \"params\": {}}], \"lastRunJobId\": 843}"
+  },
+  "viewport": [
+   1440,
+   1300
+  ],
+  "timeout_ms": 120000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "b9_cwt_m2aug_phase_chain",
+  "hash": "analyse/chain",
+  "wait": "[data-testid=\"row-plot-1\"] svg",
+  "element": "[data-testid=\"row-plot-1\"]",
+  "session_storage": {
+   "ub-proto-a:source": "{\"recording_id\": 1, \"channel_name\": \"CH1_A1\", \"source_file\": \"M2_aug_concat_fs1.mat\", \"fs\": 1, \"start_idx\": 1254600, \"end_idx\": 1341000, \"label\": \"B9 \\u00b7 24 h at 50 %\"}",
+   "ub-proto-a:chain": "{\"name\": \"cwt_events\", \"saved\": false, \"steps\": [{\"stage\": \"preprocessing\", \"algorithm\": \"surrogate\", \"params\": {\"method\": \"phase_randomize\", \"seed\": 0}}, {\"stage\": \"detection\", \"algorithm\": \"cwt_ridges\", \"params\": {\"polarity\": \"drop\"}}, {\"stage\": \"interrogation\", \"algorithm\": \"event_shape\", \"params\": {\"polarity\": \"drop\"}}, {\"stage\": \"interrogation\", \"algorithm\": \"intervals\", \"params\": {}}], \"lastRunJobId\": 843}"
+  },
+  "viewport": [
+   1440,
+   1100
+  ],
+  "timeout_ms": 120000,
+  "settle_ms": 3000
+ }
+]
