@@ -18,13 +18,26 @@ Write this chapter last but one, before the abstract.
 \begin{instructions}
 One paragraph per research question, each stating the finding, not the method, with its headline number:
 \begin{itemize}
-  \item RQ1: detector agreement predicts human acceptance on every recording (0--5\,\% $\rightarrow$ 40--63\,\%);
-        choosy detectors hold across recordings; loose ones measure the spectrum.
-  \item RQ2: seeds recover blind-accepted events at [queue 35] against [controls], with about zero surrogate matches.
-  \item RQ3: MiniRocket on the tool's verdicts, AUC 0.971 leave-one-out against a shuffle null of 0.49 at most; M4 exam
-        [result]; cluster labels do not replace human labels.
+  \item RQ1: detector agreement predicts human acceptance on every recording (0--5\,\% $\rightarrow$ 40--63\,\%).
+        Choosy detectors hold across recordings; loose ones measure the spectrum. Against 20 surrogate draws, drop v1
+        and the GADF CNN beat every draw on 16 of 16 channels.
+  \item RQ2 (queue 35, judged blind): every seed beats random windows of its own length, Fisher $p<0.0001$ each (for
+        example drop30 100\,\% against 22\,\%). All 51 earlier yeses held when judged blind (95\,\% interval
+        93--100\,\%).
+  \item RQ3:
+        \begin{itemize}
+          \item MiniRocket on the tool's verdicts reaches AUC 0.971 leave-one-out, against a shuffle null of 0.49 at
+                most.
+          \item On the held-out M4 exam (queue 36, scored once), R4 reaches AUC 0.98 and balanced accuracy 0.93,
+                against 0.59--0.66 AUC for the reference CNNs.
+          \item A CNN trained on R4's own rows and folds matches R4 (pooled AUC 0.970--0.973 against 0.971), so the
+                reference CNNs' gap is their labels.
+          \item The \emph{S.\ commune} exam waits on queue 37.
+          \item Cluster labels do not replace human labels.
+        \end{itemize}
 \end{itemize}
-Then one paragraph each for Chapter~\ref{ch:events} and Chapter~\ref{ch:roundb}.
+Then one paragraph each for Chapter~\ref{ch:events} (for example: 91\,\% of accepted events are falls by the
+fastest-edge rule) and Chapter~\ref{ch:roundb} (from Table~\ref{tab:rbsummary}).
 \end{instructions}
 
 \section{Discussion}
@@ -42,7 +55,20 @@ Points to link across the chapters:
           \item dead ends: the whole-signal matrix-profile threshold (0\,\% precision); 1-minute CNNs (chance); the
                 band chain against its null; the fusion encoding not beating its components; the early
                 binned-difference forecasting attempt (report it with its baseline);
-          \item the Dehshibi detector: faithful to its authors' code but unselective on these recordings.
+          \item the Dehshibi detector: faithful to its authors' code but unselective on these recordings;
+          \item \texttt{cwt\_events} against AAFT (B9): it finds no more structure than its input's values give.
+        \end{itemize}
+  \item \textbf{Modelling, only if it is of interest} (parked from Chapter~\ref{ch:roundb}, 4 Nov). A fitted model is
+        not evidence on these signals:
+        \begin{itemize}
+          \item \textbf{They fit noise too.} FitzHugh--Nagumo, Izhikevich, van der Pol and Morris--Lecar all fit the
+                mean drop cycle (R$^2$ mostly above 0.9), and fit fake cycles cut from noise about as well.
+          \item \textbf{They do not forecast.} None predicts a held-out cycle better than the mean of its neighbours,
+                on any of 11 trains of up to 110 cycles.
+          \item \textbf{Their PRCs say nothing about the fungus.} The models' phase response curves are mostly type
+                II, but 8 of 33 flip type when a different hidden coordinate is held fixed \cite{wilshin2024prc}.
+          \item \textbf{Sources:} \src{docs/thesis/parked/ch10_b3_models.tex} and
+                \src{docs/rq_roundA_2/findings/b3-long-trains-2026-11-03.md}.
         \end{itemize}
   \item What ``normalisation is not invariance'' means for any shape vocabulary.
   \item Set the results against the literature: no fungal study reports precision against blind human judgement, or
@@ -112,7 +138,7 @@ you would do differently: freeze the tool earlier, keep the held-out lock on, an
   \item A single labeller (intra-rater $\kappa$ 0.84); no second rater.
   \item Mostly one species and one lab, with cross-species data limited to the drop-motif study and public recordings.
   \item Detector-proposed candidates only: there is no free-scan recall.
-  \item One-draw surrogates in the sweep.
+  \item One-draw surrogates in the sweep (20 draws on M2\_aug only).
   \item The Ward groupings are fragile.
   \item The M4 exposure.
   \item Shape normalisation does not remove resolution.
@@ -138,7 +164,10 @@ Carried from the plan and updated:
         class, needing 100--200 verified members per class.
   \item \textbf{Library mechanics}: event extents and merging partial motifs; an average-linkage option; persisted
         similarity edges.
-  \item \textbf{Statistics}: 20-draw sweep nulls; the fair CNN arm on rangpur.
+  \item \textbf{Statistics}: 20-draw nulls beyond M2\_aug, whose 16 channels are the only ones that have them
+        (Chapter~\ref{ch:rq1}); B1's interval read on every recording, with Benjamini--Hochberg across channels.
+  \item \textbf{Round B's open questions}, unless they return before submission: B7 (multiscale entropy), B8 (motif
+        prevalence) and B11 (the newer datasets); the \emph{S.\ commune} exam.
   \item \textbf{Method extensions}: the Morse-wavelet component of the Dehshibi detector as a reusable feature;
         interval temporal logic for sequences of windows; diffusion models for synthetic training data.
 \end{itemize}

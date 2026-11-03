@@ -29,7 +29,7 @@ Every study states these decisions:
 Candidate notes and evidence: \src{docs/rq_roundB/README.md} and \src{docs/rq_roundB/notes/drop-motif-sequences.md}.
 \end{instructions}
 
-The three research questions asked what the instrument can do. This chapter uses it to ask what the signals do: a set of shorter questions about sequences, models, shapes, channels, detectors, time scales and methods borrowed from other fields. Each is answered with the site as it stood, and each is judged against a null.
+The three research questions asked what the instrument can do. This chapter uses it to ask what the signals do: a set of shorter questions about sequences, recovery, shapes, channels, detectors, time scales and methods borrowed from other fields. Each is answered with the site as it stood, and each is judged against a null.
 
 \section{How the questions were chosen}
 
@@ -37,6 +37,9 @@ The three research questions asked what the instrument can do. This chapter uses
 Rules: answerable on the site with little new building; one null per question; one figure; a stated claim and a
 stated non-claim. Table~\ref{tab:roundb} is the list as fixed on 27 Oct. ``Small'' builds are the two approved in
 Round 4: the Intervals nulls and the sequence morph readout.
+
+B3 as fixed also asked whether an excitable-system model describes the drop cycles beyond noise. That half is parked
+(4 Nov, Section~\ref{sec:rb_models}), so the table lists only the restitution question.
 \end{instructions}
 
 \begin{table}[htbp]
@@ -49,7 +52,7 @@ Round 4: the Intervals nulls and the sequence morph readout.
 \midrule
 B1 & Are the intervals between events regular, bursty or random? & Interrogation $\rightarrow$ Intervals (LV, CV2) & drop-detector events, active sets & random timing; shuffled intervals & small\\
 B2 & Do drop sequences change shape step by step more than chance? & Library $\rightarrow$ Sequences, on g-11 & M2\_aug, M2\_concat, CO, LM & shuffled order & small\\
-B3 & Does an excitable-system model describe drop cycles beyond noise, and does recovery depend on the gap before it? & Event shape and Intervals (restitution); \texttt{chain\_cycles} stacks and the model fitter (backend) & sequences and chains; three fitted sequences & shuffled gaps; quiet-stretch and scrambled cycles; shuffled order & backend\\
+B3 & Does a drop's recovery depend on the gap before it? & Event shape and Intervals (restitution) & sequences and chains; the drop-detector census & shuffled gaps & backend\\
 B4 & Is cross-channel activity propagation or a shared-ground artefact? (plan RQ6) & Explore $\rightarrow$ Cross-channel (the explorer, S0--S1 at least) & the seven sets & rotation; random time & explorer build\\
 B5 & What do the Discovery Maps show about when and where detectors fire? & Discovery $\rightarrow$ Map & all swept sets & paired surrogate runs; time-shifted rates & none\\
 B6 & Do the same shape families occur across recordings and species? & Library $\rightarrow$ Atlas, Recurrence, on g-11 & M2\_aug, M2\_concat, CO, LM & shuffled recording labels & none\\
@@ -125,64 +128,39 @@ Copy this template once per study:
 \end{itemize}
 \end{instructions}
 
-\section{Modelling common motifs}
+\section{Recovery and the gap before it}
 \label{sec:rb_models}
 
 \begin{instructions}
-\textbf{B3}: does an excitable-system model describe drop cycles better than a fall plus smooth recovery? The first fits
-(below) answer ``not on shape alone'': the FitzHugh--Nagumo model fits smoothed noise as well as it fits the recorded
-cycles. Decided 28 Oct (Round 5 Q1): run both of the tests below.
-\begin{itemize}
-  \item \textbf{The restitution test} (cardiac electrophysiology): does a drop's recovery shorten when the gap before
-        it was short? It needs no model fit. Recovery times come from Event shape and gaps from Intervals. The null
-        shuffles the gaps within each sequence. Primary data: trains (the Library's sequences and the
-        \texttt{chain\_cycles} chains). Secondary: consecutive events in the drop-detector census.
-  \item \textbf{Per-cycle model tracking} on the three fitted sequences and the long chains, with four models: the fall
-        plus recovery, FHN excitable and oscillatory, and Izhikevich (firing patterns; the spiking-families framing).
-        Models are judged by held-out-cycle prediction against the mean of the other cycles, not by R$^2$. Parameter
-        drift is tested against shuffled cycle order. Every number is set beside the same fit on fake cycles.
-\end{itemize}
-Hindmarsh--Rose (bursting), Morris--Lecar (type I/II) and van der Pol (relaxation) are not fitted; name them in
-Chapter~\ref{ch:discussion} as further candidates. The fitter stays backend computation reading the site's cycle stacks
-(Round 5 Q2), in \src{Pipelines/fhn/}. Figures go to \src{docs/thesis/data/ch10_fhn/}. The findings go to
-\src{docs/rq_roundA_2/findings/fhn-fit-2026-10-26.md} and \src{docs/rq_roundA_2/findings/b3-restitution-tracking-2026-10-28.md}.
+\textbf{B3}: does a drop's recovery depend on the gap before it? Only the restitution test is reported here.
 
-Present the phase response curves in the manner of Wilshin, Kvalheim and Revzen \cite{wilshin2024prc}: the
-phase-coloured limit cycle with isochron ticks, and the PRC against phase. Say plainly that these are PRCs of the fitted
-model. No perturbation experiment was made, and the paper's lesson applies: the voltage PRC depends on which hidden
-variable is held constant.
+The model half is parked, at the researcher's decision (4 Nov). That covers FitzHugh--Nagumo, Izhikevich and the
+fall-plus-recovery kernel judged by held-out cycles, and the 4 Nov follow-up on the longest trains with van der Pol,
+Morris--Lecar and phase response curves.
+\begin{itemize}
+  \item \textbf{Why:} the models fit the drop cycles, but they fit fake cycles cut from noise about as well, so the fits
+        say nothing specific about fungal signals.
+  \item \textbf{Where it is:} the parked text and figures are in \src{docs/thesis/parked/ch10_b3_models.tex}.
+  \item \textbf{Its findings:} \src{docs/rq_roundA_2/findings/fhn-fit-2026-10-26.md}, the model half of
+        \src{docs/rq_roundA_2/findings/b3-restitution-tracking-2026-10-28.md}, and
+        \src{docs/rq_roundA_2/findings/b3-long-trains-2026-11-03.md}.
+  \item \textbf{If modelling is discussed:} only in general terms, in Chapter~\ref{ch:discussion}.
+\end{itemize}
+
+\textbf{The restitution test} comes from cardiac electrophysiology. Does a drop's recovery shorten when the gap before
+it was short? It needs no model fit.
+\begin{itemize}
+  \item \textbf{Measures:} recovery times come from Event shape and gaps from Intervals.
+  \item \textbf{Null:} the gaps are shuffled within each sequence.
+  \item \textbf{Data:} primarily trains (the Library's sequences and the \texttt{chain\_cycles} chains); secondarily,
+        consecutive events in the drop-detector census.
+  \item \textbf{Code:} \src{Pipelines/fhn/run_b3.py}.
+\end{itemize}
 \end{instructions}
 
 \begin{instructions}
-First results (\src{docs/rq_roundA_2/findings/fhn-fit-2026-10-26.md}; code \src{Pipelines/fhn/}; 11 tests). The fitter
-reproduces the paper's FHN period ($T=11.2279$, against $3\times3.743$) and its Fig.~4 PRC. It was then fitted to the
-mean drop cycle of three sequences:
-\begin{itemize}
-  \item oyster sequence 3 (27 cycles of 44\,min);
-  \item oyster sequence 7 (16 cycles of 130\,s);
-  \item reishi sequence 22 (42 cycles of 2\,s).
-\end{itemize}
-Findings:
-\begin{itemize}
-  \item On both oyster sequences, a fall plus smooth recovery fits best by AIC (R$^2$ 0.957 and 0.984). Of the two FHN
-        regimes the excitable one wins: a single kicked excursion, not a limit cycle.
-  \item On reishi, oscillatory FHN is best (R$^2$ 0.997), but that mean cycle is nearly a sine wave.
-  \item The decisive caveat: FHN fits the quiet-stretch and scrambled fake cycles just as well (R$^2$ up to 0.99). What
-        separates real cycles from fakes is their height (4--12$\times$), not their shape. Only 10 + 10 fake draws were
-        made (5 + 5 for reishi), so ``beats every draw'' means $p\lesssim$ 0.1--0.2.
-  \item Several parameters sit on their bounds and are not biological estimates. $a$ and $z$ are not separately
-        identifiable from voltage alone; only $\alpha=a+bz$ is.
-\end{itemize}
-What the study can claim: a ranking of shape models on these sequences, and a demonstration that a voltage-only
-model's PRC depends on the hidden coordinate held fixed. What it cannot claim: that fungi are FHN-like, any measured
-phase response, or a spiking-family taxonomy.
-\end{instructions}
-
-\begin{instructions}
-Results of the two tests (28 Oct). Sources: \src{docs/rq_roundA_2/findings/b3-restitution-tracking-2026-10-28.md},
-which ends with a proposed paragraph for this section, and the code \src{Pipelines/fhn/run_b3.py} (21 tests).
-
-\textbf{Restitution} (Figure~\ref{fig:b3restitution}). The method:
+Results (28 Oct). Sources: \src{docs/rq_roundA_2/findings/b3-restitution-tracking-2026-10-28.md}; ledger J3;
+Figure~\ref{fig:b3restitution}. The method:
 \begin{itemize}
   \item recovery is Event shape's half-recovery time, measured on the raw channel samples;
   \item the gap is onset to onset;
@@ -204,36 +182,15 @@ The results:
         before the next drop.
 \end{itemize}
 
-\textbf{Models} (Figure~\ref{fig:b3track}). Each cycle is predicted by a fit to the blocks on either side of it, so no
-fit sees the cycle it predicts. The score is its error against the error of the mean of the neighbouring cycles.
-\begin{itemize}
-  \item \textbf{No model beats the neighbours' mean on real cycles.} The ratios run from 0.995, a tie, to 2.06. On
-        quiet and phase-scrambled fakes every model beats it slightly (0.91--1.04). So the models do not describe the
-        drop cycle beyond what noise gives: the kernel ties and the neuron models lose.
-  \item \textbf{Drift.} Only the kernel's recovery fraction drifts. It lengthens along chain 542 ($\rho=+0.83$,
-        $p=0.001$) and chain 6 ($+0.55$, $p=0.024$). FHN's $\alpha$ does not drift anywhere. The FHN-oscillatory
-        and Izhikevich tracks are not testable: their warm-started fits drift even on fake cycles (17--25\,\% false
-        positives).
-\end{itemize}
-
 What it can claim:
 \begin{itemize}
   \item no within-train restitution;
-  \item a modest restitution-like relation across census gaps on M2\_aug (oyster) and M2\_concat (lion's mane);
-  \item no tested model forecasts a drop cycle better than its neighbours do.
+  \item a modest restitution-like relation across census gaps on M2\_aug (oyster) and M2\_concat (lion's mane).
 \end{itemize}
-What it cannot claim: that drops are excitable, oscillatory or Izhikevich-like, or any mechanism for the census
-relation.
+What it cannot claim: any mechanism for the census relation.
 
-Caveats:
-\begin{itemize}
-  \item the FHN fits had one start per block and ran on one draw of each null;
-  \item the 0.6--1.6$\times$ gap rule removed 68 of rec 3's 115 cycles;
-  \item reishi cycles have about 20 samples;
-  \item the Library's stored recovery times are measured on detrended snippets, so they differ from these by design.
-\end{itemize}
-Open follow-up: a censoring-aware recovery, by survival analysis with the next onset as the censoring time. Choose
-which of this section's four figures the final text keeps.
+Caveat: the Library's stored recovery times are measured on detrended snippets, so they differ from these by design.
+Open follow-up: a censoring-aware recovery, by survival analysis with the next onset as the censoring time.
 \end{instructions}
 
 \begin{figure}[htbp]
@@ -241,27 +198,6 @@ which of this section's four figures the final text keeps.
 \includegraphics[width=\textwidth]{data/ch10_fhn/b3_restitution_rho.png}
 \caption{Restitution. Each dot is one train's Spearman $\rho$ between recovery time and the gap before each drop (left) or the gap after it (right, a control). Dot size is the number of pairs, red marks permutation $p<0.05$, and bars are pair-weighted means. Recovery correlates as strongly with the gap after as with the gap before: a censoring artefact, not restitution.}
 \label{fig:b3restitution}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{data/ch10_fhn/b3_track_ratio.png}
-\caption{Held-out-cycle prediction. Each model's error on cycles it never saw, divided by the error of the mean of the neighbouring cycles; below 1, the model is better. Filled: real cycles; open: quiet (squares) and phase-scrambled (triangles) fake cycles. No model beats the neighbours' mean on real cycles, and all beat it slightly on fakes.}
-\label{fig:b3track}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{data/ch10_fhn/seq7_fit.png}
-\caption{Oyster sequence 7: the mean of 16 recorded drop cycles with four fitted models (left), and the same fits on quiet-stretch and scrambled fake cycles (right). A fall plus smooth recovery fits best; FHN fits the fakes about as well as the recording.}
-\label{fig:fhnfit}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{data/ch10_fhn/seq7_fig1_style.png}
-\caption{The oscillatory FHN fitted to sequence 7, drawn in the manner of Wilshin et al.\ \cite{wilshin2024prc}: the limit cycle with phase-coloured isochron ticks (left), and the model's voltage PRC under four choices of what is held fixed (right). This is the PRC of the fitted model, not a measured one.}
-\label{fig:fhn}
 \end{figure}
 
 \section{Shapes and families across recordings}
@@ -485,7 +421,7 @@ Each study asks what a method borrowed from another field reveals on fungal sign
         \end{itemize}
 \end{itemize}
 State the general finding as the chapter's conclusion: which borrowed methods transfer, and which only measure the
-spectrum. Include B1's interval statistics and B3's models. B9 and B10 add a sharper version: the matrix profile finds
+spectrum. Include B1's interval statistics and B3's restitution test. B9 and B10 add a sharper version: the matrix profile finds
 structure beyond AAFT at every judged length from 30\,s to minutes on four recordings, while \texttt{cwt\_events} does
 not beat AAFT at all. The null's choice decides the verdict, as Chapter~\ref{ch:rq1} found for the detectors.
 \end{instructions}
@@ -542,5 +478,38 @@ If fewer than about 30 interesting events come back, use enoki next.
 \section{Summary}
 
 \begin{instructions}
-One table: question, null, result, verdict (supported / bounded / not supported), and what it changes.
+Table~\ref{tab:rbsummary} holds every round-B result as it stood at the freeze (3 Nov); each row's number is in the
+ledger (J1--J3, J6--J11).
+\begin{itemize}
+  \item \textbf{Prose:} add one sentence per study on what it changes.
+  \item \textbf{When the open rows return,} update them: B7 needs the ghost fungus registered, B8 the cluster and B11
+        the 2\,Hz sweep. The \emph{S.\ commune} exam waits on queue 37.
+  \item \textbf{Verdicts:} supported, bounded (a real but limited or partial result), not supported, or open.
+\end{itemize}
 \end{instructions}
+
+\begin{table}[htbp]
+\caption{Round B at the freeze: each question's null, its result and the verdict. B3 reports only its restitution half; B7, B8 and B11 were not run.}
+\label{tab:rbsummary}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}p{5.4cm} >{\raggedright\arraybackslash}p{2.2cm}@{}}
+\toprule
+\textbf{\#} & \textbf{Question} & \textbf{Null} & \textbf{Result} & \textbf{Verdict}\\
+\midrule
+B1 & Are intervals regular, bursty or random? & rate-matched Poisson; shuffled intervals & First read, M2\_aug: inside the Poisson band on most channels (CH3 more regular, LV 0.72, $p=0.004$, borderline after correction); below the shuffled band on 11 of 16 channels, from slow rate drift & bounded: random-like timing, drifting rate; one recording\\
+B2 & Do sequences change shape step by step? & shuffled order & morph fraction: 0 of 5 testable sequences; step size: 5 of 19 closer than shuffled (4 after BH), ratios 0.58--0.84; 5 alternate & bounded: persistence, not a steady morph\\
+B3 & Does recovery depend on the gap before it? & gaps shuffled within trains & within trains, $z=+2.9$ falls to $+0.6$ given depth, and the gap after gives $+9.9$ (censoring); across census gaps, M2\_aug $z=+5.0$ and M2\_concat $+3.1$, halved by fall duration & not within trains; bounded across census gaps\\
+B4 & Propagation, or a shared ground? & rotation; random time & M2\_aug within packs 8 against 1.9 ($p=0.002$), one pair after BH, no consistent lag; across packs 18 against 6.3 ($p=0.001$); M2\_concat CH5--8 are copies; none on CO, LM & propagation not supported; a shared driver\\
+B5 & When and where do detectors fire? & random time shifts; paired surrogates & settings rise and fall together on 45 of 45 channels: 0.21--0.35 against 0.00 shifted and 0.02--0.04 for surrogates & supported: changes over hours to days\\
+B6 & Do families recur across recordings and species? & shuffled recording labels & 39 of 42 families on two or more recordings and species; the mix is not random (0.22 against 0.13 bits, $p=0.0001$) & supported, with leanings by recording\\
+B7 & Does multiscale entropy separate species? & AAFT & first read on Adamatzky's four species: silhouette 0.43 against 0.22--0.37 & open\\
+B8 & How common is a verified motif per hour? & scrambled copies; AAFT & not run & open\\
+B9 & Do event durations prefer some scales? & AAFT & AAFT copies give more drops (1,087 against 632) with the same durations (pooled KS $p=0.59$); the ``modes'' appear in AAFT too & not supported\\
+B10 & At which time scales is there structure? & AAFT & every judged length from 30\,s up to 4.4--25.1\,min repeats beyond AAFT on four recordings, strongest at 30\,s; none on MJu26a & supported: one band, no preferred scale\\
+B11 & Same events on the newer datasets? & per-run surrogate & not run & open\\
+B12 & Do shapes and intervals differ by recording and species? & shuffled labels & recordings differ a little (11 of 15 features pass BH; $\varepsilon^2\le0.06$); species not shown ($R^2=0.005$, $p=0.064$); intervals borderline by dataset ($p=0.06$--0.07) & bounded: small recording effects; species untestable\\
+\midrule
+Unseen & Does R4 hold on \emph{S.\ commune}? & blind human judging & frozen manifest, blind queue 37 being judged & open\\
+\bottomrule
+\end{tabularx}
+\end{table}
