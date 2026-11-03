@@ -14,8 +14,8 @@ The bridge was not running this morning. Its log ends without an error, so the P
 Review, the imports and every page need it.
 
 - [x] In PowerShell, from the repo root: `webui\start.ps1 -Project`. Project mode uses the real database, and the
-      script builds the client only if none exists. Or ask me to start it. *(Running: restarted 28 Oct 20:25 with
-      the B2 step score and a fresh client; logs `webui/runtime/bridge-8765-20261028-202539.*.log`.)*
+      script builds the client only if none exists. Or ask me to start it. *(3 Nov: down after the PC restarted; I
+      started it at 14:04, logs `webui/runtime/bridge-8765-20261103-140441.*.log`.)*
 - [ ] Wait about two minutes for the warm-up (the log says "template scores warmed").
 
 ---
@@ -175,7 +175,9 @@ This bundle uses the cluster's own copy of the code, so run it after (a) or (d) 
 In plain words: the tool cannot compare species or electrodes it hasn't been told about.
 
 - [ ] **Species**, in Settings › Datasets, for:
-  - CO_fs2, LM_fs2 and M2_concat_fs1;
+  - ~~CO_fs2, LM_fs2 and M2_concat_fs1~~ *done 3 Nov from your labels: CO chocolate oyster; LM and M2_concat lion's
+    mane. M2_concat is not oyster, so the "≈1,000 h of oyster" lines are corrected, and Chapter 2's prose sentence is
+    flagged for you;*
   - SH and SH_fs2; SO and SO_fs2;
   - MJu26a_fs10 (its 2 Hz copy already says lion's mane);
   - Dwij A–D;
@@ -223,7 +225,13 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
 
 - [ ] Turn the purple notes into prose, chapter by chapter. They carry the numbers and their sources.
 - [ ] Check the 38 references marked `% VERIFY` in `docs/thesis/bib/thesis.bib`, and where Chapter 2 uses them.
-- [ ] Fill in Chapter 5's corpus table: the "?" species (from §4) and the count of distinct physical recordings.
+- [ ] Fill in Chapter 5's corpus table: the "?" species left (SH, SO, F2B; CO and LM are filled) and the count of
+      distinct physical recordings.
+- [ ] Rewrite Chapter 2's "about 1,000 hours of bio-electric recordings on *Pleurotus ostreatus*": M2_concat is lion's
+      mane (its note says so).
+- [ ] To read the thesis without the purple notes, change `\showinstructionstrue` to `\showinstructionsfalse` in
+      `docs/thesis/preamble.tex` (line 58), or build `build/main-clean.pdf` with
+      `latexmk -jobname=main-clean -usepretex='\def\hideinstructions{}' main.tex` in `docs/thesis`.
 - [ ] Check Appendix G's decision log against `docs/prompts/fixup/QUESTIONS.md`.
 - [ ] Re-shoot the screenshots on 8765 after the freeze.
 - [ ] Write the abstract (notes only so far), and give the AI statement a final read.
@@ -245,5 +253,6 @@ In plain words: the tool cannot compare species or electrodes it hasn't been tol
 | **B4:** S1, the census of co-occurring events and its nulls. Then I walk its smoke states and run its thesis script on a bridge backup | **done** 28 Oct: merged (`a68a1ff`) and run on M2_aug, M2_concat, CO and LM. No evidence of propagation on M2_aug; M2_concat's co-occurrences are copies on CH5–8. MJu26a, SH and SO wait for the 2 Hz sweep |
 | The full test suite for S1's merge | **done** 28 Oct. S1 broke two tests; both are fixed. One was a guard that keeps null-run events out of every count: a label lookup tripped it, and no census number changes. The other was the smoke walk's order. Four map tests had been failing since 19–20 Oct, before S0 and S1, because they read the map once and it now answers "counting…" before it counts. They now wait for the finished map (`b0e09fa`, 29 Oct), and the maps match the core's own computation cell for cell. One seed-estimate test is a timing flake under load |
 | Register the ghost fungus (B7) | the bridge (§1) |
-| Run B5 and B7–B12 on the site and draft the Chapter 10 studies | the imports above |
+| Run B5 and B7–B12 on the site and draft the Chapter 10 studies | **B5, B6, B12 done** 3 Nov (`1fcb75f`, `bb0528b`, Chapter 10 `c88ec5f`), each with website screenshots in `docs/thesis/figures/roundb/`. B9 and B10 running (a helper on the site). B7 waits on the ghost fungus; B8's long searches go to the cluster; B11 waits on the 2 Hz sweep |
+| Chapter 9's drop-share figure | **fixed** 3 Nov (`868df61`): a sign error showed rises as falls. The fastest-edge rule gives 91 % falls, not 9 % |
 | Recompile the thesis and commit after each step | — |
