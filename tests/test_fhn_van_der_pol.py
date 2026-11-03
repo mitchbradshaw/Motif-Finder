@@ -16,7 +16,8 @@ def test_small_mu_is_a_sinusoid_of_period_two_pi_and_amplitude_two():
 
 def test_large_mu_period_follows_the_relaxation_law():
     c = O.planar_cycle(V.vdp(10.0))
-    assert c.T == pytest.approx((3 - 2 * np.log(2)) * 10.0, rel=0.15)
+    # leading order (3 - 2 ln 2) mu, plus the known 3 alpha mu^(-1/3) correction (alpha = 2.338, the Airy root)
+    assert c.T == pytest.approx((3 - 2 * np.log(2)) * 10.0 + 3 * 2.338 * 10.0 ** (-1 / 3), rel=0.03)
 
 
 def test_phase_zero_is_the_voltage_maximum():

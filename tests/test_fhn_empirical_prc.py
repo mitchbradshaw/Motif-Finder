@@ -50,8 +50,8 @@ def test_fake_trains_enter_as_their_own_null():
 def test_return_map_sees_alternation_and_ignores_drift():
     L = np.array([100.0, 120.0] * 40) + np.random.default_rng(0).standard_normal(80)
     rm = E.return_map(L, n_shuffle=200)
-    assert rm["raw"]["rho"] < -0.8 and rm["raw"]["p_two"] < 0.01
-    drift = 100 + np.arange(80) * 1.0 + np.random.default_rng(1).standard_normal(80) * 0.1
+    assert rm["raw"]["rho"] < -0.6 and rm["raw"]["p_two"] < 0.01     # ranks within each level are noise
+    drift = 100 + np.arange(80) * 1.0 + np.random.default_rng(1).standard_normal(80) * 2.0
     rm = E.return_map(drift, n_shuffle=200)
     assert rm["raw"]["rho"] > 0.9                 # drift alone makes the raw map rise
     assert abs(rm["detrended"]["rho"]) < 0.5      # and the running median takes it out
