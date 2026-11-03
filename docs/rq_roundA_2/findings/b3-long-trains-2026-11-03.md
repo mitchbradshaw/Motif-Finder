@@ -31,10 +31,11 @@ bursting model).
   sine wave.
 - **Forecasting a cycle it has not seen.** We hide one cycle and ask each model, fitted to the cycles around it, to
   forecast it. The yardstick is the plain average of those same neighbouring cycles. **No model beats that
-  yardstick on any train** (all 77 scores are 1.00 or worse, where below 1 would mean "better"). The models
-  forecast the *fake* cycles slightly better than the yardstick, because they smooth noise, but not the real ones.
-- **Do the cycles change along a train?** On the long oyster and lion's mane chains, the kernel's recovery time
-  drifts steadily along the train (rec 6, rec 542, and the 10 Hz reishi train seq 20). This time the drift test was
+  yardstick on any train** (all 77 scores are 1.00 or worse to two decimals, where below 1 would mean "better"; the
+  three a hair under 1, at 0.997–0.999, do worse than every one of their own fake trains). The models forecast the
+  *fake* cycles slightly better than the yardstick, because they smooth noise, but not the real ones.
+- **Do the cycles change along a train?** On the long oyster and lion's mane chains, the share of each cycle that
+  the kernel's recovery takes grows steadily along the train (rec 6, rec 542, and the 10 Hz reishi train seq 20). This time the drift test was
   checked on the fake trains first, and there it is right about as often as it should be. So the drift is real,
   but it is a slow change in recovery time, not evidence for any neuron model.
 
@@ -64,14 +65,16 @@ trains with 60 or more cycles.
   times, plus noise. It reproduces the reishi result exactly, and more.
 - **One train survives every null: the oyster chain rec 6.** There, a cycle whose fall lags its detected start
   (the voltage still a little high just after the onset, then lower) goes with the next drop coming sooner.
-  - **The likely cause is ordinary:** that is also the pattern you would expect if the detector places the onset a
-    little early or late from cycle to cycle.
+  - **A later check shrinks this** (main session, 4 Nov; see C2's check). Cut in plain seconds after each drop
+    instead of stretched to a common length, the pattern at the drop is no longer significant, so most of it was
+    the stretch trap after all. A weaker link remains, 10–15 minutes into the recovery.
   - **The proper test:** a stimulus delivered at that phase. This is a hint that such a test could be aimed there,
     not evidence that it would work.
 
 **Options and a recommendation.**
 1. **Report this as a negative result that confirms B3 on longer trains and more models.** Add the rec 6
-   correlation as one hint that needs a stimulation experiment.
+   correlation (weak, and in the recovery rather than at the drop once the stretch is removed) as one hint that
+   needs a stimulation experiment.
 2. **Spend more compute** (Hindmarsh–Rose, more null draws, MJu26a with a different detector).
 3. **Drop it from Chapter 10.**
 
@@ -260,8 +263,9 @@ Real pooled ratio [range over the null sets]:
 **The supplement** ran the slow models' remaining draw-0 null sets, the longest trains first, and was stopped after 34 of 162 tasks for time: every slow model on rec 542 and rec 6, and FHN excitable and Izhikevich on seq 20. Those cells are filled in above; the others show the real ratio only. Every supplement null set scored 0.94–1.00, below its real ratio, as everywhere else. `track.json` says `complete: false` for that reason; its results are final for what they cover.
 
 - **No model on any train beats the neighbours' mean.** The best real ratios (1.00) are on the 10 Hz reishi trains,
-  whose cycles are so alike that every fitted curve and the neighbours' mean are the same curve. The one value
-  below 1 before rounding (FHN oscillatory on seq 22, 0.9985) is beaten by all three of its null sets (0.98–0.99).
+  whose cycles are so alike that every fitted curve and the neighbours' mean are the same curve. The three values
+  below 1 before rounding are each beaten by every one of their null sets: FHN oscillatory on seq 22 (0.9966;
+  nulls 0.982–0.994), and the kernel on seq 21 (0.9988; 0.987–0.999) and rec 542 (0.9988; 0.942–0.970).
 - **The fake trains reproduce B3's pattern.** Every model predicts a fake cycle a little *better* than the fake
   neighbours' mean (0.88–1.00), because smoothing helps on noise. On real cycles it does not.
 - **Cold starts against B3's warm starts.** The cold-start ratios differ from B3's warm ones. On rec 6: FHN
@@ -393,6 +397,8 @@ Method (`empirical_prc.estimate`):
     comes sooner.
   - **Why that points at the detector:** a +/− pair either side of the onset is what a fall shifted slightly
     against its detected onset looks like, so the detector's onset placement is the first suspect (below).
+    *Corrected by the check below:* onset jitter gives the opposite sign (a late-placed onset makes the signal lower
+    just after it *and* the cycle shorter), and the stretch trap gives this one.
   - Sizes: ΔT has an SD of 219 s on a 2277 s cycle; the wiggles have an SD of 1.8 mV.
 - **This is a correlation, not a PRC.** Three things can each produce it:
   - **slow drift** that a ±5-cycle median does not remove (rec 6's recovery does drift, B);
@@ -401,6 +407,23 @@ Method (`empirical_prc.estimate`):
     the bins around the onset the timing is measured from.
 
   Only a timed stimulus measures a PRC, and even then the hidden coordinate matters (C1).
+- **Check: rec 6 in absolute time (main session, 2026-11-04).** The phase estimate stretches each cycle to a common
+  length, the trap the time-warp null was built for. Cutting each cycle instead as a fixed window of plain seconds
+  removes the stretch outright (`scripts/thesis/b3_long_rec6_abs_time.py`, `rec6_abs_time.json`). The window runs
+  from 228 s before the onset to 1139 s after it: −0.1 to +0.5 of the median cycle, in 12 bins of 114 s. The gap rule
+  keeps cycles of at least 0.6 medians, so every window ends before the next drop.
+  - **The phase estimate reproduces:** cv R² 0.518.
+  - **In absolute time cv R² falls to 0.208** (shuffle q95 0.043). The fake-train nulls were not rerun this way; in
+    the phase version none had a q95 above 0.08.
+  - **The onset pair goes:** 0–114 s after the onset, Z = +0.37 (band −0.03 to 0.65); 114–228 s, Z = −0.12 (band
+    −0.47 to 0.26).
+  - **What remains sits in the recovery:** 569–683 s, Z = −0.92 (band −1.32 to −0.26); 797–911 s, Z = +0.52 (band
+    0.10 to 0.80).
+  - **So most of the onset pair was the stretch.** Its sign is the stretch's: a longer cycle's first phase bins reach
+    further into the trough. The time-warp null under-represents the stretch on this train (median cv R² 0.04 here,
+    against 0.52 on seq 20).
+  - **What survives:** a weaker link between the recovery's course 10–15 min after a drop and the next drop's
+    timing. It is still a correlation.
 - **The model PRCs** are drawn beside it on their own axis (other units, other phase origin). They are not
   comparable to it.
 
@@ -453,7 +476,7 @@ All are in `docs/thesis/data/ch10_fhn_long/`, as `<name>.png` and `<name>.pdf`.
 | `track_<train>` (11) | pooled held-out ratios, all ≥ 1.00 on the recording against 0.88–1.00 on the fakes; the cold-start parameter series beside them (rec 6, rec 542: the recovery fraction climbs) |
 | `prc_models_<train>` (11) | each oscillating fit's limit cycle with isochron ticks and its PRC in rad/mV in four coordinate systems, with the type in each panel's title |
 | `prc_spont_seq20` | the estimate looks structured, but the time-warp null's own cv R² (0.52 median) is above the recording's (0.36): the resampling stretch |
-| `prc_spont_rec6_370_470h` | clears every null (cv R² 0.52 vs ≤ 0.18): a +/− pair of bins either side of the onset |
+| `prc_spont_rec6_370_470h` | clears every null (cv R² 0.52 vs ≤ 0.18): a +/− pair of bins either side of the onset, most of which is the stretch (C2's check) |
 | `prc_spont_rec3_490_540h_ext`, `prc_spont_rec542_370_490h` | do not clear (cv R² 0.06, 0.08 against time-warp q95 0.22, 0.15) |
 | `returnmap_<train>` (11) | T_{i+1} on T_i and the drift-removed ρ: drift dominates the raw maps; seq 20 alternates; seq 3 and rec 6 keep a small memory |
 
@@ -469,9 +492,9 @@ All are in `docs/thesis/data/ch10_fhn_long/`, as `<name>.png` and `<name>.pdf`.
   silent on the fake trains.
 - The fitted models' PRCs are mostly Type II in their own coordinates, and their type and size depend on the hidden
   coordinate, which the recordings cannot fix.
-- On one oyster chain (rec 6), deviations at the drop correlate with the next drop's timing beyond every null,
-  including one that reproduces the method's own stretch artefact. Their +/− shape either side of the onset makes
-  onset placement the first explanation to rule out.
+- On one oyster chain (rec 6), the recovery's course 10–15 min after a drop correlates weakly with the next drop's
+  timing, measured in plain seconds after the drop (cv R² 0.21 against a shuffle q95 of 0.04). The stronger pattern
+  at the drop itself in the phase estimate was mostly the stretch artefact (C2's check).
 
 **Cannot be claimed:**
 - that any neuron model describes the fungus, or that the drop trains are Type I or Type II rhythms. The model PRCs
