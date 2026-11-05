@@ -183,8 +183,72 @@ def b12():
     return fs.save(fig, "ch10_b12_shape")
 
 
+def b1():
+    """Chapter 10, B1: each channel's LV and CV2 against its rate-matched Poisson band (grey), by recording."""
+    d = pd.read_csv(os.path.join(DATA, "ch10_b1", "b1_channels.csv"))
+    d = d[d["lv"].notna()].copy()
+    order = ["M2_aug", "M2_concat", "CO_fs2", "LM_fs2", "MJu26a_fs2"]
+    d["o"] = d["dataset"].map({k: i for i, k in enumerate(order)})
+    d = d.sort_values(["o", "channel"]).reset_index(drop=True)
+    x = np.arange(len(d)) + d["o"].to_numpy() * 1.5
+    fig, axes = fs.figure("full", 4.2, 2, 1, sharex=True)
+    for ax, null, lab in ((axes[0], "poisson", "LV against a\nrandom (Poisson) train"),
+                          (axes[1], "shuffle", "LV against its own\ngaps shuffled")):
+        f = "lv"
+        ax.vlines(x, d[f"{f}_{null}_lo"], d[f"{f}_{null}_hi"], color=fs.GRID, lw=4.0, zorder=1)
+        ax.axhline(1.0, color=fs.MUTED, lw=0.9, ls="--", zorder=1)
+        for rec in order:
+            m = (d["dataset"] == rec).to_numpy()
+            out = m & d[f"{f}_{null}_bh"].astype(bool).to_numpy()
+            ax.scatter(x[m & ~out], d.loc[m & ~out, f], s=14, color=fs.colour(rec), zorder=3, edgecolor="white", lw=0.4)
+            ax.scatter(x[out], d.loc[out, f], s=26, color=fs.colour(rec), marker="D", zorder=4, edgecolor=fs.INK, lw=0.6)
+        ax.set_ylabel(lab)
+        ax.grid(axis="x", visible=False)
+    axes[0].text(x[-1] + 1, 1.0, "LV = 1", va="center", fontsize=7.5, color=fs.INK_2)
+    centres = [x[(d["dataset"] == r).to_numpy()].mean() for r in order]
+    axes[1].set_xticks(centres)
+    axes[1].set_xticklabels([fs.label(r) for r in order], fontsize=8)
+    axes[1].tick_params(axis="x", length=0)
+    fig.tight_layout(h_pad=0.6)
+    return fs.save(fig, "ch10_b1_lv")
+
+
+def surr20():
+    """Chapter 6: real detections over the 20-draw surrogate mean, per channel of M2_aug, for six settings."""
+    s = pd.read_csv(os.path.join(DATA, "ch06_20draw", "per_channel.csv"))
+    names = {"drop_detection_v1": "drop v1", "cnn_gadf_10min": "CNN GADF 10 min",
+             "cnn_recurrence_10min": "CNN recurrence 10 min", "drop_detection_v5__same_fraction_0p7": "drop v5 (0.7)",
+             "drop_detection_v1__slope_sigma_4": "drop v1 (slope 4σ)", "wavelet_encoded__level_5": "wavelet-encoded L5"}
+    order = list(names)
+    fig, ax = fs.figure("wide", 3.0)
+    rng = np.random.default_rng(0)
+    finite = s["ratio"].replace([np.inf, -np.inf], np.nan)
+    top = float(finite.max()) * 2.5
+    for i, v in enumerate(order):
+        g = s[s["variant"] == v]
+        xs = i + rng.uniform(-0.18, 0.18, len(g))
+        col = np.where(g["beats_all"], fs.SPECIES_COLOUR["oyster"], np.where(g["below_all"], fs.CATEGORICAL[1], fs.NEUTRAL))
+        inf = ~np.isfinite(g["ratio"].to_numpy(float))
+        ax.scatter(xs[~inf], g["ratio"][~inf], s=16, c=col[~inf], edgecolor="white", lw=0.4, zorder=3)
+        if inf.any():
+            ax.scatter(xs[inf], np.full(inf.sum(), top), s=22, c=col[inf], marker="^", edgecolor="white", lw=0.4,
+                       zorder=3)
+    ax.text(len(order) - 0.45, top, "▲ surrogates found none", fontsize=7, color=fs.INK_2, va="center", ha="right")
+    ax.axhline(1.0, color=fs.MUTED, lw=0.9, ls="--")
+    ax.set_yscale("log")
+    ax.set_ylim(0.007, top * 1.8)
+    ax.set_xticks(range(len(order)))
+    ax.set_xticklabels([names[v] for v in order], rotation=25, ha="right", rotation_mode="anchor", fontsize=7.5)
+    ax.set_ylabel("real ÷ surrogate mean (log)")
+    ax.grid(axis="x", visible=False)
+    h = [fs.plt.Line2D([], [], ls="", marker="o", color=c, label=l) for c, l in
+         ((fs.SPECIES_COLOUR["oyster"], "above all 20 draws"), (fs.CATEGORICAL[1], "below all 20"), (fs.NEUTRAL, "within"))]
+    ax.legend(handles=h, loc="lower left", fontsize=7.5, bbox_to_anchor=(0.0, 0.08))
+    return fs.save(fig, "ch6_surr20")
+
+
 if __name__ == "__main__":
     fs.apply()
-    which = sys.argv[1:] or ["ladder", "cnn", "catalogue", "b12"]
+    which = sys.argv[1:] or ["ladder", "cnn", "catalogue", "b12", "b1", "surr20"]
     for w in which:
         print(globals()[w]())
