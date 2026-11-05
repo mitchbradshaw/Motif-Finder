@@ -32,12 +32,15 @@ The detailed running list is `docs/thesis/TASKS.md`; this file is the finishing 
   - Finish judging it, then I score it once and fill Chapter 8, Chapter 10's last section and Appendix F.
   - Or report it as frozen but not scored: the exam was prepared (manifest, sha256 `e11ec64a…`), and judging it is
     future work.
-- [ ] **The 2 Hz sets (MJu26a, SH, SO).** Only a partial cluster run returned. Unless the rest arrives, write them
-      as registered but not swept. That has three knock-ons:
-  - B11 is "not run";
-  - B4 covers four recordings, not seven;
-  - **g-11 stays the final grouping.** The g-12 rebuild is cut, so remove "rebuilt once as g-12" from Chapter 10's
-    first note, B2's note and Chapter 9 (line 130).
+- [ ] **The 2 Hz sets (MJu26a, SH, SO).** Part 1 is in (5 Nov): 31 of 129 jobs.
+  - **Already updated** in Chapter 10: B1, B4 on MJu26a and B5 on the three sets (`fig:b5newsets`).
+  - **Round 2** (702 tasks) is bundled. If it returns before you write, I import it and update B1, B4, B5 and B11.
+  - **If it doesn't return:**
+    - write the 2 Hz sets as "partly swept";
+    - B11 stays open;
+    - B4 covers five recordings, not seven (no SH or SO);
+    - **g-11 stays the final grouping.** The g-12 rebuild is cut, so remove "rebuilt once as g-12" from Chapter 10's
+      first note, B2's note and Chapter 9 (line 130).
 - [ ] **B7 (multiscale entropy) and B8 (motif prevalence):** one line each in Chapter 10 saying they were not run,
       and add them to future work. B7 keeps its first read (Adamatzky's species, silhouette 0.43 against AAFT
       0.22–0.37) as a pilot, if you want it.

@@ -99,21 +99,22 @@ Copy this template once per study:
           \item against shuffled gaps, LV sits below the band on 11 of 16 channels. Neighbouring gaps are more alike
                 than their mix implies: the rate drifts slowly over the 30 days.
         \end{itemize}
-  \item \textbf{Final read (5 Nov)}, on every swept recording: 45 channels of M2\_aug, M2\_concat, CO, LM and L\_LM
-        (MJu26a's channels, until the 2\,Hz sweep is imported). Each channel is one complete \texttt{drop\_detection\_v1}
-        run, the same runs as B12. Benjamini--Hochberg at 0.05 runs across all 45 channels, separately for each
-        measure and null. Sources: \src{scripts/thesis/b1_intervals.py},
+  \item \textbf{Final read (5 Nov)}, on every recording with a complete \texttt{drop\_detection\_v1} run: 56 channels
+        of M2\_aug, M2\_concat, CO, LM and MJu26a (its 2\,Hz copy, imported 5 Nov; it replaces L\_LM, five of its
+        channels). SH and SO have no \texttt{drop\_detection\_v1} run yet. Each channel is one complete run, the same
+        kind as B12's. 44 channels have the three events a measure needs. Benjamini--Hochberg at 0.05 runs across
+        those 44, separately for each measure and null. Sources: \src{scripts/thesis/b1_intervals.py},
         \src{docs/rq_roundA_2/findings/b1-intervals-2026-11-05.md}; ledger J1b; Figure~\ref{fig:b1lv}.
         \begin{itemize}
-          \item \textbf{Against random timing, random-like.} LV is outside the Poisson band at $p<0.05$ on 9 of 45
+          \item \textbf{Against random timing, random-like.} LV is outside the Poisson band at $p<0.05$ on 9 of 44
                 channels, but none survives correction. CV2 leaves two channels more regular than random: M2\_aug CH3
                 (127 events, CV2 0.78) and LM CH1 (30 events, LV 0.47, CV2 0.60).
-          \item \textbf{Against shuffled gaps, neighbouring gaps are more alike than their mix} on 16 of 45 channels
-                after correction (LV), on every recording: M2\_aug 9 of 16, M2\_concat 2 of 16, LM 2 of 4, CO 1 of 4,
-                L\_LM 2 of 5. The rate drifts slowly. One M2\_concat channel (CH6) goes the other way: long and short
+          \item \textbf{Against shuffled gaps, neighbouring gaps are more alike than their mix} on 18 of 44 channels
+                after correction (LV), on every recording: M2\_aug 9 of 16, M2\_concat 2 of 15, LM 2 of 4, CO 1 of 2,
+                MJu26a 4 of 7. The rate drifts slowly. One M2\_concat channel (CH6) goes the other way: long and short
                 gaps alternate.
-          \item \textbf{Caveat.} 13 channels have fewer than 10 events (median 6 on CO, 13 on M2\_concat), so the
-                read rests on the busier channels.
+          \item \textbf{Caveat.} 20 channels have fewer than 10 events, among them nine of MJu26a's 16 (at most two
+                events each at 2\,Hz) and most of CO's. The read rests on the busier channels.
         \end{itemize}
 \end{itemize}
 
@@ -146,7 +147,7 @@ Copy this template once per study:
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{data/ch10_b1/b1_lv.png}
-\caption{B1: LV of the intervals between \texttt{drop\_detection\_v1} events, one point per channel, against a rate-matched Poisson train (left) and against the channel's own gaps shuffled (right). Grey bars are each null's 95\,\% band. Blue and red mark channels below and above it after Benjamini--Hochberg across the 45 channels. The timing is random-like, but neighbouring gaps are more alike than shuffled on 16 channels: the rate drifts.}
+\caption{B1: LV of the intervals between \texttt{drop\_detection\_v1} events, one point per channel, against a rate-matched Poisson train (left) and against the channel's own gaps shuffled (right). Grey bars are each null's 95\,\% band. Blue and red mark channels below and above it after Benjamini--Hochberg across the 44 measurable channels. The timing is random-like, but neighbouring gaps are more alike than shuffled on 18 channels: the rate drifts.}
 \label{fig:b1lv}
 \end{figure}
 
@@ -328,7 +329,19 @@ the site on the four recordings with a full \texttt{drop\_detection\_v1} census.
         recording setup (a shared-ground artefact), not to the mycelium. Set M2\_concat's packs before quoting it
         further.
   \item \textbf{CO and LM}: no co-occurrence at all (37 and 125 events on four channels each); chance gives about 0.
-  \item Not yet included: MJu26a, SH and SO, which have no detector runs until the 2\,Hz sweep returns.
+  \item \textbf{MJu26a} (2\,Hz, 16 channels; packs not set). The census ran through the site on 5 Nov, after the
+        first part of the 2\,Hz sweep was imported.
+        \begin{itemize}
+          \item 463 events and 16 co-occurrences, against 3.2 under rotation ($p=0.001$). Ten pairs survive
+                Benjamini--Hochberg, but on one to three co-occurrences each.
+          \item Seven of the 16 are copies (the same waveform at the same instant), and eight are independent
+                recurrences.
+          \item The two pairs with a timetable (CH1--CH2, CH1--CH6) co-occur at zero lag ($p=0.23$--0.25 against the
+                lag null). The one co-occurrence with a lag (CH3--CH7, 3.5\,s) is a single event.
+          \item \textbf{No evidence of propagation.} Channels fire together more often than chance, at the same
+                instant. Without packs, a shared driver cannot be told from the setup.
+        \end{itemize}
+  \item \textbf{Not included:} SH and SO, whose \texttt{drop\_detection\_v1} runs are still on the cluster.
 \end{itemize}
 Caveats:
 \begin{itemize}
@@ -374,12 +387,31 @@ script bins exactly as the page does: all 39 settings on M2\_aug CH6 match.
         \end{itemize}
 \end{itemize}
 
+\textbf{B5 on the 2\,Hz sets} (5 Nov; \src{docs/rq_roundA_2/findings/rq4n-partial-2026-11-05.md}; ledger J8b;
+Figure~\ref{fig:b5newsets}). The first cluster round returned 31 of the 129 jobs whole:
+\begin{itemize}
+  \item 13 settings on MJu26a, and 9 each on SH and SO;
+  \item the settings are OASIS, deconvolved troughs and wavelet encoded, plus, on MJu26a, \texttt{drop\_detection\_v1},
+        symbol search and the wavelet prototype.
+\end{itemize}
+On those settings the same read gives:
+\begin{itemize}
+  \item \textbf{When.} Co-modulation per channel, median by recording, is MJu26a 0.33, SH 0.46 and SO 0.42, against
+        0.00 under random time shifts and 0.08--0.13 for the paired surrogates. All 24 channels beat their shifts.
+  \item \textbf{Channels.} Channels band together on SO (0.40, $p=0.005$; its surrogate 0.04), but not on SH (0.07,
+        $p=0.24$). On MJu26a the surrogates band more than the recording (0.28 against 0.15), so its banding is not
+        shown.
+  \item \textbf{Caveats.} The same as above, and a stronger first one: these 9--13 settings, mostly from three
+        families, share more events than the 38--44 settings on the other recordings.
+\end{itemize}
+
 \textbf{B11}: do the detectors find the same events on the newer datasets?
 \begin{itemize}
   \item On the site: Discovery $\rightarrow$ Compare, and Compare every stage.
   \item Data: CO, LM and the 2\,Hz copies of MJu26a, SH and SO.
   \item Null: each run's surrogate.
-  \item Needs the 2\,Hz sweep imported (bundle \src{docs/thesis/hpc/rq4_newsets_20261027/}).
+  \item Needs the whole 2\,Hz sweep. Only 31 of its 129 jobs are in (5 Nov). The other 702 tasks are bundled for the
+        cluster again (\src{docs/thesis/hpc/rq4_newsets_20261027/remaining_20261105/}).
   \item State the lesson of Chapter~\ref{ch:rq1}: one-draw surrogate counts measure a detector's response to the
         spectrum, not event quality.
 \end{itemize}
@@ -390,6 +422,13 @@ script bins exactly as the page does: all 39 settings on M2\_aug CH6 match.
 \includegraphics[width=0.85\textwidth]{roundb/b5_map_channel_M2_aug_CH6.png}
 \caption{B5 on the site: Discovery $\rightarrow$ Map, M2\_aug CH6. Every detector setting is shown in 3-hour bins over 30 days, under the signal's hourly mean. Most settings fire densely in days 0--8 and around days 15--17 and thin out together elsewhere. This is the co-modulation that the paired surrogates do not reproduce.}
 \label{fig:b5timeline}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{roundb/b5_map_dataset_MJu26a_fs2.png}
+\caption{The first part of the 2\,Hz sweep on the site: Discovery $\rightarrow$ Map, MJu26a (2\,Hz), one cell per channel and setting, with rows sorted by detections. The 13 settings whose jobs came back whole are filled; the rest (hatched) still have to run on the cluster.}
+\label{fig:b5newsets}
 \end{figure}
 
 \section{Time scales and methods from other fields}
@@ -511,24 +550,24 @@ ledger (J1--J3, J6--J11; B1's final read is J1b, 5 Nov).
 \end{instructions}
 
 \begin{table}[htbp]
-\caption{Round B at the freeze: each question's null, its result and the verdict. B3 reports only its restitution half; B7, B8 and B11 were not run.}
+\caption{Round B at the freeze: each question's null, its result and the verdict. B3 reports only its restitution half; B7 and B8 were not run, and B11 waits on the rest of the 2\,Hz sweep.}
 \label{tab:rbsummary}
 \footnotesize
 \begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}p{5.4cm} >{\raggedright\arraybackslash}p{2.2cm}@{}}
 \toprule
 \textbf{\#} & \textbf{Question} & \textbf{Null} & \textbf{Result} & \textbf{Verdict}\\
 \midrule
-B1 & Are intervals regular, bursty or random? & rate-matched Poisson; shuffled intervals & 45 channels, five recordings: no channel's LV leaves the Poisson band after BH (CV2: two more regular); neighbouring gaps more alike than shuffled on 16, on every recording; one alternates & supported: random-like timing with a drifting rate\\
+B1 & Are intervals regular, bursty or random? & rate-matched Poisson; shuffled intervals & 44 measurable channels, five recordings: no channel's LV leaves the Poisson band after BH (CV2: two more regular); neighbouring gaps more alike than shuffled on 18, on every recording; one alternates & supported: random-like timing with a drifting rate\\
 B2 & Do sequences change shape step by step? & shuffled order & morph fraction: 0 of 5 testable sequences; step size: 5 of 19 closer than shuffled (4 after BH), ratios 0.58--0.84; 5 alternate & bounded: persistence, not a steady morph\\
 B3 & Does recovery depend on the gap before it? & gaps shuffled within trains & within trains, $z=+2.9$ falls to $+0.6$ given depth, and the gap after gives $+9.9$ (censoring); across census gaps, M2\_aug $z=+5.0$ and M2\_concat $+3.1$, halved by fall duration & not within trains; bounded across census gaps\\
-B4 & Propagation, or a shared ground? & rotation; random time & M2\_aug within packs 8 against 1.9 ($p=0.002$), one pair after BH, no consistent lag; across packs 18 against 6.3 ($p=0.001$); M2\_concat CH5--8 are copies; none on CO, LM & propagation not supported; a shared driver\\
-B5 & When and where do detectors fire? & random time shifts; paired surrogates & settings rise and fall together on 45 of 45 channels: 0.21--0.35 against 0.00 shifted and 0.02--0.04 for surrogates & supported: changes over hours to days\\
+B4 & Propagation, or a shared ground? & rotation; random time & M2\_aug within packs 8 against 1.9 ($p=0.002$), one pair after BH, no consistent lag; across packs 18 against 6.3 ($p=0.001$); M2\_concat CH5--8 are copies; none on CO, LM; MJu26a 16 against 3.2 ($p=0.001$), all at zero lag & propagation not supported; a shared driver\\
+B5 & When and where do detectors fire? & random time shifts; paired surrogates & settings rise and fall together on 45 of 45 channels: 0.21--0.35 against 0.00 shifted and 0.02--0.04 for surrogates; on the 2\,Hz sets' first 9--13 settings, 24 of 24 (0.33--0.46) & supported: changes over hours to days\\
 B6 & Do families recur across recordings and species? & shuffled recording labels & 39 of 42 families on two or more recordings and species; the mix is not random (0.22 against 0.13 bits, $p=0.0001$) & supported, with leanings by recording\\
 B7 & Does multiscale entropy separate species? & AAFT & first read on Adamatzky's four species: silhouette 0.43 against 0.22--0.37 & open\\
 B8 & How common is a verified motif per hour? & scrambled copies; AAFT & not run & open\\
 B9 & Do event durations prefer some scales? & AAFT & AAFT copies give more drops (1,087 against 632) with the same durations (pooled KS $p=0.59$); the ``modes'' appear in AAFT too & not supported\\
 B10 & At which time scales is there structure? & AAFT & every judged length from 30\,s up to 4.4--25.1\,min repeats beyond AAFT on four recordings, strongest at 30\,s; none on MJu26a & supported: one band, no preferred scale\\
-B11 & Same events on the newer datasets? & per-run surrogate & not run & open\\
+B11 & Same events on the newer datasets? & per-run surrogate & 31 of the 2\,Hz sweep's 129 jobs imported; the rest back on the cluster & open\\
 B12 & Do shapes and intervals differ by recording and species? & shuffled labels & recordings differ a little (11 of 15 features pass BH; $\varepsilon^2\le0.06$); species not shown ($R^2=0.005$, $p=0.064$); intervals borderline by dataset ($p=0.06$--0.07) & bounded: small recording effects; species untestable\\
 \midrule
 Unseen & Does R4 hold on \emph{S.\ commune}? & blind human judging & frozen manifest, blind queue 37 being judged & open\\

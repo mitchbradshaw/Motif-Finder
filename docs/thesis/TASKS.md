@@ -150,21 +150,18 @@ This bundle uses the cluster's own copy of the code, so run it after (a) or (d) 
     `"/c/ProgramData/anaconda3/python.exe" scripts/rq4_overnight.py adopt --url http://127.0.0.1:8765 --out docs/thesis/hpc/surrogates20_M2_aug`
   - Then the same command with `--apply --allow-project` added.
 
-### (d) MJu26a, SH and SO at 2 Hz
-- [ ] Copy:
-  `scp DATA/derived/hpc/rq4_newsets_20261027/rq4_newsets_upload.tar.gz s4699158@rangpur.compute.eait.uq.edu.au:~/`
-- [ ] *rangpur*, in `~/CNN`:
-  1. `sha256sum ~/rq4_newsets_upload.tar.gz` should print `c6c7a1ec15bc7f1e0ed9c03d0ffd66e8eb3315a6b7056d3922388bbd23fce7e1`;
-  2. `tar xzf ~/rq4_newsets_upload.tar.gz && rm ~/rq4_newsets_upload.tar.gz`;
-  3. the checks in README step 2;
-  4. `python scripts/rq4_overnight.py report --out docs/thesis/hpc/rq4_newsets_20261027` should show 1,014 tasks
-     missing;
-  5. `quota -s` needs at least 15 GB free.
-- [ ] Submit: `bash docs/thesis/hpc/rq4_newsets_20261027/submit_rq4n.sh`
-- [ ] Watch the returned size (README step 5).
-- [ ] Bring back the three return archives, open three Discovery sessions and adopt each (README steps 6–8). Or tell me
-      when the archives are home.
-- This sweep also runs `drop_detection_v1` on the three recordings, which B4's census needs.
+### (d) MJu26a, SH and SO at 2 Hz — part 1 home and imported (5 Nov); round 2 to submit
+- [x] Round 1 ran partway: 312 of 1,014 tasks; 31 of 129 jobs whole, now in the app (MJu26a 13 incl.
+      `drop_detection_v1`, SH 9, SO 9; sessions 13–15; backup `20261105-124005`). B4 on MJu26a, B5 on the three sets
+      and B1 are updated (`docs/rq_roundA_2/findings/rq4n-partial-2026-11-05.md`).
+- [ ] **Round 2, the 702 tasks left:** follow `docs/thesis/hpc/rq4_newsets_20261027/remaining_20261105/README.md`.
+  1. `scp DATA/derived/hpc/rq4_newsets_20261027/rq4n_remaining_upload.tar.gz s4699158@rangpur.compute.eait.uq.edu.au:~/`
+  2. *rangpur:* clear round 1's folder, check `sha256sum` (`ce23bc767073f516ce79016369dffba6f92c99a16f1f2fb968ea12d9ea1066ed`),
+     unpack, the env checks, `report` shows 702 missing.
+  3. `bash docs/thesis/hpc/rq4_newsets_20261027/submit_rq4n.sh`
+  4. Bring a wave back each time the folder passes ~10 GB (`rq4n_returns.py list`, tar, scp, then `free --apply`).
+     MJu26a alone should return ~26 GB, close to the whole quota.
+  5. Tell me when a wave is unpacked on the PC: I import the newly whole jobs and update B1, B4, B5 and B11.
 
 *Later, only if needed:* long seed searches for B8. A search over about 10 minutes goes to the cluster as a seed job.
 

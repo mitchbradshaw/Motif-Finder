@@ -9,10 +9,11 @@ Protocol (fixed before the read; B1's first read was M2_aug only, Chapter 10):
     draws, the Intervals block's own code): a rate-matched Poisson train, and the channel's own gaps shuffled;
   * a two-sided p per channel, measure and null, with the direction (below the band = more regular than Poisson, or
     neighbouring gaps more alike than shuffled; above = burstier, or alternating);
-  * Benjamini-Hochberg at 0.05 across all channels, separately for each measure x null (LV is primary, CV2 its
+  * Benjamini-Hochberg at 0.05 across every channel that has the measure (3+ events), separately for each measure x null (LV is primary, CV2 its
     companion); counts are also given per recording.
-Data: M2_aug, M2_concat, CO_fs2, LM_fs2 and L_LM (the MJu26a channels until the 2 Hz sweep is imported). M4 and
-S. commune are refused. Writes docs/thesis/data/ch10_b1/{b1_channels.csv, b1_summary.csv, b1_lv.png}.
+Data: M2_aug, M2_concat, CO_fs2, LM_fs2, and MJu26a_fs2 once its 2 Hz sweep has a complete drop_detection_v1 run
+(5 Nov); until then L_LM stands in for it (L_LM is five MJu26a channels, so the two are never counted together). SH
+and SO join when they have one. M4 and S. commune are refused. Writes docs/thesis/data/ch10_b1/{b1_channels.csv, b1_summary.csv, b1_lv.png}.
 
     PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" scripts/thesis/b1_intervals.py
 """
@@ -29,7 +30,11 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.dirname(__file__))
 
-from b12_shapes_intervals import REFUSED, SHORT, SPECIES, bh  # noqa: E402
+from b12_shapes_intervals import REFUSED, SHORT as B12_SHORT, SPECIES as B12_SPECIES, bh  # noqa: E402
+
+SHORT = dict(B12_SHORT, **{"MJu26a_fs2.mat": "MJu26a_fs2", "SH_fs2.mat": "SH_fs2", "SO_fs2.mat": "SO_fs2"})
+SPECIES = dict(B12_SPECIES, MJu26a_fs2="lion's mane", SH_fs2="unknown", SO_fs2="unknown")
+L_LM = ("L_LM_Jul_26_J_raw_fs2.mat", "L_LM_Jul_26_J_raw.mat")
 
 OUT = os.path.join(ROOT, "docs", "thesis", "data", "ch10_b1")
 TESTS = [(m, n) for m in ("lv", "cv2") for n in ("poisson", "shuffle")]
@@ -45,6 +50,8 @@ def channel_runs(c):
                         columns=["run", "recording_id", "source_file", "channel", "fs", "span_start", "span_end",
                                  "n_samples"])
     runs = runs[~runs["source_file"].isin(REFUSED) & runs["source_file"].isin(SHORT)]
+    if (runs["source_file"] == "MJu26a_fs2.mat").any():
+        runs = runs[~runs["source_file"].isin(L_LM)]          # MJu26a itself replaces its five-channel copy
     runs["len"] = runs["span_end"] - runs["span_start"]
     return runs.sort_values(["recording_id", "len", "run"]).drop_duplicates("recording_id", keep="last")
 
@@ -72,10 +79,14 @@ def measure(c, runs):
 
 
 def correct(df):
+    """BH over the channels that have the measure (3+ events); a channel without one is not a test."""
     for m, n in TESTS:
-        res = bh(df[f"{m}_{n}_p"].tolist())
-        df[f"{m}_{n}_q"] = [q for q, _ in res]
-        df[f"{m}_{n}_bh"] = [ok for _, ok in res]
+        ok = df[f"{m}_{n}_p"].notna()
+        res = bh(df.loc[ok, f"{m}_{n}_p"].tolist())
+        df[f"{m}_{n}_q"] = np.nan
+        df[f"{m}_{n}_bh"] = False
+        df.loc[ok, f"{m}_{n}_q"] = [q for q, _ in res]
+        df.loc[ok, f"{m}_{n}_bh"] = [b for _, b in res]
     return df
 
 
@@ -115,8 +126,8 @@ def plot(df):
         ax.set_xticks([t for t, _ in ticks], [d for _, d in ticks], fontsize=8)
         ax.set_title(f"LV {title}", fontsize=9)
     axes[0].set_ylabel("LV per channel (drop_detection_v1)")
-    fig.suptitle("B1: grey bar = the null's 95 % band; blue = below it, red = above it, after BH across 45 channels",
-                 fontsize=9)
+    fig.suptitle(f"B1: grey bar = the null's 95 % band; blue = below it, red = above it, after BH across {len(df)} "
+                 "channels", fontsize=9)
     fig.tight_layout()
     fig.savefig(os.path.join(OUT, "b1_lv.png"), dpi=130)
 

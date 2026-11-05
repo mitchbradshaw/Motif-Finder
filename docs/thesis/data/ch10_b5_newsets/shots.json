@@ -1,0 +1,80 @@
+[
+ {
+  "name": "b5_map_dataset_MJu26a_fs2",
+  "hash": "discovery/map",
+  "wait": "[data-testid=\"map-table\"]",
+  "steps": [
+   {
+    "click": "[data-testid=\"map-dataset-MJu26a_fs2\"]"
+   },
+   {
+    "wait": "[data-testid=\"map-dataset-level\"]"
+   },
+   {
+    "click": "[data-testid=\"map-rsort\"] >> text=most detections"
+   },
+   {
+    "sleep": 1500
+   }
+  ],
+  "element": "[data-testid=\"map-card\"]",
+  "viewport": [
+   1500,
+   1000
+  ],
+  "timeout_ms": 240000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "b5_map_dataset_SH_fs2",
+  "hash": "discovery/map",
+  "wait": "[data-testid=\"map-table\"]",
+  "steps": [
+   {
+    "click": "[data-testid=\"map-dataset-SH_fs2\"]"
+   },
+   {
+    "wait": "[data-testid=\"map-dataset-level\"]"
+   },
+   {
+    "click": "[data-testid=\"map-rsort\"] >> text=most detections"
+   },
+   {
+    "sleep": 1500
+   }
+  ],
+  "element": "[data-testid=\"map-card\"]",
+  "viewport": [
+   1500,
+   1000
+  ],
+  "timeout_ms": 240000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "b5_map_dataset_SO_fs2",
+  "hash": "discovery/map",
+  "wait": "[data-testid=\"map-table\"]",
+  "steps": [
+   {
+    "click": "[data-testid=\"map-dataset-SO_fs2\"]"
+   },
+   {
+    "wait": "[data-testid=\"map-dataset-level\"]"
+   },
+   {
+    "click": "[data-testid=\"map-rsort\"] >> text=most detections"
+   },
+   {
+    "sleep": 1500
+   }
+  ],
+  "element": "[data-testid=\"map-card\"]",
+  "viewport": [
+   1500,
+   1000
+  ],
+  "timeout_ms": 240000,
+  "settle_ms": 3000
+ }
+]

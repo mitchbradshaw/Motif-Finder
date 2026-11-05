@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-10-28T22:03:10",
-  "db": "C:\\Users\\mmebr\\Documents\\CNN\\DATA\\db\\backups\\20261028-220239.sqlite",
+  "generated_at": "2026-11-05T13:07:32",
+  "db": "C:\\Users\\mmebr\\Documents\\CNN\\DATA\\db\\backups\\20261105-130347.sqlite",
   "detector": "drop_detection_v1",
   "skipped": [],
   "censuses": [
@@ -515,6 +515,77 @@
         },
         {
           "instant_id": 21,
+          "breadth": 4,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.000999000999000999,
+          "q": 0.05
+        }
+      ]
+    },
+    {
+      "source_file": "MJu26a_fs2.mat",
+      "census_id": 5,
+      "hash": "f83f97f27e05bdcf8539c929ccdbd025e46cd397db97331c0ba7a8cdaebae971",
+      "stale": false,
+      "staleWhy": [],
+      "finished_at": "2026-11-05T12:59:25",
+      "bins": {
+        "artifact": 7,
+        "propagation": 1,
+        "independent_recurrence": 8,
+        "shared_driver": 0,
+        "pack_unknown": 0,
+        "unmeasured": 0
+      },
+      "n_events": 463,
+      "n_cooccurrences": 16,
+      "overall": {
+        "within_pack": {
+          "n": 16,
+          "null_mean": 3.161,
+          "null_p95": 7.0,
+          "p": 0.000999000999000999,
+          "pairs": 120
+        },
+        "shared_driver": {
+          "n": 0,
+          "null_mean": null,
+          "null_p95": null,
+          "p": null,
+          "pairs": 0
+        }
+      },
+      "bh": {
+        "method": "Benjamini\u2013Hochberg",
+        "q": 0.05,
+        "families": {
+          "excess": 120,
+          "timetable": 2,
+          "breadth": 2,
+          "shared_driver": 0
+        }
+      },
+      "layout_known": false,
+      "layout_note": "packs not set \u2014 layout unknown",
+      "pairs_beating_rotation": 10,
+      "timetables_beating_null": 0,
+      "shared_driver": [],
+      "breadth": [
+        {
+          "instant_id": 1,
+          "breadth": 2,
+          "packs": [
+            "unassigned"
+          ],
+          "common_mode": false,
+          "p": 0.013986013986013986,
+          "q": 0.05
+        },
+        {
+          "instant_id": 2,
           "breadth": 4,
           "packs": [
             "unassigned"
