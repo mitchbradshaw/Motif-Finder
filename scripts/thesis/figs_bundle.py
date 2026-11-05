@@ -329,6 +329,45 @@ def handlabels():
     return fs.save(fig, "ch3_hand_labels")
 
 
+# ------------------------------------------------------------------------------------------------ Chapter 2 --
+def mpintuition():
+    """Figure 2.1: what a matrix profile shows - M2_concat CH0 with its April 10-minute profile (no new computation)."""
+    x, meta = B.series("full_channels/M2_concat__CH0__full")
+    z = np.load(os.path.join(fs.ROOT, "Results", "Detection", "matrix_profile", "_legacy", "1_mp_M2_concat_fs1_CH0.npz"))
+    mp, mpi, m = z["mp"].astype(float), z["mpi"].astype(int), int(z["m"])
+    n = len(mp)
+    sep = np.abs(np.arange(n) - mpi)
+    ok = np.isfinite(mp) & (sep > 6 * 3600)           # a pair at least six hours apart, not a neighbour of itself
+    i = int(np.nanargmin(np.where(ok, mp, np.nan)))
+    j = int(mpi[i])
+    d = int(np.nanargmax(np.where(np.isfinite(mp), mp, np.nan)))
+    th = np.arange(len(x)) / 3600.0
+    fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 4.4))
+    gs = fig.add_gridspec(2, 3, height_ratios=[1.0, 0.8], hspace=0.12, wspace=0.35)
+    a = fig.add_subplot(gs[0, :2])
+    a.plot(th, x, color=fs.INK, lw=0.4)
+    ytop = np.nanmax(x) + 0.08 * (np.nanmax(x) - np.nanmin(x))
+    for k, c in ((i, fs.CATEGORICAL[0]), (j, fs.CATEGORICAL[0]), (d, fs.CATEGORICAL[1])):
+        a.scatter([(k + m / 2) / 3600], [ytop], marker="v", s=40, color=c, zorder=3)
+    a.set_ylabel("mV"); a.tick_params(labelbottom=False)
+    a.set_title("(a) M2_concat CH1, 282 hours", loc="left")
+    b = fig.add_subplot(gs[1, :2], sharex=a)
+    b.plot(np.arange(n) / 3600, mp, color=fs.INK_2, lw=0.4)
+    b.scatter([i / 3600, j / 3600], [mp[i], mp[j]], color=fs.CATEGORICAL[0], s=18, zorder=3, label="closest pair")
+    b.scatter([d / 3600], [mp[d]], color=fs.CATEGORICAL[1], s=18, zorder=3, label="most unusual (discord)")
+    b.set_ylabel("distance to\nnearest match"); b.set_xlabel("time (h)"); b.legend(fontsize=7, loc="upper right")
+    b.set_xlim(0, th[-1])
+    c = fig.add_subplot(gs[:, 2])
+    zn = lambda v: (v - v.mean()) / (v.std() + 1e-12)
+    tt = np.arange(m) / 60
+    c.plot(tt, zn(x[i:i + m]), color=fs.CATEGORICAL[0], lw=1.4, label=f"{i / 3600:.1f} h")
+    c.plot(tt, zn(x[j:j + m]), color="#164b8f", lw=1.4, ls="--", label=f"{j / 3600:.1f} h")
+    c.set_xlabel("minutes"); c.set_ylabel("z-score"); c.legend(fontsize=7, loc="lower right")
+    c.set_title("(b) the closest pair,\nz-normalised", loc="left", fontsize=8.5)
+    print(f"mp intuition: pair {i / 3600:.2f} h and {j / 3600:.2f} h, distance {mp[i]:.3f}; discord {d / 3600:.2f} h ({mp[d]:.2f}); m={m}")
+    return fs.save(fig, "ch2_mp_intuition")
+
+
 def main():
     global B
     ap = argparse.ArgumentParser()
