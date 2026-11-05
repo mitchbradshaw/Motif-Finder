@@ -368,6 +368,45 @@ def mpintuition():
     return fs.save(fig, "ch2_mp_intuition")
 
 
+# ------------------------------------------------------------------------------------------------ Chapter 10 --
+def b6species(families=("F-37", "F-38")):
+    """Chapter 10, B6: one shape family's members from each strain, normalised and overlaid (median in bold)."""
+    st = B.stack("library_events/library_event_windows")
+    idx = st.index.reset_index().rename(columns={"index": "pos"})
+    strains = [("oyster", ["M2_aug_concat_fs1.mat", "M2_concat_fs1.mat"], "M2_aug"),
+               ("chocolate oyster", ["CO_fs2.mat"], "CO"), ("lion's mane", ["LM_fs2.mat"], "LM")]
+    fig, axes = fs.figure("full", 3.6, len(families), 3, sharey=True)
+    grid = np.linspace(-0.5, 1.5, 120)
+    for r_, fam in enumerate(families):
+        for c_, (name, files, rec) in enumerate(strains):
+            ax = axes[r_, c_]
+            sub = idx[(idx["family"] == fam) & idx["source_file"].isin(files)]
+            ys = []
+            for _, r in sub.iterrows():
+                t, y = st.window(int(r["pos"]))
+                a, b = r["item_t0_s"], r["item_t1_s"]
+                u = (t - a) / max(b - a, 1e-9)               # 0 = start of the event, 1 = its end
+                yy = np.interp(grid, u, y, left=np.nan, right=np.nan)
+                core = (grid >= 0) & (grid <= 1)
+                mu, sd = np.nanmean(yy[core]), np.nanstd(yy[core])
+                if not np.isfinite(sd) or sd == 0:
+                    continue
+                yy = (yy - mu) / sd
+                ys.append(yy)
+                ax.plot(grid, yy, color=fs.species_colour(name), lw=0.6, alpha=0.35)
+            if ys:
+                ax.plot(grid, np.nanmedian(np.vstack(ys), axis=0), color=fs.species_colour(name), lw=2.2)
+            ax.axvline(0, color=fs.MUTED, lw=0.7, ls="--"); ax.axvline(1, color=fs.MUTED, lw=0.7, ls="--")
+            ax.set_title(f"{fam}, {name} ({len(ys)})", fontsize=8.5, loc="left")
+            if r_ == len(families) - 1:
+                ax.set_xlabel("event, start (0) to end (1)")
+            if c_ == 0:
+                ax.set_ylabel("z-score")
+            ax.set_ylim(-3.5, 3.5)
+    fig.tight_layout(h_pad=0.8)
+    return fs.save(fig, "ch10_b6_species")
+
+
 def main():
     global B
     ap = argparse.ArgumentParser()
