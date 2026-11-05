@@ -1,0 +1,1850 @@
+[
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "BEADs_invert_detect_v1",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/BEADs_invert_detect_v1_16ch_0-4578553_a2a7e4_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "BEADs_invert_detect_v1__delta_mv_25",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/BEADs_invert_detect_v1__delta_mv_25_16ch_0-4578553_82a84e_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "BEADs_invert_detect_v1__delta_mv_5",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/BEADs_invert_detect_v1__delta_mv_5_16ch_0-4578553_9101e5_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "OASIS_Deconvolution",
+  "tasks": 16,
+  "complete": 16,
+  "whole": true,
+  "states": {
+   "complete": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/OASIS_Deconvolution_16ch_0-4578553_364180_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "OASIS_Deconvolution__threshold_3",
+  "tasks": 16,
+  "complete": 16,
+  "whole": true,
+  "states": {
+   "complete": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/OASIS_Deconvolution__threshold_3_16ch_0-4578553_3e6d55_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "OASIS_Deconvolution__threshold_5",
+  "tasks": 16,
+  "complete": 16,
+  "whole": true,
+  "states": {
+   "complete": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/OASIS_Deconvolution__threshold_5_16ch_0-4578553_5c11ee_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "Wavelet_detection_prototype",
+  "tasks": 16,
+  "complete": 16,
+  "whole": true,
+  "states": {
+   "complete": 16
+  },
+  "packs": [
+   "rq4n_cpu2"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/Wavelet_detection_prototype_16ch_0-4578553_3fa3b0_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "Wavelet_detection_prototype__epsilon_factor_0p02",
+  "tasks": 16,
+  "complete": 14,
+  "whole": false,
+  "states": {
+   "complete": 14,
+   "missing": 2
+  },
+  "packs": [
+   "rq4n_cpu2"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/Wavelet_detection_prototype__epsilon_factor_0p02_16ch_0-4578553_b20b3d_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "Wavelet_detection_prototype__epsilon_factor_0p1",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu2"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/Wavelet_detection_prototype__epsilon_factor_0p1_16ch_0-4578553_b5db98_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "cnn_fusion3_10min",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_fusion3_10min_16ch_0-4578553_bcc034_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "cnn_fusion3_1min",
+  "tasks": 16,
+  "complete": 5,
+  "whole": false,
+  "states": {
+   "complete": 5,
+   "missing": 11
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_fusion3_1min_16ch_0-4578553_cc7f04_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "cnn_fusion3_60min",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_fusion3_60min_16ch_0-4578553_5baec7_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "cnn_gadf_10min",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_gadf_10min_16ch_0-4578553_2c2ba4_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "cnn_gadf_1min",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_gadf_1min_16ch_0-4578553_def939_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "cnn_gadf_60min",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_gadf_60min_16ch_0-4578553_44bc0d_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "cnn_gasf_10min",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_gasf_10min_16ch_0-4578553_c5181e_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "cnn_gasf_1min",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_gasf_1min_16ch_0-4578553_556395_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "cnn_gasf_60min",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_gasf_60min_16ch_0-4578553_19893b_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "cnn_recurrence_10min",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_recurrence_10min_16ch_0-4578553_a01bd3_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "cnn_recurrence_1min",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_recurrence_1min_16ch_0-4578553_dbab5e_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "cnn_recurrence_60min",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_recurrence_60min_16ch_0-4578553_ec4817_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "deconvolved_troughs",
+  "tasks": 16,
+  "complete": 16,
+  "whole": true,
+  "states": {
+   "complete": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/deconvolved_troughs_16ch_0-4578553_bd15f4_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "deconvolved_troughs__recovery_half_s_240",
+  "tasks": 16,
+  "complete": 16,
+  "whole": true,
+  "states": {
+   "complete": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/deconvolved_troughs__recovery_half_s_240_16ch_0-4578553_db1e24_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "deconvolved_troughs__recovery_half_s_60",
+  "tasks": 16,
+  "complete": 16,
+  "whole": true,
+  "states": {
+   "complete": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/deconvolved_troughs__recovery_half_s_60_16ch_0-4578553_de91eb_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "drop_detection_v1",
+  "tasks": 16,
+  "complete": 16,
+  "whole": true,
+  "states": {
+   "complete": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/drop_detection_v1_16ch_0-4578553_3129c6_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "drop_detection_v1__slope_sigma_12",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/drop_detection_v1__slope_sigma_12_16ch_0-4578553_b9b90f_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "drop_detection_v1__slope_sigma_4",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/drop_detection_v1__slope_sigma_4_16ch_0-4578553_4d25ab_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "drop_detection_v5",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/drop_detection_v5_16ch_0-4578553_c57f72_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "drop_detection_v5__same_fraction_0p5",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/drop_detection_v5__same_fraction_0p5_16ch_0-4578553_3c5d9d_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "drop_detection_v5__same_fraction_0p7",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/drop_detection_v5__same_fraction_0p7_16ch_0-4578553_f3cee5_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "mp_threshold__backend_auto",
+  "tasks": 2,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 2
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/mp_threshold__backend_auto_2ch_0-4578553_0185fb_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "noise_threshold",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/noise_threshold_16ch_0-4578553_2eb7d2_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "noise_threshold__k_sigma_3",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/noise_threshold__k_sigma_3_16ch_0-4578553_0ff194_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "noise_threshold__k_sigma_6",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/noise_threshold__k_sigma_6_16ch_0-4578553_33bdd5_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "signal_threshold",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/signal_threshold_16ch_0-4578553_e581b2_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "signal_threshold__threshold_V_m0p002",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/signal_threshold__threshold_V_m0p002_16ch_0-4578553_02f6e4_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "signal_threshold__threshold_V_m0p01",
+  "tasks": 16,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/signal_threshold__threshold_V_m0p01_16ch_0-4578553_d54326_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "symbol_search",
+  "tasks": 16,
+  "complete": 16,
+  "whole": true,
+  "states": {
+   "complete": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/symbol_search_16ch_0-4578553_2d76e9_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "symbol_search__seconds_per_symbol_10",
+  "tasks": 16,
+  "complete": 13,
+  "whole": false,
+  "states": {
+   "complete": 13,
+   "refused": 3
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/symbol_search__seconds_per_symbol_10_16ch_0-4578553_206e1e_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "symbol_search__seconds_per_symbol_40",
+  "tasks": 16,
+  "complete": 16,
+  "whole": true,
+  "states": {
+   "complete": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/symbol_search__seconds_per_symbol_40_16ch_0-4578553_2e7fb5_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "wavelet_encoded",
+  "tasks": 16,
+  "complete": 16,
+  "whole": true,
+  "states": {
+   "complete": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/wavelet_encoded_16ch_0-4578553_a1c337_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "wavelet_encoded__level_3",
+  "tasks": 16,
+  "complete": 16,
+  "whole": true,
+  "states": {
+   "complete": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/wavelet_encoded__level_3_16ch_0-4578553_646274_out"
+ },
+ {
+  "recording": "MJu26a_fs2",
+  "setting": "wavelet_encoded__level_5",
+  "tasks": 16,
+  "complete": 16,
+  "whole": true,
+  "states": {
+   "complete": 16
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/wavelet_encoded__level_5_16ch_0-4578553_d8fcc7_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "BEADs_invert_detect_v1",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/BEADs_invert_detect_v1_4ch_0-3456000_51947c_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "BEADs_invert_detect_v1__delta_mv_25",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/BEADs_invert_detect_v1__delta_mv_25_4ch_0-3456000_6fff58_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "BEADs_invert_detect_v1__delta_mv_5",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/BEADs_invert_detect_v1__delta_mv_5_4ch_0-3456000_f17d9f_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "OASIS_Deconvolution",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/OASIS_Deconvolution_4ch_0-3456000_376eef_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "OASIS_Deconvolution__threshold_3",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/OASIS_Deconvolution__threshold_3_4ch_0-3456000_6cbce7_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "OASIS_Deconvolution__threshold_5",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/OASIS_Deconvolution__threshold_5_4ch_0-3456000_30057e_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "Wavelet_detection_prototype",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu2"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/Wavelet_detection_prototype_4ch_0-3456000_f6203b_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "Wavelet_detection_prototype__epsilon_factor_0p02",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu2"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/Wavelet_detection_prototype__epsilon_factor_0p02_4ch_0-3456000_1f93c6_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "Wavelet_detection_prototype__epsilon_factor_0p1",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu2"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/Wavelet_detection_prototype__epsilon_factor_0p1_4ch_0-3456000_40a206_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "cnn_fusion3_10min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_fusion3_10min_4ch_0-3456000_0d1174_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "cnn_fusion3_1min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_fusion3_1min_4ch_0-3456000_4d7ac9_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "cnn_fusion3_60min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_fusion3_60min_4ch_0-3456000_4b145d_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "cnn_gadf_10min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gadf_10min_4ch_0-3456000_3345bd_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "cnn_gadf_1min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gadf_1min_4ch_0-3456000_d30d19_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "cnn_gadf_60min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gadf_60min_4ch_0-3456000_0a27fe_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "cnn_gasf_10min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gasf_10min_4ch_0-3456000_b831ea_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "cnn_gasf_1min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gasf_1min_4ch_0-3456000_42bc79_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "cnn_gasf_60min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_gasf_60min_4ch_0-3456000_179272_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "cnn_recurrence_10min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_recurrence_10min_4ch_0-3456000_8a9b1f_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "cnn_recurrence_1min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_recurrence_1min_4ch_0-3456000_e44971_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "cnn_recurrence_60min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/cnn_recurrence_60min_4ch_0-3456000_cd9829_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "deconvolved_troughs",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/deconvolved_troughs_4ch_0-3456000_fe68f4_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "deconvolved_troughs__recovery_half_s_240",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/deconvolved_troughs__recovery_half_s_240_4ch_0-3456000_4e66ff_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "deconvolved_troughs__recovery_half_s_60",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/deconvolved_troughs__recovery_half_s_60_4ch_0-3456000_413e4a_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "drop_detection_v1",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1_4ch_0-3456000_bff1bb_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "drop_detection_v1__slope_sigma_12",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1__slope_sigma_12_4ch_0-3456000_8211d4_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "drop_detection_v1__slope_sigma_4",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1__slope_sigma_4_4ch_0-3456000_ba587f_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "drop_detection_v5",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v5_4ch_0-3456000_19d2b5_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "drop_detection_v5__same_fraction_0p5",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v5__same_fraction_0p5_4ch_0-3456000_61296b_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "drop_detection_v5__same_fraction_0p7",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v5__same_fraction_0p7_4ch_0-3456000_430ecc_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "mp_threshold__backend_auto",
+  "tasks": 2,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 2
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/mp_threshold__backend_auto_2ch_0-3456000_60af3b_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "noise_threshold",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/noise_threshold_4ch_0-3456000_c6d26a_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "noise_threshold__k_sigma_3",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/noise_threshold__k_sigma_3_4ch_0-3456000_f929f5_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "noise_threshold__k_sigma_6",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/noise_threshold__k_sigma_6_4ch_0-3456000_755dbc_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "signal_threshold",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/signal_threshold_4ch_0-3456000_ef0a55_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "signal_threshold__threshold_V_m0p002",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/signal_threshold__threshold_V_m0p002_4ch_0-3456000_4fd9ee_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "signal_threshold__threshold_V_m0p01",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/signal_threshold__threshold_V_m0p01_4ch_0-3456000_f530a0_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "symbol_search",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/symbol_search_4ch_0-3456000_203483_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "symbol_search__seconds_per_symbol_10",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/symbol_search__seconds_per_symbol_10_4ch_0-3456000_3e1420_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "symbol_search__seconds_per_symbol_40",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/symbol_search__seconds_per_symbol_40_4ch_0-3456000_fe3ba8_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "wavelet_encoded",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/wavelet_encoded_4ch_0-3456000_74d4b7_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "wavelet_encoded__level_3",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/wavelet_encoded__level_3_4ch_0-3456000_1fcfb0_out"
+ },
+ {
+  "recording": "SH_fs2",
+  "setting": "wavelet_encoded__level_5",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/wavelet_encoded__level_5_4ch_0-3456000_49ca25_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "BEADs_invert_detect_v1",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/BEADs_invert_detect_v1_4ch_0-3456000_7af8bd_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "BEADs_invert_detect_v1__delta_mv_25",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/BEADs_invert_detect_v1__delta_mv_25_4ch_0-3456000_a66d9f_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "BEADs_invert_detect_v1__delta_mv_5",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/BEADs_invert_detect_v1__delta_mv_5_4ch_0-3456000_b83963_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "OASIS_Deconvolution",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/OASIS_Deconvolution_4ch_0-3456000_57888e_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "OASIS_Deconvolution__threshold_3",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/OASIS_Deconvolution__threshold_3_4ch_0-3456000_74ff88_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "OASIS_Deconvolution__threshold_5",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/OASIS_Deconvolution__threshold_5_4ch_0-3456000_1588ab_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "Wavelet_detection_prototype",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu2"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/Wavelet_detection_prototype_4ch_0-3456000_e28df6_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "Wavelet_detection_prototype__epsilon_factor_0p02",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu2"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/Wavelet_detection_prototype__epsilon_factor_0p02_4ch_0-3456000_b6d56c_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "Wavelet_detection_prototype__epsilon_factor_0p1",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu2"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/Wavelet_detection_prototype__epsilon_factor_0p1_4ch_0-3456000_7d9c2a_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "cnn_fusion3_10min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/cnn_fusion3_10min_4ch_0-3456000_8387a8_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "cnn_fusion3_1min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/cnn_fusion3_1min_4ch_0-3456000_489e8d_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "cnn_fusion3_60min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/cnn_fusion3_60min_4ch_0-3456000_fed709_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "cnn_gadf_10min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/cnn_gadf_10min_4ch_0-3456000_693fce_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "cnn_gadf_1min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/cnn_gadf_1min_4ch_0-3456000_604101_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "cnn_gadf_60min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/cnn_gadf_60min_4ch_0-3456000_56486b_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "cnn_gasf_10min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/cnn_gasf_10min_4ch_0-3456000_5f75b4_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "cnn_gasf_1min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/cnn_gasf_1min_4ch_0-3456000_e3eb25_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "cnn_gasf_60min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/cnn_gasf_60min_4ch_0-3456000_3668bb_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "cnn_recurrence_10min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/cnn_recurrence_10min_4ch_0-3456000_1f3f6f_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "cnn_recurrence_1min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/cnn_recurrence_1min_4ch_0-3456000_9ca929_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "cnn_recurrence_60min",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/cnn_recurrence_60min_4ch_0-3456000_7970ac_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "deconvolved_troughs",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/deconvolved_troughs_4ch_0-3456000_659010_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "deconvolved_troughs__recovery_half_s_240",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/deconvolved_troughs__recovery_half_s_240_4ch_0-3456000_1aa0d9_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "deconvolved_troughs__recovery_half_s_60",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/deconvolved_troughs__recovery_half_s_60_4ch_0-3456000_dfc399_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "drop_detection_v1",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/drop_detection_v1_4ch_0-3456000_233593_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "drop_detection_v1__slope_sigma_12",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/drop_detection_v1__slope_sigma_12_4ch_0-3456000_698767_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "drop_detection_v1__slope_sigma_4",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/drop_detection_v1__slope_sigma_4_4ch_0-3456000_8d2eaf_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "drop_detection_v5",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/drop_detection_v5_4ch_0-3456000_007f36_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "drop_detection_v5__same_fraction_0p5",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/drop_detection_v5__same_fraction_0p5_4ch_0-3456000_3cf23e_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "drop_detection_v5__same_fraction_0p7",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/drop_detection_v5__same_fraction_0p7_4ch_0-3456000_67f98d_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "mp_threshold__backend_auto",
+  "tasks": 2,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 2
+  },
+  "packs": [
+   "rq4n_gpuA",
+   "rq4n_gpuB"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/mp_threshold__backend_auto_2ch_0-3456000_cd4137_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "noise_threshold",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/noise_threshold_4ch_0-3456000_7d3853_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "noise_threshold__k_sigma_3",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/noise_threshold__k_sigma_3_4ch_0-3456000_1262d9_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "noise_threshold__k_sigma_6",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/noise_threshold__k_sigma_6_4ch_0-3456000_4f0049_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "signal_threshold",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/signal_threshold_4ch_0-3456000_fd0e65_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "signal_threshold__threshold_V_m0p002",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/signal_threshold__threshold_V_m0p002_4ch_0-3456000_777b25_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "signal_threshold__threshold_V_m0p01",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/signal_threshold__threshold_V_m0p01_4ch_0-3456000_89b470_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "symbol_search",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/symbol_search_4ch_0-3456000_e6fc33_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "symbol_search__seconds_per_symbol_10",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/symbol_search__seconds_per_symbol_10_4ch_0-3456000_e3fe9c_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "symbol_search__seconds_per_symbol_40",
+  "tasks": 4,
+  "complete": 0,
+  "whole": false,
+  "states": {
+   "missing": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/symbol_search__seconds_per_symbol_40_4ch_0-3456000_e82581_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "wavelet_encoded",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/wavelet_encoded_4ch_0-3456000_f33e2c_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "wavelet_encoded__level_3",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/wavelet_encoded__level_3_4ch_0-3456000_49b6a3_out"
+ },
+ {
+  "recording": "SO_fs2",
+  "setting": "wavelet_encoded__level_5",
+  "tasks": 4,
+  "complete": 4,
+  "whole": true,
+  "states": {
+   "complete": 4
+  },
+  "packs": [
+   "rq4n_cpu1"
+  ],
+  "out": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/wavelet_encoded__level_5_4ch_0-3456000_947bf5_out"
+ }
+]
