@@ -40,7 +40,7 @@
  "hand_labels": {"source": "imported_10min", "per_class": 10, "classes": ["interesting", "not_interesting", "artifact"], "context_samples": 1800, "seed": 0},
  "misses": {"n_windows": 12, "seed": 0},
  "drop_motifs": {"store": "Plots/drop_motifs12a/motifs", "figures": "Plots/drop_motifs12b", "max_npz_mb": 20, "subset_n": 1000, "seed": 0},
- "existing_plots": {"dirs": ["Plots/Detection/mp", "Plots/family_search", "Plots/Classification/cnn", "Plots/Classification/gramian", "Plots/Classification/dendrogram"], "downscale_over_mb": 2, "max_width_px": 2000, "max_total_mb": 120},
+ "existing_plots": {"dirs": ["Plots/Detection/mp", "Plots/family_search", "Plots/Classification/cnn", "Plots/Classification/gramian", "Plots/Classification/dendrogram"], "downscale_over_mb": 2, "max_width_px": 2000, "max_total_mb": 40},
  "pool": {"per_recording": 2000, "levels": [[5, 6], [7, 8], [9, null]], "thumbnails_per_level": 20, "seed": 0, "prefer_over": {"MJu26a_fs2": "L_LM_fs2"}},
  "m4_exam": {"queue": 36, "hours": 48, "manifest": "DATA/derived/exam/M4/manifest.json", "manifest_tracked": "docs/rq_roundA_2/exam/M4-exam-manifest.json", "sample_fallback": "DATA/derived/candidate_events/M4_aug_concat_fs1_ae545821/sample_seed20261026_l40_f15"},
  "r4": {"manifest": "DATA/derived/exam/M4/manifest.json", "manifest_tracked": "docs/rq_roundA_2/exam/M4-exam-manifest.json", "model_dir": null, "batch": 256}

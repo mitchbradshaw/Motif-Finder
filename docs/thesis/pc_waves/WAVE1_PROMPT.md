@@ -37,6 +37,9 @@ The same thing in one line, from the repo root in Git Bash:
 Then attach every `DATA\derived\thesis_bundle\wave1\wave1_partNN.zip` to the chat, part 01 first (it holds
 `REPORT.md`, which says what worked and what every other part holds). Each part is at most 24 MB.
 
+Two optional clicks while it runs (they help the Sunday screenshots, not this export): in the web UI, Settings ›
+Datasets, set M2_concat's species to oyster, SH_fs2 to Asian shiitake and SO_fs2 to snow oyster.
+
 Notes: the database is opened read-only and nothing in it changes; the web UI may stay open. M4_aug is exported on
 purpose (its exam was scored on 26 Oct); *S. commune* is never read. Re-running is safe; `--only pool,m4_exam` re-runs
 some steps and re-zips, `--zip-only` only re-zips.
