@@ -29,6 +29,13 @@ The research questions test the instrument. This chapter uses it to describe wha
 \label{fig:catalogue}
 \end{figure}
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{new/ch9_accepted_gallery.pdf}
+\caption{What an accepted event looks like: six accepted events from each of four recordings, drawn at random, each with its own length of context either side. Each panel has its own scale; the bar gives millivolts and the title the event's length. Most are falls in potential, from seconds to tens of minutes long and from a few to a hundred millivolts deep.}
+\label{fig:acceptedgallery}
+\end{figure}
+
 \begin{instructions}
 The recomputed numbers. Use these, not the poster's:
 \begin{itemize}
@@ -63,6 +70,13 @@ repeats beyond AAFT noise, strongest at 30\,s. So the pan picture, not a single 
 (\src{docs/prompts/blocks/reports/W3-evaluation.md}). Use the overlay figure from the motif report tool if you want a
 picture of a family.
 \end{instructions}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{new/ch9_rec385.pdf}
+\caption{One recording in detail. (a) The 4-hour excerpt of MJu26a CH14 with its 90 Library members shaded, the three largest shape families in colour. (b--d) The members of each of those families drawn from their onsets: the same shape recurs throughout the four hours.}
+\label{fig:rec385}
+\end{figure}
 
 \section{Shape families in the Library}
 \label{sec:families}
@@ -139,14 +153,30 @@ tables, or 1,390,695 without the five-channel MJu26a copy; at 5--6 families only
 at 9 or more 40--63\,\%. Candidates nest, so the wave-1 run collapses them first (keep a candidate unless half its span
 is covered by a higher-agreement one) and then measures a stratified sample of 2,000 per recording with the same
 function as the catalogue, scored by R4. These are machine proposals: none of them enters the Library.
+
+\textbf{Results (wave 1, 5 Nov; \src{DATA/derived/thesis_bundle/wave1}, pool step):}
+\begin{itemize}
+  \item \textbf{How many.} Merging nested candidates shrinks the pool about 27-fold: 5+ agreeing families, 1,720,104
+        candidates become 64,114 events (M2\_aug 24,904; M2\_concat 21,253; MJu26a (CH10, 13--16) 9,890; CO 4,184;
+        LM 3,883); 9+ agreeing, 230,817 become 10,620. The Library holds 1,097. MJu26a's 16-channel 2\,Hz sweep has no
+        table yet, so its five-channel copy stands in.
+  \item \textbf{What they look like.} The pool is smaller and shorter than what you accepted, and grows towards it with
+        agreement: median swing 0.2--1.0\,mV at 5--6 families, 1.1--3.3\,mV at 7--8, and 14--17\,mV at 9+ on M2\_aug,
+        CO and LM (accepted: 19.8\,mV). Many merged events are 10--60\,s fragments, because merging keeps the shortest
+        high-agreement span.
+  \item \textbf{What R4 makes of them.} R4 calls 11--18\,\% of the 5--6 tier an event, 31--43\,\% at 7--8, and 24--66\,\%
+        at 9+ (M2\_aug 53, M2\_concat 34, CO 66, LM 61, MJu26a 24\,\%), close to the share you judged real at 9+
+        (Figure~\ref{fig:ladder}). A rough scale: if R4 is right, about 4,500 of the 10,620 top-tier events are real,
+        four times the Library.
+  \item \textbf{Seeds.} On M2\_aug, 27\,\% of the sampled pool events overlap a seed-search match; elsewhere almost none
+        do, because the seed searches ran on M2\_aug.
+\end{itemize}
 \end{instructions}
 
 \begin{figure}[htbp]
 \centering
-\figplaceholder{6cm}{Figure 9.5 (T2, wave 1): the unreviewed pool against the accepted events --- swing and duration
-distributions at 5--6, 7--8 and 9+ agreeing families beside the 678 accepted events, with R4's score, and a row of
-thumbnails at each level.}
-\caption{Unjudged high-agreement candidates against the accepted events.}
+\includegraphics[width=\textwidth]{new/ch9_pool.pdf}
+\caption{Events no one has judged. (a) Candidates on which five or more, and nine or more, detector families agree, as proposed and after merging nested ones (log scale). (b, c) The size and length of a stratified sample of 2,000 merged candidates per recording, by agreement, against the 716 accepted events (cumulative shares). (d) The share the frozen R4 classifier calls an event, by agreement.}
 \label{fig:pool}
 \end{figure}
 

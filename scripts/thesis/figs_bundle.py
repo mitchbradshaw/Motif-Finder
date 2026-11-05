@@ -163,6 +163,172 @@ def r4_examples():
     return fs.save(fig, "ch8_r4_examples")
 
 
+# ------------------------------------------------------------------------------------------------ Chapter 9 --
+REC_OF_FILE = {"M2_aug_concat_fs1.mat": "M2_aug", "M2_concat_fs1.mat": "M2_concat", "CO_fs2.mat": "CO",
+               "LM_fs2.mat": "LM", "L_LM_Jul_26_J_raw_fs2.mat": "L_LM_fs2"}
+
+
+def _thumb_scaled(ax, t_s, y, a_s, b_s, colour, label=None):
+    """A thumbnail at its real scale: time in s from the event start, with a mV bar and a duration bar."""
+    t = t_s - a_s
+    ax.plot(t, y, color=fs.INK, lw=0.8)
+    ax.axvspan(0, b_s - a_s, color=colour, alpha=0.22, lw=0)
+    ax.set_xticks([]); ax.set_yticks([])
+    for sp in ax.spines.values():
+        sp.set_visible(False)
+    ax.grid(False)
+    p2p = np.nanmax(y) - np.nanmin(y)
+    bar = float(10 ** np.floor(np.log10(max(p2p, 1e-3) * 0.6)))
+    if p2p / bar > 5:
+        bar *= 2
+    y0 = np.nanmin(y)
+    x0 = t[-1]
+    ax.plot([x0, x0], [y0, y0 + bar], color=fs.INK, lw=1.4, solid_capstyle="butt", clip_on=False)
+    ax.text(x0, y0 + bar / 2, f" {bar:g} mV", fontsize=6, va="center", ha="left", clip_on=False)
+    dur = b_s - a_s
+    ax.set_title(label or (f"{dur:.0f} s" if dur < 120 else f"{dur / 60:.0f} min"), fontsize=6.5, pad=1)
+
+
+def accepted():
+    """Figure 9.2: 24 accepted events, six per recording, each at its own real scale."""
+    st = B.stack("library_events/library_event_windows")
+    ev = B.csv("library_events/events_with_family")
+    acc = ev[ev["accepted_parts"] > 0]
+    idx = st.index.reset_index().rename(columns={"index": "pos"}).merge(acc[["event_id", "recording"]], on="event_id")
+    rng = np.random.default_rng(3)
+    order = ["M2_aug_concat_fs1.mat", "M2_concat_fs1.mat", "CO_fs2.mat", "LM_fs2.mat"]
+    fig, axes = fs.figure("full", 5.0, 4, 6)
+    for row, f in enumerate(order):
+        sub = idx[idx["recording"] == f]
+        pick = sub.iloc[rng.choice(len(sub), size=min(6, len(sub)), replace=False)].sort_values("item_t0_s")
+        name = REC_OF_FILE[f]
+        for col in range(6):
+            ax = axes[row, col]
+            if col >= len(pick):
+                ax.axis("off"); continue
+            r = pick.iloc[col]
+            t, y = st.window(int(r["pos"]))
+            _thumb_scaled(ax, t, y, r["item_t0_s"], r["item_t1_s"], fs.colour(name))
+        axes[row, 0].text(-0.08, 0.5, fs.label(name), transform=axes[row, 0].transAxes, rotation=90,
+                          ha="right", va="center", fontsize=8, color=fs.colour(name))
+    fig.subplots_adjust(left=0.05, right=0.95, bottom=0.02, top=0.95, hspace=0.45, wspace=0.35)
+    return fs.save(fig, "ch9_accepted_gallery")
+
+
+def rec385():
+    """Figure 9.3: the 4-hour MJu26a CH14 excerpt with its Library members coloured by shape family."""
+    x, meta = B.series("full_channels/Mushroom_260720__CH0__full")
+    th = B.time_h(meta, len(x))
+    mem = B.csv("library_events/rec385_members_g05")
+    fams = mem["g05_family_label"].value_counts()
+    top = [f for f in fams.index[:3]]
+    cols = {f: c for f, c in zip(top, [fs.CATEGORICAL[0], fs.CATEGORICAL[1], fs.CATEGORICAL[2]])}
+    fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 4.6))
+    gs = fig.add_gridspec(2, 3, height_ratios=[1.0, 0.95], hspace=0.45, wspace=0.28)
+    a = fig.add_subplot(gs[0, :])
+    a.plot(th, x, color=fs.INK, lw=0.6, zorder=2)
+    for r in mem.itertuples():
+        c = cols.get(r.g05_family_label, fs.NEUTRAL)
+        a.axvspan(r.start_s / 3600, r.end_s / 3600, color=c, alpha=0.35 if c != fs.NEUTRAL else 0.08,
+                  lw=0, zorder=1)
+    a.set_xlim(th[0], th[-1]); a.set_ylabel("mV"); a.set_xlabel("time in the excerpt (h)")
+    a.set_title(f"(a) MJu26a CH14, a 4-hour excerpt: {len(mem)} Library members (the three largest families in colour)",
+                loc="left")
+    fsr = float(meta["fs"])
+    for k, f in enumerate(top):
+        ax = fig.add_subplot(gs[1, k])
+        m = mem[mem["g05_family_label"] == f]
+        for r in m.itertuples():
+            i0 = int(r.start_idx); i1 = int(r.end_idx)
+            seg = x[i0:i1]
+            if len(seg) < 3:
+                continue
+            ax.plot((np.arange(len(seg))) / fsr, seg - seg[0], color=cols[f], lw=0.9, alpha=0.75)
+        ax.set_title(f"({'bcd'[k]}) family {f}: {len(m)} members", loc="left", fontsize=8.5)
+        ax.set_xlabel("s from onset")
+        if k == 0:
+            ax.set_ylabel("mV from onset")
+    return fs.save(fig, "ch9_rec385")
+
+
+def pool():
+    """Figure 9.5: the unjudged high-agreement pool against the accepted events."""
+    pc = B.csv("pool/pool_counts")
+    recs = ["M2_aug", "M2_concat", "CO_fs2", "LM_fs2", "L_LM_fs2"]
+    samp = pd.concat([B.csv(f"pool/pool_sample_{r}") for r in recs], ignore_index=True)
+    samp["lv"] = samp["level"].astype(str)
+    cat = pd.read_csv(os.path.join(fs.ROOT, "docs", "thesis", "data", "ch9_catalogue", "events.csv"))
+    acc = cat[cat["set"].isin(["queue25", "queue28"]) & (cat["class"] == "accepted")]
+    fig, axes = fs.figure("full", 4.8, 2, 2)
+    (a, b), (c, d) = axes
+    x = np.arange(len(recs))
+    w = 0.2
+    for k, (col, lab, colour) in enumerate([("n_ge5", "5+ agree, as proposed", fs.GRID),
+                                             ("collapsed_ge5", "5+ agree, nested ones merged", fs.CATEGORICAL[0]),
+                                             ("n_ge9", "9+ agree, as proposed", "#c9c7c1"),
+                                             ("collapsed_ge9", "9+ agree, nested ones merged", "#164b8f")]):
+        v = pc.set_index("recording").reindex(recs)[col].to_numpy(float)
+        a.bar(x + (k - 1.5) * w, v, width=w, color=colour, label=lab, edgecolor="white", lw=0.5)
+    a.set_yscale("log"); a.set_xticks(x)
+    a.set_xticklabels([fs.label(r) for r in recs], fontsize=7, rotation=25, ha="right", rotation_mode="anchor")
+    a.set_ylabel("candidate events"); a.legend(fontsize=6.5, loc="upper right")
+    a.set_title("(a) How many", loc="left"); a.grid(axis="x", visible=False)
+    levels = [("5-6", fs.CATEGORICAL[1]), ("7-8", fs.CATEGORICAL[2]), ("9+", fs.CATEGORICAL[0])]
+    def ecdf(ax, v, **kw):
+        v = np.sort(np.asarray(v, float)[np.isfinite(v)])
+        v = v[v > 0]
+        ax.plot(v, np.arange(1, len(v) + 1) / len(v), **kw)
+    ecdf(b, acc["swing_mv"], color=fs.INK, lw=2.0, label=f"accepted ({len(acc)})")
+    ecdf(c, acc["span_s"], color=fs.INK, lw=2.0, label="accepted")
+    for lv, colour in levels:
+        m = samp["lv"] == lv
+        ecdf(b, samp.loc[m, "swing_mv"], color=colour, lw=1.5, label=f"pool, {lv} agree")
+        ecdf(c, samp.loc[m, "span_s"], color=colour, lw=1.5, label=f"pool, {lv} agree")
+    b.set_xscale("log"); b.set_xlabel("swing (mV)"); b.set_ylabel("share at or below"); b.legend(fontsize=6.5)
+    b.set_xlim(1e-2, 1e3); b.set_title("(b) Size", loc="left")
+    c.set_xscale("log"); c.set_xlabel("span (s)"); c.set_ylabel("share at or below"); c.set_xlim(1, 3e4)
+    c.set_title("(c) Length", loc="left")
+    share = samp.groupby(["recording", "lv"])["r4_interesting"].mean().unstack().reindex(recs) * 100
+    for k, (lv, colour) in enumerate(levels):
+        d.bar(x + (k - 1) * 0.26, share[lv].to_numpy(float), width=0.26, color=colour, label=f"{lv} agree",
+              edgecolor="white", lw=0.5)
+    d.set_xticks(x); d.set_xticklabels([fs.label(r) for r in recs], fontsize=7, rotation=25, ha="right",
+                                       rotation_mode="anchor")
+    d.set_ylim(0, 100); d.set_ylabel("R4 calls it an event (%)"); d.legend(fontsize=6.5, loc="upper left")
+    d.set_title("(d) What R4 makes of them", loc="left"); d.grid(axis="x", visible=False)
+    fig.tight_layout(h_pad=1.0)
+    return fs.save(fig, "ch9_pool")
+
+
+# ------------------------------------------------------------------------------------------------ Chapter 3 --
+def handlabels():
+    """Figure 3.1: hand-labelled 10-minute windows - four interesting, four not, two flagged - in 30 min context."""
+    st = B.stack("hand_labels/hand_label_windows")
+    idx = st.index.reset_index().rename(columns={"index": "pos"})
+    groups = [("interesting", "interesting", fs.SPECIES_COLOUR["oyster"], 4),
+              ("not_interesting", "not interesting", fs.NEUTRAL, 4), ("artifact", "flagged", fs.CATEGORICAL[1], 2)]
+    fig, axes = fs.figure("full", 3.2, 2, 5)
+    k = 0
+    for lab, name, colour, n in groups:
+        sub = idx[idx["label"] == lab].head(n)
+        for _, r in sub.iterrows():
+            ax = axes.ravel()[k]; k += 1
+            t, y = st.window(int(r["pos"]))
+            ax.plot((t - r["item_t0_s"]) / 60, y, color=fs.INK, lw=0.7)
+            ax.axvspan(0, (r["item_t1_s"] - r["item_t0_s"]) / 60, color=colour, alpha=0.22, lw=0)
+            ax.set_title(name, fontsize=7.5, color=colour if colour != fs.NEUTRAL else fs.INK_2, pad=2)
+            ax.set_yticks([]); ax.grid(False)
+            ax.tick_params(labelsize=6.5)
+            for sp in ("left",):
+                ax.spines[sp].set_visible(False)
+            p2p = np.nanmax(y) - np.nanmin(y)
+            ax.text(0.02, 0.04, f"{p2p:.1f} mV", transform=ax.transAxes, fontsize=6, color=fs.INK_2)
+    for ax in axes[1]:
+        ax.set_xlabel("min", fontsize=7)
+    fig.subplots_adjust(left=0.02, right=0.99, bottom=0.14, top=0.92, hspace=0.55, wspace=0.12)
+    return fs.save(fig, "ch3_hand_labels")
+
+
 def main():
     global B
     ap = argparse.ArgumentParser()
