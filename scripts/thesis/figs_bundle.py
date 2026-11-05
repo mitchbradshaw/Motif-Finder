@@ -101,7 +101,7 @@ def m4():
                    zorder=4)
     bx.set_ylim(lo - 0.05 * rng, hi + 0.2 * rng)
     bx.set_ylabel("mV")
-    bx.set_title("(b) After detection: your blind exam verdicts (triangles) and the events R4 accepts (bars)",
+    bx.set_title("(b) After detection: the blind human exam verdicts (triangles) and the events R4 accepts (bars)",
                  loc="left")
     bx.tick_params(labelbottom=False)
     rx = fig.add_subplot(gs[2, :], sharex=a)
@@ -112,9 +112,9 @@ def m4():
     rx.set_ylabel("R4", rotation=0, ha="right", va="center", fontsize=8)
     rx.grid(False)
     rx.set_xlabel("time in the recording (h)")
-    h = [fs.plt.Line2D([], [], ls="", marker="v", color=fs.SPECIES_COLOUR["oyster"], label="you: event, R4 agrees"),
+    h = [fs.plt.Line2D([], [], ls="", marker="v", color=fs.SPECIES_COLOUR["oyster"], label="human: event, R4 agrees"),
          fs.plt.Line2D([], [], ls="", marker="v", mfc="white", color=fs.SPECIES_COLOUR["oyster"],
-                       label="you: not an event, R4 agrees"),
+                       label="human: not an event, R4 agrees"),
          fs.plt.Line2D([], [], ls="", marker="v", color=fs.CATEGORICAL[1], label="R4 disagrees")]
     lx = fig.add_subplot(gs[3, :])
     lx.axis("off")
@@ -143,9 +143,9 @@ def r4_examples():
     idx["human"] = idx["exam_verdict"].isin(["interesting", "seed"]).astype(int)
     idx = idx[idx["exam_verdict"].isin(["interesting", "seed", "not_interesting", "artifact"])
               & idx["r4_interesting"].notna()]
-    groups = [("Hits: you and R4 both say event", (idx["human"] == 1) & (idx["r4_interesting"] == 1), False),
-              ("False alarms: R4 says event, you said not", (idx["human"] == 0) & (idx["r4_interesting"] == 1), False),
-              ("Misses: you said event, R4 said not", (idx["human"] == 1) & (idx["r4_interesting"] == 0), True)]
+    groups = [("Hits: the human verdict and R4 both say event", (idx["human"] == 1) & (idx["r4_interesting"] == 1), False),
+              ("False alarms: R4 says event, the human verdict says not", (idx["human"] == 0) & (idx["r4_interesting"] == 1), False),
+              ("Misses: the human verdict says event, R4 says not", (idx["human"] == 1) & (idx["r4_interesting"] == 0), True)]
     fig, axes = fs.figure("full", 4.6, 3, 4)
     for row, (title, m, asc) in enumerate(groups):
         sub = idx[m].sort_values("r4_decision", ascending=asc).head(4)
