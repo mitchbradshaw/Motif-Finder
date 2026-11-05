@@ -1,0 +1,588 @@
+[
+ {
+  "name": "explore_signal",
+  "hash": "explore/signal/1?popover=detections",
+  "session_storage": {
+   "ub-proto-a:explore": "{\"file\": \"M2_aug_concat_fs1.mat\", \"channelId\": 1, \"view\": [1130400, 1144800], \"colourBy\": \"both\"}"
+  },
+  "steps": [
+   {
+    "wait": "[data-testid=\"detection-runs-popover\"] [data-testid^=\"picker-row-\"]"
+   },
+   {
+    "click": "[data-testid=\"picker-group\"] button[data-value=\"template\"]"
+   },
+   {
+    "click": "[data-testid=\"picker-none\"]"
+   },
+   {
+    "click": "[data-testid=\"picker-row-drop_detection\"] input[type=\"checkbox\"]"
+   },
+   {
+    "press": "Escape"
+   },
+   {
+    "sleep": 800
+   },
+   {
+    "wait": "[data-testid=\"envelope-path\"]"
+   },
+   {
+    "sleep": 2500
+   }
+  ],
+  "wait": "[data-testid=\"signal-topbar\"]:has-text(\"CH1_A1\")",
+  "element": ".page-inner.ex-signal",
+  "viewport": [
+   1500,
+   1400
+  ],
+  "settle_ms": 3000,
+  "timeout_ms": 180000
+ },
+ {
+  "name": "explore_signal_motif",
+  "hash": "explore/signal/1?popover=detections",
+  "session_storage": {
+   "ub-proto-a:explore": "{\"file\": \"M2_aug_concat_fs1.mat\", \"channelId\": 1, \"view\": [1137960, 1152360], \"colourBy\": \"both\"}"
+  },
+  "steps": [
+   {
+    "wait": "[data-testid=\"detection-runs-popover\"] [data-testid^=\"picker-row-\"]"
+   },
+   {
+    "click": "[data-testid=\"picker-group\"] button[data-value=\"template\"]"
+   },
+   {
+    "click": "[data-testid=\"picker-none\"]"
+   },
+   {
+    "click": "[data-testid=\"picker-row-drop_detection\"] input[type=\"checkbox\"]"
+   },
+   {
+    "press": "Escape"
+   },
+   {
+    "sleep": 800
+   },
+   {
+    "wait": "[data-testid=\"envelope-path\"]"
+   },
+   {
+    "sleep": 1500
+   },
+   {
+    "press": "]"
+   },
+   {
+    "wait": "[data-testid=\"motif-label\"]"
+   },
+   {
+    "wait": "[data-testid=\"motif-path\"]"
+   },
+   {
+    "sleep": 2500
+   }
+  ],
+  "wait": "[data-testid=\"signal-topbar\"]:has-text(\"CH1_A1\")",
+  "element": ".page-inner.ex-signal",
+  "viewport": [
+   1500,
+   1400
+  ],
+  "settle_ms": 3000,
+  "timeout_ms": 120000
+ },
+ {
+  "name": "discovery_map",
+  "hash": "discovery/map?dataset=M2_aug_concat_fs1&rsort=count",
+  "wait": "[data-testid=\"map-dataset-level\"][data-stale=\"0\"]",
+  "element": "[data-testid=\"map-card\"]",
+  "viewport": [
+   1500,
+   2400
+  ],
+  "timeout_ms": 300000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "discovery_compare",
+  "hash": "discovery/compare?a=none&b=none",
+  "steps": [
+   {
+    "wait": "[data-testid=\"scope-card\"]"
+   },
+   {
+    "sleep": 5000
+   },
+   {
+    "click": "[data-testid=\"recording-select\"]"
+   },
+   {
+    "click": "[data-testid=\"recording-select-menu\"] button[data-value=\"M2_aug_concat_fs1\"]"
+   },
+   {
+    "sleep": 1500
+   },
+   {
+    "click": "[data-testid=\"recording-confirm-change\"], [data-testid=\"scope-card\"] h3 >> nth=-1"
+   },
+   {
+    "wait": "[data-testid=\"recording-select\"][data-value=\"M2_aug_concat_fs1\"]"
+   },
+   {
+    "sleep": 2000
+   },
+   {
+    "click": "button.dsc-pick[aria-label^=\"pick demo\"][aria-label$=\"drop detector to compare\"]"
+   },
+   {
+    "click": "button.dsc-pick[aria-label=\"pick seed bdd3d0 to compare\"]"
+   },
+   {
+    "wait": "[data-testid=\"where-fire\"] svg[role=\"img\"][aria-label^=\"where A and B fire\"]"
+   },
+   {
+    "wait": "[data-testid=\"set-overlap\"]"
+   },
+   {
+    "sleep": 6500
+   }
+  ],
+  "wait": "[data-testid=\"where-fire\"] svg[role=\"img\"][aria-label^=\"where A and B fire\"]",
+  "element": "[data-testid=\"where-fire\"]",
+  "viewport": [
+   1500,
+   1300
+  ],
+  "timeout_ms": 240000,
+  "settle_ms": 2500
+ },
+ {
+  "name": "discovery_compare_full",
+  "hash": "discovery/compare?a=none&b=none",
+  "steps": [
+   {
+    "wait": "[data-testid=\"scope-card\"]"
+   },
+   {
+    "sleep": 5000
+   },
+   {
+    "click": "[data-testid=\"recording-select\"]"
+   },
+   {
+    "click": "[data-testid=\"recording-select-menu\"] button[data-value=\"M2_aug_concat_fs1\"]"
+   },
+   {
+    "sleep": 1500
+   },
+   {
+    "click": "[data-testid=\"recording-confirm-change\"], [data-testid=\"scope-card\"] h3 >> nth=-1"
+   },
+   {
+    "wait": "[data-testid=\"recording-select\"][data-value=\"M2_aug_concat_fs1\"]"
+   },
+   {
+    "sleep": 2000
+   },
+   {
+    "click": "button.dsc-pick[aria-label^=\"pick demo\"][aria-label$=\"drop detector to compare\"]"
+   },
+   {
+    "click": "button.dsc-pick[aria-label=\"pick seed bdd3d0 to compare\"]"
+   },
+   {
+    "wait": "[data-testid=\"where-fire\"] svg[role=\"img\"][aria-label^=\"where A and B fire\"]"
+   },
+   {
+    "wait": "[data-testid=\"set-overlap\"]"
+   },
+   {
+    "sleep": 6500
+   }
+  ],
+  "wait": "[data-testid=\"disagreements\"]",
+  "element": ".dsc-right",
+  "viewport": [
+   1500,
+   2200
+  ],
+  "timeout_ms": 240000,
+  "settle_ms": 4000
+ },
+ {
+  "name": "discovery_seed",
+  "hash": "discovery/seed?entry=191&step=3",
+  "wait": "[data-testid=\"matches-card\"]",
+  "element": ".dsc-right",
+  "steps": [
+   {
+    "wait": "[data-testid=\"cut-card\"]"
+   },
+   {
+    "sleep": 2000
+   }
+  ],
+  "viewport": [
+   1500,
+   1400
+  ],
+  "timeout_ms": 240000,
+  "settle_ms": 4000
+ },
+ {
+  "name": "ch7_seed_kept_matches",
+  "hash": "discovery/seed?entry=191&step=3",
+  "wait": "[data-testid=\"matches-card\"]",
+  "element": "[data-testid=\"matches-card\"]",
+  "viewport": [
+   1500,
+   1400
+  ],
+  "timeout_ms": 240000,
+  "settle_ms": 4000
+ },
+ {
+  "name": "discovery_seed_report",
+  "hash": "reports/detection-run/seed_bdd3d0",
+  "wait": "[data-testid=\"report-body\"]",
+  "element": "[data-testid=\"report-body\"]",
+  "viewport": [
+   1500,
+   6000
+  ],
+  "timeout_ms": 300000,
+  "settle_ms": 4000
+ },
+ {
+  "name": "review_queue",
+  "hash": "review/queue/25",
+  "steps": [
+   {
+    "wait": "[data-testid=\"queue-rail-collapsed\"] button.rv-thumb-btn"
+   },
+   {
+    "click": "[data-testid=\"queue-rail-collapsed\"] button.rv-thumb-btn"
+   },
+   {
+    "wait": "[data-testid=\"inspector\"]"
+   },
+   {
+    "wait": "[data-testid=\"shape-card\"]"
+   },
+   {
+    "wait": "[data-testid=\"verdict-card\"]"
+   },
+   {
+    "sleep": 2000
+   }
+  ],
+  "wait": "[data-testid=\"verdict-interesting\"]",
+  "element": "[data-testid=\"review-root\"]",
+  "viewport": [
+   1500,
+   1300
+  ],
+  "timeout_ms": 240000,
+  "settle_ms": 4000
+ },
+ {
+  "name": "models_page",
+  "hash": "models/results/79?exam=ii_unseen_channels",
+  "wait": "[data-testid=\"results-stats\"]",
+  "element": "[data-testid=\"models-results\"] > .k-page-inner",
+  "viewport": [
+   1500,
+   2800
+  ],
+  "settle_ms": 3000,
+  "timeout_ms": 180000
+ },
+ {
+  "name": "models_b2_blind",
+  "hash": "models/results/b2/1613",
+  "wait": "[data-testid=\"against-blind\"]",
+  "element": "[data-testid=\"b2-blind\"]",
+  "viewport": [
+   1500,
+   2800
+  ],
+  "settle_ms": 3000,
+  "timeout_ms": 180000
+ },
+ {
+  "name": "library_grouping",
+  "hash": "library/grouping?grouping=g-11&cut=0.6",
+  "steps": [
+   {
+    "wait": "[data-testid=\"ge-tree\"]"
+   }
+  ],
+  "wait": "[data-testid=\"tree-cut-cards\"]",
+  "element": "[data-testid=\"ge-tree\"]",
+  "viewport": [
+   1500,
+   1600
+  ],
+  "timeout_ms": 300000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "library_atlas",
+  "hash": "library/atlas?grouping=g-11",
+  "wait": "[data-testid=\"atlas-grid\"] [data-testid^=\"family-plot-\"]",
+  "element": "[data-testid=\"atlas-page\"] > .k-page-inner",
+  "viewport": [
+   1500,
+   4200
+  ],
+  "timeout_ms": 240000,
+  "settle_ms": 4000
+ },
+ {
+  "name": "interrogation_event_shape",
+  "hash": "analyse/interrogation/block/2?family=id385&upstream=event-shape",
+  "steps": [
+   {
+    "wait": "[data-testid^=\"hist-plot-\"]"
+   }
+  ],
+  "wait": "[data-testid=\"timeline-card\"]",
+  "element": "[data-testid=\"interrogation-aggregate\"] > .k-page-inner",
+  "viewport": [
+   1500,
+   2600
+  ],
+  "settle_ms": 3000,
+  "timeout_ms": 180000
+ },
+ {
+  "name": "interrogation_intervals",
+  "hash": "analyse/interrogation/block/2?family=id024",
+  "steps": [
+   {
+    "wait": "[data-testid=\"hist-plot-interval_h\"]"
+   }
+  ],
+  "wait": "[data-testid=\"timeline-card\"]",
+  "element": "[data-testid=\"interrogation-aggregate\"] > .k-page-inner",
+  "viewport": [
+   1500,
+   2600
+  ],
+  "settle_ms": 3000,
+  "timeout_ms": 180000
+ },
+ {
+  "name": "interrogation_intervals_hist",
+  "hash": "analyse/interrogation/block/2?family=id024",
+  "wait": "[data-testid=\"hist-plot-interval_h\"]",
+  "element": "[data-testid=\"hist-interval_h\"]",
+  "viewport": [
+   1500,
+   1400
+  ],
+  "settle_ms": 3000,
+  "timeout_ms": 180000
+ },
+ {
+  "name": "template_drop_detection_v1",
+  "hash": "library/templates?template=drop_detection_v1",
+  "wait": "[data-testid=\"template-rail\"][aria-label=\"drop_detection_v1\"]",
+  "element": "[data-testid=\"template-rail\"][aria-label=\"drop_detection_v1\"]",
+  "viewport": [
+   1500,
+   1100
+  ],
+  "settle_ms": 2500,
+  "timeout_ms": 180000
+ },
+ {
+  "name": "template_oasis_deconvolution",
+  "hash": "library/templates?template=OASIS_Deconvolution",
+  "wait": "[data-testid=\"template-rail\"][aria-label=\"OASIS_Deconvolution\"]",
+  "element": "[data-testid=\"template-rail\"][aria-label=\"OASIS_Deconvolution\"]",
+  "viewport": [
+   1500,
+   1100
+  ],
+  "settle_ms": 2500,
+  "timeout_ms": 180000
+ },
+ {
+  "name": "template_cnn_fusion3_10min",
+  "hash": "library/templates?template=cnn_fusion3_10min",
+  "wait": "[data-testid=\"template-rail\"][aria-label=\"cnn_fusion3_10min\"]",
+  "element": "[data-testid=\"template-rail\"][aria-label=\"cnn_fusion3_10min\"]",
+  "viewport": [
+   1500,
+   1100
+  ],
+  "settle_ms": 2500,
+  "timeout_ms": 180000
+ },
+ {
+  "name": "b11_compare_mju26a",
+  "hash": "discovery/compare?a=none&b=none",
+  "steps": [
+   {
+    "wait": "[data-testid=\"scope-card\"]"
+   },
+   {
+    "sleep": 5000
+   },
+   {
+    "click": "[data-testid=\"recording-select\"]"
+   },
+   {
+    "click": "[data-testid=\"recording-select-menu\"] button[data-value=\"MJu26a_fs2\"]"
+   },
+   {
+    "sleep": 1500
+   },
+   {
+    "click": "[data-testid=\"recording-confirm-change\"], [data-testid=\"scope-card\"] h3 >> nth=-1"
+   },
+   {
+    "wait": "[data-testid=\"recording-select\"][data-value=\"MJu26a_fs2\"]"
+   },
+   {
+    "sleep": 2000
+   },
+   {
+    "click": "button.dsc-pick[aria-label=\"pick drop_detection_v1 to compare\"]"
+   },
+   {
+    "click": "button.dsc-pick[aria-label=\"pick OASIS_Deconvolution to compare\"]"
+   },
+   {
+    "wait": "[data-testid=\"where-fire\"] svg[role=\"img\"][aria-label^=\"where A and B fire\"]"
+   },
+   {
+    "wait": "[data-testid=\"set-overlap\"]"
+   },
+   {
+    "sleep": 6500
+   }
+  ],
+  "wait": "[data-testid=\"disagreements\"]",
+  "element": ".dsc-right",
+  "viewport": [
+   1500,
+   2200
+  ],
+  "timeout_ms": 420000,
+  "settle_ms": 4000
+ },
+ {
+  "name": "zz_discovery_back_on_m2aug",
+  "hash": "discovery/compare?a=none&b=none",
+  "steps": [
+   {
+    "wait": "[data-testid=\"scope-card\"]"
+   },
+   {
+    "sleep": 5000
+   },
+   {
+    "click": "[data-testid=\"recording-select\"]"
+   },
+   {
+    "click": "[data-testid=\"recording-select-menu\"] button[data-value=\"M2_aug_concat_fs1\"]"
+   },
+   {
+    "sleep": 1500
+   },
+   {
+    "click": "[data-testid=\"recording-confirm-change\"], [data-testid=\"scope-card\"] h3 >> nth=-1"
+   },
+   {
+    "wait": "[data-testid=\"recording-select\"][data-value=\"M2_aug_concat_fs1\"]"
+   },
+   {
+    "sleep": 2000
+   },
+   {
+    "wait": "[data-testid=\"channel-chips\"]"
+   },
+   {
+    "sleep": 6500
+   }
+  ],
+  "wait": "[data-testid=\"recording-select\"][data-value=\"M2_aug_concat_fs1\"]",
+  "element": "[data-testid=\"scope-card\"]",
+  "viewport": [
+   1500,
+   950
+  ],
+  "timeout_ms": 300000,
+  "settle_ms": 2500
+ },
+ {
+  "name": "analyse_symbolic",
+  "hash": "analyse/chain",
+  "session_storage": {
+   "ub-proto-a:source": "{\"recording_id\": 1, \"channel_name\": \"CH1_A1\", \"source_file\": \"M2_aug_concat_fs1.mat\", \"fs\": 1, \"start_idx\": 1130400, \"end_idx\": 1144800, \"label\": \"CH1_A1 · 314–318 h\"}",
+   "ub-proto-a:chain": "{\"name\": \"dsax_encoding\", \"saved\": false, \"steps\": [{\"stage\": \"preprocessing\", \"algorithm\": \"detrend\", \"params\": {\"mode\": \"rolling_mean\", \"window_s\": 600.0}}, {\"stage\": \"detection\", \"algorithm\": \"sax_dsax\", \"params\": {\"seconds_per_symbol\": 20.0, \"alphabet_size\": 3}}], \"lastRunJobId\": null}"
+  },
+  "steps": [
+   {
+    "wait": "[data-testid=\"chain-row-2\"]"
+   },
+   {
+    "sleep": 3000
+   },
+   {
+    "click": "[data-testid=\"run-button\"]"
+   },
+   {
+    "wait": "button[data-testid=\"export-run\"]:enabled"
+   },
+   {
+    "sleep": 6500
+   }
+  ],
+  "wait": "button[data-testid=\"export-run\"]:enabled",
+  "element": "[data-testid=\"chain-page\"]",
+  "viewport": [
+   1500,
+   1300
+  ],
+  "timeout_ms": 300000,
+  "settle_ms": 3000
+ },
+ {
+  "name": "scores_view",
+  "hash": "analyse/block/1",
+  "session_storage": {
+   "ub-proto-a:source": "{\"recording_id\": 1, \"channel_name\": \"CH1_A1\", \"source_file\": \"M2_aug_concat_fs1.mat\", \"fs\": 1, \"start_idx\": 1123200, \"end_idx\": 1152000, \"label\": \"CH1_A1 · 312–320 h\"}",
+   "ub-proto-a:chain": "{\"name\": \"cnn_fusion3_10min\", \"saved\": false, \"steps\": [{\"stage\": \"preprocessing\", \"algorithm\": \"sliding_windows\", \"params\": {\"gap_s\": 0.0, \"window_s\": 600.0}}, {\"stage\": \"catalogue\", \"algorithm\": \"cnn_window_scores\", \"params\": {\"image_type\": \"fusion\", \"model_path\": \"MODELS/fusion_cnn_3.pth\", \"resample_to\": 600}}], \"lastRunJobId\": null}"
+  },
+  "steps": [
+   {
+    "wait": "[data-testid=\"block-process\"]"
+   },
+   {
+    "sleep": 3000
+   },
+   {
+    "click": "[data-testid=\"run-button\"]"
+   },
+   {
+    "wait": "[data-testid=\"block-process\"] [data-testid=\"scores-path\"]"
+   },
+   {
+    "sleep": 6500
+   }
+  ],
+  "wait": "[data-testid=\"block-process\"] [data-testid=\"scores-path\"]",
+  "element": "[data-testid=\"block-process\"]",
+  "viewport": [
+   1500,
+   1200
+  ],
+  "timeout_ms": 600000,
+  "settle_ms": 3000
+ }
+]
