@@ -13,28 +13,28 @@ Leave M4 out of every number in this chapter; it appears only in the exam (Chapt
 
 \section{Aims}
 
-RQ1 asks whether multiple detection algorithms can be compared at scale, across recordings, against blind human judgement and matched surrogates. It also asks whether agreement between independent detectors predicts what a human accepts. The plan's RQ4 compared two analysis chains on identical spans; this chapter does the same for 43 detector settings at once, over whole recordings. The plan's RQ5 asked how often a human rejects what a detector proposes, and how often detectors miss what a human flags. The first is a detector's precision; the second is its miss rate.
+Currently, research into fungal signals provides many novel but ultimately distinct detection algorithms. Often, each algorithm is specifically tuned to the datasets in its paper of origin, and published fungal detectors are never reported against blind human judgement or against a null dataset. This research question asks whether many detection algorithms can be compared at scale, across whole recordings, against blind human judgement and matched surrogates, and whether agreement between independent detectors predicts what a human accepts. Two measures follow: a detector's \emph{precision}, the share of its candidates that a human accepts, and its \emph{miss rate}, the share of human-flagged events it does not find.
 
 \section{Methods}
+\label{sec:rq1methods}
+
+\paragraph{The sweep.} This research question compares 13 detector algorithms (Section~\ref{sec:litdetectors}), each at varying parameter settings to plausibly catch events at different scales or sizes, leading to a total of 45 unique detector settings. Each setting was run over the whole of five datasets on the rangpur cluster: M2\_aug, M2\_concat, LM, CO and the five channels of MJu26a (CH10, 13--16) that were swept first. M4 is left out of every number in this chapter; it is the exam of Chapter~\ref{ch:rq3}. For every run, the channel is paired with a phase-randomised surrogate, and the detector is run on both. The CNN window scores count as two algorithms, at 10 and 60 minutes; the same CNNs slid at 1 minute are at chance (Section~\ref{sec:earlycnn}), so they are kept as a negative control and given no vote.
+
+\paragraph{Candidate events.} Candidate events are first formed by merging overlapping detections from different settings, across all detectors, on a single channel. Each detection joins the event it matches best, or starts a new one, so an event holds at most one detection from each setting. It is then recorded for each candidate how many independent algorithms also flagged it, with all settings of one algorithm counting once. Agreement is marked by at least half of the shorter span overlapping.
+
+\paragraph{The blind sample.} For human judgement, the 3.1 million candidates (1.5 million on M2\_aug alone) were randomly sampled from bins, defined by the number of agreeing detector algorithms (1--2, 3--4, 5--6, 7--8, 9+), as well as bins for detectors which rarely fired. 1,959 candidates were manually reviewed blind, without knowledge of which detectors had or had not fired, or how many agreed: 800 from M2\_aug in one queue, and 1,159 from the other four recordings in a second. The 95 answers of ``unsure'' were set aside.
+
+\paragraph{Estimates.} Because the bins were sampled unequally, the answers are weighted by the bin's size. This gives the share of candidates that are real on each recording, with a 95\,\% interval from a bootstrap, in which the judged candidates are re-drawn within each bin 1,000 times. Per-detector precision measures the share of a detection algorithm's proposed candidates that were accepted, with a Wilson 95\,\% interval \cite{wilson1927}. The AUC measures how often detectors agree to a greater extent on a real event than on an unreal one, compared directly; 0.5 is a coin toss and 1.0 is perfect.
+
+\paragraph{Detectors against their surrogates.} Each detector's count on the recording is compared with its count on the surrogate, as a ratio. A detector that finds as much in the surrogate as in the recording is responding to the signal's overall frequency content, not to its events. On M2\_aug, six settings were also rerun against 20 surrogate draws, so each channel's count can be set against a distribution rather than a single draw.
+
+\paragraph{Miss rate.} The miss rate uses the hand-labelled ``interesting'' windows from the early work (Section~\ref{sec:handlabels}): the share of them that no detector touched.
 
 \begin{instructions}
-Cover:
-\begin{enumerate}
-  \item \textbf{The sweep.} 43 settings from 14 families per recording, each run over the whole signal with a paired
-        one-draw phase-randomised surrogate. Run on rangpur and adopted into Discovery: batch 1 was M2\_aug; batches 2--3
-        were M2\_concat, LM\_fs2, CO\_fs2 and MJu26a's five-channel copy (CH10, 13--16). Name the families: drop detector v1 and v5, wavelet encoded, BEADS,
-        OASIS, deconvolved troughs, Dehshibi wavelet prototype, noise threshold, signal threshold, symbol search,
-        matrix-profile threshold, CNN window scores at 1, 10 and 30\,min, \ldots{} (list from
-        \src{scripts/create_rq4_variants.py}).
-  \item \textbf{Candidate events.} Overlapping detections from different settings are merged into one candidate event
-        carrying an agreement count, the number of distinct families that found it (\src{scripts/rq1b_candidate_events.py}).
-  \item \textbf{The blind sample.} Strata by agreement count (1--2, 3--4, 5--6, 7--8, 9+) plus rare-family strata;
-        queue 25 (M2\_aug, 800 judged) and queue 28 (four recordings, 1,159 judged).
-  \item \textbf{Estimates.} The share real per recording (weighted by stratum, bootstrap $\times$1,000); per-detector
-        precision with Wilson intervals; agreement as a score (AUC).
-  \item \textbf{Detectors against their surrogates.}
-  \item \textbf{Miss rate}, against the earlier manual 10-minute ``interesting'' windows.
-\end{enumerate}
+Written 5 Nov (writing loop, packet 1). Sources: \src{Working/discovery/candidate_events.py} (rules 1--7),
+\src{scripts/rq1b_candidate_events.py}; families from \texttt{family\_of}; queue sizes from
+\src{docs/thesis/data/ledger_checks.json}. SH, SO and the full 16-channel MJu26a (the 2\,Hz sweep) have no judged
+candidates, so they enter only the surrogate ratios and Chapter~\ref{ch:roundb} (B5, B11): your decision, 5 Nov.
 \end{instructions}
 
 \section{Results}
