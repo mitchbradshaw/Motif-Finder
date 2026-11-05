@@ -450,6 +450,103 @@ def dropfamily(cat="22"):
     return fs.save(fig, "ch3_drop_family")
 
 
+# ------------------------------------------------------------------------------------------------ Chapter 6 --
+FAM = [("drop_detection_v1", "drop v1"), ("drop_detection_v5", "drop v5"), ("cnn_10min", "CNN 10 min"),
+       ("wavelet_encoded", "wavelet-encoded"), ("BEADs_invert_detect_v1", "BEADS"), ("symbol_search", "symbol search"),
+       ("OASIS_Deconvolution", "OASIS"), ("cnn_60min", "CNN 60 min"), ("signal_threshold", "signal threshold"),
+       ("noise_threshold", "noise threshold"), ("Wavelet_detection_prototype", "Dehshibi wavelet"),
+       ("deconvolved_troughs", "deconvolved troughs"), ("matrix_profile", "matrix profile")]
+
+
+def _window(name):
+    x, meta = B.series(f"windows/{name}")
+    return x, meta, B.time_h(meta, len(x))
+
+
+def _spans(ax, df, y, colour, h=0.7, t0=0.0):
+    if len(df):
+        ax.broken_barh(list(zip(df["start_s"] / 3600 - t0, (df["end_s"] - df["start_s"]).clip(lower=1) / 3600)),
+                       (y - h / 2, h), facecolors=colour, edgecolor="none")
+
+
+def agreement():
+    """Figure 6.2: what agreement looks like - 12 hours of M2_aug CH8, every family's detections, how many agree."""
+    name = [f[:-4] for f in B.ls("windows") if f.startswith("agreement__") and f.endswith(".npz")][0]
+    x, meta, th = _window(name)
+    det = B.csv(f"detections_in_windows/{name}__detections")
+    det = det[(det["is_surrogate"] == False) & (det["family"] != "seed_search")]  # noqa: E712
+    ver = B.csv(f"detections_in_windows/{name}__verdicts")
+    blind = ver[ver["queue"].notna()]
+    fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 6.2))
+    gs = fig.add_gridspec(3, 1, height_ratios=[1.0, 2.1, 0.9], hspace=0.22)
+    a = fig.add_subplot(gs[0]); a.plot(th, x, color=fs.INK, lw=0.6)
+    a.set_ylabel("mV"); a.tick_params(labelbottom=False); a.set_xlim(th[0], th[-1])
+    a.set_title(f"(a) M2_aug channel index {meta.get('channel')}: 12 hours", loc="left", fontsize=8.5)
+    b = fig.add_subplot(gs[1], sharex=a)
+    rows = FAM + [("cnn_1min", "CNN 1 min (control)")]
+    for k, (f, lab) in enumerate(rows):
+        _spans(b, det[det["family"] == f], len(rows) - 1 - k, fs.NEUTRAL if f == "cnn_1min" else fs.INK_2)
+    b.set_yticks(range(len(rows))); b.set_yticklabels([lab for _, lab in rows][::-1], fontsize=7)
+    b.set_ylim(-0.7, len(rows) - 0.3); b.grid(axis="y", visible=False); b.tick_params(labelbottom=False)
+    b.set_title("(b) every detector family's detections", loc="left", fontsize=8.5)
+    c = fig.add_subplot(gs[2], sharex=a)
+    cand = B.csv(f"detections_in_windows/{name}__candidates")
+    cand = cand[(cand["end_s"] - cand["start_s"]) <= 1800]
+    rng = np.random.default_rng(0)
+    mid = (cand["start_s"] + cand["end_s"]) / 2 / 3600
+    jit = cand["n_agree"] + rng.uniform(-0.3, 0.3, len(cand))
+    cmap = fs.plt.get_cmap("Blues")
+    c.scatter(mid, jit, s=3, c=cmap(0.25 + 0.75 * cand["n_agree"] / 13), lw=0, alpha=0.6, rasterized=True)
+    m = blind.merge(cand[["anchor_detection_id", "n_agree"]], left_on="detection_id", right_on="anchor_detection_id",
+                    how="inner")
+    for r in m.itertuples():
+        good = r.verdict in ("interesting", "seed")
+        c.scatter([(r.start_s + r.end_s) / 2 / 3600], [r.n_agree], marker="o", s=38,
+                  color=fs.CATEGORICAL[1] if good else "white", edgecolor=fs.INK, lw=1.0, zorder=4)
+    c.set_ylim(0, 13.8); c.set_ylabel("families\nagreeing"); c.set_xlabel("time in the recording (h)")
+    h = [fs.plt.Line2D([], [], ls="", marker="o", color=fs.CATEGORICAL[1], mec=fs.INK, label="blind verdict: event"),
+         fs.plt.Line2D([], [], ls="", marker="o", mfc="white", color=fs.INK, label="blind verdict: not an event")]
+    c.legend(handles=h, loc="lower right", fontsize=7, ncol=2, frameon=True, facecolor="white", edgecolor="white")
+    return fs.save(fig, "ch6_agreement_excerpt")
+
+
+def realsurr():
+    """Figure 6.3: the same detectors on the recording and on its scrambled copy, over the same 12 hours."""
+    name = [f[:-4] for f in B.ls("windows") if f.startswith("agreement__") and f.endswith(".npz")][0]
+    x, meta, th = _window(name)
+    det = B.csv(f"detections_in_windows/{name}__detections")
+    rng = np.random.default_rng(1)
+    Xf = np.fft.rfft(x - x.mean())
+    ph = rng.uniform(0, 2 * np.pi, len(Xf)); ph[0] = 0
+    xs = np.fft.irfft(np.abs(Xf) * np.exp(1j * ph), n=len(x)) + x.mean()
+    fams = [("OASIS_Deconvolution", "OASIS"), ("deconvolved_troughs", "deconvolved troughs"),
+            ("signal_threshold", "signal threshold"), ("symbol_search", "symbol search"),
+            ("wavelet_encoded", "wavelet-encoded"), ("drop_detection_v1", "drop v1")]
+    fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 5.4))
+    gs = fig.add_gridspec(3, 1, height_ratios=[0.9, 0.9, 2.0], hspace=0.18)
+    a = fig.add_subplot(gs[0]); a.plot(th, x, color=fs.INK, lw=0.6); a.set_ylabel("mV")
+    a.set_title("(a) The recording (M2_aug, 12 hours)", loc="left", fontsize=8.5); a.tick_params(labelbottom=False)
+    b = fig.add_subplot(gs[1], sharex=a); b.plot(th, xs, color=fs.INK_2, lw=0.6); b.set_ylabel("mV")
+    b.set_title("(b) A phase-randomised copy: same frequencies, shapes scrambled (drawn for this figure)", loc="left",
+                fontsize=8.5)
+    b.tick_params(labelbottom=False)
+    c = fig.add_subplot(gs[2], sharex=a)
+    labels = []
+    for k, (f, lab) in enumerate(fams):
+        y = (len(fams) - 1 - k) * 2.6
+        real = det[(det["family"] == f) & (det["is_surrogate"] == False)]  # noqa: E712
+        sur = det[(det["family"] == f) & (det["is_surrogate"] == True)]  # noqa: E712
+        _spans(c, real, y + 0.65, fs.SPECIES_COLOUR["oyster"], h=0.9)
+        _spans(c, sur, y - 0.45, fs.CATEGORICAL[1], h=0.9)
+        labels.append((y + 0.1, f"{lab}\n{len(real)} real / {len(sur)} copy"))
+    c.set_yticks([p for p, _ in labels]); c.set_yticklabels([l for _, l in labels], fontsize=6.8)
+    c.grid(axis="y", visible=False); c.set_xlabel("time in the recording (h)")
+    c.set_title("(c) Each detector's spans on the recording (blue) and on its own scrambled copy from the sweep (orange)",
+                loc="left", fontsize=8.5)
+    c.set_xlim(th[0], th[-1])
+    return fs.save(fig, "ch6_real_vs_surrogate")
+
+
 def main():
     global B
     ap = argparse.ArgumentParser()

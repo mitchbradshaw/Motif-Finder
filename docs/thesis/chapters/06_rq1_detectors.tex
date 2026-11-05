@@ -104,6 +104,13 @@ Per recording, the share of candidates that are real was evaluated through human
 \label{fig:ladder}
 \end{figure}
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{new/ch6_agreement_excerpt.pdf}
+\caption{What agreement looks like, on 12 hours of one M2\_aug channel. (a) The signal. (b) Every detector family's detections: the loose families (OASIS, the deconvolved troughs, the 60-minute CNN) cover almost all of it, the choosy ones (drop v1 and v5) a few minutes. (c) The candidate events of up to 30 minutes, by how many families agree on them, and the blind verdicts given in this window. One window holds only a handful of verdicts; the ladder (Figure~\ref{fig:ladder}) is the same picture over 1,959 of them.}
+\label{fig:agreementexcerpt}
+\end{figure}
+
 However, where multiple detectors fire, the likelihood of a real event drastically increases (Figure~\ref{fig:ladder}). Where one or two algorithms agree, 0--5\,\% of candidates are real; where nine or more agree, 40--63\,\% are. The ladder has the same shape on every recording. On M2\_aug it climbs from 4\,\% to 6, 22, 54 and 59\,\%, with the largest step between five--six and seven--eight agreeing algorithms. Even at the top rung only about half of the candidates are real, so agreement is evidence rather than proof.
 
 Used as a score, the number of agreeing algorithms gives an AUC of 0.874 on the 133,556 candidates of M2\_aug that carried an earlier human label. That is, picking one real and one unreal candidate at random, the real one has more agreeing algorithms 87\,\% of the time. A classifier on the events' shape does better still (Chapter~\ref{ch:rq3}).
@@ -186,6 +193,13 @@ precise variants were re-run on M2\_aug with 20 phase-randomised draws per chann
         across packs (Chapter~\ref{ch:roundb}). Read them as approximate. The per-channel ranks are exact.
 \end{itemize}
 \end{instructions}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{new/ch6_real_vs_surrogate.pdf}
+\caption{The surrogate test in the signal. (a) 12 hours of M2\_aug. (b) A phase-randomised copy of the same 12 hours, drawn for this figure: the same frequency content with its shapes scrambled. (c) Six detectors' spans in this window on the recording (blue) and on the channel's own phase-randomised copy from the sweep (orange), with their counts. OASIS and the deconvolved troughs fire hundreds of times more on the recording than on the copy; symbol search and the wavelet-encoded detector fire more on the copy, although they are among the most precise; drop v1 fires only on the recording.}
+\label{fig:realvssurr}
+\end{figure}
 
 \begin{table}[htbp]
 \caption{Detections on the real signal over detections on its one-draw phase-randomised surrogate, by detector family and recording (all settings pooled). In brackets: runs where the real count did not exceed the surrogate's, of all runs. 0/0: neither found anything; $\infty$: the surrogates found nothing.}
