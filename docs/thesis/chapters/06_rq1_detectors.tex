@@ -63,16 +63,9 @@ Total & 4.82\,M & 3.10\,M\\
 \footnotesize\textsuperscript{a}\,Across every real run; the candidate table uses 2.02\,M of them (one run per setting and channel, without the 1-minute CNN control).
 \end{table}
 
-\begin{instructions}
-Check every count against the database before quoting. The read of 2026-10-20 is in the demo-outline session's
-findings; the numbers ledger reconciles them. Then give the coverage findings for M2\_aug:
-\begin{itemize}
-  \item OASIS marks 61--65\,\% of all time as events, deconvolved troughs at 60\,s 46\,\%, and the 1-minute CNNs 90\,\%;
-  \item only about 6\,\% of the recording is touched by no detector;
-  \item at least 5 families agree on 18\,\% of the time, and at least 7 on 4\,\%.
-\end{itemize}
-The point: loose detectors mark most of a recording, so ``a detector found it'' means little on its own.
-\end{instructions}
+Across the five datasets, the sweep made about 4.8 million detections, which merged into about 3.1 million candidate events (Table~\ref{tab:sweepscale}). Among the detection algorithms, there were some which fired very often (Figure~\ref{fig:detectorheat}). OASIS, for example, marked up to 65\,\% of M2\_aug's time with detections, and deconvolved troughs marked 46\,\%. Only about 6\,\% of the recording is not touched by a single detector. This drastically reduces the significance of a single detection event.
+
+Other detection algorithms behaved in the opposite way. The matrix-profile thresholder made no detections at all on the two oyster arrays, while on the other three recordings it fired tens of times an hour without a single candidate judged real. Both extremes reveal information, about the effectiveness of an algorithm on fungal bio-electric signals and about the signals themselves. OASIS, built to recover spikes from calcium-imaging traces, where each spike is a jump followed by a slow decay \cite{friedrich2017oasis}, fires consistently on fungal signals, but with lower accuracy: 37--58\,\% of its candidates were judged real, depending on the recording.
 
 \begin{figure}[htbp]
 \centering
@@ -100,6 +93,8 @@ CO\_fs2 & 10\,\% & 7--13\,\%\\
 \end{tabular}
 \end{table}
 
+Per recording, the share of candidates that are real was evaluated through human adjudication of a smaller stratified sample of a few hundred (Table~\ref{tab:sharereal}). It is estimated at 25\,\% for M2\_aug (95\,\% interval 21--28\,\%), 16\,\% for LM (12--20\,\%), 14\,\% for MJu26a (CH10, 13--16) (10--19\,\%), 13\,\% for M2\_concat (10--17\,\%) and 10\,\% for CO (7--13\,\%). These are fairly low percentages. Most of what the detectors propose is not an event, and a detection algorithm built in one context does not map effectively across the larger time-series signal of another.
+
 \subsection{Agreement predicts acceptance}
 
 \begin{figure}[htbp]
@@ -109,15 +104,15 @@ CO\_fs2 & 10\,\% & 7--13\,\%\\
 \label{fig:ladder}
 \end{figure}
 
+However, where multiple detectors fire, the likelihood of a real event drastically increases (Figure~\ref{fig:ladder}). Where one or two algorithms agree, 0--5\,\% of candidates are real; where nine or more agree, 40--63\,\% are. The ladder has the same shape on every recording. On M2\_aug it climbs from 4\,\% to 6, 22, 54 and 59\,\%, with the largest step between five--six and seven--eight agreeing algorithms. Even at the top rung only about half of the candidates are real, so agreement is evidence rather than proof.
+
+Used as a score, the number of agreeing algorithms gives an AUC of 0.874 on the 133,556 candidates of M2\_aug that carried an earlier human label. That is, picking one real and one unreal candidate at random, the real one has more agreeing algorithms 87\,\% of the time. A classifier on the events' shape does better still (Chapter~\ref{ch:rq3}).
+
+These numbers describe what the detectors propose. An event that no detector found does not appear in them; the miss rate (Section~\ref{sec:misses}) addresses that.
+
 \begin{instructions}
-The headline is the same on every recording: 0--5\,\% of candidates are real where 1--2 families agree, and 40--63\,\%
-where 9 or more agree. M2\_aug's ladder runs 4 / 6 / 22 / 54 / 59\,\% (backup deck R3, from 754 blind verdicts).
-
-Use 40--63\,\% for the top rung. All five \texttt{estimate.json} files give it. The backup deck's 50--67\,\% does not
-reproduce from any of them (\src{docs/thesis/numbers_ledger.md}).
-
-Agreement count as a score gives AUC 0.874 on queue 25. Note for Chapter~\ref{ch:rq3}: a classifier on the events'
-shape beats it.
+Written 5 Nov (writing loop, packet 2). Numbers: ledger D1--D4, D9, D10; Table~\ref{tab:sweepscale} and
+Figure~\ref{fig:detectorheat} redrawn 5 Nov from \src{docs/thesis/data/}.
 \end{instructions}
 
 \subsection{Choosy and loose detectors}
@@ -248,6 +243,7 @@ wavelet-encoded, level 5 & 0.92 & 0/16 & 16/16 & 0.075 & 0.075 & --\\
 \end{figure}
 
 \subsection{What detectors miss}
+\label{sec:misses}
 
 \begin{instructions}
 The miss rate, from \src{docs/rq_roundA_2/findings/miss-rate-2026-10-26.md}. This is the plan's RQ5 miss rate.
