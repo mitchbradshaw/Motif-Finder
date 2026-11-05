@@ -606,6 +606,148 @@ def seeds(which=("drop30", "spike37")):
     return fs.save(fig, "ch7_seeds")
 
 
+# ------------------------------------------------------------------------------------------------ Chapter 5 --
+GALLERY = [("M2_aug", "oyster, grow pack"), ("M2_concat", "oyster, grow pack"), ("M4_aug", "oyster, held out"),
+           ("MJu26a_fs2", "lion's mane, jar"), ("LM_fs2", "lion's mane, grow pack"), ("CO_fs2", "chocolate oyster"),
+           ("SO_fs2", "snow oyster"), ("SH_fs2", "Asian shiitake")]
+
+
+def gallery():
+    """Figure 5.1: one channel of each recording over a day, and its busiest 30 minutes."""
+    files = {f.split("__")[1]: f[:-4] for f in B.ls("windows") if f.startswith("gallery__") and f.endswith(".npz")}
+    rows = [(k, d) for k, d in GALLERY if k in files]
+    fig, axes = fs.figure("full", 1.0 * len(rows) + 0.4, len(rows), 2, gridspec_kw={"width_ratios": [2.6, 1.0]})
+    for r_, (k, desc) in enumerate(rows):
+        x, meta, th = _window(files[k])
+        col = fs.colour(k.replace("_aug", "") if k == "M4_aug" else k)
+        a, b = axes[r_]
+        a.plot(th - th[0], x, color=col, lw=0.6)
+        w = int(1800 * float(meta["fs"]))
+        if len(x) > w:
+            # the 30 minutes with the largest range of values
+            from numpy.lib.stride_tricks import sliding_window_view
+            step = max(1, w // 6)
+            v = sliding_window_view(np.nan_to_num(x, nan=np.nanmedian(x)), w)[::step]
+            j = int(np.argmax(v.max(axis=1) - v.min(axis=1))) * step
+        else:
+            j = 0
+        a.axvspan((th[j] - th[0]), (th[min(j + w, len(th) - 1)] - th[0]), color=fs.INK_2, alpha=0.18, lw=0)
+        tz = (np.arange(min(w, len(x) - j)) / float(meta["fs"])) / 60
+        b.plot(tz, x[j:j + w], color=col, lw=0.8)
+        nm = {"M4_aug": "M4", "MJu26a_fs2": "MJu26a", "LM_fs2": "LM", "CO_fs2": "CO", "SO_fs2": "SO", "SH_fs2": "SH"}.get(k, k)
+        a.set_ylabel("mV", fontsize=7)
+        a.text(0.01, 0.95, f"{nm} ({desc}), channel index {meta['channel']}, {th[0]:.0f}–{th[-1]:.0f} h",
+               transform=a.transAxes, fontsize=7, va="top", color=fs.INK,
+               bbox=dict(facecolor="white", edgecolor="none", alpha=0.85, pad=1.0))
+        for ax in (a, b):
+            ax.tick_params(labelsize=6.5)
+            ax.margins(x=0)
+        if r_ < len(rows) - 1:
+            a.tick_params(labelbottom=False); b.tick_params(labelbottom=False)
+    axes[-1, 0].set_xlabel("hours from the start of the day shown")
+    axes[-1, 1].set_xlabel("minutes (the shaded 30)")
+    fig.subplots_adjust(left=0.08, right=0.99, bottom=0.06, top=0.99, hspace=0.18, wspace=0.18)
+    return fs.save(fig, "ch5_gallery")
+
+
+def anatomyevent():
+    """Figure 5.2: how an event is measured, on one accepted drop (the tool's own event_shape measures)."""
+    sys.path.insert(0, fs.ROOT)
+    from Working.interrogation.event_shape import measure_events
+    st = B.stack("library_events/library_event_windows")
+    ev = B.csv("library_events/events_with_family")
+    acc = set(ev.loc[ev["accepted_parts"] > 0, "event_id"])
+    idx = st.index.reset_index().rename(columns={"index": "pos"})
+    idx = idx[idx["event_id"].isin(acc) & ((idx["item_t1_s"] - idx["item_t0_s"]).between(60, 400))]
+    best, score = None, -1
+    for _, r in idx.iterrows():
+        t, y = st.window(int(r["pos"]))
+        fsr = 1.0 / float(r["dt_s"])
+        s0 = int(round((r["item_t0_s"] - t[0]) * fsr)); s1 = int(round((r["item_t1_s"] - t[0]) * fsr))
+        f, _ = measure_events(y, [s0], [s1], fsr, polarity="drop", to_mv=1.0)
+        f = f.iloc[0]
+        if not np.isfinite(f["recovery_idx"]) or not np.isfinite(f["fwhm_s"]):
+            continue
+        noise = np.nanstd(np.diff(y)) + 1e-9
+        sc = f["event_amplitude_mv"] / noise
+        if sc > score:
+            best, score = (t, y, fsr, f, r), sc
+    t, y, fsr, f, r = best
+    tt = (t - t[0])
+    on, ex, rc = int(f["onset_idx"]), int(f["extremum_idx"]), int(f["recovery_idx"])
+    amp = float(f["event_amplitude_mv"])
+    fig, ax = fs.figure("full", 3.2)
+    ax.plot(tt, y, color=fs.INK, lw=1.2)
+    rngv = np.nanmax(y) - np.nanmin(y)
+    offs = {on: (8, 4), ex: (-46, -4), rc: (8, -12)}
+    for k, lab, c in ((on, "onset", fs.CATEGORICAL[0]), (ex, "trough", fs.CATEGORICAL[1]), (rc, "half recovery", fs.CATEGORICAL[2])):
+        ax.scatter([tt[k]], [y[k]], s=40, color=c, zorder=4)
+        ax.annotate(lab, (tt[k], y[k]), xytext=offs[k], textcoords="offset points", fontsize=7.5, color=c)
+    ytop = y[on]
+    xa = tt[on] - 0.07 * (tt[-1] - tt[0])
+    ax.annotate("", xy=(xa, y[ex]), xytext=(xa, ytop), arrowprops=dict(arrowstyle="<->", color=fs.INK_2, lw=1))
+    ax.plot([xa, tt[on]], [ytop, ytop], color=fs.MUTED, lw=0.7, ls=":")
+    ax.plot([xa, tt[ex]], [y[ex], y[ex]], color=fs.MUTED, lw=0.7, ls=":")
+    ax.text(xa, (y[ex] + ytop) / 2, f"depth  \n{amp:.0f} mV  ", fontsize=7.5, va="center", ha="right", color=fs.INK_2)
+    yb = np.nanmin(y) - 0.14 * rngv
+    for (k0, k1, lab, off) in ((on, ex, f"fall {tt[ex] - tt[on]:.0f} s", 0.0),
+                               (ex, rc, f"recovery {float(f['recovery_time_s']):.0f} s", 0.0),
+                               (on, rc, f"duration {float(f['duration_s']):.0f} s", -0.12)):
+        yy = yb + off * rngv
+        ax.annotate("", xy=(tt[k0], yy), xytext=(tt[k1], yy), arrowprops=dict(arrowstyle="<->", color=fs.INK_2, lw=1))
+        ax.text((tt[k0] + tt[k1]) / 2, yy + 0.01 * rngv, lab, fontsize=7, ha="center", va="bottom", color=fs.INK_2)
+    half = y[on] - amp / 2 if np.isfinite(amp) else np.nan
+    ax.axhline(half, color=fs.MUTED, lw=0.8, ls=":")
+    ax.text(tt[0], half, f"half depth: the event is below this line for {float(f['fwhm_s']):.0f} s (FWHM)", fontsize=7,
+            va="bottom", ha="left", color=fs.INK_2)
+    ax.set_xlabel("seconds"); ax.set_ylabel("mV")
+    ax.set_ylim(yb - 0.2 * rngv, np.nanmax(y) + 0.05 * rngv)
+    print("anatomy event:", r["event_id"], r["source_file"], f[["event_amplitude_mv", "duration_s", "fwhm_s", "recovery_time_s"]].to_dict())
+    return fs.save(fig, "ch5_anatomy_event")
+
+
+def _train_window():
+    best = None
+    for f in B.ls("windows"):
+        if f.startswith("b1_trains__") and f.endswith(".npz"):
+            name = f[:-4]
+            det = B.csv(f"detections_in_windows/{name}__detections")
+            on = det[(det["variant"] == "drop_detection_v1") & (det["is_surrogate"] == False)]  # noqa: E712
+            if best is None or len(on) > len(best[1]):
+                best = (name, on.sort_values("start_s"))
+    return best
+
+
+def anatomytrain():
+    """Figure 5.3: how a train is measured - four hours of drops with the interval between onsets written in."""
+    name, on = _train_window()
+    x, meta, th = _window(name)
+    o = on["start_s"].to_numpy(float)
+    g = np.diff(o)
+    fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 2.9))
+    gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 0.42], hspace=0.05)
+    a = fig.add_subplot(gs[0]); a.plot(th, x, color=fs.INK, lw=0.6)
+    for v in o:
+        a.axvline(v / 3600, color=fs.SPECIES_COLOUR["oyster"], lw=0.8, alpha=0.6)
+    a.set_ylabel("mV"); a.tick_params(labelbottom=False); a.set_xlim(th[0], th[-1])
+    rec = name.split("__")[1]
+    a.set_title(f"{fs.label(rec)}, channel index {meta['channel']}: {len(o)} drops (drop detector v1) in four hours",
+                loc="left", fontsize=8.5)
+    b = fig.add_subplot(gs[1], sharex=a)
+    for k, (v0, v1) in enumerate(zip(o[:-1], o[1:])):
+        y = 0.65 if k % 2 == 0 else 0.25
+        b.annotate("", xy=(v0 / 3600, y), xytext=(v1 / 3600, y), arrowprops=dict(arrowstyle="<->", color=fs.INK_2, lw=0.7))
+        b.text((v0 + v1) / 2 / 3600, y + 0.06, f"{v1 - v0:.0f}", fontsize=6.3, ha="center", va="bottom")
+    for v in o:
+        b.axvline(v / 3600, color=fs.SPECIES_COLOUR["oyster"], lw=0.8, alpha=0.6, ymax=0.95)
+    b.set_ylim(0, 1); b.set_yticks([]); b.grid(False)
+    b.set_xlabel("time in the recording (h); numbers are the seconds between onsets")
+    cv2 = np.mean(2 * np.abs(np.diff(g)) / (g[1:] + g[:-1]))
+    lv = 3 * np.mean(((g[:-1] - g[1:]) / (g[:-1] + g[1:])) ** 2)
+    print(f"anatomy train {name}: n={len(o)}, CV={np.std(g) / np.mean(g):.2f}, CV2={cv2:.2f}, LV={lv:.2f}")
+    return fs.save(fig, "ch5_anatomy_train")
+
+
 def main():
     global B
     ap = argparse.ArgumentParser()

@@ -52,9 +52,8 @@ Dataset notes (5 Nov):
 
 \begin{figure}[htbp]
 \centering
-\figplaceholder{8cm}{Figure 5.1 (T1, bundle): the dataset gallery. One row per recording (M2\_aug, M2\_concat, M4,
-MJu26a, LM, CO, SH, SO), each showing one channel over a day and a 30-minute zoom, in mV, coloured by species.}
-\caption{What each recording in the corpus looks like.}
+\includegraphics[width=\textwidth]{new/ch5_gallery.pdf}
+\caption{What each recording looks like: one channel of each over one day (left), coloured by species and strain, and its 30 minutes with the widest range of values (right, shaded on the left). The recordings differ in drift, noise and how often they fall; the oyster arrays and CO fall sharply and often, MJu26a oscillates in small steps, and SO and SH drift slowly on this day.}
 \label{fig:gallery}
 \end{figure}
 
@@ -103,17 +102,15 @@ Figure~\ref{fig:windowmatrix} shows an early example (Chapter~\ref{ch:early}).
 
 \begin{figure}[htbp]
 \centering
-\figplaceholder{6cm}{Figure 5.2 (T1, bundle): the anatomy of an event. One accepted drop, with its onset, trough,
-swing (mV), fall time, recovery time and full width at half maximum marked: the same measures as Chapter~\ref{ch:events}.}
-\caption{How an event is measured.}
+\includegraphics[width=0.95\textwidth]{new/ch5_anatomy_event.pdf}
+\caption{How an event is measured, on one accepted drop from M2\_aug. The tool's event-shape block finds the onset of the fall, the trough and the point of half recovery; from them come the depth (amplitude), the fall time, the recovery time, the duration (onset to half recovery) and the full width at half depth (FWHM). Chapter~\ref{ch:events} reports these measures for every accepted event.}
 \label{fig:anatomyevent}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\figplaceholder{5cm}{Figure 5.3 (T1, bundle): the anatomy of a train. Four hours of drops on one channel with each
-interval written between onsets; beneath, one line each on what LV and CV2 measure.}
-\caption{How a train of events is measured.}
+\includegraphics[width=\textwidth]{new/ch5_anatomy_train.pdf}
+\caption{How a train of events is measured: four hours of M2\_concat with the onsets the drop detector (v1) found, and the interval between each onset and the next, in seconds. Interval measures summarise this sequence: the coefficient of variation (CV) compares the spread of the intervals to their mean; CV2 and the local variation (LV) compare each interval only with its neighbour, so a slowly drifting rate does not inflate them. A random (Poisson) train has CV, CV2 and LV of about 1; a regular one is near 0. This train gives CV 0.90, CV2 0.73 and LV 0.55. The detector is choosy: it marks the clearest drops, not every one.}
 \label{fig:anatomytrain}
 \end{figure}
 
