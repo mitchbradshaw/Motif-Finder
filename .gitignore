@@ -261,3 +261,6 @@ Results/Detection/matrix_profile/mp_v2_syn_*
 
 # thesis figure previews (the PDFs are tracked)
 docs/thesis/figures/new/*.png
+
+# Sub-agent worktrees (temporary checkouts, never committed)
+.claude/worktrees/
