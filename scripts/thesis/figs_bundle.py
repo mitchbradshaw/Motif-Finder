@@ -16,6 +16,8 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(__file__))
 import bundle_io as BI  # noqa: E402
 import figstyle as fs  # noqa: E402
+import matplotlib  # noqa: E402
+fs.matplotlib = matplotlib
 
 B: BI.Bundle = None
 
@@ -405,6 +407,47 @@ def b6species(families=("F-37", "F-38")):
             ax.set_ylim(-3.5, 3.5)
     fig.tight_layout(h_pad=0.8)
     return fs.save(fig, "ch10_b6_species")
+
+
+def dropfamily(cat="22"):
+    """Figure 3.7a: one hand-catalogued drop family (catalogue 22, M2_aug) from the drop-motif store - the events in
+    their place in the recording, then overlaid on their onsets."""
+    d = B.csv("drop_motifs_store/store/motifs")
+    z = np.load(B.path("drop_motifs_store/store/motifs.npz"))
+    c = d[d["catalogue_id"].astype(str) == cat].sort_values("onset_idx")
+    cmap = fs.plt.get_cmap("plasma")
+    t_on = c["onset_h"].to_numpy(float)
+    norm = fs.matplotlib.colors.Normalize(vmin=t_on.min(), vmax=t_on.max() + 1e-9)
+    fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 4.6))
+    gs = fig.add_gridspec(2, 2, height_ratios=[1.0, 1.1], hspace=0.45, wspace=0.25)
+    a = fig.add_subplot(gs[0, :])
+    b = fig.add_subplot(gs[1, 0])
+    e = fig.add_subplot(gs[1, 1])
+    for r in c.itertuples():
+        t = z[r.snippet_key + "__t_s"] / 3600.0 / float(r.fs) if False else z[r.snippet_key + "__t_s"] / float(r.fs) / 3600.0
+        y = z[r.snippet_key + "__raw_mv"]
+        col = cmap(norm(r.onset_h))
+        a.plot(t, y, color=fs.INK, lw=0.6)
+        a.axvspan(t[0], t[-1], color=col, alpha=0.15, lw=0)
+        on = (float(r.onset_idx) - float(r.snippet_start_idx))
+        ts = (z[r.snippet_key + "__t_s"] - float(r.onset_idx)) / float(r.fs)
+        y0 = y[int(max(0, min(len(y) - 1, on)))]
+        if r.is_pure:
+            b.plot(ts, y - y0, color=col, lw=0.9, alpha=0.85)
+        e.plot(ts, y, color=col if r.is_pure else fs.NEUTRAL, lw=0.9, alpha=0.85)
+    a.set_title(f"(a) Catalogue family {int(cat)} (trough), M2_aug CH0: {len(c)} events in their place in the recording",
+                loc="left", fontsize=9)
+    a.set_xlabel("time in the recording (h)"); a.set_ylabel("mV")
+    for ax, ttl in ((b, f"(b) pure events ({int(c['is_pure'].sum())}), from their onset"),
+                    (e, "(c) all events as recorded (impure in grey)")):
+        ax.axvline(0, color=fs.MUTED, lw=0.8, ls="--")
+        ax.set_xlabel("s from the onset of the fall")
+        ax.set_title(ttl, loc="left", fontsize=8.5)
+    b.set_ylabel("mV from onset"); e.set_ylabel("mV")
+    sm = fs.plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+    cb = fig.colorbar(sm, ax=[b, e], fraction=0.03, pad=0.02)
+    cb.set_label("onset (h)", fontsize=8)
+    return fs.save(fig, "ch3_drop_family")
 
 
 def main():
