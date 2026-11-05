@@ -136,7 +136,7 @@ B12 & Do spike and drop shapes and intervals differ between recordings and speci
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{new/ch10_b1_train.pdf}
-\caption{B1 in the signal: the drop onsets of four hours of M2\_concat (top; the train of Figure~\ref{fig:anatomytrain}), a random (Poisson) train with the same number of onsets over the same time (middle), and the recorded gaps in a shuffled order (bottom), each with its LV. The recorded train is more clustered in time than its own gaps shuffled: busy and quiet stretches alternate, which is what a drifting rate looks like.}
+\caption{B1 in the signal: the drop onsets of four hours of M2\_concat (top; the train of Figure~\ref{fig:anatomytrain}), a random (Poisson) train with the same number of onsets over the same time (middle), and the recorded gaps in a shuffled order (bottom), each with its LV. Neighbouring gaps in the recorded train are more alike than in the shuffled order (LV 0.55 against 0.73): short gaps follow short ones and long follow long, which is what a slowly drifting rate looks like.}
 \label{fig:b1train}
 \end{figure}
 
@@ -296,6 +296,13 @@ prior-run sources are not wired. So every test ran on the core functions the pag
 \includegraphics[width=\textwidth]{new/ch10_b12_shape.pdf}
 \caption{B12: six shape measures of the 716 accepted blind-queue events, by recording, coloured by species and strain (boxes are quartiles, whiskers the 5--95\,\% range). The recordings differ, but only a little, and two recordings of one species differ about as much as the species do.}
 \label{fig:b12shape}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{new/ch10_b12_waveforms.pdf}
+\caption{B12 in the signal: each recording's accepted events stretched to a common length (start to end of the judged span), with the median shift and range removed; the line is the median and the band the middle half. Every recording's typical event is a fall, placed at different points in its span; the shapes differ in detail, and LM's events more often begin with a rise.}
+\label{fig:b12waves}
 \end{figure}
 
 \section{Activity across channels}

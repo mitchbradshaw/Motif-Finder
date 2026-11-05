@@ -339,8 +339,28 @@ def detrates():
     return fs.save(fig, "ch6_detrates")
 
 
+def b12wave():
+    """Chapter 10, B12: the median duration-normalised waveform of each recording's accepted events, with its IQR."""
+    df = pd.read_csv(os.path.join(DATA, "ch10_b12", "events_shape.csv"))
+    W = np.load(os.path.join(DATA, "ch10_b12", "waveforms_64.npy"))
+    order = ["M2_aug", "M2_concat", "CO_fs2", "LM_fs2", "L_LM_fs2"]
+    fig, axes = fs.figure("full", 2.2, 1, len(order), sharey=True)
+    u = np.linspace(0, 1, W.shape[1])
+    for ax, r in zip(axes, order):
+        m = (df["recording"] == r).to_numpy()
+        w = W[m]
+        med = np.nanmedian(w, axis=0); q1, q3 = np.nanpercentile(w, [25, 75], axis=0)
+        ax.fill_between(u, q1, q3, color=fs.colour(r), alpha=0.25, lw=0)
+        ax.plot(u, med, color=fs.colour(r), lw=2.0)
+        ax.set_title(f"{fs.label(r).replace(' (', chr(10) + '(')}  n={int(m.sum())}", fontsize=7.5, loc="left")
+        ax.set_xticks([0, 1]); ax.set_xticklabels(["start", "end"], fontsize=7)
+    axes[0].set_ylabel("normalised")
+    fig.tight_layout(w_pad=0.4)
+    return fs.save(fig, "ch10_b12_waveforms")
+
+
 if __name__ == "__main__":
     fs.apply()
-    which = sys.argv[1:] or ["ladder", "cnn", "catalogue", "b12", "b1", "surr20", "b4", "detrates"]
+    which = sys.argv[1:] or ["ladder", "cnn", "catalogue", "b12", "b1", "surr20", "b4", "detrates", "b12wave"]
     for w in which:
         print(globals()[w]())
