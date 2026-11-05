@@ -189,10 +189,31 @@ precise variants were re-run on M2\_aug with 20 phase-randomised draws per chann
 \end{instructions}
 
 \begin{table}[htbp]
-\caption{Detections on the real signal against its phase-randomised surrogate, by detector family and recording. [From the 26 Oct analysis.]}
+\caption{Detections on the real signal over detections on its one-draw phase-randomised surrogate, by detector family and recording (all settings pooled). In brackets: runs where the real count did not exceed the surrogate's, of all runs. 0/0: neither found anything; $\infty$: the surrogates found nothing.}
 \label{tab:detnull}
+\footnotesize
 \centering
-\figplaceholder{3cm}{Table to be filled from \texttt{detectors-vs-surrogates-2026-10-26.md}.}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Detector family} & \textbf{M2\_aug} & \textbf{M2\_concat} & \textbf{CO} & \textbf{LM} & \textbf{MJu26a (CH10, 13--16)}\\
+\midrule
+Drop detector v1 & 1.5 (12/48) & 2.4 (11/48) & 0.78 (4/12) & 1.1 (3/12) & 2.4 (4/15)\\
+Drop detector v5 & 2.0 (4/34) & $\infty$ (0/48) & 0.13 (3/12) & 0.29 (3/12) & 1.2 (3/15)\\
+Wavelet encoded & 0.01 (48/48) & 0.07 (48/48) & 0.02 (12/12) & 0.02 (12/12) & 0.03 (15/15)\\
+Symbol search (dSAX) & 0.01 (34/34) & 0.11 (47/48) & 0.00 (12/12) & 0.00 (12/12) & 0.05 (15/15)\\
+BEADS (inverted) & 0.09 (40/48) & 0.09 (38/48) & 0.11 (7/12) & 0.12 (10/12) & 0.13 (10/15)\\
+Signal threshold & 0.03 (40/48) & 0.06 (39/48) & 0.06 (7/12) & 0.09 (11/12) & 0.05 (9/15)\\
+Noise threshold & 54 (0/48) & 58 (0/48) & 48 (0/12) & 71 (0/12) & 45 (0/15)\\
+Dehshibi wavelet & 0.78 (18/34) & 0.80 (32/48) & 0.62 (8/12) & 0.54 (8/12) & 0.61 (10/15)\\
+CNN scores, 10\,min & 2.7 (8/64) & 1.8 (13/64) & 0.84 (8/16) & 1.2 (5/16) & 1.2 (8/20)\\
+CNN scores, 60\,min & 1.1 (32/64) & -- & 1.4 (5/16) & 0.78 (11/16) & 1.4 (4/20)\\
+CNN scores, 1\,min (control) & 0.40 (39/64) & 0.41 (50/64) & 0.26 (13/16) & 0.64 (9/16) & 0.26 (14/20)\\
+OASIS & 126 (0/48) & 78 (0/48) & 39 (0/12) & 76 (0/12) & 173 (0/15)\\
+Deconvolved troughs & 238 (0/34) & 172 (0/48) & 156 (0/12) & 222 (0/12) & 283 (0/15)\\
+Matrix-profile threshold & 0/0 (2/2) & 0/0 (2/2) & 3.9 (0/2) & 91 (0/2) & 17 (0/2)\\
+\bottomrule
+\end{tabular}
 \end{table}
 
 \begin{table}[htbp]
