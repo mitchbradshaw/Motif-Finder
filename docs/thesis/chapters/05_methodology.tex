@@ -83,6 +83,14 @@ Corrections to the plan:
 Consider a figure of one representative trace per species at a common scale.
 \end{instructions}
 
+\begin{figure}[htbp]
+\centering
+\figplaceholder{8cm}{Figure 5.1 (T1, bundle): the dataset gallery. One row per recording (M2\_aug, M2\_concat, M4,
+MJu26a, LM, CO, SH, SO), each showing one channel over a day and a 30-minute zoom, in mV, coloured by species.}
+\caption{What each recording in the corpus looks like.}
+\label{fig:gallery}
+\end{figure}
+
 \section{Preprocessing}
 \label{sec:preprocessing}
 
@@ -125,16 +133,23 @@ To organise the results of analysis, a structured data object referred to as a \
 
 The Window Matrix provides a unified structure for storing heterogeneous outputs from multiple analytical techniques, enabling direct comparison and integration. It is important to note what it is not: it carries one row per window and has no alignment to individual timepoints, and so cannot be thresholded to produce regions of interest. That role belongs to the time-aligned \texttt{Scores} profile (Section~\ref{sec:types}).
 
+Figure~\ref{fig:windowmatrix} shows an early example (Chapter~\ref{ch:early}).
+
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.85\textwidth]{plan/window_matrix.png}
-\caption{An example Window Matrix computed over 45 hours of the primary recording: model outputs, entropy measures and catch22 features per 10-minute window, above the signal.}
-\label{fig:windowmatrix}
+\figplaceholder{6cm}{Figure 5.2 (T1, bundle): the anatomy of an event. One accepted drop, with its onset, trough,
+swing (mV), fall time, recovery time and full width at half maximum marked: the same measures as Chapter~\ref{ch:events}.}
+\caption{How an event is measured.}
+\label{fig:anatomyevent}
 \end{figure}
 
-\begin{instructions}
-The plan's figure has a dark theme. Re-export it from Analyse with a light theme, or keep it as historical.
-\end{instructions}
+\begin{figure}[htbp]
+\centering
+\figplaceholder{5cm}{Figure 5.3 (T1, bundle): the anatomy of a train. Four hours of drops on one channel with each
+interval written between onsets; beneath, one line each on what LV and CV2 measure.}
+\caption{How a train of events is measured.}
+\label{fig:anatomytrain}
+\end{figure}
 
 \section{Judging protocol}
 \label{sec:judging}

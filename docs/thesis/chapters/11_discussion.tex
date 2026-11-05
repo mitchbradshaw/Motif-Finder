@@ -58,18 +58,6 @@ Points to link across the chapters:
           \item the Dehshibi detector: faithful to its authors' code but unselective on these recordings;
           \item \texttt{cwt\_events} against AAFT (B9): it finds no more structure than its input's values give.
         \end{itemize}
-  \item \textbf{Modelling, only if it is of interest} (parked from Chapter~\ref{ch:roundb}, 4 Nov). A fitted model is
-        not evidence on these signals:
-        \begin{itemize}
-          \item \textbf{They fit noise too.} FitzHugh--Nagumo, Izhikevich, van der Pol and Morris--Lecar all fit the
-                mean drop cycle (R$^2$ mostly above 0.9), and fit fake cycles cut from noise about as well.
-          \item \textbf{They do not forecast.} None predicts a held-out cycle better than the mean of its neighbours,
-                on any of 11 trains of up to 110 cycles.
-          \item \textbf{Their PRCs say nothing about the fungus.} The models' phase response curves are mostly type
-                II, but 8 of 33 flip type when a different hidden coordinate is held fixed \cite{wilshin2024prc}.
-          \item \textbf{Sources:} \src{docs/thesis/parked/ch10_b3_models.tex} and
-                \src{docs/rq_roundA_2/findings/b3-long-trains-2026-11-03.md}.
-        \end{itemize}
   \item What ``normalisation is not invariance'' means for any shape vocabulary.
   \item Set the results against the literature: no fungal study reports precision against blind human judgement, or
         against a surrogate.
@@ -78,6 +66,34 @@ Points to link across the chapters:
 
 \section{Critical review against the plan}
 \label{sec:review}
+
+\begin{table}[htbp]
+\caption{Where each research question of the thesis plan (August 2026) is answered in this thesis.}
+\label{tab:rqmap}
+\small
+\begin{tabularx}{\textwidth}{p{4.2cm} p{2.2cm} X}
+\toprule
+\textbf{Plan question} & \textbf{Answered in} & \textbf{Status and form}\\
+\midrule
+RQ1 Cluster-derived vs manual labels & RQ3, Ch.~\ref{ch:rq3} & Answered as a baseline (forest on manual labels vs cluster labels, with shuffle null and blind labels), and extended to MiniRocket trained on judged events.\\
+\addlinespace
+RQ2 Seeded search precision vs surrogate & RQ2, Ch.~\ref{ch:rq2} & Answered; blind re-test in queue 35.\\
+\addlinespace
+RQ3 Identity under scale normalisation & Ch.~\ref{ch:rq2} (pilot), Ch.~\ref{ch:events} & Partial: banked scale searches are a pilot; the drop-motif study shows normalisation does not remove resolution or species.\\
+\addlinespace
+RQ4 Bands + symbols vs raw signal & RQ1, Ch.~\ref{ch:rq1} & Generalised into the 45-setting detector sweep; the two-chain band pilot was negative.\\
+\addlinespace
+RQ5 Human vs machine divergence & RQ1, Ch.~\ref{ch:rq1} & Rejection and miss rates per detector answered; the morphology arm was not answerable (verdicts carry no shape tags).\\
+\addlinespace
+RQ6 Recurrence across channels & Ch.~\ref{ch:roundb} (pilot) & Asked again as B4 and run on the real database (28 Oct): no propagation beyond chance on M2\_aug, but a shared driver across electrode packs; MJu26a, SH and SO wait for the 2\,Hz sweep.\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{instructions}
+Moved here from Chapter~\ref{ch:intro} on 5 Nov: the plan's six questions and where each is answered. Refer to it in the
+review paragraphs. The diagram version was dropped.
+\end{instructions}
 
 \begin{table}[htbp]
 \caption{The thesis plan (August 2026) against what was done.}

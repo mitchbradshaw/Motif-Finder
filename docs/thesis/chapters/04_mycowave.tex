@@ -23,14 +23,33 @@ Sources: \src{docs/PIPELINE_PRD.md}, \src{docs/adr/0001-web-ui-stack.md}, \src{A
 
 This chapter describes \tool{}, the analysis software developed over the course of the project. It comes before the methodology and the results because each study is stated as a chain of typed operations, and those types need defining first. The software is instrumentation: it exists to make the research questions answerable, and it is evaluated on that basis rather than as a product.
 
-\section{Motivation}
+\section{From experiments to \tool{}}
 \label{sec:pipelinemotivation}
+\label{sec:lineage}
+
+\begin{instructions}
+Reframed 5 Nov. Open from Chapter~\ref{ch:early}'s lessons (Table~\ref{tab:lessons}): each page of \tool{} descends from
+an early experiment. The three paragraphs below still hold; add a sentence that points at Figure~\ref{fig:lineage},
+and make the motivation concrete with the experiments rather than in general terms.
+\end{instructions}
 
 Open-ended exploratory time-series analysis, as practised in this field and in the earlier stages of this project, has no structure. Each new technique discovered through the literature --- Gramian encoding into CNN training, matrix profiling into motif discovery, wavelet decomposition into segmentation --- arrives as an isolated script. There is no way to navigate between analysis structures, combine them, or feed the output of one into the input of another. Past analyses are not saved in a form that can be revisited, compared, or reapplied to a new dataset. Promising results are discovered and then lost, because the parameters and ordering that produced them were never captured as a reusable object.
 
 The consequence for the research is direct: findings cannot be reliably compared across methods or across recordings, and every new dataset restarts the work from zero. Most of the research questions are questions about comparison between analytical chains, and none of them can be asked of a folder of scripts.
 
 The solution is a single application that loads a recording, lets the researcher compose typed analysis blocks into chains, run them over the whole signal or a selected span, inspect and adjudicate the results, and save the chain as a reusable template. Results that survive adjudication accumulate into a \emph{motif library}: a persistent, cross-recording catalogue of exemplar shapes with everything matched to them, queryable by shape, by cluster, or by human tag. The library is the deliverable; templates are how it gets populated, and exports are how it gets communicated.
+
+\begin{figure}[htbp]
+\centering
+\figplaceholder{8cm}{Figure 4.1 (T1, screenshots, wave 3): the lineage grid. Five rows; in each, a small crop of the
+early figure on the left and the page it became on the right: SAX (Figure~\ref{fig:sax}) $\rightarrow$ Analyse,
+symbolic route; matrix-profile seed (Figure~\ref{fig:mpseed}) $\rightarrow$ Discovery $\rightarrow$ Seed; hand labels
+and CNNs (Figures~\ref{fig:handlabels}, \ref{fig:earlycnn}) $\rightarrow$ Review and Models; window matrix and
+dendrogram (Figures~\ref{fig:windowmatrix}, \ref{fig:dendroplan}) $\rightarrow$ Discovery Map and Library grouping;
+drop motifs (Figure~\ref{fig:droptrio}) $\rightarrow$ Event shape and Intervals. One motif (458) can thread the captions.}
+\caption{From early experiment to page: each part of \tool{} and the experiment it came from.}
+\label{fig:lineage}
+\end{figure}
 
 \section{Requirements}
 \label{sec:requirements}
@@ -163,6 +182,33 @@ Interrogation & 5 & event shape, intervals, trains, cycle shapes, event families
 \end{tabularx}
 \end{table}
 
+\section{Detectors as templates}
+\label{sec:detectortemplates}
+
+\begin{instructions}
+New, half a page (5 Nov). Chapter~\ref{ch:litreview} introduced each detector and its source. Here, show what they look
+like as \tool{} templates: one signal, six detectors (Figure~\ref{fig:sixdetectors}), then two or three template pages
+on the site (Figure~\ref{fig:templatepages}). The point to make in words: the same four hours give anything from six
+drops to most of the trace marked, which is why RQ1 compares them against blind judgement rather than trusting any one.
+\end{instructions}
+
+\begin{figure}[htbp]
+\centering
+\figplaceholder{7cm}{Figure 4.2 (T1, bundle): the same four hours (M2\_aug CH4\_A2, 377--381\,h) with one row of shaded
+spans underneath for each of six detectors: drop detector v1, OASIS, BEADS, the Dehshibi wavelet detector, CNN fusion
+at 10 minutes and the noise threshold.}
+\caption{One signal, six detectors.}
+\label{fig:sixdetectors}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\figplaceholder{5cm}{Figure 4.3 (T2, screenshots, wave 3): two or three detector templates as pages on the site ---
+drop detector v1, OASIS and the CNN window scores --- each with its parameters and its spans on a trace.}
+\caption{Detectors as templates on the site.}
+\label{fig:templatepages}
+\end{figure}
+
 \section{Propose and adjudicate in the data model}
 \label{sec:adjudication}
 
@@ -271,8 +317,9 @@ set is 197 members, which are 142 distinct events
 
 \begin{instructions}
 New, about one page with figures. Show the path one motif takes through the pages: Explore $\rightarrow$ Analyse
-$\rightarrow$ Discovery $\rightarrow$ Review $\rightarrow$ Library, with Models branching off the Library. Use the
-poster's six panels, all following motif 458 (M2\_aug CH1\_A1 at 316.2\,h, family F-80). There are 50 pages in all:
+$\rightarrow$ Discovery $\rightarrow$ Review $\rightarrow$ Library, with Models branching off the Library. The poster's stylised panels are cut (5 Nov); use the
+re-shot screenshots (Figure~\ref{fig:pages}), following motif 458 (M2\_aug CH1\_A1 at 316.2\,h, family F-80) where
+possible. There are 50 pages in all:
 34 main pages and 16 settings pages (\src{webui/client/src/shell/pages.ts}).
 
 Then name the three workflows the demonstration walked:
@@ -288,16 +335,10 @@ Source: \src{docs/DEMO_DAY.md}.
 
 \begin{figure}[htbp]
 \centering
-\begin{subfigure}{0.32\textwidth}\includegraphics[width=\linewidth]{poster/explore.png}\caption{Explore}\end{subfigure}\hfill
-\begin{subfigure}{0.32\textwidth}\includegraphics[width=\linewidth]{poster/discover.png}\caption{Discovery}\end{subfigure}\hfill
-\begin{subfigure}{0.32\textwidth}\includegraphics[width=\linewidth]{poster/analyse.png}\caption{Analyse}\end{subfigure}
-
-\medskip
-\begin{subfigure}{0.32\textwidth}\includegraphics[width=\linewidth]{poster/review.png}\caption{Review}\end{subfigure}\hfill
-\begin{subfigure}{0.32\textwidth}\includegraphics[width=\linewidth]{poster/library.png}\caption{Library}\end{subfigure}\hfill
-\begin{subfigure}{0.32\textwidth}\includegraphics[width=\linewidth]{poster/family.png}\caption{Family}\end{subfigure}
-\caption{One motif (458, oyster M2\_aug channel CH1\_A1, 316.2\,h) followed through the workflow, drawn from the project database by \texttt{Plots/poster/make\_panels.py}.}
-\label{fig:workflow}
+\figplaceholder{6cm}{Figures 4.4 (T1, screenshots, wave 3): the pages re-shot in one pass, light theme, one viewport ---
+Explore, Analyse, Discovery, Review, Library and Models --- following one motif where possible.}
+\caption{The pages of \tool{}.}
+\label{fig:pages}
 \end{figure}
 
 \begin{figure}[htbp]

@@ -1,4 +1,4 @@
-\chapter{Round B: questions about the signals}
+\chapter{Analysing the signals}
 \label{ch:roundb}
 
 \begin{instructions}
@@ -56,8 +56,6 @@ B3 & Does a drop's recovery depend on the gap before it? & Event shape and Inter
 B4 & Is cross-channel activity propagation or a shared-ground artefact? (plan RQ6) & Explore $\rightarrow$ Cross-channel (the explorer, S0--S1 at least) & the seven sets & rotation; random time & explorer build\\
 B5 & What do the Discovery Maps show about when and where detectors fire? & Discovery $\rightarrow$ Map & all swept sets & paired surrogate runs; time-shifted rates & none\\
 B6 & Do the same shape families occur across recordings and species? & Library $\rightarrow$ Atlas, Recurrence, on g-11 & M2\_aug, M2\_concat, CO, LM & shuffled recording labels & none\\
-B7 & What does multiscale entropy reveal? & \texttt{complexity\_\allowbreak fingerprint} & Adamatzky's species; CO, LM, MJu26a, M2\_aug & AAFT surrogates & register ghost fungus\\
-B8 & How common is a verified motif per hour, and does an oyster motif occur elsewhere? & Discovery $\rightarrow$ Seed search & M2\_aug seeds onto CO, LM, MJu26a & scrambled copies or AAFT & none; cluster for long searches\\
 B9 & Do event durations cluster at preferred scales? & \texttt{cwt\_events} & all swept sets & AAFT surrogates & none\\
 B10 & At which time scales does structure beyond noise appear? & \texttt{motif\_lengths}; CNN templates at 1, 10, 30\,min; \texttt{spike\_event\_\allowbreak features} & M2\_aug, M2\_concat, CO, LM, MJu26a & AAFT surrogates & none\\
 B11 & Do the detectors find the same events on the newer datasets? & Discovery $\rightarrow$ Compare; Compare every stage & CO, LM, MJu26a, SH, SO & per-run surrogate & none\\
@@ -65,21 +63,6 @@ B12 & Do spike and drop shapes and intervals differ between recordings and speci
 \bottomrule
 \end{tabularx}
 \end{table}
-
-\section{Study template}
-
-\begin{instructions}
-Copy this template once per study:
-\begin{enumerate}
-  \item \textbf{Question} (one sentence);
-  \item \textbf{Why it matters}, in plain words;
-  \item \textbf{Chain and data}: the recipe hash and the recordings;
-  \item \textbf{Null or control};
-  \item \textbf{Result}: the number, its interval and the null;
-  \item \textbf{Figure};
-  \item \textbf{What it does not show}.
-\end{enumerate}
-\end{instructions}
 
 \section{Sequences and timing}
 \label{sec:rb_sequences}
@@ -501,41 +484,6 @@ not beat AAFT at all. The null's choice decides the verdict, as Chapter~\ref{ch:
 \label{fig:b9hist}
 \end{figure}
 
-\section{Activity against environment}
-\label{sec:rb_environment}
-
-\begin{instructions}
-Parked (Round 3) until the environment logs are found and checked with the supervisor; no round-B number depends on it.
-
-If logs arrive before the freeze: compare event rate with temperature and humidity in hourly bins, against a
-circular-shift null, and report across the plausible clock offsets.
-
-The only log on disk is M101\_t's (\texttt{SD}):
-\begin{itemize}
-  \item 19,438$\times$5 samples at 60\,s steps over 13.5 days;
-  \item unlabelled columns and no absolute timestamp;
-  \item about 22\,h longer than the signal.
-\end{itemize}
-
-The Explore environment view is a separate decision. If nothing arrives, cut this section and say so in
-Chapter~\ref{ch:discussion}.
-\end{instructions}
-
-\section{A second unseen recording}
-\label{sec:rb_unseen}
-
-\begin{instructions}
-\emph{S.\ commune} (Adamatzky; 73\,h, 1\,Hz, mV) is a new lab, rig and species. The steps:
-\begin{enumerate}
-  \item sweep it on rangpur (bundle \src{docs/thesis/hpc/rq4_scommune_20261026/});
-  \item build its candidate table and freeze a manifest;
-  \item draw a stratified blind sample of about 300 (10--15 minutes of judging);
-  \item score the frozen R4 once, by the ``unseen'' exam path (\src{scripts/m4_exam_freeze.py} and
-        \src{scripts/m4_exam_score.py} with \texttt{--manifest}).
-\end{enumerate}
-If fewer than about 30 interesting events come back, use enoki next.
-\end{instructions}
-
 \section{Summary}
 
 \begin{instructions}
@@ -563,14 +511,10 @@ B3 & Does recovery depend on the gap before it? & gaps shuffled within trains & 
 B4 & Propagation, or a shared ground? & rotation; random time & M2\_aug within packs 8 against 1.9 ($p=0.002$), one pair after BH, no consistent lag; across packs 18 against 6.3 ($p=0.001$); M2\_concat CH5--8 are copies; none on CO, LM; MJu26a 16 against 3.2 ($p=0.001$), all at zero lag & propagation not supported; a shared driver\\
 B5 & When and where do detectors fire? & random time shifts; paired surrogates & settings rise and fall together on 45 of 45 channels: 0.21--0.35 against 0.00 shifted and 0.02--0.04 for surrogates; on the 2\,Hz sets' first 9--13 settings, 24 of 24 (0.33--0.46) & supported: changes over hours to days\\
 B6 & Do families recur across recordings and species? & shuffled recording labels & 39 of 42 families on two or more recordings and species; the mix is not random (0.22 against 0.13 bits, $p=0.0001$) & supported, with leanings by recording\\
-B7 & Does multiscale entropy separate species? & AAFT & first read on Adamatzky's four species: silhouette 0.43 against 0.22--0.37 & open\\
-B8 & How common is a verified motif per hour? & scrambled copies; AAFT & not run & open\\
 B9 & Do event durations prefer some scales? & AAFT & AAFT copies give more drops (1,087 against 632) with the same durations (pooled KS $p=0.59$); the ``modes'' appear in AAFT too & not supported\\
 B10 & At which time scales is there structure? & AAFT & every judged length from 30\,s up to 4.4--25.1\,min repeats beyond AAFT on four recordings, strongest at 30\,s; none on MJu26a & supported: one band, no preferred scale\\
 B11 & Same events on the newer datasets? & per-run surrogate & 31 of the 2\,Hz sweep's 129 jobs imported; the rest back on the cluster & open\\
 B12 & Do shapes and intervals differ by recording and species? & shuffled labels & recordings differ a little (11 of 15 features pass BH; $\varepsilon^2\le0.06$); species not shown ($R^2=0.005$, $p=0.064$); intervals borderline by dataset ($p=0.06$--0.07) & bounded: small recording effects; species untestable\\
-\midrule
-Unseen & Does R4 hold on \emph{S.\ commune}? & blind human judging & frozen manifest, blind queue 37 being judged & open\\
 \bottomrule
 \end{tabularx}
 \end{table}

@@ -10,6 +10,12 @@
 \usepackage{parskip}
 \usepackage{microtype}
 
+% Chapter titles: the book class leaves about 50 pt above a chapter title and 40 pt below it. Keep the
+% "Chapter N" display but trim the gaps, so a chapter starts near the top of its page (5 Nov).
+\usepackage{titlesec}
+\titleformat{\chapter}[display]{\normalfont\huge\bfseries}{\chaptertitlename\ \thechapter}{12pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{0pt}{18pt}
+
 \usepackage{xcolor}
 \usepackage{environ}   % the content notes' on/off switch (below)
 \usepackage{graphicx}

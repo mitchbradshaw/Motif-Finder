@@ -1,12 +1,21 @@
-\chapter{Introduction}
+\chapter{Introduction and background}
 \label{ch:intro}
 
 \begin{instructions}
-About 4--5 pages. Sections 1.1--1.3 carry over from the August plan with small corrections. Section 1.4 is new: the
-plan's broad question kept, the poster's three questions as the research questions, and a mapping table that accounts
-for every one of the plan's six. Section 1.5 (contributions) is new; 1.6 carries over; 1.7 is rewritten for the new
-structure.
+Restructured 5 Nov. This chapter now holds the introduction and the fungal background: the problem
+(1.1), previous research (1.2), what is known about electrical signals in fungi (1.3, from the old Chapter 2), the missing
+signal vocabulary (1.4), the summer project at UQ as separate prior work (1.5), the gaps (1.6), the research questions as
+they stand (1.7), contributions (1.8), scope (1.9) and the overview (1.10). Definition is 10\,\% of the mark and
+Background 20\,\%, shared with Chapter~\ref{ch:litreview}. About 8--9 pages.
 \end{instructions}
+
+\begin{figure}[htbp]
+\centering
+\figplaceholder{5cm}{Figure 1.1 (T1, bundle): one M2\_aug channel at three zooms --- the whole 721\,h, one day, and
+30 minutes --- with the zoomed region boxed at each level. The ``1,000-hour problem'' in one picture.}
+\caption{One electrode of the primary oyster recording at three zooms.}
+\label{fig:threezooms}
+\end{figure}
 
 \section{Problem space}
 
@@ -28,12 +37,13 @@ combination of ideas was a one-off script that was then lost; fungi have no defi
 
 Back it with numbers:
 \begin{itemize}
-  \item 721\,h + 282.5\,h $\approx$ 1,003\,h across the two primary recordings, M2\_aug (oyster) and M2\_concat (lion's
-        mane), each 16 channels;
+  \item 721\,h + 282.5\,h $\approx$ 1,003\,h across the two primary oyster recordings, M2\_aug and M2\_concat, each
+        16 channels (M2\_concat is oyster: the researcher, 5 Nov);
   \item OASIS marks 61--65\,\% of M2\_aug's time as events, while drop\_detection\_v1 finds about a thousand;
   \item a seed bundle whose generator scripts were deleted, so it cannot be regenerated
         (\src{DATA/library_seed/PROVENANCE.md}).
 \end{itemize}
+Point to Figure~\ref{fig:threezooms}.
 \end{instructions}
 
 \section{Scope of previous research}
@@ -42,7 +52,100 @@ Research into the bio-electric signals of mycelium networks has developed across
 
 More recently, attention has turned to questions of what these signals might mean and what they might be used for. Some work has explored the propagation of signals across the mycelium substrate and the feasibility of using mycelium networks as a medium for data transmission, finding that the substrate exhibits low-pass filter characteristics relevant to this application \cite{mayne,phillips}. Others have taken a more interpretive approach, treating the spike-trains as a form of language and performing linguistic analysis to compare the complexity of signals across species \cite{adamatzky2022}. There is also a smaller body of work examining the biological response of the signals to external stimuli such as injected current and chemical agents, with the aim of understanding whether and how the signals can be manipulated \cite{buffi,olsson}.
 
-Each of these areas is reviewed in further detail in Chapter~\ref{ch:litreview}.
+Sections~\ref{sec:litfungi} and~\ref{sec:litvocab} review the first of these areas in more detail. The time-series methods are reviewed in Chapter~\ref{ch:litreview}.
+
+\section{Analysis of electrical signals in fungi}
+\label{sec:litfungi}
+
+Only recently has the idea of communication within fungi networks via neuron-like transmission become popularised \cite{hunter} \cite{buffi2025review}. The earliest recorded study on the electrical signals in fungi was recorded by Clifford Slayman, Scott Long and Dietrich Gradman in 1976 \cite{slayman}, after which there was a significant stall in the progress made in this field \cite{buffi2025review}. From inserting 1--3 micro-electrodes directly into the hyphae (mycelium cells) of a small inoculum of \emph{Neurospora crassa} on the surface of scratched cellophane, they found quasi-sinusoidal fluctuation of 10--20\,mV amplitude, persisting for varying intervals of time, `\emph{from 10-15 minutes to 1 hour or more, and which has a constant period of 34 minutes}'. They describe the oscillatory behaviour as a sharp depolarisation phase followed by a slow re-polarisation phase, a trend also observed in similar studies on electrical signals \cite{adamatzky2023} \cite{springer}. Multiple scales of these behaviours have been observed in mycelium, and these behaviours are often species-specific.
+
+Efforts have been made to begin to understand the functions of these signalling characteristics. More recent work has examined additional species and recording configurations in order to characterise these signals more fully and test their response to external stimuli. Adamatzky et al. \cite{adamatzky2023} recorded multi-scale electrical spiking in \emph{Schizophyllum commune} using a multi-electrode array, modelling the signal using the FitzHugh--Nagumo system and detecting and characterising individual spike events via a simple thresholding algorithm. Dehshibi and Adamatzky \cite{dehshibi} extended this spike detection approach, implementing a more complex Morse wavelet transform combined with a signal envelope threshold. They evaluated their results with entropy-based complexity analysis, finding that spike family characteristics are different amongst scales, and comparable to the complexity of modern languages, similar to the findings of another study by Adamatzky \cite{adamatzky2022}. Buffi et al. \cite{buffi} grew mycelium across two electrodes inside a Faraday cage and used the Short-Term Fourier Transform to extract spike frequency content, showing that the fungicide cycloheximide had a significant dampening effect on frequency activity. A study by Olsson and Hansson \cite{olsson} found that action-potential frequency in \emph{Pleurotus ostreatus} and \emph{Armillaria bulbosa} increases in response to injected negative current, indicating a difference in the behaviour of these action potentials from that observed in animal nerve cells.
+
+There is also research into the propagation of these signals across the mycelium substrate. Mayne et al. \cite{mayne} measured the propagation of electrical signals between electrodes and found that the mycelium substrate exhibits low-pass filter characteristics, relevant to its proposed use as a medium for data transmission \cite{phillips}.
+
+The recording and analysis parameters across these key studies are summarised in Table~\ref{tab:params}. It is worth noting that sampling rates are not consistently reported across the literature, and where they are, resampling to 1\,Hz appears to have become an implicit standard, as used notably in Adamatzky's language analysis \cite{adamatzky2022}. It can be seen that a variety of fungi are studied with a variety of techniques, suggesting that there is still a large degree of exploration in this field. The goals of each paper vary significantly, with more emphasis often on methods for producing and detecting significant events rather than classifying or explaining their functionality.
+
+\begin{table}[htbp]
+\caption{Comparison of recording and analysis parameters across selected studies. Sampling rates are taken from full paper methods sections where stated.}
+\label{tab:params}
+\footnotesize
+\begin{tabularx}{\textwidth}{p{2.1cm} p{2.3cm} p{2.2cm} p{1.7cm} p{2.4cm} X}
+\toprule
+\textbf{Study} & \textbf{Species} & \textbf{Electrode type} & \textbf{Sample rate} & \textbf{Preprocessing} & \textbf{Analysis / key finding}\\
+\midrule
+Slayman et al.\ \cite{slayman}, 1976 & \emph{Neurospora crassa} & 1--3 intracellular microelectrodes & Not stated & Electrometer amplification & Oscillogram inspection; 34-min oscillation, action-potential spikes\\
+\addlinespace
+Adamatzky et al.\ \cite{adamatzky2023}, 2023 & \emph{Schizophyllum commune} & Multi-electrode array & 1\,Hz (600 per s, averaged) & Resampled to 1\,Hz & FitzHugh--Nagumo modelling; species-specific spike families\\
+\addlinespace
+Dehshibi \& Adamatzky \cite{dehshibi}, 2021 & \emph{Pleurotus ostreatus} & Iridium-coated stainless-steel subdermal & 1\,Hz (600 per s, averaged) & Morse wavelet + envelope threshold & Morse wavelet spike detection; entropy complexity analysis\\
+\addlinespace
+Buffi et al.\ \cite{buffi}, 2025 & \emph{Fusarium oxysporum} & 2-electrode (2\,mm), Faraday cage & 17\,Hz & NaN values removed, low-pass to 4\,Hz, subsampled to 8\,Hz & STFT spike frequency extraction; cycloheximide dampens activity\\
+\addlinespace
+Adamatzky \cite{adamatzky2022}, 2022 & \emph{Omphalotus nidiformis}; \emph{Flammulina velutipes}; \emph{S.\ commune}; \emph{Cordyceps militaris} & Iridium-coated stainless-steel subdermal & 1\,Hz (600 per s, averaged) & Resampled to 1\,Hz & SAX language encoding of spike trains; \emph{S.\ commune} most complex\\
+\addlinespace
+Olsson \& Hansson \cite{olsson}, 1995 & \emph{P.\ ostreatus}; \emph{Armillaria bulbosa} & Glass microelectrode & Not stated & Electrometer amplification & AP frequency increases with negative current; unlike animal neurons\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{instructions}
+Retyped from the plan's image of this table. Consider adding a final row for this thesis: oyster (\emph{P.\ ostreatus},
+three 16-channel recordings at 1\,Hz, about 1,500\,h with the held-out M4), plus lion's mane, chocolate and snow oyster,
+Asian shiitake and reishi from the same lab; native rates of 1--10\,Hz kept; a detector sweep, seeds and classifiers
+judged against blind verdicts.
+\end{instructions}
+
+
+A further trait of interest in the signal's behaviour is the observation that motifs of interest often occur in groupings, referred to as spike-trains. This behaviour has led to comparisons with the patterns seen in neuronal EEG recordings and cardiac ECG recordings \cite{slayman}, \cite{adamatzky2023}. A language analysis by Adamatzky \cite{adamatzky2022}, for example, treated these spike-trains as symbolic sequences and found that \emph{Schizophyllum commune} generates the most complex ``sentences'' compared to three other species when analysed at 1\,Hz, suggesting that there is meaningful structure in the timing and grouping of these events.
+
+Note that there are many studies which examine the biological mechanisms of the measured potential differences, suggesting a propagation of calcium ions Ca\textsuperscript{+}, Ca\textsuperscript{2+} and potassium ions K\textsuperscript{+} through hyphae cell membranes both in general function and in response to stressors \cite{brand,itani,houdinet}. However, while this background is important for providing context about the potential origins of both the signal's shape and behaviours, this project is not concerned with the intracellular mechanisms that generate these signals, as it is deemed unnecessary for developing a comprehensive analysis pipeline and outside of the proposed scope.
+
+A main drawback in this field is that it is relatively small, especially in comparison to the quantity of research in parallel fields on EEG and ECG analysis. This is most likely due to the fact that there is as of yet no clear financial incentive for investors to fund more extensive research into fungi signalling behaviour. As a result of this, there are many researchers who appear commonly across papers, most notably Andrew Adamatzky and Matteo Buffi. This implies that there is a certain risk in the current findings presented, as the biases within the work can be traced to only a handful of parties involved. A further consequence of this is that none of the analysis tools described in these studies have been released as public software, and preprocessing procedures are rarely described in sufficient detail to reproduce results independently.
+
+\begin{instructions}
+Qualify the last sentence with what this project found. Adamatzky's four-species recordings are public on Zenodo
+\cite{adamatzky2021data}, and Dehshibi and Adamatzky released MATLAB code \cite{dehshibi2020code}. Porting that code
+showed it differs from the printed paper in about ten places (Q33). Keep the point, that preprocessing and parameters
+are rarely reproducible from the papers, but be precise about which tools are and are not released.
+\end{instructions}
+
+\section{The absence of a shared signal vocabulary}
+\label{sec:litvocab}
+
+The closest parallel domain to mycelium signal analysis is Electroencephalogram (EEG) and Electrocardiogram (ECG) analysis, in which a large body of methodological work has been possible precisely because a canonical event taxonomy was established early --- canonical sleep stages, R-peaks, and wave types are defined consistently enough across laboratories that automated classifiers can be trained on one dataset and evaluated on another \cite{murungi} \cite{mohammed}. The abundance of labelled datasets has allowed the machine-learning advances discussed in Section~\ref{sec:litnn}. Mycelium research lacks this foundation entirely, and the absence of a shared labelling standard is most likely a significant contributor to the stall in progress noted in Section~\ref{sec:litfungi}.
+
+The consequence is concrete and is worth stating plainly, because it motivates the structure of this thesis. A comprehensive benchmark of modern time-series classification methods is provided by Bagnall et al.\ \cite{bagnall}, who compared 18 algorithms across a large suite of standard datasets and found that the best performing systems were ensemble and transformer-based classifiers that combined multiple feature representations. An important observation for the present project is that all benchmark datasets in that study were fully labelled prior to testing. A classifier cannot be trained or fairly evaluated without labels, and as such unsupervised discovery methods must precede any supervised approach. Where no ground truth exists, the ordering of work is forced: discovery first, then labelling, then classification --- and the labels themselves must be treated as a claim to be tested rather than as given.
+
+\section{Prior research at UQ}
+\label{sec:lituq}
+
+Before beginning this thesis, I participated in the Underground Brains research project at The University of Queensland (see \url{https://eecs.uq.edu.au/project/fungi}) as part of a summer research program. The research involved the initial analysis of about 1,000 hours of bio-electric recordings on \emph{Pleurotus ostreatus}, more commonly known as oyster mushrooms. The recordings were made with 16 electrodes distributed across the fruiting bodies, sharing a common ground, and logged at 1\,Hz. The mushrooms were grown inside Faraday cages to limit outside interference.
+
+The research was largely exploratory, and involved the development of a pipeline for effective data analysis in \textbf{MATLAB}. Using this pipeline, experimental analysis was performed which included ratio encoding and discovery, Symbolic Aggregate Approximation (SAX) encoding and discovery, Gramian Angular Field encoding, and wavelet and frequency analysis. The full repository developed can be found on Github \cite{summerrepo}. This experience involved developing a familiarity with the behaviour evident in the time-series recordings, early research into the field of time-series analysis and the initial implementations of several algorithms for analysis and motif extraction. While the current thesis builds on the knowledge developed here, particularly for the techniques in Gramian Angular Field Imaging as discussed in Section~\ref{sec:litnn}, the files, code and algorithms remain separated and unique, and can be found in a separate repository \cite{thesisrepo}.
+
+The goal of UQ's Underground Brains project is to study the electromagnetic communication system of mycelium. As part of that, there are four main areas of research focus:
+
+\begin{enumerate}
+  \item Designing next generation sensors for environmental sensing
+  \item Developing new recording and analysis techniques for the electromagnetic properties of mycelium
+  \item Investigation of the communication and multi scale dynamics of the underground networks of mycelium
+  \item Bridging art, science and engineering to help contribute to the public understanding of AI, STEM and fungi
+\end{enumerate}
+
+The motivation behind the project lies in the importance of fungi in the growth and stability of ecosystems. They are symbiotic with 90\% of plants, particularly in the diverse climates of Australia. However, fungi, in particular Australian species, have many distinct bio-chemical and electro-magnetic properties which are not well understood. Advances in how they communicate, grow and interact with their surrounding ecosystems has vital applications for Australian agriculture and ecosystem health.
+
+The present thesis contributes primarily to the second of these areas, by developing the analytical tools and pipeline infrastructure needed to process and interpret the electromagnetic recordings described above.
+
+\begin{instructions}
+\textbf{Framing (5 Nov):} the summer project is separate prior work and must read that way. The line to hold: in the
+summer, the SAX idea was explored; this year, the SAX algorithms (and everything else in Chapter~\ref{ch:early}) were
+implemented anew in a separate code base. Do not describe any summer result as a thesis result.
+
+\textbf{The 1,000 hours stand (5 Nov):} M2\_concat is oyster after all, so ``about 1,000 hours of \ldots\
+\emph{Pleurotus ostreatus}'' above is right: M2\_aug 721\,h and M2\_concat 282.5\,h. The held-out M4 adds 505\,h of
+oyster. Say which other recordings from the same lab joined the corpus during the year: lion's mane (MJu26a, LM),
+chocolate oyster (CO), snow oyster (SO), Asian shiitake (SH) and reishi (F2A). Chapter~\ref{ch:method} has the table.
+\end{instructions}
 
 \section{Gaps in knowledge}
 \label{sec:gaps}
@@ -72,7 +175,7 @@ The overall question this thesis addresses is unchanged from the thesis plan:
 \textbf{Can the recurring structures present in mycelium bio-electric signals be automatically detected and characterised using modern time-series analysis methods?}
 \end{quote}
 
-The thesis plan approached this through six sub-questions, each naming a baseline, a null and a discriminator. Building the instrument showed which of them could be answered within the project, and in what form. The thesis therefore answers three research questions. Each is a question about what the instrument makes possible, and each is tested against blind human judgement and a matched null:
+The thesis plan (August 2026) approached this question through six sub-questions. As the instrument was built and the first results came in, those questions were refined and scoped to the three research questions below. Each is a question about what the instrument makes possible, and each is tested against blind human judgement and a matched null:
 
 \begin{description}
   \item[RQ1 --- Detectors at scale.] Can multiple detection algorithms be compared at scale, across recordings, against blind human judgement and matched surrogates? And does agreement between independent detectors predict what a human accepts? (Chapter~\ref{ch:rq1})
@@ -80,46 +183,12 @@ The thesis plan approached this through six sub-questions, each naming a baselin
   \item[RQ3 --- Classifiers.] Can labels gathered through the tool train a classifier that works on recordings it never saw, beating a label-shuffle null and the detectors' own vote? (Chapter~\ref{ch:rq3})
 \end{description}
 
-Two further chapters use the instrument to describe what it found. Chapter~\ref{ch:events} covers the shape, size, scale and timing of the accepted events, including an earlier cross-species study of drop events. Chapter~\ref{ch:roundb} covers a set of shorter questions about the nature of the signals.
-
-Table~\ref{tab:rqmap} accounts for each of the plan's six questions. Figure~\ref{fig:rqmap} draws the same mapping.
-
-\begin{table}[htbp]
-\caption{Where each research question of the thesis plan (August 2026) is answered.}
-\label{tab:rqmap}
-\small
-\begin{tabularx}{\textwidth}{p{4.2cm} p{2.2cm} X}
-\toprule
-\textbf{Plan question} & \textbf{Answered in} & \textbf{Status and form}\\
-\midrule
-RQ1 Cluster-derived vs manual labels & RQ3, Ch.~\ref{ch:rq3} & Answered as a baseline (forest on manual labels vs cluster labels, with shuffle null and blind labels), and extended to MiniRocket trained on judged events.\\
-\addlinespace
-RQ2 Seeded search precision vs surrogate & RQ2, Ch.~\ref{ch:rq2} & Answered; blind re-test in queue 35.\\
-\addlinespace
-RQ3 Identity under scale normalisation & Ch.~\ref{ch:rq2} (pilot), Ch.~\ref{ch:events} & Partial: banked scale searches are a pilot; the drop-motif study shows normalisation does not remove resolution or species.\\
-\addlinespace
-RQ4 Bands + symbols vs raw signal & RQ1, Ch.~\ref{ch:rq1} & Generalised into the 45-setting detector sweep; the two-chain band pilot was negative.\\
-\addlinespace
-RQ5 Human vs machine divergence & RQ1, Ch.~\ref{ch:rq1} & Rejection and miss rates per detector answered; the morphology arm was not answerable (verdicts carry no shape tags).\\
-\addlinespace
-RQ6 Recurrence across channels & Ch.~\ref{ch:roundb} (pilot) & Asked again as B4 and run on the real database (28 Oct): no propagation beyond chance on M2\_aug, but a shared driver across electrode packs; MJu26a, SH and SO wait for the 2\,Hz sweep.\\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-\begin{figure}[htbp]
-\centering
-\input{tikz/rq_mapping}
-\caption{The plan's six questions (left) and the three research questions the thesis answers (right). Solid arrows: answered within; dashed: reported as a pilot.}
-\label{fig:rqmap}
-\end{figure}
+Two further chapters use the instrument to describe what it found. Chapter~\ref{ch:events} gives an overview of the events it found: their shape, size, scale and timing. Chapter~\ref{ch:roundb} analyses them through a set of shorter questions about the nature of the signals.
 
 \begin{instructions}
-Explain the change in one paragraph in your own words. The point is not that you ran out of time. Building the
-instrument showed that four of the six questions were questions about comparing analysis chains against human
-judgement, and those collapse into RQ1 and RQ2 once the comparison is done at scale. Keep the ``RQ3 is worth singling
-out'' sentence from the plan, but point it at the evidence in Chapter~\ref{ch:events}, which bears directly on whether
-scale is a property of the motif.
+Rewritten 5 Nov: the RQs are stated as they stand, with one sentence on their refinement from the August plan. The
+plan-to-thesis mapping table and diagram moved to Chapter~\ref{ch:discussion}'s critical review
+(Table~\ref{tab:rqmap}). Reword the two bridging sentences above in your own voice.
 \end{instructions}
 
 \section{Contributions}
@@ -160,13 +229,6 @@ Three consequences follow, and they shape the whole document:
 
 Biological interpretation is out of scope. It is recorded in Section~\ref{sec:futurework} as future work, tied to the effectiveness of forecasting: a structure that can be used to predict what follows it is a considerably better candidate for interpretation than one that merely repeats.
 
-\begin{instructions}
-The excitable-system model fits (FitzHugh--Nagumo and others) are parked (4 Nov), and Chapter~\ref{ch:roundb} no
-longer reports them. If Chapter~\ref{ch:discussion} discusses modelling, state here that a fitted model describes shape
-and timing, not mechanism. Its phase response curve is the model's, not a measured one, because no perturbation
-experiments were made. Otherwise cut this note.
-\end{instructions}
-
 \section{Overview of the thesis}
 
-Chapter~\ref{ch:litreview} reviews prior work on fungal electrical signals, the time-series methods used here, and why the two have not yet met. Chapter~\ref{ch:theory} sets out the theory the methods and controls depend on. Chapter~\ref{ch:pipeline} describes \tool{}, the instrument built to make the research questions answerable: its design, how it was built and how it was evaluated. Chapter~\ref{ch:method} describes the corpus, the judging protocol, the controls and the held-out exam. Chapters~\ref{ch:rq1}, \ref{ch:rq2} and~\ref{ch:rq3} answer RQ1 to RQ3. Chapter~\ref{ch:events} characterises the accepted events, and Chapter~\ref{ch:roundb} reports a set of shorter questions about the signals. Chapter~\ref{ch:discussion} draws the results together, reviews the project critically against its plan and schedule, and sets out what should be done next.
+Chapter~\ref{ch:litreview} reviews the time-series methods used here and sets out the theory they depend on. Chapter~\ref{ch:early} describes the early experimental work of the year --- hand-labelled windows, image-encoded CNNs, matrix profiles, window matrices, symbolic encodings and a cross-species study of drops --- and what each taught. Chapter~\ref{ch:pipeline} describes \tool{}, the instrument those lessons led to: its design, how it was built and how it was evaluated. Chapter~\ref{ch:method} describes the corpus, the judging protocol, the controls and the held-out exam. Chapters~\ref{ch:rq1}, \ref{ch:rq2} and~\ref{ch:rq3} answer RQ1 to RQ3. Chapter~\ref{ch:events} gives an overview of the events the instrument found, and Chapter~\ref{ch:roundb} analyses them through a set of shorter questions about the signals. Chapter~\ref{ch:discussion} draws the results together, reviews the project critically against its plan and schedule, and sets out what should be done next.

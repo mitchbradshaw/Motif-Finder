@@ -1,4 +1,4 @@
-\chapter{What the accepted events look like}
+\chapter{An overview of the events}
 \label{ch:events}
 
 \begin{instructions}
@@ -132,82 +132,27 @@ judged, and that version is frozen for this chapter and Chapter~\ref{ch:roundb} 
 \src{docs/thesis/data/library_events/} (g-10) and \src{docs/thesis/data/library_events_all_active/} (g-11).
 \end{instructions}
 
-\section{Drops across species and scales}
-\label{sec:dropmotifs}
+\section{Events no one has judged}
+\label{sec:pool}
 
 \begin{instructions}
-The August--September drop-motif study, built before the web tool, with its own claims ledger (Appendix~\ref{app:claims}).
-The store holds 4,023 events: oyster 754 (M2\_aug), reishi 2,425 (Fig2A, 10\,Hz) and lion's mane 844 (L\_LM, region B
-only, so a lower bound). Give one paragraph on detection: the drop detector, and its slope gate.
+New (5 Nov), first in the cut order. How many events would the Library hold if every candidate that five or more
+detector families agree on were counted, and do they look like the accepted ones? Facts so far
+(\src{docs/thesis/data/ledger_checks.json}): 1,720,104 candidates have $\ge$5 agreeing families across the five swept
+tables, or 1,390,695 without the five-channel MJu26a copy; at 5--6 families only 7--22\,\% were real when judged, and
+at 9 or more 40--63\,\%. Candidates nest, so the wave-1 run collapses them first (keep a candidate unless half its span
+is covered by a higher-agreement one) and then measures a stratified sample of 2,000 per recording with the same
+function as the catalogue, scored by R4. These are machine proposals: none of them enters the Library.
 \end{instructions}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{drop_motifs/S2_2_scale_collapse.png}
-\caption{Drop shape in native units (left) and after normalising each event by its own fall (right), forty seeded events per species. Median falls of 30\,s, 1.25\,s and 0.65\,s become one approach--fall--recovery shape. Nothing is resampled.}
-\label{fig:scalecollapse}
+\figplaceholder{6cm}{Figure 9.5 (T2, wave 1): the unreviewed pool against the accepted events --- swing and duration
+distributions at 5--6, 7--8 and 9+ agreeing families beside the 678 accepted events, with R4's score, and a row of
+thumbnails at each level.}
+\caption{Unjudged high-agreement candidates against the accepted events.}
+\label{fig:pool}
 \end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{drop_motifs/ATLAS_shapes.pdf}
-\caption{Forty family medoids from four corpora, placed by native fall duration: 0.3--266\,s, 2.9 orders of magnitude.}
-\label{fig:atlas}
-\end{figure}
-
-\begin{instructions}
-The findings to state, each with its ledger row (\src{Plots/drop_motifs10/CLAIMS.md}):
-\begin{itemize}
-  \item scale collapse: drops spanning 3.6 orders of magnitude of duration and 4.2 of amplitude share one relative
-        shape after normalisation. Not that the species have the same waveform (S2.2);
-  \item \textbf{normalisation is not invariance} (row 9): the 200-point z-normalised vector still predicts how many
-        samples an event was built from, at 0.753 balanced accuracy against a chance of 0.25 ($n=3,012$);
-  \item species is recoverable from absolute scale at 0.781 against a chance of 0.333 (row 12), and from normalised
-        shape at 0.614 (row 13, falsifying ``shape is species-invariant''). But one feature, the number of samples in
-        the fall, already gives 0.575 (row 14);
-  \item family membership tracks resolution at least as strongly as species: matched rate and framing,
-        $V=0.087$ for species against $0.277$ for samples per event (rows 6--8, 10);
-  \item family transfer between species is partial and asymmetric: reishi to oyster ARI 0.52, oyster to sp385 0.03
-        (row 16). Yet one species' events sit closer to another's medoids than a surrogate allows, 1.5--8.4$\times$
-        (row 17);
-  \item the duty-cycle reversal: reishi's drops are the broadest relative to their spacing (0.308, against oyster 0.111
-        and lion's mane 0.0046) while being the shortest in absolute time (0.7\,s, against 26\,s and 1.5\,s) (S2.3).
-\end{itemize}
-What this means for the plan's RQ3: scale is not cleanly a property of the motif. The representation carries
-resolution and context. This is the negative result the plan said would be reportable.
-\end{instructions}
-
-\begin{figure}[htbp]
-\centering
-\begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{drop_motifs/SPECIES_vs_RESOLUTION.png}\caption{Species against resolution}\end{subfigure}\hfill
-\begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{drop_motifs/DECODE_species.png}\caption{Decoding species}\end{subfigure}
-\caption{Family membership and species decoding against measurement resolution, with permutation nulls.}
-\label{fig:speciesres}
-\end{figure}
-
-\section{Sequences of drops}
-\label{sec:sequences}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{drop_motifs/S3_1_sequence_morph_oyster_id28_ch5_1394131s.png}
-\caption{A drop sequence that morphs: oyster channel 5 at 1,394,131\,s. Every step-to-step shape change is smaller than the change from first to last drop.}
-\label{fig:sequence}
-\end{figure}
-
-\begin{instructions}
-From \src{docs/rq_roundB/notes/drop-motif-sequences.md}:
-\begin{itemize}
-  \item a sequence is at least 5 drops on one channel, with no gap longer than 2$\times$ that channel's typical gap,
-        and either regular (gap CV $\le$ 0.5) or trending (R$^2\ge0.7$);
-  \item 125 sequences of 1,686 events: oyster 19, reishi 98, lion's mane 8;
-  \item of the 15 drawn (S3.1), 4 morph and 11 return to near where they started;
-  \item isolated pairs show no effect (S3.3, not drawn).
-\end{itemize}
-Name the seeds for round B: oyster id28 (DB sequence 3, all 28 steps smaller than the end-to-end change), oyster id35
-(sequence 7), reishi id901 (sequence 22, which morphs while its beat drifts). Caveat: \texttt{oyster\_id22} is 10 real
-cycles stored as 20 events.
-\end{instructions}
 
 \section{Discussion}
 
