@@ -1,0 +1,47 @@
+{
+ "version": 1,
+ "about": "Wave-1 export requests (2026-11-05). Edit freely: 'windows' are exact requests, 'rules' are resolved at run time against the database and written to data/windows/resolved_windows.csv. Times: start_h/end_h (hours) or start_s/end_s (seconds) from the recording's first sample. channel: a 0-based index, a list of indices, \"all\", or a label such as \"CH4_A2\" (resolved by Working.discovery.channels; fallback_channel is used, and logged, when the label cannot be resolved). decimate_hz (optional): block-mean to about that rate; otherwise native rate.",
+ "recordings": {
+  "M2_aug": {"stem": "M2_aug_concat_fs1"},
+  "M2_concat": {"stem": "M2_concat_fs1"},
+  "M4_aug": {"stem": "M4_aug_concat_fs1", "note": "the held-out exam, scored 2026-10-26: exporting it is allowed now"},
+  "LM_fs2": {"stem": "LM_fs2"},
+  "CO_fs2": {"stem": "CO_fs2"},
+  "L_LM_fs2": {"stem": "L_LM_Jul_26_J_raw_fs2", "note": "five channels of MJu26a"},
+  "MJu26a_fs2": {"stem": "MJu26a_fs2"},
+  "SH_fs2": {"stem": "SH_fs2"},
+  "SO_fs2": {"stem": "SO_fs2", "note": "2 Hz sweep partly imported"},
+  "Mushroom_260720": {"stem": "Mushroom_260720", "recording_id": 385, "note": "a 4-h excerpt of MJu26a CH14"},
+  "Fig2A": {"stem": "Fig2A_dt0p1", "note": "reishi F2A"}
+ },
+ "round_b": ["M2_aug", "M2_concat", "CO_fs2", "LM_fs2", "MJu26a_fs2", "SH_fs2", "SO_fs2"],
+ "overview_bin_s": 60,
+ "full_channels": [
+  {"recording": "M2_concat", "channel": [0, 2, 13], "why": "the legacy matrix-profile files in Results/Detection/matrix_profile/_legacy/ are on these"},
+  {"recording": "Mushroom_260720", "channel": "all", "why": "rec 385, the 4-h MJu26a CH14 excerpt, whole"},
+  {"recording": "Fig2A", "channel": "all", "why": "reishi F2A, whole"}
+ ],
+ "windows": [
+  {"name": "M2_aug_CH4_A2_377-381h", "recording": "M2_aug", "channel": "CH4_A2", "fallback_channel": 4, "start_h": 377, "end_h": 381, "also_export_fallback": true, "why": "figure excerpt"},
+  {"name": "M2_aug_CH1_A1_304-328h", "recording": "M2_aug", "channel": "CH1_A1", "fallback_channel": 0, "start_h": 304, "end_h": 328, "why": "figure excerpt"}
+ ],
+ "rules": [
+  {"rule": "gallery", "recordings": "kept", "hours": 24, "fallback_start_h": 100, "why": "the dataset gallery: per kept recording, the channel and 24 h holding the most human-accepted events (else hours 100-124 of the first channel)"},
+  {"rule": "b1_trains", "recordings": "round_b", "hours": 4, "template": "drop_detection_v1", "why": "per round-B recording, the 4 h on any channel with the most drop_detection_v1 onsets (the default-settings run B1 uses)"},
+  {"rule": "b4_stack", "recording": "M2_aug", "hours": 6, "pairs_csv": "docs/thesis/data/ch10_b4/b4_pairs.csv", "fallback_start_h": 100, "why": "all M2_aug channels for the 6 h holding the most non-artifact co-occurrences of the B4 census pairs"},
+  {"rule": "agreement_excerpt", "recording": "M2_aug", "hours": 12, "min_agree": 9, "min_judged": 3, "why": "one M2_aug channel's 12 h with the most candidate events at >= 9 agreeing families that also holds >= 3 human-judged items"},
+  {"rule": "cnn_scores", "recording": "M2_aug", "hours": 48, "why": "the M2_aug channel's 48 h with the most accepted events, with the CNN window scores of the stored sweep runs"}
+ ],
+ "queues": [25, 28, 35, 36],
+ "rq2_seed_discovery_runs": {"drop30": 67, "spike37": 68, "longdip_id020": 13, "dip_id010": 9, "s056": 311},
+ "library_events_csv": "docs/thesis/data/library_events_all_active/events.csv",
+ "library_grouping_json": "docs/thesis/data/library_events_all_active/events_grouping.json",
+ "library_rec385": {"recording_id": 385, "grouping_id": 5},
+ "hand_labels": {"source": "imported_10min", "per_class": 10, "classes": ["interesting", "not_interesting", "artifact"], "context_samples": 1800, "seed": 0},
+ "misses": {"n_windows": 12, "seed": 0},
+ "drop_motifs": {"store": "Plots/drop_motifs12a/motifs", "figures": "Plots/drop_motifs12b", "max_npz_mb": 20, "subset_n": 1000, "seed": 0},
+ "existing_plots": {"dirs": ["Plots/Detection/mp", "Plots/family_search", "Plots/Classification/cnn", "Plots/Classification/gramian", "Plots/Classification/dendrogram"], "downscale_over_mb": 2, "max_width_px": 2000, "max_total_mb": 120},
+ "pool": {"per_recording": 2000, "levels": [[5, 6], [7, 8], [9, null]], "thumbnails_per_level": 20, "seed": 0, "prefer_over": {"MJu26a_fs2": "L_LM_fs2"}},
+ "m4_exam": {"queue": 36, "hours": 48, "manifest": "DATA/derived/exam/M4/manifest.json", "manifest_tracked": "docs/rq_roundA_2/exam/M4-exam-manifest.json", "sample_fallback": "DATA/derived/candidate_events/M4_aug_concat_fs1_ae545821/sample_seed20261026_l40_f15"},
+ "r4": {"manifest": "DATA/derived/exam/M4/manifest.json", "manifest_tracked": "docs/rq_roundA_2/exam/M4-exam-manifest.json", "model_dir": null, "batch": 256}
+}
