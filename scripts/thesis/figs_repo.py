@@ -247,8 +247,34 @@ def surr20():
     return fs.save(fig, "ch6_surr20")
 
 
+def b4():
+    """Chapter 10, B4: the cross-channel census - co-occurring events per recording, by what explains them."""
+    d = pd.read_csv(os.path.join(DATA, "ch10_b4", "b4_bins.csv"))
+    t = d.pivot_table(index="source_file", columns="bin", values="count", aggfunc="sum").fillna(0)
+    bins = [("shared_driver", "shared driver"), ("independent_recurrence", "independent recurrence"),
+            ("propagation", "propagation"), ("artifact", "artifact (a copy)")]
+    order = ["M2_aug_concat_fs1.mat", "M2_concat_fs1.mat", "MJu26a_fs2.mat", "CO_fs2.mat", "LM_fs2.mat"]
+    t = t.reindex(order).fillna(0)
+    fig, ax = fs.figure("wide", 2.5)
+    y = np.arange(len(order))[::-1]
+    left = np.zeros(len(order))
+    cols = [fs.CATEGORICAL[0], fs.CATEGORICAL[2], fs.CATEGORICAL[1], fs.NEUTRAL]
+    for (b, lab), c in zip(bins, cols):
+        v = t[b].to_numpy() if b in t else np.zeros(len(order))
+        ax.barh(y, v, left=left, color=c, height=0.6, label=lab, edgecolor="white", lw=1.0)
+        left += v
+    for yy, tot in zip(y, left):
+        ax.text(tot + 1, yy, f"{int(tot)}", va="center", fontsize=8, color=fs.INK_2)
+    ax.set_yticks(y)
+    ax.set_yticklabels([fs.label(o) for o in order])
+    ax.set_xlabel("co-occurring events across channels")
+    ax.grid(axis="y", visible=False)
+    ax.legend(loc="lower right", fontsize=7.5)
+    return fs.save(fig, "ch10_b4_bins")
+
+
 if __name__ == "__main__":
     fs.apply()
-    which = sys.argv[1:] or ["ladder", "cnn", "catalogue", "b12", "b1", "surr20"]
+    which = sys.argv[1:] or ["ladder", "cnn", "catalogue", "b12", "b1", "surr20", "b4"]
     for w in which:
         print(globals()[w]())
