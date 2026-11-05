@@ -112,11 +112,17 @@ of 0.40 (\src{..._opt_sweep_output.txt}, line 7). KNN--DTW: interesting-class F1
 
 \begin{figure}[htbp]
 \centering
-\figplaceholder{5.5cm}{Figure 3.2 (T1, repo + bundle): (a) confusion matrices of the four CNNs on the blind labels
-(\src{docs/thesis/data/rq1_v2_blind/run1613_blind_score.json}); (b) one CNN's window score along two days of an
-M2\_aug channel, taken from its stored sweep run, with the hand labels as ticks.}
-\caption{The early CNNs: how they did on blind labels, and what their score looks like along a recording.}
+\includegraphics[width=\textwidth]{new/ch3_cnn_blind.pdf}
+\caption{The early CNNs judged against blind labels, months after training. Left: confusion matrices at their own 10-minute scale, on 429 windows you labelled blind on the site (two exams pooled: a later time block and unseen channels; ``int.'' is interesting). Right: balanced accuracy when the same models are slid at 1, 10 and 30 minutes. At 1 minute they are at chance.}
 \label{fig:earlycnn}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\figplaceholder{4.5cm}{Figure 3.3 (T1, bundle): one CNN's window score along two days of an M2\_aug channel, from its
+stored sweep run, under the trace, with the hand labels as ticks.}
+\caption{What a CNN's score looks like along a recording.}
+\label{fig:cnnscoretrace}
 \end{figure}
 
 \section{Matrix profiles and seeded search}
