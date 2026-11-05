@@ -99,7 +99,22 @@ Copy this template once per study:
           \item against shuffled gaps, LV sits below the band on 11 of 16 channels. Neighbouring gaps are more alike
                 than their mix implies: the rate drifts slowly over the 30 days.
         \end{itemize}
-  \item Final numbers: apply Benjamini--Hochberg across channels, and repeat on CO, LM, M2\_concat and the 2\,Hz sets.
+  \item \textbf{Final read (5 Nov)}, on every swept recording: 45 channels of M2\_aug, M2\_concat, CO, LM and L\_LM
+        (MJu26a's channels, until the 2\,Hz sweep is imported). Each channel is one complete \texttt{drop\_detection\_v1}
+        run, the same runs as B12. Benjamini--Hochberg at 0.05 runs across all 45 channels, separately for each
+        measure and null. Sources: \src{scripts/thesis/b1_intervals.py},
+        \src{docs/rq_roundA_2/findings/b1-intervals-2026-11-05.md}; ledger J1b; Figure~\ref{fig:b1lv}.
+        \begin{itemize}
+          \item \textbf{Against random timing, random-like.} LV is outside the Poisson band at $p<0.05$ on 9 of 45
+                channels, but none survives correction. CV2 leaves two channels more regular than random: M2\_aug CH3
+                (127 events, CV2 0.78) and LM CH1 (30 events, LV 0.47, CV2 0.60).
+          \item \textbf{Against shuffled gaps, neighbouring gaps are more alike than their mix} on 16 of 45 channels
+                after correction (LV), on every recording: M2\_aug 9 of 16, M2\_concat 2 of 16, LM 2 of 4, CO 1 of 4,
+                L\_LM 2 of 5. The rate drifts slowly. One M2\_concat channel (CH6) goes the other way: long and short
+                gaps alternate.
+          \item \textbf{Caveat.} 13 channels have fewer than 10 events (median 6 on CO, 13 on M2\_concat), so the
+                read rests on the busier channels.
+        \end{itemize}
 \end{itemize}
 
 \textbf{B2}, sequence morph:
@@ -127,6 +142,13 @@ Copy this template once per study:
         direction was not the question asked, so report it as an observation only.
 \end{itemize}
 \end{instructions}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{data/ch10_b1/b1_lv.png}
+\caption{B1: LV of the intervals between \texttt{drop\_detection\_v1} events, one point per channel, against a rate-matched Poisson train (left) and against the channel's own gaps shuffled (right). Grey bars are each null's 95\,\% band. Blue and red mark channels below and above it after Benjamini--Hochberg across the 45 channels. The timing is random-like, but neighbouring gaps are more alike than shuffled on 16 channels: the rate drifts.}
+\label{fig:b1lv}
+\end{figure}
 
 \section{Recovery and the gap before it}
 \label{sec:rb_models}
@@ -479,7 +501,7 @@ If fewer than about 30 interesting events come back, use enoki next.
 
 \begin{instructions}
 Table~\ref{tab:rbsummary} holds every round-B result as it stood at the freeze (3 Nov); each row's number is in the
-ledger (J1--J3, J6--J11).
+ledger (J1--J3, J6--J11; B1's final read is J1b, 5 Nov).
 \begin{itemize}
   \item \textbf{Prose:} add one sentence per study on what it changes.
   \item \textbf{When the open rows return,} update them: B7 needs the ghost fungus registered, B8 the cluster and B11
@@ -496,7 +518,7 @@ ledger (J1--J3, J6--J11).
 \toprule
 \textbf{\#} & \textbf{Question} & \textbf{Null} & \textbf{Result} & \textbf{Verdict}\\
 \midrule
-B1 & Are intervals regular, bursty or random? & rate-matched Poisson; shuffled intervals & First read, M2\_aug: inside the Poisson band on most channels (CH3 more regular, LV 0.72, $p=0.004$, borderline after correction); below the shuffled band on 11 of 16 channels, from slow rate drift & bounded: random-like timing, drifting rate; one recording\\
+B1 & Are intervals regular, bursty or random? & rate-matched Poisson; shuffled intervals & 45 channels, five recordings: no channel's LV leaves the Poisson band after BH (CV2: two more regular); neighbouring gaps more alike than shuffled on 16, on every recording; one alternates & supported: random-like timing with a drifting rate\\
 B2 & Do sequences change shape step by step? & shuffled order & morph fraction: 0 of 5 testable sequences; step size: 5 of 19 closer than shuffled (4 after BH), ratios 0.58--0.84; 5 alternate & bounded: persistence, not a steady morph\\
 B3 & Does recovery depend on the gap before it? & gaps shuffled within trains & within trains, $z=+2.9$ falls to $+0.6$ given depth, and the gap after gives $+9.9$ (censoring); across census gaps, M2\_aug $z=+5.0$ and M2\_concat $+3.1$, halved by fall duration & not within trains; bounded across census gaps\\
 B4 & Propagation, or a shared ground? & rotation; random time & M2\_aug within packs 8 against 1.9 ($p=0.002$), one pair after BH, no consistent lag; across packs 18 against 6.3 ($p=0.001$); M2\_concat CH5--8 are copies; none on CO, LM & propagation not supported; a shared driver\\
