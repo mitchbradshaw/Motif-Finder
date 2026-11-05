@@ -547,6 +547,65 @@ def realsurr():
     return fs.save(fig, "ch6_real_vs_surrogate")
 
 
+# ------------------------------------------------------------------------------------------------ Chapter 7 --
+def seeds(which=("drop30", "spike37")):
+    """Figure 7.1: two library seeds, their blind-judged matches across M2_aug's channels, and random windows of the
+    same length judged in the same blind queue."""
+    sw = B.stack("queues/queue35_seed_windows")
+    qw = B.stack("queues/queue35_windows")
+    items = B.csv("queues/queue_items")
+    items = items[items["queue"] == 35]
+    qi = qw.index.reset_index().rename(columns={"index": "pos"})
+    zn = lambda v: (v - np.nanmean(v)) / (np.nanstd(v) + 1e-12)
+    fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 2.35 * len(which) + 0.3))
+    gs = fig.add_gridspec(len(which), 4, width_ratios=[0.8, 1.4, 1.0, 1.0], wspace=0.42, hspace=0.62)
+    for r_, key in enumerate(which):
+        sr = sw.index[sw.index["seed_key"] == key].index[0]
+        t, y = sw.window(int(sr))
+        a0, a1 = sw.index.loc[sr, "item_t0_s"], sw.index.loc[sr, "item_t1_s"]
+        m = (t >= a0) & (t <= a1)
+        L = a1 - a0
+        ax = fig.add_subplot(gs[r_, 0])
+        ax.plot(t[m] - a0, y[m], color=fs.INK, lw=1.4)
+        ax.set_title(f"seed {key}\n{L:.0f} s", fontsize=8, loc="left"); ax.set_xlabel("s"); ax.set_ylabel("mV")
+        mt = qi[qi["stratum"] == key]
+        ctl = qi[(qi["stratum"] == "control") & (np.isclose(qi["item_t1_s"] - qi["item_t0_s"], L))]
+        bx = fig.add_subplot(gs[r_, 1])
+        for _, rr in mt.iterrows():
+            good = rr["verdict_own"] in ("interesting", "seed")
+            bx.scatter([rr["item_t0_s"] / 3600], [rr["channel"]], s=14, color=fs.SPECIES_COLOUR["oyster"] if good
+                       else "white", edgecolor=fs.SPECIES_COLOUR["oyster"], lw=0.8)
+        bx.scatter([a0 / 3600], [sw.index.loc[sr, "channel"]], marker="*", s=90, color=fs.INK, zorder=4)
+        bx.set_ylim(-0.8, 15.8); bx.set_xlim(0, 721); bx.set_yticks([0, 5, 10, 15])
+        bx.set_xlabel("time in M2_aug (h)"); bx.set_ylabel("channel")
+        n_ok = int(mt["verdict_own"].isin(["interesting", "seed"]).sum()); n_j = int(mt["verdict_own"].isin(
+            ["interesting", "seed", "not_interesting"]).sum())
+        bx.set_title(f"matches: {n_ok}/{n_j} accepted", fontsize=8, loc="left")
+        cx = fig.add_subplot(gs[r_, 2]); dx = fig.add_subplot(gs[r_, 3], sharey=cx)
+        grid = np.linspace(0, 1, 200)
+        for _, rr in mt.iterrows():
+            tt, yy = qw.window(int(rr["pos"]))
+            mm = (tt >= rr["item_t0_s"]) & (tt <= rr["item_t1_s"])
+            if mm.sum() > 3:
+                u = (tt[mm] - rr["item_t0_s"]) / max(rr["item_t1_s"] - rr["item_t0_s"], 1)
+                cx.plot(grid, zn(np.interp(grid, u, yy[mm])), color=fs.SPECIES_COLOUR["oyster"], lw=0.5, alpha=0.35)
+        cx.plot(grid, zn(np.interp(grid, (t[m] - a0) / L, y[m])), color=fs.INK, lw=1.8)
+        cx.set_title("matches (z)", fontsize=8, loc="left"); cx.set_xticks([])
+        for _, rr in ctl.iterrows():
+            tt, yy = qw.window(int(rr["pos"]))
+            mm = (tt >= rr["item_t0_s"]) & (tt <= rr["item_t1_s"])
+            if mm.sum() > 3:
+                good = rr["verdict_own"] in ("interesting", "seed")
+                u = (tt[mm] - rr["item_t0_s"]) / max(rr["item_t1_s"] - rr["item_t0_s"], 1)
+                dx.plot(grid, zn(np.interp(grid, u, yy[mm])), color=fs.CATEGORICAL[1] if good else fs.NEUTRAL,
+                        lw=0.7, alpha=0.6)
+        c_ok = int(ctl["verdict_own"].isin(["interesting", "seed"]).sum())
+        c_j = int(ctl["verdict_own"].isin(["interesting", "seed", "not_interesting"]).sum())
+        dx.set_title(f"random: {c_ok}/{c_j} accepted", fontsize=8, loc="left"); dx.set_xticks([])
+        dx.tick_params(labelleft=False)
+    return fs.save(fig, "ch7_seeds")
+
+
 def main():
     global B
     ap = argparse.ArgumentParser()
