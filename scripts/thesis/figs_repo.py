@@ -273,8 +273,74 @@ def b4():
     return fs.save(fig, "ch10_b4_bins")
 
 
+FAMILY_NAMES = {"drop_detection_v1": "drop detector v1", "drop_detection_v5": "drop detector v5",
+                "wavelet_encoded": "wavelet-encoded", "symbol_search": "symbol search (dSAX)",
+                "BEADs_invert_detect_v1": "BEADS", "signal_threshold": "signal threshold",
+                "noise_threshold": "noise threshold", "Wavelet_detection_prototype": "Dehshibi wavelet",
+                "cnn_60min": "CNN scores, 60 min", "cnn_10min": "CNN scores, 10 min",
+                "deconvolved_troughs": "deconvolved troughs", "OASIS_Deconvolution": "OASIS",
+                "matrix_profile": "matrix-profile threshold", "cnn_1min": "CNN scores, 1 min (control)"}
+
+
+def detrates():
+    """Chapter 6: detections per setting per channel-hour, detector family x recording, with each family's
+    precision (share of its candidates judged real, pooled over the five recordings' blind queues)."""
+    d = pd.read_csv(os.path.join(DATA, "detectors_vs_surrogates", "by_family_recording.csv"))
+    hours = {"M2_aug": 721.0, "M2_concat": 282.5, "CO_fs2": 480.0, "LM_fs2": 480.0, "L_LM_fs2": 635.9}
+    recs = ["M2_aug", "M2_concat", "CO_fs2", "LM_fs2", "L_LM_fs2"]
+    d = d[d["recording"].isin(recs)].copy()
+    d["rate"] = d["real"] / (d["tasks"] * d["recording"].map(hours))
+    lad = json.load(open(os.path.join(DATA, "ledger_checks.json")))["ladder"]
+    prec = {}
+    for f in FAMILY_NAMES:
+        num = den = 0.0
+        for v in lad.values():
+            g = v["groups"].get(f"family:{f}")
+            if g and g.get("n_sampled"):
+                num += g["precision"] * g["n_sampled"]
+                den += g["n_sampled"]
+        prec[f] = num / den if den else np.nan
+    fams = sorted(FAMILY_NAMES, key=lambda f: (f == "cnn_1min", -(prec[f] if np.isfinite(prec[f]) else -1)))
+    M = np.full((len(fams), len(recs)), np.nan)
+    for i, f in enumerate(fams):
+        for j, r in enumerate(recs):
+            v = d[(d["family"] == f) & (d["recording"] == r)]["rate"]
+            if len(v):
+                M[i, j] = v.iloc[0]
+    fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 4.3))
+    gs = fig.add_gridspec(1, 2, width_ratios=[3.2, 1.3], wspace=0.08)
+    ax = fig.add_subplot(gs[0, 0])
+    L = np.log10(np.where(M > 0, M, np.nan))
+    im = ax.imshow(L, cmap="Blues", aspect="auto", vmin=-3.5, vmax=1.5)
+    for (i, j), v in np.ndenumerate(M):
+        if np.isfinite(v):
+            txt = "0" if v == 0 else (f"{v:.3f}" if v < 0.01 else f"{v:.2f}" if v < 1 else f"{v:.1f}")
+            dark = np.isfinite(L[i, j]) and L[i, j] > 0.0
+            ax.text(j, i, txt, ha="center", va="center", fontsize=7, color="white" if dark else fs.INK)
+    ax.set_xticks(range(len(recs)))
+    ax.set_xticklabels([fs.label(r).replace(" (", "\n(") for r in recs], fontsize=7.5)
+    ax.xaxis.tick_top()
+    ax.set_yticks(range(len(fams)))
+    ax.set_yticklabels([FAMILY_NAMES[f] for f in fams], fontsize=7.5)
+    ax.grid(False)
+    for sp in ax.spines.values():
+        sp.set_visible(False)
+    ax.set_title("detections per setting per channel-hour", fontsize=8.5, pad=24)
+    bx = fig.add_subplot(gs[0, 1], sharey=ax)
+    pv = np.array([prec[f] * 100 for f in fams])
+    bx.barh(range(len(fams)), np.nan_to_num(pv), color=fs.SPECIES_COLOUR["oyster"], height=0.6)
+    for i, v in enumerate(pv):
+        bx.text((0 if not np.isfinite(v) else v) + 2, i, "--" if not np.isfinite(v) else f"{v:.0f}%", va="center", fontsize=7)
+    bx.set_xlim(0, 115)
+    bx.tick_params(axis="y", left=False, labelleft=False)
+    bx.set_xlabel("judged real (%)", fontsize=8)
+    bx.grid(axis="y", visible=False)
+    bx.set_title("precision", fontsize=8.5, pad=24)
+    return fs.save(fig, "ch6_detrates")
+
+
 if __name__ == "__main__":
     fs.apply()
-    which = sys.argv[1:] or ["ladder", "cnn", "catalogue", "b12", "b1", "surr20", "b4"]
+    which = sys.argv[1:] or ["ladder", "cnn", "catalogue", "b12", "b1", "surr20", "b4", "detrates"]
     for w in which:
         print(globals()[w]())
