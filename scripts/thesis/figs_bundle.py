@@ -748,6 +748,53 @@ def anatomytrain():
     return fs.save(fig, "ch5_anatomy_train")
 
 
+# ------------------------------------------------------------------------------------------------ Chapter 4 --
+def sixdetectors(h0=69.2, h1=73.2):
+    """Figure 4.2: one signal, six detectors - four hours of M2_aug channel index 8 with each detector's spans."""
+    name = [f[:-4] for f in B.ls("windows") if f.startswith("agreement__") and f.endswith(".npz")][0]
+    x, meta, th = _window(name)
+    m = (th >= h0) & (th <= h1)
+    det = B.csv(f"detections_in_windows/{name}__detections")
+    det = det[(det["is_surrogate"] == False) & (det["end_s"] / 3600 > h0) & (det["start_s"] / 3600 < h1)]  # noqa: E712
+    rows = [("drop_detection_v1", "drop detector v1"), ("BEADs_invert_detect_v1", "BEADS"),
+            ("Wavelet_detection_prototype__epsilon_factor_0p02", "Dehshibi wavelet (epsilon 0.02)"),
+            ("noise_threshold", "noise threshold"),
+            ("cnn_fusion3_10min", "CNN fusion, 10 min"), ("OASIS_Deconvolution", "OASIS")]
+    fig, axes = fs.figure("full", 6.2, len(rows) + 1, 1, sharex=True,
+                          gridspec_kw={"height_ratios": [1.6] + [1.0] * len(rows), "hspace": 0.12})
+    axes[0].plot(th[m], x[m], color=fs.INK, lw=0.7)
+    axes[0].set_ylabel("mV"); axes[0].set_title("M2_aug, channel index 8: four hours, as recorded", loc="left",
+                                                fontsize=8.5)
+    for ax, (v, lab) in zip(axes[1:], rows):
+        d = det[det["variant"] == v]
+        ax.plot(th[m], x[m], color=fs.GRID, lw=0.6)
+        lo, hi = np.nanmin(x[m]), np.nanmax(x[m])
+        ivs = sorted((max(h0, r.start_s / 3600), min(h1, r.end_s / 3600)) for r in d.itertuples())
+        merged = []
+        for a0, a1 in ivs:
+            if merged and a0 <= merged[-1][1]:
+                merged[-1][1] = max(merged[-1][1], a1)
+            else:
+                merged.append([a0, a1])
+        for a0, a1 in merged:
+            ax.axvspan(a0, a1, color=fs.SPECIES_COLOUR["oyster"], alpha=0.3, lw=0)
+            seg = (th >= a0) & (th <= a1) & m
+            ax.plot(th[seg], x[seg], color=fs.INK, lw=0.7)
+        cov = 0.0
+        if len(d):
+            sp = np.zeros(m.sum(), bool)
+            tm = th[m]
+            for r in d.itertuples():
+                sp |= (tm >= r.start_s / 3600) & (tm <= r.end_s / 3600)
+            cov = sp.mean() * 100
+        ax.set_yticks([]); ax.grid(False)
+        ax.text(0.005, 0.92, f"{lab}: {len(d)} spans, {cov:.0f}% of the time", transform=ax.transAxes, fontsize=7.5,
+                va="top", bbox=dict(facecolor="white", edgecolor="none", alpha=0.85, pad=0.8))
+    axes[-1].set_xlabel("time in the recording (h)")
+    axes[-1].set_xlim(h0, h1)
+    return fs.save(fig, "ch4_six_detectors")
+
+
 def main():
     global B
     ap = argparse.ArgumentParser()
