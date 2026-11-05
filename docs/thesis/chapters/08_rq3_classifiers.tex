@@ -109,11 +109,9 @@ windows but with many false alarms. They do not replace human labels.
 \end{table}
 
 \begin{instructions}
-Reconcile with the plan's figures. GASF 91.98\,\%, GADF 91.84\,\%, recurrence 92.26\,\% and fusion 91.00\,\% were plain
-accuracy on a random 9:1 split of overlapping windows. A model that always answers ``not interesting'' scores about 0.81
-accuracy on these labels, and the training data was never recorded. The poster's bars round two of these up: on the
-blind labels GADF is 0.90 and recurrence 0.91 in plain accuracy, and the poster's fusion checkpoint is unnamed
-(ledger). Quote balanced accuracy, 0.78--0.83.
+Reconcile with the plan's figures by pointing to Chapter~\ref{ch:early} (Section~\ref{sec:earlycnn}), which now holds
+the training story: 91--92\,\% plain accuracy on a random 80:20 split of overlapping windows. Quote balanced accuracy
+here, 0.78--0.83.
 \end{instructions}
 
 \subsection{MiniRocket on judged events}
@@ -128,7 +126,7 @@ blind labels GADF is 0.90 and recurrence 0.91 in plain accuracy, and the poster'
 \midrule
 CO\_fs2 & 0.989 [0.976--0.998] & 0.954 [0.92--0.98]\\
 LM\_fs2 & 0.995 [0.990--0.999] & 0.955 [0.93--0.98]\\
-L\_LM & 0.984 [0.972--0.992] & 0.925 [0.90--0.95]\\
+MJu26a (CH10, 13--16) & 0.984 [0.972--0.992] & 0.925 [0.90--0.95]\\
 M2\_aug & 0.951 [0.938--0.963] & 0.886 [0.87--0.90]\\
 M2\_concat & 0.961 [0.927--0.987] & 0.909 [0.87--0.95]\\
 \midrule
@@ -163,7 +161,7 @@ Why the pooled null sits at 0.42 rather than 0.5: see the null findings file.
 \midrule
 CO\_fs2 & out & 0.989 & 0.740 & 0.803 & 0.684 & 0.785\\
 LM\_fs2 & out & 0.995 & 0.676 & 0.720 & 0.586 & 0.636\\
-L\_LM & out & 0.984 & 0.791 & 0.869 & 0.766 & 0.783\\
+MJu26a (CH10, 13--16) & out & 0.984 & 0.791 & 0.869 & 0.766 & 0.783\\
 M2\_concat & probably out & 0.961 & 0.573 & 0.608 & 0.568 & 0.585\\
 M2\_aug & in & 0.951 & 0.796 & 0.838 & 0.801 & 0.801\\
 \midrule
@@ -188,7 +186,7 @@ minus GADF: $+0.18$ [0.16--0.20] pooled, and $+0.11$ even on M2\_aug, which the 
 \midrule
 CO\_fs2 & 0.989 & 0.986 & 0.988 & 0.987\\
 LM\_fs2 & 0.995 & 0.997 & 0.998 & 0.998\\
-L\_LM & 0.984 & 0.979 & 0.978 & 0.983\\
+MJu26a (CH10, 13--16) & 0.984 & 0.979 & 0.978 & 0.983\\
 M2\_concat & 0.961 & 0.960 & 0.971 & 0.946\\
 M2\_aug & 0.951 & 0.957 & 0.951 & 0.960\\
 \midrule
@@ -215,9 +213,10 @@ of the exam (Appendix~G, Round 5), so its equality holds on R4's folds only.
 
 \textbf{Two caveats.}
 \begin{itemize}
-  \item L\_LM and recording 385 share MJu26a CH14 (Chapter~\ref{ch:method}). Recording 385's fold (12 events, left out
-        of both tables) therefore says nothing, and L\_LM's is slightly flattered: 12 of its 2,085 training events
-        share its signal. This holds for R4 as for the CNN.
+  \item MJu26a's five-channel copy (CH10, 13--16) and the MJu26a CH14 excerpt (4\,h) share CH14
+        (Chapter~\ref{ch:method}). The excerpt's fold (12 events, left out of both tables) therefore says nothing, and
+        the five-channel copy's is slightly flattered: 12 of its 2,085 training events share its signal. This holds for
+        R4 as for the CNN.
   \item The CNN had one seed and no tuning.
 \end{itemize}
 \end{instructions}
@@ -264,16 +263,6 @@ Results (scored once, 28 Oct; \src{docs/rq_roundA_2/findings/m4-exam-2026-10-28.
         0\,\%, and \texttt{symbol\_search} 1\,\%. These feed Chapter~\ref{ch:rq1}.
   \item During judging, M4's unit was declared V (audit 1158) so that Review could draw its traces. Both scorers
         already read an undeclared unit as volts, so no score changed (Appendix~\ref{app:exam}).
-\end{itemize}
-\end{instructions}
-
-\begin{instructions}
-\textbf{A second unseen recording, from another lab.} The \textit{S.~commune} exam was frozen and drawn on 29 Oct:
-263 blind items in queue 37 (Table~\ref{tab:scommunerecord}). Its known risk is amplitudes about 300 times smaller
-than R4's training recordings.
-\begin{itemize}
-  \item If it is judged and scored before the freeze (3 Nov), report it here, beside M4, in the same form.
-  \item If it is not, keep it in Chapter~11's further work, where it is listed now.
 \end{itemize}
 \end{instructions}
 

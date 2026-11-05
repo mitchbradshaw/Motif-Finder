@@ -2,24 +2,23 @@
 \label{ch:roundb}
 
 \begin{instructions}
-About 7--9 pages: eleven short studies (B4 is being redesigned separately), each about half a page plus one figure.
+About 7--9 pages: ten short studies (B4 is being redesigned separately), each about half a page plus one figure.
 The list was fixed on 27 Oct (Round 4) and B3's design on 28 Oct (Round 5). B4's page was specified in the
 cross-channel workshop (27 Oct) but is not yet built. Experiments freeze Tue 3 Nov.
 
 Every study states these decisions:
 \begin{itemize}
   \item \textbf{Grouping}: g-11, one representative per de-duplicated event over every active recording
-        (Section~\ref{sec:families}). Decided 28 Oct (Round 5): rebuilt once as g-12 after the 2\,Hz sweep is imported
-        and its blind sample judged, then frozen for Chapters~\ref{ch:events} and~\ref{ch:roundb}.
+        (Section~\ref{sec:families}). It is the final grouping for Chapters~\ref{ch:events} and~\ref{ch:roundb}
+        (5 Nov).
   \item \textbf{Counts are of events, not members} (the events table). The rule: collapse twins ($\ge$90\,\% mutual
         overlap); keep a container with its parts; join units at $\ge$50\,\% overlap or gaps $\le$3\,s, never through a
         container. Joining on any overlap made one 93-minute train a single 111-part event.
-  \item \textbf{Datasets}: M2\_aug (oyster) and M2\_concat (lion's mane), both 1\,Hz; CO\_fs2 (chocolate oyster) and
+  \item \textbf{Datasets}: M2\_aug and M2\_concat (both oyster, 1\,Hz); CO\_fs2 (chocolate oyster) and
         LM\_fs2 (lion's mane); and the 2\,Hz copies of
         MJu26a, SH and SO (27 Oct). Excluded:
         \begin{itemize}
-          \item L\_R, because a humidity actuator's PID oscillation is in the signal;
-          \item F2B and L\_LM, which are copies of MJu26a channels;
+          \item MJu26a's five-channel copy (CH10, 13--16);
           \item M4, the exam;
           \item every other copy of a recording at another rate.
         \end{itemize}
@@ -43,7 +42,7 @@ B3 as fixed also asked whether an excitable-system model describes the drop cycl
 \end{instructions}
 
 \begin{table}[htbp]
-\caption{The round-B questions: the site page that answers each, its data, its null, and the building it needed.}
+\caption{The questions studied in this chapter: the site page that answers each, its data, its null, and the building it needed. B7 (multiscale entropy) and B8 (motif prevalence) were not run; they are future work (Section~\ref{sec:futurework}).}
 \label{tab:roundb}
 \footnotesize
 \begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3.1cm} >{\raggedright\arraybackslash}p{2.5cm} >{\raggedright\arraybackslash}p{2.3cm} >{\raggedright\arraybackslash}p{1.5cm}@{}}
@@ -59,7 +58,7 @@ B6 & Do the same shape families occur across recordings and species? & Library $
 B9 & Do event durations cluster at preferred scales? & \texttt{cwt\_events} & all swept sets & AAFT surrogates & none\\
 B10 & At which time scales does structure beyond noise appear? & \texttt{motif\_lengths}; CNN templates at 1, 10, 30\,min; \texttt{spike\_event\_\allowbreak features} & M2\_aug, M2\_concat, CO, LM, MJu26a & AAFT surrogates & none\\
 B11 & Do the detectors find the same events on the newer datasets? & Discovery $\rightarrow$ Compare; Compare every stage & CO, LM, MJu26a, SH, SO & per-run surrogate & none\\
-B12 & Do spike and drop shapes and intervals differ between recordings and species? & Interrogation $\rightarrow$ Event shape, Intervals, on accepted events & M2\_aug, M2\_concat, CO, LM (\emph{S.\ commune}) & shuffled recording labels & none\\
+B12 & Do spike and drop shapes and intervals differ between recordings and species? & Interrogation $\rightarrow$ Event shape, Intervals, on accepted events & M2\_aug, M2\_concat, CO, LM & shuffled recording labels & none\\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -83,8 +82,8 @@ B12 & Do spike and drop shapes and intervals differ between recordings and speci
                 than their mix implies: the rate drifts slowly over the 30 days.
         \end{itemize}
   \item \textbf{Final read (5 Nov)}, on every recording with a complete \texttt{drop\_detection\_v1} run: 56 channels
-        of M2\_aug, M2\_concat, CO, LM and MJu26a (its 2\,Hz copy, imported 5 Nov; it replaces L\_LM, five of its
-        channels). SH and SO have no \texttt{drop\_detection\_v1} run yet. Each channel is one complete run, the same
+        of M2\_aug, M2\_concat, CO, LM and MJu26a (its 2\,Hz copy, imported 5 Nov; it replaces MJu26a's five-channel copy,
+        CH10, 13--16). SH and SO have no \texttt{drop\_detection\_v1} run yet. Each channel is one complete run, the same
         kind as B12's. 44 channels have the three events a measure needs. Benjamini--Hochberg at 0.05 runs across
         those 44, separately for each measure and null. Sources: \src{scripts/thesis/b1_intervals.py},
         \src{docs/rq_roundA_2/findings/b1-intervals-2026-11-05.md}; ledger J1b; Figure~\ref{fig:b1lv}.
@@ -105,8 +104,8 @@ B12 & Do spike and drop shapes and intervals differ between recordings and speci
 \begin{itemize}
   \item Measure: along each drop sequence, the fraction of steps smaller than the end-to-end change.
   \item Null: the same events in shuffled order.
-  \item Data: the Library's sequences. Of the 118 on 28 Oct, 99 sit on inactive recordings (98 on Fig2A). Rebuild the
-        sequences on the frozen grouping (g-12) before the final read.
+  \item Data: the Library's sequences. Of the 118 on 28 Oct, 99 sit on inactive recordings (98 on F2A). g-11 is the
+        final grouping, so the sequences are read as they stand.
   \item Build: done 28 Oct (\src{Working/library/morph.py}). Library $\rightarrow$ Sequences and the Atlas show it.
   \item First read of the morph fraction: 0 of 5 testable sequences beat their shuffle, against 0.2 expected by chance.
         The fraction is coarse. A shuffled order also scores 1 whenever its two ends lie far apart, so even a perfect
@@ -180,8 +179,7 @@ The results:
         drop is larger ($+9.9$): recovery is cut off at the next drop, which is a censoring artefact. The three long
         chains agree.
   \item \textbf{Across census gaps, a modest relation on the two M2 recordings.} Across the drop-detector census's
-        hours-long gaps, both show a restitution-like relation: M2\_aug (oyster) $z=+5.0$ and M2\_concat (lion's mane,
-        corrected 3 Nov) $+3.1$ (pair-weighted
+        hours-long gaps, both show a restitution-like relation: M2\_aug $z=+5.0$ and M2\_concat $+3.1$, both oyster (pair-weighted
         $\rho\approx0.25$). It survives depth, order and the next gap, and is halved by the fall's duration. LM and
         CO are not significant (3 and 2 channels).
   \item \textbf{Not scored.} 43 of the 117 sequences, mostly reishi: 339 of 1,298 reishi events never recover halfway
@@ -191,7 +189,7 @@ The results:
 What it can claim:
 \begin{itemize}
   \item no within-train restitution;
-  \item a modest restitution-like relation across census gaps on M2\_aug (oyster) and M2\_concat (lion's mane).
+  \item a modest restitution-like relation across census gaps on M2\_aug and M2\_concat (both oyster).
 \end{itemize}
 What it cannot claim: any mechanism for the census relation.
 
@@ -217,6 +215,8 @@ Figure~\ref{fig:b6recurrence}.
 \textbf{Method.} Read off the Recurrence page for g-11 (42 families, 804 members), with the species set on 3 Nov:
 M2\_aug oyster, CO chocolate oyster, M2\_concat and LM lion's mane. Recording labels were shuffled across members
 10,000 times, keeping each family's size and each recording's count.
+
+\textbf{Re-run pending (5 Nov):} M2\_concat is oyster and chocolate oyster is a strain of \emph{P.\ ostreatus}; these numbers are being recomputed at species and strain level.
 \begin{itemize}
   \item \textbf{Shapes are shared.} 39 of 42 families span two or more recordings (14 span all four), and 39 span two
         or more species. 36 hold both oyster-type and lion's mane.
@@ -226,7 +226,8 @@ M2\_aug oyster, CO chocolate oyster, M2\_concat and LM lion's mane. Recording la
   \item The three single-recording families (F-35, F-53 and F-80) are all M2\_aug.
   \item \textbf{Caveats.}
         \begin{itemize}
-          \item Species is confounded with recording: there is one oyster and one chocolate-oyster recording.
+          \item Species is confounded with recording: there are few recordings per species, and lion's mane has
+                only LM.
           \item The members differ by source: those on CO, LM and M2\_concat are all accepted detector events, while
                 M2\_aug's include seeds.
           \item Members within a burst are not independent, so read the effect size, not the $p$.
@@ -239,6 +240,8 @@ Figure~\ref{fig:b12shape}.
 
 The site cannot run this as posed. Interrogation reads only the 16 seed families, and its Review-selection and
 prior-run sources are not wired. So every test ran on the core functions the pages call.
+
+\textbf{Re-run pending (5 Nov):} M2\_concat is oyster and chocolate oyster is a strain of \emph{P.\ ostreatus}; these numbers are being recomputed at species and strain level.
 \begin{itemize}
   \item \textbf{Shape}, on the 716 accepted blind-queue events. The recordings differ beyond shuffled labels, but only a
         little:
@@ -247,12 +250,12 @@ prior-run sources are not wired. So every test ran on the core functions the pag
           \item the normalised waveform gives $R^2=0.020$, $p=0.0005$, and the largest $\varepsilon^2$ is 0.062;
           \item duration-free measures do not separate them.
         \end{itemize}
-  \item \textbf{Species is not shown.} The three lion's mane recordings differ from each other more ($R^2=0.035$)
-        than species does ($R^2=0.005$, $p=0.064$). With one oyster and one chocolate-oyster recording, species cannot
-        be told from recording.
+  \item \textbf{Species is not shown.} The three recordings then labelled lion's mane (M2\_concat, LM and MJu26a's
+        five-channel copy) differ from each other more ($R^2=0.035$) than species does ($R^2=0.005$, $p=0.064$). With
+        few recordings per species, species cannot be told from recording.
   \item \textbf{Intervals}, on complete drop-detector v1 runs (45 channels). LV by dataset gives $p=0.057$ and CV2
         $p=0.070$; neither passes BH. By species, $p=0.38$. Median LV is M2\_aug 0.99, CO 1.06, M2\_concat 1.42,
-        LM 0.82 and L\_LM 0.85.
+        LM 0.82 and MJu26a (CH10, 13--16) 0.85.
   \item The fastest-edge rule calls 91\,\% of accepted events falls (76--98\,\% per recording).
 \end{itemize}
 \end{instructions}
@@ -267,7 +270,7 @@ prior-run sources are not wired. So every test ran on the core functions the pag
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{data/ch10_b12/b12_shape_by_recording.png}
-\caption{B12: six shape measures of the 716 accepted blind-queue events, by recording. The recordings differ, but only a little, and the lion's mane recordings (M2\_concat, LM, L\_LM) differ among themselves as much as from oyster.}
+\caption{B12: six shape measures of the 716 accepted blind-queue events, by recording. The recordings differ, but only a little.}
 \label{fig:b12shape}
 \end{figure}
 
@@ -358,7 +361,7 @@ script bins exactly as the page does: all 39 settings on M2\_aug CH6 match.
   \item \textbf{When.} On every channel the settings' rates rise and fall together: co-modulation 0.21--0.35 (median
         per recording), against 0.00 under random time shifts. The paired phase-randomised surrogates reach only
         0.02--0.04. So the bursts and quieter stretches are the recordings' own changes over hours and days.
-  \item \textbf{Channels.} Channels rise and fall together on M2\_aug, CO and L\_LM (B4's shared driver), but not on
+  \item \textbf{Channels.} Channels rise and fall together on M2\_aug, CO and MJu26a's five-channel copy (B4's shared driver), but not on
         LM. On M2\_concat the surrogates band as well, because CH5--8 are copies.
   \item \textbf{Silence.} No 3-hour bin is ever silent: the loose detectors fire everywhere.
   \item \textbf{Caveats.}
@@ -366,7 +369,7 @@ script bins exactly as the page does: all 39 settings on M2\_aug CH6 match.
           \item Detector variants share events, so co-modulation measures agreement on when, not independent
                 witnesses.
           \item There is one surrogate draw per run.
-          \item Without the environment logs, this cannot tell whether the changes are biological or the room's.
+          \item This cannot tell whether the changes are biological or the room's.
         \end{itemize}
 \end{itemize}
 
@@ -420,13 +423,6 @@ On those settings the same read gives:
 \begin{instructions}
 Each study asks what a method borrowed from another field reveals on fungal signals, and whether it beats its null.
 \begin{itemize}
-  \item \textbf{B7}, multiscale entropy (physiology), on the \texttt{complexity\_fingerprint} template. Do complexity
-        curves separate species beyond AAFT? So far the four Adamatzky species give a silhouette of 0.43, against
-        0.22--0.37 for AAFT, mostly from noise colour. Add CO, LM, MJu26a and M2\_aug, compared within one setup.
-        Register the ghost fungus first.
-  \item \textbf{B8}, the matrix profile as a prevalence measure (data mining), on Discovery $\rightarrow$ Seed search
-        from verified M2\_aug families. How often does a verified motif recur per hour per channel, and does an oyster
-        motif occur on CO, LM or MJu26a? Null: scrambled copies, or AAFT. Long searches go to the cluster.
   \item \textbf{B9}, CWT ridges (mass spectrometry), on the \texttt{cwt\_events} template. Is event duration
         multimodal, as Adamatzky's three scales suggest? \textbf{Answered, negative (3 Nov).}
         Sources: \src{docs/rq_roundA_2/findings/b9-cwt-durations-2026-11-03.md}; ledger J10; Figure~\ref{fig:b9hist}.
@@ -460,7 +456,7 @@ Each study asks what a method borrowed from another field reveals on fungal sign
                 templates beat their copy on all five recordings and the 60-minute ones on CO, M2\_aug and MJu26a.
                 The 1-minute ones beat it on none (their copies give 2--8 times more). After B9, read these margins as
                 an upper bound against AAFT.
-          \item Earlier result: on recording 385 every judged length from 30\,s to 16\,min repeated beyond noise,
+          \item Earlier result: on the MJu26a CH14 excerpt (4\,h) every judged length from 30\,s to 16\,min repeated beyond noise,
                 strongest at 30\,s. \texttt{spike\_event\_features} was not run.
         \end{itemize}
 \end{itemize}
@@ -491,14 +487,14 @@ Table~\ref{tab:rbsummary} holds every round-B result as it stood at the freeze (
 ledger (J1--J3, J6--J11; B1's final read is J1b, 5 Nov).
 \begin{itemize}
   \item \textbf{Prose:} add one sentence per study on what it changes.
-  \item \textbf{When the open rows return,} update them: B7 needs the ghost fungus registered, B8 the cluster and B11
-        the 2\,Hz sweep. The \emph{S.\ commune} exam waits on queue 37.
+  \item \textbf{When the open row returns,} update it: B11 needs the 2\,Hz sweep.
+  \item \textbf{B6 and B12 rows.} \textbf{Re-run pending (5 Nov):} M2\_concat is oyster and chocolate oyster is a strain of \emph{P.\ ostreatus}; these numbers are being recomputed at species and strain level.
   \item \textbf{Verdicts:} supported, bounded (a real but limited or partial result), not supported, or open.
 \end{itemize}
 \end{instructions}
 
 \begin{table}[htbp]
-\caption{Round B at the freeze: each question's null, its result and the verdict. B3 reports only its restitution half; B7 and B8 were not run, and B11 waits on the rest of the 2\,Hz sweep.}
+\caption{The studies of this chapter at the freeze: each question's null, its result and the verdict. B3 reports only its restitution half; B7 and B8 were not run (future work), and B11 waits on the rest of the 2\,Hz sweep.}
 \label{tab:rbsummary}
 \footnotesize
 \begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}p{5.4cm} >{\raggedright\arraybackslash}p{2.2cm}@{}}

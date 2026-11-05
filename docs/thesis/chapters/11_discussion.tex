@@ -32,7 +32,6 @@ One paragraph per research question, each stating the finding, not the method, w
                 against 0.59--0.66 AUC for the reference CNNs.
           \item A CNN trained on R4's own rows and folds matches R4 (pooled AUC 0.970--0.973 against 0.971), so the
                 reference CNNs' gap is their labels.
-          \item The \emph{S.\ commune} exam waits on queue 37.
           \item Cluster labels do not replace human labels.
         \end{itemize}
 \end{itemize}
@@ -134,7 +133,7 @@ To 28 Aug & Feature freeze & Orchestrated build of the first, Panel-based versio
 Late Aug -- mid Sep & Studies 1 and 2 on the primary recording & Drop-motif study (25 Aug -- 4 Sep): cross-species scale collapse and claims ledger; React stack chosen (15 Sep)\\
 Mid Sep -- early Oct & Study 3 adjudication & Panel retired (21 Sep); data loss and recovery (21 Sep); round-A RQ files (from 3 Oct); RQ1 baseline (5 Oct)\\
 Early Oct & M4 end-to-end run & Lock enforced; detector sweep and blind queues on five recordings (17--20 Oct); R4 (20 Oct); demonstration and poster (21 Oct)\\
-Oct -- Nov & Results and discussion written & Blind seed panel and M4 exam (26 Oct on); round B (29 Oct -- 3 Nov); writing (4--8 Nov)\\
+Oct -- Nov & Results and discussion written & Blind seed panel and M4 exam (26 Oct on); the studies of Chapter~\ref{ch:roundb} (29 Oct -- 3 Nov); writing (4--8 Nov)\\
 November & Draft, revision, submission & Draft 5 Nov; submitted by 9 Nov\\
 \bottomrule
 \end{tabularx}
@@ -152,13 +151,13 @@ you would do differently: freeze the tool earlier, keep the held-out lock on, an
 \begin{instructions}
 \begin{itemize}
   \item A single labeller (intra-rater $\kappa$ 0.84); no second rater.
-  \item Mostly one species and one lab, with cross-species data limited to the drop-motif study and public recordings.
+  \item One lab and four species, with oyster dominant; cross-species comparison rests on few recordings per species.
   \item Detector-proposed candidates only: there is no free-scan recall.
   \item One-draw surrogates in the sweep (20 draws on M2\_aug only).
   \item The Ward groupings are fragile.
   \item The M4 exposure.
   \item Shape normalisation does not remove resolution.
-  \item Environment covariates on one recording, with unverified alignment.
+  \item No environment logs were available, so activity was not compared with temperature or humidity.
 \end{itemize}
 \end{instructions}
 
@@ -171,11 +170,10 @@ Carried from the plan and updated:
   \item \textbf{Forecasting}, with a baseline. The binned next-point attempt was highly susceptible to noise; report
         most-frequent-bin accuracy as its baseline. Forecasting is the precondition for interpretation.
   \item \textbf{Interpretation}, in that order: only a structure that predicts what follows is worth decoding.
-  \item \textbf{Cross-species validation}, now possible: a second unseen-recording exam on \emph{S.\ commune}, and seeds
-        across recordings.
+  \item \textbf{Cross-species validation}: a second unseen-recording exam on another lab's recording was prepared
+        (frozen manifest, blind sample drawn) but not judged; and seeds across recordings.
   \item \textbf{Multivariate analysis and environment}: an Explore environment view (about 2--2.5 days as costed),
         covariate series in registration, and event rate against temperature.
-  \item \textbf{Perturbation experiments}: measured phase response curves would need stimulation \cite{wilshin2024prc}.
   \item \textbf{A shape-class model}: a classifier over verified named Library classes with an explicit background
         class, needing 100--200 verified members per class.
   \item \textbf{Library mechanics}: event extents and merging partial motifs; an average-linkage option; persisted
@@ -183,7 +181,7 @@ Carried from the plan and updated:
   \item \textbf{Statistics}: 20-draw nulls beyond M2\_aug, whose 16 channels are the only ones that have them
         (Chapter~\ref{ch:rq1}); B1's interval read on every recording, with Benjamini--Hochberg across channels.
   \item \textbf{Round B's open questions}, unless they return before submission: B7 (multiscale entropy), B8 (motif
-        prevalence) and B11 (the newer datasets); the \emph{S.\ commune} exam.
+        prevalence) and B11 (the newer datasets).
   \item \textbf{Method extensions}: the Morse-wavelet component of the Dehshibi detector as a reusable feature;
         interval temporal logic for sequences of windows; diffusion models for synthetic training data.
 \end{itemize}

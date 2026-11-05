@@ -2,8 +2,8 @@
 \label{ch:method}
 
 \begin{instructions}
-About 4--5 pages. Built from the plan's Chapter 4 and corrected. The corpus is now 26 registered source files from at
-least five species, not four oyster recordings. Native rates are kept rather than resampled to 1\,Hz. The judging
+About 4--5 pages. Built from the plan's Chapter 4 and corrected. The corpus is now nine recordings of four species,
+not four oyster recordings. Native rates are kept rather than resampled to 1\,Hz. The judging
 protocol (5.4) is new, and is what makes every result chapter's ``against blind human judgement'' meaningful. The
 held-out section (5.6) records the planned protocol, what actually happened, and the exam as run.
 \end{instructions}
@@ -13,74 +13,41 @@ This chapter describes the corpus, the preprocessing applied to it, how data are
 \section{Corpus}
 \label{sec:corpus}
 
-The recordings are long multi-electrode potential measurements from living fungal cultures. Most come from the Underground Brains research facility at UQ: \emph{Pleurotus ostreatus} (oyster) arrays of 16 electrodes with a shared ground, inside Faraday cages, plus later recordings of other species and setups. Three species come from Adamatzky's public four-species dataset \cite{adamatzky2021data}. Table~\ref{tab:corpus} lists every registered source file and its role in this thesis.
+The recordings are long multi-electrode potential measurements from living fungal cultures. All come from the Underground Brains research facility at UQ and were recorded inside a Faraday cage: \emph{Pleurotus ostreatus} (oyster) arrays of 16 electrodes with a shared ground, plus later recordings of other species and setups. Table~\ref{tab:corpus} lists every recording and its role in this thesis.
 
 \begin{table}[htbp]
-\caption{The corpus: 29 registered source files (20 active), with species, channels, native sampling rate, duration, units and role. Copies of one recording at another rate share a row. Hours are $n_\text{samples}/f_s$.}
+\caption{The corpus: nine recordings of four species, all grown and recorded in the Underground Brains laboratory at UQ inside a Faraday cage. 10\,Hz recordings are analysed as 2\,Hz derivations. Hours are $n_\text{samples}/f_s$.}
 \label{tab:corpus}
 \footnotesize
-\begin{tabularx}{\textwidth}{p{3.3cm} p{2.4cm} r r r l X}
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.25cm} >{\raggedright\arraybackslash}p{2.3cm} r r r l l >{\raggedright\arraybackslash}X}
 \toprule
-\textbf{Dataset} & \textbf{Species} & \textbf{Ch} & \textbf{$f_s$ (Hz)} & \textbf{Hours} & \textbf{Units} & \textbf{Role}\\
+\textbf{Dataset} & \textbf{Species} & \textbf{Ch} & \textbf{$f_s$ (Hz)} & \textbf{Hours} & \textbf{Units} & \textbf{Grown in} & \textbf{Role}\\
 \midrule
-M2\_aug\_concat\_fs1 & Oyster & 16 & 1 & 721 & V & Primary; RQ1--RQ3\\
-M2\_concat\_fs1 & Lion's mane & 16 & 1 & 282.5 & V & Secondary; out-of-sample checks\\
-M4\_aug\_concat\_fs1 & Oyster & 16 & 1 & 505 & -- & \textbf{Held out} (exam, Section~\ref{sec:holdout})\\
-MJu26a (fs10; fs2 derived) & Lion's mane & 16 & 10, 2 & 636 & V & Round-B sweep at 2\,Hz (MJu26a\_fs2, 27 Oct)\\
-L\_LM\_Jul\_26\_J (raw, fs2) & Lion's mane & 5 & 10, 2 & 636 & mV & Detector sweep; classifier. A copy of MJu26a CH10 and CH13--16 ($\times$1000 plus a constant offset; $r=1.00000$)\\
-Mushroom\_260720 (rec.\ 385) & Lion's mane & 1 & 1 & 4 & V & Spiking-families pass; Library. A 4\,h excerpt of MJu26a CH14 (inactive)\\
-LM\_fs2 & Lion's mane & 4 & 2 & 480 & V & Detector sweep; classifier\\
-CO\_fs2 & Chocolate oyster & 4 & 2 & 480 & V & Detector sweep; classifier\\
-SH, SO (fs2 derived) & ? & 4 & 10, 2 & 480 & V & Round-B sweep at 2\,Hz (27 Oct); 10\,Hz read from each file's time vector\\
-F2B & ? & 5 & 10 & 144 & mV & Excluded: a subset of L\_LM\\
-L\_R\_Aug\_26\_PD & ? & 13 & 10 & 107 & V & Excluded: humidity-actuator oscillation in the signal\\
-Fig2A\_dt0p1 & Reishi & 5 & 10 & 0.3 & mV & Drop-motif study; Library (inactive)\\
-M1, M100, M101\_t & Oyster & 13 & 10 & 302 & -- & Inactive; M101 has an environment log\\
-\emph{S.\ commune} \cite{adamatzky2021data} & \emph{S.\ commune} & 7 & 1 & 73 & mV & Public; proposed second unseen test\\
-\emph{C.\ militaris} & \emph{C.\ militaris} & 7 & 1 & 528 & mV & Public; complexity fingerprint\\
-\emph{F.\ velutipes} & Enoki & 7 & 1 & 300 & mV & Public; complexity fingerprint\\
-Dwij A--D & ? & 4 & 0.8 & 0.3--29.3 & mV & Registered\\
+M2\_aug\_concat\_fs1 & Oyster (\emph{P.~ostreatus}) & 16 & 1 & 721 & V & grow pack & Primary; RQ1--RQ3\\
+M2\_concat\_fs1 & Oyster & 16 & 1 & 282.5 & V & grow pack & Secondary; out-of-sample checks\\
+M4\_aug\_concat\_fs1 & Oyster & 16 & 1 & 505 & -- & grow pack & \textbf{Held out} (exam, Section~\ref{sec:holdout})\\
+MJu26a & Lion's mane (\emph{H.~erinaceus}) & 16 & 10, 2 & 636 & V & jar & 2\,Hz sweep (Chapter~\ref{ch:roundb}). Its CH10 and CH13--16 were swept first as a five-channel copy (Chapters~\ref{ch:rq1}, \ref{ch:rq3}); a 4\,h excerpt of CH14 is the spiking-families case study\\
+LM (L\_LM\_Aug\_25\_P) & Lion's mane & 4 & 10, 2 & 480 & V & grow pack & Detector sweep; classifier\\
+CO (L\_CO\_Aug\_25\_P) & Chocolate oyster (\emph{P.~ostreatus}) & 4 & 10, 2 & 480 & V & grow pack & Detector sweep; classifier\\
+SO (L\_SO\_Aug\_25\_P) & Snow oyster (\emph{P.~ostreatus}) & 4 & 10, 2 & 480 & V & grow pack & 2\,Hz sweep\\
+SH (L\_SH\_Aug\_25\_P) & Asian shiitake (\emph{L.~edodes}) & 4 & 10, 2 & 480 & V & grow pack & 2\,Hz sweep\\
+F2A & Reishi (\emph{G.~lingzhi}) & 5 & 10 & 0.3 & mV & petri dish & Drop-motif study (Chapter~\ref{ch:early})\\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 \begin{instructions}
-Fill in the ``?'' species and the setup of each UQ dataset: LM, CO, SH, SO, F2B, L\_R and Dwij. Settings $\rightarrow$
-Datasets declares five species today: oyster, lion's mane, split gill (\emph{S.\ commune}), \emph{Cordyceps} and enoki.
-Reishi is undeclared (ledger A6). Check the units of the reishi file. The lion's mane excerpt
-(recording 385) is in volts: it equals MJu26a CH14's 10-sample means (slope 1.0009, $r=0.9995$; ledger A17). State the
-number of distinct physical recordings: the earlier ``about 18'' predates finding that L\_LM and recording 385 are
-copies of MJu26a channels (ledger A16--A17). Facts from the \texttt{recordings} and \texttt{datasets} tables and
-\src{docs/datasets/}.
-
-Dataset decisions (26 Oct):
+Dataset notes (5 Nov):
 \begin{itemize}
-  \item copies that are subsets of another recording, or the same recording at another rate, were deactivated, so
-        that every active set is an independent recording;
-  \item L\_R is excluded because the humidity actuator's PID controller in its tent oscillated, and that oscillation
-        appears in the signal: ``motifs'' there could be humidity-driven changes in electrode conductivity;
-  \item 10\,Hz sets are analysed as 2\,Hz derivations, to save compute.
+  \item copies of a recording at another rate, and subsets of another recording, were deactivated, so that every
+        active set is an independent recording;
+  \item one name per recording: a result from part of MJu26a names its channels, e.g.\ ``MJu26a (CH10, 13--16)'' for
+        the five-channel copy, or ``the MJu26a CH14 excerpt (4\,h)'';
+  \item 10\,Hz sets are analysed as 2\,Hz derivations (non-overlapping means of five samples, nothing else changed);
+  \item the electrode type, and what A1 and A2 mean in M2's channel names, are not recorded;
+  \item M2\_aug and M2\_concat are different data, not crops of each other (best $d/\sqrt{m}\approx0.79$).
 \end{itemize}
-Dataset work (27 Oct):
-\begin{itemize}
-  \item MJu26a, SH and SO were derived at 2\,Hz as CO\_fs2 and LM\_fs2 had been (non-overlapping means of five
-        samples, nothing else changed) and registered. Their sweep bundle is
-        \src{docs/thesis/hpc/rq4_newsets_20261027/}. The 10\,Hz originals stay active for now;
-  \item L\_LM is MJu26a: its five channels are MJu26a CH10 and CH13--16, $\times$1000, plus a constant offset per
-        channel (\src{docs/datasets/NEW_RAW_2026-10.md}). MJu26a\_fs2's sweep covers them again. Decide whether
-        L\_LM raw is deactivated like the other copies.
-\end{itemize}
-Corrections to the plan:
-\begin{itemize}
-  \item the primary oyster recording is 721\,h, not over 1,000\,h. The ``about 1,000 hours'' is M2\_aug and M2\_concat,
-        and M2\_concat is lion's mane (the researcher, 3 Nov), so it is not 1,000 hours of oyster. The oyster recordings
-        are M2\_aug (721\,h) and the held-out M4 (505\,h); CO is chocolate oyster (480\,h at 2\,Hz);
-  \item M2\_aug and M2\_concat are different data, not crops of each other (best $d/\sqrt{m}\approx0.79$);
-  \item cross-species comparison is now possible in principle (Chapter~\ref{ch:events});
-  \item the fourth Adamatzky species (\emph{Omphalotus nidiformis}) is in \src{DATA/raw} but not registered in the real
-        database.
-\end{itemize}
-Consider a figure of one representative trace per species at a common scale.
 \end{instructions}
 
 \begin{figure}[htbp]
@@ -98,15 +65,14 @@ MJu26a, LM, CO, SH, SO), each showing one channel over a day and a 30-minute zoo
 Rewrite. The plan's resampling story (an 18\,Hz DAC with drifting $\Delta t$, resampled to 1\,Hz) is not what the
 software does. As built:
 \begin{itemize}
-  \item each dataset keeps its native rate: 1\,Hz for the oyster arrays, 2 or 10\,Hz for others, 0.8\,Hz for Dwij.
+  \item each dataset keeps its native rate: 1\,Hz for the oyster arrays, 2 or 10\,Hz for others.
         The rate is read from the file, inferred from the sample count, or stated by the researcher, and recorded in
         \texttt{fs\_source};
   \item uneven time axes are linearly interpolated onto a uniform grid (MJu26a: $\Delta t$ 0.124--2.83\,s onto 10\,Hz)
         by \src{scripts/derive_raw_mat.py};
   \item units are declared per dataset (V or mV), and every block that prints millivolts reads through
         \texttt{read\_as\_mv} (fixed 15 Oct, when the drop detector had assumed volts);
-  \item gaps are skipped, NaN-aware, rather than refused (your decision, 14 Oct). Adamatzky's logger pauses were
-        interpolated and every filled run is listed in the manifest;
+  \item gaps are skipped, NaN-aware, rather than refused (your decision, 14 Oct);
   \item analysis is per channel. The ``concat'' files are 16-channel files of joined recording sessions, not one
         concatenated channel.
 \end{itemize}
@@ -183,7 +149,7 @@ Imported labels & 10-minute windows, M2\_aug, early manual labelling & 11,234 & 
 3 & Blind random 1/10/30-min windows (M2\_aug, M2\_concat) & 986 & RQ3 blind exam; RQ2 base rate (22\,\%)\\
 24 & Spike-seed matches (unblinded) & 61 & RQ2\\
 25 & Stratified blind candidate events, M2\_aug & 800 & RQ1; R4 training\\
-28 & Stratified blind candidate events, CO, LM, M2\_concat, L\_LM & 1,159 & RQ1; R4 training\\
+28 & Stratified blind candidate events, CO, LM, M2\_concat, MJu26a (CH10, 13--16) & 1,159 & RQ1; R4 training\\
 Library review & Library members & 247 & Accepted set\\
 35 & Blind seed panel: drop30, spike37, re-judged dips, random controls & 249 & RQ2 blind test\\
 36 & M4 held-out exam, stratified blind candidates & 290 & RQ3 exam, RQ1 on M4\\
@@ -192,8 +158,7 @@ Library review & Library members & 247 & Accepted set\\
 \end{table}
 
 \begin{instructions}
-Queues 35 (249 items) and 36 (290) are filled in (5 Nov). Add queue 37 (\emph{S.\ commune}, 263 items) if its exam is
-reported. Check the dip-seed queue ids and counts
+Queues 35 (249 items) and 36 (290) are filled in (5 Nov). Check the dip-seed queue ids and counts
 (256/263 and 94/104) against \src{docs/rq_roundA_2/RQ2b-second-seed.md}.
 \end{instructions}
 
@@ -322,6 +287,5 @@ Two project risks were recorded in the plan. The first was computational: all-pa
 Add the risk that did materialise: data loss. On 21 Sep, \texttt{git worktree remove} followed a directory junction
 and emptied the real \texttt{DATA/db} and \texttt{DATA/derived} (7.8\,GB). The database was recovered from a sandbox
 copy and the channels were re-derived. The mitigations that followed: the bridge's sandbox copies, automatic backups at
-start-up, and the rule to unlink junctions first. Also note the public dataset's licence: Adamatzky's four-species data
-is CC BY 4.0.
+start-up, and the rule to unlink junctions first.
 \end{instructions}

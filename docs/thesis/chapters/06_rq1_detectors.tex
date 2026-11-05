@@ -22,7 +22,7 @@ Cover:
 \begin{enumerate}
   \item \textbf{The sweep.} 43 settings from 14 families per recording, each run over the whole signal with a paired
         one-draw phase-randomised surrogate. Run on rangpur and adopted into Discovery: batch 1 was M2\_aug; batches 2--3
-        were M2\_concat, LM\_fs2, CO\_fs2 and L\_LM. Name the families: drop detector v1 and v5, wavelet encoded, BEADS,
+        were M2\_concat, LM\_fs2, CO\_fs2 and MJu26a's five-channel copy (CH10, 13--16). Name the families: drop detector v1 and v5, wavelet encoded, BEADS,
         OASIS, deconvolved troughs, Dehshibi wavelet prototype, noise threshold, signal threshold, symbol search,
         matrix-profile threshold, CNN window scores at 1, 10 and 30\,min, \ldots{} (list from
         \src{scripts/create_rq4_variants.py}).
@@ -50,10 +50,10 @@ Cover:
 \textbf{Recording} & \textbf{Detections} & \textbf{Candidate events}\\
 \midrule
 M2\_aug (16 ch, 721\,h) & 2.43\,M & 1.50\,M\\
-L\_LM, 2\,Hz & 0.91\,M & \multirow{5}{*}{1.60\,M (four recordings)}\\
+MJu26a (CH10, 13--16), 2\,Hz & 0.91\,M & \multirow{5}{*}{1.60\,M (four recordings)}\\
 M2\_concat & 0.70\,M & \\
 LM\_fs2 & 0.45\,M & \\
-L\_LM, 10\,Hz & 0.37\,M & \\
+MJu26a (CH10, 13--16), 10\,Hz & 0.37\,M & \\
 CO\_fs2 & 0.33\,M & \\
 \bottomrule
 \end{tabular}
@@ -89,7 +89,7 @@ The point: loose detectors mark most of a recording, so ``a detector found it'' 
 \midrule
 M2\_aug & 25\,\% & 21--28\,\%\\
 LM\_fs2 & 16\,\% & 12--20\,\%\\
-L\_LM, 2\,Hz & 14\,\% & 10--19\,\%\\
+MJu26a (CH10, 13--16), 2\,Hz & 14\,\% & 10--19\,\%\\
 M2\_concat & 13\,\% & 10--17\,\%\\
 CO\_fs2 & 10\,\% & 7--13\,\%\\
 \bottomrule
@@ -150,7 +150,7 @@ State plainly that a setting matters as much as the family: OASIS goes from 10\,
 \begin{instructions}
 From \src{docs/rq_roundA_2/findings/detectors-vs-surrogates-2026-10-26.md}.
 
-The ``255 of 552 tasks no better than the surrogate'' figure reproduces, but it covers batch 3 only (LM, CO, L\_LM at
+The ``255 of 552 tasks no better than the surrogate'' figure reproduces, but it covers batch 3 only (LM, CO and MJu26a CH10, 13--16, at
 2\,Hz). Across all sessions it is 849 of 1,880.
 
 The pattern runs against intuition:
