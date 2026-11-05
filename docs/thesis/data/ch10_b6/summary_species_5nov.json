@@ -1,0 +1,166 @@
+{
+ "grouping": "g-11",
+ "labels": {
+  "species": {
+   "M2_aug": "P. ostreatus",
+   "M2_concat": "P. ostreatus",
+   "CO_fs2": "P. ostreatus",
+   "LM_fs2": "H. erinaceus",
+   "L_LM_fs2": "H. erinaceus",
+   "L_LM_10Hz": "H. erinaceus"
+  },
+  "strain": {
+   "M2_aug": "oyster",
+   "M2_concat": "oyster",
+   "CO_fs2": "chocolate oyster",
+   "LM_fs2": "lion's mane",
+   "L_LM_fs2": "lion's mane",
+   "L_LM_10Hz": "lion's mane"
+  }
+ },
+ "families": 42,
+ "members": 804,
+ "draws": 10000,
+ "seed": 20261103,
+ "families_on_2plus_recordings": 39,
+ "families_on_both_species": 28,
+ "families_on_2plus_strains": 38,
+ "members_per_species": {
+  "H. erinaceus": 76,
+  "P. ostreatus": 728
+ },
+ "by": {
+  "recording": {
+   "labels": [
+    "CO_fs2",
+    "LM_fs2",
+    "M2_aug",
+    "M2_concat"
+   ],
+   "members_per_label": {
+    "CO_fs2": 68,
+    "LM_fs2": 76,
+    "M2_aug": 603,
+    "M2_concat": 57
+   },
+   "observed": {
+    "shared_families": 39,
+    "mi_bits": 0.21917494195461287
+   },
+   "null_mean": {
+    "shared_families": 41.3355,
+    "mi_bits": 0.12773647263083407
+   },
+   "null_range": {
+    "shared_families": [
+     37,
+     42
+    ],
+    "mi_bits": [
+     0.08217559391315493,
+     0.18012141790499486
+    ]
+   },
+   "p_fewer_shared": 0.023297670232976703,
+   "p_more_shared": 0.998000199980002,
+   "p_mi_higher": 9.999000099990002e-05
+  },
+  "species": {
+   "labels": [
+    "H. erinaceus",
+    "P. ostreatus"
+   ],
+   "members_per_label": {
+    "H. erinaceus": 76,
+    "P. ostreatus": 728
+   },
+   "observed": {
+    "shared_families": 28,
+    "mi_bits": 0.07808563918129763
+   },
+   "null_mean": {
+    "shared_families": 33.8119,
+    "mi_bits": 0.04248377347962959
+   },
+   "null_range": {
+    "shared_families": [
+     25,
+     42
+    ],
+    "mi_bits": [
+     0.017176782210344133,
+     0.07899870672735185
+    ]
+   },
+   "p_fewer_shared": 0.0045995400459954,
+   "p_more_shared": 0.9988001199880012,
+   "p_mi_higher": 0.00019998000199980003
+  },
+  "strain": {
+   "labels": [
+    "chocolate oyster",
+    "lion's mane",
+    "oyster"
+   ],
+   "members_per_label": {
+    "chocolate oyster": 68,
+    "lion's mane": 76,
+    "oyster": 660
+   },
+   "observed": {
+    "shared_families": 38,
+    "mi_bits": 0.15509173483295544
+   },
+   "null_mean": {
+    "shared_families": 39.907,
+    "mi_bits": 0.08487948746604271
+   },
+   "null_range": {
+    "shared_families": [
+     34,
+     42
+    ],
+    "mi_bits": [
+     0.040008954437236004,
+     0.1330474625290018
+    ]
+   },
+   "p_fewer_shared": 0.1372862713728627,
+   "p_more_shared": 0.9584041595840416,
+   "p_mi_higher": 9.999000099990002e-05
+  },
+  "recordings within P. ostreatus": {
+   "labels": [
+    "CO_fs2",
+    "M2_aug",
+    "M2_concat"
+   ],
+   "members_per_label": {
+    "CO_fs2": 68,
+    "M2_aug": 603,
+    "M2_concat": 57
+   },
+   "observed": {
+    "shared_families": 36,
+    "mi_bits": 0.15581840581008996
+   },
+   "null_mean": {
+    "shared_families": 38.8132,
+    "mi_bits": 0.09378953088606848
+   },
+   "null_range": {
+    "shared_families": [
+     32,
+     42
+    ],
+    "mi_bits": [
+     0.05597327790047444,
+     0.14298841552225086
+    ]
+   },
+   "p_fewer_shared": 0.06969303069693031,
+   "p_more_shared": 0.9795020497950205,
+   "p_mi_higher": 9.999000099990002e-05
+  }
+ }
+}
