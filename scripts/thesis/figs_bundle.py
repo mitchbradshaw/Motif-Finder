@@ -795,6 +795,191 @@ def sixdetectors(h0=69.2, h1=73.2):
     return fs.save(fig, "ch4_six_detectors")
 
 
+# ------------------------------------------------------------------------------------------------ Chapters 1-3 --
+def _busiest(x, w):
+    from numpy.lib.stride_tricks import sliding_window_view
+    step = max(1, w // 6)
+    v = sliding_window_view(np.nan_to_num(x, nan=np.nanmedian(x)), w)[::step]
+    return int(np.argmax(v.max(axis=1) - v.min(axis=1))) * step
+
+
+def threezooms():
+    """Figure 1.1: one M2_aug channel at three zooms - 721 hours, one day, 30 minutes."""
+    ov, om = B.series("overviews/M2_aug__overview60s")
+    name = [f[:-4] for f in B.ls("windows") if f.startswith("gallery__M2_aug__") and f.endswith(".npz")][0]
+    x, meta, th = _window(name)
+    ch = int(meta["channel"])
+    o = ov[ch]
+    to = np.arange(len(o)) * float(om["dt_s"]) / 3600
+    w = 1800
+    j = _busiest(x, w)
+    col = fs.colour("M2_aug")
+    fig, axes = fs.figure("full", 5.0, 3, 1, gridspec_kw={"hspace": 0.75})
+    a, b, c = axes
+    a.plot(to, o, color=col, lw=0.5); a.set_xlim(0, to[-1])
+    a.axvspan(th[0], th[-1], color=fs.INK_2, alpha=0.2, lw=0)
+    a.set_title(f"(a) M2_aug {om['channels'][ch]['channel_name']}: the whole recording, 721 hours (one-minute means)",
+                loc="left", fontsize=8.5)
+    a.set_xlabel("hours"); a.set_ylabel("mV")
+    b.plot(th, x, color=col, lw=0.5); b.set_xlim(th[0], th[-1])
+    b.axvspan(th[j], th[j + w], color=fs.INK_2, alpha=0.2, lw=0)
+    b.set_title(f"(b) one day of it, {th[0]:.0f}–{th[-1]:.0f} h", loc="left", fontsize=8.5)
+    b.set_xlabel("hours"); b.set_ylabel("mV")
+    tz = np.arange(w) / 60
+    c.plot(tz, x[j:j + w], color=col, lw=0.9); c.set_xlim(0, 30)
+    c.set_title(f"(c) thirty minutes of that day, from {th[j]:.2f} h", loc="left", fontsize=8.5)
+    c.set_xlabel("minutes"); c.set_ylabel("mV")
+    return fs.save(fig, "ch1_three_zooms")
+
+
+def surrogates():
+    """Figure 2.3: six hours of M2_aug beside an AAFT copy and a block-shuffled copy."""
+    name = [f[:-4] for f in B.ls("windows") if f.startswith("gallery__M2_aug__") and f.endswith(".npz")][0]
+    x, meta, th = _window(name)
+    j = _busiest(x, 6 * 3600)
+    y = x[j:j + 6 * 3600].copy(); t = th[j:j + 6 * 3600]
+    rng = np.random.default_rng(7)
+    n = len(y)
+    g = np.sort(rng.standard_normal(n))[np.argsort(np.argsort(y))]         # Gaussian, ordered like y
+    G = np.fft.rfft(g); ph = rng.uniform(0, 2 * np.pi, len(G)); ph[0] = 0
+    gs_ = np.fft.irfft(np.abs(G) * np.exp(1j * ph), n=n)
+    aaft = np.sort(y)[np.argsort(np.argsort(gs_))]                         # y's own values, phase-scrambled order
+    blk = 1800
+    nb = n // blk
+    order = rng.permutation(nb)
+    bs = np.concatenate([y[k * blk:(k + 1) * blk] for k in order] + [y[nb * blk:]])
+    fig, axes = fs.figure("full", 4.4, 3, 1, sharex=True, sharey=True, gridspec_kw={"hspace": 0.35})
+    for ax, v, lab, c in ((axes[0], y, "(a) the recording: six hours of M2_aug", fs.colour("M2_aug")),
+                          (axes[1], aaft, "(b) an AAFT copy: the same values and frequencies, the shapes scrambled",
+                           fs.INK_2),
+                          (axes[2], bs, "(c) a block-shuffled copy: half-hour blocks kept whole, their order shuffled",
+                           fs.INK_2)):
+        ax.plot(t - t[0], v, color=c, lw=0.6)
+        ax.set_title(lab, loc="left", fontsize=8.5); ax.set_ylabel("mV")
+    for k in range(1, nb):
+        axes[2].axvline(k * blk / 3600, color=fs.MUTED, lw=0.5, ls=":")
+    axes[2].set_xlabel("hours")
+    return fs.save(fig, "ch2_surrogate_example")
+
+
+def cnntrace():
+    """Figure 3.3: the early CNN's window score along two days of M2_aug, under the trace, with the hand labels."""
+    name = [f[:-4] for f in B.ls("windows") if f.startswith("cnn_scores__") and f.endswith(".npz")][0]
+    x, meta, th = _window(name)
+    sc = B.csv(f"windows/{name}__cnn_window_scores")
+    hl = B.csv("hand_labels/hand_labels")
+    hl = hl[(hl["recording_id"] == meta["recording_id"]) & (hl["start_s"] >= th[0] * 3600) & (hl["end_s"] <= th[-1] * 3600)]
+    fig, axes = fs.figure("full", 3.9, 2, 1, sharex=True, gridspec_kw={"height_ratios": [1.3, 1.0], "hspace": 0.28})
+    a, b = axes
+    a.plot(th, x, color=fs.INK, lw=0.5); a.set_ylabel("mV")
+    for r in hl.itertuples():
+        if r.label == "interesting":
+            a.axvspan(r.start_s / 3600, r.end_s / 3600, color=fs.SPECIES_COLOUR["oyster"], alpha=0.25, lw=0)
+    a.set_title(f"M2_aug, channel index {meta['channel']}: two days, hand labels shaded (interesting)", loc="left",
+                fontsize=8.5)
+    d = sc[sc["variant"] == "cnn_fusion3_10min"].sort_values("start_s")
+    b.fill_between(d["start_s"] / 3600, d["p_interesting"], step="post", color=fs.CATEGORICAL[0], alpha=0.3, lw=0)
+    b.step(d["start_s"] / 3600, d["p_interesting"], where="post", color=fs.CATEGORICAL[0], lw=0.8)
+    b.axhline(0.5, color=fs.MUTED, lw=0.8, ls="--")
+    b.set_ylim(0, 1.02); b.set_ylabel("P(interesting)"); b.set_xlabel("time in the recording (h)")
+    b.set_title("the fusion CNN's score for each 10-minute window", loc="left", fontsize=8.5)
+    b.set_xlim(th[0], th[-1])
+    return fs.save(fig, "ch3_cnn_trace")
+
+
+def sax(seg_s=180, alpha=4, word=3, hours=3):
+    """Figure 3.6: SAX on a real trace - three hours of M2_aug, its piecewise means, the letters, a repeated word."""
+    from collections import Counter
+    from scipy.stats import norm
+    name = [f[:-4] for f in B.ls("windows") if f.startswith("gallery__M2_aug__") and f.endswith(".npz")][0]
+    x, meta, th = _window(name)
+    L = int(hours * 3600)
+    j = _busiest(x, L)
+    y = x[j:j + L]; t = (th[j:j + L] - th[j]) * 60
+    base = pd.Series(y).rolling(3601, center=True, min_periods=1).median().to_numpy()
+    yd = y - base                                                         # remove the slow drift (one-hour median)
+    z = (yd - yd.mean()) / yd.std()
+    nseg = len(z) // seg_s
+    paa = z[:nseg * seg_s].reshape(nseg, seg_s).mean(axis=1)
+    bp = norm.ppf(np.linspace(0, 1, alpha + 1)[1:-1])
+    letters = np.array(list("abcdefgh"[:alpha]))[np.searchsorted(bp, paa)]
+    words = ["".join(letters[i:i + word]) for i in range(nseg - word + 1)]
+    cands = [(w_, c) for w_, c in Counter(words).most_common() if len(set(w_)) > 1]
+    top, cnt = cands[0]
+    fig, axes = fs.figure("full", 3.8, 2, 1, sharex=True, gridspec_kw={"height_ratios": [1.0, 1.3], "hspace": 0.18})
+    a_, b_ = axes
+    a_.plot(t, y, color=fs.colour("M2_aug"), lw=0.6); a_.set_ylabel("mV")
+    a_.set_title(f"(a) three hours of M2_aug as recorded", loc="left", fontsize=8.5)
+    b_.plot(t, z, color=fs.GRID, lw=0.6)
+    for k in range(nseg):
+        b_.plot([k * seg_s / 60, (k + 1) * seg_s / 60], [paa[k], paa[k]], color=fs.INK, lw=1.6)
+        b_.text((k + 0.5) * seg_s / 60, 3.05, letters[k], ha="center", fontsize=6.3, color=fs.INK)
+    for v in bp:
+        b_.axhline(v, color=fs.MUTED, lw=0.6, ls=":")
+    for i, w_ in enumerate(words):
+        if w_ == top:
+            b_.axvspan(i * seg_s / 60, (i + word) * seg_s / 60, color=fs.CATEGORICAL[1], alpha=0.2, lw=0)
+    b_.set_ylim(np.nanmin(z) - 0.3, 3.5); b_.set_ylabel("z-score"); b_.set_xlabel("minutes")
+    b_.set_title(f"(b) drift removed, z-normalised, 3-minute means and their letters; '{top}' recurs {cnt} times",
+                 loc="left", fontsize=8.5)
+    print("sax top word", top, cnt, Counter(words).most_common(4))
+    return fs.save(fig, "ch3_sax")
+
+
+# ------------------------------------------------------------------------------------------------ Chapter 10 --
+def b1train():
+    """Chapter 10, B1: a real drop train against a random train with the same rate, and the real gaps shuffled."""
+    name, on = _train_window()
+    o = np.sort(on["start_s"].to_numpy(float)); g = np.diff(o)
+    rng = np.random.default_rng(5)
+    span = o[-1] - o[0]
+    pois = o[0] + np.cumsum(rng.exponential(np.mean(g), len(g) * 3))
+    pois = np.concatenate([[o[0]], pois[pois <= o[-1]]])
+    shuf = o[0] + np.concatenate([[0], np.cumsum(rng.permutation(g))])
+    def lv(gg):
+        return 3 * np.mean(((gg[:-1] - gg[1:]) / (gg[:-1] + gg[1:])) ** 2) if len(gg) > 2 else np.nan
+    fig, ax = fs.figure("full", 2.3)
+    for k, (lab, tt, c) in enumerate((("recorded", o, fs.SPECIES_COLOUR["oyster"]),
+                                       ("random, same rate", pois, fs.INK_2),
+                                       ("recorded gaps, shuffled", shuf, fs.CATEGORICAL[1]))):
+        y = 2 - k
+        ax.vlines((tt - o[0]) / 3600, y - 0.32, y + 0.32, color=c, lw=1.6)
+        ax.text(-0.02, y, f"{lab}\nLV {lv(np.diff(tt)):.2f}", transform=ax.get_yaxis_transform(), ha="right",
+                va="center", fontsize=7.5)
+    ax.set_yticks([]); ax.set_ylim(-0.6, 2.6); ax.set_xlabel("hours"); ax.grid(axis="y", visible=False)
+    rec = name.split("__")[1]
+    ax.set_title(f"Drop onsets on {fs.label(rec)} (four hours), a random train and the shuffled gaps", loc="left",
+                 fontsize=8.5)
+    return fs.save(fig, "ch10_b1_train")
+
+
+def b4stack():
+    """Chapter 10, B4: six hours of all 16 M2_aug channels, stacked, with the census's co-occurrences marked."""
+    name = [f[:-4] for f in B.ls("windows") if f.startswith("b4_stack__") and f.endswith(".npz")][0]
+    X, meta = B.series(f"windows/{name}")
+    th = B.time_h(meta, X.shape[1])
+    co = B.csv(f"windows/{name}__b4_cooccurrences")
+    fig, ax = fs.figure("full", 6.0)
+    off = 0.0
+    names = [c["channel_name"] for c in B.series("overviews/M2_aug__overview60s")[1]["channels"]]
+    ticks = []
+    for k in range(X.shape[0]):
+        v = X[k] - np.nanmedian(X[k])
+        r = np.nanpercentile(v, 99.5) - np.nanpercentile(v, 0.5) + 1e-9
+        v = v / r
+        ax.plot(th, v - off, color=fs.colour("M2_aug") if (k // 4) % 2 == 0 else "#164b8f", lw=0.6)
+        ticks.append((-off, names[k] if k < len(names) else f"ch {k}"))
+        off += 1.0
+    for r in co.itertuples():
+        tt = (r.onset_a_s + r.onset_b_s) / 2 / 3600
+        ax.axvline(tt, color=fs.CATEGORICAL[1], lw=1.0, alpha=0.7, zorder=0)
+    ax.set_yticks([p for p, _ in ticks]); ax.set_yticklabels([l for _, l in ticks], fontsize=6.5)
+    ax.grid(axis="y", visible=False); ax.set_xlabel("time in the recording (h)"); ax.set_xlim(th[0], th[-1])
+    ax.set_title(f"M2_aug, all 16 channels (each scaled to its own range), {th[0]:.1f}–{th[-1]:.1f} h; "
+                 f"orange: the census's {len(co)} co-occurring events", loc="left", fontsize=8.5)
+    return fs.save(fig, "ch10_b4_stack")
+
+
 def main():
     global B
     ap = argparse.ArgumentParser()

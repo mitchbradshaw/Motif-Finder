@@ -118,9 +118,8 @@ of 0.40 (\src{..._opt_sweep_output.txt}, line 7). KNN--DTW: interesting-class F1
 
 \begin{figure}[htbp]
 \centering
-\figplaceholder{4.5cm}{Figure 3.3 (T1, bundle): one CNN's window score along two days of an M2\_aug channel, from its
-stored sweep run, under the trace, with the hand labels as ticks.}
-\caption{What a CNN's score looks like along a recording.}
+\includegraphics[width=\textwidth]{new/ch3_cnn_trace.pdf}
+\caption{What an early CNN's score looks like along a recording: two days of one M2\_aug channel with the hand labels judged interesting shaded (top), and the fusion CNN's probability of ``interesting'' for each 10-minute window (bottom, from its stored sweep run). On this busy channel the CNN calls most windows interesting, far more than the hand labels do.}
 \label{fig:cnnscoretrace}
 \end{figure}
 
@@ -215,9 +214,8 @@ The facts:
 
 \begin{figure}[htbp]
 \centering
-\figplaceholder{5cm}{Figure 3.6 (T1, bundle): SAX on a real trace --- six hours of M2\_aug, its piecewise averages,
-the letters beneath, and one matched symbol pattern highlighted where it recurs.}
-\caption{From a signal to a string: SAX on a fungal recording.}
+\includegraphics[width=\textwidth]{new/ch3_sax.pdf}
+\caption{SAX on a real trace. (a) Three hours of M2\_aug. (b) The same, with the slow drift removed and z-normalised, reduced to 3-minute means (bars), each coded as one of four letters by the dotted breakpoints; the most frequent mixed three-letter word is shaded. A few deep falls stretch the scale, so almost every other window becomes the same letter: the problem the early SAX experiments met, and one reason the tool's symbolic route normalises locally.}
 \label{fig:sax}
 \end{figure}
 
