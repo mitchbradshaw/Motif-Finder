@@ -258,3 +258,6 @@ docs/thesis/hpc/**/*_out/work/
 # test leftovers: tests/test_job_export_paths.py's temp dirs, and the synthetic profile a webui test's sweep persists
 webui/ab_slurm_*/
 Results/Detection/matrix_profile/mp_v2_syn_*
+
+# thesis figure previews (the PDFs are tracked)
+docs/thesis/figures/new/*.png

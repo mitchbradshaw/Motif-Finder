@@ -101,9 +101,15 @@ histograms.
 \centering
 \begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{reports/dip_null.png}\caption{Dip seed}\end{subfigure}\hfill
 \begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{reports/spike_null.png}\caption{Spike seed}\end{subfigure}
-\caption{Match distances per channel against the 200-draw phase-randomised null, with the cut each report recommends.}
+\caption{Seed matches found per channel (blue) against the mean number the 200-draw phase-randomised null finds per draw (grey), for the dip seed (left) and the spike seed (right).}
 \label{fig:seednull}
 \end{figure}
+
+\begin{instructions}
+Caption fixed 5 Nov to say what the bars are. The spike panel is 200 against 200 (1.0$\times$) on every channel, which
+looks like a cap of 200 matches on real and surrogate alike rather than a result. Check that before keeping it; if it is
+a cap, drop the spike panel and keep the dip seed's.
+\end{instructions}
 
 \subsection{The scale pilot}
 
