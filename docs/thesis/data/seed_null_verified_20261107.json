@@ -1,0 +1,331 @@
+{
+  "verified_date": "2026-11-07",
+  "source": "Saved completed HPC results; no new seed searches or matrix profiles were computed.",
+  "cut_rule": {
+    "alpha": 0.01,
+    "correction": "none",
+    "function": "Working.discovery.seeded_search.recommended_cut_corrected"
+  },
+  "aggregation": "Draw i is summed over all searched channels, then the 200 summed counts are averaged. Comparisons use the full-precision cut, not the rounded printed value.",
+  "rows": [
+    {
+      "seed": "short_dip",
+      "result_path": "HPC/Detection/generated/dip_search_3ch_0-2595600.result.json",
+      "sha256": "83570bf92338cd33ee213a5351cf214c2f8ad2905b80a6b05aa0e88a71d69b65",
+      "spec_hash": "316de9e58495",
+      "channels": 3,
+      "draws_per_channel": 200,
+      "max_matches_per_channel": 200,
+      "common_cut_full_precision": 2.0984541212413057,
+      "recording_matches": 64,
+      "surrogate_total_all_draws_and_channels": 2,
+      "surrogate_mean_per_draw_summed_over_channels": 0.01,
+      "maximum_recording_matches_on_one_channel": 38,
+      "per_channel": [
+        {
+          "name": "CH2_A1",
+          "real_matches": 14,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH6_B1",
+          "real_matches": 12,
+          "surrogate_matches_total": 1
+        },
+        {
+          "name": "CH7_B2",
+          "real_matches": 38,
+          "surrogate_matches_total": 1
+        }
+      ]
+    },
+    {
+      "seed": "long_dip",
+      "result_path": "HPC/Detection/generated/dip_search_allch_16ch_0-2595600.result.json",
+      "sha256": "847a21538394a75a04729d7706fe657ddb231200dae51e7526eb90ffc1882e80",
+      "spec_hash": "939976022bad",
+      "channels": 16,
+      "draws_per_channel": 200,
+      "max_matches_per_channel": 200,
+      "common_cut_full_precision": 3.9048096537559083,
+      "recording_matches": 124,
+      "surrogate_total_all_draws_and_channels": 7,
+      "surrogate_mean_per_draw_summed_over_channels": 0.035,
+      "maximum_recording_matches_on_one_channel": 20,
+      "per_channel": [
+        {
+          "name": "CH2_A1",
+          "real_matches": 20,
+          "surrogate_matches_total": 1
+        },
+        {
+          "name": "CH6_B1",
+          "real_matches": 6,
+          "surrogate_matches_total": 1
+        },
+        {
+          "name": "CH7_B2",
+          "real_matches": 6,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH1_A1",
+          "real_matches": 14,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH3_A2",
+          "real_matches": 5,
+          "surrogate_matches_total": 1
+        },
+        {
+          "name": "CH4_A2",
+          "real_matches": 19,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH5_B1",
+          "real_matches": 6,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH8_B2",
+          "real_matches": 4,
+          "surrogate_matches_total": 1
+        },
+        {
+          "name": "CH9_C1",
+          "real_matches": 6,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH10_C1",
+          "real_matches": 7,
+          "surrogate_matches_total": 1
+        },
+        {
+          "name": "CH11_C2",
+          "real_matches": 4,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH12_C2",
+          "real_matches": 2,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH13_D1",
+          "real_matches": 3,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH14_D1",
+          "real_matches": 4,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH15_D2",
+          "real_matches": 12,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH16_D2",
+          "real_matches": 6,
+          "surrogate_matches_total": 2
+        }
+      ]
+    },
+    {
+      "seed": "spike",
+      "result_path": "HPC/Detection/generated/spike37_allch_16ch_0-2595600.result.json",
+      "sha256": "37e2c31e89144bf4771a4d80548da1acc143cd4b5d73b876e0ba327423cd8ed6",
+      "spec_hash": "f6aab3cfb594",
+      "channels": 16,
+      "draws_per_channel": 200,
+      "max_matches_per_channel": 200,
+      "common_cut_full_precision": 2.5193494004881942,
+      "recording_matches": 16,
+      "surrogate_total_all_draws_and_channels": 0,
+      "surrogate_mean_per_draw_summed_over_channels": 0.0,
+      "maximum_recording_matches_on_one_channel": 16,
+      "per_channel": [
+        {
+          "name": "CH1_A1",
+          "real_matches": 16,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH2_A1",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH3_A2",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH4_A2",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH5_B1",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH6_B1",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH7_B2",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH8_B2",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH9_C1",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH10_C1",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH11_C2",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH12_C2",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH13_D1",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH14_D1",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH15_D2",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH16_D2",
+          "real_matches": 0,
+          "surrogate_matches_total": 0
+        }
+      ]
+    },
+    {
+      "seed": "drop",
+      "result_path": "HPC/Detection/generated/drop30_allch_16ch_0-2595600.result.json",
+      "sha256": "54093350e7ca0a327f06133bc12dfaccd138c704c0a0e12f7f5904870b6da919",
+      "spec_hash": "772d402f5d05",
+      "channels": 16,
+      "draws_per_channel": 200,
+      "max_matches_per_channel": 200,
+      "common_cut_full_precision": 2.2080859509008204,
+      "recording_matches": 372,
+      "surrogate_total_all_draws_and_channels": 1,
+      "surrogate_mean_per_draw_summed_over_channels": 0.005,
+      "maximum_recording_matches_on_one_channel": 111,
+      "per_channel": [
+        {
+          "name": "CH2_A1",
+          "real_matches": 111,
+          "surrogate_matches_total": 1
+        },
+        {
+          "name": "CH1_A1",
+          "real_matches": 54,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH3_A2",
+          "real_matches": 7,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH4_A2",
+          "real_matches": 66,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH5_B1",
+          "real_matches": 17,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH6_B1",
+          "real_matches": 1,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH7_B2",
+          "real_matches": 3,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH8_B2",
+          "real_matches": 14,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH9_C1",
+          "real_matches": 18,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH10_C1",
+          "real_matches": 5,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH11_C2",
+          "real_matches": 17,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH12_C2",
+          "real_matches": 2,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH13_D1",
+          "real_matches": 8,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH14_D1",
+          "real_matches": 2,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH15_D2",
+          "real_matches": 13,
+          "surrogate_matches_total": 0
+        },
+        {
+          "name": "CH16_D2",
+          "real_matches": 34,
+          "surrogate_matches_total": 0
+        }
+      ]
+    }
+  ]
+}
