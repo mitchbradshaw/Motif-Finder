@@ -98,6 +98,13 @@ def collect(c):
     from Working.discovery.spans import absolute_bounds, legacy_ambiguous
     from Working.review.span_edits import detection_edits
     edits = detection_edits(c)
+    current_annotations = {int(r[0]) for r in c.execute(
+        "SELECT rv.annotation_id FROM motif_member m JOIN motif_member_revision rv "
+        "ON rv.id=m.current_revision_id WHERE rv.annotation_id IS NOT NULL")}
+    obsolete_edits = {int(r[0]) for r in c.execute(
+        "SELECT rv.annotation_id FROM motif_member_revision rv JOIN annotations a ON a.id=rv.annotation_id "
+        "WHERE rv.superseded_at IS NOT NULL AND a.source='review-span-edit'")} - current_annotations
+    current_annotations.update(int(r["annotation_id"]) for r in edits.values())
     edit_verdicts = {int(r["annotation_id"]): r["verdict"] for r in c.execute(
         "SELECT x.annotation_id,a.verdict FROM review_span_edits x "
         "JOIN adjudications a ON a.detection_id=x.detection_id")} if edits else {}
@@ -168,6 +175,9 @@ def collect(c):
         add(row, "event_span", f"adjudication:{row['id']}", qs)
     for r in c.execute("SELECT * FROM annotations WHERE deleted_at IS NULL ORDER BY id"):
         row = dict(r)
+        if row["id"] in obsolete_edits:
+            continue  # Explicit revision history, including edits predating soft-supersession.
+        row["current_extent_link"] = row["id"] in current_annotations
         if row["id"] in edit_verdicts:
             row["verdict"] = edit_verdicts[row["id"]]
         if row["source"] in WINDOW_SOURCES:
@@ -284,7 +294,7 @@ def build(c):
             remaining.append(r)
     components = []
     for group in overlap_components(remaining):
-        redraws = [r for r in group if r.get("source") == "review-span-edit"]
+        redraws = [r for r in group if r.get("source") == "review-span-edit" and r.get("current_extent_link")]
         if not redraws:
             components.append(group)
             continue

@@ -443,3 +443,19 @@ def test_overlap_set_keeps_edited_item_after_cold_resolve(seeded):
     detail = client.get(f"/api/review/queues/{qid}/items/{other}").json()
     assert (detail["entry"]["start_idx"],detail["entry"]["end_idx"]) == (998,1042)
     c.close()
+
+
+def test_legacy_superseded_member_edit_is_history_not_another_event(seeded):
+    from scripts.thesis.accepted_catalogue import build
+    client, rt, info = seeded
+    for start, end in ((4995, 5060), (5005, 5040)):
+        client.post(f"/api/explore/span-edit/m-{info['member']}", json={"start_idx": start, "end_idx": end}).raise_for_status()
+    # Older app versions left both annotations live; their revision links still
+    # identify which extent was replaced, without guessing from spatial overlap.
+    _write(rt, "UPDATE annotations SET deleted_at=NULL WHERE source='review-span-edit'")
+    c = init_db(rt.db_path)
+    _, events, _ = build(c)
+    target = [e for e in events if e["recording_id"] == info["rec"] and e["start_idx"] > 4900]
+    assert len(target) == 1
+    assert (target[0]["start_idx"], target[0]["end_idx"]) == (5005, 5040)
+    c.close()

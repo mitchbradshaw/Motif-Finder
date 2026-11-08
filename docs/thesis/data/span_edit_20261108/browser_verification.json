@@ -1,0 +1,32 @@
+{
+  "observations": [
+    {
+      "queue": 1,
+      "item": 1,
+      "extent": [
+        995,
+        1050
+      ],
+      "verdict": "interesting"
+    },
+    {
+      "queue": 1,
+      "item": 1,
+      "extent": [
+        1005,
+        1035
+      ],
+      "verdict": "interesting"
+    },
+    {
+      "queue": 2,
+      "item": 1,
+      "extent": [
+        4990,
+        5065
+      ],
+      "verdict": "interesting"
+    }
+  ],
+  "browser_errors": []
+}

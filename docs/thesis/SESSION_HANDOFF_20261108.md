@@ -378,10 +378,17 @@ sandbox, never by inventing verdicts in the project DB.
 
 Final span/API regressions, Review/explore/startup tests passed (74 tests), including
 same-identity repeated shrink edits, automatic acceptance, current Review shape,
-family re-review and single-entry catalogue refresh. TypeScript and the production
+family re-review and single-entry catalogue refresh. A further legacy-history case
+brings the final span-edit run to 24 passed. TypeScript and the production
 Vite build passed using the main checkout's existing node_modules. The thesis
 worktree has no node_modules; do not fetch/install a substitute compiler with npx.
 Additional final validation is recorded in `data/span_edit_20261108/REPORT.md`.
+
+The author explicitly cancelled the remaining repository-wide check after the
+targeted tests passed and requested the push. The broad runs are not full-suite
+passes. Targeted research/core checks passed (21), the final span/API checks passed
+(24), and the isolated end-to-end checks passed (2). The live server was restarted;
+human-row hashes are unchanged and foreign-key checks are clean.
 
 Earlier validations: catalogue/hierarchy/CNN-worker focused tests (11); import/core
 and API speed tests; synthetic browser save/advance/undo for queues 38/46; boundary
