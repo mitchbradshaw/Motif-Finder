@@ -343,3 +343,49 @@ def test_a_second_member_save_is_revision_three(seeded):
     assert r.json()["revision"]["revision_no"] == 3
     got = client.get(f"/api/explore/span-edit/m-{info['member']}").json()["member"]["current"]
     assert got == {"start_idx": 4990, "end_idx": 5055, "revision_no": 3}
+
+
+def test_detection_redraw_replaces_review_extent_and_survives_reopening(seeded):
+    from Working.review import queues
+    client, rt, info = seeded
+    c = init_db(rt.db_path)
+    qid = queues.create_queue(c, name="Redraw regression", source_kind="seed-search",
+                              filters={"detection_ids": [info["plain"]]})
+    c.close()
+    before = _detections(rt)
+    url = f"/api/review/queues/{qid}/items/{info['plain']}"
+    assert client.get(url).status_code == 200  # warm the resolver before editing
+    for start, end in ((995, 1050), (1005, 1035)):
+        saved = client.post(f"/api/explore/span-edit/{info['plain']}",
+                            json={"start_idx": start, "end_idx": end})
+        assert saved.status_code == 200, saved.text
+        detail = client.get(url).json()
+        assert (detail["entry"]["start_idx"], detail["entry"]["end_idx"]) == (start, end)
+        assert detail["entry"]["baseVerdict"] == "interesting"
+        assert detail["shape"]["t0_s"] == start
+        reopened = client.get(f"/api/explore/span-edit/{info['plain']}").json()
+        current = reopened.get("current") or reopened["detection"]
+        assert (current["start_idx"], current["end_idx"]) == (start, end)
+    assert _detections(rt) == before
+    assert _q(rt, "SELECT COUNT(*) FROM annotations WHERE source='review-span-edit' AND deleted_at IS NULL")[0][0] == 1
+
+
+def test_redraw_accepts_previously_rejected_event(seeded):
+    client, rt, info = seeded
+    _write(rt, "UPDATE adjudications SET verdict='not_interesting' WHERE detection_id=?", (info["plain"],))
+    saved = client.post(f"/api/explore/span-edit/{info['plain']}",
+                        json={"start_idx": 995, "end_idx": 1045})
+    assert saved.status_code == 200
+    assert saved.json()["annotation"]["verdict"] == "interesting"
+
+
+def test_unjudged_redraw_counts_as_one_answered_item(seeded):
+    from Working.review import queues
+    client, rt, info = seeded
+    c = init_db(rt.db_path)
+    qid = queues.create_queue(c, name="Redraw counts", source_kind="seed-search",
+                              filters={"detection_ids": [info["unjudged"]]})
+    assert queues.queue_counts(c, qid) == {"total": 1, "judged": 0, "remaining": 1}
+    client.post(f"/api/explore/span-edit/{info['unjudged']}", json={"start_idx": 2990, "end_idx": 3040}).raise_for_status()
+    assert queues.queue_counts(c, qid) == {"total": 1, "judged": 1, "remaining": 0}
+    c.close()
