@@ -484,6 +484,8 @@ import os  # noqa: E402
 
 from Working.library import revisions as revisions_mod  # noqa: E402
 from Working.review import family_queue  # noqa: E402
+from Working.review.span_edits import detection_edits, link_detection  # noqa: E402
+from Working.database.adjudications import insert_adjudication  # noqa: E402
 
 from . import decimate  # noqa: E402
 
@@ -577,6 +579,12 @@ def _span_edit_verdict(c, t: dict):
     """The item's verdict, or None: a member's Review verdict (Library family queue) first, then the
     adjudication on its detection."""
     if t["member_id"] is not None:
+        current = revisions_mod.current_revision(c, t["member_id"])
+        if current and current["annotation_id"] is not None:
+            ann = c.execute("SELECT verdict FROM annotations WHERE id=? AND deleted_at IS NULL",
+                            (current["annotation_id"],)).fetchone()
+            if ann:
+                return ann["verdict"]
         v = family_queue.member_verdicts(c, [t["member_id"]]).get(int(t["member_id"]))
         if v:
             return v
@@ -618,13 +626,16 @@ def _span_edit_payload(c, rec: dict, t: dict, px: int) -> dict:
     member = None
     if t["member_id"] is not None:
         member = {"ref": f"m-{t['member_id']}", "current": _member_current(c, t["member_id"])}
-    shown = (member["current"]["start_idx"], member["current"]["end_idx"]) if member else t["det"]
+    edited = detection_edits(c, [t["detection_id"]]).get(t["detection_id"])
+    current = member["current"] if member else edited
+    shown = (current["start_idx"], current["end_idx"]) if current else t["det"]
     det = {"start_idx": t["det"][0], "end_idx": t["det"][1]} if t["det"] else None
     return {
         "recording_id": int(rec["id"]), "channel": rec.get("name") or f"CH{int(rec['channel']) + 1}",
         "source_file": rec["source_file"], "fs": float(rec["fs"]), "n_samples": int(rec["n_samples"]),
         "unit": corpus.display_unit(rec),
         "detection_id": t["detection_id"], "detection": det, "member": member,
+        "current": {"start_idx": shown[0], "end_idx": shown[1]},
         "verdict": _span_edit_verdict(c, t),
         "context_trace": _span_edit_context(rec, shown[0], shown[1], px),
     }
@@ -649,8 +660,8 @@ def get_span_edit(request: Request, ref: str, px: int = SPAN_EDIT_PX):
 
 @router.post("/api/explore/span-edit/{ref}")
 def post_span_edit(request: Request, ref: str, body: SpanEditBody):
-    """Save a corrected span. A member gets a new human revision (backed by an annotation); a plain detection
-    gets a human annotation with the item's verdict (``interesting`` when it has none). Never the detections row."""
+    """Replace the event's current extent and accept it as interesting. Keep the
+    human annotation/revision history and never change the machine detection."""
     c = _conn(request)
     try:
         t = _span_edit_target(c, ref)
@@ -666,19 +677,18 @@ def post_span_edit(request: Request, ref: str, body: SpanEditBody):
     c = _conn(request)
     try:
         verdict = _span_edit_verdict(c, t)
-        # the item's verdict; `interesting` when it has none, on both paths — correcting an unjudged item's span is
-        # a judgement (the researcher, 2026-10-19; the prompt's `seed` and the critic's `unsure` for a member are
-        # both superseded). Never `seed`: a seed row would also put the span in the Explore spans queue
-        fallback = "interesting"
-        word = verdict if verdict in q.VERDICTS else fallback
+        # The researcher explicitly accepts an event by correcting its boundaries.
+        word = "interesting"  # Redrawing explicitly accepts the corrected event.
         note = body.note
         if verdict and word != verdict:
-            note = f"{note + ' · ' if note else ''}item verdict {verdict!r} is not an annotation verdict"
+            note = f"{note + ' · ' if note else ''}span correction accepts this event; previous verdict {verdict!r}"
         elif not verdict:
             note = f"{note + ' · ' if note else ''}the item had no verdict: a span correction saves interesting"
         if t["member_id"] is None:
             aid = q.insert_annotation(c, t["recording_id"], s, e, word, SPAN_EDIT_SOURCE, note=note,
                                       created_at=now, commit=False)
+            link_detection(c, t["detection_id"], aid, now)
+            insert_adjudication(c, t["detection_id"], word, note=note, commit=False)
             c.commit()
             return {"kind": "annotation", "member": None,
                     "annotation": {"id": int(aid), "verdict": word, "source": SPAN_EDIT_SOURCE,
@@ -697,6 +707,14 @@ def post_span_edit(request: Request, ref: str, body: SpanEditBody):
                                       created_at=now, commit=False)
             rid = revisions_mod.add_revision(c, mid, origin="human", start_idx=s, end_idx=e,
                                              annotation_id=aid, created_at=now, commit=False)
+            # Only the latest redraw is a live observation; prior revisions stay
+            # available in history and never inflate the accepted catalogue.
+            c.execute("UPDATE annotations SET deleted_at=? WHERE source=? AND id<>? AND id IN "
+                      "(SELECT annotation_id FROM motif_member_revision WHERE member_id=?)",
+                      (now, SPAN_EDIT_SOURCE, aid, mid))
+            if t["detection_id"] is not None:
+                link_detection(c, t["detection_id"], aid, now)
+                insert_adjudication(c, t["detection_id"], word, note=note, commit=False)
         except ValueError as err:          # e.g. a span that does not overlap rev 1: a different motif
             c.rollback()
             raise HTTPException(422, str(err)) from None

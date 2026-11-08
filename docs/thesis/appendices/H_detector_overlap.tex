@@ -1,0 +1,138 @@
+\chapter{Detector overlap with manually labelled windows}
+\label{app:windowtouch}
+
+Table~\ref{tab:windowtouchfull} reproduces the 26 October overlap analysis on the original M2\_aug ten-minute labels. It includes all 46 stored settings in that analysis, covering the sweep settings, CNN controls and locally reused matrix-profile runs. The 34 non-CNN settings underpin the combined miss rate in Section~\ref{sec:misses}.
+
+A labelled window is touched when any detection from the setting on the same channel overlaps it. For a setting run on 16 channels, the denominators are 2,333 interesting and 8,773 uninteresting windows. Settings run on two channels are evaluated on their 272 interesting and 1,058 uninteresting windows. Windows labelled as artefacts are excluded.
+
+Lift is the interesting-window touch rate divided by the uninteresting-window touch rate. It is calculated from the unrounded rates. A dash marks an undefined ratio when neither class was touched. The twelve CNN rows are marked with an asterisk because the models were likely trained on these labels. Their rates describe overlap on a potentially in-sample dataset, and the 1-minute CNN rows also serve as negative controls.
+
+% Generated 7 Nov from docs/thesis/data/miss_rate/per_variant.csv.
+% Each source variant is retained beside its row for verification.
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{7.0cm} c r r r@{}}
+\caption{Every setting in the M2\_aug window-overlap analysis. Rates are percentages of windows touched. An asterisk identifies a CNN evaluated on potentially in-sample labels.}
+\label{tab:windowtouchfull}\\
+\toprule
+\textbf{Detector setting} & \textbf{Ch} & \makecell{\textbf{Interesting}\\\textbf{(\%)}} & \makecell{\textbf{Uninteresting}\\\textbf{(\%)}} & \textbf{Lift}\\
+\midrule
+\endfirsthead
+\multicolumn{5}{@{}l}{\tablename~\thetable\ (continued)}\\
+\toprule
+\textbf{Detector setting} & \textbf{Ch} & \makecell{\textbf{Interesting}\\\textbf{(\%)}} & \makecell{\textbf{Uninteresting}\\\textbf{(\%)}} & \textbf{Lift}\\
+\midrule
+\endhead
+\midrule
+\multicolumn{5}{r@{}}{Continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+% OASIS_Deconvolution
+OASIS, default & 16 & 86.41 & 61.46 & 1.41\\
+% OASIS_Deconvolution__threshold_3
+OASIS, threshold 3 & 16 & 90.61 & 65.63 & 1.38\\
+% OASIS_Deconvolution__threshold_5
+OASIS, threshold 5 & 16 & 48.74 & 11.19 & 4.35\\
+\addlinespace
+% deconvolved_troughs
+Deconvolved troughs, default & 2 & 87.87 & 42.16 & 2.08\\
+% deconvolved_troughs__recovery_half_s_240
+Deconvolved troughs, recovery 240 s & 16 & 82.25 & 42.93 & 1.92\\
+% deconvolved_troughs__recovery_half_s_60
+Deconvolved troughs, recovery 60 s & 16 & 87.66 & 48.15 & 1.82\\
+\addlinespace
+% drop_detection_v1
+Drop detector v1, default & 16 & 6.99 & 1.31 & 5.33\\
+% drop_detection_v1__slope_sigma_12
+Drop detector v1, slope $12\sigma$ & 16 & 6.60 & 1.17 & 5.62\\
+% drop_detection_v1__slope_sigma_4
+Drop detector v1, slope $4\sigma$ & 16 & 7.97 & 1.56 & 5.11\\
+\addlinespace
+% drop_detection_v5
+Drop detector v5, default & 2 & 11.76 & 2.65 & 4.45\\
+% drop_detection_v5__same_fraction_0p5
+Drop detector v5, same fraction 0.5 & 16 & 6.52 & 1.36 & 4.80\\
+% drop_detection_v5__same_fraction_0p7
+Drop detector v5, same fraction 0.7 & 16 & 6.56 & 1.35 & 4.88\\
+\addlinespace
+% wavelet_encoded
+Wavelet-encoded, default & 16 & 3.99 & 0.57 & 6.99\\
+% wavelet_encoded__level_3
+Wavelet-encoded, level 3 & 16 & 1.20 & 0.09 & 13.16\\
+% wavelet_encoded__level_5
+Wavelet-encoded, level 5 & 16 & 5.96 & 0.57 & 10.45\\
+\addlinespace
+% symbol_search
+Symbol search (dSAX), default & 2 & 36.03 & 4.82 & 7.47\\
+% symbol_search__seconds_per_symbol_10
+Symbol search (dSAX), 10 s/symbol & 16 & 2.36 & 0.14 & 17.24\\
+% symbol_search__seconds_per_symbol_40
+Symbol search (dSAX), 40 s/symbol & 16 & 1.24 & 0.09 & 13.63\\
+\addlinespace
+% signal_threshold
+Signal threshold, default & 16 & 25.38 & 1.79 & 14.18\\
+% signal_threshold__threshold_V_m0p002
+Signal threshold, $-2$\,mV & 16 & 51.18 & 5.29 & 9.68\\
+% signal_threshold__threshold_V_m0p01
+Signal threshold, $-10$\,mV & 16 & 12.39 & 0.58 & 21.31\\
+\addlinespace
+% noise_threshold
+Noise threshold, default & 16 & 70.60 & 17.71 & 3.99\\
+% noise_threshold__k_sigma_3
+Noise threshold, $k=3$ & 16 & 77.93 & 24.22 & 3.22\\
+% noise_threshold__k_sigma_6
+Noise threshold, $k=6$ & 16 & 57.48 & 11.18 & 5.14\\
+\addlinespace
+% BEADs_invert_detect_v1
+BEADS inverted, default & 16 & 15.73 & 2.41 & 6.54\\
+% BEADs_invert_detect_v1__delta_mv_25
+BEADS inverted, $\delta=25$\,mV & 16 & 9.17 & 1.21 & 7.59\\
+% BEADs_invert_detect_v1__delta_mv_5
+BEADS inverted, $\delta=5$\,mV & 16 & 42.26 & 8.13 & 5.20\\
+\addlinespace
+% Wavelet_detection_prototype
+Dehshibi wavelet prototype, default & 2 & 71.32 & 52.17 & 1.37\\
+% Wavelet_detection_prototype__epsilon_factor_0p02
+Dehshibi wavelet prototype, $\epsilon=0.02$ & 16 & 75.35 & 66.98 & 1.13\\
+% Wavelet_detection_prototype__epsilon_factor_0p1
+Dehshibi wavelet prototype, $\epsilon=0.1$ & 16 & 56.67 & 51.90 & 1.09\\
+\addlinespace
+% mp_motifs__backend_auto
+Matrix-profile motifs & 2 & 0.00 & 0.00 & --\\
+% mp_threshold__backend_auto
+Matrix-profile threshold, default & 2 & 0.00 & 0.00 & --\\
+% mp_threshold__threshold_10__backend_auto
+Matrix-profile threshold, threshold 10 & 2 & 0.00 & 0.00 & --\\
+% mp_threshold__threshold_6__backend_auto
+Matrix-profile threshold, threshold 6 & 2 & 46.69 & 88.94 & 0.52\\
+\addlinespace
+% cnn_fusion3_10min
+CNN fusion, 10 min\textsuperscript{*} & 16 & 83.11 & 12.34 & 6.73\\
+% cnn_gadf_10min
+CNN GADF, 10 min\textsuperscript{*} & 16 & 86.76 & 12.86 & 6.75\\
+% cnn_gasf_10min
+CNN GASF, 10 min\textsuperscript{*} & 16 & 81.57 & 10.70 & 7.62\\
+% cnn_recurrence_10min
+CNN recurrence, 10 min\textsuperscript{*} & 16 & 81.78 & 10.27 & 7.96\\
+\addlinespace
+% cnn_fusion3_60min
+CNN fusion, 60 min\textsuperscript{*} & 16 & 90.57 & 49.77 & 1.82\\
+% cnn_gadf_60min
+CNN GADF, 60 min\textsuperscript{*} & 16 & 87.57 & 45.51 & 1.92\\
+% cnn_gasf_60min
+CNN GASF, 60 min\textsuperscript{*} & 16 & 84.70 & 41.83 & 2.02\\
+% cnn_recurrence_60min
+CNN recurrence, 60 min\textsuperscript{*} & 16 & 86.50 & 45.67 & 1.89\\
+\addlinespace
+% cnn_fusion3_1min
+CNN fusion, 1 min\textsuperscript{*} & 16 & 98.46 & 99.03 & 0.99\\
+% cnn_gadf_1min
+CNN GADF, 1 min\textsuperscript{*} & 16 & 99.31 & 99.41 & 1.00\\
+% cnn_gasf_1min
+CNN GASF, 1 min\textsuperscript{*} & 16 & 98.93 & 99.36 & 1.00\\
+% cnn_recurrence_1min
+CNN recurrence, 1 min\textsuperscript{*} & 16 & 98.89 & 99.32 & 1.00\\
+\end{longtable}
+\endgroup

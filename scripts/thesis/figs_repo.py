@@ -51,6 +51,47 @@ def ladder():
     return fs.save(fig, "ch6_ladder")
 
 
+def seed_distribution():
+    """All thresholded drop-query matches, with timing and channel totals."""
+    df = pd.read_csv(os.path.join(DATA, "seed_drop_matches.csv"))
+    names = (df[["channel", "channel_name"]].drop_duplicates()
+             .sort_values("channel"))
+    assert len(df) == 372 and len(names) == 16
+    fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 5.1))
+    gs = fig.add_gridspec(1, 2, width_ratios=[3.6, 1], wspace=0.05)
+    ax = fig.add_subplot(gs[0, 0])
+    bx = fig.add_subplot(gs[0, 1], sharey=ax)
+    blue = fs.colour("M2_aug")
+    for y, row in enumerate(names.itertuples(index=False)):
+        matches = df[df["channel"] == row.channel]
+        ax.vlines(matches["start_s"] / 3600, y - 0.25, y + 0.25,
+                  color=blue, lw=0.85, alpha=0.85)
+        seed = matches[matches["is_seed"]]
+        if not seed.empty:
+            ax.scatter(seed["start_s"] / 3600, np.full(len(seed), y),
+                       marker="*", s=65, color=fs.INK, zorder=4)
+        bx.barh(y, len(matches), height=0.55, color=blue, alpha=0.9)
+        bx.text(len(matches) + 2, y, str(len(matches)), va="center", fontsize=8)
+    ax.set(yticks=np.arange(16), yticklabels=names["channel_name"].tolist(),
+           ylim=(15.65, -0.65), xlim=(0, 721),
+           xlabel="Time in M2_aug (h)")
+    ax.set_xticks(np.arange(0, 721, 120))
+    ax.set_title("(a) Time of each match", loc="left")
+    bx.set(xlim=(0, 129), xlabel="Matches")
+    bx.set_xticks([0, 50, 100], ["", "50", "100"])
+    bx.set_title("(b) Count", loc="left")
+    bx.tick_params(axis="y", labelleft=False, left=False)
+    bx.grid(axis="y", visible=False)
+    for spine in ("left", "right", "top"):
+        bx.spines[spine].set_visible(False)
+    fig.suptitle("Drop seed · 377 s · 372 matches across 16 channels",
+                 x=0.16, ha="left", fontsize=10)
+    fig.text(0.16, 0.92, "Common shape-distance threshold: 2.208 · star: original seed",
+             fontsize=8, color=fs.INK_2)
+    fig.subplots_adjust(left=0.16, right=0.98, bottom=0.1, top=0.86)
+    return fs.save(fig, "ch7_drop_distribution")
+
+
 def _confusion(a):
     n, p, pp, rec = a["n"], a["human_interesting"], a["model_interesting"], a.get("recall") or 0.0
     tp = int(round(rec * p))

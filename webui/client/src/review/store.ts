@@ -170,6 +170,14 @@ const COUNTS_VERSION = 'review.countsVersion'
 export function useCountsVersion() { return useDemoState<number>(COUNTS_VERSION, () => 0)[0] }
 const bumpCountsVersion = () => setDemo<number>(COUNTS_VERSION, n => (n ?? 0) + 1)
 
+/** Explore changed the stored event. Session verdicts and prefetched traces
+ * must defer to the database when Review opens again. The undo audit stays. */
+export function refreshAfterSpanEdit() {
+  setDemo<Record<string, Raw>>(REC, {})
+  bumpReviewVersion()
+  bumpCountsVersion()
+}
+
 /** night-a: writes sent and not yet answered. Undo and redo wait for them: a Ctrl Z inside a verdict's round trip
  *  undid the PREVIOUS item (the new write joins the stack only on its ack) while the new one still landed. */
 let inFlight = 0

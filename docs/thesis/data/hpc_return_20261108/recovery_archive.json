@@ -1,0 +1,16 @@
+{
+  "archive": "C:\\Users\\mmebr\\Documents\\CNN\\DATA\\derived\\hpc\\recovery_20261108_upload.tar.gz",
+  "bytes": 10980988,
+  "sha256": "6dbdbb5c482a1d06851e0924a40c3282717679ce37c1b7862e2fd88e4a6c7b9f",
+  "members": 570,
+  "task_counts": {
+    "seed": 5,
+    "cpu": 29,
+    "cnn": 250,
+    "mpA": 3,
+    "mpB": 3
+  },
+  "backed_up_caches": 334,
+  "source_worker_sha256": "74113511d6e28ccf1d9b5e835bb04f43ef824f64daf32b7f9b12bab632ab353a",
+  "launcher_revision": 2
+}

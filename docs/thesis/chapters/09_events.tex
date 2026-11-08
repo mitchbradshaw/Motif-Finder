@@ -17,10 +17,51 @@ Present single-recording results as case studies, not as facts about fungi.
 
 \section{Aims}
 
-The research questions test the instrument. This chapter uses it to describe what it found: the size, duration, polarity and timing of the events a human accepted, how they group into families, and how far shape survives a change of scale and species. Its descriptions are the raw material for the morphology vocabulary (Appendix~\ref{app:vocab}) and for the spiking-family taxonomy the supervisor proposed.
+With the assistance of MycoWave, its detection algorithms, seed searches and trained models, a Library of event shapes accepted by human judgement was assembled. The aim of this chapter is to examine the attributes of that collection, including amplitudes, durations, timing and recurring waveform shapes. Firstly, the accepted catalogue and its sources are described. Selected spiking trains are then examined in detail, followed by the effect of different choices of shape grouping. Finally, the much larger pool of unreviewed candidates is considered, including ways to prioritise it for further review. These observations describe selected recordings and the researcher's acceptance criteria. They provide material for a morphology vocabulary and further investigation, while the processes of collection, identification and comparison provide a basis for more generalisable work.
 
 \section{The catalogue of accepted events}
 \label{sec:catalogue}
+
+\subsection{A combined inventory of the reviewed material}
+
+The completed reviews allowed the catalogue to be expanded beyond the original detector-review sample. At the 8 November cutoff, the combined inventory contained 2,718 accepted spans across eight recording groups (Figure~\ref{fig:combinedcatalogue}). This included accepted material from the earlier detector and seed-search queues, the new cross-recording drop panel, the MJu26a CH14 train review and the previously unjudged Library proposals. The inventory increased from 1,762 spans in the earlier, incomplete follow-up snapshot. These totals describe a source-linked collection of accepted spans, rather than a census of every complete, individual event in the recordings.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{new/ch9_combined_catalogue.pdf}
+\caption{The combined accepted-span inventory after completion of the three follow-up review queues. Each bar counts spans on a physical recording channel after duplicate observations and ordinary overlapping accepted spans have been combined. M2\_aug contributes 1,123 spans, MJu26a 815, LM 356, M2\_concat 147, M4 121, CO 107, SH 27 and SO 22. Copies of MJu26a at 10\,Hz and 2\,Hz, its five-channel L\_LM copy and the four-hour CH14 excerpt are mapped to the same physical recording before reconciliation. Different channels remain separate. The inventory includes both individual-span judgements and the explicitly accepted train material, whose proposed boundaries remain identified separately. Counts reflect the recording coverage and selection methods used to assemble the Library, and should not be read as event rates or species-level frequencies.}
+\label{fig:combinedcatalogue}
+\end{figure}
+
+The Library review resolved 280 of 322 previously unjudged proposals as interesting, with 24 rejected, 17 unsure and one marked as an artefact. This is a selected set of plausible waveform proposals, rather than a random sample of the recording. Its members also need not be distinct occurrences: overlapping fragments can refer to the same drop, and some were already represented by another accepted source. The combined inventory contains 127 spans linked to new verdicts from this queue. The new MJu26a review similarly links to 509 accepted spans, while 534 spans have accepted observations from the cross-recording blind panel, including both search-selected and random-control examples. These source-linked totals can overlap and are not added to obtain the catalogue size.
+
+Recording copies were reconciled before comparing intervals. MJu26a's 2\,Hz samples cover blocks of five samples on the 10\,Hz grid. The five L\_LM channels map to physical CH10 and CH13--16; the CH14 excerpt additionally requires its registered time offset. In the combined MJu26a inventory, 165 spans contain accepted observations from more than one of these copies. This prevents an occurrence found at several sampling rates from being treated as several independent events. Positively labelled fixed windows are retained separately: the 2,568 accepted windows and 29 accepted regions provide material for extracting events, but are not each counted as an individual waveform.
+
+\subsection{An accepted span and a complete waveform}
+
+Reviewing a candidate as interesting does not necessarily establish its onset and recovery boundaries. Some of the Library proposals captured a recovery from a preceding drop, or ended shortly before a following deflection. Others contained several substantial excursions. Wider signal context is therefore needed both to recover the full shape and to decide whether a span contains one event or several (Figure~\ref{fig:cataloguecontext}). The researcher's saved extent edits are retained, and overlapping observations are linked without overwriting their original detection spans or verdicts.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{new/ch9_context_examples.pdf}
+\caption{Selected examples of why an accepted span needs surrounding signal context. The left column comes from the newly reviewed Library proposals and the right from the longer MJu26a CH14 train. Orange shading marks the combined accepted span; the black trace includes the surrounding signal, with each panel using its own millivolt scale and seconds measured from the accepted span's start. A reviewed interval can capture only a small part of a deflection, a recovery, or a region containing several adjacent shapes. The examples were selected to illustrate boundary problems and are not a random sample of the catalogue. Wider context is shown for inspection; it does not imply that every neighbouring excursion was accepted or that a single complete event has already been delineated.}
+\label{fig:cataloguecontext}
+\end{figure}
+
+Automatic prominence crossings can suggest where a waveform begins and recovers, but can also join a fragment to a neighbouring drop or treat several peaks as one broad event. These suggestions are retained for boundary inspection rather than converted into new human judgements. Separate train extrema and explicit human splits remain separate even where their recovery tails overlap. Thus 2,718 is the current accepted-span inventory; final statistics of individual event duration require the remaining boundary checks. A morphology grouping made from cropped fragments could group rises and falls separately even when both belong to the same overall waveform, so the enlarged inventory is not presented as a new, final set of shape families.
+
+A focused hierarchy pass illustrates the distinction. Among the 127 combined observations linked to the Library proposal review, it suggested one event for 78 observations, several events for 35, and left 14 unresolved. The pass retained 229 distinct individual-event proposals, with up to 15 in one parent observation (Figure~\ref{fig:eventhierarchy}). Each child has a physical recording and extremum identity; a separate sequence container preserves the order of children supported by the same parent. Overlapping recoveries therefore do not collapse adjacent events into one. These are machine-proposed separations rather than 229 independent positive human judgements. The boundary view presents separate selections for inspection, retains saved human extents, and leaves the proposals unchecked until the researcher explicitly saves them. Importing a checked multi-event selection preserves its individual annotations and creates a separate sequence linking its members.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{new/ch9_event_sequence_hierarchy.pdf}
+\caption{Accepted parent observations and proposed individual events. Amber shading marks one source-linked accepted observation in each panel. Coloured spans and points mark the separate extent and extremum proposals within it; colours distinguish neighbours and do not denote morphology families. The four examples span the range from short pairs to a longer train. Each parent remains one review observation, while its proposed children receive separate event identities and ordered sequence membership. The machine extents use the existing shoulder rule and a return through 95\,\% of the excursion, bounded by the following detected event. Unfinished recovery tails do not merge neighbouring children. The proposals require inspection and can be edited, removed or split further before being treated as checked individual waveforms.}
+\label{fig:eventhierarchy}
+\end{figure}
+
+\subsection{The earlier blind detector-review cohort}
+
+The earlier sample of 716 accepted spans from queues 25 and 28 remains useful for comparing accepted and rejected detector candidates under a common sampling design (Figure~\ref{fig:catalogue}). It is a different population from the combined Library inventory and is retained as a historical comparison. Its span lengths describe the windows presented by the detectors, which often used approximately ten-minute frames; they should not be substituted for measured onset-to-recovery durations of the expanded catalogue.
 
 \begin{figure}[htbp]
 \centering
@@ -37,7 +78,7 @@ The research questions test the instrument. This chapter uses it to describe wha
 \end{figure}
 
 \begin{instructions}
-The recomputed numbers. Use these, not the poster's:
+Historical 716-span detector-review comparison only. These numbers are not statistics of the expanded 2,718-span inventory. Use these, not the poster's:
 \begin{itemize}
   \item \textbf{swing}: median 19.8\,mV, 14--30\,mV per recording; top 5\,\% above 122\,mV; smallest 0.17\,mV;
   \item \textbf{duration}: median 603\,s (5--95\,\%: 40--1,272\,s). Much of this is detector framing: 24\,\% of spans
@@ -80,6 +121,11 @@ picture of a family.
 
 \section{Shape families in the Library}
 \label{sec:families}
+
+After the follow-up review, the historical g-11 grouping still contained 42 assigned shape families. Under the current verdict resolver, 1,014 of its 1,097 representatives were accepted, including 752 assigned to those families and 262 omitted from the clustering. All 42 families contained accepted material, averaging 17.9 accepted assigned representatives per family; the largest contained 60. There were also 55 rejected representatives, six artefacts, 17 unsure answers and five with no currently resolved answer. These figures describe the existing grouping with its updated judgements. They do not mean that the enlarged 2,718-span inventory has been regrouped into the same 42 families. Its additional recordings and corrected waveform extents need to be included in a subsequent grouping, with the effect of those choices assessed explicitly.
+
+% Current g-11 membership held fixed, with live source-linked verdicts:
+% data/reviews_completed_20261108/historical_g11_verdicts.json.
 
 \begin{figure}[htbp]
 \centering
@@ -138,7 +184,7 @@ inactive 2\,Hz copy of MJu26a (CH10, 13--16). No verdict rows were written.
                 the detectors found and you kept.
         \end{itemize}
 \end{itemize}
-g-11 is the final grouping for this chapter and Chapter~\ref{ch:roundb} (5 Nov). Sources:
+g-11 is the historical morphology grouping used for the comparisons in this chapter and Chapter~\ref{ch:roundb} (5 Nov). The later g-12 accepted inventory is grouped by recording and is not a replacement morphology taxonomy. The completed follow-up reviews enlarge the accepted population, but its cropped and compound shapes require boundary checks before a new morphology grouping is finalised. Sources:
 \src{docs/thesis/data/library_events/} (g-10) and \src{docs/thesis/data/library_events_all_active/} (g-11).
 \end{instructions}
 

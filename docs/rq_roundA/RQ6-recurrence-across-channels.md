@@ -1,5 +1,35 @@
 # RQ6 — Once contamination and propagation are separated out, does recurrence persist across channels and recordings?
 
+- 2026-11-08 later · event/sequence hierarchy · the author explicitly required individual events to stay separate
+  even when parent observations or recovery tails overlap. The focused 127-parent pass proposes 229 distinct
+  children (35 multi-event parents, 78 single, 14 unresolved). Checked split import now stores separate individual
+  annotations and ordered sequence members; no machine proposal creates an independent human verdict. CH14's
+  530 supported trough proposals provide a selected timing case (LV 0.708), with regularity versus homogeneous
+  random timing robust across 0.5–2 mV floors and shuffled-gap evidence sensitive to the floor. This is not a
+  recording-wide or propagation claim. New queue 47 broadens SH/SO and other channels/periods without waiting
+  for CNNs. See `docs/thesis/data/event_hierarchy_20261108/REPORT.md` and
+  `docs/thesis/data/roundb_extension_20261108/REPORT.md`.
+
+- 2026-11-08 evening · completed-review reconciliation · g-12 now contains 2,718 accepted spans, including 815
+  MJu26a components. MJu26a 10/2-Hz and L_LM/excerpt copies map to parent coordinates; 165 components link multiple
+  copies. The newly reviewed CH14 train spans 382.5–473.2 h and links to 509 combined spans; it contains the older
+  four-hour excerpt and is distinct from CH15 206–283 h. Wider context confirms cropped/compound shapes, so no
+  final onset/recovery census or propagation inference is claimed. Chapter 10 case-study figure/prose added.
+  `docs/thesis/data/reviews_completed_20261108/REPORT.md` and `data/recovery_return_20261108/REPORT.md` cover
+  completed labels and recovered CPU/MP runs; the 183 remaining CNN tasks prevent a full new agreement census.
+
+- 2026-11-08 · Library review follow-up · queue 46 now contains the remaining unanswered g-11 representatives
+  (322 selected, 317 awaiting adjudication; all M2_aug). Accepted `library_review` annotations feed the unified
+  catalogue at refresh, with source identity and event deduplication preserved. These selected proposals do not
+  extend the historical blind acceptance experiment. `docs/thesis/data/review_followup_20261108/REPORT.md`.
+
+**8 Nov 2026 catalogue follow-up:** an accepted-only inventory is available as Library g-12, grouped by recording,
+with physical copies of MJu26a reconciled and the researcher's two accepted trains retained as separate anchored
+members. It contains 1,762 accepted spans at its saved cutoff, not a frozen count of individually bounded events.
+The boundary editor permits split/extend/trim checks before new morphology or timing summaries. Historical g-11
+recurrence results remain historical; g-12's recording groups are not morphology families. See
+`docs/thesis/data/accepted_catalogue/REPORT.md` and `docs/thesis/CHAPTER_09_RESPONSES.md`.
+
 **Status (2026-10-05, after `AD`): answerable on families whose members are long enough and above the noise floor, not
 yet answered.** Every bin now has to beat its own random-time null; the machine only flags a suspected artifact and a
 human confirms it in Review; recurrence takes out only what a human confirmed. **The three Fig2A families cannot answer

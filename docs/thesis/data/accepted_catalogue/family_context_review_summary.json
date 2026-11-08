@@ -1,0 +1,12 @@
+{
+  "items": 127,
+  "event_spans": 127,
+  "windows_and_regions_to_extract": 0,
+  "flagged_event_spans": 89,
+  "event_spans_with_multiple_extrema": 30,
+  "flagged": 89,
+  "multiple_extrema": 30,
+  "manifest_hash": "439066490847cfff3521",
+  "queue_id": 46,
+  "html": "C:\\Users\\mmebr\\Documents\\CNN\\DATA\\derived\\accepted_catalogue_review\\family_context_review.html"
+}

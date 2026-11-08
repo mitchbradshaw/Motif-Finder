@@ -110,5 +110,27 @@ def test_the_rule_is_printed_with_the_containment_mode(db):
     assert "Review" in text and "event" in text and "centre" in text
 
 
+def test_current_human_revision_keeps_its_explicit_verdict_over_old_detection(db):
+    from Working.library import revisions, verdicts as V
+    c = db["conn"]
+    revisions.add_revision(c, 3, origin="machine", start_idx=900, end_idx=1000,
+                           detection_id=db["d1"])
+    aid = q.insert_annotation(c, db["rec"], 920, 1020, "not_interesting", "review-span-edit")
+    revisions.add_revision(c, 3, origin="human", start_idx=920, end_idx=1020, annotation_id=aid)
+    got = V.member_verdicts(c, _members(c))[3]
+    assert (got["side"], got["verdict"], got["by"]) == ("no", "not_interesting", "human_revision")
+
+
+def test_explicit_human_revision_unsure_does_not_inherit_older_acceptance(db):
+    from Working.library import revisions, verdicts as V
+    c = db["conn"]
+    revisions.add_revision(c, 3, origin="machine", start_idx=900, end_idx=1000,
+                           detection_id=db["d1"])
+    aid = q.insert_annotation(c, db["rec"], 920, 1020, "unsure", "review-span-edit")
+    revisions.add_revision(c, 3, origin="human", start_idx=920, end_idx=1020, annotation_id=aid)
+    got = V.member_verdicts(c, _members(c))[3]
+    assert got["side"] is None and got["verdict"] == "unjudged"
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

@@ -1,0 +1,56 @@
+{
+  "status": "pending exact onset geometry; counts alone are insufficient",
+  "complete_new_channels_available": 0,
+  "missing": [
+    {
+      "recording": "SH_fs2",
+      "task": 0,
+      "expected_detections": 6,
+      "remote_work_folder": "/home/Student/s4699158/CNN/docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1_4ch_0-3456000_bff1bb_out/work/"
+    },
+    {
+      "recording": "SH_fs2",
+      "task": 1,
+      "expected_detections": 4,
+      "remote_work_folder": "/home/Student/s4699158/CNN/docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1_4ch_0-3456000_bff1bb_out/work/"
+    },
+    {
+      "recording": "SH_fs2",
+      "task": 2,
+      "expected_detections": 6,
+      "remote_work_folder": "/home/Student/s4699158/CNN/docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1_4ch_0-3456000_bff1bb_out/work/"
+    },
+    {
+      "recording": "SH_fs2",
+      "task": 3,
+      "expected_detections": 5,
+      "remote_work_folder": "/home/Student/s4699158/CNN/docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1_4ch_0-3456000_bff1bb_out/work/"
+    },
+    {
+      "recording": "SO_fs2",
+      "task": 0,
+      "expected_detections": 9,
+      "remote_work_folder": "/home/Student/s4699158/CNN/docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/drop_detection_v1_4ch_0-3456000_233593_out/work/"
+    },
+    {
+      "recording": "SO_fs2",
+      "task": 1,
+      "expected_detections": 4,
+      "remote_work_folder": "/home/Student/s4699158/CNN/docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/drop_detection_v1_4ch_0-3456000_233593_out/work/"
+    },
+    {
+      "recording": "SO_fs2",
+      "task": 2,
+      "expected_detections": 14,
+      "remote_work_folder": "/home/Student/s4699158/CNN/docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/drop_detection_v1_4ch_0-3456000_233593_out/work/"
+    },
+    {
+      "recording": "SO_fs2",
+      "task": 3,
+      "expected_detections": 1,
+      "remote_work_folder": "/home/Student/s4699158/CNN/docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/drop_detection_v1_4ch_0-3456000_233593_out/work/"
+    }
+  ],
+  "old_census_unchanged": true,
+  "new_detector_computation_required": "not if retained cluster scratch folders are supplied"
+}

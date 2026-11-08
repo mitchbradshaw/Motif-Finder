@@ -1,0 +1,80 @@
+{
+  "generated_at": "2026-11-08T09:01:32.589528+00:00",
+  "cutoff": {
+    "adjudications": 62509,
+    "annotations": 13155,
+    "review_audit": 7246
+  },
+  "read_only": true,
+  "accepted_observations": 6180,
+  "accepted_observations_by_kind": {
+    "event_span": 3583,
+    "labelled_window": 2568,
+    "reviewed_region": 29
+  },
+  "accepted_observations_by_source": {
+    "adjudication": 2911,
+    "imported_10min": 2333,
+    "excel_catalog": 28,
+    "manual_ui": 4,
+    "blind_test_review": 235,
+    "library_review": 461,
+    "review-span-edit": 28,
+    "explore.take_for_review": 3,
+    "researcher_train_region": 2,
+    "researcher_train_acceptance": 175
+  },
+  "accepted_span_components": 2773,
+  "thesis_span_components": 2718,
+  "per_dataset": {
+    "M2_aug": 1123,
+    "M2_aug_concat_fs2": 1,
+    "M2_concat": 147,
+    "M4": 121,
+    "Fig2A_dt0p1": 34,
+    "Schizophyllum commune": 20,
+    "LM": 356,
+    "CO": 107,
+    "MJu26a": 815,
+    "SH": 27,
+    "SO": 22
+  },
+  "event_source_links": 3595,
+  "unique_event_sources": 3583,
+  "train_level_members": 175,
+  "components_with_other_event_sized_negative_judgement": 1,
+  "boundary_checks_pending": 2773,
+  "library_members_by_source_and_resolved_verdict": {
+    "accepted-catalogue": {
+      "interesting": 1975,
+      "seed": 1
+    },
+    "annotation": {
+      "interesting": 4
+    },
+    "event_store": {
+      "unjudged": 2850,
+      "interesting": 647,
+      "not_interesting": 91,
+      "artifact": 11
+    },
+    "review": {
+      "interesting": 3,
+      "seed": 108
+    },
+    "review-accepted": {
+      "interesting": 600
+    }
+  },
+  "rules": [
+    "Latest own adjudication per detection; carried copies are not new observations.",
+    "Every live human annotation retained, with source and queue links where known.",
+    "Known physical copies mapped before deduplication; recording/channel preserved.",
+    "Strict positive overlap combines event-span observations; touching is insufficient.",
+    "Fixed review windows and known multi-event regions retained separately; never bridge events.",
+    "Researcher-accepted train members retain separate extrema, including overlapping recoveries; older broad looks are provenance, not merge bridges.",
+    "Acceptance of a span does not certify one waveform or its exact boundaries.",
+    "No new verdicts, annotations, detections, groupings, or Library entries written.",
+    "Thesis scope and wider-project material both retained, explicitly distinguished."
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "items": 4357,
+  "event_spans": 1762,
+  "windows_and_regions_to_extract": 2595,
+  "flagged_event_spans": 962,
+  "event_spans_with_multiple_extrema": 138,
+  "flagged": 3557,
+  "multiple_extrema": 828,
+  "manifest_hash": "9016b06bb4fcbc9b2f03",
+  "html": "C:\\Users\\mmebr\\Documents\\CNN\\DATA\\derived\\accepted_catalogue_review\\boundary_review.html"
+}

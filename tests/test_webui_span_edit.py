@@ -9,8 +9,8 @@ are machine-only, annotations are human-only):
 
 * the item is a Library **member** → a human `annotations` row with the
   corrected span, then a `motif_member_revision` pointing at it, made current;
-* the item is a plain **detection** → a human `annotations` row with the
-  corrected span and the item's verdict (``seed`` when it has none);
+* a plain **detection** → a current-extent link to the human annotation;
+* saving a redraw explicitly accepts the event as ``interesting``;
 * in BOTH cases the `detections` row is byte-identical before and after.
 
 FastAPI lives only in `webui/.venv`, so under the conda `pytest` this file
@@ -388,4 +388,58 @@ def test_unjudged_redraw_counts_as_one_answered_item(seeded):
     assert queues.queue_counts(c, qid) == {"total": 1, "judged": 0, "remaining": 1}
     client.post(f"/api/explore/span-edit/{info['unjudged']}", json={"start_idx": 2990, "end_idx": 3040}).raise_for_status()
     assert queues.queue_counts(c, qid) == {"total": 1, "judged": 1, "remaining": 0}
+    c.close()
+
+
+def test_member_redraw_is_current_in_family_review_and_later_verdict_reuses_it(seeded):
+    from Working.review import queues, family_queue
+    client, rt, info = seeded
+    c = init_db(rt.db_path)
+    qid = queues.create_queue(c, name="Family redraw", source_kind="library-family",
+                              filters={"member_ids": [info["member"]]})
+    queue = queues.get_queue(c, qid)
+    family_queue.write_member_verdict(c, queue, info["member"], "not_interesting")
+    c.commit()
+    saved = client.post(f"/api/explore/span-edit/m-{info['member']}",
+                        json={"start_idx": 4990, "end_idx": 5065}).json()
+    assert saved["annotation"]["verdict"] == "interesting"
+    detail = client.get(f"/api/review/queues/{qid}/items/{info['member']}").json()
+    assert (detail["entry"]["start_idx"], detail["entry"]["end_idx"]) == (4990, 5065)
+    assert detail["entry"]["baseVerdict"] == "interesting"
+    aid = saved["annotation"]["id"]
+    _, written = family_queue.write_member_verdict(c, queue, info["member"], "not_interesting")
+    c.commit()
+    assert written == aid
+    assert client.get(f"/api/review/queues/{qid}/items/{info['member']}").json()["entry"]["baseVerdict"] == "not_interesting"
+    assert _q(rt, "SELECT start_idx,end_idx FROM annotations WHERE id=?", (aid,))[0] == (4990, 5065)
+    c.close()
+
+
+def test_catalogue_refresh_uses_replacement_extent_once(seeded):
+    from scripts.thesis.accepted_catalogue import build
+    client, rt, info = seeded
+    for start, end in ((995, 1050), (1005, 1035)):
+        client.post(f"/api/explore/span-edit/{info['plain']}", json={"start_idx": start, "end_idx": end}).raise_for_status()
+    c = init_db(rt.db_path)
+    _, events, _ = build(c)
+    events = [e for e in events if e["recording_id"] == info["rec"]]
+    assert len(events) == 1
+    assert (events[0]["start_idx"], events[0]["end_idx"]) == (1005, 1035)
+    assert events[0]["representative_start"] == 1005
+    c.close()
+
+
+def test_overlap_set_keeps_edited_item_after_cold_resolve(seeded):
+    from Working.review import queues
+    client, rt, info = seeded
+    run = _q(rt, "SELECT run_id FROM detections WHERE id=?", (info["plain"],))[0][0]
+    other = _write(rt, "INSERT INTO detections(run_id,start_idx,end_idx) VALUES (?,1010,1045)", (run,))
+    c = init_db(rt.db_path)
+    qid = queues.create_queue(c, name="Overlapping redraw", source_kind="seed-search",
+                              filters={"detection_ids": [info["plain"], other]})
+    client.post(f"/api/explore/span-edit/{info['plain']}", json={"start_idx": 998, "end_idx": 1042}).raise_for_status()
+    queues.clear_resolver_cache()
+    assert queues.queue_counts(c, qid) == {"total": 1, "judged": 1, "remaining": 0}
+    detail = client.get(f"/api/review/queues/{qid}/items/{other}").json()
+    assert (detail["entry"]["start_idx"],detail["entry"]["end_idx"]) == (998,1042)
     c.close()

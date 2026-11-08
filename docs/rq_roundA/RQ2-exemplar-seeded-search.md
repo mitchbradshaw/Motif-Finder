@@ -1,5 +1,24 @@
 # RQ2 — Does a human-adjudicated exemplar used as a matrix-profile seed recover instances a human also accepts?
 
+**Later 2026-11-08 follow-up:** the 46 planned repeat looks are assigned to mixed queue 47, together with 750 new
+diversity proposals and 54 matched background controls. Their first own answers were frozen privately before
+queue creation. The old repeat-release command now detects this assignment and avoids a duplicate queue.
+Primary transfer acceptance is unchanged; repeat consistency awaits completion of queue 47. The additional
+accepted material will be source-stratified and will not redefine the original blind comparison. Design:
+`docs/thesis/data/diversity_review_20261108/REPORT.md`.
+
+**Latest result, 2026-11-08:** completed unchanged-cut transfer of the 377-s drop to seven other recordings.
+All 64 channels have 200 phase draws, with 464 real returns and no cap. MJu26a is now complete: 71 real against
+0.045 surrogate matches per draw summed across its 16 channels. All 916 frozen blind presentations have own
+answers: matches **455/457 (99.6%)**, random controls **79/459 (17.2%)**. This supports queue enrichment and
+transfer under one researcher's criteria; it does not measure complete event recall or independent reviewer
+agreement. The 46 reserved repeats remain unjudged. Chapters 7 and 9 updated; frozen classifier chronology retained.
+Sources: `docs/thesis/data/reviews_completed_20261108/REPORT.md` and
+`docs/thesis/data/recovery_return_20261108/REPORT.md`.
+
+**Log:** 2026-11-08 · completed-review integration · frozen-panel analysis and all-channel surrogate result verified;
+source-linked accepted inventory refreshed, with physical MJu26a aliases reconciled before counting.
+
 **Status (2026-10-04, after `X`): answerable in the app; not yet answered.** Promote an exemplar, search for it, send the
 matches to Review, judge them, and the scoreboard's *interesting* and *precision* now count a verdict given in Review
 first (`X`'s `divergence.py`: adjudication → extent → containment). **Recall is still the old §4.6 rule** (0 by
@@ -176,6 +195,8 @@ Follow `RESEARCH_RUNBOOK.md` Q2:
   matches are kept.~~ Decided (Round 11: m/2, a parameter) and built by `AD` 2026-10-05.
 
 ## Log
+
+- 2026-11-08 · span identity · correcting an extent in Explore now accepts the same event as interesting and returns its current boundary to Review. Explicit detection-to-annotation links and Library revisions replace the live extent without modifying machine detections or counting prior redraws as extra events. See `docs/thesis/data/span_edit_20261108/REPORT.md`.
 
 - 2026-10-03 · grilling · file created; `L` already landed.
 - 2026-10-03 · fixup-y · the seed picker pages the whole Library, `S` names its entry and links to a seed search,

@@ -3,8 +3,8 @@
    detection item) or `m-<id>` (a Library member) — draws the channel around the span (±2 span lengths, the
    bridge's envelope), the original extent in grey behind your extent in blue with two draggable handles, and
    numeric start / end in seconds (three decimals, ±1-sample steppers) kept in sync with the handles both ways.
-   Saving POSTs the corrected span: a Library member gets a new revision (history kept), a plain detection gets a
-   human annotation carrying the item's verdict. The detection row is never written (CLAUDE.md rule 5).
+   Saving accepts the corrected event as interesting and replaces its current extent, with history kept.
+   The detection row is never written (CLAUDE.md rule 5).
    Back / Cancel / Save return to `review/queue/<queue>/<item>` from the `from=review&queue=…&item=…` the Review
    button builds; any other `from` (the Family page's) is returned to as given. */
 import { useEffect, useRef, useState } from 'react'
@@ -19,6 +19,7 @@ import { ErrorCard } from './ErrorCard'
 import { LockedCard } from './LockedCard'
 import { useElementSize } from './useElementSize'
 import { asApiError } from './util'
+import { refreshAfterSpanEdit } from '../review/store'
 
 interface Extent { start: number; end: number }
 
@@ -61,7 +62,7 @@ function SpanEditBody({ refId, d, returnTo }: { refId: string; d: SpanEdit; retu
   const toast = useToast()
   const fs = d.fs
   // the span the item shows now: a member's CURRENT revision, else the detection's own span
-  const original: Extent = d.member ? { start: d.member.current.start_idx, end: d.member.current.end_idx }
+  const original: Extent = d.current ? { start: d.current.start_idx, end: d.current.end_idx } : d.member ? { start: d.member.current.start_idx, end: d.member.current.end_idx }
     : { start: d.detection!.start_idx, end: d.detection!.end_idx }
   const [extent, setExtent] = useState<Extent>(original)
   const [note, setNote] = useState('')
@@ -73,10 +74,9 @@ function SpanEditBody({ refId, d, returnTo }: { refId: string; d: SpanEdit; retu
     : extent.start < 0 || extent.end > d.n_samples ? `outside the channel (0 – ${fmtSec(d.n_samples / fs)} s)` : null
   const saveReason = busy ? 'saving…' : problem ? 'fix the extent first' : !changed ? 'nothing changed — drag a handle or edit start / end' : undefined
   const label = d.member ? `member ${d.member.ref}` : `detection ${d.detection_id}`
-  const verdictWord = d.verdict ?? 'interesting'
   const writes = d.member
-    ? `a new revision (rev ${d.member.current.revision_no + 1}) of ${d.member.ref}, backed by a human annotation (${d.verdict ? `verdict ${d.verdict}` : 'interesting, as the member has no verdict yet'}); the earlier revisions stay in its history and the detection is untouched`
-    : `a human annotation over the corrected span with the item's verdict (${verdictWord}${d.verdict ? '' : ', as the item has none'}); the detection is untouched`
+    ? `the corrected extent of ${d.member.ref}, saved as interesting; earlier extents stay in its history`
+    : 'the corrected extent of this event, saved as interesting; it replaces the previous extent'
 
   const back = (discard: boolean) => {
     if (discard && changed) toast.push({ text: 'edit discarded' })
@@ -87,12 +87,11 @@ function SpanEditBody({ refId, d, returnTo }: { refId: string; d: SpanEdit; retu
     setBusy(true); setFailed(null)
     saveSpanEdit(refId, { start_idx: extent.start, end_idx: extent.end, note: note.trim() || null })
       .then(r => {
-        const what = r.kind === 'revision' ? `${r.member} saved as rev ${r.revision?.revision_no} · annotation ${r.annotation.id}`
-          : `annotation ${r.annotation.id} written (${r.annotation.verdict}) · detection ${d.detection_id} untouched`
+        refreshAfterSpanEdit()
+        const what = 'Event updated · interesting'
         const stale = r.stale_edges?.length ? ` · ${r.stale_edges.length} family distance${r.stale_edges.length === 1 ? '' : 's'} now stale` : ''
         toast.push({ text: what + stale })
-        // the corrected item is now covered by a human span, so its queue no longer serves it: say so on the way
-        // back, and the Inspector reads the item on its own instead of calling it absent (integration fix)
+        // Reopen the same identity, with fresh queue rows and freshly drawn traces.
         navigate(/^review\/queue\/[^/?]+\/[^/?]+$/.test(returnTo) ? `${returnTo}?corrected=1` : returnTo)
       })
       .catch(e => { setFailed(asApiError(e)); setBusy(false) })

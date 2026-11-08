@@ -13,20 +13,20 @@ Leave M4 out of every number in this chapter; it appears only in the exam (Chapt
 
 \section{Aims}
 
-Currently, research into fungal signals provides many novel but ultimately distinct detection algorithms. Often, each algorithm is specifically tuned to the datasets in its paper of origin, and published fungal detectors are never reported against blind human judgement or against a null dataset. This research question asks whether many detection algorithms can be compared at scale, across whole recordings, against blind human judgement and matched surrogates, and whether agreement between independent detectors predicts what a human accepts. Two measures follow: a detector's \emph{precision}, the share of its candidates that a human accepts, and its \emph{miss rate}, the share of human-flagged events it does not find.
+Currently, research into fungal signals provides many novel but ultimately distinct detection algorithms. Often, each algorithm is specifically tuned to the datasets in its paper of origin. This research question asks whether many detection algorithms can be compared at scale, across whole recordings, against blind human judgement and matched surrogates, and whether agreement between different detectors predicts what a human accepts. Two measures follow: a detector's \emph{precision}, the share of its candidates that a human accepts, and its \emph{miss rate}, the share of human-flagged events it does not find.
 
 \section{Methods}
 \label{sec:rq1methods}
 
-\paragraph{The sweep.} This research question compares 13 detector algorithms (Section~\ref{sec:litdetectors}), each at varying parameter settings to plausibly catch events at different scales or sizes, leading to a total of 45 unique detector settings. Each setting was run over the whole of five datasets on the rangpur cluster: M2\_aug, M2\_concat, LM, CO and the five channels of MJu26a (CH10, 13--16) that were swept first. M4 is left out of every number in this chapter; it is the exam of Chapter~\ref{ch:rq3}. For every run, the channel is paired with a phase-randomised surrogate, and the detector is run on both. The CNN window scores count as two algorithms, at 10 and 60 minutes; the same CNNs slid at 1 minute are at chance (Section~\ref{sec:earlycnn}), so they are kept as a negative control and given no vote.
+\paragraph{The sweep.} This research question compares 13 voting detector families (Section~\ref{sec:litdetectors}), each at varying parameter settings to plausibly catch events at different scales or sizes. On M2\_aug, 45 settings were evaluated: 41 contributed to candidate formation and four 1-minute CNN settings were negative controls. The sweep covered five datasets on the rangpur cluster: M2\_aug, M2\_concat, LM, CO and the five channels of MJu26a (CH10, 13--16) that were swept first, using the available settings on each recording. M4 is left out of every number in this chapter; it is the exam of Chapter~\ref{ch:rq3}. For every run, the channel is paired with a phase-randomised surrogate, and the detector is run on both. The CNN window scores count as two voting families, at 10 and 60 minutes; the same CNNs slid at 1 minute are at chance (Section~\ref{sec:earlycnn}), so they are kept as a negative control and given no vote.
 
 \paragraph{Candidate events.} Candidate events are first formed by merging overlapping detections from different settings, across all detectors, on a single channel. Each detection joins the event it matches best, or starts a new one, so an event holds at most one detection from each setting. It is then recorded for each candidate how many independent algorithms also flagged it, with all settings of one algorithm counting once. Agreement is marked by at least half of the shorter span overlapping.
 
 \paragraph{The blind sample.} For human judgement, the 3.1 million candidates (1.5 million on M2\_aug alone) were randomly sampled from bins, defined by the number of agreeing detector algorithms (1--2, 3--4, 5--6, 7--8, 9+), as well as bins for detectors which rarely fired. 1,959 candidates were manually reviewed blind, without knowledge of which detectors had or had not fired, or how many agreed: 800 from M2\_aug in one queue, and 1,159 from the other four recordings in a second. The 95 answers of ``unsure'' were set aside.
 
-\paragraph{Estimates.} Because the bins were sampled unequally, the answers are weighted by the bin's size. This gives the share of candidates that are real on each recording, with a 95\,\% interval from a bootstrap, in which the judged candidates are re-drawn within each bin 1,000 times. Per-detector precision measures the share of a detection algorithm's proposed candidates that were accepted, with a Wilson 95\,\% interval \cite{wilson1927}. The AUC measures how often detectors agree to a greater extent on a real event than on an unreal one, compared directly; 0.5 is a coin toss and 1.0 is perfect.
+\paragraph{Estimates.} Existing verdicts attached to candidates were retained, and the new blind sample was drawn from the remaining unjudged candidates. Because the bins were sampled unequally, the new answers are weighted by the bin's size and combined with the retained labels. This gives the estimated share of candidates accepted on each recording, with a 95\,\% interval from a bootstrap, in which the answered candidates are re-drawn within each bin 1,000 times while the earlier labels remain fixed. Per-detector precision estimates the share of a detector's proposed candidates judged interesting. Its intervals use the same stratified bootstrap. The AUC measures how often detector agreement is higher on an accepted candidate than on a rejected candidate. An AUC of 0.5 corresponds to chance ranking, and 1.0 to perfect ranking.
 
-\paragraph{Detectors against their surrogates.} Each detector's count on the recording is compared with its count on the surrogate, as a ratio. A detector that finds as much in the surrogate as in the recording is responding to the signal's overall frequency content, not to its events. On M2\_aug, six settings were also rerun against 20 surrogate draws, so each channel's count can be set against a distribution rather than a single draw.
+\paragraph{Detectors against their surrogates.} For each setting, the ratio of the count on the recording to the count on its surrogate shows how the detection count changes after phase randomisation. On M2\_aug, six settings were also rerun against 20 surrogate draws per channel, giving a distribution of counts for comparison.
 
 \paragraph{Miss rate.} The miss rate uses the hand-labelled ``interesting'' windows from the early work (Section~\ref{sec:handlabels}): the share of them that no detector touched.
 
@@ -65,7 +65,7 @@ Total & 4.82\,M & 3.10\,M\\
 
 Across the five datasets, the sweep made about 4.8 million detections, which merged into about 3.1 million candidate events (Table~\ref{tab:sweepscale}). Among the detection algorithms, there were some which fired very often (Figure~\ref{fig:detectorheat}). OASIS, for example, marked up to 65\,\% of M2\_aug's time with detections, and deconvolved troughs marked 46\,\%. Only about 6\,\% of the recording is not touched by a single detector. This drastically reduces the significance of a single detection event.
 
-Other detection algorithms behaved in the opposite way. The matrix-profile thresholder made no detections at all on the two oyster arrays, while on the other three recordings it fired tens of times an hour without a single candidate judged real. Both extremes reveal information, about the effectiveness of an algorithm on fungal bio-electric signals and about the signals themselves. OASIS, built to recover spikes from calcium-imaging traces, where each spike is a jump followed by a slow decay \cite{friedrich2017oasis}, fires consistently on fungal signals, but with lower accuracy: 37--58\,\% of its candidates were judged real, depending on the recording.
+Other detection algorithms behaved in the opposite way. The sweep's default matrix-profile threshold made no detections on the two channels tested in each of M2\_aug and M2\_concat, while on the other three recordings it fired tens of times an hour without a candidate judged real. Other matrix-profile settings, including locally evaluated variants, are included in the comparisons below. Both extremes reveal information, about the effectiveness of an algorithm on fungal bio-electric signals and about the signals themselves. OASIS, built to recover spikes from calcium-imaging traces, where each spike is a jump followed by a slow decay \cite{friedrich2017oasis}, fires consistently on fungal signals, but with lower accuracy: 37--58\,\% of its candidates were judged real, depending on the recording.
 
 \begin{figure}[htbp]
 \centering
@@ -124,80 +124,71 @@ Figure~\ref{fig:detectorheat} redrawn 5 Nov from \src{docs/thesis/data/}.
 
 \subsection{Choosy and loose detectors}
 
+Some detectors proposed relatively few events, and a high share of their proposals was judged interesting. Across the five recordings, estimated precision was 92--100\,\% for drop detector v1 and 1--7\,\% for deconvolved troughs (Table~\ref{tab:precision}).
+
+\begin{samepage}
+The detector setting also mattered. On M2\_aug, raising the OASIS threshold from 3 to 5 reduced the number of candidate events associated with that setting from 658,293 to 10,346. Estimated precision rose from 43\,\% to 83\,\%. The 95\,\% interval at threshold 5 was wide, at 33--97\,\%. For a reviewer, the immediate benefit of the higher threshold was a much smaller queue, with a higher estimated yield per candidate reviewed.
+\par
+\end{samepage}
+
+On M2\_aug, the estimated precision of the 10-minute CNN family was about 95\,\%, symbol search 64\,\% and signal thresholding 43\,\%. These recording-specific estimates and their intervals are included in Table~\ref{tab:precision}. Sample sizes differed substantially between families: the 60-minute CNN estimate on M2\_aug had only two sampled candidates, compared with 344 for OASIS. Its wide interval therefore provides little basis for ranking it against the better-sampled families. Within the noise-threshold family, changing $k$ also mattered: the M2\_aug estimates ranged from 9\,\% at $k=3$ to 74\,\% at $k=6$.
+
 \begin{table}[htbp]
-\caption{Share of each detector's sampled candidates judged real (``precision''), range across the five recordings, with 13--20 sampled events per detector per recording. Read as ranges, not a ranking.}
+\caption{Estimated precision by detector family. The M2\_aug estimate and 95\,\% interval combine retained labels with the stratified blind sample. Sample counts are answered candidates with that family, excluding unsure verdicts, and can overlap between rows. The final column gives the range of available recording-level estimates across the five recordings (the 60-minute CNN was not run on M2\_concat). All precision figures are percentages.}
 \label{tab:precision}
 \small
-\begin{tabular}{lll}
+\centering
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{@{}Xrrr@{}}
 \toprule
-\textbf{Detector family} & \textbf{Judged real} & \textbf{Note}\\
+\textbf{Detector family} & \makecell[r]{\textbf{M2\_aug}\\\textbf{sampled}} & \makecell[r]{\textbf{M2\_aug precision}\\\textbf{(95\,\% interval)}} & \makecell[r]{\textbf{Range across}\\\textbf{recordings}}\\
 \midrule
-Drop detector v1 & 92--100\,\% & choosy; about 1,000 events on M2\_aug\\
-Drop detector v5 & 81--100\,\% & \\
-Wavelet encoded & 86--100\,\% & 31\,\% on M2\_concat\\
-BEADS (inverted) & 58--82\,\% & \\
-OASIS & 37--58\,\% & 83\,\% at threshold 5, 43\,\% at threshold 3\\
-Noise threshold & 9--74\,\% & depends on $k$: 74\,\% at $k=6$, 9\,\% at $k=3$\\
-Dehshibi wavelet prototype & 1--28\,\% & \\
-Deconvolved troughs & 1--7\,\% & \\
-Matrix-profile threshold & 0\,\% & not an event detector\\
+Drop detector v1 & 49 & 95.5 (90--99) & 92.3--100.0\\
+Drop detector v5 & 57 & 81.2 (72--90) & 81.2--100.0\\
+Wavelet encoded & 59 & 86.2 (78--94) & 31.4--100.0\\
+CNN scores, 10 min & 19 & 94.5 (69--98) & 31.8--100.0\\
+CNN scores, 60 min & 2 & 0.1 (0--50) & 0.1--100.0\\
+Symbol search & 53 & 64.5 (50--76) & 0.0--100.0\\
+BEADS (inverted) & 89 & 67.5 (56--78) & 57.7--81.8\\
+OASIS & 344 & 43.8 (38--50) & 37.3--57.9\\
+Signal threshold & 39 & 42.7 (27--61) & 8.3--43.8\\
+Noise threshold & 25 & 16.0 (6--42) & 0.3--51.8\\
+Dehshibi wavelet prototype & 66 & 28.3 (12--46) & 0.6--28.3\\
+Deconvolved troughs & 232 & 7.3 (4--11) & 1.0--7.3\\
+Matrix-profile methods & 12 & 0.0 (0--0) & 0.0--0.0\\
 \bottomrule
-\end{tabular}
+\end{tabularx}
+\smallskip
+\par\footnotesize A zero-width bootstrap interval reflects a uniform set of sampled verdicts, rather than certainty about every unreviewed candidate.
 \end{table}
 
-\begin{instructions}
-Add the M2\_aug-only figures from queue 25 (R3): CNN 10\,min 95\,\%, symbol search 64\,\%, signal threshold 43\,\%.
-State plainly that a setting matters as much as the family: OASIS goes from 10\,k events at 83\,\% to 658\,k at
-43\,\%. Each per-detector figure rests on 13--20 sampled events per recording; give Wilson intervals in the final table.
-\end{instructions}
+% Written 6 Nov (writing loop, packet 3). Sources: data/ledger_checks.json and M2_aug queue 25 estimate.json.
 
 \subsection{Detectors against their surrogates}
 
-\begin{instructions}
-From \src{docs/rq_roundA_2/findings/detectors-vs-surrogates-2026-10-26.md}.
+The same detector settings were applied to the recordings and to phase-randomised copies. These copies retain the power at each frequency while changing how the frequencies line up in time. This changes the shapes visible in the trace and lets us ask whether the detector fires more or less often when that timing is scrambled (Figure~\ref{fig:realvssurr}, Table~\ref{tab:detnull}).
 
-The ``255 of 552 tasks no better than the surrogate'' figure reproduces, but it covers batch 3 only (LM, CO and MJu26a CH10, 13--16, at
-2\,Hz). Across all sessions it is 849 of 1,880.
+The loose OASIS, deconvolved-trough and noise-threshold families produced 39--283 times as many detections on the recordings as on their surrogates, depending on family and recording. Symbol search and wavelet encoding showed the opposite pattern, with ratios of 0.00--0.11. Drop-detector ratios varied with recording and setting. Across the available task records, 849 of 1,880 produced no more detections on the recording than on its surrogate.\footnote{This total includes an earlier 10\,Hz version of MJu26a (CH10, 13--16) as well as the five recordings in the main comparison, and therefore counts task records rather than unique settings. The earlier figure of 255 of 552 refers only to the 2\,Hz batch for LM, CO and MJu26a (CH10, 13--16). M4 is excluded from both totals.}
 
-The pattern runs against intuition:
-\begin{itemize}
-  \item the loose families (OASIS, deconvolved troughs, noise threshold) always beat their null, by 39--283$\times$;
-  \item symbol search and wavelet encoded never do (0.00--0.11$\times$ the surrogate count), although their precision
-        is among the highest;
-  \item the drop detectors sit near 1$\times$.
-\end{itemize}
-The finding: with one draw per task, real-against-surrogate counts measure how much a detector responds to the
-signal's spectrum, not how good its events are. This is an argument for judging precision against humans, as this
-chapter does.
+On M2\_aug, six settings were tested against 20 phase-randomised copies per channel. Default drop detector v1 fired more often on the recording than on every copy on all 16 channels. The level-5 wavelet detector went the other way. It fired less often on the recording than on every copy on all 16 channels, yet its estimated precision on the recording was 92\,\%. A second drop v1 setting, with a slope threshold of $4\sigma$, fired less often on the recording than on every copy on 12 of 16 channels and had an estimated precision of 99\,\% (Table~\ref{tab:surr20}, Figure~\ref{fig:surr20}).
 
-\textbf{The 20-draw re-run} (rangpur, 29 Oct; Table~\ref{tab:surr20}, Figure~\ref{fig:surr20}). The six most
-precise variants were re-run on M2\_aug with 20 phase-randomised draws per channel. The results are in
-\src{docs/rq_roundA_2/findings/surrogates20-2026-10-29.md} (ledger F8), read from the returned task records by
-\src{scripts/thesis/surrogates20_readout.py}.
-\begin{itemize}
-  \item With 20 draws, each channel's real count is ranked against its own null. The smallest attainable $p$ is
-        $1/21 \approx 0.048$, so the strongest per-channel result is ``beat all 20 draws''. Chance gives each channel
-        that with probability $1/21$, which is 0.8 of 16 channels expected.
-  \item Drop v1 beat all 20 draws on 16 of 16 channels, and the GADF CNN did too. The recurrence CNN and v5 at
-        same-fraction 0.7 did on 14 of 16. Their binomial tails are $10^{-17}$ to $10^{-22}$, and all four pass
-        Benjamini--Hochberg.
-  \item Wavelet-encoded level 5 fell \emph{below} all 20 draws on 16 of 16 channels, and v1 at slope $\sigma$ 4 on 12
-        of 16. Both fire more on the scrambled copies.
-  \item Every pooled ratio is within 4\,\% of its 1-draw value. A single draw was not noise: how a detector stands
-        against its null is a stable property of the detector.
-  \item \textbf{The point for this chapter.} The two variants below their null are among the most precise in the
-        blind estimate: wavelet-encoded level 5 at 0.92 and v1 at slope $\sigma$ 4 at 0.99. Beating a
-        phase-randomised null and being precise are separate properties. The argument above now rests on 20 draws per
-        channel, not one.
-  \item \textbf{Caveat.} The binomial tails treat channels as independent, and the B4 census found a shared driver
-        across packs (Chapter~\ref{ch:roundb}). Read them as approximate. The per-channel ranks are exact.
-\end{itemize}
-\end{instructions}
+The wavelet detector was still useful because the candidates it actually proposed on the recording were usually judged interesting. A scrambled copy can contain many fluctuations that satisfy the same detection rule. The surrogate count tells us how often the rule fires when the timing is scrambled. Blind review tells us how often its proposals on the recording are worth keeping.
+
+The later 2\,Hz recovery runs reinforced the dependence on recording and setting. On the two channels tested per recording, the matrix-profile threshold returned 62,527 detections on MJu26a against 7,248 on its paired surrogates, 22,148 against 6,015 on SH, and 80,053 against 10,042 on SO. Default drop v5 behaved differently: across all searched channels it returned 820 against 1,277 on MJu26a, 24 against 6 on SH, and 43 against 3 on SO. These are machine detection counts from one surrogate per channel, with different channel coverage between methods. They extend the count comparison, but do not measure the human acceptance or event-level recall of those settings. The incomplete CNN portion of that follow-up is excluded from any claim that its full candidate-agreement census is finished.
+
+% Recovery returns inspected 8 Nov 2026: data/recovery_return_20261108/settings.csv.
+% Logical tasks/specification hashes checked; complete result caches checked by size.
+
+The 20-draw follow-up also supported the other precise variants: the 10-minute GADF CNN beat all 20 draws on all 16 channels, while the recurrence CNN and drop v5 at same-fraction 0.7 did so on 14 of 16. With 20 draws, the smallest attainable one-sided rank-test value is $1/21\approx0.048$. Under an exchangeable null without ties, about 0.8 of 16 channels would exceed all 20 draws on average. All four variants passed the Benjamini--Hochberg correction across the six variants using the channel-count test reported with these results. Its binomial tail probabilities were approximately $7\times10^{-22}$ for 16 of 16 and $3\times10^{-17}$ for 14 of 16. These probabilities assume independent channels and should be read as approximate given the cross-channel dependence examined in Chapter~\ref{ch:roundb}; the observed within-channel rankings remain as reported.
+
+For all six variants, the pooled ratio using 20 draws was within 4\,\% of the corresponding one-draw ratio (Table~\ref{tab:surr20}). This suggests that the direction and approximate size of their response to phase randomisation were stable in this follow-up, rather than an accident of the first draw. The check remains limited to six settings on one recording and one surrogate method.
+
+% Written 6 Nov (writing loop, packet 3). Sources: detectors-vs-surrogates-2026-10-26.md and surrogates20-2026-10-29.md.
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{new/ch6_real_vs_surrogate.pdf}
-\caption{The surrogate test in the signal. (a) 12 hours of M2\_aug. (b) A phase-randomised copy of the same 12 hours, drawn for this figure: the same frequency content with its shapes scrambled. (c) Six detectors' spans in this window on the recording (blue) and on the channel's own phase-randomised copy from the sweep (orange), with their counts. OASIS and the deconvolved troughs fire hundreds of times more on the recording than on the copy; symbol search and the wavelet-encoded detector fire more on the copy, although they are among the most precise; drop v1 fires only on the recording.}
+\caption{The surrogate test in a 12-hour excerpt of M2\_aug. (a) The recorded voltage. (b) Each row shows the detections from one setting of the sweep, run on the recording (upper blue strip) and on its phase-randomised copy (lower orange strip). The numbers count spans that intersect the excerpt, including overlaps. Changing the OASIS threshold reduces the number of proposals in this window by a factor of ten. Wavelet-encoded level~3 fires more often on the copy, while default drop v1 fires only on the recording.}
 \label{fig:realvssurr}
 \end{figure}
 
@@ -206,10 +197,11 @@ precise variants were re-run on M2\_aug with 20 phase-randomised draws per chann
 \label{tab:detnull}
 \footnotesize
 \centering
-\setlength{\tabcolsep}{4pt}
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{lccccc}
 \toprule
-\textbf{Detector family} & \textbf{M2\_aug} & \textbf{M2\_concat} & \textbf{CO} & \textbf{LM} & \textbf{MJu26a (CH10, 13--16)}\\
+\textbf{Detector family} & \textbf{M2\_aug} & \textbf{M2\_concat} & \textbf{CO} & \textbf{LM} &
+\makecell{\textbf{MJu26a}\\\textbf{(CH10, 13--16)}}\\
 \midrule
 Drop detector v1 & 1.5 (12/48) & 2.4 (11/48) & 0.78 (4/12) & 1.1 (3/12) & 2.4 (4/15)\\
 Drop detector v5 & 2.0 (4/34) & $\infty$ (0/48) & 0.13 (3/12) & 0.29 (3/12) & 1.2 (3/15)\\
@@ -259,51 +251,50 @@ wavelet-encoded, level 5 & 0.92 & 0/16 & 16/16 & 0.075 & 0.075 & --\\
 \subsection{What detectors miss}
 \label{sec:misses}
 
-\begin{instructions}
-The miss rate, from \src{docs/rq_roundA_2/findings/miss-rate-2026-10-26.md}. This is the plan's RQ5 miss rate.
-\begin{itemize}
-  \item Of 2,333 manual ``interesting'' 10-minute windows on M2\_aug, no non-CNN detector touches 18 (0.8\,\%). But
-        only 4.6\,\% of not-interesting windows are untouched either: coverage is high because loose detectors fire
-        nearly everywhere.
-  \item The useful measure is lift, a detector's touch rate on interesting windows over its rate on not-interesting
-        ones: signal threshold at $-10$\,mV 21$\times$; the drop detectors about 5$\times$; OASIS 1.4$\times$; the
-        1-minute CNNs 1.0$\times$; the matrix-profile threshold 0.53$\times$, anti-correlated.
-  \item The CNNs are excluded from the headline, because they were very likely trained on these labels.
-  \item The 18 missed windows are a re-look list in \src{docs/thesis/data/miss_rate/}.
-\end{itemize} The morphology half of RQ5 (which shape classes are missed) cannot be
-answered, because no verdict carries a shape tag: none of the 800 queue-25 items has a \texttt{class\_label}. Say so.
-\end{instructions}
+The manually labelled ten-minute windows from M2\_aug were also used to assess which parts of the recording the detectors missed. A window counted as touched if any detection on the same channel overlapped it. Across the 34 non-CNN settings, only 18 of the 2,333 windows marked \emph{interesting} went untouched (0.8\,\%). However, the same settings also touched 95.4\,\% of the 8,773 windows marked \emph{not interesting}. The low miss rate therefore came with very broad coverage of both kinds of window. The 128 windows marked as artefacts were excluded. The CNNs were also excluded from the combined result because they were likely trained on these labels.
 
-\subsection{The band-and-symbol pilot}
+The individual settings showed how differently that coverage was achieved (Table~\ref{tab:windowtouch}). OASIS at threshold 3 touched 90.6\,\% of interesting windows and 65.6\,\% of uninteresting windows. At threshold 5, it still touched nearly half the interesting windows, while touching only 11.2\,\% of uninteresting ones. Drop detector v1 was more selective still, touching interesting windows about five times as often as uninteresting ones, but reaching only 7\,\% of the interesting windows overall.
 
-\begin{instructions}
-Plan RQ4 as first posed: a sandbox run on M2\_aug 452--456\,h, channels CH2\_A1, CH6\_B1 and CH7\_B2.
-\begin{itemize}
-  \item The band chain found 75, 46 and 35 regions per layer, against nulls expecting 247.75, 125.25 and 123.35: the
-        null out-finds the signal on every layer.
-  \item Against drop\_detection\_v1, only the band chain 3, both 0, only the drop detector 123.
-\end{itemize}
-Report it as a negative pilot (\src{docs/rq_roundA/RQ4-bands-and-symbols.md}) that motivated the move to the sweep.
-\end{instructions}
+\begin{table}[htbp]
+\centering
+\caption{Selected detector settings against the original M2\_aug window labels. Each setting ran on all 16 channels, covering 2,333 interesting and 8,773 uninteresting windows. A touch is any overlap. Lift is the interesting-window touch rate divided by the uninteresting-window touch rate, calculated before rounding. The full comparison is in Appendix~\ref{app:windowtouch}.}
+\label{tab:windowtouch}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}X r r r@{}}
+\toprule
+\textbf{Detector setting} & \makecell{\textbf{Interesting}\\\textbf{touched (\%)}} & \makecell{\textbf{Uninteresting}\\\textbf{touched (\%)}} & \textbf{Lift}\\
+\midrule
+OASIS, threshold 3 & 90.6 & 65.6 & 1.4\\
+OASIS, threshold 5 & 48.7 & 11.2 & 4.4\\
+Signal threshold, $-2$\,mV & 51.2 & 5.3 & 9.7\\
+Signal threshold, $-10$\,mV & 12.4 & 0.6 & 21.3\\
+Drop detector v1, default & 7.0 & 1.3 & 5.3\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+These rates describe overlap with whole ten-minute windows. An accepted window can contain several events as well as quiet stretches, and a detection can cross its boundary. Candidate-level precision is assessed separately through the blind review. The labels also carry no shape classes, and none of the 800 M2\_aug blind-review items had a shape-class label either. These comparisons therefore leave open which event morphologies each detector misses.
+
+The negative controls reinforce this distinction. The 1-minute CNN settings touched about 99\,\% of both label classes, giving lift close to one. On the two channels where it ran, the matrix-profile threshold at 6 touched 46.7\,\% of interesting windows and 88.9\,\% of uninteresting windows, giving lift 0.53 (Appendix~\ref{app:windowtouch}). The 18 untouched interesting windows are retained as a list for reinspection, but the absence of shape tags prevents a systematic account of which morphologies were missed.
+
+% Written 7 Nov (writing loop, packet 4). Sources: data/miss_rate/per_variant.csv and summary.json.
 
 \section{Discussion}
 
-\begin{instructions}
-Points to argue:
-\begin{itemize}
-  \item Agreement among weak, independent detectors behaves like an ensemble vote, and is a good way to propose
-        candidates for review. No single loose detector is.
-  \item The choosy detectors (drop v1 and v5) stay right across recordings, rates (1 and 2\,Hz) and units. The loose
-        ones find hundreds of thousands of events, mostly noise.
-  \item Detectors that match their own surrogate measure the signal's spectrum, not its events.
-\end{itemize}
-Limitations:
-\begin{itemize}
-  \item 13--20 samples per detector;
-  \item a single labeller with an 11.5\,\% miss per look;
-  \item recall is not measurable, because no complete human reference exists;
-  \item the one-draw surrogate;
-  \item precision is precision against your judgement, not against a biological truth.
-\end{itemize}
-Tie back to the literature: no published fungal detector reports any of these numbers.
-\end{instructions}
+In response to the research question, the detectors found human-accepted candidates across five recordings using settings that target different event sizes and time scales. Across 13 voting detector families, with 45 settings evaluated on M2\_aug including four non-voting CNN controls, about 3.1 million candidate events were assembled across a combined 2,599 hours of recordings, or about 23,075 channel-hours (Table~\ref{tab:sweepscale}). A random sample of 1,959 candidates was reviewed blind, spread across bins of detector agreement and bins for rarely firing detectors. The 95 answers of \emph{unsure} were set aside.
+
+The likelihood of a candidate being accepted increased with the number of detector families that flagged it. With one or two agreeing families, acceptance was between 0 and 5\,\%. With nine or more, it was 40--63\,\%, and the same pattern held across all five recordings (Figure~\ref{fig:ladder}). Thus, in reviewing future candidates, high agreement across detector families provides an immediate basis for prioritisation. Each family contributes one vote, so changing the parameters of one algorithm several times cannot by itself increase that agreement.
+
+The main drawback is that the human judgements rest on the interpretation of a single researcher. One of the gaps identified in Chapter~\ref{ch:intro} is the lack of a consistent methodology for identifying fungal events within noisy recordings. The reference labels therefore reflect the researcher's intuitive interpretation, including which shapes and amplitudes appeared interesting. Blind review reduces the influence of knowing which algorithm proposed a candidate, while the definition of an interesting event still rests with that reviewer.
+
+Earlier blind repeats provide a measure of this uncertainty: six answers changed across 98 repeated windows, with four positive-to-negative and two negative-to-positive changes (Section~\ref{sec:judging}). A rough model that assumes interesting judgements are never false positives gave a miss probability of 11.5\,\% per review (95\,\% range 4.6--23\,\%). This is conditional on that assumption and only six disagreements; it is not a measured error rate against independent ground truth. Precision estimates also rest on small and unequal samples for some families, as the intervals and sample sizes in Table~\ref{tab:precision} show.
+
+Within the original manually labelled windows, no tested setting touched every interesting window while leaving every uninteresting window untouched (Appendix~\ref{app:windowtouch}). Broad settings covered most of both classes, while selective settings left many interesting windows untouched. This shows the difficulty of using a single setting to reproduce the human labels throughout a long recording. Differences in event shape, baseline drift and noise offer plausible explanations, and their individual contributions remain to be measured.
+
+The surrogate comparison adds a further constraint. A detector can produce many more candidates on a recording than on its scrambled copies and still have modest precision against the human verdicts. Conversely, the wavelet detector can be precise on the recording while firing more often after scrambling. Reviewing candidates and measuring their counts against surrogates each contributes evidence about the detector. Most sweep runs used one surrogate draw, with the 20-draw follow-up limited to six settings on M2\_aug. Event-level recall also remains open, because the complete recordings have no exhaustive reference of individually labelled events.
+
+Relative to the detector-specific studies reviewed in Section~\ref{sec:litdetectors}, this comparison supplies a common evaluation protocol across settings, recordings and sampling rates. The choosy drop families maintained high estimated precision across recordings at 1 and 2\,Hz, while agreement among different detector families provided a useful review priority. Those families need not be statistically independent, and their shared agreement still refers to the researcher's labels rather than verified biological events.
+
+% Instruction-coverage audit, 7 Nov 2026: added M2_aug family estimates/intervals, actual sample sizes, task-count scope, 20-draw ranks/stability/dependence, negative controls, conditional reviewer reliability and literature context. The band-and-symbol pilot remains removed at the author's request. See PROSE_CONTEXT_AUDIT.md.
+% Written 7 Nov (writing loop, packet 4), from the author's discussion draft. Sources: ledger D1--D10, data/ledger_checks.json and data/miss_rate/.

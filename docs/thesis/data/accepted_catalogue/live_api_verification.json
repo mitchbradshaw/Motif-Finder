@@ -1,0 +1,63 @@
+{
+  "review_helper_sha256": "7fe2bc109134f3f1675285dd296a9f5934e88ca1fb0d6dd1c6b521fdd5fdc637",
+  "main_and_worktree_code_match": true,
+  "queue38": {
+    "id": 38,
+    "total": 916,
+    "judged": 164,
+    "remaining": 752,
+    "pace_s": 3.4,
+    "detections": 918
+  },
+  "g12": [
+    {
+      "id": "CO",
+      "members": 89,
+      "judged": 89,
+      "judgedPct": 100.0
+    },
+    {
+      "id": "LM",
+      "members": 187,
+      "judged": 187,
+      "judgedPct": 100.0
+    },
+    {
+      "id": "M2_aug",
+      "members": 1036,
+      "judged": 1036,
+      "judgedPct": 100.0
+    },
+    {
+      "id": "M2_concat",
+      "members": 89,
+      "judged": 89,
+      "judgedPct": 100.0
+    },
+    {
+      "id": "M4",
+      "members": 67,
+      "judged": 67,
+      "judgedPct": 100.0
+    },
+    {
+      "id": "MJu26a",
+      "members": 287,
+      "judged": 287,
+      "judgedPct": 100.0
+    },
+    {
+      "id": "SH",
+      "members": 4,
+      "judged": 4,
+      "judgedPct": 100.0
+    },
+    {
+      "id": "SO",
+      "members": 3,
+      "judged": 3,
+      "judgedPct": 100.0
+    }
+  ],
+  "total": 1762
+}

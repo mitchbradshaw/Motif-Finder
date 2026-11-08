@@ -1,0 +1,16 @@
+{
+  "archive": "C:\\Users\\mmebr\\Documents\\CNN\\DATA\\derived\\hpc\\recovery_20261108_slurm_fix.tar.gz",
+  "bytes": 4721,
+  "sha256": "99b7afba105eb9a7ccd5cdb017398cc8548ed6b05fbc037ff9e9fc322cd843fb",
+  "members": [
+    "DATA/derived/hpc/recovery_20261108/seed.sh",
+    "DATA/derived/hpc/recovery_20261108/cpu.sh",
+    "DATA/derived/hpc/recovery_20261108/cnn.sh",
+    "DATA/derived/hpc/recovery_20261108/mpA.sh",
+    "DATA/derived/hpc/recovery_20261108/mpB.sh",
+    "DATA/derived/hpc/recovery_20261108/submit_all.sh",
+    "DATA/derived/hpc/recovery_20261108/README.md"
+  ],
+  "scientific_files_changed": false,
+  "executed_shell_test_cases": 33
+}

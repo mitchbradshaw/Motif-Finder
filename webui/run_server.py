@@ -37,6 +37,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=int(os.environ.get("WEBUI_PORT", "8765")))
     ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--no-warmup", action="store_true",
+                    help="skip optional startup map/model scoring and matrix-profile JIT warm-up; compute on demand")
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--sandbox", dest="mode", action="store_const", const="sandbox",
                       help="copy the database and redirect every core path (default)")
@@ -100,11 +102,14 @@ def main():
 
     from server.app import create_app
     import uvicorn
-    app = create_app(rt)
+    app = create_app(rt, warm_background=not args.no_warmup)
     # the template picker's scores, computed once in the background (perf, 2026-10-17)
-    import threading
-    from server.discovery import warm_last_scores
-    threading.Thread(target=warm_last_scores, args=(rt.db_path,), name="warm-template-scores", daemon=True).start()
+    if not args.no_warmup:
+        import threading
+        from server.discovery import warm_last_scores
+        threading.Thread(target=warm_last_scores, args=(rt.db_path,), name="warm-template-scores", daemon=True).start()
+    else:
+        log.info("optional startup warm-ups disabled; analyses and maps remain available on demand")
     log.info("serving on http://%s:%d  (API docs at /api/docs, mode at /api/runtime)", args.host, args.port)
     uvicorn.run(app, host=args.host, port=args.port, log_config=None, access_log=False)
 

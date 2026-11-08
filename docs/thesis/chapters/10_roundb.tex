@@ -2,15 +2,28 @@
 \label{ch:roundb}
 
 \begin{instructions}
+Author update, 8 Nov: include both MJu26a trains as case-study candidates---the long CH15 train at 206--283\,h and
+the four-hour CH14 excerpt. The accepted-catalogue reconciliation supplies 143 and 32 separately anchored
+downward excursions, respectively, with machine-proposed extents and explicit train-level acceptance. Inspect
+and finalise boundaries before using their durations as event measurements. Show each train in the signal,
+then an enlarged example, shape overlays and the timing/spacing of its individual members. Distinguish the
+existing individual judgements from the author's later train-level inclusion; do not count the old five-channel
+copy, excerpt and full MJu26a recording as independent data. Sources and the proposed analysis are in
+\src{docs/thesis/data/accepted_catalogue/REPORT.md}. This follow-up does not change the historical g-11 results
+or imply propagation, a physiological oscillator, or a complete low-amplitude event census.
+\end{instructions}
+
+\begin{instructions}
 About 7--9 pages: ten short studies (B4 is being redesigned separately), each about half a page plus one figure.
 The list was fixed on 27 Oct (Round 4) and B3's design on 28 Oct (Round 5). B4's page was specified in the
 cross-channel workshop (27 Oct) but is not yet built. Experiments freeze Tue 3 Nov.
 
 Every study states these decisions:
 \begin{itemize}
-  \item \textbf{Grouping}: g-11, one representative per de-duplicated event over every active recording
-        (Section~\ref{sec:families}). It is the final grouping for Chapters~\ref{ch:events} and~\ref{ch:roundb}
-        (5 Nov).
+  \item \textbf{Historical grouping}: g-11, one representative per de-duplicated event in the 5 November snapshot
+        (Section~\ref{sec:families}). The reported family tests below retain that population. The later accepted
+        inventory is a collection of observations, including sequence parents; it is not automatically a new
+        morphology grouping or an exhaustive timing census.
   \item \textbf{Counts are of events, not members} (the events table). The rule: collapse twins ($\ge$90\,\% mutual
         overlap); keep a container with its parts; join units at $\ge$50\,\% overlap or gaps $\le$3\,s, never through a
         container. Joining on any overlap made one 93-minute train a single 111-part event.
@@ -56,12 +69,86 @@ B4 & Is cross-channel activity propagation or a shared-ground artefact? (plan RQ
 B5 & What do the Discovery Maps show about when and where detectors fire? & Discovery $\rightarrow$ Map & all swept sets & paired surrogate runs; time-shifted rates & none\\
 B6 & Do the same shape families occur across recordings and species? & Library $\rightarrow$ Atlas, Recurrence, on g-11 & M2\_aug, M2\_concat, CO, LM & shuffled recording labels & none\\
 B9 & Do event durations cluster at preferred scales? & \texttt{cwt\_events} & all swept sets & AAFT surrogates & none\\
-B10 & At which time scales does structure beyond noise appear? & \texttt{motif\_lengths}; CNN templates at 1, 10, 30\,min; \texttt{spike\_event\_\allowbreak features} & M2\_aug, M2\_concat, CO, LM, MJu26a & AAFT surrogates & none\\
+B10 & At which time scales does structure beyond noise appear? & \texttt{motif\_lengths}; CNN templates at 1, 10, 60\,min; \texttt{spike\_event\_\allowbreak features} & M2\_aug, M2\_concat, CO, LM, MJu26a & AAFT surrogates & none\\
 B11 & Do the detectors find the same events on the newer datasets? & Discovery $\rightarrow$ Compare; Compare every stage & CO, LM, MJu26a, SH, SO & per-run surrogate & none\\
 B12 & Do spike and drop shapes and intervals differ between recordings and species? & Interrogation $\rightarrow$ Event shape, Intervals, on accepted events & M2\_aug, M2\_concat, CO, LM & shuffled recording labels & none\\
 \bottomrule
 \end{tabularx}
 \end{table}
+
+\subsection{What the expanded Library changes}
+
+The completed follow-up reviews enlarged the accepted inventory to 2,718 spans across eight recordings. This supplies more material for the questions in this chapter, particularly the inclusion of MJu26a in the Library family comparisons and accepted examples from shiitake and snow oyster. MJu26a was already represented by its five-channel copy in the earlier blind shape comparison; its additional channels therefore broaden that recording's coverage. The family-composition tests used g-11, while the shape comparisons used the 716 accepted blind detector-review spans. Those results retain their original denominators until equivalent analyses are repeated on the expanded material.
+
+The main distinction is between collecting examples and observing a sequence. A diverse sample of accepted shapes can strengthen a waveform comparison, but the gaps between sampled examples cannot describe the timing of all events in a recording. A broad accepted span can also contain several events. Individual waveforms must remain separate entries, with a train or sequence linking them in order; shared recovery context is insufficient reason to merge them. The CH14 case below applies this distinction explicitly. For B1--B3, checked identities and onset/recovery boundaries are more valuable than simply adding further isolated interesting windows. For B6 and the shape part of B12, the enlarged material needs regrouping and source-aware comparisons, with individual trains prevented from dominating the apparent species differences.
+
+The machine-only questions have a different dependency. The recovered classical detectors can already extend selected comparisons, while a complete new detector-agreement census for B5 and B11 still requires the remaining CNN tasks. Their completion is not required to review the available classical proposals. A further blind queue therefore prioritises SH and SO, other MJu26a channels and periods, and a range of amplitudes, durations and provisional polarities. It also includes background controls and the planned repeat checks. Those labels are intended to broaden the collection and assess judgement consistency; their selected composition does not supply an unbiased estimate of event prevalence.
+
+\section{A longer reviewed train on MJu26a CH14}
+\label{sec:mjuch14train}
+
+\subsection{The selection and its individual events}
+
+A further review examined a selected train on MJu26a CH14 from 382.5 to 473.2 hours, a span of approximately 90.7 hours (Figure~\ref{fig:mjuch14train}). This is a longer part of the same physical channel containing the earlier four-hour excerpt. It is distinct from the CH15 train at 206--283 hours. BEADS preprocessing, with a 2,000\,s baseline period and downward polarity, was followed by a signal threshold at $-0.957$\,mV, a minimum duration of 1.5\,s and short context margins. The resulting candidates were reviewed by the researcher, yielding accepted observations linked to 509 spans in the reconciled catalogue.
+
+The trace shows repeated downward excursions alongside a substantial change in the baseline over the longer recording. At a closer scale, neighbouring deflections differ in depth, recovery and internal structure. The accepted detector intervals often capture only the narrowest part of a drop, while some small deflections occur during the recovery of a larger one. Thus 509 accepted spans should not be interpreted as 509 final, independently bounded spikes. The four-hour excerpt and the L\_LM and 2\,Hz copies are linked to their parent coordinates, rather than added as further independent recordings.
+
+An exploratory separation pass used the 10\,Hz parent signal, smoothed with a Gaussian standard deviation of 0.5\,s, and located negative extrema with at least 1\,mV prominence and 3\,s separation. Each of the 534 positive source observations was linked to the extrema it contained. A cropped observation could be linked to a nearby extremum only where its prominence-width interval covered at least half the observed span and the extremum was no further away than the shorter of 120\,s or the observed span's duration. Distinct extrema retained distinct identities even where their recovery windows overlapped. This produced 530 individual event proposals supported by the positive observations. Thirteen observations contained several retained extrema; 19 could not be mapped cleanly and remain unresolved. The parent observations and their ordered child proposals are preserved separately. These numbers describe the extraction rule, rather than 530 new independent human judgements.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{new/ch10_mju_ch14_reviewed_train.pdf}
+\caption{The newly reviewed MJu26a CH14 train and its relation to the earlier four-hour case study. Top: the approximately 90.7-hour signal, displayed as a minimum--maximum envelope to preserve narrow excursions; orange ticks mark accepted-span starts and the blue band locates the older excerpt. Bottom left: that four-hour region drawn from the same 10\,Hz parent channel, with accepted spans shaded orange. Bottom right: a local view around 427 hours showing a deep drop, its recovery and a following smaller drop. Shading marks the accepted spans, rather than asserting completed onset-to-recovery boundaries. The panels show different time and voltage scales. The repeated shapes and baseline drift are descriptive features of this selected recording; the plot does not establish a physiological oscillator or propagation between channels.}
+\label{fig:mjuch14train}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{new/ch10_ch14_separate_events.pdf}
+\caption{Separating individual events within the longer CH14 train. The panels show five consecutive supported proposals near the middle of each event-order third, with the surrounding signal retained. Black dots locate the individual trough anchors. Different colours distinguish neighbouring proposed extents and do not denote different waveform families. An uncoloured deflection is outside the five displayed proposals and is not thereby labelled uninteresting. Recovery is bounded by the next detected excursion, so a following event remains a separate member rather than being absorbed into the preceding event's tail. The onsets and recovery extents are machine proposals linked to the earlier accepted observations, and remain available for explicit boundary checking.}
+\label{fig:ch14individuals}
+\end{figure}
+
+\subsection{Variation in amplitude and recovery}
+
+The individual proposals show that the train cannot be described adequately by one average waveform. Onset-to-trough depth had a median of 9.22\,mV, with a 5th--95th percentile range of 2.47--14.65\,mV. The median depth increased from 6.57\,mV in the first event-order third to 9.13\,mV in the middle third and 10.08\,mV in the last. Several depth tracks are visible later in the recording (Figure~\ref{fig:ch14measures}), alongside smaller intervening deflections. These are within-recording changes; they are not sufficient evidence of distinct physiological event types.
+
+The event-shape routines measured each proposal on the native signal, using the proposed onset and trough anchors. Onsets used the existing steepest-fall shoulder rule, bounded after the preceding extremum. Half recovery means the first return from the trough through half of the onset-to-trough depth. It was measurable for 529 of the 530 proposals, with a median of 2.49\,s and a 5th--95th percentile range of 0.83--17.44\,s. A return through half the depth is different from a complete recovery: 25 proposals did not reach the 95\,\% recovery level before the next detected excursion. Their extents were censored there, preserving the next event's separate identity. These proposal-based measurements should therefore be checked before being used as final duration statistics or evidence for restitution.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{new/ch10_ch14_event_measures.pdf}
+\caption{Exploratory measurements of the 530 individually anchored CH14 proposals supported by positive review observations. Top left: onset-to-trough depth against recording time, showing changing depths and several later tracks. Top right: the interval from each retained trough to the preceding retained trough, plotted at the later event's time. Bottom left: the distribution of these 529 intervals. Bottom right: the 529 measurable trough-to-half-recovery times; one proposal did not reach that level within its permitted recovery search. Amplitudes and recovery values use the native signal with machine-proposed anatomy. Half recovery is not full event duration. The retained events are a selected, reviewed subset, and the plots do not establish a complete census of every smaller fluctuation in the train.}
+\label{fig:ch14measures}
+\end{figure}
+
+\subsection{Timing structure and sensitivity to event definition}
+
+The median interval between retained troughs was 603\,s, or approximately 10.0 minutes, with a 5th--95th percentile range of 51--1,359\,s. These are peak-to-peak intervals, which depend less on the unfinished onset boundaries. Their local variation was 0.708 and CV2 was 0.785. Both were below the 95\,\% bands from 1,000 random-timing draws with the same number of points and observed time span: LV 0.905--1.093 and CV2 0.943--1.060. The retained train was therefore more regular locally than this homogeneous random-timing reference, rather than perfectly periodic.
+
+Shuffling the retained intervals gave an LV band of 0.724--0.811, also above the observed value (two-sided permutation $p=0.006$). Under the 1\,mV rule, neighbouring gaps were therefore more alike than the same gaps in random order. This part of the result depended on which smaller events were included (Table~\ref{tab:ch14sensitivity}). Increasing the prominence floor to 2\,mV retained 503 supported extrema and preserved the difference from random timing, but the gap-order result disappeared. The observed structure therefore supports a selected, relatively regular train, while its finer serial organisation depends on the operational event definition.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Sensitivity of the selected CH14 train to the prominence floor, with 0.5\,s smoothing and 3\,s minimum separation held fixed. Counts include only extrema linked to positive review observations. The nulls use 1,000 draws and the existing two-sided permutation calculation. These are exploratory comparisons on a visually selected train, rather than a new recording-wide discovery test.}
+\label{tab:ch14sensitivity}
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+\makecell[r]{\textbf{Prominence}\\\textbf{floor (mV)}} & \makecell[r]{\textbf{Supported}\\\textbf{extrema}} & \textbf{LV} & \makecell[r]{\textbf{Random timing}\\\boldmath$p$} & \makecell[r]{\textbf{Shuffled gaps}\\\boldmath$p$}\\
+\midrule
+0.5 & 542 & 0.712 & 0.002 & 0.002\\
+1.0 & 530 & 0.708 & 0.002 & 0.006\\
+2.0 & 503 & 0.682 & 0.002 & 0.885\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This case complements the full-channel detector census below. A deliberately selected, human-accepted train can show regularity even where the broader census did not establish recording-wide regularity after correction. The two tests use different selections and counting units. Likewise, the observed amplitude changes do not establish a mechanism, and a single-channel train cannot establish propagation between channels. The main contribution is a traceable progression from reviewed spans to individual waveform proposals and ordered sequence structure, with the unresolved observations, recovery censoring and threshold sensitivity retained explicitly.
+
+% Completed queue 45 / run 8750; frozen review snapshot and canonical spans in
+% data/reviews_completed_20261108/. Native CH14 data, no duplicate-copy counts.
+% Individual-event follow-up: data/event_hierarchy_20261108/ch14_case.json and
+% ch14_individual_proposals.csv; reviewed_event_hierarchy.py. No new human labels.
 
 \section{Sequences and timing}
 \label{sec:rb_sequences}
@@ -379,7 +466,7 @@ Caveats:
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{new/ch10_b4_stack.pdf}
-\caption{B4 in the signal: six hours of all 16 M2\_aug channels, each scaled to its own range, with the events the census found on two or more channels at once (orange lines). Near 41\,h almost every channel moves together within seconds: a shared driver across the electrode packs rather than a wave travelling from electrode to electrode.}
+\caption{Cross-channel co-occurrences in six hours of M2\_aug. (a) The census marked seven pairs of detections (vertical lines). Traces are scaled and clipped for the overview. The coloured markers locate the two pairs enlarged below. (b) A near-copy on CH10 and CH11, with zero waveform lag and a correlation of 0.982. (c) A candidate on CH15 and CH16 with a waveform lag of 21\,s and a correlation of 0.680. Each inset shows voltage change from the local baseline, with vertical lines at the detected onsets. The lag candidate illustrates one pair of events. The census tests found no consistent lag across events.}
 \label{fig:b4stack}
 \end{figure}
 
@@ -434,12 +521,36 @@ On those settings the same read gives:
   \item On the site: Discovery $\rightarrow$ Compare, and Compare every stage.
   \item Data: CO, LM and the 2\,Hz copies of MJu26a, SH and SO.
   \item Null: each run's surrogate.
-  \item Needs the whole 2\,Hz sweep. Only 31 of its 129 jobs are in (5 Nov). The other 702 tasks are bundled for the
-        cluster again (\src{docs/thesis/hpc/rq4_newsets_20261027/remaining_20261105/}).
+  \item Needs the whole 2\,Hz sweep. Updated return audit (8 Nov): 729/1,014 tasks are complete and 79/129 settings have every channel back. A recovery bundle covers the remaining 285 tasks. The older 5 Nov map/timing results above still describe their original 31-setting subset; they have not been recomputed using the larger partial return.
   \item State the lesson of Chapter~\ref{ch:rq1}: one-draw surrogate counts measure a detector's response to the
         spectrum, not event quality.
 \end{itemize}
 \end{instructions}
+
+\paragraph{Additional 2\,Hz returns.}
+The returns inspected on 8 November contained 497 completed tasks on MJu26a, and 116 each on SH and SO, from planned totals of 674, 170 and 170 respectively. Complete channel coverage was available for 25, 26 and 28 settings respectively. A further 258 tasks were missing and 27 had failed, including temporary-file write conflicts and disk-I/O errors. These incomplete computations are not zero-detection results.
+
+On settings with complete coverage, OASIS and the drop detector returned more detections in the recordings than in their paired phase-randomised copies, while the wavelet-encoded setting returned substantially more in the surrogates (Table~\ref{tab:rq4partialreturns}). This reproduces the distinction between detectors responding differently to phase scrambling. One draw per channel gives a count comparison, not a well-resolved null distribution, and neither direction establishes human acceptance. The outstanding CNN and matrix-profile tasks prevent a complete comparison of agreement across all detector families.
+
+\begin{table}[htbp]
+\centering
+\caption{Selected settings with every planned channel returned in the 2\,Hz extension. Cells give real/surrogate detection counts, summed over 16 channels for MJu26a and four each for SH and SO. Each channel has one phase-randomised surrogate. These are detection counts, not grouped or human-accepted event counts.}
+\label{tab:rq4partialreturns}
+\small
+\begin{tabularx}{\textwidth}{@{}Xrrr@{}}
+\toprule
+\textbf{Setting} & \textbf{MJu26a} & \textbf{SH} & \textbf{SO}\\
+\midrule
+Drop v1 & 463/33 & 21/0 & 28/0\\
+OASIS, default & 127,429/2,007 & 20,095/353 & 25,556/364\\
+OASIS, threshold 5 & 2,453/68 & 859/19 & 400/11\\
+Wavelet encoded, default & 1,883/38,714 & 21/7,241 & 12/7,286\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% Additional return counts: data/hpc_return_20261108/rq4_summary.csv and audit.json.
+% No new human verdicts or completed B11 agreement analysis are claimed here.
 
 \begin{figure}[htbp]
 \centering
@@ -534,7 +645,8 @@ ledger (J1--J3, J6--J11; B1's final read is J1b, 5 Nov).
 \begin{table}[htbp]
 \caption{The studies of this chapter at the freeze: each question's null, its result and the verdict. B3 reports only its restitution half; B7 and B8 were not run (future work), and B11 waits on the rest of the 2\,Hz sweep.}
 \label{tab:rbsummary}
-\footnotesize
+\fontsize{10}{11.5}\selectfont
+\setlength{\tabcolsep}{4pt}
 \begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}p{5.4cm} >{\raggedright\arraybackslash}p{2.2cm}@{}}
 \toprule
 \textbf{\#} & \textbf{Question} & \textbf{Null} & \textbf{Result} & \textbf{Verdict}\\
@@ -542,7 +654,7 @@ ledger (J1--J3, J6--J11; B1's final read is J1b, 5 Nov).
 B1 & Are intervals regular, bursty or random? & rate-matched Poisson; shuffled intervals & 44 measurable channels, five recordings: no channel's LV leaves the Poisson band after BH (CV2: two more regular); neighbouring gaps more alike than shuffled on 18, on every recording; one alternates & supported: random-like timing with a drifting rate\\
 B2 & Do sequences change shape step by step? & shuffled order & morph fraction: 0 of 5 testable sequences; step size: 5 of 19 closer than shuffled (4 after BH), ratios 0.58--0.84; 5 alternate & bounded: persistence, not a steady morph\\
 B3 & Does recovery depend on the gap before it? & gaps shuffled within trains & within trains, $z=+2.9$ falls to $+0.6$ given depth, and the gap after gives $+9.9$ (censoring); across census gaps, M2\_aug $z=+5.0$ and M2\_concat $+3.1$, halved by fall duration & not within trains; bounded across census gaps\\
-B4 & Propagation, or a shared ground? & rotation; random time & M2\_aug within packs 8 against 1.9 ($p=0.002$), one pair after BH, no consistent lag; across packs 18 against 6.3 ($p=0.001$); M2\_concat CH5--8 are copies; none on CO, LM; MJu26a 16 against 3.2 ($p=0.001$), all at zero lag & propagation not supported; a shared driver\\
+B4 & Propagation, or a shared ground? & rotation; random time & M2\_aug within packs 8 against 1.9 ($p=0.002$), one pair after BH, no consistent lag; across packs 18 against 6.3 ($p=0.001$); M2\_concat CH5--8 are copies; none on CO, LM; MJu26a 16 against 3.2 ($p=0.001$), both timetables at zero lag & propagation not supported; a shared driver\\
 B5 & When and where do detectors fire? & random time shifts; paired surrogates & settings rise and fall together on 45 of 45 channels: 0.21--0.35 against 0.00 shifted and 0.02--0.04 for surrogates; on the 2\,Hz sets' first 9--13 settings, 24 of 24 (0.33--0.46) & supported: changes over hours to days\\
 B6 & Do families recur across recordings and species? & shuffled recording labels & 39 of 42 families on two or more recordings, 28 on both species; the mix is not random (0.22 against 0.13 bits by recording, $p=0.0001$), and the lean by species is no larger than by recording & supported, with leanings by recording\\
 B9 & Do event durations prefer some scales? & AAFT & AAFT copies give more drops (1,087 against 632) with the same durations (pooled KS $p=0.59$); the ``modes'' appear in AAFT too & not supported\\

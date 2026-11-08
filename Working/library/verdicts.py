@@ -1,7 +1,9 @@
 """
 verdicts.py
 ===========
-A Library member's human verdict (fixup-AE item 4, L7), through THE one
+A Library member's human verdict (fixup-AE item 4, L7). An explicit annotation
+on the current human revision comes first (accepted-catalogue audit, 8 Nov).
+Members without that pointer use THE one
 resolver — `Working/discovery/divergence.py::resolve_spans`, in its order: a
 verdict given in Review on the member's detection, then the event-shaped row
 it matches (§4.6), then the reviewed windows it falls in (Settings ›
@@ -27,7 +29,8 @@ UNJUDGED = "unjudged"
 
 def rule_text(conn) -> str:
     mode = dv.containment_from_settings(conn)
-    return ("judged = a human verdict resolved by the divergence rules, in order: a verdict given in Review on the "
+    return ("judged = the explicit annotation of the current human revision, when present; otherwise a human "
+            "verdict resolved by the divergence rules, in order: a verdict given in Review on the "
             "member's detection; else the event-shaped row it matches (§4.6, reciprocal IoU); else the reviewed "
             f"windows it falls in (containment mode: {mode} — "
             + ("its centre" if mode == "centre" else "wholly inside") + "; every one must agree). "
@@ -67,6 +70,25 @@ def member_verdicts(conn, members) -> dict:
             judged = g["side"] is not None
             out[int(m["member_id"])] = {"side": g["side"], "verdict": (g["verdict"] if judged else UNJUDGED),
                                         "by": g["by"], "why": g["why"], "judged": judged}
+    # A redraw is explicitly linked to its human annotation. Spatially guessing
+    # again, or consulting an older machine revision first, loses that decision.
+    # This also keeps registered physical-copy projections attached to the
+    # original observation rather than inventing another annotation/own look.
+    ids = [int(m["member_id"]) for m in members]
+    for i in range(0, len(ids), 500):
+        part = ids[i:i + 500]
+        marks = ",".join("?" * len(part))
+        for r in conn.execute(f"""SELECT m.id,a.id annotation_id,a.verdict
+            FROM motif_member m
+            JOIN motif_member_revision rv ON rv.id=m.current_revision_id
+            JOIN annotations a ON a.id=rv.annotation_id
+            WHERE m.id IN ({marks}) AND rv.origin='human' AND a.deleted_at IS NULL""", part):
+            side = dv.side_of(r["verdict"])
+            out[int(r["id"])] = {
+                "side": side, "verdict": r["verdict"] if side is not None else UNJUDGED,
+                "by": "human_revision", "why": f"current revision explicitly links annotation {r['annotation_id']}",
+                "judged": side is not None,
+            }
     return out
 
 

@@ -62,6 +62,7 @@ from Working.database import queries as _queries
 from Working.discovery.matching import match_quality, rule_from_settings
 from Working.discovery.spans import absolute_bounds
 from Working.review.queue_state import ReviewQueue
+from Working.review.span_edits import detection_edits
 
 #: SQLite's default host-parameter ceiling is 999; stay well under it when
 #: expanding an id set into an `IN (...)` list.
@@ -459,7 +460,8 @@ def _detection_counts(conn, q, exclude_recording_ids, cache_key=None):
     each verdict: 1.4-3 s with 20 queues on the scale fixture)."""
     structure = _cached_structure(conn, q, cache_key=cache_key)
     served = _structure_views(q, structure, exclude_recording_ids)["served_members"]
-    adjudicated = {r[0] for r in conn.execute("SELECT detection_id FROM adjudications").fetchall()}
+    wanted = {did for members in served for did in members}
+    adjudicated = {r[0] for r in _adjudication_rows(conn, "SELECT a.detection_id FROM adjudications a", wanted)}
     # review-carry: an item is an overlap set, judged when any of its detections is
     judged = sum(1 for ms in served if _set_judged(ms, adjudicated))
     return {"total": len(served), "judged": judged, "remaining": len(served) - judged}
@@ -698,7 +700,9 @@ def _detection_structure(conn, q):
             cand["start_idx"], cand["end_idx"], span_starts.get(cand["run_id"], 0))
         out.append((cand["id"], cand["run_id"], cand["recording_id"], cand["channel"], start_idx, end_idx,
                     cand["score"], priors.get(cand["id"])))
-    return _as_overlap_sets(out)
+    edits = detection_edits(conn)
+    return [s[:7] + (None,) + s[8:] if any(did in edits for did in _members(s)) else s
+            for s in _as_overlap_sets(out)]
 
 
 def _as_overlap_sets(rows):
@@ -928,19 +932,46 @@ def _build_structure(conn, q, key):
     return structure
 
 
-def _judged_overlay(conn):
-    """The verdicts and their tags, whole: what a key press changes, read fresh on every call. Human rows,
-    bounded by how many verdicts a person can give, never by the size of a queue or of `detections`.
+def _adjudication_rows(conn, sql, detection_ids=None):
+    """Fresh adjudication reads, bounded to the queue's detections where small.
+
+    The existing unique detection index answers these seeks. A small queue no
+    longer reads every unrelated judgement on each step/prefetch. Large queues
+    retain a single scan, filtered in Python, rather than issuing thousands of
+    separate seeks. The SELECT's first column is the owner detection id and its
+    adjudications alias is `a`. Carried sources may still be joined outside the
+    selected owners; no verdict cache or judgement semantics change.
+    """
+    wanted = None if detection_ids is None else set(detection_ids)
+    if wanted is not None and not wanted:
+        return
+    if wanted is None or len(wanted) > 4096:
+        for row in conn.execute(sql).fetchall():
+            if wanted is None or row[0] in wanted:
+                yield row
+        return
+    ids = sorted(wanted)
+    for start in range(0, len(ids), 400):
+        chunk = ids[start:start + 400]
+        marks = ",".join("?" * len(chunk))
+        yield from conn.execute(sql + f" WHERE a.detection_id IN ({marks})", chunk).fetchall()
+
+
+def _judged_overlay(conn, detection_ids=None):
+    """The selected verdicts and tags: what a key press changes, read fresh on every call.
 
     review-carry: also each row's class label and, for a carried row, the detection it was carried from —
     ``extras[detection_id] = (class_label, carried_from_detection)`` (absent when both are empty)."""
     verdicts, extras = {}, {}
-    for r in conn.execute("SELECT a.detection_id, a.verdict, a.class_label, s.detection_id FROM adjudications a "
-                          "LEFT JOIN adjudications s ON s.id = a.carried_from").fetchall():
+    for r in _adjudication_rows(conn,
+            "SELECT a.detection_id, a.verdict, a.class_label, s.detection_id FROM adjudications a "
+            "LEFT JOIN adjudications s ON s.id = a.carried_from", detection_ids):
         verdicts[r[0]] = r[1]
         if r[2] is not None or r[3] is not None:
             extras[r[0]] = (r[2], r[3])
-    return verdicts, _adjudication_tag_values(conn), extras
+    for did, edit in detection_edits(conn, detection_ids).items():
+        extras[did] = (*extras.get(did, (None, None)), edit)
+    return verdicts, _adjudication_tag_values(conn, detection_ids), extras
 
 
 def _set_judged(members, judged_verdicts):
@@ -955,6 +986,10 @@ def _detection_item(q, s, judged_verdicts, judged_tags, extras=None):
     # the item's verdict is its first judged member's (the named detection's when it has one)
     shown = next((m for m in members if m in judged_verdicts), did)
     extra = (extras or {}).get(shown, (None, None))
+    edits = [extras[m][2] for m in members if extras and m in extras and len(extras[m]) > 2]
+    if edits:
+        edit = max(edits, key=lambda r: r["annotation_id"])
+        start_idx, end_idx = edit["start_idx"], edit["end_idx"]
     item = {
         "target_id": did,
         "unit": q["unit"],
@@ -966,7 +1001,7 @@ def _detection_item(q, s, judged_verdicts, judged_tags, extras=None):
         "end_idx": end_idx,
         # review-carry: the overlap set this item stands for (one id when the detection overlaps nothing)
         "members": members,
-        "member_spans": [list(sp) for sp in s[9]] if len(s) > 9 else [[start_idx, end_idx]],
+        "member_spans": [[start_idx, end_idx]] if edits else [list(sp) for sp in s[9]] if len(s) > 9 else [[start_idx, end_idx]],
         "judged": _set_judged(members, judged_verdicts),
         "verdict": judged_verdicts.get(shown),
         "class_label": extra[0],
@@ -991,7 +1026,8 @@ def _resolve_detections(conn, q):
     # queue" for an item the database had a verdict for: the page contradicting
     # the table it was reading.
     structure = _cached_structure(conn, q)
-    judged_verdicts, judged_tags, extras = _judged_overlay(conn)
+    wanted = {did for s in structure for did in _members(s)}
+    judged_verdicts, judged_tags, extras = _judged_overlay(conn, wanted)
     return [_detection_item(q, s, judged_verdicts, judged_tags, extras) for s in structure]
 
 
@@ -1007,7 +1043,8 @@ def item_views(conn, queue_id, target_ids, *, exclude_recording_ids=None):
         return {str(t): deep.get(str(t)) for t in target_ids}
     structure = _cached_structure(conn, q)
     views = _structure_views(q, structure, exclude_recording_ids)
-    judged_verdicts, judged_tags, extras = _judged_overlay(conn)
+    wanted = {did for s in structure for did in _members(s)}
+    judged_verdicts, judged_tags, extras = _judged_overlay(conn, wanted)
     out = {}
     for t in target_ids:
         try:
@@ -1046,14 +1083,17 @@ def item_view(conn, queue_id, target_id, *, exclude_recording_ids=None):
         return {"queue": q, "item": item, "rank": rank, "counts": snap["counts"]}
     structure = _cached_structure(conn, q)
     views = _structure_views(q, structure, exclude_recording_ids)
-    judged_verdicts, judged_tags, extras = _judged_overlay(conn)
-    judged = sum(1 for ms in views["served_members"] if _set_judged(ms, judged_verdicts))
-    total = len(views["served_ids"])
     try:
         key = int(tid)
     except ValueError:
         key = None
     at = views["deep_at"].get(key)
+    wanted = {did for members in views["served_members"] for did in members}
+    if at is not None:
+        wanted.update(_members(structure[at]))
+    judged_verdicts, judged_tags, extras = _judged_overlay(conn, wanted)
+    judged = sum(1 for ms in views["served_members"] if _set_judged(ms, judged_verdicts))
+    total = len(views["served_ids"])
     item = None if at is None else _detection_item(q, structure[at], judged_verdicts, judged_tags, extras)
     return {"queue": q,
             "item": item,
@@ -1128,19 +1168,23 @@ def served_detections(conn, queue_id, *, exclude_recording_ids=None):
     return _structure_views(q, _cached_structure(conn, q), exclude_recording_ids)["n_detections"]
 
 
-def _adjudication_tag_values(conn):
+def _adjudication_tag_values(conn, detection_ids=None):
     """`{detection_id: [value, ...]}` over every adjudication that carries tags.
 
     One query for the whole queue rather than one per row: the resolver runs on
     every read. Values only - the category is the vocabulary's business, and the
     card shows the term the researcher chose.
     """
-    return _tag_values(
-        conn,
-        "SELECT a.detection_id AS owner, v.value AS value "
-        "FROM adjudications a "
-        "JOIN adjudication_tags t ON t.adjudication_id = a.id "
-        "JOIN tag_vocabulary v ON v.id = t.tag_id")
+    sql = ("SELECT a.detection_id AS owner, v.value AS value FROM adjudications a "
+           "JOIN adjudication_tags t ON t.adjudication_id = a.id "
+           "JOIN tag_vocabulary v ON v.id = t.tag_id")
+    out = {}
+    try:
+        for r in _adjudication_rows(conn, sql, detection_ids):
+            out.setdefault(r["owner"], []).append(r["value"])
+    except Exception:                       # a database older than the tag tables
+        return {}
+    return out
 
 
 def _annotation_tag_values(conn):
@@ -1241,6 +1285,10 @@ def _prior_verdicts(conn, candidates):
     """
     if not candidates:
         return {}
+    # An item's own redraw is its current extent, not a rediscovery that removes
+    # it from the queue after a resolver refresh or server restart.
+    edited = detection_edits(conn)
+    candidates = [r for r in candidates if int(r["id"]) not in edited]
     span_starts = _run_span_starts(conn, {c["run_id"] for c in candidates})
     by_recording = _annotations_by_recording(
         conn, {c["recording_id"] for c in candidates})

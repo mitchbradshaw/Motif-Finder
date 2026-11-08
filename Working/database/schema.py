@@ -756,6 +756,13 @@ def _migrate_discovery_tables(conn):
 # instead of re-inferred at each verdict where a wrong inference would be a
 # silent crossing. It is CHECKed to the two verdict tables.
 _REVIEW_SCHEMA = """
+-- One current human extent per detection. Earlier annotations/revisions remain
+-- history; a redraw never becomes another machine detection or another event.
+CREATE TABLE IF NOT EXISTS review_span_edits (
+    detection_id INTEGER PRIMARY KEY REFERENCES detections(id),
+    annotation_id INTEGER NOT NULL REFERENCES annotations(id)
+);
+
 CREATE TABLE IF NOT EXISTS review_queues (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     name          TEXT    NOT NULL,

@@ -346,3 +346,55 @@ def test_pace_reads_the_tail_and_agrees_with_the_whole_ledger(tmp_path):
     Q.queue_pace_s(conn, qid)
     conn.set_trace_callback(None)
     assert any("LIMIT" in s.upper() for s in seen), "the pace reads the whole ledger to use its last 20 gestures"
+
+
+def test_small_queue_step_and_counts_do_not_scan_unrelated_verdict_history(tmp_path):
+    """Work stays bounded as other queues accumulate thousands of judgements."""
+    conn, info = _db(tmp_path, n_runs=2, per_run=3000)
+    chosen = info["dets"][5:10]
+    qid = Q.create_queue(conn, name="five", source_kind="discovery-run", filters={"detection_ids": chosen})
+    Q.item_view(conn, qid, chosen[0])
+
+    def cost(fn):
+        steps = [0]
+        def progress():
+            steps[0] += 100
+            return 0
+        conn.set_progress_handler(progress, 100)
+        try:
+            answer = fn()
+        finally:
+            conn.set_progress_handler(None, 0)
+        return steps[0], answer
+
+    before_item, before = cost(lambda: Q.item_view(conn, qid, chosen[0]))
+    before_counts, counts = cost(lambda: Q.queue_counts(conn, qid))
+    conn.executemany("INSERT INTO adjudications(detection_id,verdict,created_at) VALUES (?,'interesting',?)",
+                     [(did, NOW) for did in info["dets"][100:5100]])
+    conn.commit()
+    after_item, after = cost(lambda: Q.item_view(conn, qid, chosen[0]))
+    after_counts, later_counts = cost(lambda: Q.queue_counts(conn, qid))
+    assert before == after and counts == later_counts
+    assert after_item <= before_item + 1500, (before_item, after_item)
+    assert after_counts <= before_counts + 1500, (before_counts, after_counts)
+    conn.close()
+
+
+def test_bounded_overlay_retains_source_outside_queue_and_fresh_changes(tmp_path):
+    conn, info = _db(tmp_path)
+    source, target = info["dets"][0], info["dets"][6]
+    src = conn.execute("INSERT INTO adjudications(detection_id,verdict,created_at) VALUES (?,'interesting',?)",
+                       (source, NOW)).lastrowid
+    conn.execute("INSERT INTO adjudications(detection_id,verdict,created_at,class_label,carried_from) VALUES (?,'interesting',?,'trough',?)",
+                 (target, NOW, src))
+    conn.commit()
+    whole = Q._judged_overlay(conn)
+    bounded = Q._judged_overlay(conn, [target])
+    assert bounded == tuple({k: v for k, v in part.items() if k == target} for part in whole)
+    assert bounded[2][target] == ("trough", source)
+    assert Q._judged_overlay(conn, []) == ({}, {}, {})
+    conn.execute("UPDATE adjudications SET verdict='not_interesting',class_label='flat' WHERE detection_id=?", (target,))
+    conn.commit()
+    assert Q._judged_overlay(conn, [target])[0][target] == "not_interesting"
+    assert Q._judged_overlay(conn, [target])[2][target] == ("flat", source)
+    conn.close()

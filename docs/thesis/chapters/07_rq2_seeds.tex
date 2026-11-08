@@ -11,131 +11,249 @@ About 4 pages. Answers RQ2, the plan's RQ2, and carries the plan's RQ3 scale pil
 
 \section{Aims}
 
-RQ2 asks whether a human-checked motif from the library, used as a seed, finds new instances that a human judging blind also accepts. Those instances must be accepted more often than duration-matched random windows, and must be far more numerous than the same search finds in a surrogate. If a researcher cannot retrieve more of a shape by querying with one example of it, the library has no way to grow except by hand.
+The aim of the seed search algorithm was to take a previously identified event of interest and perform a search across a larger span of the data for similar events. This research question was developed as it was often found, when developing an initial library of events, that separate occurrences at different times and on different channels matched each other in general waveform shape. However, it was difficult to collect similar events across the large dataset, as they occurred irregularly and at scales that were not visible when examining the time series broadly.
+
+RQ2 therefore asks whether one human-accepted example can be used to grow a family of similar events. The search is evaluated in two ways: whether the researcher accepts its matches more often than random windows of the same duration when their source is hidden, and whether the recording contains more matches than phase-randomised copies searched at the same distance threshold.
+
+% Written 7 Nov 2026 (writing loop, Chapter 7 aims and methods). Sources: RQ2-exemplar-seeded-search.md and RQ2b-second-seed.md.
 
 \section{Methods}
 
-\begin{instructions}
-Cover:
+This work was inspired by experimental work with the matrix profile algorithm. By finding the nearest neighbour of every window at a given duration, the most similar regions of the signal could be identified. In these early experiments, however, the closest pairs were often broad, relatively flat regions of little activity. A more useful approach was to choose a specific span of interest and calculate its distance to every window of the same length. This distance profile returned the regions most similar to the chosen event in waveform shape, rather than the most similar pairs anywhere in the signal.
+
+The seed search algorithm was later refined into a standalone query search, without calculating the full matrix profile. It uses the MASS algorithm through STUMPY to calculate a distance profile in $O(n\log n)$ time, where $n$ is the number of samples in the channel being searched \cite{mass2022,stumpy}. The distance is measured after z-normalising each window, so differences in mean voltage and amplitude do not dominate the comparison. The four main searches used each seed's native duration. In a timing check on the researcher's workstation, a 105\,s seed searched one 721-hour channel at 1\,Hz and returned the best 200 matches in less than one second (0.84\,s).\footnote{Measured on 7 November 2026 using an Intel Core i7-1360P and STUMPY 1.14.1, after computational warm-up. The timing excludes data loading and surrogate searches. The distance profile alone took 0.38--0.44\,s over three runs.}
+
+Four main seeds were used to answer this research question: a short dip, a long dip, a spike and a drop, lasting 105, 816, 148 and 377\,s respectively. These were taken from Library families 24, 23, 37 and 30 on M2\_aug. Each search covered the full 721 hours of the recording. The initial short-dip search covered three channels, while the other three searches covered all 16. Each search retained up to 200 matches per channel, ranked by shape distance, with an exclusion zone of approximately half the seed length to avoid returning many nearly identical positions around the same occurrence.
+
+The short- and long-dip seeds were family medoids; the spike and drop were Library entries 289 and 185. These identifiers refer to the Library snapshot used for the searches. An additional 327\,s trough seed was explored on two channels and returned nine candidates, but these were not judged and are not included in the four-seed evaluation.
+
+Each searched channel also had 200 phase-randomised copies. These preserved its power spectrum while changing the alignment of frequencies in time, providing a reference for how many matches a scrambled signal would produce at the same distance threshold. Null-based thresholds were used to identify close matches that were rare in these copies. Searches estimated to take longer than about ten minutes, including the surrogate draws, were sent to the rangpur cluster as SLURM jobs and imported into MycoWave.
+
+For each channel, the threshold rule selected the largest returned match distance at which the surrogate mean remained at most 0.01 matches per draw, without a correction across channels. The common threshold reported for each seed was the strictest of the channel thresholds that admitted a real match. Real and surrogate counts were then compared at that same common threshold; the blind spike panel additionally used the individual channel thresholds, as described below.
+
+The initial unblinded review comprised 428 assessments across the short-dip, long-dip and spike searches: 263, 104 and 61 respectively. During these reviews, the researcher knew that each item came from a seed search. To reduce the influence of that knowledge, a further 249 items were shuffled into one review queue with their source and distance scores hidden:
 \begin{itemize}
-  \item \textbf{Seeds.} Medoids of Library families on M2\_aug. Dip id010 (family 24, 105\,s, CH4\_A2); long dip id020
-        (family 23, 816\,s, CH1\_A1); spike (entry 289, family 37, 148\,s, CH1\_A1 at 248.4\,h); drop30 (family 30,
-        entry 185, 377\,s); trough id022 (family 166, 327\,s).
-  \item \textbf{Search.} The $d_z$ distance profile against every channel over 721\,h; $k=200$ matches per channel,
-        exclusion zone $m/2$; 200 phase-randomised null draws per channel; the null's recommended cut. Searches longer
-        than about 10 minutes ran as SLURM jobs on rangpur and were imported (\src{scripts/seed_job_parallel.py}).
-  \item \textbf{Judging.}
-        \begin{itemize}
-          \item unblinded first: you knew each item was a match;
-          \item then the blind panel, queue 35, 249 items shuffled with nothing showing their source: 100 drop30
-                matches, 29 spike37 matches, 20 + 20 previously accepted dips judged again, and 80 random windows
-                matched to the seeds' lengths (40 / 16 / 12 / 12 at 377 / 148 / 105 / 816\,s) on the same channels;
-          \item items already judged as human spans were excluded from every pool alike.
-        \end{itemize}
-  \item \textbf{Scoring.} Acceptance per source with Wilson intervals; each seed against its duration-matched controls
-        (Newcombe difference, Fisher's exact test); blind against unblinded agreement on the re-judged dips (Cohen's
-        $\kappa$).
+  \item 100 drop matches;
+  \item 29 spike matches;
+  \item 20 previously accepted short-dip matches, reviewed again;
+  \item 20 previously accepted long-dip matches, reviewed again;
+  \item 80 random control windows: 40 of 377\,s, 16 of 148\,s, 12 of 105\,s and 12 of 816\,s.
 \end{itemize}
-\end{instructions}
+The drop matches were sampled below the common null-based threshold shown by the Seed page, while the spike matches passed their respective channels' own null-based thresholds. The random windows matched each seed group's channel proportions and duration, and overlapped none of the seed matches. Windows already represented by a manually judged human span were excluded from the sampling pools in the same way.
+
+The primary blind acceptance rate was the proportion of all reviewed items labelled \emph{interesting} or \emph{seed}; unsure and artifact verdicts remained in the denominator. A second rate excluded these verdicts, for comparison with the earlier unblinded results. Each seed group was compared with its own duration-matched controls using Fisher's exact test, with Wilson intervals for acceptance rates and Newcombe intervals for differences between rates. The repeated dip reviews assessed whether earlier positive judgements remained positive when the source was hidden. All reviews were performed by the same researcher, who could still recognise a familiar waveform shape.
+
+% Sources: rq2-blind-2026-10-28.md (queue 35 and scoring); numbers_ledger.md B1, B3, B5 (428 earlier assessments); data/seed_query_timing_20261107.json (query timing). No full matrix profile was computed for the timing check.
 
 \section{Results}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{new/ch7_seeds.pdf}
-\caption{Two seeds from the Library and what they found in M2\_aug, as judged in the blind panel (queue 35). From left: the seed; where its matches fall across the 16 channels and 721 hours (star: the seed; filled: accepted); the matches stretched to a common length and z-normalised, with the seed in black; and random windows of the seed's own length, served in the same blind queue (orange: accepted). The matches keep the seed's shape and are accepted almost without exception; the random windows have no common shape and are rarely accepted.}
-\label{fig:seeds}
-\end{figure}
+\subsection{Matches against the phase-randomised reference}
+\label{sec:seednullresults}
+
+When comparing the seed matches in the recording with those in the surrogate datasets, as seen in Table~\ref{tab:seeds}, the chosen thresholds returned substantially more close matches in the recording. For example, the drop seed found 372 matches across the 16 channels of M2\_aug. Across the 200 phase-randomised draws per channel, only one surrogate match passed the same threshold in total. This gives an average of 0.005 matches per draw, summed across the 16 channels. The other three seeds also returned many more matches in the recording than in the phase-randomised reference.
+
+These results support the interpretation that the chosen waveform shapes recur within the recording more often than this scrambled reference would suggest. The thresholds were chosen using the surrogates to make close matches rare, so the small surrogate counts are partly a consequence of that choice. The useful finding is that many matches in the recording still passed the same thresholds. This comparison tests recurrence against phase randomisation; human review provides a separate assessment of whether the retrieved windows are interesting.
+
+The drop search also recovered 60 of the 65 catalogued drop-family members on CH2\_A1 in the Library snapshot used for the search, including 41 of its 46 accepted members. Six family members on other channels were not retrieved at this threshold; they differed in shape or duration, spanning 182--1443\,s. This is a check against known family members, rather than recall against a complete event reference.
+
+At these common thresholds, no channel reached the 200-match retrieval limit; the largest retained count was 111 drop matches on CH2\_A1. The cap could still limit searches at looser thresholds. All four seeds were evaluated within M2\_aug, at their native lengths and against phase randomisation only. The results therefore establish within-recording retrieval under those choices, rather than recovery across recordings or across changes in an event's duration.
 
 \begin{table}[htbp]
-\caption{Seed searches: matches under the null's cut against surrogate matches at the same threshold, and human acceptance. Unblinded figures from the earlier queues; blind figures from queue 35.}
+\caption{Seed matches at a common distance threshold for each seed, applied to all searched channels. Thresholds were 2.098, 3.905, 2.519 and 2.208 for the short dip, long dip, spike and drop respectively (rounded here; counts use full precision). Surrogate totals are summed over 200 draws per channel; the mean per draw is summed over the same channels and shown to three decimal places. Counts include the seed's own location when its source channel was searched.}
 \label{tab:seeds}
-\footnotesize
-\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.1cm} r r >{\raggedright\arraybackslash}p{2.0cm} >{\raggedright\arraybackslash}p{1.2cm} >{\raggedright\arraybackslash}p{1.9cm} >{\raggedright\arraybackslash}X@{}}
+\small
+\centering
+\begin{tabularx}{\textwidth}{@{}Xrrrr@{}}
 \toprule
-\textbf{Seed} & \textbf{Length} & \textbf{Ch} & \textbf{Matches} & \textbf{Null per draw} & \textbf{Unblinded} & \textbf{Blind (queue 35)}\\
+\textbf{Seed} & \textbf{Channels} & \makecell[r]{\textbf{Recording}\\\textbf{matches}} & \makecell[r]{\textbf{Surrogate matches}\\\textbf{over 200 draws}} & \makecell[r]{\textbf{Surrogate mean}\\\textbf{per draw}}\\
 \midrule
-Dip id010 & 105\,s & 3 & 64 (263 at cut 2.652) & 0.01 (0.8) & 256/263 (97\,\%) & 20/20 re-judged; matched random 1/12\\
-Long dip id020 & 816\,s & 16 & 124 & 0.04 & 94/103 (91\,\%) & 20/20 re-judged; matched random 3/12\\
-Spike (entry 289) & 148\,s & 16 & 16 & 0.00 & 51/58 (88\,\%) & 28/29 (97\,\%); matched random 2/16\\
-Drop30 (entry 185) & 377\,s & 16 & 372 & 0.01 & -- & 100/100; matched random 9/40\\
-Random windows & matched & -- & -- & -- & 235/1,084 (22\,\%) & 15/80 (19\,\%, 12--29\,\%)\\
+Short dip & 3 & 64 & 2 & 0.010\\
+Long dip & 16 & 124 & 7 & 0.035\\
+Spike & 16 & 16 & 0 & 0.000\\
+Drop & 16 & 372 & 1 & 0.005\\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-\begin{instructions}
-Unblinded rates exclude \texttt{unsure} and \texttt{artifact} verdicts, as everywhere else in the thesis: id020's
-94/103 leaves out 1 unsure, and the spike's 51/58 leaves out 2 unsure and 1 artifact (51/59 = 86\,\% if artifact counts
-as ``not''). The test RQ2 needs is each seed's blind acceptance against its own duration-matched controls, not against
-the earlier 22\,\% from a different queue. The re-judged dips tell you how much knowing the source inflated the
-unblinded rates.
+% Written 7 Nov 2026 (writing loop, Chapter 7 results). Source: data/seed_null_verified_20261107.json, re-read from the four saved HPC search outputs using the recorded cut rule (alpha 0.01, no correction). Earlier 0.01/0.04 means were rounded to two decimal places.
 
-Scored 28 Oct (queue 35, all 249 judged; \src{docs/rq_roundA_2/findings/rq2-blind-2026-10-28.md}):
-\begin{itemize}
-  \item every seed beats random windows of its own length, Fisher $p<0.0001$ each: drop30 100\,\% against 22\,\%
-        (+78 points, Newcombe 95\,\% interval +62 to +88), spike 97\,\% against 12\,\% (+84, +57 to +93), dip id010 100\,\%
-        against 8\,\% (+92, +60 to +99), long dip id020 100\,\% against 25\,\% (+75, +42 to +91);
-  \item knowing the source did not inflate the earlier rates: all 51 earlier yeses stayed yes when judged blind
-        (100\,\%, 95\,\% interval 93--100\,\%);
-  \item random windows were accepted 15 of 80 times (19\,\%), so a random stretch of these recordings is sometimes
-        interesting in its own right.
-\end{itemize}
-Caveat to state: the panel hides each item's source, not its shape. A judge who has learned a seed's shape can
-recognise its matches, so ``blind'' means blind to the label, which is the inflation the panel was built to measure.
+\subsection{Human acceptance against random windows}
+\label{sec:seedacceptance}
 
-Report the surrogate side as it stands. Across seeds, scrambled copies of the signal give about zero matches per draw
-at each seed's cut, against 16--372 real matches. On CH2\_A1, 60 of drop30's 65 family members are among its matches.
+The blind review compared how often the researcher accepted a window selected by the seed search with how often a random window of the same duration was accepted (Table~\ref{tab:seedacceptance}). Both were presented in the same shuffled queue without their source or distance score. This comparison asks whether using a known event to guide the search is more effective than choosing a window at random from the eligible background. A random window could also contain an interesting event, so the controls provide a background acceptance rate rather than a set of known non-events.
 
-Caveats:
-\begin{itemize}
-  \item $k=200$ caps the count on busy channels (CH2 already at 111);
-  \item only phase randomisation was used;
-  \item all seeds and matches are within one experiment (M2\_aug).
-\end{itemize}
-Use the per-run report figures (\src{figures/reports/dip_null.png}, \src{figures/reports/spike_null.png}) for the null
-histograms.
-\end{instructions}
+Of the 100 drop matches reviewed, all 100 were accepted, compared with 9 of 40 random windows of the same duration (22.5\,\%). Similarly, 28 of 29 spike matches were accepted (96.6\,\%), compared with 2 of 16 matched random windows (12.5\,\%). The remaining spike judgement was unsure. The 95\,\% Wilson intervals for acceptance of the drop and spike matches were 96--100\,\% and 83--99\,\% respectively. Figure~\ref{fig:seeds} shows the seeds, their retrieved matches and the corresponding random windows.
+
+All 20 short-dip and all 20 long-dip matches were also accepted, compared with 1 of 12 and 3 of 12 duration-matched random windows respectively. These dip items had already been accepted in the earlier review, so their results measure continued acceptance when the source is hidden. They do not estimate the acceptance rate of previously unreviewed dip matches. Each of the four seed groups had a higher acceptance rate than its matched controls (Fisher's exact test, $p<0.0001$ for each comparison).
+
+The increases in acceptance were 77.5 percentage points for the drop group (Newcombe 95\,\% interval 62--88 points) and 84.1 points for the spike group (57--93). For the previously accepted short- and long-dip groups, the corresponding differences were 91.7 points (60--99) and 75.0 points (42--91). These intervals describe the comparisons in this panel; the selection of earlier positive dips remains part of their interpretation.
+
+Overall, the search-selected windows were much more likely to be judged interesting than the random controls. This supports seed search as a way to prioritise candidates for human review. Acceptance here means that a window was labelled interesting or seed; it does not by itself establish the biological origin of the waveform.
 
 \begin{figure}[htbp]
 \centering
-\begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{reports/dip_null.png}\caption{Dip seed}\end{subfigure}\hfill
-\begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{reports/spike_null.png}\caption{Spike seed}\end{subfigure}
-\caption{Seed matches found per channel (blue) against the mean number the 200-draw phase-randomised null finds per draw (grey), for the dip seed (left) and the spike seed (right).}
-\label{fig:seednull}
+\includegraphics[width=\textwidth]{new/ch7_seeds.pdf}
+\caption{Two seeds from the Library and what they found in M2\_aug, as judged in the blind panel (queue 35). From left: the seed; where its reviewed matches fall across the 16 channels and 721 hours (star: the seed; filled: accepted; open: unsure); the matches stretched to a common length and z-normalised, with the seed in black; and random windows of the seed's own length, served in the same blind queue (orange: accepted). The matches keep the seed's shape and are accepted almost without exception; the random windows have no common shape and are less often accepted. Acceptance labels count all reviewed items in the denominator, including unsure verdicts.}
+\label{fig:seeds}
 \end{figure}
 
-\begin{instructions}
-Caption fixed 5 Nov to say what the bars are. The spike panel is 200 against 200 (1.0$\times$) on every channel, which
-looks like a cap of 200 matches on real and surrogate alike rather than a result. Check that before keeping it; if it is
-a cap, drop the spike panel and keep the dip seed's.
-\end{instructions}
+\begin{table}[htbp]
+\caption{Human acceptance in the blind queue: accepted items out of all reviewed items, with percentages in brackets. Random windows match the corresponding seed group's duration and channel proportions. The dip matches were previously accepted examples reviewed again. Unsure verdicts remain in the denominators: one spike match and two random windows of the drop's duration.}
+\label{tab:seedacceptance}
+\small
+\centering
+\begin{tabularx}{\textwidth}{@{}Xrr@{}}
+\toprule
+\textbf{Seed group} & \makecell[r]{\textbf{Accepted search}\\\textbf{matches}} & \makecell[r]{\textbf{Accepted random}\\\textbf{windows}}\\
+\midrule
+Drop & 100/100 (100\,\%) & 9/40 (22.5\,\%)\\
+Spike & 28/29 (96.6\,\%) & 2/16 (12.5\,\%)\\
+Short dip (reviewed again) & 20/20 (100\,\%) & 1/12 (8.3\,\%)\\
+Long dip (reviewed again) & 20/20 (100\,\%) & 3/12 (25.0\,\%)\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The drop matches were sampled from 372 matches passing the common threshold in Table~\ref{tab:seeds}. The spike review used each channel's own threshold, giving 29 eligible items after exclusions, rather than the 16 matches under the common threshold. Across all four control durations, 15 of 80 random windows were accepted (18.8\,\%, 95\,\% interval 12--29\,\%). Leaving unsure verdicts out gives 28/28 for the spike matches and 9/38 for the drop-duration controls, without changing the direction of the comparison.
+
+% Source: rq2-blind-2026-10-28.md, queue 35 (249 reviewed). The waveform figure now uses the same all-reviewed denominators as tab:seedacceptance. Legacy report bar plots omitted: the spike bars both reach the 200-match retrieval cap, and their exported channel subsets do not establish the threshold comparison reported in tab:seeds.
+
+\subsection{Consistency of earlier positive judgements}
+\label{sec:seedrepeatability}
+
+When previously positive judgements were included in the shuffled blind review queue and reassessed, all 51 retained a positive judgement (100\,\%, 95\,\% Wilson interval 93--100\,\%). These comprised the 20 short-dip and 20 long-dip examples selected for repeat review, together with 11 spike matches that also had earlier positive judgements. The events therefore remained identifiable to the same researcher when their source was hidden, supporting the repeatability of these positive judgements.
+
+The earlier unblinded reviews had accepted 256/263 short-dip matches (97\,\%), 94/103 long-dip matches (91\,\%) and 51/58 spike matches (88\,\%) among decided reviews. The long-dip denominator excludes one unsure verdict, and the spike denominator excludes two unsure and one artifact verdict. The repeat reviews show that the selected earlier positives remained accepted; they do not estimate the size of any bias in these overall unblinded rates.
+
+Together with the lower acceptance of random windows and the low match counts in phase-randomised copies, this supports a consistent distinction between these selected shapes and the surrounding background under the review criteria used. However, the repeat comparison contained only earlier positive judgements and was performed by the same researcher. It therefore measures consistency within that researcher, rather than agreement between independent observers or an objective boundary between events and noise.
+
+Both assessments labelled every item in this repeat comparison positively, so Cohen's $\kappa$ is undefined. The directly interpretable result is the proportion of earlier positives that remained accepted, with its interval.
+
+% Source: rq2-blind-2026-10-28.md (51 earlier positives, all retained; Newcombe intervals); numbers_ledger.md B1/B3/B5 (earlier acceptance); RQ2b-second-seed.md, 17 Oct drop30 results (60/65 catalogued members, 41/46 accepted, and six misses elsewhere). Instruction-coverage audit: PROSE_CONTEXT_AUDIT.md.
+
+\subsection{Where the seed matches occurred}
+\label{sec:seedchannels}
+
+The four seeds differed in where their close matches occurred (Table~\ref{tab:seedchannels}). At the common thresholds used in Table~\ref{tab:seeds}, the long dip and drop returned matches on all 16 channels. All 16 spike matches were on CH1\_A1, the seed's source channel. This refers to the common threshold; the channel-specific thresholds used for the blind spike panel admitted additional matches elsewhere. The short dip returned matches on each of its three searched channels, leaving the other 13 channels untested for that query.
+
+\begin{table}[htbp]
+\caption{Matches per channel for each seed in M2\_aug, at the common thresholds of Table~\ref{tab:seeds}. Zero means that the channel was searched but no match passed the threshold; a dash means that the channel was not searched. These are all thresholded search returns, including any original seed location, rather than counts of human-reviewed or independently verified biological events.}
+\label{tab:seedchannels}
+\small
+\centering
+\begin{tabularx}{\textwidth}{@{}Xrrrr@{}}
+\toprule
+\textbf{Channel} & \makecell[r]{\textbf{Short dip}\\\textbf{105\,s}} & \makecell[r]{\textbf{Long dip}\\\textbf{816\,s}} & \makecell[r]{\textbf{Spike}\\\textbf{148\,s}} & \makecell[r]{\textbf{Drop}\\\textbf{377\,s}}\\
+\midrule
+CH1\_A1 & -- & 14 & 16 & 54\\
+CH2\_A1 & 14 & 20 & 0 & 111\\
+CH3\_A2 & -- & 5 & 0 & 7\\
+CH4\_A2 & -- & 19 & 0 & 66\\
+CH5\_B1 & -- & 6 & 0 & 17\\
+CH6\_B1 & 12 & 6 & 0 & 1\\
+CH7\_B2 & 38 & 6 & 0 & 3\\
+CH8\_B2 & -- & 4 & 0 & 14\\
+CH9\_C1 & -- & 6 & 0 & 18\\
+CH10\_C1 & -- & 7 & 0 & 5\\
+CH11\_C2 & -- & 4 & 0 & 17\\
+CH12\_C2 & -- & 2 & 0 & 2\\
+CH13\_D1 & -- & 3 & 0 & 8\\
+CH14\_D1 & -- & 4 & 0 & 2\\
+CH15\_D2 & -- & 12 & 0 & 13\\
+CH16\_D2 & -- & 6 & 0 & 34\\
+\midrule
+Total & 64 & 124 & 16 & 372\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Of the 372 drop matches, 111 came from CH2\_A1, 66 from CH4\_A2 and 54 from CH1\_A1. The remaining channels contributed between one and 34 each. Figure~\ref{fig:dropdistribution} shows the timing of every thresholded drop match and the corresponding channel totals over the full 721-hour search.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{new/ch7_drop_distribution.pdf}
+\caption{Distribution of all 372 drop-seed matches passing the common shape-distance threshold of 2.208 in M2\_aug. Left: each mark is a match onset over the 721 hours searched on every channel; the star marks the original seed. Right: totals for the same channels. These are the full search returns; the 100 matches judged in the blind panel were a subset.}
+\label{fig:dropdistribution}
+\end{figure}
+
+% Added 7 Nov 2026 at the author's request during chapter-end review. Sources: data/seed_null_verified_20261107.json and data/seed_drop_matches.csv, extracted from the saved HPC results using full-precision common cuts. Figure: scripts/thesis/figs_repo.py seed_distribution.
 
 \subsection{The scale pilot}
+\label{sec:seedscalepilot}
 
-\begin{instructions}
-The plan's RQ3 (does identity survive scale normalisation?) reduced to a pilot:
-\begin{itemize}
-  \item banked searches at 0.8$\times$, 1$\times$ and 1.25$\times$ the native length; so far only placeholder verdicts
-        (an agent rule, $d<2$ accepted);
-  \item for exemplar E-0697 at 0.8$\times$, the scale-invariant distance is 0.96 / 1.43 against 11.8 / 11.9 for the
-        native-length control;
-  \item the null at 0.8$\times$ gives about twice the matches of 1$\times$ (16.7 against 8.4 per draw);
-  \item family F-130 holds together only after stretching: MPdist 0.68 (noise level) against scale-invariant 0.13.
-\end{itemize}
-If round B judges the banked searches, report recovery against duration here. Otherwise say plainly that RQ3 is a
-pilot, and point to Chapter~\ref{ch:events} for the stronger evidence about scale.
-\end{instructions}
+Experimental tests explored the behaviour of seed search at different durations. Copies of a seed at $0.8\times$, $1\times$ and $1.25\times$ its original duration were generated and searched against the recording and its surrogates. The aim was to accommodate events whose overall waveform remained similar while their duration changed. This was a small implementation pilot, separate from the four human-reviewed searches above: it used a 102\,s trough seed on three M2\_aug channels over 452--456\,h, and its provisional labels were supplied during software testing rather than by the researcher.
+
+The trough search returned seven candidates: four at $0.8\times$, one at $1\times$ and two at $1.25\times$. Two of the four shortened candidates had scale-normalised distances of 0.96 and 1.43, compared with 11.8 and 11.9 under the native-length control. One lengthened example similarly scored 2.19 against 9.36. These examples illustrate how allowing a duration change can reveal waveform resemblance that the native-length comparison penalises. They are examples from a seven-candidate demonstration, rather than a measured human acceptance rate across scales.
+
+At the pilot's loose distance threshold of 7, the surrogate means were 16.68 matches per draw at $0.8\times$, 8.36 at $1\times$ and 10.38 at $1.25\times$. These differ from the near-zero means in Table~\ref{tab:seeds} because the seed, scope and threshold were different; the main searches used stringent null-derived thresholds. The shortened query produced the most surrogate matches in this example, showing why each duration needs its own reference. The pilot's raw returns did not exceed these surrogate means, so it does not establish retrieval above the phase-randomised reference at that loose threshold.
+
+A related illustration came from historical Library family F-130, whose short members were about 30 times shorter than its representative event. Their scale-normalised distance was 0.13, while MPdist was 0.68, near that metric's own noise reference. These different measurements illustrate how strongly a family's apparent similarity can depend on stretching; they are not directly comparable measures of improvement. The pilot therefore demonstrated the comparison machinery, while leaving open whether humans consistently recognise a preserved event identity across duration changes. The broader event catalogue is examined in Chapter~\ref{ch:events}.
+
+% Integrated 7 Nov 2026 at chapter end from the author's 7.3.4 response. Sources: docs/prompts/fixup/reports/V-library-edges-and-scale.md, sections 3--4 (7 returns and all three null means); RQ3-identity-under-scale.md (illustrative pair distances and F-130). No placeholder verdict is treated as a researcher's judgement.
+
+\subsection{Transfer of the drop seed to other recordings}
+\label{sec:seedtransfer}
+
+A follow-up search applied the same 377\,s drop seed to seven other recordings, retaining the original M2\_aug distance threshold of 2.208. The physical duration was held fixed: on the 2\,Hz recordings, the seed was resampled to 754 points and distances were converted to the original seed's sampling footing. This was a transfer of the original query and threshold, rather than selecting a new threshold separately on each recording.
+
+After the recovery results were returned on 8 November, all seven recordings had complete searches and 200 phase-randomised draws per channel (Table~\ref{tab:seedtransfer}). The unchanged threshold returned 464 matches, compared with surrogate means of 0--0.045 matches per draw, summed across each recording's searched channels. For example, LM returned 195 matches across four channels and its surrogate copies returned three passing matches across all 200 draws, giving a mean of 0.015. M2\_concat returned 76 matches, M4 66, CO 15, MJu26a 71, SH 21 and SO 20. None reached the 200-return limit on a channel.
+
+\begin{table}[htbp]
+\centering
+\caption{Drop-seed transfer at the unchanged M2\_aug threshold. Every row includes all planned channels and 200 phase-randomised draws per channel. Surrogate means sum passing matches across the same channels for each draw, rather than reporting a mean per channel. Counts are search returns before excluding earlier judgements or combining overlapping proposals for the blind panel. Human acceptance of that panel is reported separately in Figure~\ref{fig:seedtransferacceptance}.}
+\label{tab:seedtransfer}
+\small
+\begin{tabularx}{\textwidth}{@{}Xrrrr@{}}
+\toprule
+\textbf{Recording} & \textbf{Channels} & \textbf{Hours} & \textbf{Matches} & \makecell[r]{\textbf{Surrogate mean}\\\textbf{per draw}}\\
+\midrule
+M2\_concat & 16 & 282.5 & 76 & 0.005\\
+M4 & 16 & 505.0 & 66 & 0.005\\
+LM & 4 & 480.0 & 195 & 0.015\\
+CO & 4 & 480.0 & 15 & 0.000\\
+SH & 4 & 480.0 & 21 & 0.005\\
+SO & 4 & 480.0 & 20 & 0.000\\
+MJu26a & 16 & 635.9 & 71 & 0.045\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The completed MJu26a comparison returned 71 matches across 16 channels, while nine matches passed the same threshold across all 200 surrogate draws, giving a mean of 0.045 per draw. The five recovered channels added no further passing surrogate matches, so the mean was unchanged from the earlier restricted comparison. Completing them establishes a comparison over all planned channels rather than extrapolating the partial result.
+
+The follow-up supports recurrence of a similar drop waveform beyond the seed's source recording, including oyster, lion's mane and shiitake recordings. Separately recalibrating the distance threshold on each target returned different counts: 7 on M2\_concat, 48 on M4, 209 on LM, 21 on CO, 48 on MJu26a, 33 on SH and 34 on SO. Those exploratory results use the target surrogates to select a threshold and are distinct from transfer at the unchanged threshold.
+
+A new blind review panel was prepared after these searches. Five of the 464 returned fixed-threshold matches across all seven targets already matched an earlier adjudication and were excluded. The remaining 459 proposals were mixed with 459 random windows of the same duration on the same channels. Review combined two overlapping LM proposals, leaving 457 match presentations and 459 controls, or 916 presentations. A further 46 randomly selected presentations were reserved for a later repeat queue, avoiding automatic verdict carrying before the second look. M4 was explicitly released for this follow-up after the original classifier examination reported in Chapter~\ref{ch:rq3}.
+
+All 916 presentations were subsequently judged. Of the 457 seed-match presentations, 455 were accepted (99.6\,\%, 95\,\% Wilson interval 98.4--99.9\,\%), compared with 79 of the 459 random controls (17.2\,\%, interval 14.0--20.9\,\%). The search therefore increased the accepted share by 82.4 percentage points, or approximately 5.8 times the control rate. Each recording showed the same direction of difference (Figure~\ref{fig:seedtransferacceptance}). All search matches were accepted on six recordings; on MJu26a, 69 of 71 were accepted, with one rejected and one marked as an artefact. The controls included 23 unsure verdicts, which remain in the denominators, consistently with the earlier panel.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{new/ch7_transfer_acceptance.pdf}
+\caption{Human acceptance of the unchanged drop query on seven recordings beyond M2\_aug. Blue circles show the accepted share of seed-match presentations; grey squares show random controls of the same duration and channel composition. Horizontal lines are 95\,\% Wilson intervals; the two columns give accepted and reviewed counts. The pooled row combines the recording-specific counts, with LM contributing the largest number of presentations. Unsure and artefact answers remain in the denominators. The panel was shuffled and its proposal sources and distances hidden during review. These intervals describe the reviewed sample under this protocol; they do not measure agreement between independent reviewers or account for temporal dependence among waveforms.}
+\label{fig:seedtransferacceptance}
+\end{figure}
+
+These results extend the original within-recording result: a seed chosen in M2\_aug could retrieve shapes on other recordings that the researcher consistently accepted, using the same physical duration and distance threshold. Random controls also yielded accepted events, particularly on LM and MJu26a, showing that useful shapes were present outside the selected matches. This comparison measures enrichment of a review queue, rather than the proportion of all events recovered. It remains a test against one researcher's criteria and does not establish a common biological origin for the waveforms. The 46 planned repeat presentations were subsequently placed in a separate mixed diversity queue (queue 47). Their consistency result will be assessed after that follow-up is complete and does not enter the primary acceptance rates reported here.
+
+The analysis uses the frozen 916-presentation manifest and each presentation's own verdict. The live queue counter subsequently displayed 915 because a later annotation made one already-reviewed control a prior-labelled item. Its original unsure answer remains part of the frozen panel; carried copies and the 918 underlying detection records are not counted as additional presentations. These follow-up labels were collected after the classifier examination and were not used to revise its reported performance.
+
+% Sources: data/hpc_return_20261108/seed_summary.json and audit.json;
+% fixed-duration transfer manifest and per-channel HPC returns, inspected 8 Nov 2026.
+% Private blind key: DATA/derived/rq2_blind/20261108-drop-transfer/key.json (queue 38).
 
 \section{Discussion}
 
-\begin{instructions}
-Points to argue:
-\begin{itemize}
-  \item Seed search is how the library grows: one checked shape yields hundreds of candidates, at a known rate above
-        chance.
-  \item How much unblinded judging inflated the rates (from the re-judges).
-  \item Matches per hour as a prevalence measure: what the matrix profile says about how common a motif is.
-  \item What remains: cross-recording seeds (an M2\_aug seed on the lion's mane recordings MJu26a or LM, say), and seeds at other scales.
-\end{itemize}
-\end{instructions}
+It was found that seed search could automatically retrieve events of interest that also passed human judgement. Using a chosen exemplar, the distance-profile algorithm with appropriate thresholds returned hundreds of similar candidates. The drop query, for example, returned 372 matches, and all 100 reviewed matches were accepted, compared with 9 of 40 randomly selected windows of the same duration. Once a suitable exemplar is found, this allows human review to be directed towards promising candidates and reduces the need to find each occurrence by examining the larger time series manually.
+
+The different comparisons support different parts of this conclusion. The 200 surrogate draws per channel showed that many more close matches occurred in the recording than in the phase-randomised reference at the chosen thresholds. The random-window controls showed that search-selected candidates were more likely to be accepted by the researcher than eligible background windows of the same duration. All 51 previously positive examples also retained a positive judgement when their source was hidden, supporting consistency for these selected examples. The results nevertheless rely on one researcher, who could recognise familiar shapes; they do not independently validate the judgement criteria or establish the biological origin of the candidates.
+
+Further investigation with seed search may help interrogate recurrence counts and the timing of particular waveform shapes. The drop query's 372 matches across 721 hours and 16 channels correspond to an average of 0.032 matches per channel-hour. The channel and time distributions in Section~\ref{sec:seedchannels} identify where further investigation could be directed. Such a rate depends on the exemplar, threshold, duration and exclusion rule, and is an average across an uneven distribution rather than a regular interval between events. It describes the recurrence of a queried shape under those choices, rather than the prevalence of an established biological event type.
+
+The follow-up in Section~\ref{sec:seedtransfer} extends the drop query to other recordings at its original threshold: 455 of 457 search-selected presentations were accepted, compared with 79 of 459 controls. This supports transfer of the selected morphology and the practical value of directing review towards close matches. Remaining tests include the reserved repeat review, assessing duration-changed searches against human judgements and duration-specific controls, and comparing acceptance between multiple reviewers. The main four-seed experiment establishes human-assessed retrieval within M2\_aug at the seeds' native durations; the scale pilot remains illustrative. Accepted matches from seed searches, together with the labelled candidates from the multi-detector runs in Chapter~\ref{ch:rq1}, help build the material needed to train and evaluate classifiers, as explored in Chapter~\ref{ch:rq3}.
+
+% Follow-up blind review integrated 8 Nov 2026. Frozen queue-38 manifest;
+% data/reviews_completed_20261108/rq2_acceptance.csv and audit.json.
+% Completed nulls: data/recovery_return_20261108/seed_summary.csv; all 64
+% channel results checked against frozen specs, 200 draws each, no capped returns.
+
+% Integrated 7 Nov 2026 at chapter end from the author's 7.4 response. Channel counts/figure moved into Results at the author's request. A separate follow-up search bundle now includes M4 with the author's explicit authorization; no unreturned results are included here, and M4's original classifier exam remains a historical evaluation before this follow-up.

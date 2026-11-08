@@ -1,0 +1,53 @@
+{
+  "measured_date_local": "2026-11-07",
+  "purpose": "Supplementary query-only timing for Chapter 7; not the historical runtime of the complete seed-plus-surrogate experiment.",
+  "hardware": {
+    "cpu": "13th Gen Intel Core i7-1360P",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "numba_threads": 16
+  },
+  "software": {
+    "python": "3.13.6",
+    "stumpy": "1.14.1",
+    "numpy": "2.3.2",
+    "numba": "0.63.1"
+  },
+  "inputs": {
+    "spec_path": "HPC/Detection/generated/dip_search_3ch_0-2595600.spec.json",
+    "spec_sha256": "ac5dfdba4b6cac7570b8e1d63c0811fb11185059188b6b6e7203735ea9d931d2",
+    "channel_path": "DATA/derived/channels/M2_aug_concat_fs1/CH1.npy",
+    "channel_sha256": "a64773ed996febdc917d5b3552e25379c94d565d64c4c1757612f22ad13af4ad",
+    "channel_name": "CH2_A1",
+    "channel_zero_based_index": 1,
+    "fs_hz": 1,
+    "slice_start": 0,
+    "slice_stop": 2595600,
+    "duration_hours": 721,
+    "samples": 2595600,
+    "seed_samples": 105,
+    "seed_id": "medoid:4:1369098:1369203"
+  },
+  "procedure": {
+    "data_preloaded_as": "float64 numpy array",
+    "warmup": "stumpy.mass(q, x[:4096])",
+    "profile_trials": "Three consecutive stumpy.mass(q, x) calls, each timed with time.perf_counter().",
+    "match_trial": "One subsequent stumpy.match(q, x, max_matches=200, max_distance=np.inf) call with STUMPY_EXCL_ZONE_DENOM=1/0.505 (the original spec exclusion), restored after the call.",
+    "excludes": [
+      "library imports",
+      "data loading and conversion",
+      "initial MASS warm-up",
+      "all surrogate generation and surrogate searches"
+    ],
+    "full_matrix_profile_computed": false
+  },
+  "mass_profile_seconds": [
+    0.3846961000235751,
+    0.40922849997878075,
+    0.4431847999803722
+  ],
+  "profile_length": 2595496,
+  "query_and_top200_seconds": 0.8417671000352129,
+  "returned_matches": 200,
+  "closest_distance": 1.416544965885185,
+  "limitations": "Three profile trials and one match-selection trial on one channel. This is a workstation timing check, not a speed guarantee, a benchmark over all 16 channels, or a measurement of the 200-draw null pipeline."
+}

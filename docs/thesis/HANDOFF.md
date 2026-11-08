@@ -1,5 +1,10 @@
 # Thesis handoff: where the 5–6 Nov session left off
 
+> **Continuation:** read [SESSION_HANDOFF_20261108.md](SESSION_HANDOFF_20261108.md)
+> first for the subsequent prose, results, catalogue, figures, HPC continuation,
+> pending reviews and application fixes. Later author instructions supersede this
+> historical file's g-11-only/no-new-queues/M4 restrictions.
+
 Written 6 Nov 2026 for the next agent. The thesis (METR4911, "MycoWave") is due **Mon 9 Nov 2026, 3 pm**. Branch:
 `claude/hopeful-knuth-kh8u38` (pushed; working tree clean at `79cfdc6`). Read this file, then `README.md`,
 `COMPLETION_CHECKLIST.md` (5 Nov, partly superseded by the decisions below) and `numbers_ledger.md` in this folder.

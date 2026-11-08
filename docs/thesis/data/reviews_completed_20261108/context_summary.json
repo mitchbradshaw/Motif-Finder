@@ -1,0 +1,23 @@
+{
+  "accepted_spans": 2718,
+  "proposals_written_to_database": 0,
+  "with_suggested_extension_over_2s": 2118,
+  "multiple_extrema_flags": 295,
+  "by_queue": {
+    "38": {
+      "linked_spans": 534,
+      "extension_over_2s": 399,
+      "multiple_extrema": 27
+    },
+    "45": {
+      "linked_spans": 509,
+      "extension_over_2s": 442,
+      "multiple_extrema": 16
+    },
+    "46": {
+      "linked_spans": 127,
+      "extension_over_2s": 87,
+      "multiple_extrema": 39
+    }
+  }
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "train": "mju_ch15_long",
+    "label": "MJu26a CH15, 206\u2013283 h",
+    "n_proposed_members": 143,
+    "prominence_mv": 2.0,
+    "median_peak_interval_s": 1515.3499999999767,
+    "min_peak_interval_s": 275.19999999995343,
+    "max_peak_interval_s": 7729.900000000023,
+    "members_linked_to_prior_own_detection_look": 117,
+    "sensitivity_proposed_peak_counts": {
+      "1.0": 167,
+      "2.0": 143,
+      "5.0": 106
+    }
+  },
+  {
+    "train": "mju_ch14_excerpt",
+    "label": "MJu26a CH14, four-hour excerpt",
+    "n_proposed_members": 32,
+    "prominence_mv": 1.0,
+    "median_peak_interval_s": 298.0,
+    "min_peak_interval_s": 25.0,
+    "max_peak_interval_s": 952.0,
+    "members_linked_to_prior_own_detection_look": 7,
+    "sensitivity_proposed_peak_counts": {
+      "0.5": 42,
+      "1.0": 32,
+      "2.0": 25
+    }
+  }
+]

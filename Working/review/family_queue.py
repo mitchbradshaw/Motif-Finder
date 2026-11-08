@@ -67,6 +67,12 @@ def member_verdicts(conn, member_ids):
 
 def review_annotation_id(conn, member_id):
     """The annotation a verdict on this member lands on, or None (a new one)."""
+    current = conn.execute("SELECT a.id FROM motif_member m JOIN motif_member_revision rv "
+                           "ON rv.id=m.current_revision_id JOIN annotations a ON a.id=rv.annotation_id "
+                           "WHERE m.id=? AND rv.origin='human' AND a.deleted_at IS NULL",
+                           (int(member_id),)).fetchone()
+    if current:
+        return int(current[0])
     from Working.review.artifact_queue import review_annotation_id as _rid
     return _rid(conn, member_id, REVIEW_SOURCE)
 

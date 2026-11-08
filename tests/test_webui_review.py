@@ -139,10 +139,30 @@ def seeded(tmp_path):
     info = _seed(tmp_path)
     rt = Runtime("sandbox", stamp="test-review", db_source=info["db"],
                  runtime_root=str(tmp_path / "runtime")).setup()
-    app = create_app(rt)
+    app = create_app(rt, warm_background=False)
     with TestClient(app) as client:
         yield client, rt, info
     rt.restore()
+
+
+def test_review_startup_skips_optional_jit_but_serves_requests(tmp_path, monkeypatch):
+    import threading
+    names = []
+    real_start = threading.Thread.start
+    def tracked_start(thread, *args, **kw):
+        names.append(thread.name)
+        return real_start(thread, *args, **kw)
+    monkeypatch.setattr(threading.Thread, "start", tracked_start)
+    info = _seed(tmp_path)
+    rt = Runtime("sandbox", stamp="review-no-warm", db_source=info["db"],
+                 runtime_root=str(tmp_path / "runtime")).setup()
+    try:
+        with TestClient(create_app(rt, warm_background=False)) as client:
+            assert client.get("/api/health").json()["ok"] is True
+            assert client.get("/api/review/queues").status_code == 200
+        assert "stumpy-warm" not in names
+    finally:
+        rt.restore()
 
 
 def _rows(rt, table):

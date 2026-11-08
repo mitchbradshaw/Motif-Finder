@@ -1,5 +1,44 @@
 # Thesis numbers ledger (2026-10-26)
 
+## Completed-review and recovery update — 8 November evening
+
+Later author-requested follow-up (all proposal counts are distinct from human judgements):
+
+| New quantity | Verified value | Source |
+|---|---|---|
+| CNN continuation cap | Pack 10,800 s (3 h), task 9,900 s; one concurrent task, five-hour scheduler allocation retained for margin | `scripts/thesis/recovery_cnn_longwall.py`; regenerated main DATA resume folder/archive |
+| Family hierarchy | 127 parent observations: 78 single-proposal, 35 multi-proposal sequence parents, 14 unresolved; 229 distinct individual proposals, max 15 per parent | `data/event_hierarchy_20261108/family_hierarchy.json` |
+| CH14 longer-case extraction | 534 own positive observations -> 530 supported individual trough proposals; 13 multi-extremum observations, 19 unresolved; 1 mV floor, 0.5 s smoothing, 3 s separation | `data/event_hierarchy_20261108/ch14_case.json` |
+| CH14 proposal measurements | Median depth 9.220 mV (5–95% 2.467–14.645), median peak interval 602.9 s (51.28–1,358.98), median half recovery 2.491 s (0.829–17.443); 1/530 half recovery missing, 25/530 95%-recovery censored | same case JSON / `ch14_individual_proposals.csv` |
+| CH14 timing sensitivity | Floors 0.5/1/2 mV retain 542/530/503 supported extrema; LV 0.712/0.708/0.682; random-timing p 0.002 at each; shuffled-gap p 0.002/0.006/0.885 | same case JSON; core interval nulls, 1,000 draws |
+| New blind review | Queue 47: 850 separate items initially unjudged = 750 diversity proposals +54 matched controls +46 planned RQ2 repeats. New proposals SH200/SO200/MJu150/M2concat75/CO75/LM25/M425 | `data/diversity_review_20261108/REPORT.md`; private main DATA key; zero human verdicts written by preparation |
+
+This update supersedes the incomplete-review/recovery statuses in K1–K3 below; those rows preserve the earlier audit.
+
+| Current claim | Verified value | Source |
+|---|---|---|
+| Blind cross-recording drop panel | 455/457 accepted search presentations (99.6%, Wilson 98.4–99.9%); 79/459 controls (17.2%, 14.0–20.9%); all 916 frozen presentations have own verdicts. Live count 915 excludes a later prior-labelled unsure control. 46 repeats reserved | `data/reviews_completed_20261108/rq2_acceptance.csv` |
+| Complete seed null | 64 channels x 200 draws; 464 fixed-cut real matches. MJu26a: 71 real, nine surrogate matches / 200 = 0.045 per draw over all 16 channels. No fixed-cut cap; recalibrated MJu26a 48 matches | `data/recovery_return_20261108/seed_summary.csv` |
+| Complete 2 Hz recovery returns | 831/1,014 tasks; MJu26a 587/674, SH 122/170, SO 122/170; 97/129 whole settings. 102 new tasks verified/restored; 183 CNN tasks remain. CPU and MP recovery finished | `data/recovery_return_20261108/audit.json` |
+| Current fixed g-11 judgements | 1,014 accepted, 55 not, six artefacts, 17 unsure, five unresolved. 752 accepted assigned / 42 families = 17.9; largest 60. 262 accepted omitted shapes. This is not regrouping of all 2,718 accepted spans | `data/reviews_completed_20261108/historical_g11_verdicts.json` |
+| Focused family context inspection | 127 source-linked spans; existing audit flags 84, including 30 with multiple extrema. 22 catalogue components retain saved human extent edits. Flags are not validated splits | `data/accepted_catalogue/family_context_review_summary.json` |
+
+## Working accepted catalogue — 8 November follow-up, not final Chapter 9 statistics
+
+| Quantity | Saved value | Interpretation/source |
+|---|---:|---|
+| Thesis accepted-span inventory, g-12 | 2,718 | Completed-review update, +956 from the earlier 1,762 snapshot. Eight recording groups; overlaps combined, boundaries pending. `data/accepted_catalogue/summary.json` / `published.json`. |
+| MJu26a entries in that inventory | 815 | Physical five-channel/excerpt/full-recording coordinates reconciled; 165 components link more than one copy. |
+| CH15 long train proposed spikes | 143 | 206–283 h; 2 mV prominence floor; researcher train-level acceptance; machine extents. |
+| CH14 four-hour excerpt proposed spikes | 32 | 1 mV prominence floor; same distinction between bulk acceptance and checked boundaries. |
+| Positive fixed-window labels | 2,568 | Retained for event extraction; not 2,568 individually bounded accepted events. |
+| Boundary-editor windows/regions | 2,595 | Excludes the two train parents already transcribed into 175 proposed members. |
+| Queue 38 frozen review panel | 916 / 916 | 455/457 search presentations accepted; 79/459 controls. Live counter 915 after one later annotation; use frozen membership. |
+
+The 716 blind accepted spans, g-11 morphology snapshot, and historical classifier scores below retain their original
+meaning. g-12 groups by recording and is not a new set of waveform-family labels. Its count must not replace 716
+as though it had the same sampling/review design. Full audit and refresh method: `data/accepted_catalogue/REPORT.md`.
+
 One row per number the thesis is likely to quote. **Status:** *verified* = recomputed here or read from a
 machine-written results file; *as-written* = found only in prose; *inconsistent* = two sources disagree (the
 resolution is in the second table); *stale* = true when written, no longer true. Recomputation scripts:
@@ -46,6 +85,13 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | B8 | random-window base rate (RQ1 blind queue) | 235 / 1,084 showings = 21.7 %; first showings 210 / 986 = 21.3 % | 986 | RQ2b; run1613_blind_score.json | rq1_v2_blind.py | 10-26 | verified |
 | B9 | nulls at the seeds' lines | drop30 372 real vs 0.01/draw; spike37 16 vs 0.00; long dip 124 vs 0.04; dip 64 vs 0.01 (263 vs 0.8 at the judged cut) | 200 draws | rq2-blind-2026-10-26.md (from result.json) | scripts/rq2_blind.py | 10-26 | as-written (machine files, not re-read) |
 | B10 | blind panel queue 35 | **scored 10-28**: drop30 100/100 vs matched random 9/40 (+78 pts, +62 to +88); spike37 28/29 vs 2/16 (+84); dip id010 re-judged 20/20 vs 1/12 (+92); long dip id020 re-judged 20/20 vs 3/12 (+75); all Fisher p < 0.0001; random windows 15/80 (19 %, 12–29 %); earlier yeses still yes blind 51/51 (93–100 %) | 249 | `docs/rq_roundA_2/findings/rq2-blind-2026-10-28.md` | rq2_blind.py score --real | 10-28 | verified |
+| B11 | earlier unblinded seed-search assessments | **428** = 263 short dip + 104 long dip + 61 spike; includes unsure/artifact, excludes carried copies; assessments, not a claim of unique events | 428 | B1, B3, B5; RQ2b | sum of recorded own reviews | 11-07 | verified |
+| B12 | one-query timing on M2_aug CH2_A1 | 105-s seed, 721 h at 1 Hz (2,595,600 samples): MASS profile 0.385 / 0.409 / 0.443 s; query plus best 200 matches 0.842 s; after warm-up, excluding loading and all surrogate draws | 1 channel | `data/seed_query_timing_20261107.json`; dip_search_3ch spec | STUMPY 1.14.1 on Intel Core i7-1360P | 11-07 | measured; query time only |
+
+| B13 | exact surrogate counts at the common seed thresholds | Short dip 64 real / 2 surrogate matches in 200 draws (mean 0.010); long dip 124 / 7 (0.035); spike 16 / 0 (0.000); drop 372 / 1 (0.005). Surrogate draws are summed over the same channels; B9 rounded the means to two decimals. No channel reaches the 200-match cap at these common thresholds (maximum 111 for drop). | 200 draws per channel | `data/seed_null_verified_20261107.json` | saved HPC results + recommended_cut_corrected(alpha=0.01, correction=none) | 11-07 | verified from full-precision thresholds |
+
+| B14 | distribution of the main drop search | 372 returns across 16 channels: CH2_A1 111, CH4_A2 66, CH1_A1 54; remaining channels 1–34 each; 0.03225 matches per channel-hour over 721 h x 16 | 372 | `data/seed_drop_matches.csv`; B13 | full-precision cut extraction; figs_repo.py seed_distribution | 11-07 | verified; search returns, not all newly discovered or human-reviewed events |
+| B15 | scale-pilot trough returns and nulls | Seven returns: 4 at 0.8x, 1 at 1x, 2 at 1.25x. Loose cut 7; surrogate means 16.68 / 8.36 / 10.38. The 3 accepting labels were software-test placeholders, not researcher verdicts | 7 | V-library-edges-and-scale.md sections 3–4 | historical implementation walk | 11-07 | verified from report; illustrative pilot only |
 
 ## C. RQ3 poster chart and classifiers
 
@@ -67,6 +113,8 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | C14 | "RF cluster labels 0.63 provisional" | 0.625 BA, final (queue 3 fully judged, 1,100 / 1,100) | — | poster | — | — | stale ("provisional") |
 | C15 | M4 held-out exam (queue 36) | R4 AUC **0.98** (0.97–0.99), BA **0.93** (0.88–0.97) unweighted (primary); weighted AUC 0.96, BA 0.77; CNNs AUC 0.59–0.66 (R4 minus CNN 0.33–0.40); agreement-as-score AUC 0.85; share real 10 % (6–14); ladder 0/3/16/35/53 %; v1 precision 64 % (n 14); 276 answered of 290, 14 unsure, 12 spans unreadable by R4 | 290 | `docs/rq_roundA_2/findings/m4-exam-2026-10-28.md`, `DATA/derived/exam/M4/results.json` | m4_exam_score.py --real (once) | 10-28 | verified |
 | C16 | fair CNN arm: EfficientNet-B0 on R4's rows and folds | pooled AUC GASF **0.971** (0.965–0.977), GADF 0.970 (0.964–0.975), fusion 0.973 (0.967–0.978) vs R4 0.971; R4 minus CNN 0.000 / +0.001 / −0.002, each paired interval within ±0.007; no per-recording interval excludes zero; BA 0.915–0.916 vs 0.919 | 2,456 | `docs/rq_roundA_2/findings/rq1b-fair-cnn-2026-10-29.md` (+ `.json`), `DATA/derived/models/rq1b_cnn_vs_minirocket/fair/` | rq1b_cnn_vs_minirocket.py import | 10-29 | verified |
+| C17 | Chapter 8 population corrections | CNN BA 0.78–0.83 / AUC 0.93–0.96 is the **pooled 429 ten-minute blind windows**, not M2_aug alone. M4 has 276 answered for candidate estimates, but **257 classifier cases**: seven seed verdicts unmapped by frozen scorer, 12 unreadable; 59 positive, 198 negative including five artefacts. R4 confusion TP52 / FP6 / FN7 / TN192 | 429 / 257 | W4-A-evaluation.md; M4 manifest metrics.y, results.json; wave1 exam_items.csv; data/ch08_verification.json | chapter-end source audit; no rescoring | 11-07 | verified; corrected captions and example-figure cohort |
+| C18 | saved forest settings and paired blind comparison | run79 A/B: **100 trees, 24 retained features**; run1613 B2: **300 trees, 26 features**, 24,843 training windows. Same blind ten-minute windows: manual A F1/BA/P/R 0.748/0.701/0.89/0.41; cluster B2 0.440/0.630/0.24/0.93. No-earlier-label subset C13; M2_concat A F1 0.591, B2 0.380 | 429; M2_concat 129 (13 interesting) | saved paired/shape-forest results.json; data/rq1_v2_blind/run79_armA_vs_run1613_10min.json; data/ch08_verification.json | read-only saved-result audit | 11-07 | verified; later comparison assesses complete pipelines, not label source alone |
 
 ## D. R3 — how many candidates are real (blind stratified queues 25 and 28)
 
@@ -83,6 +131,7 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | D9 | candidate table, M2_aug | 2,015,081 detections → 1,502,319 events; carried labels 24,911 int / 108,645 not / 3,758 artifact | — | rq1b-candidate-events.md; estimate.json (`positives_before` 24,911, judged 137,314) | re-read | 10-18 | verified (24,911), rest as-written |
 | D10 | agreement AUC | 0.874 (loose agreement, 133,556 labelled events) | — | rq1b-candidate-events.md | prose | 10-18 | as-written |
 | D11 | researcher's miss rate per look | 11.5 % (4.6–23 %), from 6 changed answers in 98 repeats | 98 | rq1b-candidate-events.md | prose | 10-18 | as-written |
+| D12 | durations of the five judged-sweep recordings | 2,599.4 recording-hours; 23,075.3 channel-hours; 45 channels | 5 recordings | `data/ledger_checks.json` recording metadata (M2_aug, M2_concat, LM, CO, MJu26a CH10 and 13-16 at 2 Hz) | sum of hours and hours x channels | 11-07 | verified |
 
 ## E. Catalogue (chapter 9)
 
@@ -108,6 +157,7 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | F6 | best lift | signal_threshold −10 mV 21.3 (12 % touched); drop detectors ≈ 5; OASIS 1.4; mp_threshold 6 0.53 | — | same | same | 10-26 | verified |
 | F7 | "only ~6 % of M2_aug caught by no detector" | — | — | rq1b-candidate-events.md | prose | 10-18 | as-written |
 | F8 | six precise variants against a 20-draw null, M2_aug, 16 channels each | real beat all 20 draws on drop v1 16/16 (pooled × 23.4), CNN GADF 10-min 16/16 (× 6.5), CNN recurrence 10-min 14/16 (× 2.7), drop v5 same-fraction 0.7 14/16 (× 2.2); fell below all 20 on wavelet-encoded level 5 16/16 (× 0.075) and drop v1 slope σ 4 12/16 (× 0.58); chance 16/21 ≈ 0.8 channels; every pooled ratio within 4 % of its 1-draw value | 96 tasks × 21 runs | `docs/rq_roundA_2/findings/surrogates20-2026-10-29.md`, `docs/thesis/data/ch06_20draw/` | scripts/thesis/surrogates20_readout.py (the returned task records) | 10-29 | verified |
+| F9 | overlap table for every stored setting | 46 rows (34 non-CNN, 12 CNN). The 16-channel rows use 2,333 interesting and 8,773 uninteresting windows; the two-channel rows use 272 and 1,058. Undefined 0/0 lift displayed as a dash. Full table in Appendix H | 46 settings | `docs/thesis/data/miss_rate/per_variant.csv` | miss_rate.py (26 Oct output) | 11-07 | verified |
 
 ## G. Demo day (DEMO_DAY.md, 2026-10-20/21)
 
@@ -187,3 +237,12 @@ queue 35 were never read. Human-label counts use own looks only (`carried_from I
 | R11 | "24 detection algorithms" | **25 detection templates** (13 base + 12 CNN) in **12 families**; 24 is the count of the volts sweep *variants* | The DB holds 13 base detection templates (drop v1/v5, dehshibi, Wavelet prototype, wavelet_encoded, mp_threshold, mp_motifs, symbol_search, signal / noise threshold, deconvolved_troughs, OASIS, BEADs) and 12 CNN templates. cwt_events is an interrogation template. |
 | R12 | "≈13,000 human labels" | **≈15,400 own human judgements** (15,385 before 2026-10-26). 11,234 of them are imported 2025–26 window labels; ≈4,150 were given in the tool | 13,000 is close to the annotations table alone (12,619). It leaves out 2,766 own Review adjudications. The 35,073 carried copies are not human looks and are excluded. |
 | R13 | catalogue poster figures | see `findings/catalogue-stats-2026-10-26.md` | Duration (10 min; 40 s–21 min) and "top 5 % > 95 mV" reproduce. "Median 12–20 mV" is 14–30 mV per recording (20 pooled). "73 % falls (56–86 %)" is **68 % (57–80 %)** by the median-excursion rule; its original rule is not recorded. "Several hours" is at most 2 h. |
+
+## K. Follow-up returns and prose revision, 8 November 2026
+
+| # | claim | value | n | source | produced by | date | status |
+|---|---|---|---|---|---|---|---|
+| K1 | fixed-cut drop transfer beyond M2_aug | Complete targets: M2_concat 76 real / null mean 0.005; M4 66 / 0.005; LM 195 / 0.015; CO 15 / 0; SH 21 / 0.005; SO 20 / 0. 393 matches in those six recordings. MJu26a: 65 / 0.045 on 11 completed channels, 71 real across all 16. All-target real total 464. Same cut 2.2080859509008204 and physical duration 377 s; no fixed-cut channel is capped | 59/64 null comparisons complete, 200 draws/channel | data/hpc_return_20261108/seed_summary.json and verification.json; original transfer specs/returns | read-only hash-checked return analysis | 11-08 | verified; MJu26a full null and human acceptance pending |
+| K2 | new blind transfer review | 464 raw matches; exclude five earlier adjudications; Review merges two overlapping LM proposals → **457 match presentations + 459 random controls = 916** in queue 38. **46 repeats** held outside the app until primary review is complete | 916 + 46 reserved | private DATA/derived/rq2_blind/20261108-drop-transfer/key.json; live API counts | transfer_review_20261108.py, existing blind panel and Review queue APIs | 11-08 | queue ready; no acceptance result claimed |
+| K3 | 2 Hz sweep return state | **729/1,014 complete**, 258 missing, 27 refused; MJu26a 497/674, SH 116/170, SO 116/170. **79/129 whole settings** (25/26/28); 280 completed tasks imported on PC, 449 usable returned tasks not yet imported. Remaining: 29 CPU, 250 CNN, six matrix-profile tasks | 1,014 tasks | data/hpc_return_20261108/audit.json, rq4_summary.csv | logical-task/specification-hash audit, existing import/cache lookup | 11-08 | verified; full candidate/agreement census pending |
+| K4 | example family sizes for revised 8.4 | g-11: 817 assigned events / 42 families = **19.5 per family**; human-accepted assigned subset 519 / 41 = **12.7**. Old manual fixed-window labels are separate. No universal 500-per-family minimum established | g-11, 1,097 total events | data/library_events_all_active/events_grouping.json | saved grouping, arithmetic | 11-08 | verified |

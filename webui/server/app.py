@@ -100,7 +100,7 @@ class _RequestClock:
             corpus.REQUEST_CLOCK["last"] = time.monotonic()
 
 
-def create_app(rt: Runtime) -> FastAPI:
+def create_app(rt: Runtime, *, warm_background: bool = True) -> FastAPI:
     app = FastAPI(title="Underground Brains — web UI bridge", docs_url="/api/docs", openapi_url="/api/openapi.json")
     manager = JobManager(rt.db_path, meta_dir=getattr(rt, "meta_dir", None))
     app.state.rt = rt
@@ -141,7 +141,8 @@ def create_app(rt: Runtime) -> FastAPI:
             except Exception as e:  # pragma: no cover
                 log.warning("stumpy warm-up skipped: %s", e)
         import threading
-        threading.Thread(target=_warm, daemon=True, name="stumpy-warm").start()
+        if warm_background:
+            threading.Thread(target=_warm, daemon=True, name="stumpy-warm").start()
 
     app.add_middleware(_RequestClock)
 

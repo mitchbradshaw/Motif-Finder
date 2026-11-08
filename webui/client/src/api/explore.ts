@@ -267,6 +267,7 @@ export interface SpanEdit {
   detection_id: number | null
   /** The detection's own span (channel-absolute samples); null for a member with no detection behind it. */
   detection: { start_idx: number; end_idx: number } | null
+  current: { start_idx: number; end_idx: number }
   /** The Library member this item IS, with its current revision; null for a plain detection. */
   member: { ref: string; current: { start_idx: number; end_idx: number; revision_no: number } } | null
   verdict: string | null

@@ -1,0 +1,383 @@
+{
+  "summary": {
+    "members": 1097,
+    "resolved_verdicts": {
+      "interesting": 1014,
+      "not_interesting": 55,
+      "null": 5,
+      "unsure": 17,
+      "artifact": 6
+    },
+    "assigned_accepted": 752,
+    "families_with_accepted": 42,
+    "assigned_families": 42,
+    "largest_accepted_family": 60
+  },
+  "families": [
+    {
+      "family": "F-37",
+      "members": 41,
+      "accepted": 40,
+      "verdicts": {
+        "interesting": 40,
+        "artifact": 1
+      }
+    },
+    {
+      "family": "F-75",
+      "members": 11,
+      "accepted": 11,
+      "verdicts": {
+        "interesting": 11
+      }
+    },
+    {
+      "family": "F-79",
+      "members": 14,
+      "accepted": 14,
+      "verdicts": {
+        "interesting": 14
+      }
+    },
+    {
+      "family": "F-06",
+      "members": 30,
+      "accepted": 25,
+      "verdicts": {
+        "interesting": 25,
+        "artifact": 1,
+        "not_interesting": 4
+      }
+    },
+    {
+      "family": "F-56",
+      "members": 27,
+      "accepted": 18,
+      "verdicts": {
+        "interesting": 18,
+        "not_interesting": 9
+      }
+    },
+    {
+      "family": "F-38",
+      "members": 30,
+      "accepted": 30,
+      "verdicts": {
+        "interesting": 30
+      }
+    },
+    {
+      "family": "F-78",
+      "members": 11,
+      "accepted": 11,
+      "verdicts": {
+        "interesting": 11
+      }
+    },
+    {
+      "family": "F-86",
+      "members": 20,
+      "accepted": 18,
+      "verdicts": {
+        "interesting": 18,
+        "null": 2
+      }
+    },
+    {
+      "family": "F-10",
+      "members": 16,
+      "accepted": 14,
+      "verdicts": {
+        "interesting": 14,
+        "not_interesting": 2
+      }
+    },
+    {
+      "family": "F-62",
+      "members": 12,
+      "accepted": 12,
+      "verdicts": {
+        "interesting": 12
+      }
+    },
+    {
+      "family": "F-12",
+      "members": 12,
+      "accepted": 10,
+      "verdicts": {
+        "interesting": 10,
+        "not_interesting": 2
+      }
+    },
+    {
+      "family": "F-57",
+      "members": 13,
+      "accepted": 12,
+      "verdicts": {
+        "interesting": 12,
+        "not_interesting": 1
+      }
+    },
+    {
+      "family": "F-11",
+      "members": 16,
+      "accepted": 13,
+      "verdicts": {
+        "interesting": 13,
+        "not_interesting": 2,
+        "unsure": 1
+      }
+    },
+    {
+      "family": "F-30",
+      "members": 22,
+      "accepted": 21,
+      "verdicts": {
+        "interesting": 21,
+        "not_interesting": 1
+      }
+    },
+    {
+      "family": "F-24",
+      "members": 23,
+      "accepted": 22,
+      "verdicts": {
+        "interesting": 22,
+        "null": 1
+      }
+    },
+    {
+      "family": "F-76",
+      "members": 19,
+      "accepted": 19,
+      "verdicts": {
+        "interesting": 19
+      }
+    },
+    {
+      "family": "F-89",
+      "members": 17,
+      "accepted": 16,
+      "verdicts": {
+        "interesting": 16,
+        "not_interesting": 1
+      }
+    },
+    {
+      "family": "F-74",
+      "members": 19,
+      "accepted": 19,
+      "verdicts": {
+        "interesting": 19
+      }
+    },
+    {
+      "family": "F-61",
+      "members": 10,
+      "accepted": 10,
+      "verdicts": {
+        "interesting": 10
+      }
+    },
+    {
+      "family": "F-29",
+      "members": 32,
+      "accepted": 29,
+      "verdicts": {
+        "interesting": 29,
+        "not_interesting": 2,
+        "unsure": 1
+      }
+    },
+    {
+      "family": "F-25",
+      "members": 11,
+      "accepted": 11,
+      "verdicts": {
+        "interesting": 11
+      }
+    },
+    {
+      "family": "F-50",
+      "members": 10,
+      "accepted": 10,
+      "verdicts": {
+        "interesting": 10
+      }
+    },
+    {
+      "family": "F-43",
+      "members": 29,
+      "accepted": 28,
+      "verdicts": {
+        "interesting": 28,
+        "not_interesting": 1
+      }
+    },
+    {
+      "family": "F-40",
+      "members": 23,
+      "accepted": 23,
+      "verdicts": {
+        "interesting": 23
+      }
+    },
+    {
+      "family": "F-26",
+      "members": 16,
+      "accepted": 15,
+      "verdicts": {
+        "interesting": 15,
+        "null": 1
+      }
+    },
+    {
+      "family": "F-04",
+      "members": 35,
+      "accepted": 30,
+      "verdicts": {
+        "interesting": 30,
+        "not_interesting": 5
+      }
+    },
+    {
+      "family": "F-68",
+      "members": 15,
+      "accepted": 15,
+      "verdicts": {
+        "interesting": 15
+      }
+    },
+    {
+      "family": "F-66",
+      "members": 18,
+      "accepted": 18,
+      "verdicts": {
+        "interesting": 18
+      }
+    },
+    {
+      "family": "F-63",
+      "members": 13,
+      "accepted": 12,
+      "verdicts": {
+        "interesting": 12,
+        "not_interesting": 1
+      }
+    },
+    {
+      "family": "F-14",
+      "members": 18,
+      "accepted": 16,
+      "verdicts": {
+        "interesting": 16,
+        "not_interesting": 2
+      }
+    },
+    {
+      "family": "F-08",
+      "members": 10,
+      "accepted": 10,
+      "verdicts": {
+        "interesting": 10
+      }
+    },
+    {
+      "family": "F-05",
+      "members": 13,
+      "accepted": 12,
+      "verdicts": {
+        "interesting": 12,
+        "not_interesting": 1
+      }
+    },
+    {
+      "family": "F-07",
+      "members": 17,
+      "accepted": 13,
+      "verdicts": {
+        "interesting": 13,
+        "not_interesting": 4
+      }
+    },
+    {
+      "family": "F-67",
+      "members": 16,
+      "accepted": 16,
+      "verdicts": {
+        "interesting": 16
+      }
+    },
+    {
+      "family": "F-21",
+      "members": 65,
+      "accepted": 60,
+      "verdicts": {
+        "interesting": 60,
+        "unsure": 1,
+        "not_interesting": 2,
+        "artifact": 2
+      }
+    },
+    {
+      "family": "F-60",
+      "members": 14,
+      "accepted": 14,
+      "verdicts": {
+        "interesting": 14
+      }
+    },
+    {
+      "family": "F-42",
+      "members": 13,
+      "accepted": 13,
+      "verdicts": {
+        "interesting": 13
+      }
+    },
+    {
+      "family": "F-13",
+      "members": 12,
+      "accepted": 11,
+      "verdicts": {
+        "interesting": 11,
+        "not_interesting": 1
+      }
+    },
+    {
+      "family": "F-80",
+      "members": 21,
+      "accepted": 21,
+      "verdicts": {
+        "interesting": 21
+      }
+    },
+    {
+      "family": "F-35",
+      "members": 11,
+      "accepted": 11,
+      "verdicts": {
+        "interesting": 11
+      }
+    },
+    {
+      "family": "F-32",
+      "members": 20,
+      "accepted": 20,
+      "verdicts": {
+        "interesting": 20
+      }
+    },
+    {
+      "family": "F-53",
+      "members": 22,
+      "accepted": 9,
+      "verdicts": {
+        "not_interesting": 6,
+        "unsure": 6,
+        "interesting": 9,
+        "artifact": 1
+      }
+    }
+  ]
+}

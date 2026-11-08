@@ -50,6 +50,12 @@ def test_the_parser_takes_a_dist_and_defaults_it_to_none():
     assert ap.parse_args(["--dist", "somewhere"]).dist == "somewhere"
 
 
+def test_review_session_can_skip_optional_startup_warmup():
+    ap = run_server.build_parser()
+    assert ap.parse_args([]).no_warmup is False
+    assert ap.parse_args(["--project", "--no-warmup"]).no_warmup is True
+
+
 def test_the_default_dist_is_still_the_shared_build():
     assert Runtime(client_dist=run_server.resolve_dist(None)).client_dist \
         == os.path.join(WEBUI_DIR, "client", "dist")

@@ -1,0 +1,13 @@
+{
+  "grouping_id": 11,
+  "resolved_statuses": {
+    "unjudged": 333,
+    "interesting": 728,
+    "not_interesting": 31,
+    "artifact": 5
+  },
+  "unjudged_by_store": {
+    "DATA/library_seed/drop_motifs5/motifs": 75,
+    "Plots/drop_motifs10/motifs": 258
+  }
+}
