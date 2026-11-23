@@ -298,6 +298,7 @@ def main(out=OUT):
         "spans_with_several_events": int((d["whole_n_events"].fillna(0) >= 2).sum()),
         "events_in_spans": int(d["whole_n_events"].fillna(0).sum()),
         "no_event_found": int(d["whole_depth_mv"].isna().sum()),
+        "long_tail": int(d["whole_long_tail"].fillna(False).astype(bool).sum()) if "whole_long_tail" in d else 0,
         "cases": [{k: c[k] for k in ("case", "event_id", "dataset", "recording_id", "core_depth_mv",
                                      "whole_depth_mv")} for c in cases],
     }

@@ -41,9 +41,12 @@ CASES = [
     ("a sharp drop the approved rule missed\n(its depth mostly ran on past the span)", "accepted-81caf9bb"),
     ("a 3 s fall recovering half-way 43 s later: measured now\n(the half-recovery search stopped after 10 fall times)",
      "accepted-d7b6ca60"),
-    ("OPEN: a step on a slow drift - the tail now runs\nto the end of the drift (the drift was there before)", "accepted-99f61fa6"),
-    ("OPEN: a sharp drop, then a decline for two hours -\nto the bottom of the tail is two hours later", "accepted-2a1dc6b4"),
-    ("OPEN: a fall that eases to a fifth of its pace and\nplunges again - two drops by the rule, or one?", "accepted-082f06a6"),
+    ("DECIDED (Q1): a step on a slide that was already\nthere is the step alone; it ends where the slide resumes",
+     "accepted-99f61fa6"),
+    ("DECIDED (Q2): a sharp drop's two-hour tail is kept,\nto its bottom, and flagged long_tail",
+     "accepted-2a1dc6b4"),
+    ("DECIDED (Q3): a fall that eases to a fifth of its\npace and plunges again is two drops",
+     "accepted-082f06a6"),
 ]
 
 
@@ -132,8 +135,8 @@ def main():
     fig.legend(handles=handles, loc="lower center", ncol=3, fontsize=9, bbox_to_anchor=(0.5, 0.0))
     fig.text(0.01, 0.985, "The whole-drop rule after Auto-detect's checks. Separate drops stay separate even with no "
              "pause between them; a quiet channel's wiggles no longer cut a drop; a clear climb ends any drop; a span "
-             "holds the drop whose steepest moment it holds.\nThe three OPEN panels are questions for you, not "
-             "settled behaviour.", fontsize=9.5, color=fs.INK_2, va="top")
+             "holds the drop whose steepest moment it holds.\nThe bottom row: your three decisions on where a drop "
+             "ends (23 Nov).", fontsize=9.5, color=fs.INK_2, va="top")
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     fig.savefig(OUT, dpi=150, bbox_inches="tight")
     plt.close(fig)

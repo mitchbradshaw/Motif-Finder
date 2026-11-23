@@ -51,6 +51,12 @@ The rule, on one window of one channel (measured as drops; `polarity="spike"` me
                       running into a second one - that falls at least MIN_REL_DEPTH of the event's depth so far. A
                       slow decline shallower than LEAD_MERGE_FRAC of the drop it runs into is that drop's shoulder
                       and stays in it.
+                    A drop on a SLIDE (`_on_slide`) - the trace fell steadily over the MIN_CONTEXT_S before its steep
+                    part, and falls on at about that pace once the drop is over (within SLIDE_RATIO) - is the STEP
+                    alone: from where its pace rises above SLIDE_MULT x the slide's to where it is back within it.
+                    The slide before and after it are events of their own (the researcher, 23 Nov: a step on a
+                    slide is the step - LM 99f61fa6, 725bbdbe). A drop with nothing sliding before it keeps its
+                    whole tail, to its bottom (M4 CH1's 80-minute tail, which the researcher circled as the drop).
                     Shallower than MIN_DEPTH_SIGMAS x sigma is noise, and shallower than MIN_REL_DEPTH of the span's
                     deepest event is a wiggle on it: neither is an event (the researcher's smallest marked event was
                     ~17 % of its span's deepest)
@@ -59,7 +65,10 @@ The rule, on one window of one channel (measured as drops; `polarity="spike"` me
                     noise-width (sigma) of its lowest level, the top the last point before it still within sigma of
                     the highest - the lowest single sample of a slow tail's flat end is decided by noise, the
                     arrival is not - each refined to the raw highest / lowest sample within one smoothing width
-    depth           raw[top] - raw[bottom], mV;  fall time: bottom - top, s
+    depth           raw[top] - raw[bottom], mV;  fall time: bottom - top, s;  steep_s: top -> the end of its steep
+                    part (falling at least 1/ONSET_CONTRAST as fast as its steepest), s;  long_tail: the fall time is
+                    over LONG_TAIL_MULT x steep_s - a tail the Library can leave out of a plot (the researcher,
+                    23 Nov: long tails are kept, and flagged)
     half recovery   the first return to raw[bottom] + 0.5 x depth after the bottom, interpolated; never searched into
                     the next event (or past `next_start`), and at most RECOVERY_MAX_S. Not reached -> NaN;  width:
                     top -> half recovery, s. (A cap of ten fall times, dropped 23 Nov, cost a sharp fall its slow
@@ -105,6 +114,10 @@ ONSET_CONTRAST = 5.0
 ONSET_SLOW_MULT = 10.0
 ONSET_MIN_HISTORY = 3.0
 LEAD_MERGE_FRAC = 0.35
+SLIDE_RATIO = 3.0
+SLIDE_MULT = 1.5
+SLIDE_STEADY = 1.5
+LONG_TAIL_MULT = 10.0
 STEEPEST_SMOOTH_MAX_S = 60.0
 
 
@@ -163,7 +176,7 @@ def falls(y, eps, fs=1.0):
     bp = breakpoints(y, eps)
     rebound_abs = eps * REBOUND_SIGMAS / EPS_SIGMAS
     min_pause = max(1.0, PAUSE_MIN_S * float(fs))
-    out, lead = [], set()                                 # lead: events begun at a lead-in's onset
+    out, lead = [], {}                                    # lead: events begun at a lead-in's onset -> run length
     first = last = None
     prog = []                                             # the event's falls to new lows: (start, end, pace)
     for i, j in zip(bp[:-1], bp[1:]):
@@ -194,10 +207,10 @@ def falls(y, eps, fs=1.0):
         else:
             got = _onset(y, prog, i, j, pace, first)
             if got is not None:                           # a sharp fall out of a long slow stretch: a new drop
-                r, after_lead_in = got
+                r, after_lead_in, _ = got
                 out.append((first, prog[r - 1][1]))
                 if after_lead_in:
-                    lead.add(len(out))
+                    lead[len(out)] = True
                 first, prog = prog[r][0] if r < len(prog) else i, prog[r:]
         last = j
         prog.append((i, j, pace))
@@ -207,6 +220,7 @@ def falls(y, eps, fs=1.0):
     # (the researcher's approved diagram: SO CH2's 0.26 mV lead-in to a 1.5 mV fall, 17 %, and the first of the four
     # rebound-separated falls, 28 %, are one event each; the slow declines that are drops of their own run 42-200 %
     # of the drop after them)
+    # (a slide the drop sits on is taken apart afterwards, `_on_slide`)
     merged = []
     for n, (f, l) in enumerate(out):
         shoulder = n in lead and merged and merged[-1][1] <= f
@@ -215,6 +229,72 @@ def falls(y, eps, fs=1.0):
         else:
             merged.append((f, l))
     return merged
+
+
+def _same_pace(late, ref):
+    """True when `late` falls at the pace `ref` did, within SLIDE_RATIO either way (and `ref` was falling)."""
+    return ref > 0 and ref / SLIDE_RATIO <= late <= ref * SLIDE_RATIO
+
+
+def _late_pace(y, first, last):
+    """The net pace over the last third of [first, last], after its steep run: how fast it falls once it is over."""
+    r1 = _steep_run(y, first, last)[1]
+    third = max(1, (last - r1) // 3)
+    return (y[last - third] - y[last]) / third if last - third > r1 else 0.0
+
+
+def _steep_run(y, first, last):
+    """`(start, end)` of the stretch round the fall's steepest moment (on `y`) falling at least 1/ONSET_CONTRAST as
+    fast: its steep part."""
+    if last - first < 2:
+        return first, last
+    g = -np.gradient(np.asarray(y[first:last + 1], dtype=float))
+    peak = int(np.argmax(g))
+    on = g >= g[peak] / ONSET_CONTRAST
+    r0 = peak
+    while r0 > 0 and on[r0 - 1]:
+        r0 -= 1
+    r1 = peak
+    while r1 + 1 < len(g) and on[r1 + 1]:
+        r1 += 1
+    return first + r0, first + r1
+
+
+def _on_slide(y, first, last, fs, sigma):
+    """A drop on a SLIDE, taken apart: `[(first, last)]` pieces - the slide before the step (if the drop took it in as
+    a shoulder), the step, the slide after it - or the drop whole.
+
+    The trace was SLIDING before the drop when, over the MIN_CONTEXT_S before its steep part, it fell steadily: both
+    halves of that stretch falling, within SLIDE_STEADY of each other's pace (a shoulder speeds up into its drop: M4
+    CH1's eight minutes before its fall, 2.1x; a slide does not: LM 99f61fa6, 1.3x). It slides on after the drop when
+    the drop's last third falls within SLIDE_RATIO of that pace, and goes on for at least half as long as the stretch
+    before it (the last seconds of a fall before it turns back up are no slide: M4 62a49ab1). Then the drop is the
+    STEP - if there is one: a steep part falling at least ONSET_CONTRAST x as fast as the slide, and more than the
+    noise floor (a straight slow decline is no step on itself) - from where its pace first rises above SLIDE_MULT x
+    the slide's to where it is back within it (the researcher, 23 Nov: a step on a slide is the step; the slide was
+    already there). A drop with nothing sliding before it keeps its whole tail, to its bottom (M4 CH1's 80-minute
+    tail, which the researcher circled as the drop)."""
+    r0, r1 = _steep_run(y, first, last)
+    p0 = max(0, r0 - int(MIN_CONTEXT_S * fs))
+    if r0 - p0 < max(ONSET_MIN_HISTORY * max(r1 - r0, 1), 4):
+        return [(first, last)]
+    mid = (p0 + r0) // 2
+    ref = (y[p0] - y[r0]) / (r0 - p0)
+    halves = (y[p0] - y[mid]) / max(mid - p0, 1), (y[mid] - y[r0]) / max(r0 - mid, 1)
+    if min(halves) <= 0 or max(halves) > SLIDE_STEADY * min(halves) or not _same_pace(_late_pace(y, first, last), ref):
+        return [(first, last)]
+    run_drop = y[r0] - y[r1]
+    if run_drop < MIN_DEPTH_SIGMAS * sigma or run_drop / max(r1 - r0, 1) < ONSET_CONTRAST * ref:
+        return [(first, last)]
+    w = int(np.clip(ONSET_SLOW_MULT * max(r1 - r0, 1), 30.0 * fs, MIN_CONTEXT_S * fs))
+    step = r0
+    while step - w >= max(first, p0) and (y[step - w] - y[step]) / w > SLIDE_MULT * ref:
+        step -= 1
+    step = max(first, step)
+    end = next((t for t in range(r1 + w, last) if (y[t - w] - y[t]) / w <= SLIDE_MULT * ref), None)
+    if end is None or last - end < 0.5 * (r0 - p0):
+        return [(first, last)]                            # nothing slides on after it for long
+    return [piece for piece in ((first, step), (step, end), (end, last)) if piece[1] - piece[0] >= 2]
 
 
 def _flat(y, i, j, eps):
@@ -230,7 +310,8 @@ def _flat(y, i, j, eps):
 
 
 def _onset(y, prog, i, j, pace, first):
-    """ONSET: `(index in prog where a new drop begins, whether what it ends was a lead-in)`, or None.
+    """ONSET: `(index in prog where a new drop begins, whether what it ends was a lead-in, the run's length)`, or
+    None.
 
     The fall (i, j) and the falls just before it at least 1/ONSET_CONTRAST as steep are one STEEP RUN. Its pace (net
     descent over its length) is set against the SLOW STRETCH before it: back to the end of the event's last fall that
@@ -268,7 +349,7 @@ def _onset(y, prog, i, j, pace, first):
     before = y[first] - y[prog[r - 1][1]]                 # the event's depth before the run
     if y[run_start] - y[j] < MIN_REL_DEPTH * before:
         return None
-    return r, k == 0
+    return r, k == 0, length
 
 
 def _crossing_up(z, start, stop, level):
@@ -285,17 +366,19 @@ def _crossing_up(z, start, stop, level):
 
 
 def candidate_falls(z, fs, sigma):
-    """`[(top, bottom, depth, first, last)]` - the drop events of the ORIENTED trace `z` (mV, a fall is a fall)
-    deeper than the noise floor, as indices into `z`, in order; `first` / `last` are the event's first and last
-    breakpoints (a `last` at the end of `z` means the fall was still running where the read ends). The relative
-    floor is the caller's (it needs the span)."""
+    """`[(top, bottom, depth, first, last, steep_end)]` - the drop events of the ORIENTED trace `z` (mV, a fall is a
+    fall) deeper than the noise floor, as indices into `z`, in order; `first` / `last` are the event's first and last
+    breakpoints (a `last` at the end of `z` means the fall was still running where the read ends); `steep_end` is
+    where its steep part ends. A drop on a slide ends where the slide resumes, and the slide after it is an event of
+    its own. The relative floor is the caller's (it needs the span)."""
     fs = float(fs)
     z = np.asarray(z, dtype=float)
     eps = max(EPS_SIGMAS * sigma, 1e-9)
     k = max(1, int(round(SMOOTH_S * fs)))
     out = []
     s = smoothed(z, fs)
-    for first, last in falls(s, eps, fs):
+    events = [piece for first, last in falls(s, eps, fs) for piece in _on_slide(s, first, last, fs, sigma)]
+    for first, last in events:
         seg = s[first:last + 1]
         hi_at = int(np.argmax(seg))                               # the shoulder: the event's highest point ...
         lo_val = float(np.min(seg[hi_at:]))
@@ -313,7 +396,8 @@ def candidate_falls(z, fs, sigma):
         bottom = b0 + int(np.nanargmin(z[b0:b1]))
         depth = float(z[top] - z[bottom])
         if depth > 0 and depth >= MIN_DEPTH_SIGMAS * sigma:
-            out.append((int(top), int(bottom), depth, int(first), int(last)))
+            steep_end = _steep_run(s, top, bottom)[1]
+            out.append((int(top), int(bottom), depth, int(first), int(last), int(steep_end)))
     return out
 
 
@@ -332,8 +416,10 @@ def with_recoveries(z, fs, kept, *, hard_bound=None):
             limit = min(limit, int(hard_bound))
         limit = min(limit, len(z))
         rec = _crossing_up(z, bottom, limit, float(z[bottom]) + RECOVERY_FRAC * depth)
+        steep_n = max((f[5] if len(f) > 5 else bottom) - top, 1)
         out.append({"top": top, "bottom": bottom, "first": f[3] if len(f) > 3 else top,
                     "last": f[4] if len(f) > 4 else bottom, "recovery": rec if rec is not None else float("nan"),
+                    "steep_s": steep_n / fs, "long_tail": bool(fall_n > LONG_TAIL_MULT * steep_n),
                     "recovery_bound": int(limit), "depth_mv": depth, "fall_s": fall_n / fs,
                     "half_recovery_s": (rec - bottom) / fs if rec is not None else float("nan"),
                     "width_s": (rec - top) / fs if rec is not None else float("nan")})
@@ -357,7 +443,7 @@ def _frame(e, lo):
     return {"top_idx": e["top"] + lo, "bottom_idx": e["bottom"] + lo,
             "recovery_idx": e["recovery"] + lo if np.isfinite(e["recovery"]) else float("nan"),
             "depth_mv": e["depth_mv"], "fall_s": e["fall_s"], "half_recovery_s": e["half_recovery_s"],
-            "width_s": e["width_s"]}
+            "width_s": e["width_s"], "steep_s": e["steep_s"], "long_tail": e["long_tail"]}
 
 
 def measure(x, a, b, fs, *, to_mv=1000.0, next_start=None, polarity="drop", anchor=None):

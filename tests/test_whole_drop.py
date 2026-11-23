@@ -166,6 +166,29 @@ def test_a_span_holds_a_sharp_drop_whose_tail_runs_far_past_it():
     assert 295 <= m["top_idx"] <= 305
 
 
+def test_a_step_on_a_slide_that_was_already_there_is_the_step_alone():
+    """The researcher, 23 Nov (Q1, LM 99f61fa6 / 725bbdbe): the trace slides steadily, steps down, settles, and slides
+    on at the same pace. The drop is the step - from where it leaves the slide to where it is back on it - not the
+    step plus an hour of slide."""
+    x = trace(("flat", 300, 0), ("ramp", 1200, 0, -2), ("ramp", 10, -2, -5), ("ramp", 60, -5, -5.5),
+              ("ramp", 3000, -5.5, -10.5), ("flat", 300, -10.5))
+    m = measure(x, 1450, 1650)
+    assert m["depth_mv"] == pytest.approx(3.7, abs=0.4) and 1490 <= m["top_idx"] <= 1505
+    assert m["bottom_idx"] <= 1750
+
+
+def test_a_drop_with_nothing_sliding_before_it_keeps_its_whole_tail_and_flags_it_long():
+    """The researcher, 23 Nov (Q2): a long tail after a sharp drop is the drop's, to its bottom (M4 CH1's 80-minute
+    tail), and flagged `long_tail` - over LONG_TAIL_MULT x its steep part - so a plot can leave it out. A shoulder
+    accelerating into a drop is no slide (Q1 does not apply)."""
+    x = trace(("flat", 300, 0), ("ramp", 120, 0, -1.5), ("ramp", 20, -1.5, -6), ("ramp", 1800, -6, -9),
+              ("flat", 300, -9))
+    m = measure(x, 250, 600)
+    assert m["n_events"] == 1 and m["depth_mv"] == pytest.approx(9.0, abs=0.3) and m["long_tail"]
+    short = measure(trace(("flat", 300, 0), ("ramp", 20, 0, -6), ("ramp", 40, -6, -6.5), ("flat", 300, -6.5)), 250, 500)
+    assert not short["long_tail"] and short["steep_s"] == pytest.approx(20, abs=8)
+
+
 def test_a_wiggle_under_a_sixth_of_the_spans_deepest_drop_is_not_an_event():
     x = trace(("flat", 200, 0), ("ramp", 10, 0, -10), ("ramp", 30, -10, -8), ("ramp", 10, -8, -9),
               ("flat", 200, -9))

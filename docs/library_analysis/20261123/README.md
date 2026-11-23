@@ -75,7 +75,7 @@ before it.
 An analogy: walking downhill, a gentle slope that ends at a cliff edge is two things, a walk and a fall, even
 though you never stopped. A path that steepens gradually into the cliff is one descent.
 
-What changed, in `Working/interrogation/whole_drop.py` (25 tests):
+What changed, in `Working/interrogation/whole_drop.py` (27 tests):
 
 1. **Separate drops stay separate, even with no pause between them.** A fall about 5× steeper than the slow stretch
    before it starts a new drop when it falls at least 15 % of the drop so far. This covers a slow decline running
@@ -104,16 +104,20 @@ On the accepted library (`revised/`; the approved run is left as it was):
 
 | | Approved rule | Revised rule |
 |---|---:|---:|
-| Spans with a drop measured | 2,859 | 2,867 |
-| Spans with no event found | 55 | 47 |
-| Spans holding two or more drop events | 622 (4,025 events) | 618 (3,992 events) |
-| Spans with a measured width | 2,115 | 2,267 |
+| Spans with a drop measured | 2,859 | 2,868 |
+| Spans with no event found | 55 | 46 |
+| Spans holding two or more drop events | 622 (4,025 events) | 619 (3,994 events) |
+| Spans with a measured width | 2,115 | 2,266 |
 | Spans measured on under 30 % of their own range | 35 | 34 |
+| Spans whose drop is flagged `long_tail` (your Q2) | | 289 |
 
-- **Depth.** It is within 5 % of the approved depth on 2,356 of the 2,853 spans both rules measure.
-- **Deeper.** 37 spans got more than 1.5 × deeper, mostly sharp drops whose long tail the approved rule cut off at the
+*(Revised rule as decided on the three questions below, sha256 `8890331d`.)*
+
+- **Depth.** It is within 5 % of the approved depth on 2,355 of the 2,854 spans both rules measure.
+- **Deeper.** 34 spans got more than 1.5 × deeper, mostly sharp drops whose long tail the approved rule cut off at the
   edge of its read.
-- **Shallower.** 36 got shallower than 0.67 ×, mostly slow declines now split off a sharp drop.
+- **Shallower.** 40 got shallower than 0.67 ×, mostly slow declines now split off a sharp drop, and steps now
+  measured without the slide they sit on (Q1).
 - **Your 12 diagram cases.** They keep their events. Tops and bottoms moved a few seconds onto where the fall leaves
   its top and arrives at its bottom (within one noise-width), rather than the single highest or lowest sample.
 - **M4 CH1, 281:24–283:00 h.** One event, 281:22.5 → 282:43.0, 49.4 mV. You circled 281:25 → about 282:45.
@@ -122,8 +126,28 @@ On the accepted library (`revised/`; the approved run is left as it was):
 (blue). It is drawn by `scripts/library_analysis/fig_whole_drop_revision_20261123.py`, which loads the approved rule
 from its commit. `revised/whole_drop_vs_steep_core.png` is your 12-case diagram under the revised rule.
 
-**Three questions for you** (the OPEN panels of the figure). Each one is about where a drop *ends* when nothing stops
-it cleanly.
+**Three questions, decided 23 Nov: you chose the recommendation on all three.** Each one is about where a drop *ends*
+when nothing stops it cleanly. `revised/whole_drop_open_questions.png` shows each question as it was put, on two spans,
+with roughly where each option would end the drop (`scripts/library_analysis/fig_whole_drop_open_questions_20261123.py`;
+the options are drawn with simple stand-ins, not rules). The bottom row of `revised/whole_drop_revision.png` shows the
+decisions.
+
+- **Q1 → (b), in the rule (`_on_slide`).** A step on a slide is the step alone.
+  - It applies when the trace fell *steadily* over the 10 minutes before the steep part: both halves within 1.5 × of
+    each other's pace. The trace must also slide on after the drop at about that pace (within 3 ×) for at least half
+    as long. And there must be a real step: a steep part at least 5 × as fast as the slide.
+  - The drop then runs from where its pace rises above 1.5 × the slide's to where it is back within it. The slide
+    before and after it are events of their own.
+  - The guard holds: M4 CH1's lead-in speeds up into its fall (halves 2.1 × apart), so it is no slide.
+  - On the library it changes 8 spans, all steps on slides checked by eye: `99f61fa6` 9.0 → 2.5 mV, `5adbc887`
+    8.2 → 2.4, `725bbdbe` 8.2 → 2.4, `7af8876d`, `f24b3010`, `752b0182`, `889cc799`, `5ae700ef`.
+- **Q2 → (a), with the flag.** Tails are kept to their bottom. Every drop now carries `steep_s` (the top to the end of
+  its steep part) and `long_tail` (the fall lasts over 10 × `steep_s`), so a plot can leave long tails out.
+  - 289 spans' drops are flagged, with a median fall of 5.4 minutes after a 14 s steep part.
+  - M4 CH1 is not flagged, just: its 80-minute fall is 8.8 × its 9-minute steep part.
+- **Q3 → (a).** A fall that eases to a fifth of its pace and plunges again stays two drops. No change.
+
+The three as they were put:
 
 1. **A step on a slow drift** (LM CH3, `99f61fa6`). The trace was already drifting down before a 2 mV step, and it
    drifts on afterwards at the same pace. Read literally, "to the bottom of the tail" runs the step on to the end of
@@ -133,7 +157,8 @@ it cleanly.
      - (b) end the drop when its fall is back to the pace the trace had *before* the drop: the drop is over when
        the trace is back to what it was doing;
      - (c) end it when the pace falls to a fixed fraction of the drop's steepest.
-   - **Recommendation: (b).** It changes only drops that sit on a drift that was already there.
+   - **Recommendation: (b).** It changes only drops that sit on a drift that was already there. A real rule needs a
+     guard: the figure's stand-in reads M4 CH1's six-minute lead-in as a "slide" and would end that drop at 281:38.
 2. **A sharp drop, then a decline lasting two hours** (LM CH1, `2a1dc6b4`). Nothing was drifting before. The bottom of
    the tail is two hours later, 19 mV down.
    - Options:
@@ -141,6 +166,8 @@ it cleanly.
      - (b) end the tail where it stops slowing down;
      - (c) cap the tail at a multiple of the steep part's length.
    - **Recommendation: (a)**, with the long-tail events flagged in the Library so a plot can leave them out.
+     Checked against M4 CH1, the drop you circled to about 282:45: (a) ends it at 282:43; (c) at 282:36; (b) at
+     281:40, an hour early. So (b) would contradict your own call there.
 3. **A fall that eases off and plunges again** (M2_concat CH10, `082f06a6`). After its first steep part it slows to a
    fifth of that pace for two minutes, then plunges. The revised rule calls that two drops (46.6 and 43.3 mV); the
    approved rule called it one (89.9 mV).
@@ -302,7 +329,8 @@ family. The 156 rise-dominated spans are the first examples to look at.
 - **By eye.** Queue 48 on the sandbox: a hand-labelled sequence, a chain and a multi-event span all render, with
   bands and lines.
 - **The revision (1b), same evening.**
-  - `tests/test_whole_drop.py`: 25 pass. Eight of them fail on the approved rule (they are the new behaviour).
+  - `tests/test_whole_drop.py`: 27 pass. Eight of them fail on the approved rule (they are the new behaviour), and
+    the two for Q1 and Q2 fail on the rule as first committed (c2c5f1e2).
   - `tests/test_import_boundaries.py` passes.
   - Your 12 diagram cases keep their events, and M4 CH1 is one drop.
   - Every span that lost or gained an event, and the 12 that moved most each way, were looked at against the
