@@ -11,31 +11,69 @@ from the highest point a drop falls from to the lowest point it reaches. But a s
 those must stay separate (the researcher, reviewing the first diagram: a slow decline followed by a sharp drop is two
 drops; a staircase is two; four falls separated by small rebounds are four).
 
-So a DROP EVENT is one unbroken stretch of falling: it ends at a pause (the trace goes flat) or a rebound (it climbs
-back), and the next fall after that is the next event. A steep start with a slow tail is one event, its whole drop
-running to the bottom of the tail; a rounded shoulder easing into a steep fall is one event too. (A first version
-also split where a fall sped up again; it cut single smooth falls into pieces - MJu26a CH15's 45 mV fall into three -
-and every case the researcher marked is already separated by a pause or a rebound, so that rule was dropped.)
+So a DROP EVENT is one unbroken stretch of falling: it ends at a pause (the trace stops reaching new lows) or a
+rebound (it climbs back), and the next fall after that is the next event. A brief HESITATION is not a pause: a
+flat bit short against the drop it interrupts, after which the fall carries on, stays inside the event; and wiggles
+that only fall back to where the drop had already been do not carry it on (Auto-detect's checks, 23 Nov, on a quiet
+channel - M4 CH1, sigma 0.034 mV: a 50 mV decline the researcher circled as one drop, 281:25-282:45 h, came out in
+four, and once joined it ran on for an hour of wiggles and drift). A steep start with a slow tail is one event, its
+whole drop running to the bottom of the tail; a rounded shoulder easing into a steep fall is one event too. (A first
+version also split where a fall sped up again; it cut single smooth falls into pieces - MJu26a CH15's 45 mV fall
+into three - and every case the researcher marked is already separated by a pause or a rebound, so that rule was
+dropped.)
 
 The rule, on one window of one channel (measured as drops; `polarity="spike"` measures rises the same way):
 
     smoothed copy   Gaussian of max(1 sample, SMOOTH_S): sample noise out, shape kept
-    noise           sigma = robust spread (MAD x 1.4826) of the raw sample-to-sample differences / sqrt 2
+    noise           sigma = robust spread (MAD x 1.4826) of the raw sample-to-sample differences / sqrt 2, read
+                    over a fixed NOISE_HALF_S each side of the window's centre (or the window, if longer), so one
+                    fall gives one answer whatever box it is measured in
     pieces          the smoothed copy as straight pieces: Ramer-Douglas-Peucker on the vertical distance, split
                     wherever the trace strays more than EPS_SIGMAS x sigma from a straight line
     a piece         FALLS when it drops by more than that tolerance, is FLAT when it moves less, RISES when it climbs
-    an event        consecutive falling pieces; a flat or rising piece ends it. Shallower than MIN_DEPTH_SIGMAS x
-                    sigma is noise, and shallower than MIN_REL_DEPTH of the span's deepest event is a wiggle on it:
-                    neither is an event (the researcher's smallest marked event was ~17 % of its span's deepest)
-    top / bottom    the raw highest / lowest sample within one smoothing width of the event's first / last breakpoint
+    an event        falling pieces that take the trace to NEW LOWS (more than the tolerance below the event's lowest
+                    point so far). Three things end it:
+                    - a REBOUND: the trace climbs back off that low by REBOUND_FRAC of the depth so far (the
+                      researcher's four rebound-separated falls rose back 25-33 %) or by REBOUND_SIGMAS noise-widths,
+                      whichever is less - so a quiet channel's 1 % wiggles do not end a drop, a clear climb ends any;
+                    - a PAUSE: a STALL (time without a new low: flat pieces, small rises, falls that only wiggle back
+                      down to where the event had already been) at least PAUSE_MIN_S long and at least PAUSE_FRAC of
+                      the event's duration so far, in which the trace has stopped descending (`_flat`; a slow tail
+                      creeping down through noise is still the drop), or at least HESITATION_FRAC of it with the next
+                      fall SPEEDUP_AFTER_PAUSE x faster than the event's own pace (the researcher's slow decline, a
+                      230 s pause, then a sharp drop: two events). Shorter, it is a hesitation and the event carries
+                      on. A stall that ends in a slow creep, not a sharp fall, is a pause only if it lasts at least
+                      PAUSE_MIN_S: one noise-flat second right after a 3 s fall was 15 % of the event so far, and a
+                      sharp fall's slow settle came out as a second event (Auto-detect's drop B). A quick staircase -
+                      a short flat ended by a fall as sharp as the first (LM 4486f15d, 10-20 s) - still pauses;
+                    - an ONSET (`_onset`): a fall ONSET_CONTRAST x faster than the slow stretch before it - a slow
+                      decline running into a sharp drop, or a drop's tail, slowed to a fifth of its own steep part,
+                      running into a second one - that falls at least MIN_REL_DEPTH of the event's depth so far. A
+                      slow decline shallower than LEAD_MERGE_FRAC of the drop it runs into is that drop's shoulder
+                      and stays in it.
+                    Shallower than MIN_DEPTH_SIGMAS x sigma is noise, and shallower than MIN_REL_DEPTH of the span's
+                    deepest event is a wiggle on it: neither is an event (the researcher's smallest marked event was
+                    ~17 % of its span's deepest)
+    top / bottom    from the HIGHEST point of the smoothed copy over the event (a hesitation that rose slightly moves
+                    the top onto the real shoulder): the bottom is where the fall first ARRIVES within one
+                    noise-width (sigma) of its lowest level, the top the last point before it still within sigma of
+                    the highest - the lowest single sample of a slow tail's flat end is decided by noise, the
+                    arrival is not - each refined to the raw highest / lowest sample within one smoothing width
     depth           raw[top] - raw[bottom], mV;  fall time: bottom - top, s
     half recovery   the first return to raw[bottom] + 0.5 x depth after the bottom, interpolated; never searched into
-                    the next event (or past `next_start`), at most RECOVERY_MAX_MULT fall times and RECOVERY_MAX_S.
-                    Not reached -> NaN;  width: top -> half recovery, s
+                    the next event (or past `next_start`), and at most RECOVERY_MAX_S. Not reached -> NaN;  width:
+                    top -> half recovery, s. (A cap of ten fall times, dropped 23 Nov, cost a sharp fall its slow
+                    recovery: one sample more fall time decided whether a shark fin had a width at all.)
     a span's event  every event at least half of whose DEPTH falls inside the span counts (`n_events`) - by depth,
-                    not time, because a slow tail can outlast its span many times. The MAIN event is the deepest. The window is read with one span length of context
-                    each side, so a fall that began before the span (MJu26a CH15's machine train windows start
-                    mid-fall) keeps its real top, and a tail that runs past the span its real bottom
+                    not time, because a slow tail can outlast its span many times - and every event whose STEEPEST
+                    moment (`_steepest`) the span holds, so a sharp drop whose tail runs on for an hour is the event
+                    of the span drawn round the drop. The MAIN event is the deepest -
+                    or, given an `anchor` (a machine box naming the moment it is about), the event there, with the
+                    relative floor taken against it. The window is read with one span length of context each side
+                    (at least MIN_CONTEXT_S; a read that cuts one of the span's events is widened, up to
+                    CONTEXT_MAX_S), so a fall that began before the span (MJu26a CH15's machine train windows start
+                    mid-fall) keeps its real top, and a tail that runs past the span its real bottom. `span_events`
+                    lists a long span's events the same way
     rise_dominated  the window's fastest edge, on the smoothed copy, is a rise (6 % of accepted spans): flagged, not
                     silently flipped
 
@@ -53,9 +91,21 @@ EPS_SIGMAS = 4.0
 MIN_DEPTH_SIGMAS = 6.0
 MIN_REL_DEPTH = 0.15
 RECOVERY_FRAC = 0.5
-RECOVERY_MAX_MULT = 10.0
 RECOVERY_MAX_S = 7200.0
 CONTEXT_MAX_S = 7200.0
+MIN_CONTEXT_S = 600.0
+NOISE_HALF_S = 1800.0
+PAUSE_FRAC = 0.15
+PAUSE_MIN_S = 30.0
+HESITATION_FRAC = 0.05
+SPEEDUP_AFTER_PAUSE = 5.0
+REBOUND_FRAC = 0.10
+REBOUND_SIGMAS = 10.0
+ONSET_CONTRAST = 5.0
+ONSET_SLOW_MULT = 10.0
+ONSET_MIN_HISTORY = 3.0
+LEAD_MERGE_FRAC = 0.35
+STEEPEST_SMOOTH_MAX_S = 60.0
 
 
 def smoothed(x, fs):
@@ -106,21 +156,119 @@ def breakpoints(y, eps):
     return np.flatnonzero(keep)
 
 
-def falls(y, eps):
-    """`[(first, last)]` breakpoint pairs of the unbroken falls of `y`: runs of falling pieces, ended by a flat or
-    rising one."""
+def falls(y, eps, fs=1.0):
+    """`[(first, last)]` breakpoint pairs of the drop events of `y`: runs of falls to new lows that a REBOUND or a
+    PAUSE ends, and a brief hesitation does not (see the module rule). `last` is always the event's lowest
+    breakpoint so far."""
     bp = breakpoints(y, eps)
-    out, cur = [], None
+    rebound_abs = eps * REBOUND_SIGMAS / EPS_SIGMAS
+    min_pause = max(1.0, PAUSE_MIN_S * float(fs))
+    out, lead = [], set()                                 # lead: events begun at a lead-in's onset
+    first = last = None
+    prog = []                                             # the event's falls to new lows: (start, end, pace)
     for i, j in zip(bp[:-1], bp[1:]):
-        if y[j] - y[i] >= -eps:                      # flat or rising: the fall (if any) ends
-            if cur is not None:
-                out.append(cur)
-                cur = None
+        pace = (y[i] - y[j]) / max(j - i, 1)
+        if first is None:
+            if y[j] - y[i] < -eps:                        # the first falling piece starts an event
+                first, last, prog = i, j, [(i, j, pace)]
             continue
-        cur = (i, j) if cur is None else (cur[0], j)
-    if cur is not None:
-        out.append(cur)
-    return out
+        depth = y[first] - y[last]
+        # a REBOUND ends the event: the trace climbs back off its low by REBOUND_FRAC of the depth so far, or by
+        # REBOUND_SIGMAS noise-widths, whichever is less. A smaller climb (M4 CH1: 0.14-0.28 mV, 4-8 sigma, ~1 % of
+        # its drop, cut it into pieces) is part of a hesitation; a clear one ends even a very deep drop (M2_aug
+        # cf7ceb24: after a 105 mV artifact spike nothing short of 10 mV ended it, and it swallowed the real drop)
+        if y[j] - y[last] >= max(eps, min(REBOUND_FRAC * depth, rebound_abs)):
+            out.append((first, last))
+            first = last = None
+            continue
+        # PROGRESS is a fall to a NEW LOW. Anything else - flat, a small rise, a fall that only wiggles back down to
+        # where the event had already been - is a stall, and the event's low stays where it was
+        if not (y[j] - y[i] < -eps and y[j] < y[last] - eps):
+            continue
+        run, dur = i - last, max(last - first, 1)
+        sharp = pace * ONSET_CONTRAST >= max(p for _, _, p in prog)      # the stall ends in a sharp fall
+        if run > 0 and (run >= min_pause or sharp) and ((run >= PAUSE_FRAC * dur and _flat(y, last, i, eps))
+                        or (run >= HESITATION_FRAC * dur and pace >= SPEEDUP_AFTER_PAUSE * depth / dur)):
+            out.append((first, last))                     # the stall was a pause: the next drop begins
+            first, prog = i, []
+        else:
+            got = _onset(y, prog, i, j, pace, first)
+            if got is not None:                           # a sharp fall out of a long slow stretch: a new drop
+                r, after_lead_in = got
+                out.append((first, prog[r - 1][1]))
+                if after_lead_in:
+                    lead.add(len(out))
+                first, prog = prog[r][0] if r < len(prog) else i, prog[r:]
+        last = j
+        prog.append((i, j, pace))
+    if first is not None:
+        out.append((first, last))
+    # a lead-in shallower than LEAD_MERGE_FRAC of the drop it ran into is that drop's shoulder, not a drop of its own
+    # (the researcher's approved diagram: SO CH2's 0.26 mV lead-in to a 1.5 mV fall, 17 %, and the first of the four
+    # rebound-separated falls, 28 %, are one event each; the slow declines that are drops of their own run 42-200 %
+    # of the drop after them)
+    merged = []
+    for n, (f, l) in enumerate(out):
+        shoulder = n in lead and merged and merged[-1][1] <= f
+        if shoulder and y[merged[-1][0]] - y[merged[-1][1]] < LEAD_MERGE_FRAC * (y[f] - y[l]):
+            merged[-1] = (merged[-1][0], l)
+        else:
+            merged.append((f, l))
+    return merged
+
+
+def _flat(y, i, j, eps):
+    """True when the trace has stopped descending over [i, j]: its least-squares trend falls less than half the
+    tolerance across it. A slow tail creeping down through noise (MJu26a b7b6e322: 0.55 mV over 12 minutes after a
+    0.35 mV step) is still the drop; a pause - flat or turning up (M4 CH1 at 282:45) - is not."""
+    seg = np.asarray(y[i:j + 1], dtype=float)
+    if len(seg) < 3:
+        return False                                      # too short to tell: not a pause
+    t = np.arange(len(seg)) - (len(seg) - 1) / 2.0
+    slope = float(np.dot(t, seg - seg.mean()) / np.dot(t, t))
+    return -slope * (len(seg) - 1) < 0.5 * eps
+
+
+def _onset(y, prog, i, j, pace, first):
+    """ONSET: `(index in prog where a new drop begins, whether what it ends was a lead-in)`, or None.
+
+    The fall (i, j) and the falls just before it at least 1/ONSET_CONTRAST as steep are one STEEP RUN. Its pace (net
+    descent over its length) is set against the SLOW STRETCH before it: back to the end of the event's last fall that
+    steep (or the event's start), at most ONSET_SLOW_MULT and at least ONSET_MIN_HISTORY times the run's length. When
+    the run is ONSET_CONTRAST x faster and has fallen at least MIN_REL_DEPTH of the event's depth before it, it is a
+    new drop and the slow stretch the end of the earlier event:
+      - after a drop's own steep part, a SECOND SHARP DROP after a stretch at most 1/ONSET_CONTRAST as fast as that
+        part: a tail running into a second drop (M4 873cd70d, M2_aug d3ac70db, f238e01e). A drop still falling fast
+        that speeds up again is one drop (M2_concat 082f06a6);
+      - a slow decline running into a sharp drop (the researcher: two drops; separate drops are never joined). Such a
+        lead-in under LEAD_MERGE_FRAC of the drop's depth is that drop's shoulder, and `falls` merges it back once the
+        drop's depth is known (M4 CH1's six minutes before its 49 mV fall, SO CH2's 17 %, the researcher's first
+        rebound-separated fall, 28 %).
+    A wiggle in a near-flat tail is steep against the tail but shallow against the drop: not a new one.
+    """
+    floor = pace / ONSET_CONTRAST
+    r = len(prog)
+    while r > 0 and prog[r - 1][2] >= floor:              # the steep run: the falls just before this one
+        r -= 1
+    if r == 0:
+        return None                                       # the event so far is all one steep run
+    k = r
+    while k > 0 and prog[k - 1][2] < floor:               # the slow stretch: back to the last fall that steep
+        k -= 1
+    run_start = prog[r][0] if r < len(prog) else i
+    length = max(j - run_start, 1)
+    w0 = max(first if k == 0 else prog[k - 1][1], run_start - int(ONSET_SLOW_MULT * length))
+    if run_start - w0 < ONSET_MIN_HISTORY * length:
+        return None                                       # too little before it to be a long slow stretch
+    pre_pace = max(y[w0] - y[run_start], 0.0) / (run_start - w0)
+    if (y[run_start] - y[j]) / length < ONSET_CONTRAST * pre_pace:
+        return None
+    if k > 0 and pre_pace * ONSET_CONTRAST > max(p for _, _, p in prog[:r]):
+        return None                                       # still falling fast, not a tail: a drop speeding up
+    before = y[first] - y[prog[r - 1][1]]                 # the event's depth before the run
+    if y[run_start] - y[j] < MIN_REL_DEPTH * before:
+        return None
+    return r, k == 0
 
 
 def _crossing_up(z, start, stop, level):
@@ -137,45 +285,72 @@ def _crossing_up(z, start, stop, level):
 
 
 def candidate_falls(z, fs, sigma):
-    """`[(top, bottom, depth)]` - the unbroken falls of the ORIENTED trace `z` (mV, a fall is a fall) deeper than
-    the noise floor, as indices into `z`, in order. The relative floor is the caller's (it needs the span)."""
+    """`[(top, bottom, depth, first, last)]` - the drop events of the ORIENTED trace `z` (mV, a fall is a fall)
+    deeper than the noise floor, as indices into `z`, in order; `first` / `last` are the event's first and last
+    breakpoints (a `last` at the end of `z` means the fall was still running where the read ends). The relative
+    floor is the caller's (it needs the span)."""
     fs = float(fs)
     z = np.asarray(z, dtype=float)
     eps = max(EPS_SIGMAS * sigma, 1e-9)
     k = max(1, int(round(SMOOTH_S * fs)))
     out = []
-    for first, last in falls(smoothed(z, fs), eps):
-        t0, t1 = max(0, first - k), min(len(z), first + k + 1)
+    s = smoothed(z, fs)
+    for first, last in falls(s, eps, fs):
+        seg = s[first:last + 1]
+        hi_at = int(np.argmax(seg))                               # the shoulder: the event's highest point ...
+        lo_val = float(np.min(seg[hi_at:]))
+        # ... and where it ARRIVES at its bottom: the first point within one noise-width of the lowest level, and the
+        # last point before the fall still within one noise-width of the top. The lowest single sample of a slow
+        # tail's near-flat end is decided by noise; the arrival is not (one fall, one bottom, whatever the window)
+        arrive = hi_at + int(np.argmax(seg[hi_at:] <= lo_val + sigma))
+        leave = int(np.flatnonzero(seg[:arrive + 1] >= seg[hi_at] - sigma)[-1])
+        peak, low = first + leave, first + arrive
+        t0, t1 = max(0, peak - k), min(len(z), peak + k + 1)
         top = t0 + int(np.nanargmax(z[t0:t1]))
-        b0, b1 = max(top + 1, last - k), min(len(z), last + k + 1)
+        b0, b1 = max(top + 1, low - k), min(len(z), low + k + 1)
         if b1 <= b0:
             continue
         bottom = b0 + int(np.nanargmin(z[b0:b1]))
         depth = float(z[top] - z[bottom])
         if depth > 0 and depth >= MIN_DEPTH_SIGMAS * sigma:
-            out.append((int(top), int(bottom), depth))
+            out.append((int(top), int(bottom), depth, int(first), int(last)))
     return out
 
 
 def with_recoveries(z, fs, kept, *, hard_bound=None):
     """Event dicts for `kept` falls (ordered), each with its half recovery searched up to the next kept fall's top,
-    at most RECOVERY_MAX_MULT fall times / RECOVERY_MAX_S, and never past `hard_bound` (beyond its bottom)."""
+    at most RECOVERY_MAX_S, and never past `hard_bound` (beyond its bottom)."""
     fs = float(fs)
     out = []
-    for n, (top, bottom, depth) in enumerate(kept):
+    for n, f in enumerate(kept):
+        top, bottom, depth = f[0], f[1], f[2]
         fall_n = bottom - top
-        limit = bottom + int(min(RECOVERY_MAX_MULT * max(fall_n, 1), RECOVERY_MAX_S * fs)) + 1
+        limit = bottom + int(RECOVERY_MAX_S * fs) + 1
         if n + 1 < len(kept):
             limit = min(limit, kept[n + 1][0] + 1)
         if hard_bound is not None and hard_bound > bottom:
             limit = min(limit, int(hard_bound))
         limit = min(limit, len(z))
         rec = _crossing_up(z, bottom, limit, float(z[bottom]) + RECOVERY_FRAC * depth)
-        out.append({"top": top, "bottom": bottom, "recovery": rec if rec is not None else float("nan"),
+        out.append({"top": top, "bottom": bottom, "first": f[3] if len(f) > 3 else top,
+                    "last": f[4] if len(f) > 4 else bottom, "recovery": rec if rec is not None else float("nan"),
                     "recovery_bound": int(limit), "depth_mv": depth, "fall_s": fall_n / fs,
                     "half_recovery_s": (rec - bottom) / fs if rec is not None else float("nan"),
                     "width_s": (rec - top) / fs if rec is not None else float("nan")})
     return out
+
+
+def _steepest(z, top, bottom, fs):
+    """The moment the fall [top, bottom] of `z` falls fastest, on a copy smoothed over a tenth of its length, at most
+    STEEPEST_SMOOTH_MAX_S (so noise does not pick the moment on a straight ramp, a slow tail - however deep it runs -
+    never holds it, and a one-minute step at the head of a two-hour tail is not smeared into the tail)."""
+    from scipy.ndimage import gaussian_filter1d
+    if bottom - top < 2:
+        return top
+    seg = np.asarray(z[top:bottom + 1], dtype=float)
+    width = max(1.0, SMOOTH_S * float(fs), min((bottom - top) / 10.0, STEEPEST_SMOOTH_MAX_S * float(fs)))
+    g = -np.gradient(gaussian_filter1d(seg, width, mode="nearest"))
+    return top + int(np.argmax(g))
 
 
 def _frame(e, lo):
@@ -185,10 +360,11 @@ def _frame(e, lo):
             "width_s": e["width_s"]}
 
 
-def measure(x, a, b, fs, *, to_mv=1000.0, next_start=None, polarity="drop"):
+def measure(x, a, b, fs, *, to_mv=1000.0, next_start=None, polarity="drop", anchor=None):
     """The drop events of window [a, b) of channel `x` (recording samples, any unit; `to_mv` turns it into mV), read
-    with one span length of context each side (at most CONTEXT_MAX_S), and the span's MAIN event (the deepest lying
-    mostly inside it).
+    with one span length of context each side (at least MIN_CONTEXT_S, at most CONTEXT_MAX_S), and the span's MAIN
+    event: the deepest lying mostly inside it - or, with `anchor` (a recording-frame index, e.g. a machine box's own
+    onset or trough), the event at that moment, even beside a deeper one.
 
     Returns a dict: the main event's recording-frame `top_idx`, `bottom_idx`, `recovery_idx`, `depth_mv`, `fall_s`,
     `half_recovery_s`, `width_s`; `top_extended` / `bottom_extended` (it reaches past the span's edge);
@@ -204,21 +380,47 @@ def measure(x, a, b, fs, *, to_mv=1000.0, next_start=None, polarity="drop"):
     if b - a < 4:
         out["why"] = "too_short"
         return out
-    pad = int(min(b - a, CONTEXT_MAX_S * fs))
+    if not np.all(np.isfinite(np.asarray(x[a:b], dtype=float))):
+        out["why"] = "non_finite"
+        return out
+    return _read(x, a, b, fs, to_mv, polarity, next_start, anchor)
+
+
+def _read(x, a, b, fs, to_mv, polarity, next_start, anchor):
+    """`measure`'s reading of [a, b): the noise, then reads widening until no event is cut by the read's edge."""
+    n = len(x)
+    # the noise from a fixed stretch round the window's centre, not the window: a short box that is mostly fall
+    # would otherwise read its own fall as noise and move every tolerance with it
+    centre, half = (a + b) // 2, int(NOISE_HALF_S * fs)
+    s0, s1 = max(0, min(a, centre - half)), min(n, max(b, centre + half))
+    sigma = noise_sigma(np.asarray(x[s0:s1], dtype=float) * to_mv)
+    pad, cap = int(min(max(b - a, MIN_CONTEXT_S * fs), CONTEXT_MAX_S * fs)), int(CONTEXT_MAX_S * fs)
+    while True:
+        got = _measure_read(x, a, b, fs, to_mv, sigma, pad, polarity, next_start, anchor)
+        if not got.get("ok"):
+            return got
+        # a fall still running where the read ends (or already running where it starts) may run further: read
+        # wider, up to the cap
+        if not got.pop("cut_by_read") or pad >= cap:
+            return got
+        pad = min(2 * pad, cap)
+
+
+def _measure_read(x, a, b, fs, to_mv, sigma, pad, polarity, next_start, anchor):
+    """`measure` over one read: [a - pad, b + pad), plus RECOVERY_MAX_S for the last recovery search."""
+    n = len(x)
+    out = {"ok": False}
     lo, hi = max(0, a - pad), min(n, b + pad)
     rec_hi = min(n, hi + int(RECOVERY_MAX_S * fs))
     raw = np.asarray(x[lo:rec_hi], dtype=float) * to_mv
+    if not np.all(np.isfinite(raw)):                      # gaps in the context (or, for span_events, the span)
+        raw = np.where(np.isfinite(raw), raw, np.nanmedian(raw))
     inside = raw[a - lo:b - lo]
-    if not np.all(np.isfinite(inside)):
-        out["why"] = "non_finite"
-        return out
     falls_fastest = is_drop(inside, fs)
     drop = falls_fastest if polarity == "auto" else polarity == "drop"
     z = raw if drop else -raw
-    if not np.all(np.isfinite(z)):
-        z = np.where(np.isfinite(z), z, np.nanmedian(z))
     out.update(polarity=-1 if drop else 1, rise_dominated=not falls_fastest)
-    found = candidate_falls(z[:hi - lo], fs, noise_sigma(inside))
+    found = candidate_falls(z[:hi - lo], fs, sigma)
     a_l, b_l = a - lo, b - lo
 
     def mostly_inside(f):
@@ -226,36 +428,57 @@ def measure(x, a, b, fs, *, to_mv=1000.0, next_start=None, polarity="drop"):
         # many times over while its drop happens inside it (132 spans were lost to a time rule); a span drawn round
         # the start of a long fall (SH CH2, the researcher's correction) holds that fall; a fall that began before a
         # span (MJu26a CH15's train windows) is held by the span it mostly falls in; a neighbour that merely begins
-        # in the span's last moments is not
+        # in the span's last moments is not. Or the span holds the moment it falls fastest (`_steepest`), so a sharp
+        # drop whose tail runs on far past the span (M2_concat 8d1f50aa: 50 mV in six minutes, then 100 mV more over
+        # forty; LM 2a1dc6b4: 4 mV in a minute, then 17 mV over two hours) is held by the span drawn round the drop
         i, j = max(f[0], a_l), min(f[1], b_l)
-        if j <= i:
-            return False
-        return float(z[i] - np.min(z[i:j + 1])) >= 0.5 * f[2]
+        if j > i and float(z[i] - np.min(z[i:j + 1])) >= 0.5 * f[2]:
+            return True
+        return a_l <= _steepest(z, f[0], f[1], fs) < b_l
 
-    inside_falls = [f for f in found if mostly_inside(f)]
-    if not inside_falls:
-        out.update(why="no_fall", n_events=0, events=[])
-        return out
-    floor = MIN_REL_DEPTH * max(f[2] for f in inside_falls)
+    target = None
+    if anchor is not None:
+        at = int(anchor) - lo
+
+        def distance(f):
+            return 0 if f[0] <= at <= f[1] else min(abs(at - f[0]), abs(at - f[1]))
+        if not found:
+            out.update(why="no_fall", n_events=0, events=[])
+            return out
+        target = min(found, key=distance)
+        floor = MIN_REL_DEPTH * target[2]
+    else:
+        inside_falls = [f for f in found if mostly_inside(f)]
+        if not inside_falls:
+            out.update(why="no_fall", n_events=0, events=[])
+            return out
+        floor = MIN_REL_DEPTH * max(f[2] for f in inside_falls)
     kept = [f for f in found if f[2] >= floor]
     bound = None if next_start is None else int(next_start) - lo
-    events = [e for e in with_recoveries(z, fs, kept, hard_bound=bound)
-              if mostly_inside((e["top"], e["bottom"], e["depth_mv"]))]
-    main = max(events, key=lambda e: e["depth_mv"])
+    measured = with_recoveries(z, fs, kept, hard_bound=bound)
+    if target is not None:
+        main = next(e for e in measured if (e["top"], e["bottom"]) == (target[0], target[1]))
+        events = [e for e in measured if e is main or mostly_inside((e["top"], e["bottom"], e["depth_mv"]))]
+    else:
+        events = [e for e in measured if mostly_inside((e["top"], e["bottom"], e["depth_mv"]))]
+        main = max(events, key=lambda e: e["depth_mv"])
+    seg_n = hi - lo
+    margin = max(3 * max(1, int(round(SMOOTH_S * fs))), 5)
+    cut = any((e["last"] >= seg_n - 1 - margin and hi < n) or (e["first"] <= margin and lo > 0) for e in events)
     out.update(ok=True, **_frame(main, lo), top_extended=main["top"] < a_l, bottom_extended=main["bottom"] >= b_l,
-               n_events=len(events), events=[_frame(e, lo) for e in events])
+               n_events=len(events), events=[_frame(e, lo) for e in events], cut_by_read=bool(cut))
     return out
 
 
 def span_events(x, a, b, fs, *, to_mv=1000.0, polarity="drop"):
-    """Every drop event inside a long span (a sequence), without context padding: recording-frame dicts, with the
-    relative floor taken against the span's own deepest event."""
+    """Every drop event of a long span (a sequence), in order, as recording-frame dicts: the events `measure` counts
+    for the span, read the same way - with context each side, so an event at the span's edge keeps its real top and
+    bottom (M4 CH1: a span starting 1.5 min into a 50 mV fall lost its first 6 mV without it), the relative floor
+    taken against the span's own deepest event. Gaps (NaN) are filled with the read's median, not refused."""
+    if polarity not in ("drop", "spike"):
+        raise ValueError(f"polarity must be drop or spike, got {polarity!r}")
     a, b = max(0, int(a)), min(len(x), int(b))
-    raw = np.asarray(x[a:b], dtype=float) * to_mv
-    z = raw if polarity == "drop" else -raw
-    z = np.where(np.isfinite(z), z, np.nanmedian(z))
-    found = candidate_falls(z, fs, noise_sigma(z))
-    if not found:
+    if b - a < 4:
         return []
-    floor = MIN_REL_DEPTH * max(f[2] for f in found)
-    return [_frame(e, a) for e in with_recoveries(z, fs, [f for f in found if f[2] >= floor])]
+    got = _read(x, a, b, float(fs), to_mv, polarity, None, None)
+    return got["events"] if got.get("ok") else []

@@ -4,6 +4,7 @@ Read-only (database `mode=ro`, channels memory-mapped). Writes docs/library_anal
 whole_drop_vs_steep_core.png, whole_drop.csv (both measurements for every measured span) and whole_drop_summary.json.
 
     PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" scripts/library_analysis/fig_whole_drop_vs_core_20261123.py
+        [--out DIR]   (another folder, e.g. to redraw after a rule change without overwriting the approved diagram)
 """
 from __future__ import annotations
 
@@ -259,13 +260,13 @@ def draw_example(ax, c, recs):
     ax.grid(False)
 
 
-def main():
+def main(out=OUT):
     fs.apply()
-    os.makedirs(OUT, exist_ok=True)
+    os.makedirs(out, exist_ok=True)
     conn = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
     d, recs = measure_all(conn)
     conn.close()
-    d.to_csv(os.path.join(OUT, "whole_drop.csv"), index=False)
+    d.to_csv(os.path.join(out, "whole_drop.csv"), index=False)
     cases = pick(d)
     fig = plt.figure(figsize=(21.0, 11.5))
     gs = fig.add_gridspec(3, 6, height_ratios=[0.8, 1, 1], hspace=0.98, wspace=0.3)
@@ -308,12 +309,15 @@ def main():
              f"{summ['flagged_whole_frac_lt_0.3']} now; no event found in {summ['no_event_found']}. Every span is "
              f"measured as a drop; {summ['rise_dominated']} whose biggest, fastest movement is a rise are flagged.",
              fontsize=8.5, color=fs.INK_2)
-    fig.savefig(os.path.join(OUT, "whole_drop_vs_steep_core.png"), dpi=170, bbox_inches="tight")
+    fig.savefig(os.path.join(out, "whole_drop_vs_steep_core.png"), dpi=170, bbox_inches="tight")
     plt.close(fig)
-    with open(os.path.join(OUT, "whole_drop_summary.json"), "w", encoding="utf-8") as f:
+    with open(os.path.join(out, "whole_drop_summary.json"), "w", encoding="utf-8") as f:
         json.dump(summ, f, indent=2, default=float)
     print(json.dumps(summ, indent=1, default=float))
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--out", default=OUT, help="output folder (default: %(default)s)")
+    main(os.path.abspath(ap.parse_args().out))

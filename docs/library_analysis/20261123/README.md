@@ -22,6 +22,8 @@ single events still to be resolved. Resolving them is the next queue (see *What 
 
 ## 1. The whole-drop rule on the accepted library
 
+*(The rule as approved, commit `5e07deff`. It was revised the same evening after Auto-detect's checks: see 1b.)*
+
 Over the 2,914 accepted spans that could be measured:
 
 | | Steep core (before) | Whole drop (now) |
@@ -49,6 +51,107 @@ Files:
 - `whole_drop.csv`: both measurements for every span, with the event list as JSON.
 - `whole_drop_summary.json`.
 - `scripts/library_analysis/fig_whole_drop_vs_core_20261123.py`.
+
+## 1b. Revised after Auto-detect's checks (23 Nov, evening)
+
+**In plain words.** You asked the Auto-detect session to check its candidates against the rule. It found four
+problems:
+
+- **Slow drops cut into pieces.** On a quiet channel a slow drop's small wobbles counted as "it climbed back", so M4
+  CH1's 50 mV decline, which you circled as one drop, came out as four.
+- **The answer depended on the box.** The same fall measured in a short box and in a long box got different tops and
+  bottoms.
+- **Small machine boxes failed the depth floor.** A machine box next to a deeper drop could not be measured, because
+  the 15 % floor was set by the deeper drop.
+- **Sharp falls lost their width.** The search for the half-way recovery stopped after ten fall times. A fall of 3 s
+  that recovers half-way after 43 s therefore got no width.
+
+Fixing the first problem showed a deeper one. The approved rule only kept separate drops apart because tiny wobbles
+happened to sit between them. Once the wobbles were ignored, two kinds of separate drop ran together: a slow decline
+flowing straight into a sharp drop, and a drop's slow tail flowing into a second sharp drop. You ruled that joining
+out. So the revised rule says what makes a new drop: a fall that suddenly becomes much steeper than the stretch
+before it.
+
+An analogy: walking downhill, a gentle slope that ends at a cliff edge is two things, a walk and a fall, even
+though you never stopped. A path that steepens gradually into the cliff is one descent.
+
+What changed, in `Working/interrogation/whole_drop.py` (25 tests):
+
+1. **Separate drops stay separate, even with no pause between them.** A fall about 5× steeper than the slow stretch
+   before it starts a new drop when it falls at least 15 % of the drop so far. This covers a slow decline running
+   into a sharp drop, and a tail, slowed to a fifth of its own steep part, running into a second drop.
+   - A slow lead-in shallower than 35 % of the drop it runs into is that drop's **shoulder** and stays with it.
+     Examples are M4 CH1's six minutes before its fall, the SO CH2 case you approved (17 %), and the first of your
+     four rebound-separated falls (28 %). The slow declines that are drops of their own run 42–200 %.
+2. **A wobble does not end a drop; a clear climb ends any drop.** A drop is now followed only while it reaches new
+   lows. A climb ends it when it is 10 % of its depth or 10 × the noise, whichever is less. One M2_aug span showed
+   why the noise limit is needed: a 105 mV artifact spike in the context had swallowed the real 1.2 mV drop.
+3. **A pause is a stretch where the trace has stopped descending.** A slow tail still creeping down through noise is
+   part of the drop.
+   - A stall that ends in a slow creep, rather than a sharp fall, must also last at least 30 s. This is Auto-detect's
+     drop B: one noise-flat second right after a 3 s fall had split off its 4-minute settle.
+   - A quick staircase is still split: there a short flat ends in a fall as sharp as the first.
+4. **One fall gets one answer whatever box measures it.** The noise is read from a fixed hour around the box. Every
+   box is read with at least 10 minutes of context, widened while a drop is cut by the edge of the read.
+   `span_events` reads the same way.
+5. **A span holds the drop whose steepest moment it holds,** as well as any drop with half its depth inside. A sharp
+   drop whose tail runs on far past the span is that span's event.
+6. **Auto-detect's boxes can name their moment.** `measure(..., anchor=index)` measures the drop at that moment, with
+   the 15 % floor taken against it, even next to a deeper drop.
+7. **The half-way recovery is searched up to the next drop's top, at most 2 h.** The ten-fall-times limit is gone.
+
+On the accepted library (`revised/`; the approved run is left as it was):
+
+| | Approved rule | Revised rule |
+|---|---:|---:|
+| Spans with a drop measured | 2,859 | 2,867 |
+| Spans with no event found | 55 | 47 |
+| Spans holding two or more drop events | 622 (4,025 events) | 618 (3,992 events) |
+| Spans with a measured width | 2,115 | 2,267 |
+| Spans measured on under 30 % of their own range | 35 | 34 |
+
+- **Depth.** It is within 5 % of the approved depth on 2,356 of the 2,853 spans both rules measure.
+- **Deeper.** 37 spans got more than 1.5 × deeper, mostly sharp drops whose long tail the approved rule cut off at the
+  edge of its read.
+- **Shallower.** 36 got shallower than 0.67 ×, mostly slow declines now split off a sharp drop.
+- **Your 12 diagram cases.** They keep their events. Tops and bottoms moved a few seconds onto where the fall leaves
+  its top and arrives at its bottom (within one noise-width), rather than the single highest or lowest sample.
+- **M4 CH1, 281:24–283:00 h.** One event, 281:22.5 → 282:43.0, 49.4 mV. You circled 281:25 → about 282:45.
+
+`revised/whole_drop_revision.png` shows the cases that moved: the approved rule (orange) against the revised one
+(blue). It is drawn by `scripts/library_analysis/fig_whole_drop_revision_20261123.py`, which loads the approved rule
+from its commit. `revised/whole_drop_vs_steep_core.png` is your 12-case diagram under the revised rule.
+
+**Three questions for you** (the OPEN panels of the figure). Each one is about where a drop *ends* when nothing stops
+it cleanly.
+
+1. **A step on a slow drift** (LM CH3, `99f61fa6`). The trace was already drifting down before a 2 mV step, and it
+   drifts on afterwards at the same pace. Read literally, "to the bottom of the tail" runs the step on to the end of
+   the drift, 9 mV an hour later.
+   - Options:
+     - (a) keep that;
+     - (b) end the drop when its fall is back to the pace the trace had *before* the drop: the drop is over when
+       the trace is back to what it was doing;
+     - (c) end it when the pace falls to a fixed fraction of the drop's steepest.
+   - **Recommendation: (b).** It changes only drops that sit on a drift that was already there.
+2. **A sharp drop, then a decline lasting two hours** (LM CH1, `2a1dc6b4`). Nothing was drifting before. The bottom of
+   the tail is two hours later, 19 mV down.
+   - Options:
+     - (a) keep it (M4 CH1's 80-minute tail, which you circled, behaves the same way);
+     - (b) end the tail where it stops slowing down;
+     - (c) cap the tail at a multiple of the steep part's length.
+   - **Recommendation: (a)**, with the long-tail events flagged in the Library so a plot can leave them out.
+3. **A fall that eases off and plunges again** (M2_concat CH10, `082f06a6`). After its first steep part it slows to a
+   fifth of that pace for two minutes, then plunges. The revised rule calls that two drops (46.6 and 43.3 mV); the
+   approved rule called it one (89.9 mV).
+   - Options:
+     - (a) two (now);
+     - (b) one, unless the fall slows to a tenth or pauses.
+   - **Recommendation: (a)**, since it follows "separate drops are never joined", but this is a case your eye should
+     decide.
+
+Queues 48 and 49 were built with the approved rule. Their event bands are context only, so they are left as they
+are. The candidate-event queue (below) will be built with the revised rule.
 
 ## 2. The 10-minute windows
 
@@ -198,4 +301,10 @@ family. The 156 rise-dominated spans are the first examples to look at.
   with no console errors and no server tracebacks.
 - **By eye.** Queue 48 on the sandbox: a hand-labelled sequence, a chain and a multi-event span all render, with
   bands and lines.
-- **Nothing is committed.**
+- **The revision (1b), same evening.**
+  - `tests/test_whole_drop.py`: 25 pass. Eight of them fail on the approved rule (they are the new behaviour).
+  - `tests/test_import_boundaries.py` passes.
+  - Your 12 diagram cases keep their events, and M4 CH1 is one drop.
+  - Every span that lost or gained an event, and the 12 that moved most each way, were looked at against the
+    approved rule by eye.
+  - Not run: the full suite and the smoke walk. No web UI file changed.

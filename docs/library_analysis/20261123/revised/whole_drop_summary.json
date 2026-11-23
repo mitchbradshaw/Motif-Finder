@@ -1,0 +1,114 @@
+{
+  "spans_measured": 2867,
+  "spans": 2914,
+  "rise_dominated": 156,
+  "flagged_core_frac_lt_0.3": 411,
+  "flagged_whole_frac_lt_0.3": 34,
+  "depth_ratio_median": 1.1028733814811373,
+  "depth_within_10pct": 1353,
+  "top_extended_back": 329,
+  "bottom_extended_forward": 427,
+  "width_measured_core": 1858,
+  "width_measured_whole": 2267,
+  "spans_with_several_events": 618,
+  "events_in_spans": 3992,
+  "no_event_found": 47,
+  "cases": [
+    {
+      "case": "the two agree (most spans)",
+      "event_id": "accepted-b26a11907cfbeeb8",
+      "dataset": "M2_aug",
+      "recording_id": 10,
+      "core_depth_mv": 1.1295699903805598,
+      "whole_depth_mv": 1.1295699903805598
+    },
+    {
+      "case": "CH14 square drop: the two agree",
+      "event_id": "accepted-368fe470f5ab5f81",
+      "dataset": "MJu26a",
+      "recording_id": 663,
+      "core_depth_mv": 1.7714158128752615,
+      "whole_depth_mv": 1.7607415526060208
+    },
+    {
+      "case": "a typical span (median depth ratio)",
+      "event_id": "accepted-c49a40dc15ad1bba",
+      "dataset": "LM",
+      "recording_id": 640,
+      "core_depth_mv": 18.82891861839136,
+      "whole_depth_mv": 21.015273575217975
+    },
+    {
+      "case": "a slow decline, a pause, a sharp drop:\ntwo events (your correction)",
+      "event_id": "accepted-fd70c2540b84b100",
+      "dataset": "M2_aug",
+      "recording_id": 6,
+      "core_depth_mv": 8.729168309049783,
+      "whole_depth_mv": 9.182154487794605
+    },
+    {
+      "case": "a steep start and a slow tail:\none event, to the bottom of the tail",
+      "event_id": "accepted-86b1a578aa82e2be",
+      "dataset": "M2_aug",
+      "recording_id": 11,
+      "core_depth_mv": 2.864453144689378,
+      "whole_depth_mv": 4.336969921369928
+    },
+    {
+      "case": "window starts mid-fall (CH15 train):\nthe top is found before it",
+      "event_id": "accepted-d1fd6aab06a584b2",
+      "dataset": "MJu26a",
+      "recording_id": 664,
+      "core_depth_mv": 0.0830308550946341,
+      "whole_depth_mv": 44.00948463163003
+    },
+    {
+      "case": "10 Hz: the core lands on a noise wiggle",
+      "event_id": "accepted-943bdc9e393ee60f",
+      "dataset": "MJu26a",
+      "recording_id": 662,
+      "core_depth_mv": 2.0322912892845864,
+      "whole_depth_mv": 9.547907156855807
+    },
+    {
+      "case": "2 Hz: the core lands on a wiggle",
+      "event_id": "accepted-97ee1da3ccd74fd3",
+      "dataset": "SO",
+      "recording_id": 713,
+      "core_depth_mv": 0.162797910847928,
+      "whole_depth_mv": 1.7094662801509344
+    },
+    {
+      "case": "1 Hz: the core lands on a wiggle",
+      "event_id": "accepted-2523b7c6212f0b63",
+      "dataset": "M2_aug",
+      "recording_id": 2,
+      "core_depth_mv": 0.9818973636871532,
+      "whole_depth_mv": 7.272634347416556
+    },
+    {
+      "case": "a staircase, fall-pause-fall:\ntwo events (your correction)",
+      "event_id": "accepted-22b811f0b7589aeb",
+      "dataset": "M2_aug",
+      "recording_id": 8,
+      "core_depth_mv": 2.30988271891556,
+      "whole_depth_mv": 2.4048976020692407
+    },
+    {
+      "case": "falls separated by rebounds:\nfour events (your correction)",
+      "event_id": "accepted-a534d565cd14128d",
+      "dataset": "M2_aug",
+      "recording_id": 8,
+      "core_depth_mv": 6.717582000267839,
+      "whole_depth_mv": 7.97090599281205
+    },
+    {
+      "case": "rise first, then the fall runs on\nto its bottom (your correction)",
+      "event_id": "accepted-5fa3587d7bc76b5a",
+      "dataset": "SH",
+      "recording_id": 709,
+      "core_depth_mv": 0.1110494569536424,
+      "whole_depth_mv": 1.3726817423677016
+    }
+  ]
+}
