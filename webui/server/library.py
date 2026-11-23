@@ -59,6 +59,7 @@ from Working.library import hand_edits as hand_edits_mod
 from Working.library import matching as matching_mod
 from Working.library import rose_reference as rose_mod
 from Working.library import sequences as seq_mod
+from Working.review.sequence_queue import NOT_CANDIDATE_SQL
 from Working.library import verdicts as verdicts_mod
 from Working.library import view_filter as vf_mod
 from Working.library.grouping import bases as bases_mod
@@ -1136,7 +1137,7 @@ def get_counts(request: Request):
             # the column existed, not an unknown third thing
             "motifs": one("SELECT COUNT(*) FROM motif_entry WHERE scale = 'event' OR scale IS NULL"),
             "spikeTrains": one("SELECT COUNT(*) FROM motif_entry WHERE scale = 'train'"),
-            "sequences": one("SELECT COUNT(*) FROM sequences"),
+            "sequences": one(f"SELECT COUNT(*) FROM sequences WHERE {NOT_CANDIDATE_SQL}"),
             "templates": one("SELECT COUNT(*) FROM templates"),
             "windowSets": one("SELECT COUNT(*) FROM window_sets"),
         }
@@ -2038,7 +2039,7 @@ def get_grouping_editor(request: Request, unit: str = Query(default="motifs")):
         index = _recordings_index(conn)
         counts = {
             "motifs": conn.execute("SELECT COUNT(*) FROM motif_entry WHERE scale = 'event' OR scale IS NULL").fetchone()[0],
-            "sequences": conn.execute("SELECT COUNT(*) FROM sequences").fetchone()[0],
+            "sequences": conn.execute(f"SELECT COUNT(*) FROM sequences WHERE {NOT_CANDIDATE_SQL}").fetchone()[0],
             "spike-trains": conn.execute("SELECT COUNT(*) FROM motif_entry WHERE scale = 'train'").fetchone()[0],
         }
         units = [
@@ -2443,10 +2444,11 @@ def get_sequences(request: Request, needs_extraction: int = Query(default=0)):
     conn = _conn(request)
     try:
         index = _recordings_index(conn)
-        sql = "SELECT * FROM sequences"
+        # a sequence-review candidate is a proposal awaiting review, not Library content (`sequence_queue`)
+        sql = f"SELECT * FROM sequences WHERE {NOT_CANDIDATE_SQL}"
         args = ()
         if int(needs_extraction):
-            sql += " WHERE needs_extraction = 1"
+            sql += " AND needs_extraction = 1"
         out = []
         for r in conn.execute(sql + " ORDER BY id"):
             meta = index["by_id"].get(int(r["recording_id"] or 0))
@@ -2891,7 +2893,7 @@ def get_sequence_morph(request: Request, family: str | None = Query(default=None
             removed = _seq_removed(conn, set(keys.values()), family)
             ids = [i for i in ids if keys.get(i) not in removed]
         else:
-            ids = [int(r[0]) for r in conn.execute("SELECT id FROM sequences ORDER BY id")]
+            ids = [int(r[0]) for r in conn.execute(f"SELECT id FROM sequences WHERE {NOT_CANDIDATE_SQL} ORDER BY id")]
         held = {rid for rid, m in index["by_id"].items() if m.get("held_out")}
         ids = [int(r[0]) for r in conn.execute(
             f"SELECT id, recording_id FROM sequences WHERE id IN ({','.join('?' * len(ids))}) ORDER BY id", ids)
@@ -3002,7 +3004,7 @@ def _grouping_item_count(conn, unit_db, limit=None) -> int:
     """How many rows `_grouping_items` would read, without reading a waveform —
     what the cost estimate is made on before a regroup job starts."""
     if unit_db == "sequences":
-        n = int(conn.execute("SELECT COUNT(*) FROM sequences").fetchone()[0])
+        n = int(conn.execute(f"SELECT COUNT(*) FROM sequences WHERE {NOT_CANDIDATE_SQL}").fetchone()[0])
     else:
         scale = "train" if unit_db == "spike_trains" else "event"
         n = int(conn.execute(
@@ -3014,7 +3016,8 @@ def _grouping_item_count(conn, unit_db, limit=None) -> int:
 def _grouping_items(conn, index, unit_db, limit=None):
     """The items the engine groups, with their waveforms read off disk."""
     if unit_db == "sequences":
-        rows = conn.execute("SELECT id, recording_id, start_idx, end_idx, content_hash FROM sequences ORDER BY id").fetchall()
+        rows = conn.execute("SELECT id, recording_id, start_idx, end_idx, content_hash FROM sequences "
+                            f"WHERE {NOT_CANDIDATE_SQL} ORDER BY id").fetchall()
     else:
         scale = "train" if unit_db == "spike_trains" else "event"
         rows = conn.execute(

@@ -1,0 +1,49 @@
+{
+ "queue_id": 48,
+ "created_candidates": 473,
+ "counts": {
+  "total": 500,
+  "judged": 0,
+  "remaining": 500
+ },
+ "backup": "C:\\Users\\mmebr\\Documents\\CNN\\DATA\\db\\backups\\before_sequence_review_20261123_143252.sqlite",
+ "hand_labelled": 27,
+ "chains": 126,
+ "multi_event_spans": 347,
+ "total": 500,
+ "skipped": {
+  "chain inside a hand-labelled sequence": 21,
+  "multi-event span inside a chain or hand-labelled sequence": 275
+ },
+ "chain_events": 1671,
+ "multi_span_events": 835,
+ "chains_by_recording": {
+  "M2_aug": 48,
+  "M2_concat": 10,
+  "M4_aug": 11,
+  "LM": 23,
+  "CO": 10,
+  "MJu26a": 18,
+  "SH": 2,
+  "SO": 4
+ },
+ "multi_by_recording": {
+  "M2_aug": 122,
+  "M2_concat": 45,
+  "M4_aug": 21,
+  "LM": 44,
+  "CO": 38,
+  "MJu26a": 35,
+  "SH": 22,
+  "SO": 20
+ },
+ "chain_hours_median": 1.0579166666666668,
+ "chain_hours_max": 90.49877777777778,
+ "multi_events_histogram": {
+  "2": 251,
+  "3": 63,
+  "4": 24,
+  "5": 6,
+  "6": 3
+ }
+}

@@ -231,6 +231,12 @@ def _resolve_target(conn, queue, target_id):
                 f"detection {rid} belongs to a surrogate run: it is a null draw, not a "
                 f"detection, and takes no verdict")
 
+    if unit == "sequence" and queue["source_kind"] == "sequence-review":
+        # 2026-11-23: a candidate has no annotation until its first verdict writes one
+        # (`sequence_queue`); a hand-labelled sequence's verdict lands on its own row
+        from Working.review.sequence_queue import review_annotation_id
+        return rid, review_annotation_id(conn, rid)
+
     if unit == "sequence":
         # `sequences.annotation_id` is the pointer; `sequences.id` is not. On
         # the project database every sequence id in the seeded extract-events
@@ -540,6 +546,10 @@ def _restore_adjudication(conn, target_id, prior, carried=None):
 def _restore_annotation(conn, target_id, prior):
     if prior is None:
         return
+    if "created_sequence_id" in prior or "deleted_sequence" in prior:
+        # a sequence-review verdict stored (or took out) a human sequence beside the annotation
+        from Working.review.sequence_queue import restore_side_effects
+        restore_side_effects(conn, prior)
     if prior.get("inserted"):
         # the verdict created this row (a suspected-artifact queue's): undo
         # withdraws it, the way every human row is withdrawn — soft
@@ -609,6 +619,10 @@ def _apply(conn, queue, target_id, row_id, verdict, note, tags, window_index, cl
         else:
             from Working.review.artifact_queue import write_member_verdict
         prior, row_id = write_member_verdict(conn, queue, target_id, verdict, note, tags)
+        return prior, None, row_id
+    if writes_to == "annotations" and queue["source_kind"] == "sequence-review":
+        from Working.review.sequence_queue import write_sequence_verdict
+        prior, row_id = write_sequence_verdict(conn, queue, target_id, verdict, note, tags)
         return prior, None, row_id
     if writes_to == "annotations" and queue["unit"] == "test window":
         from Working.training.blind import write_showing_verdict

@@ -1,0 +1,7573 @@
+{
+ "note": "interesting 10-min windows (merged where touching) holding ONE drop event (whole-drop rule): single-event candidates for the candidate-event queue that follows queue 48",
+ "events": [
+  {
+   "recording_id": 1,
+   "window_start_idx": 149800,
+   "window_end_idx": 150400,
+   "windows": [
+    1211
+   ],
+   "top_idx": 150238,
+   "bottom_idx": 150268,
+   "depth_mv": 47.4148,
+   "fall_s": 30.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 156200,
+   "window_end_idx": 156800,
+   "windows": [
+    1063
+   ],
+   "top_idx": 156482,
+   "bottom_idx": 156496,
+   "depth_mv": 1.8734,
+   "fall_s": 14.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 300600,
+   "window_end_idx": 301200,
+   "windows": [
+    615
+   ],
+   "top_idx": 300804,
+   "bottom_idx": 300941,
+   "depth_mv": 4.9078,
+   "fall_s": 137.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 365800,
+   "window_end_idx": 366400,
+   "windows": [
+    1605
+   ],
+   "top_idx": 365801,
+   "bottom_idx": 365943,
+   "depth_mv": 1.595,
+   "fall_s": 142.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 408400,
+   "window_end_idx": 409000,
+   "windows": [
+    1084
+   ],
+   "top_idx": 408601,
+   "bottom_idx": 408779,
+   "depth_mv": 12.0473,
+   "fall_s": 178.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 440400,
+   "window_end_idx": 441000,
+   "windows": [
+    1
+   ],
+   "top_idx": 440772,
+   "bottom_idx": 440999,
+   "depth_mv": 12.209,
+   "fall_s": 227.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 467600,
+   "window_end_idx": 468200,
+   "windows": [
+    911
+   ],
+   "top_idx": 468018,
+   "bottom_idx": 468199,
+   "depth_mv": 2.2027,
+   "fall_s": 181.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 519400,
+   "window_end_idx": 520000,
+   "windows": [
+    601
+   ],
+   "top_idx": 519709,
+   "bottom_idx": 519727,
+   "depth_mv": 62.6945,
+   "fall_s": 18.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 570400,
+   "window_end_idx": 571000,
+   "windows": [
+    455
+   ],
+   "top_idx": 570794,
+   "bottom_idx": 570823,
+   "depth_mv": 3.2979,
+   "fall_s": 29.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 665400,
+   "window_end_idx": 666000,
+   "windows": [
+    1048
+   ],
+   "top_idx": 665676,
+   "bottom_idx": 665998,
+   "depth_mv": 5.0038,
+   "fall_s": 322.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 683200,
+   "window_end_idx": 683800,
+   "windows": [
+    610
+   ],
+   "top_idx": 683391,
+   "bottom_idx": 683481,
+   "depth_mv": 19.6784,
+   "fall_s": 90.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 717800,
+   "window_end_idx": 718400,
+   "windows": [
+    989
+   ],
+   "top_idx": 718020,
+   "bottom_idx": 718153,
+   "depth_mv": 2.854,
+   "fall_s": 133.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 723400,
+   "window_end_idx": 724000,
+   "windows": [
+    367
+   ],
+   "top_idx": 723533,
+   "bottom_idx": 723999,
+   "depth_mv": 35.5272,
+   "fall_s": 466.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 742000,
+   "window_end_idx": 742600,
+   "windows": [
+    963
+   ],
+   "top_idx": 742001,
+   "bottom_idx": 742335,
+   "depth_mv": 1.5754,
+   "fall_s": 334.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 808800,
+   "window_end_idx": 809400,
+   "windows": [
+    1193
+   ],
+   "top_idx": 809005,
+   "bottom_idx": 809059,
+   "depth_mv": 1.6789,
+   "fall_s": 54.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 851600,
+   "window_end_idx": 852200,
+   "windows": [
+    465
+   ],
+   "top_idx": 851772,
+   "bottom_idx": 851885,
+   "depth_mv": 27.6123,
+   "fall_s": 113.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 865600,
+   "window_end_idx": 866200,
+   "windows": [
+    550
+   ],
+   "top_idx": 866147,
+   "bottom_idx": 866155,
+   "depth_mv": 0.1915,
+   "fall_s": 8.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 908000,
+   "window_end_idx": 908600,
+   "windows": [
+    1473
+   ],
+   "top_idx": 908000,
+   "bottom_idx": 908127,
+   "depth_mv": 10.8661,
+   "fall_s": 127.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 953800,
+   "window_end_idx": 954400,
+   "windows": [
+    1302
+   ],
+   "top_idx": 954322,
+   "bottom_idx": 954365,
+   "depth_mv": 72.1528,
+   "fall_s": 43.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 955600,
+   "window_end_idx": 956200,
+   "windows": [
+    530
+   ],
+   "top_idx": 956012,
+   "bottom_idx": 956041,
+   "depth_mv": 64.7263,
+   "fall_s": 29.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 962200,
+   "window_end_idx": 962800,
+   "windows": [
+    2116
+   ],
+   "top_idx": 962707,
+   "bottom_idx": 962713,
+   "depth_mv": 46.4272,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 974000,
+   "window_end_idx": 974600,
+   "windows": [
+    741
+   ],
+   "top_idx": 974172,
+   "bottom_idx": 974295,
+   "depth_mv": 70.7208,
+   "fall_s": 123.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 976200,
+   "window_end_idx": 977000,
+   "windows": [
+    556,
+    688
+   ],
+   "top_idx": 976589,
+   "bottom_idx": 976663,
+   "depth_mv": 81.6841,
+   "fall_s": 74.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 990800,
+   "window_end_idx": 991400,
+   "windows": [
+    2100
+   ],
+   "top_idx": 990904,
+   "bottom_idx": 991074,
+   "depth_mv": 1.4625,
+   "fall_s": 170.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 996800,
+   "window_end_idx": 997400,
+   "windows": [
+    1622
+   ],
+   "top_idx": 996966,
+   "bottom_idx": 996993,
+   "depth_mv": 2.0624,
+   "fall_s": 27.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1003000,
+   "window_end_idx": 1003600,
+   "windows": [
+    1580
+   ],
+   "top_idx": 1003001,
+   "bottom_idx": 1003083,
+   "depth_mv": 55.8868,
+   "fall_s": 82.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1020600,
+   "window_end_idx": 1021200,
+   "windows": [
+    1975
+   ],
+   "top_idx": 1020672,
+   "bottom_idx": 1020850,
+   "depth_mv": 27.8203,
+   "fall_s": 178.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1038800,
+   "window_end_idx": 1039400,
+   "windows": [
+    1738
+   ],
+   "top_idx": 1039133,
+   "bottom_idx": 1039399,
+   "depth_mv": 39.0408,
+   "fall_s": 266.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1064800,
+   "window_end_idx": 1065400,
+   "windows": [
+    816
+   ],
+   "top_idx": 1065148,
+   "bottom_idx": 1065297,
+   "depth_mv": 24.2413,
+   "fall_s": 149.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1189600,
+   "window_end_idx": 1190200,
+   "windows": [
+    1150
+   ],
+   "top_idx": 1189600,
+   "bottom_idx": 1189875,
+   "depth_mv": 4.1176,
+   "fall_s": 275.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1218200,
+   "window_end_idx": 1218800,
+   "windows": [
+    1091
+   ],
+   "top_idx": 1218200,
+   "bottom_idx": 1218366,
+   "depth_mv": 1.343,
+   "fall_s": 166.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1219600,
+   "window_end_idx": 1220200,
+   "windows": [
+    1623
+   ],
+   "top_idx": 1220046,
+   "bottom_idx": 1220198,
+   "depth_mv": 25.7582,
+   "fall_s": 152.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1226200,
+   "window_end_idx": 1227000,
+   "windows": [
+    1216,
+    1187
+   ],
+   "top_idx": 1226558,
+   "bottom_idx": 1226999,
+   "depth_mv": 42.5185,
+   "fall_s": 441.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1234600,
+   "window_end_idx": 1235200,
+   "windows": [
+    1160
+   ],
+   "top_idx": 1234782,
+   "bottom_idx": 1235198,
+   "depth_mv": 49.9375,
+   "fall_s": 416.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1256800,
+   "window_end_idx": 1257400,
+   "windows": [
+    681
+   ],
+   "top_idx": 1257196,
+   "bottom_idx": 1257221,
+   "depth_mv": 0.9583,
+   "fall_s": 25.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1310200,
+   "window_end_idx": 1310800,
+   "windows": [
+    269
+   ],
+   "top_idx": 1310699,
+   "bottom_idx": 1310799,
+   "depth_mv": 6.1493,
+   "fall_s": 100.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1576600,
+   "window_end_idx": 1577200,
+   "windows": [
+    651
+   ],
+   "top_idx": 1576847,
+   "bottom_idx": 1576871,
+   "depth_mv": 1.5114,
+   "fall_s": 24.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1588600,
+   "window_end_idx": 1589200,
+   "windows": [
+    86
+   ],
+   "top_idx": 1588600,
+   "bottom_idx": 1588758,
+   "depth_mv": 6.0304,
+   "fall_s": 158.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1603600,
+   "window_end_idx": 1604200,
+   "windows": [
+    2149
+   ],
+   "top_idx": 1604000,
+   "bottom_idx": 1604017,
+   "depth_mv": 1.5117,
+   "fall_s": 17.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1622000,
+   "window_end_idx": 1622600,
+   "windows": [
+    598
+   ],
+   "top_idx": 1622126,
+   "bottom_idx": 1622144,
+   "depth_mv": 4.8666,
+   "fall_s": 18.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1624200,
+   "window_end_idx": 1624800,
+   "windows": [
+    1319
+   ],
+   "top_idx": 1624347,
+   "bottom_idx": 1624358,
+   "depth_mv": 5.3982,
+   "fall_s": 11.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1744800,
+   "window_end_idx": 1745400,
+   "windows": [
+    1022
+   ],
+   "top_idx": 1744816,
+   "bottom_idx": 1744934,
+   "depth_mv": 1.6501,
+   "fall_s": 118.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1773400,
+   "window_end_idx": 1774000,
+   "windows": [
+    563
+   ],
+   "top_idx": 1773400,
+   "bottom_idx": 1773699,
+   "depth_mv": 5.9782,
+   "fall_s": 299.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1793800,
+   "window_end_idx": 1794400,
+   "windows": [
+    250
+   ],
+   "top_idx": 1794167,
+   "bottom_idx": 1794399,
+   "depth_mv": 3.8775,
+   "fall_s": 232.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1801200,
+   "window_end_idx": 1801800,
+   "windows": [
+    1014
+   ],
+   "top_idx": 1801348,
+   "bottom_idx": 1801619,
+   "depth_mv": 33.4592,
+   "fall_s": 271.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1805800,
+   "window_end_idx": 1806400,
+   "windows": [
+    1215
+   ],
+   "top_idx": 1806004,
+   "bottom_idx": 1806398,
+   "depth_mv": 39.2289,
+   "fall_s": 394.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1858400,
+   "window_end_idx": 1859000,
+   "windows": [
+    743
+   ],
+   "top_idx": 1858594,
+   "bottom_idx": 1858611,
+   "depth_mv": 9.9032,
+   "fall_s": 17.0
+  },
+  {
+   "recording_id": 1,
+   "window_start_idx": 1926400,
+   "window_end_idx": 1927000,
+   "windows": [
+    848
+   ],
+   "top_idx": 1926708,
+   "bottom_idx": 1926827,
+   "depth_mv": 2.0365,
+   "fall_s": 119.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 56000,
+   "window_end_idx": 56600,
+   "windows": [
+    99
+   ],
+   "top_idx": 56055,
+   "bottom_idx": 56067,
+   "depth_mv": 0.9752,
+   "fall_s": 12.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 62600,
+   "window_end_idx": 63200,
+   "windows": [
+    2103
+   ],
+   "top_idx": 62750,
+   "bottom_idx": 62823,
+   "depth_mv": 3.3319,
+   "fall_s": 73.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 210200,
+   "window_end_idx": 210800,
+   "windows": [
+    1163
+   ],
+   "top_idx": 210292,
+   "bottom_idx": 210311,
+   "depth_mv": 1.1567,
+   "fall_s": 19.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 267200,
+   "window_end_idx": 267800,
+   "windows": [
+    1604
+   ],
+   "top_idx": 267267,
+   "bottom_idx": 267287,
+   "depth_mv": 3.1373,
+   "fall_s": 20.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 301000,
+   "window_end_idx": 301600,
+   "windows": [
+    1709
+   ],
+   "top_idx": 301467,
+   "bottom_idx": 301503,
+   "depth_mv": 27.0255,
+   "fall_s": 36.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 359000,
+   "window_end_idx": 359600,
+   "windows": [
+    452
+   ],
+   "top_idx": 359252,
+   "bottom_idx": 359464,
+   "depth_mv": 3.6651,
+   "fall_s": 212.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 929600,
+   "window_end_idx": 930200,
+   "windows": [
+    1192
+   ],
+   "top_idx": 929672,
+   "bottom_idx": 929775,
+   "depth_mv": 0.5028,
+   "fall_s": 103.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1096200,
+   "window_end_idx": 1096800,
+   "windows": [
+    1206
+   ],
+   "top_idx": 1096567,
+   "bottom_idx": 1096584,
+   "depth_mv": 22.0687,
+   "fall_s": 17.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1103600,
+   "window_end_idx": 1104200,
+   "windows": [
+    324
+   ],
+   "top_idx": 1103794,
+   "bottom_idx": 1103811,
+   "depth_mv": 23.0311,
+   "fall_s": 17.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1140000,
+   "window_end_idx": 1140600,
+   "windows": [
+    1679
+   ],
+   "top_idx": 1140290,
+   "bottom_idx": 1140325,
+   "depth_mv": 64.0696,
+   "fall_s": 35.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1152800,
+   "window_end_idx": 1153400,
+   "windows": [
+    1529
+   ],
+   "top_idx": 1152844,
+   "bottom_idx": 1152887,
+   "depth_mv": 27.9276,
+   "fall_s": 43.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1188000,
+   "window_end_idx": 1188600,
+   "windows": [
+    2039
+   ],
+   "top_idx": 1188000,
+   "bottom_idx": 1188513,
+   "depth_mv": 10.0686,
+   "fall_s": 513.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1195800,
+   "window_end_idx": 1196400,
+   "windows": [
+    1166
+   ],
+   "top_idx": 1195863,
+   "bottom_idx": 1196299,
+   "depth_mv": 7.3238,
+   "fall_s": 436.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1313000,
+   "window_end_idx": 1313600,
+   "windows": [
+    1374
+   ],
+   "top_idx": 1313548,
+   "bottom_idx": 1313598,
+   "depth_mv": 5.6436,
+   "fall_s": 50.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1323800,
+   "window_end_idx": 1324400,
+   "windows": [
+    1316
+   ],
+   "top_idx": 1323800,
+   "bottom_idx": 1324131,
+   "depth_mv": 6.8718,
+   "fall_s": 331.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1326000,
+   "window_end_idx": 1326600,
+   "windows": [
+    1742
+   ],
+   "top_idx": 1326099,
+   "bottom_idx": 1326367,
+   "depth_mv": 6.9219,
+   "fall_s": 268.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1401200,
+   "window_end_idx": 1401800,
+   "windows": [
+    529
+   ],
+   "top_idx": 1401537,
+   "bottom_idx": 1401661,
+   "depth_mv": 3.7536,
+   "fall_s": 124.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1403000,
+   "window_end_idx": 1403600,
+   "windows": [
+    2000
+   ],
+   "top_idx": 1403264,
+   "bottom_idx": 1403308,
+   "depth_mv": 3.3243,
+   "fall_s": 44.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1415400,
+   "window_end_idx": 1416000,
+   "windows": [
+    1796
+   ],
+   "top_idx": 1415665,
+   "bottom_idx": 1415822,
+   "depth_mv": 21.4574,
+   "fall_s": 157.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1448000,
+   "window_end_idx": 1448600,
+   "windows": [
+    2275
+   ],
+   "top_idx": 1448210,
+   "bottom_idx": 1448560,
+   "depth_mv": 18.8305,
+   "fall_s": 350.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1463400,
+   "window_end_idx": 1464000,
+   "windows": [
+    1655
+   ],
+   "top_idx": 1463758,
+   "bottom_idx": 1463999,
+   "depth_mv": 21.3664,
+   "fall_s": 241.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1466600,
+   "window_end_idx": 1468200,
+   "windows": [
+    2040,
+    1404,
+    458
+   ],
+   "top_idx": 1467891,
+   "bottom_idx": 1468198,
+   "depth_mv": 28.3646,
+   "fall_s": 307.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1472000,
+   "window_end_idx": 1472600,
+   "windows": [
+    399
+   ],
+   "top_idx": 1472532,
+   "bottom_idx": 1472539,
+   "depth_mv": 0.4719,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1478000,
+   "window_end_idx": 1478800,
+   "windows": [
+    1608,
+    2110
+   ],
+   "top_idx": 1478124,
+   "bottom_idx": 1478327,
+   "depth_mv": 5.6674,
+   "fall_s": 203.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1479200,
+   "window_end_idx": 1479800,
+   "windows": [
+    1201
+   ],
+   "top_idx": 1479340,
+   "bottom_idx": 1479351,
+   "depth_mv": 0.5316,
+   "fall_s": 11.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1480800,
+   "window_end_idx": 1481400,
+   "windows": [
+    862
+   ],
+   "top_idx": 1480911,
+   "bottom_idx": 1480929,
+   "depth_mv": 0.8758,
+   "fall_s": 18.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1488600,
+   "window_end_idx": 1489200,
+   "windows": [
+    957
+   ],
+   "top_idx": 1489086,
+   "bottom_idx": 1489199,
+   "depth_mv": 69.0182,
+   "fall_s": 113.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1521200,
+   "window_end_idx": 1521800,
+   "windows": [
+    2166
+   ],
+   "top_idx": 1521200,
+   "bottom_idx": 1521545,
+   "depth_mv": 16.3086,
+   "fall_s": 345.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1527000,
+   "window_end_idx": 1527600,
+   "windows": [
+    286
+   ],
+   "top_idx": 1527000,
+   "bottom_idx": 1527599,
+   "depth_mv": 24.5918,
+   "fall_s": 599.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1536200,
+   "window_end_idx": 1536800,
+   "windows": [
+    1517
+   ],
+   "top_idx": 1536604,
+   "bottom_idx": 1536672,
+   "depth_mv": 2.9161,
+   "fall_s": 68.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1561000,
+   "window_end_idx": 1561600,
+   "windows": [
+    536
+   ],
+   "top_idx": 1561160,
+   "bottom_idx": 1561222,
+   "depth_mv": 4.6761,
+   "fall_s": 62.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1562600,
+   "window_end_idx": 1563200,
+   "windows": [
+    1902
+   ],
+   "top_idx": 1562803,
+   "bottom_idx": 1562838,
+   "depth_mv": 13.4788,
+   "fall_s": 35.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1565800,
+   "window_end_idx": 1566400,
+   "windows": [
+    2261
+   ],
+   "top_idx": 1566341,
+   "bottom_idx": 1566359,
+   "depth_mv": 0.6644,
+   "fall_s": 18.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1568000,
+   "window_end_idx": 1568600,
+   "windows": [
+    277
+   ],
+   "top_idx": 1568000,
+   "bottom_idx": 1568119,
+   "depth_mv": 1.3174,
+   "fall_s": 119.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1592200,
+   "window_end_idx": 1592800,
+   "windows": [
+    225
+   ],
+   "top_idx": 1592672,
+   "bottom_idx": 1592799,
+   "depth_mv": 108.1076,
+   "fall_s": 127.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1608200,
+   "window_end_idx": 1608800,
+   "windows": [
+    2084
+   ],
+   "top_idx": 1608521,
+   "bottom_idx": 1608799,
+   "depth_mv": 112.1787,
+   "fall_s": 278.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1614000,
+   "window_end_idx": 1614600,
+   "windows": [
+    1763
+   ],
+   "top_idx": 1614332,
+   "bottom_idx": 1614599,
+   "depth_mv": 102.6401,
+   "fall_s": 267.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1640200,
+   "window_end_idx": 1640800,
+   "windows": [
+    354
+   ],
+   "top_idx": 1640437,
+   "bottom_idx": 1640446,
+   "depth_mv": 4.8613,
+   "fall_s": 9.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1643200,
+   "window_end_idx": 1643800,
+   "windows": [
+    880
+   ],
+   "top_idx": 1643221,
+   "bottom_idx": 1643725,
+   "depth_mv": 30.0143,
+   "fall_s": 504.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1649600,
+   "window_end_idx": 1650200,
+   "windows": [
+    345
+   ],
+   "top_idx": 1649600,
+   "bottom_idx": 1649702,
+   "depth_mv": 0.7342,
+   "fall_s": 102.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1718600,
+   "window_end_idx": 1719200,
+   "windows": [
+    1793
+   ],
+   "top_idx": 1718686,
+   "bottom_idx": 1718720,
+   "depth_mv": 2.1107,
+   "fall_s": 34.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1747400,
+   "window_end_idx": 1748000,
+   "windows": [
+    938
+   ],
+   "top_idx": 1747888,
+   "bottom_idx": 1747975,
+   "depth_mv": 3.1291,
+   "fall_s": 87.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1809600,
+   "window_end_idx": 1810200,
+   "windows": [
+    909
+   ],
+   "top_idx": 1809660,
+   "bottom_idx": 1809928,
+   "depth_mv": 7.0516,
+   "fall_s": 268.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 1936400,
+   "window_end_idx": 1937000,
+   "windows": [
+    2244
+   ],
+   "top_idx": 1936595,
+   "bottom_idx": 1936770,
+   "depth_mv": 4.564,
+   "fall_s": 175.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 2143400,
+   "window_end_idx": 2144000,
+   "windows": [
+    656
+   ],
+   "top_idx": 2143612,
+   "bottom_idx": 2143999,
+   "depth_mv": 1.5809,
+   "fall_s": 387.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 2246400,
+   "window_end_idx": 2247000,
+   "windows": [
+    1357
+   ],
+   "top_idx": 2246521,
+   "bottom_idx": 2246606,
+   "depth_mv": 0.8258,
+   "fall_s": 85.0
+  },
+  {
+   "recording_id": 2,
+   "window_start_idx": 2459200,
+   "window_end_idx": 2459800,
+   "windows": [
+    274
+   ],
+   "top_idx": 2459200,
+   "bottom_idx": 2459799,
+   "depth_mv": 2.5825,
+   "fall_s": 599.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 43000,
+   "window_end_idx": 43600,
+   "windows": [
+    107
+   ],
+   "top_idx": 43229,
+   "bottom_idx": 43254,
+   "depth_mv": 1.8373,
+   "fall_s": 25.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 116600,
+   "window_end_idx": 117200,
+   "windows": [
+    1186
+   ],
+   "top_idx": 116828,
+   "bottom_idx": 116834,
+   "depth_mv": 12.2854,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 119400,
+   "window_end_idx": 120000,
+   "windows": [
+    1915
+   ],
+   "top_idx": 119594,
+   "bottom_idx": 119632,
+   "depth_mv": 2.0622,
+   "fall_s": 38.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 177200,
+   "window_end_idx": 177800,
+   "windows": [
+    2323
+   ],
+   "top_idx": 177347,
+   "bottom_idx": 177660,
+   "depth_mv": 149.6369,
+   "fall_s": 313.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 178600,
+   "window_end_idx": 179200,
+   "windows": [
+    2239
+   ],
+   "top_idx": 178748,
+   "bottom_idx": 179050,
+   "depth_mv": 21.7783,
+   "fall_s": 302.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 195800,
+   "window_end_idx": 196400,
+   "windows": [
+    2121
+   ],
+   "top_idx": 196233,
+   "bottom_idx": 196236,
+   "depth_mv": 3.0973,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 223200,
+   "window_end_idx": 223800,
+   "windows": [
+    346
+   ],
+   "top_idx": 223502,
+   "bottom_idx": 223504,
+   "depth_mv": 4.1664,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 283800,
+   "window_end_idx": 284400,
+   "windows": [
+    844
+   ],
+   "top_idx": 283950,
+   "bottom_idx": 284008,
+   "depth_mv": 2.4122,
+   "fall_s": 58.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 308200,
+   "window_end_idx": 308800,
+   "windows": [
+    1001
+   ],
+   "top_idx": 308578,
+   "bottom_idx": 308585,
+   "depth_mv": 1.7333,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 315200,
+   "window_end_idx": 315800,
+   "windows": [
+    1549
+   ],
+   "top_idx": 315205,
+   "bottom_idx": 315273,
+   "depth_mv": 1.8633,
+   "fall_s": 68.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 337000,
+   "window_end_idx": 337600,
+   "windows": [
+    980
+   ],
+   "top_idx": 337100,
+   "bottom_idx": 337104,
+   "depth_mv": 1.4797,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 418600,
+   "window_end_idx": 419200,
+   "windows": [
+    2178
+   ],
+   "top_idx": 418627,
+   "bottom_idx": 418633,
+   "depth_mv": 2.313,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 498600,
+   "window_end_idx": 499200,
+   "windows": [
+    2330
+   ],
+   "top_idx": 499058,
+   "bottom_idx": 499062,
+   "depth_mv": 0.8537,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 504200,
+   "window_end_idx": 504800,
+   "windows": [
+    1887
+   ],
+   "top_idx": 504355,
+   "bottom_idx": 504371,
+   "depth_mv": 22.3302,
+   "fall_s": 16.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 509600,
+   "window_end_idx": 510200,
+   "windows": [
+    1288
+   ],
+   "top_idx": 509623,
+   "bottom_idx": 509771,
+   "depth_mv": 58.1251,
+   "fall_s": 148.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 526600,
+   "window_end_idx": 527200,
+   "windows": [
+    1993
+   ],
+   "top_idx": 526765,
+   "bottom_idx": 526855,
+   "depth_mv": 0.8774,
+   "fall_s": 90.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 534000,
+   "window_end_idx": 534800,
+   "windows": [
+    70,
+    1982
+   ],
+   "top_idx": 534353,
+   "bottom_idx": 534561,
+   "depth_mv": 8.0548,
+   "fall_s": 208.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 554000,
+   "window_end_idx": 554600,
+   "windows": [
+    237
+   ],
+   "top_idx": 554157,
+   "bottom_idx": 554414,
+   "depth_mv": 4.2095,
+   "fall_s": 257.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 556600,
+   "window_end_idx": 557200,
+   "windows": [
+    1351
+   ],
+   "top_idx": 556933,
+   "bottom_idx": 556942,
+   "depth_mv": 4.3454,
+   "fall_s": 9.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 579800,
+   "window_end_idx": 580400,
+   "windows": [
+    753
+   ],
+   "top_idx": 579842,
+   "bottom_idx": 579867,
+   "depth_mv": 2.9951,
+   "fall_s": 25.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 609400,
+   "window_end_idx": 610400,
+   "windows": [
+    822,
+    275
+   ],
+   "top_idx": 609861,
+   "bottom_idx": 610011,
+   "depth_mv": 3.259,
+   "fall_s": 150.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 611800,
+   "window_end_idx": 612400,
+   "windows": [
+    2224
+   ],
+   "top_idx": 611869,
+   "bottom_idx": 611879,
+   "depth_mv": 3.6436,
+   "fall_s": 10.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 643000,
+   "window_end_idx": 644000,
+   "windows": [
+    1208,
+    643
+   ],
+   "top_idx": 643410,
+   "bottom_idx": 643416,
+   "depth_mv": 4.6468,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 653200,
+   "window_end_idx": 653800,
+   "windows": [
+    1135
+   ],
+   "top_idx": 653641,
+   "bottom_idx": 653798,
+   "depth_mv": 1.5123,
+   "fall_s": 157.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 670600,
+   "window_end_idx": 671200,
+   "windows": [
+    1133
+   ],
+   "top_idx": 670715,
+   "bottom_idx": 670829,
+   "depth_mv": 2.1851,
+   "fall_s": 114.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 713600,
+   "window_end_idx": 714200,
+   "windows": [
+    1235
+   ],
+   "top_idx": 713912,
+   "bottom_idx": 714022,
+   "depth_mv": 8.7481,
+   "fall_s": 110.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 721200,
+   "window_end_idx": 721800,
+   "windows": [
+    1386
+   ],
+   "top_idx": 721626,
+   "bottom_idx": 721688,
+   "depth_mv": 51.9065,
+   "fall_s": 62.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 774200,
+   "window_end_idx": 774800,
+   "windows": [
+    1315
+   ],
+   "top_idx": 774200,
+   "bottom_idx": 774237,
+   "depth_mv": 9.773,
+   "fall_s": 37.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 793800,
+   "window_end_idx": 794400,
+   "windows": [
+    1981
+   ],
+   "top_idx": 793999,
+   "bottom_idx": 794052,
+   "depth_mv": 32.693,
+   "fall_s": 53.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 862800,
+   "window_end_idx": 863400,
+   "windows": [
+    1701
+   ],
+   "top_idx": 862962,
+   "bottom_idx": 862973,
+   "depth_mv": 6.5619,
+   "fall_s": 11.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 897600,
+   "window_end_idx": 898200,
+   "windows": [
+    1721
+   ],
+   "top_idx": 898159,
+   "bottom_idx": 898177,
+   "depth_mv": 25.3862,
+   "fall_s": 18.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 900800,
+   "window_end_idx": 901400,
+   "windows": [
+    1259
+   ],
+   "top_idx": 901131,
+   "bottom_idx": 901133,
+   "depth_mv": 1.637,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 923000,
+   "window_end_idx": 923600,
+   "windows": [
+    1106
+   ],
+   "top_idx": 923241,
+   "bottom_idx": 923245,
+   "depth_mv": 7.4096,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 971200,
+   "window_end_idx": 971800,
+   "windows": [
+    1449
+   ],
+   "top_idx": 971371,
+   "bottom_idx": 971541,
+   "depth_mv": 1.1052,
+   "fall_s": 170.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 990400,
+   "window_end_idx": 991000,
+   "windows": [
+    2295
+   ],
+   "top_idx": 990500,
+   "bottom_idx": 990506,
+   "depth_mv": 1.0357,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 998000,
+   "window_end_idx": 999200,
+   "windows": [
+    2054,
+    1416,
+    1926
+   ],
+   "top_idx": 998296,
+   "bottom_idx": 998319,
+   "depth_mv": 25.7788,
+   "fall_s": 23.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1070400,
+   "window_end_idx": 1071000,
+   "windows": [
+    2074
+   ],
+   "top_idx": 1070519,
+   "bottom_idx": 1070544,
+   "depth_mv": 9.1916,
+   "fall_s": 25.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1087800,
+   "window_end_idx": 1088400,
+   "windows": [
+    1966
+   ],
+   "top_idx": 1088199,
+   "bottom_idx": 1088254,
+   "depth_mv": 9.1395,
+   "fall_s": 55.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1097000,
+   "window_end_idx": 1097600,
+   "windows": [
+    110
+   ],
+   "top_idx": 1097309,
+   "bottom_idx": 1097312,
+   "depth_mv": 2.0524,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1100400,
+   "window_end_idx": 1101000,
+   "windows": [
+    515
+   ],
+   "top_idx": 1100400,
+   "bottom_idx": 1100450,
+   "depth_mv": 18.0721,
+   "fall_s": 50.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1110400,
+   "window_end_idx": 1111000,
+   "windows": [
+    1069
+   ],
+   "top_idx": 1110873,
+   "bottom_idx": 1110912,
+   "depth_mv": 42.5861,
+   "fall_s": 39.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1114000,
+   "window_end_idx": 1114600,
+   "windows": [
+    160
+   ],
+   "top_idx": 1114390,
+   "bottom_idx": 1114395,
+   "depth_mv": 4.6422,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1128400,
+   "window_end_idx": 1129000,
+   "windows": [
+    2071
+   ],
+   "top_idx": 1128863,
+   "bottom_idx": 1128884,
+   "depth_mv": 22.9397,
+   "fall_s": 21.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1129800,
+   "window_end_idx": 1130400,
+   "windows": [
+    2279
+   ],
+   "top_idx": 1130311,
+   "bottom_idx": 1130316,
+   "depth_mv": 6.5564,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1140200,
+   "window_end_idx": 1140800,
+   "windows": [
+    2296
+   ],
+   "top_idx": 1140263,
+   "bottom_idx": 1140291,
+   "depth_mv": 69.5957,
+   "fall_s": 28.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1142000,
+   "window_end_idx": 1142600,
+   "windows": [
+    1587
+   ],
+   "top_idx": 1142388,
+   "bottom_idx": 1142393,
+   "depth_mv": 9.9811,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1148600,
+   "window_end_idx": 1149200,
+   "windows": [
+    366
+   ],
+   "top_idx": 1148788,
+   "bottom_idx": 1148791,
+   "depth_mv": 2.0055,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1155400,
+   "window_end_idx": 1156000,
+   "windows": [
+    124
+   ],
+   "top_idx": 1155499,
+   "bottom_idx": 1155503,
+   "depth_mv": 1.7634,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1173200,
+   "window_end_idx": 1173800,
+   "windows": [
+    1712
+   ],
+   "top_idx": 1173674,
+   "bottom_idx": 1173676,
+   "depth_mv": 2.9944,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1182200,
+   "window_end_idx": 1182800,
+   "windows": [
+    825
+   ],
+   "top_idx": 1182457,
+   "bottom_idx": 1182460,
+   "depth_mv": 4.2963,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1190600,
+   "window_end_idx": 1191200,
+   "windows": [
+    1989
+   ],
+   "top_idx": 1191006,
+   "bottom_idx": 1191012,
+   "depth_mv": 2.7526,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1192200,
+   "window_end_idx": 1192800,
+   "windows": [
+    904
+   ],
+   "top_idx": 1192428,
+   "bottom_idx": 1192432,
+   "depth_mv": 1.8277,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1222600,
+   "window_end_idx": 1223200,
+   "windows": [
+    289
+   ],
+   "top_idx": 1222755,
+   "bottom_idx": 1222759,
+   "depth_mv": 13.4845,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1257000,
+   "window_end_idx": 1257600,
+   "windows": [
+    1634
+   ],
+   "top_idx": 1257103,
+   "bottom_idx": 1257113,
+   "depth_mv": 9.0094,
+   "fall_s": 10.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1267600,
+   "window_end_idx": 1268200,
+   "windows": [
+    678
+   ],
+   "top_idx": 1267943,
+   "bottom_idx": 1267960,
+   "depth_mv": 0.9764,
+   "fall_s": 17.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1273400,
+   "window_end_idx": 1274000,
+   "windows": [
+    2153
+   ],
+   "top_idx": 1273589,
+   "bottom_idx": 1273597,
+   "depth_mv": 5.1415,
+   "fall_s": 8.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1297000,
+   "window_end_idx": 1297600,
+   "windows": [
+    2183
+   ],
+   "top_idx": 1297168,
+   "bottom_idx": 1297171,
+   "depth_mv": 6.5853,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1313400,
+   "window_end_idx": 1314000,
+   "windows": [
+    352
+   ],
+   "top_idx": 1313965,
+   "bottom_idx": 1313969,
+   "depth_mv": 0.4269,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1321000,
+   "window_end_idx": 1321600,
+   "windows": [
+    1514
+   ],
+   "top_idx": 1321539,
+   "bottom_idx": 1321543,
+   "depth_mv": 7.1298,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1336000,
+   "window_end_idx": 1336600,
+   "windows": [
+    2175
+   ],
+   "top_idx": 1336445,
+   "bottom_idx": 1336448,
+   "depth_mv": 8.4507,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1347600,
+   "window_end_idx": 1348200,
+   "windows": [
+    662
+   ],
+   "top_idx": 1347711,
+   "bottom_idx": 1347714,
+   "depth_mv": 1.1205,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1352600,
+   "window_end_idx": 1353200,
+   "windows": [
+    1054
+   ],
+   "top_idx": 1352955,
+   "bottom_idx": 1352960,
+   "depth_mv": 3.792,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1356400,
+   "window_end_idx": 1357000,
+   "windows": [
+    180
+   ],
+   "top_idx": 1356475,
+   "bottom_idx": 1356478,
+   "depth_mv": 1.0798,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1396400,
+   "window_end_idx": 1397200,
+   "windows": [
+    805,
+    2120
+   ],
+   "top_idx": 1396730,
+   "bottom_idx": 1396734,
+   "depth_mv": 11.1043,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1415600,
+   "window_end_idx": 1416200,
+   "windows": [
+    930
+   ],
+   "top_idx": 1416002,
+   "bottom_idx": 1416006,
+   "depth_mv": 4.2177,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1417600,
+   "window_end_idx": 1418200,
+   "windows": [
+    375
+   ],
+   "top_idx": 1417823,
+   "bottom_idx": 1417831,
+   "depth_mv": 9.3501,
+   "fall_s": 8.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1464200,
+   "window_end_idx": 1464800,
+   "windows": [
+    1614
+   ],
+   "top_idx": 1464455,
+   "bottom_idx": 1464466,
+   "depth_mv": 18.7931,
+   "fall_s": 11.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1466200,
+   "window_end_idx": 1467600,
+   "windows": [
+    2281,
+    213,
+    896
+   ],
+   "top_idx": 1466931,
+   "bottom_idx": 1466936,
+   "depth_mv": 22.0209,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1504000,
+   "window_end_idx": 1504600,
+   "windows": [
+    1683
+   ],
+   "top_idx": 1504179,
+   "bottom_idx": 1504183,
+   "depth_mv": 4.1646,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1514200,
+   "window_end_idx": 1514800,
+   "windows": [
+    33
+   ],
+   "top_idx": 1514501,
+   "bottom_idx": 1514505,
+   "depth_mv": 3.6547,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1528800,
+   "window_end_idx": 1529400,
+   "windows": [
+    1457
+   ],
+   "top_idx": 1528800,
+   "bottom_idx": 1528945,
+   "depth_mv": 4.6136,
+   "fall_s": 145.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1535000,
+   "window_end_idx": 1535600,
+   "windows": [
+    2021
+   ],
+   "top_idx": 1535296,
+   "bottom_idx": 1535300,
+   "depth_mv": 5.1308,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1580000,
+   "window_end_idx": 1580600,
+   "windows": [
+    2056
+   ],
+   "top_idx": 1580371,
+   "bottom_idx": 1580373,
+   "depth_mv": 0.5032,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1586400,
+   "window_end_idx": 1587000,
+   "windows": [
+    77
+   ],
+   "top_idx": 1586660,
+   "bottom_idx": 1586663,
+   "depth_mv": 2.9653,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1602400,
+   "window_end_idx": 1603000,
+   "windows": [
+    1934
+   ],
+   "top_idx": 1602843,
+   "bottom_idx": 1602847,
+   "depth_mv": 10.0827,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1618400,
+   "window_end_idx": 1619000,
+   "windows": [
+    2096
+   ],
+   "top_idx": 1618470,
+   "bottom_idx": 1618472,
+   "depth_mv": 0.7142,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1619800,
+   "window_end_idx": 1620400,
+   "windows": [
+    551
+   ],
+   "top_idx": 1619862,
+   "bottom_idx": 1619863,
+   "depth_mv": 0.4244,
+   "fall_s": 1.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1638400,
+   "window_end_idx": 1639000,
+   "windows": [
+    887
+   ],
+   "top_idx": 1638810,
+   "bottom_idx": 1638817,
+   "depth_mv": 15.2798,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1640200,
+   "window_end_idx": 1640800,
+   "windows": [
+    1702
+   ],
+   "top_idx": 1640240,
+   "bottom_idx": 1640244,
+   "depth_mv": 1.3636,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1646400,
+   "window_end_idx": 1647000,
+   "windows": [
+    571
+   ],
+   "top_idx": 1646766,
+   "bottom_idx": 1646772,
+   "depth_mv": 4.4964,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1704800,
+   "window_end_idx": 1705400,
+   "windows": [
+    1408
+   ],
+   "top_idx": 1705134,
+   "bottom_idx": 1705231,
+   "depth_mv": 34.4912,
+   "fall_s": 97.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1709000,
+   "window_end_idx": 1709600,
+   "windows": [
+    1281
+   ],
+   "top_idx": 1709467,
+   "bottom_idx": 1709478,
+   "depth_mv": 12.5758,
+   "fall_s": 11.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1712000,
+   "window_end_idx": 1712600,
+   "windows": [
+    2155
+   ],
+   "top_idx": 1712552,
+   "bottom_idx": 1712558,
+   "depth_mv": 7.8126,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1720800,
+   "window_end_idx": 1721400,
+   "windows": [
+    807
+   ],
+   "top_idx": 1721071,
+   "bottom_idx": 1721087,
+   "depth_mv": 2.6015,
+   "fall_s": 16.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1731200,
+   "window_end_idx": 1731800,
+   "windows": [
+    1060
+   ],
+   "top_idx": 1731693,
+   "bottom_idx": 1731696,
+   "depth_mv": 0.4627,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1739800,
+   "window_end_idx": 1740400,
+   "windows": [
+    248
+   ],
+   "top_idx": 1739915,
+   "bottom_idx": 1739922,
+   "depth_mv": 6.1983,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1766600,
+   "window_end_idx": 1767200,
+   "windows": [
+    95
+   ],
+   "top_idx": 1766782,
+   "bottom_idx": 1766788,
+   "depth_mv": 0.6717,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1803200,
+   "window_end_idx": 1803800,
+   "windows": [
+    1195
+   ],
+   "top_idx": 1803638,
+   "bottom_idx": 1803644,
+   "depth_mv": 6.8006,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1806200,
+   "window_end_idx": 1806800,
+   "windows": [
+    165
+   ],
+   "top_idx": 1806612,
+   "bottom_idx": 1806617,
+   "depth_mv": 19.4284,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1819200,
+   "window_end_idx": 1819800,
+   "windows": [
+    1378
+   ],
+   "top_idx": 1819246,
+   "bottom_idx": 1819248,
+   "depth_mv": 4.6897,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1824000,
+   "window_end_idx": 1824600,
+   "windows": [
+    628
+   ],
+   "top_idx": 1824443,
+   "bottom_idx": 1824445,
+   "depth_mv": 6.6033,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1831200,
+   "window_end_idx": 1831800,
+   "windows": [
+    1454
+   ],
+   "top_idx": 1831633,
+   "bottom_idx": 1831635,
+   "depth_mv": 2.7394,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1836600,
+   "window_end_idx": 1837200,
+   "windows": [
+    1731
+   ],
+   "top_idx": 1836685,
+   "bottom_idx": 1836688,
+   "depth_mv": 15.3507,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1840600,
+   "window_end_idx": 1841200,
+   "windows": [
+    2119
+   ],
+   "top_idx": 1840790,
+   "bottom_idx": 1840795,
+   "depth_mv": 12.7717,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1858200,
+   "window_end_idx": 1858800,
+   "windows": [
+    1547
+   ],
+   "top_idx": 1858685,
+   "bottom_idx": 1858688,
+   "depth_mv": 5.2922,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1869400,
+   "window_end_idx": 1870000,
+   "windows": [
+    219
+   ],
+   "top_idx": 1869764,
+   "bottom_idx": 1869769,
+   "depth_mv": 0.2311,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1871200,
+   "window_end_idx": 1871800,
+   "windows": [
+    12
+   ],
+   "top_idx": 1871293,
+   "bottom_idx": 1871295,
+   "depth_mv": 2.8165,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1885800,
+   "window_end_idx": 1886400,
+   "windows": [
+    1938
+   ],
+   "top_idx": 1886239,
+   "bottom_idx": 1886246,
+   "depth_mv": 16.409,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1929200,
+   "window_end_idx": 1929800,
+   "windows": [
+    1348
+   ],
+   "top_idx": 1929414,
+   "bottom_idx": 1929421,
+   "depth_mv": 20.4757,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1940000,
+   "window_end_idx": 1940600,
+   "windows": [
+    1217
+   ],
+   "top_idx": 1940387,
+   "bottom_idx": 1940394,
+   "depth_mv": 8.6256,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1949600,
+   "window_end_idx": 1950200,
+   "windows": [
+    1131
+   ],
+   "top_idx": 1949841,
+   "bottom_idx": 1949844,
+   "depth_mv": 7.5256,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 1968200,
+   "window_end_idx": 1968800,
+   "windows": [
+    1004
+   ],
+   "top_idx": 1968595,
+   "bottom_idx": 1968603,
+   "depth_mv": 10.5321,
+   "fall_s": 8.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2042000,
+   "window_end_idx": 2042600,
+   "windows": [
+    1129
+   ],
+   "top_idx": 2042542,
+   "bottom_idx": 2042554,
+   "depth_mv": 32.0896,
+   "fall_s": 12.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2120400,
+   "window_end_idx": 2121000,
+   "windows": [
+    400
+   ],
+   "top_idx": 2120453,
+   "bottom_idx": 2120455,
+   "depth_mv": 1.8561,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2126400,
+   "window_end_idx": 2127000,
+   "windows": [
+    1155
+   ],
+   "top_idx": 2126460,
+   "bottom_idx": 2126466,
+   "depth_mv": 17.2591,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2154600,
+   "window_end_idx": 2155200,
+   "windows": [
+    728
+   ],
+   "top_idx": 2154820,
+   "bottom_idx": 2154823,
+   "depth_mv": 0.4877,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2187600,
+   "window_end_idx": 2188200,
+   "windows": [
+    631
+   ],
+   "top_idx": 2187995,
+   "bottom_idx": 2187997,
+   "depth_mv": 0.9729,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2193600,
+   "window_end_idx": 2194200,
+   "windows": [
+    826
+   ],
+   "top_idx": 2194141,
+   "bottom_idx": 2194144,
+   "depth_mv": 1.4799,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2199600,
+   "window_end_idx": 2200200,
+   "windows": [
+    835
+   ],
+   "top_idx": 2200019,
+   "bottom_idx": 2200023,
+   "depth_mv": 4.2899,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2206000,
+   "window_end_idx": 2206600,
+   "windows": [
+    617
+   ],
+   "top_idx": 2206079,
+   "bottom_idx": 2206081,
+   "depth_mv": 0.9326,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2216000,
+   "window_end_idx": 2216600,
+   "windows": [
+    1092
+   ],
+   "top_idx": 2216484,
+   "bottom_idx": 2216492,
+   "depth_mv": 8.3855,
+   "fall_s": 8.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2241000,
+   "window_end_idx": 2241600,
+   "windows": [
+    1783
+   ],
+   "top_idx": 2241275,
+   "bottom_idx": 2241277,
+   "depth_mv": 2.8614,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2243000,
+   "window_end_idx": 2243600,
+   "windows": [
+    993
+   ],
+   "top_idx": 2243328,
+   "bottom_idx": 2243338,
+   "depth_mv": 1.1242,
+   "fall_s": 10.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2248400,
+   "window_end_idx": 2249000,
+   "windows": [
+    2045
+   ],
+   "top_idx": 2248959,
+   "bottom_idx": 2248974,
+   "depth_mv": 5.2225,
+   "fall_s": 15.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2253800,
+   "window_end_idx": 2254400,
+   "windows": [
+    2065
+   ],
+   "top_idx": 2254202,
+   "bottom_idx": 2254204,
+   "depth_mv": 1.1907,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2268400,
+   "window_end_idx": 2269000,
+   "windows": [
+    1340
+   ],
+   "top_idx": 2268482,
+   "bottom_idx": 2268486,
+   "depth_mv": 1.6509,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2269600,
+   "window_end_idx": 2270200,
+   "windows": [
+    131
+   ],
+   "top_idx": 2270101,
+   "bottom_idx": 2270113,
+   "depth_mv": 61.4267,
+   "fall_s": 12.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2294600,
+   "window_end_idx": 2295200,
+   "windows": [
+    471
+   ],
+   "top_idx": 2294940,
+   "bottom_idx": 2294945,
+   "depth_mv": 11.3782,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2302600,
+   "window_end_idx": 2303200,
+   "windows": [
+    412
+   ],
+   "top_idx": 2303102,
+   "bottom_idx": 2303104,
+   "depth_mv": 0.3396,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2303800,
+   "window_end_idx": 2304400,
+   "windows": [
+    1337
+   ],
+   "top_idx": 2304126,
+   "bottom_idx": 2304134,
+   "depth_mv": 2.7639,
+   "fall_s": 8.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2305800,
+   "window_end_idx": 2306400,
+   "windows": [
+    1637
+   ],
+   "top_idx": 2305866,
+   "bottom_idx": 2305869,
+   "depth_mv": 3.3882,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2332600,
+   "window_end_idx": 2333200,
+   "windows": [
+    1714
+   ],
+   "top_idx": 2333081,
+   "bottom_idx": 2333092,
+   "depth_mv": 0.9306,
+   "fall_s": 11.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2356800,
+   "window_end_idx": 2357400,
+   "windows": [
+    786
+   ],
+   "top_idx": 2357320,
+   "bottom_idx": 2357325,
+   "depth_mv": 4.5199,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2361000,
+   "window_end_idx": 2361600,
+   "windows": [
+    2164
+   ],
+   "top_idx": 2361162,
+   "bottom_idx": 2361169,
+   "depth_mv": 15.078,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2419200,
+   "window_end_idx": 2419800,
+   "windows": [
+    686
+   ],
+   "top_idx": 2419272,
+   "bottom_idx": 2419277,
+   "depth_mv": 41.1302,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2438000,
+   "window_end_idx": 2438600,
+   "windows": [
+    638
+   ],
+   "top_idx": 2438278,
+   "bottom_idx": 2438283,
+   "depth_mv": 10.963,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2439200,
+   "window_end_idx": 2439800,
+   "windows": [
+    1906
+   ],
+   "top_idx": 2439210,
+   "bottom_idx": 2439216,
+   "depth_mv": 7.1129,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2444400,
+   "window_end_idx": 2445200,
+   "windows": [
+    272,
+    1464
+   ],
+   "top_idx": 2444449,
+   "bottom_idx": 2444454,
+   "depth_mv": 29.7622,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2447800,
+   "window_end_idx": 2448400,
+   "windows": [
+    758
+   ],
+   "top_idx": 2448279,
+   "bottom_idx": 2448292,
+   "depth_mv": 11.0624,
+   "fall_s": 13.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2448600,
+   "window_end_idx": 2449600,
+   "windows": [
+    2146,
+    1207
+   ],
+   "top_idx": 2448643,
+   "bottom_idx": 2448651,
+   "depth_mv": 56.082,
+   "fall_s": 8.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2460600,
+   "window_end_idx": 2461200,
+   "windows": [
+    1813
+   ],
+   "top_idx": 2460801,
+   "bottom_idx": 2460811,
+   "depth_mv": 20.9176,
+   "fall_s": 10.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2469000,
+   "window_end_idx": 2469600,
+   "windows": [
+    977
+   ],
+   "top_idx": 2469481,
+   "bottom_idx": 2469484,
+   "depth_mv": 0.4417,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2493000,
+   "window_end_idx": 2493600,
+   "windows": [
+    425
+   ],
+   "top_idx": 2493012,
+   "bottom_idx": 2493015,
+   "depth_mv": 3.0757,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2495000,
+   "window_end_idx": 2495600,
+   "windows": [
+    897
+   ],
+   "top_idx": 2495361,
+   "bottom_idx": 2495363,
+   "depth_mv": 1.8646,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2502000,
+   "window_end_idx": 2502600,
+   "windows": [
+    2091
+   ],
+   "top_idx": 2502120,
+   "bottom_idx": 2502122,
+   "depth_mv": 0.7715,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2513600,
+   "window_end_idx": 2514200,
+   "windows": [
+    1100
+   ],
+   "top_idx": 2513959,
+   "bottom_idx": 2513975,
+   "depth_mv": 6.6731,
+   "fall_s": 16.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2535800,
+   "window_end_idx": 2536400,
+   "windows": [
+    304
+   ],
+   "top_idx": 2535939,
+   "bottom_idx": 2535945,
+   "depth_mv": 0.648,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2538200,
+   "window_end_idx": 2538800,
+   "windows": [
+    266
+   ],
+   "top_idx": 2538730,
+   "bottom_idx": 2538747,
+   "depth_mv": 76.5558,
+   "fall_s": 17.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2561000,
+   "window_end_idx": 2561600,
+   "windows": [
+    485
+   ],
+   "top_idx": 2561255,
+   "bottom_idx": 2561258,
+   "depth_mv": 2.8494,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2563800,
+   "window_end_idx": 2564400,
+   "windows": [
+    1769
+   ],
+   "top_idx": 2564104,
+   "bottom_idx": 2564107,
+   "depth_mv": 0.9527,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2565200,
+   "window_end_idx": 2565800,
+   "windows": [
+    1309
+   ],
+   "top_idx": 2565701,
+   "bottom_idx": 2565705,
+   "depth_mv": 7.3496,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2572400,
+   "window_end_idx": 2573000,
+   "windows": [
+    1154
+   ],
+   "top_idx": 2572750,
+   "bottom_idx": 2572778,
+   "depth_mv": 34.1271,
+   "fall_s": 28.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2583600,
+   "window_end_idx": 2584200,
+   "windows": [
+    811
+   ],
+   "top_idx": 2583814,
+   "bottom_idx": 2583826,
+   "depth_mv": 21.1139,
+   "fall_s": 12.0
+  },
+  {
+   "recording_id": 3,
+   "window_start_idx": 2589200,
+   "window_end_idx": 2589800,
+   "windows": [
+    1974
+   ],
+   "top_idx": 2589511,
+   "bottom_idx": 2589516,
+   "depth_mv": 3.5738,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 20200,
+   "window_end_idx": 20800,
+   "windows": [
+    1652
+   ],
+   "top_idx": 20475,
+   "bottom_idx": 20799,
+   "depth_mv": 0.8634,
+   "fall_s": 324.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 27400,
+   "window_end_idx": 28000,
+   "windows": [
+    658
+   ],
+   "top_idx": 27549,
+   "bottom_idx": 27692,
+   "depth_mv": 0.8276,
+   "fall_s": 143.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 100800,
+   "window_end_idx": 101400,
+   "windows": [
+    422
+   ],
+   "top_idx": 100840,
+   "bottom_idx": 100876,
+   "depth_mv": 11.1887,
+   "fall_s": 36.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 101600,
+   "window_end_idx": 102200,
+   "windows": [
+    1537
+   ],
+   "top_idx": 101648,
+   "bottom_idx": 101660,
+   "depth_mv": 2.417,
+   "fall_s": 12.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 110400,
+   "window_end_idx": 111000,
+   "windows": [
+    2211
+   ],
+   "top_idx": 110670,
+   "bottom_idx": 110674,
+   "depth_mv": 1.1801,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 278800,
+   "window_end_idx": 279400,
+   "windows": [
+    348
+   ],
+   "top_idx": 278972,
+   "bottom_idx": 279026,
+   "depth_mv": 5.8537,
+   "fall_s": 54.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 297200,
+   "window_end_idx": 297800,
+   "windows": [
+    1787
+   ],
+   "top_idx": 297688,
+   "bottom_idx": 297772,
+   "depth_mv": 15.8517,
+   "fall_s": 84.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 308000,
+   "window_end_idx": 308600,
+   "windows": [
+    1296
+   ],
+   "top_idx": 308000,
+   "bottom_idx": 308061,
+   "depth_mv": 140.0241,
+   "fall_s": 61.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 318800,
+   "window_end_idx": 319400,
+   "windows": [
+    740
+   ],
+   "top_idx": 319016,
+   "bottom_idx": 319052,
+   "depth_mv": 13.5218,
+   "fall_s": 36.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 326600,
+   "window_end_idx": 327200,
+   "windows": [
+    657
+   ],
+   "top_idx": 326835,
+   "bottom_idx": 327101,
+   "depth_mv": 32.0442,
+   "fall_s": 266.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 390200,
+   "window_end_idx": 390800,
+   "windows": [
+    620
+   ],
+   "top_idx": 390613,
+   "bottom_idx": 390677,
+   "depth_mv": 7.8422,
+   "fall_s": 64.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 394800,
+   "window_end_idx": 395400,
+   "windows": [
+    1853
+   ],
+   "top_idx": 395325,
+   "bottom_idx": 395391,
+   "depth_mv": 10.223,
+   "fall_s": 66.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 440000,
+   "window_end_idx": 440600,
+   "windows": [
+    1920
+   ],
+   "top_idx": 440432,
+   "bottom_idx": 440460,
+   "depth_mv": 27.6428,
+   "fall_s": 28.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 501000,
+   "window_end_idx": 501600,
+   "windows": [
+    2051
+   ],
+   "top_idx": 501127,
+   "bottom_idx": 501179,
+   "depth_mv": 7.3881,
+   "fall_s": 52.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 598200,
+   "window_end_idx": 598800,
+   "windows": [
+    1782
+   ],
+   "top_idx": 598578,
+   "bottom_idx": 598799,
+   "depth_mv": 11.1612,
+   "fall_s": 221.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 619000,
+   "window_end_idx": 619600,
+   "windows": [
+    1182
+   ],
+   "top_idx": 619184,
+   "bottom_idx": 619245,
+   "depth_mv": 7.8515,
+   "fall_s": 61.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 626600,
+   "window_end_idx": 627200,
+   "windows": [
+    87
+   ],
+   "top_idx": 627002,
+   "bottom_idx": 627154,
+   "depth_mv": 17.6116,
+   "fall_s": 152.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 629800,
+   "window_end_idx": 630400,
+   "windows": [
+    111
+   ],
+   "top_idx": 629800,
+   "bottom_idx": 629905,
+   "depth_mv": 6.6673,
+   "fall_s": 105.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 636800,
+   "window_end_idx": 637600,
+   "windows": [
+    2093,
+    1923
+   ],
+   "top_idx": 637333,
+   "bottom_idx": 637362,
+   "depth_mv": 16.3704,
+   "fall_s": 29.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 637800,
+   "window_end_idx": 638400,
+   "windows": [
+    660
+   ],
+   "top_idx": 638355,
+   "bottom_idx": 638399,
+   "depth_mv": 21.8145,
+   "fall_s": 44.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 641400,
+   "window_end_idx": 642000,
+   "windows": [
+    1732
+   ],
+   "top_idx": 641776,
+   "bottom_idx": 641913,
+   "depth_mv": 12.3029,
+   "fall_s": 137.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 646000,
+   "window_end_idx": 646600,
+   "windows": [
+    1952
+   ],
+   "top_idx": 646365,
+   "bottom_idx": 646453,
+   "depth_mv": 4.5035,
+   "fall_s": 88.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 713400,
+   "window_end_idx": 714000,
+   "windows": [
+    629
+   ],
+   "top_idx": 713853,
+   "bottom_idx": 713955,
+   "depth_mv": 2.2461,
+   "fall_s": 102.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 745600,
+   "window_end_idx": 746200,
+   "windows": [
+    1646
+   ],
+   "top_idx": 745674,
+   "bottom_idx": 745782,
+   "depth_mv": 65.3099,
+   "fall_s": 108.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 767800,
+   "window_end_idx": 768400,
+   "windows": [
+    992
+   ],
+   "top_idx": 768305,
+   "bottom_idx": 768334,
+   "depth_mv": 60.7932,
+   "fall_s": 29.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 772000,
+   "window_end_idx": 772600,
+   "windows": [
+    781
+   ],
+   "top_idx": 772145,
+   "bottom_idx": 772151,
+   "depth_mv": 1.9219,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 775400,
+   "window_end_idx": 776000,
+   "windows": [
+    233
+   ],
+   "top_idx": 775400,
+   "bottom_idx": 775946,
+   "depth_mv": 10.6492,
+   "fall_s": 546.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 804000,
+   "window_end_idx": 804600,
+   "windows": [
+    639
+   ],
+   "top_idx": 804352,
+   "bottom_idx": 804381,
+   "depth_mv": 13.1501,
+   "fall_s": 29.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 899200,
+   "window_end_idx": 899800,
+   "windows": [
+    1609
+   ],
+   "top_idx": 899640,
+   "bottom_idx": 899699,
+   "depth_mv": 14.8594,
+   "fall_s": 59.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 930200,
+   "window_end_idx": 930800,
+   "windows": [
+    801
+   ],
+   "top_idx": 930498,
+   "bottom_idx": 930727,
+   "depth_mv": 16.3049,
+   "fall_s": 229.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1020600,
+   "window_end_idx": 1021200,
+   "windows": [
+    971
+   ],
+   "top_idx": 1020921,
+   "bottom_idx": 1021058,
+   "depth_mv": 1.6771,
+   "fall_s": 137.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1332000,
+   "window_end_idx": 1332600,
+   "windows": [
+    882
+   ],
+   "top_idx": 1332200,
+   "bottom_idx": 1332286,
+   "depth_mv": 4.9965,
+   "fall_s": 86.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1361600,
+   "window_end_idx": 1362200,
+   "windows": [
+    1842
+   ],
+   "top_idx": 1362064,
+   "bottom_idx": 1362145,
+   "depth_mv": 3.1848,
+   "fall_s": 81.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1446000,
+   "window_end_idx": 1446600,
+   "windows": [
+    810
+   ],
+   "top_idx": 1446229,
+   "bottom_idx": 1446289,
+   "depth_mv": 0.5254,
+   "fall_s": 60.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1502600,
+   "window_end_idx": 1503200,
+   "windows": [
+    1480
+   ],
+   "top_idx": 1502828,
+   "bottom_idx": 1503158,
+   "depth_mv": 4.0,
+   "fall_s": 330.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1507400,
+   "window_end_idx": 1508000,
+   "windows": [
+    2191
+   ],
+   "top_idx": 1507400,
+   "bottom_idx": 1507677,
+   "depth_mv": 94.2115,
+   "fall_s": 277.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1533600,
+   "window_end_idx": 1534200,
+   "windows": [
+    2049
+   ],
+   "top_idx": 1533600,
+   "bottom_idx": 1534034,
+   "depth_mv": 14.6547,
+   "fall_s": 434.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1540600,
+   "window_end_idx": 1541400,
+   "windows": [
+    544,
+    1691
+   ],
+   "top_idx": 1540793,
+   "bottom_idx": 1540832,
+   "depth_mv": 49.3792,
+   "fall_s": 39.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1564200,
+   "window_end_idx": 1564800,
+   "windows": [
+    814
+   ],
+   "top_idx": 1564387,
+   "bottom_idx": 1564441,
+   "depth_mv": 60.6159,
+   "fall_s": 54.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1571000,
+   "window_end_idx": 1571600,
+   "windows": [
+    1599
+   ],
+   "top_idx": 1571064,
+   "bottom_idx": 1571079,
+   "depth_mv": 0.3102,
+   "fall_s": 15.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1574000,
+   "window_end_idx": 1574600,
+   "windows": [
+    2010
+   ],
+   "top_idx": 1574373,
+   "bottom_idx": 1574435,
+   "depth_mv": 64.9139,
+   "fall_s": 62.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1579400,
+   "window_end_idx": 1580000,
+   "windows": [
+    156
+   ],
+   "top_idx": 1579400,
+   "bottom_idx": 1579999,
+   "depth_mv": 9.2178,
+   "fall_s": 599.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1583000,
+   "window_end_idx": 1583600,
+   "windows": [
+    895
+   ],
+   "top_idx": 1583164,
+   "bottom_idx": 1583223,
+   "depth_mv": 78.2527,
+   "fall_s": 59.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1586800,
+   "window_end_idx": 1587400,
+   "windows": [
+    1130
+   ],
+   "top_idx": 1586800,
+   "bottom_idx": 1587399,
+   "depth_mv": 9.1698,
+   "fall_s": 599.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1588200,
+   "window_end_idx": 1589400,
+   "windows": [
+    1870,
+    1747
+   ],
+   "top_idx": 1588528,
+   "bottom_idx": 1588592,
+   "depth_mv": 73.9863,
+   "fall_s": 64.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1599800,
+   "window_end_idx": 1600400,
+   "windows": [
+    1951
+   ],
+   "top_idx": 1599863,
+   "bottom_idx": 1600021,
+   "depth_mv": 78.8259,
+   "fall_s": 158.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1638600,
+   "window_end_idx": 1639200,
+   "windows": [
+    1360
+   ],
+   "top_idx": 1638600,
+   "bottom_idx": 1638871,
+   "depth_mv": 0.6522,
+   "fall_s": 271.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1679800,
+   "window_end_idx": 1680600,
+   "windows": [
+    1776,
+    1354
+   ],
+   "top_idx": 1680132,
+   "bottom_idx": 1680225,
+   "depth_mv": 11.6606,
+   "fall_s": 93.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1684600,
+   "window_end_idx": 1685200,
+   "windows": [
+    1828
+   ],
+   "top_idx": 1684600,
+   "bottom_idx": 1684891,
+   "depth_mv": 12.0778,
+   "fall_s": 291.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1799400,
+   "window_end_idx": 1800000,
+   "windows": [
+    677
+   ],
+   "top_idx": 1799400,
+   "bottom_idx": 1799433,
+   "depth_mv": 0.3819,
+   "fall_s": 33.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1834000,
+   "window_end_idx": 1834600,
+   "windows": [
+    1016
+   ],
+   "top_idx": 1834454,
+   "bottom_idx": 1834599,
+   "depth_mv": 4.096,
+   "fall_s": 145.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1835000,
+   "window_end_idx": 1835600,
+   "windows": [
+    435
+   ],
+   "top_idx": 1835000,
+   "bottom_idx": 1835474,
+   "depth_mv": 2.9329,
+   "fall_s": 474.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1838200,
+   "window_end_idx": 1838800,
+   "windows": [
+    1420
+   ],
+   "top_idx": 1838456,
+   "bottom_idx": 1838799,
+   "depth_mv": 5.8291,
+   "fall_s": 343.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1840600,
+   "window_end_idx": 1841200,
+   "windows": [
+    16
+   ],
+   "top_idx": 1840980,
+   "bottom_idx": 1841081,
+   "depth_mv": 1.0675,
+   "fall_s": 101.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1984400,
+   "window_end_idx": 1985000,
+   "windows": [
+    220
+   ],
+   "top_idx": 1984955,
+   "bottom_idx": 1984984,
+   "depth_mv": 11.6842,
+   "fall_s": 29.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 1990000,
+   "window_end_idx": 1990600,
+   "windows": [
+    1895
+   ],
+   "top_idx": 1990517,
+   "bottom_idx": 1990555,
+   "depth_mv": 14.2793,
+   "fall_s": 38.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 2015400,
+   "window_end_idx": 2016000,
+   "windows": [
+    129
+   ],
+   "top_idx": 2015400,
+   "bottom_idx": 2015875,
+   "depth_mv": 7.3386,
+   "fall_s": 475.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 2057000,
+   "window_end_idx": 2057600,
+   "windows": [
+    1385
+   ],
+   "top_idx": 2057144,
+   "bottom_idx": 2057598,
+   "depth_mv": 0.9519,
+   "fall_s": 454.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 2204400,
+   "window_end_idx": 2205000,
+   "windows": [
+    694
+   ],
+   "top_idx": 2204942,
+   "bottom_idx": 2204999,
+   "depth_mv": 3.182,
+   "fall_s": 57.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 2228400,
+   "window_end_idx": 2229000,
+   "windows": [
+    857
+   ],
+   "top_idx": 2228620,
+   "bottom_idx": 2228868,
+   "depth_mv": 5.9796,
+   "fall_s": 248.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 2248200,
+   "window_end_idx": 2248800,
+   "windows": [
+    2020
+   ],
+   "top_idx": 2248378,
+   "bottom_idx": 2248394,
+   "depth_mv": 0.6689,
+   "fall_s": 16.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 2257000,
+   "window_end_idx": 2257600,
+   "windows": [
+    1748
+   ],
+   "top_idx": 2257268,
+   "bottom_idx": 2257319,
+   "depth_mv": 0.987,
+   "fall_s": 51.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 2264600,
+   "window_end_idx": 2265200,
+   "windows": [
+    2299
+   ],
+   "top_idx": 2264715,
+   "bottom_idx": 2264871,
+   "depth_mv": 8.7593,
+   "fall_s": 156.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 2296200,
+   "window_end_idx": 2296800,
+   "windows": [
+    2127
+   ],
+   "top_idx": 2296666,
+   "bottom_idx": 2296741,
+   "depth_mv": 2.2044,
+   "fall_s": 75.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 2500400,
+   "window_end_idx": 2501000,
+   "windows": [
+    531
+   ],
+   "top_idx": 2500516,
+   "bottom_idx": 2500874,
+   "depth_mv": 10.1988,
+   "fall_s": 358.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 2537000,
+   "window_end_idx": 2537800,
+   "windows": [
+    1669,
+    71
+   ],
+   "top_idx": 2537271,
+   "bottom_idx": 2537389,
+   "depth_mv": 6.7396,
+   "fall_s": 118.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 2550600,
+   "window_end_idx": 2551200,
+   "windows": [
+    1719
+   ],
+   "top_idx": 2550776,
+   "bottom_idx": 2551111,
+   "depth_mv": 9.0654,
+   "fall_s": 335.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 2556400,
+   "window_end_idx": 2557000,
+   "windows": [
+    912
+   ],
+   "top_idx": 2556459,
+   "bottom_idx": 2556663,
+   "depth_mv": 6.312,
+   "fall_s": 204.0
+  },
+  {
+   "recording_id": 4,
+   "window_start_idx": 2573800,
+   "window_end_idx": 2574400,
+   "windows": [
+    1863
+   ],
+   "top_idx": 2574254,
+   "bottom_idx": 2574399,
+   "depth_mv": 2.9941,
+   "fall_s": 145.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 269400,
+   "window_end_idx": 270000,
+   "windows": [
+    1249
+   ],
+   "top_idx": 269489,
+   "bottom_idx": 269977,
+   "depth_mv": 14.1033,
+   "fall_s": 488.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 359800,
+   "window_end_idx": 360400,
+   "windows": [
+    360
+   ],
+   "top_idx": 360162,
+   "bottom_idx": 360399,
+   "depth_mv": 4.0973,
+   "fall_s": 237.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 574600,
+   "window_end_idx": 575200,
+   "windows": [
+    2188
+   ],
+   "top_idx": 574644,
+   "bottom_idx": 574895,
+   "depth_mv": 2.171,
+   "fall_s": 251.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 616000,
+   "window_end_idx": 616600,
+   "windows": [
+    535
+   ],
+   "top_idx": 616334,
+   "bottom_idx": 616430,
+   "depth_mv": 1.2451,
+   "fall_s": 96.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 653600,
+   "window_end_idx": 654200,
+   "windows": [
+    1590
+   ],
+   "top_idx": 653760,
+   "bottom_idx": 653780,
+   "depth_mv": 1.857,
+   "fall_s": 20.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 800800,
+   "window_end_idx": 801400,
+   "windows": [
+    88
+   ],
+   "top_idx": 801059,
+   "bottom_idx": 801077,
+   "depth_mv": 5.3255,
+   "fall_s": 18.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 831800,
+   "window_end_idx": 832400,
+   "windows": [
+    2332
+   ],
+   "top_idx": 832040,
+   "bottom_idx": 832046,
+   "depth_mv": 8.8218,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 863000,
+   "window_end_idx": 863600,
+   "windows": [
+    2248
+   ],
+   "top_idx": 863378,
+   "bottom_idx": 863389,
+   "depth_mv": 8.8459,
+   "fall_s": 11.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 903000,
+   "window_end_idx": 903600,
+   "windows": [
+    63
+   ],
+   "top_idx": 903258,
+   "bottom_idx": 903260,
+   "depth_mv": 0.4029,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 914800,
+   "window_end_idx": 915400,
+   "windows": [
+    1341
+   ],
+   "top_idx": 915306,
+   "bottom_idx": 915309,
+   "depth_mv": 3.7145,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 917200,
+   "window_end_idx": 917800,
+   "windows": [
+    357
+   ],
+   "top_idx": 917253,
+   "bottom_idx": 917260,
+   "depth_mv": 2.0496,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 920400,
+   "window_end_idx": 921000,
+   "windows": [
+    45
+   ],
+   "top_idx": 920973,
+   "bottom_idx": 920984,
+   "depth_mv": 2.9826,
+   "fall_s": 11.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 1007800,
+   "window_end_idx": 1008400,
+   "windows": [
+    1807
+   ],
+   "top_idx": 1008217,
+   "bottom_idx": 1008240,
+   "depth_mv": 0.5429,
+   "fall_s": 23.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 1038000,
+   "window_end_idx": 1038600,
+   "windows": [
+    1900
+   ],
+   "top_idx": 1038081,
+   "bottom_idx": 1038335,
+   "depth_mv": 3.2543,
+   "fall_s": 254.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 1094600,
+   "window_end_idx": 1095200,
+   "windows": [
+    2026
+   ],
+   "top_idx": 1095148,
+   "bottom_idx": 1095162,
+   "depth_mv": 6.9156,
+   "fall_s": 14.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 1134200,
+   "window_end_idx": 1134800,
+   "windows": [
+    2260
+   ],
+   "top_idx": 1134237,
+   "bottom_idx": 1134257,
+   "depth_mv": 4.7799,
+   "fall_s": 20.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 1293400,
+   "window_end_idx": 1294000,
+   "windows": [
+    488
+   ],
+   "top_idx": 1293504,
+   "bottom_idx": 1293529,
+   "depth_mv": 4.485,
+   "fall_s": 25.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 1466200,
+   "window_end_idx": 1466800,
+   "windows": [
+    1573
+   ],
+   "top_idx": 1466542,
+   "bottom_idx": 1466553,
+   "depth_mv": 3.1679,
+   "fall_s": 11.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 1483600,
+   "window_end_idx": 1484200,
+   "windows": [
+    731
+   ],
+   "top_idx": 1483601,
+   "bottom_idx": 1483812,
+   "depth_mv": 4.5943,
+   "fall_s": 211.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 1579400,
+   "window_end_idx": 1580000,
+   "windows": [
+    1176
+   ],
+   "top_idx": 1579648,
+   "bottom_idx": 1579739,
+   "depth_mv": 2.3188,
+   "fall_s": 91.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 1588400,
+   "window_end_idx": 1589000,
+   "windows": [
+    687
+   ],
+   "top_idx": 1588561,
+   "bottom_idx": 1588744,
+   "depth_mv": 1.1772,
+   "fall_s": 183.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 1891000,
+   "window_end_idx": 1891600,
+   "windows": [
+    361
+   ],
+   "top_idx": 1891000,
+   "bottom_idx": 1891139,
+   "depth_mv": 0.5739,
+   "fall_s": 139.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 1893800,
+   "window_end_idx": 1894400,
+   "windows": [
+    959
+   ],
+   "top_idx": 1893901,
+   "bottom_idx": 1894216,
+   "depth_mv": 1.7231,
+   "fall_s": 315.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 1939000,
+   "window_end_idx": 1939600,
+   "windows": [
+    1585
+   ],
+   "top_idx": 1939025,
+   "bottom_idx": 1939077,
+   "depth_mv": 1.7256,
+   "fall_s": 52.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 2034600,
+   "window_end_idx": 2035200,
+   "windows": [
+    2186
+   ],
+   "top_idx": 2034600,
+   "bottom_idx": 2034680,
+   "depth_mv": 1.845,
+   "fall_s": 80.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 2370000,
+   "window_end_idx": 2370600,
+   "windows": [
+    1328
+   ],
+   "top_idx": 2370245,
+   "bottom_idx": 2370554,
+   "depth_mv": 1.9176,
+   "fall_s": 309.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 2429200,
+   "window_end_idx": 2429800,
+   "windows": [
+    1999
+   ],
+   "top_idx": 2429660,
+   "bottom_idx": 2429734,
+   "depth_mv": 4.306,
+   "fall_s": 74.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 2453400,
+   "window_end_idx": 2454000,
+   "windows": [
+    2270
+   ],
+   "top_idx": 2453840,
+   "bottom_idx": 2453999,
+   "depth_mv": 13.8669,
+   "fall_s": 159.0
+  },
+  {
+   "recording_id": 5,
+   "window_start_idx": 2585000,
+   "window_end_idx": 2585600,
+   "windows": [
+    1595
+   ],
+   "top_idx": 2585389,
+   "bottom_idx": 2585508,
+   "depth_mv": 0.7966,
+   "fall_s": 119.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 18600,
+   "window_end_idx": 19200,
+   "windows": [
+    1140
+   ],
+   "top_idx": 18838,
+   "bottom_idx": 18849,
+   "depth_mv": 37.5098,
+   "fall_s": 11.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 32600,
+   "window_end_idx": 33200,
+   "windows": [
+    1011
+   ],
+   "top_idx": 33143,
+   "bottom_idx": 33172,
+   "depth_mv": 2.8047,
+   "fall_s": 29.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 64000,
+   "window_end_idx": 64600,
+   "windows": [
+    1095
+   ],
+   "top_idx": 64033,
+   "bottom_idx": 64071,
+   "depth_mv": 10.8118,
+   "fall_s": 38.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 65400,
+   "window_end_idx": 66000,
+   "windows": [
+    1278
+   ],
+   "top_idx": 65844,
+   "bottom_idx": 65856,
+   "depth_mv": 74.729,
+   "fall_s": 12.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 104000,
+   "window_end_idx": 104600,
+   "windows": [
+    1114
+   ],
+   "top_idx": 104034,
+   "bottom_idx": 104042,
+   "depth_mv": 1.8838,
+   "fall_s": 8.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 147400,
+   "window_end_idx": 148000,
+   "windows": [
+    846
+   ],
+   "top_idx": 147816,
+   "bottom_idx": 147976,
+   "depth_mv": 45.1472,
+   "fall_s": 160.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 161200,
+   "window_end_idx": 161800,
+   "windows": [
+    393
+   ],
+   "top_idx": 161630,
+   "bottom_idx": 161649,
+   "depth_mv": 10.4135,
+   "fall_s": 19.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 180000,
+   "window_end_idx": 180600,
+   "windows": [
+    211
+   ],
+   "top_idx": 180531,
+   "bottom_idx": 180536,
+   "depth_mv": 6.3236,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 187600,
+   "window_end_idx": 188200,
+   "windows": [
+    1519
+   ],
+   "top_idx": 187808,
+   "bottom_idx": 187812,
+   "depth_mv": 2.1841,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 193000,
+   "window_end_idx": 193600,
+   "windows": [
+    1899
+   ],
+   "top_idx": 193096,
+   "bottom_idx": 193110,
+   "depth_mv": 50.1764,
+   "fall_s": 14.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 221200,
+   "window_end_idx": 221800,
+   "windows": [
+    558
+   ],
+   "top_idx": 221472,
+   "bottom_idx": 221476,
+   "depth_mv": 3.1596,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 229000,
+   "window_end_idx": 229600,
+   "windows": [
+    119
+   ],
+   "top_idx": 229381,
+   "bottom_idx": 229387,
+   "depth_mv": 10.1846,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 231800,
+   "window_end_idx": 232400,
+   "windows": [
+    914
+   ],
+   "top_idx": 232145,
+   "bottom_idx": 232151,
+   "depth_mv": 8.0673,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 257400,
+   "window_end_idx": 258400,
+   "windows": [
+    783,
+    1402
+   ],
+   "top_idx": 257887,
+   "bottom_idx": 257889,
+   "depth_mv": 2.236,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 277200,
+   "window_end_idx": 277800,
+   "windows": [
+    1600
+   ],
+   "top_idx": 277485,
+   "bottom_idx": 277577,
+   "depth_mv": 0.8543,
+   "fall_s": 92.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 298800,
+   "window_end_idx": 299400,
+   "windows": [
+    196
+   ],
+   "top_idx": 299093,
+   "bottom_idx": 299264,
+   "depth_mv": 1.1234,
+   "fall_s": 171.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 311400,
+   "window_end_idx": 312000,
+   "windows": [
+    150
+   ],
+   "top_idx": 311955,
+   "bottom_idx": 311967,
+   "depth_mv": 26.5302,
+   "fall_s": 12.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 405600,
+   "window_end_idx": 406200,
+   "windows": [
+    1349
+   ],
+   "top_idx": 405674,
+   "bottom_idx": 405739,
+   "depth_mv": 6.7184,
+   "fall_s": 65.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 519200,
+   "window_end_idx": 519800,
+   "windows": [
+    307
+   ],
+   "top_idx": 519709,
+   "bottom_idx": 519735,
+   "depth_mv": 18.0709,
+   "fall_s": 26.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 549600,
+   "window_end_idx": 550200,
+   "windows": [
+    2209
+   ],
+   "top_idx": 549932,
+   "bottom_idx": 549937,
+   "depth_mv": 0.7629,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 557800,
+   "window_end_idx": 558400,
+   "windows": [
+    1428
+   ],
+   "top_idx": 557817,
+   "bottom_idx": 557839,
+   "depth_mv": 3.7925,
+   "fall_s": 22.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 569600,
+   "window_end_idx": 570200,
+   "windows": [
+    2080
+   ],
+   "top_idx": 569600,
+   "bottom_idx": 569646,
+   "depth_mv": 7.229,
+   "fall_s": 46.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 625600,
+   "window_end_idx": 626600,
+   "windows": [
+    953,
+    2232
+   ],
+   "top_idx": 626238,
+   "bottom_idx": 626394,
+   "depth_mv": 54.9453,
+   "fall_s": 156.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 651200,
+   "window_end_idx": 651800,
+   "windows": [
+    1237
+   ],
+   "top_idx": 651572,
+   "bottom_idx": 651615,
+   "depth_mv": 6.9894,
+   "fall_s": 43.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 652800,
+   "window_end_idx": 653600,
+   "windows": [
+    703,
+    511
+   ],
+   "top_idx": 653323,
+   "bottom_idx": 653599,
+   "depth_mv": 12.3579,
+   "fall_s": 276.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 759800,
+   "window_end_idx": 760400,
+   "windows": [
+    1723
+   ],
+   "top_idx": 760087,
+   "bottom_idx": 760094,
+   "depth_mv": 0.3861,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 1397600,
+   "window_end_idx": 1398200,
+   "windows": [
+    2226
+   ],
+   "top_idx": 1397916,
+   "bottom_idx": 1398080,
+   "depth_mv": 4.5157,
+   "fall_s": 164.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 1436000,
+   "window_end_idx": 1436600,
+   "windows": [
+    223
+   ],
+   "top_idx": 1436274,
+   "bottom_idx": 1436557,
+   "depth_mv": 19.0691,
+   "fall_s": 283.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 1457000,
+   "window_end_idx": 1457600,
+   "windows": [
+    2227
+   ],
+   "top_idx": 1457242,
+   "bottom_idx": 1457599,
+   "depth_mv": 17.6958,
+   "fall_s": 357.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 1461800,
+   "window_end_idx": 1462400,
+   "windows": [
+    1789
+   ],
+   "top_idx": 1461801,
+   "bottom_idx": 1462228,
+   "depth_mv": 17.6694,
+   "fall_s": 427.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 1476400,
+   "window_end_idx": 1477000,
+   "windows": [
+    1829
+   ],
+   "top_idx": 1476652,
+   "bottom_idx": 1476974,
+   "depth_mv": 13.9426,
+   "fall_s": 322.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 1508400,
+   "window_end_idx": 1509000,
+   "windows": [
+    1761
+   ],
+   "top_idx": 1508400,
+   "bottom_idx": 1508846,
+   "depth_mv": 9.0438,
+   "fall_s": 446.0
+  },
+  {
+   "recording_id": 6,
+   "window_start_idx": 2437600,
+   "window_end_idx": 2438200,
+   "windows": [
+    861
+   ],
+   "top_idx": 2437819,
+   "bottom_idx": 2437962,
+   "depth_mv": 0.4866,
+   "fall_s": 143.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 37600,
+   "window_end_idx": 38200,
+   "windows": [
+    1539
+   ],
+   "top_idx": 37868,
+   "bottom_idx": 37917,
+   "depth_mv": 10.5059,
+   "fall_s": 49.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 63800,
+   "window_end_idx": 64400,
+   "windows": [
+    1241
+   ],
+   "top_idx": 64239,
+   "bottom_idx": 64353,
+   "depth_mv": 6.801,
+   "fall_s": 114.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 313400,
+   "window_end_idx": 314000,
+   "windows": [
+    1924
+   ],
+   "top_idx": 313522,
+   "bottom_idx": 313596,
+   "depth_mv": 45.3957,
+   "fall_s": 74.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 505200,
+   "window_end_idx": 505800,
+   "windows": [
+    903
+   ],
+   "top_idx": 505201,
+   "bottom_idx": 505416,
+   "depth_mv": 6.1848,
+   "fall_s": 215.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 578200,
+   "window_end_idx": 578800,
+   "windows": [
+    1276
+   ],
+   "top_idx": 578557,
+   "bottom_idx": 578569,
+   "depth_mv": 6.548,
+   "fall_s": 12.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 585400,
+   "window_end_idx": 586000,
+   "windows": [
+    1891
+   ],
+   "top_idx": 585490,
+   "bottom_idx": 585538,
+   "depth_mv": 12.7928,
+   "fall_s": 48.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 628600,
+   "window_end_idx": 629200,
+   "windows": [
+    1368
+   ],
+   "top_idx": 628792,
+   "bottom_idx": 628795,
+   "depth_mv": 6.1138,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 633600,
+   "window_end_idx": 634200,
+   "windows": [
+    1725
+   ],
+   "top_idx": 633815,
+   "bottom_idx": 633817,
+   "depth_mv": 2.3859,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 650600,
+   "window_end_idx": 651200,
+   "windows": [
+    1980
+   ],
+   "top_idx": 650693,
+   "bottom_idx": 650709,
+   "depth_mv": 23.5565,
+   "fall_s": 16.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 655400,
+   "window_end_idx": 656000,
+   "windows": [
+    198
+   ],
+   "top_idx": 655600,
+   "bottom_idx": 655605,
+   "depth_mv": 2.5954,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 658400,
+   "window_end_idx": 659600,
+   "windows": [
+    1240,
+    1055
+   ],
+   "top_idx": 658865,
+   "bottom_idx": 658872,
+   "depth_mv": 14.4424,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 675400,
+   "window_end_idx": 676000,
+   "windows": [
+    922
+   ],
+   "top_idx": 675456,
+   "bottom_idx": 675463,
+   "depth_mv": 6.1575,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 725400,
+   "window_end_idx": 726000,
+   "windows": [
+    1371
+   ],
+   "top_idx": 725928,
+   "bottom_idx": 725944,
+   "depth_mv": 1.0,
+   "fall_s": 16.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 733800,
+   "window_end_idx": 734400,
+   "windows": [
+    735
+   ],
+   "top_idx": 734124,
+   "bottom_idx": 734380,
+   "depth_mv": 25.495,
+   "fall_s": 256.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 745200,
+   "window_end_idx": 745800,
+   "windows": [
+    1434
+   ],
+   "top_idx": 745604,
+   "bottom_idx": 745614,
+   "depth_mv": 8.715,
+   "fall_s": 10.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 752200,
+   "window_end_idx": 752800,
+   "windows": [
+    2308
+   ],
+   "top_idx": 752577,
+   "bottom_idx": 752584,
+   "depth_mv": 21.0127,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 753000,
+   "window_end_idx": 753600,
+   "windows": [
+    1621
+   ],
+   "top_idx": 753310,
+   "bottom_idx": 753314,
+   "depth_mv": 5.988,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 757400,
+   "window_end_idx": 758000,
+   "windows": [
+    1774
+   ],
+   "top_idx": 757900,
+   "bottom_idx": 757904,
+   "depth_mv": 0.8583,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 760000,
+   "window_end_idx": 760600,
+   "windows": [
+    1729
+   ],
+   "top_idx": 760429,
+   "bottom_idx": 760435,
+   "depth_mv": 6.4153,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 765800,
+   "window_end_idx": 766400,
+   "windows": [
+    569
+   ],
+   "top_idx": 766116,
+   "bottom_idx": 766135,
+   "depth_mv": 91.8378,
+   "fall_s": 19.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 772800,
+   "window_end_idx": 773400,
+   "windows": [
+    2326
+   ],
+   "top_idx": 773212,
+   "bottom_idx": 773216,
+   "depth_mv": 6.8407,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 777200,
+   "window_end_idx": 777800,
+   "windows": [
+    2204
+   ],
+   "top_idx": 777244,
+   "bottom_idx": 777250,
+   "depth_mv": 12.7483,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 787600,
+   "window_end_idx": 788200,
+   "windows": [
+    167
+   ],
+   "top_idx": 787675,
+   "bottom_idx": 787680,
+   "depth_mv": 13.4912,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 877000,
+   "window_end_idx": 877600,
+   "windows": [
+    66
+   ],
+   "top_idx": 877546,
+   "bottom_idx": 877574,
+   "depth_mv": 11.1634,
+   "fall_s": 28.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 923600,
+   "window_end_idx": 924200,
+   "windows": [
+    1546
+   ],
+   "top_idx": 924091,
+   "bottom_idx": 924198,
+   "depth_mv": 1.3997,
+   "fall_s": 107.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1004800,
+   "window_end_idx": 1005400,
+   "windows": [
+    918
+   ],
+   "top_idx": 1005296,
+   "bottom_idx": 1005332,
+   "depth_mv": 6.9433,
+   "fall_s": 36.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1019800,
+   "window_end_idx": 1020400,
+   "windows": [
+    779
+   ],
+   "top_idx": 1020284,
+   "bottom_idx": 1020313,
+   "depth_mv": 1.0157,
+   "fall_s": 29.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1140400,
+   "window_end_idx": 1141000,
+   "windows": [
+    1561
+   ],
+   "top_idx": 1140401,
+   "bottom_idx": 1140643,
+   "depth_mv": 1.1836,
+   "fall_s": 242.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1164400,
+   "window_end_idx": 1165000,
+   "windows": [
+    1222
+   ],
+   "top_idx": 1164857,
+   "bottom_idx": 1164861,
+   "depth_mv": 4.0394,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1235600,
+   "window_end_idx": 1236200,
+   "windows": [
+    1897
+   ],
+   "top_idx": 1235997,
+   "bottom_idx": 1236018,
+   "depth_mv": 9.3906,
+   "fall_s": 21.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1413800,
+   "window_end_idx": 1414800,
+   "windows": [
+    1372,
+    2140
+   ],
+   "top_idx": 1414348,
+   "bottom_idx": 1414354,
+   "depth_mv": 12.5342,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1431200,
+   "window_end_idx": 1431800,
+   "windows": [
+    17
+   ],
+   "top_idx": 1431284,
+   "bottom_idx": 1431290,
+   "depth_mv": 13.5327,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1435000,
+   "window_end_idx": 1435600,
+   "windows": [
+    317
+   ],
+   "top_idx": 1435147,
+   "bottom_idx": 1435152,
+   "depth_mv": 1.2257,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1482400,
+   "window_end_idx": 1483000,
+   "windows": [
+    379
+   ],
+   "top_idx": 1482778,
+   "bottom_idx": 1482881,
+   "depth_mv": 6.5815,
+   "fall_s": 103.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1483800,
+   "window_end_idx": 1484400,
+   "windows": [
+    1548
+   ],
+   "top_idx": 1484223,
+   "bottom_idx": 1484237,
+   "depth_mv": 9.2392,
+   "fall_s": 14.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1488600,
+   "window_end_idx": 1489200,
+   "windows": [
+    2217
+   ],
+   "top_idx": 1488652,
+   "bottom_idx": 1488789,
+   "depth_mv": 3.2352,
+   "fall_s": 137.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1499000,
+   "window_end_idx": 1499600,
+   "windows": [
+    2117
+   ],
+   "top_idx": 1499123,
+   "bottom_idx": 1499129,
+   "depth_mv": 14.5239,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1523600,
+   "window_end_idx": 1524200,
+   "windows": [
+    1832
+   ],
+   "top_idx": 1523783,
+   "bottom_idx": 1523786,
+   "depth_mv": 0.431,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1538600,
+   "window_end_idx": 1539200,
+   "windows": [
+    806
+   ],
+   "top_idx": 1538600,
+   "bottom_idx": 1538862,
+   "depth_mv": 5.3624,
+   "fall_s": 262.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1547000,
+   "window_end_idx": 1547600,
+   "windows": [
+    745
+   ],
+   "top_idx": 1547565,
+   "bottom_idx": 1547567,
+   "depth_mv": 0.4474,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1551800,
+   "window_end_idx": 1552400,
+   "windows": [
+    2306
+   ],
+   "top_idx": 1552196,
+   "bottom_idx": 1552200,
+   "depth_mv": 1.5688,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1561800,
+   "window_end_idx": 1562400,
+   "windows": [
+    2210
+   ],
+   "top_idx": 1561880,
+   "bottom_idx": 1561884,
+   "depth_mv": 6.6165,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1568600,
+   "window_end_idx": 1569200,
+   "windows": [
+    697
+   ],
+   "top_idx": 1568601,
+   "bottom_idx": 1569142,
+   "depth_mv": 36.6674,
+   "fall_s": 541.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1580000,
+   "window_end_idx": 1580600,
+   "windows": [
+    1267
+   ],
+   "top_idx": 1580000,
+   "bottom_idx": 1580071,
+   "depth_mv": 8.9199,
+   "fall_s": 71.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1595800,
+   "window_end_idx": 1596400,
+   "windows": [
+    900
+   ],
+   "top_idx": 1596336,
+   "bottom_idx": 1596369,
+   "depth_mv": 65.8316,
+   "fall_s": 33.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1596800,
+   "window_end_idx": 1597400,
+   "windows": [
+    623
+   ],
+   "top_idx": 1596997,
+   "bottom_idx": 1597008,
+   "depth_mv": 11.3651,
+   "fall_s": 11.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1808200,
+   "window_end_idx": 1808800,
+   "windows": [
+    258
+   ],
+   "top_idx": 1808200,
+   "bottom_idx": 1808363,
+   "depth_mv": 22.1106,
+   "fall_s": 163.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1827200,
+   "window_end_idx": 1827800,
+   "windows": [
+    795
+   ],
+   "top_idx": 1827764,
+   "bottom_idx": 1827766,
+   "depth_mv": 1.3571,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 1843000,
+   "window_end_idx": 1843600,
+   "windows": [
+    147
+   ],
+   "top_idx": 1843494,
+   "bottom_idx": 1843496,
+   "depth_mv": 2.3971,
+   "fall_s": 2.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 2351600,
+   "window_end_idx": 2352200,
+   "windows": [
+    1555
+   ],
+   "top_idx": 2351600,
+   "bottom_idx": 2351837,
+   "depth_mv": 4.0804,
+   "fall_s": 237.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 2368600,
+   "window_end_idx": 2369200,
+   "windows": [
+    1310
+   ],
+   "top_idx": 2368946,
+   "bottom_idx": 2368953,
+   "depth_mv": 1.4304,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 2490000,
+   "window_end_idx": 2490600,
+   "windows": [
+    876
+   ],
+   "top_idx": 2490247,
+   "bottom_idx": 2490253,
+   "depth_mv": 1.676,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 2530200,
+   "window_end_idx": 2530800,
+   "windows": [
+    1544
+   ],
+   "top_idx": 2530316,
+   "bottom_idx": 2530425,
+   "depth_mv": 5.8926,
+   "fall_s": 109.0
+  },
+  {
+   "recording_id": 7,
+   "window_start_idx": 2579400,
+   "window_end_idx": 2580000,
+   "windows": [
+    1854
+   ],
+   "top_idx": 2579424,
+   "bottom_idx": 2579501,
+   "depth_mv": 2.3731,
+   "fall_s": 77.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 22000,
+   "window_end_idx": 22600,
+   "windows": [
+    2097
+   ],
+   "top_idx": 22329,
+   "bottom_idx": 22400,
+   "depth_mv": 37.8376,
+   "fall_s": 71.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 75000,
+   "window_end_idx": 75600,
+   "windows": [
+    821
+   ],
+   "top_idx": 75468,
+   "bottom_idx": 75567,
+   "depth_mv": 12.5046,
+   "fall_s": 99.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 208800,
+   "window_end_idx": 209400,
+   "windows": [
+    2072
+   ],
+   "top_idx": 208945,
+   "bottom_idx": 209003,
+   "depth_mv": 36.1658,
+   "fall_s": 58.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 347600,
+   "window_end_idx": 348200,
+   "windows": [
+    2018
+   ],
+   "top_idx": 347763,
+   "bottom_idx": 348167,
+   "depth_mv": 8.911,
+   "fall_s": 404.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1041400,
+   "window_end_idx": 1042000,
+   "windows": [
+    81
+   ],
+   "top_idx": 1041667,
+   "bottom_idx": 1041704,
+   "depth_mv": 0.8079,
+   "fall_s": 37.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1283800,
+   "window_end_idx": 1284400,
+   "windows": [
+    1667
+   ],
+   "top_idx": 1283987,
+   "bottom_idx": 1283999,
+   "depth_mv": 1.0899,
+   "fall_s": 12.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1533400,
+   "window_end_idx": 1534000,
+   "windows": [
+    123
+   ],
+   "top_idx": 1533690,
+   "bottom_idx": 1533695,
+   "depth_mv": 0.4385,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1610000,
+   "window_end_idx": 1610600,
+   "windows": [
+    1023
+   ],
+   "top_idx": 1610188,
+   "bottom_idx": 1610203,
+   "depth_mv": 4.4462,
+   "fall_s": 15.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1616200,
+   "window_end_idx": 1616800,
+   "windows": [
+    1285
+   ],
+   "top_idx": 1616600,
+   "bottom_idx": 1616645,
+   "depth_mv": 6.6242,
+   "fall_s": 45.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1620200,
+   "window_end_idx": 1621000,
+   "windows": [
+    2075,
+    510
+   ],
+   "top_idx": 1620677,
+   "bottom_idx": 1620767,
+   "depth_mv": 6.9712,
+   "fall_s": 90.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1640600,
+   "window_end_idx": 1641400,
+   "windows": [
+    2221,
+    1766
+   ],
+   "top_idx": 1640751,
+   "bottom_idx": 1640783,
+   "depth_mv": 14.0536,
+   "fall_s": 32.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1651400,
+   "window_end_idx": 1652000,
+   "windows": [
+    104
+   ],
+   "top_idx": 1651543,
+   "bottom_idx": 1651552,
+   "depth_mv": 3.5968,
+   "fall_s": 9.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1659400,
+   "window_end_idx": 1660000,
+   "windows": [
+    68
+   ],
+   "top_idx": 1659491,
+   "bottom_idx": 1659498,
+   "depth_mv": 2.457,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1669800,
+   "window_end_idx": 1670400,
+   "windows": [
+    390
+   ],
+   "top_idx": 1670160,
+   "bottom_idx": 1670166,
+   "depth_mv": 0.6173,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1713600,
+   "window_end_idx": 1714600,
+   "windows": [
+    183,
+    2240
+   ],
+   "top_idx": 1713940,
+   "bottom_idx": 1713967,
+   "depth_mv": 2.8262,
+   "fall_s": 27.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1718600,
+   "window_end_idx": 1719200,
+   "windows": [
+    534
+   ],
+   "top_idx": 1718716,
+   "bottom_idx": 1718794,
+   "depth_mv": 3.374,
+   "fall_s": 78.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1722200,
+   "window_end_idx": 1723000,
+   "windows": [
+    1478,
+    19
+   ],
+   "top_idx": 1722521,
+   "bottom_idx": 1722545,
+   "depth_mv": 5.0738,
+   "fall_s": 24.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1775000,
+   "window_end_idx": 1775600,
+   "windows": [
+    1531
+   ],
+   "top_idx": 1775392,
+   "bottom_idx": 1775400,
+   "depth_mv": 2.7286,
+   "fall_s": 8.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1811000,
+   "window_end_idx": 1811600,
+   "windows": [
+    1089
+   ],
+   "top_idx": 1811060,
+   "bottom_idx": 1811068,
+   "depth_mv": 1.8804,
+   "fall_s": 8.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1818200,
+   "window_end_idx": 1818800,
+   "windows": [
+    1564
+   ],
+   "top_idx": 1818660,
+   "bottom_idx": 1818676,
+   "depth_mv": 2.8687,
+   "fall_s": 16.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1829400,
+   "window_end_idx": 1830000,
+   "windows": [
+    2168
+   ],
+   "top_idx": 1829605,
+   "bottom_idx": 1829627,
+   "depth_mv": 3.2311,
+   "fall_s": 22.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1850600,
+   "window_end_idx": 1851200,
+   "windows": [
+    1846
+   ],
+   "top_idx": 1850733,
+   "bottom_idx": 1850753,
+   "depth_mv": 4.0283,
+   "fall_s": 20.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1863000,
+   "window_end_idx": 1863600,
+   "windows": [
+    1287
+   ],
+   "top_idx": 1863471,
+   "bottom_idx": 1863489,
+   "depth_mv": 3.2919,
+   "fall_s": 18.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1870000,
+   "window_end_idx": 1870600,
+   "windows": [
+    349
+   ],
+   "top_idx": 1870283,
+   "bottom_idx": 1870295,
+   "depth_mv": 0.876,
+   "fall_s": 12.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 1888600,
+   "window_end_idx": 1889200,
+   "windows": [
+    1819
+   ],
+   "top_idx": 1888600,
+   "bottom_idx": 1888939,
+   "depth_mv": 2.3714,
+   "fall_s": 339.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 2028200,
+   "window_end_idx": 2028800,
+   "windows": [
+    254
+   ],
+   "top_idx": 2028540,
+   "bottom_idx": 2028549,
+   "depth_mv": 3.8548,
+   "fall_s": 9.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 2271000,
+   "window_end_idx": 2271600,
+   "windows": [
+    2092
+   ],
+   "top_idx": 2271000,
+   "bottom_idx": 2271543,
+   "depth_mv": 1.9444,
+   "fall_s": 543.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 2329200,
+   "window_end_idx": 2329800,
+   "windows": [
+    1137
+   ],
+   "top_idx": 2329492,
+   "bottom_idx": 2329569,
+   "depth_mv": 1.8651,
+   "fall_s": 77.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 2374800,
+   "window_end_idx": 2375400,
+   "windows": [
+    1031
+   ],
+   "top_idx": 2375169,
+   "bottom_idx": 2375399,
+   "depth_mv": 4.6571,
+   "fall_s": 230.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 2409600,
+   "window_end_idx": 2410200,
+   "windows": [
+    965
+   ],
+   "top_idx": 2409724,
+   "bottom_idx": 2409942,
+   "depth_mv": 2.551,
+   "fall_s": 218.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 2419400,
+   "window_end_idx": 2420000,
+   "windows": [
+    182
+   ],
+   "top_idx": 2419836,
+   "bottom_idx": 2419884,
+   "depth_mv": 1.2832,
+   "fall_s": 48.0
+  },
+  {
+   "recording_id": 8,
+   "window_start_idx": 2493600,
+   "window_end_idx": 2494200,
+   "windows": [
+    983
+   ],
+   "top_idx": 2494095,
+   "bottom_idx": 2494176,
+   "depth_mv": 2.824,
+   "fall_s": 81.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 10600,
+   "window_end_idx": 11200,
+   "windows": [
+    1142
+   ],
+   "top_idx": 10600,
+   "bottom_idx": 10776,
+   "depth_mv": 24.9479,
+   "fall_s": 176.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 201600,
+   "window_end_idx": 202200,
+   "windows": [
+    943
+   ],
+   "top_idx": 201860,
+   "bottom_idx": 202009,
+   "depth_mv": 4.2535,
+   "fall_s": 149.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 681800,
+   "window_end_idx": 682400,
+   "windows": [
+    161
+   ],
+   "top_idx": 682056,
+   "bottom_idx": 682102,
+   "depth_mv": 2.8446,
+   "fall_s": 46.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 691600,
+   "window_end_idx": 692200,
+   "windows": [
+    1534
+   ],
+   "top_idx": 691984,
+   "bottom_idx": 692125,
+   "depth_mv": 4.2492,
+   "fall_s": 141.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 732400,
+   "window_end_idx": 733000,
+   "windows": [
+    462
+   ],
+   "top_idx": 732542,
+   "bottom_idx": 732683,
+   "depth_mv": 7.1065,
+   "fall_s": 141.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 774000,
+   "window_end_idx": 774600,
+   "windows": [
+    1908
+   ],
+   "top_idx": 774401,
+   "bottom_idx": 774599,
+   "depth_mv": 3.1579,
+   "fall_s": 198.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 799200,
+   "window_end_idx": 799800,
+   "windows": [
+    1754
+   ],
+   "top_idx": 799405,
+   "bottom_idx": 799798,
+   "depth_mv": 5.3552,
+   "fall_s": 393.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 947800,
+   "window_end_idx": 948400,
+   "windows": [
+    2259
+   ],
+   "top_idx": 947952,
+   "bottom_idx": 948100,
+   "depth_mv": 0.9582,
+   "fall_s": 148.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 1502600,
+   "window_end_idx": 1503200,
+   "windows": [
+    804
+   ],
+   "top_idx": 1502760,
+   "bottom_idx": 1503003,
+   "depth_mv": 1.6107,
+   "fall_s": 243.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 1688000,
+   "window_end_idx": 1688600,
+   "windows": [
+    245
+   ],
+   "top_idx": 1688232,
+   "bottom_idx": 1688247,
+   "depth_mv": 1.007,
+   "fall_s": 15.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 1691800,
+   "window_end_idx": 1692400,
+   "windows": [
+    593
+   ],
+   "top_idx": 1692240,
+   "bottom_idx": 1692255,
+   "depth_mv": 1.3742,
+   "fall_s": 15.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 1730200,
+   "window_end_idx": 1730800,
+   "windows": [
+    945
+   ],
+   "top_idx": 1730200,
+   "bottom_idx": 1730799,
+   "depth_mv": 24.8795,
+   "fall_s": 599.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 1945800,
+   "window_end_idx": 1946400,
+   "windows": [
+    1050
+   ],
+   "top_idx": 1946087,
+   "bottom_idx": 1946226,
+   "depth_mv": 0.5585,
+   "fall_s": 139.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 1953600,
+   "window_end_idx": 1954200,
+   "windows": [
+    1607
+   ],
+   "top_idx": 1954071,
+   "bottom_idx": 1954075,
+   "depth_mv": 0.9369,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 9,
+   "window_start_idx": 2421200,
+   "window_end_idx": 2421800,
+   "windows": [
+    1090
+   ],
+   "top_idx": 2421559,
+   "bottom_idx": 2421581,
+   "depth_mv": 0.3426,
+   "fall_s": 22.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 82000,
+   "window_end_idx": 82600,
+   "windows": [
+    595
+   ],
+   "top_idx": 82000,
+   "bottom_idx": 82387,
+   "depth_mv": 9.571,
+   "fall_s": 387.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 137000,
+   "window_end_idx": 137600,
+   "windows": [
+    1962
+   ],
+   "top_idx": 137299,
+   "bottom_idx": 137430,
+   "depth_mv": 8.654,
+   "fall_s": 131.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 177000,
+   "window_end_idx": 177600,
+   "windows": [
+    1545
+   ],
+   "top_idx": 177214,
+   "bottom_idx": 177456,
+   "depth_mv": 8.0698,
+   "fall_s": 242.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 278800,
+   "window_end_idx": 279400,
+   "windows": [
+    1225
+   ],
+   "top_idx": 278954,
+   "bottom_idx": 278958,
+   "depth_mv": 1.649,
+   "fall_s": 4.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 286800,
+   "window_end_idx": 287400,
+   "windows": [
+    140
+   ],
+   "top_idx": 286940,
+   "bottom_idx": 287081,
+   "depth_mv": 15.7817,
+   "fall_s": 141.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 289600,
+   "window_end_idx": 290200,
+   "windows": [
+    946
+   ],
+   "top_idx": 289600,
+   "bottom_idx": 289711,
+   "depth_mv": 1.8661,
+   "fall_s": 111.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 360800,
+   "window_end_idx": 361400,
+   "windows": [
+    2311
+   ],
+   "top_idx": 361159,
+   "bottom_idx": 361202,
+   "depth_mv": 6.4902,
+   "fall_s": 43.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 728200,
+   "window_end_idx": 728800,
+   "windows": [
+    2022
+   ],
+   "top_idx": 728623,
+   "bottom_idx": 728773,
+   "depth_mv": 4.7698,
+   "fall_s": 150.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 733600,
+   "window_end_idx": 734200,
+   "windows": [
+    1662
+   ],
+   "top_idx": 733727,
+   "bottom_idx": 733882,
+   "depth_mv": 2.5378,
+   "fall_s": 155.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 790800,
+   "window_end_idx": 791400,
+   "windows": [
+    1005
+   ],
+   "top_idx": 790835,
+   "bottom_idx": 790842,
+   "depth_mv": 2.8456,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 823000,
+   "window_end_idx": 823600,
+   "windows": [
+    521
+   ],
+   "top_idx": 823051,
+   "bottom_idx": 823057,
+   "depth_mv": 0.72,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 845200,
+   "window_end_idx": 845800,
+   "windows": [
+    1218
+   ],
+   "top_idx": 845252,
+   "bottom_idx": 845257,
+   "depth_mv": 0.5014,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 1183800,
+   "window_end_idx": 1184400,
+   "windows": [
+    817
+   ],
+   "top_idx": 1184293,
+   "bottom_idx": 1184399,
+   "depth_mv": 5.2482,
+   "fall_s": 106.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 1468600,
+   "window_end_idx": 1469200,
+   "windows": [
+    193
+   ],
+   "top_idx": 1468962,
+   "bottom_idx": 1469102,
+   "depth_mv": 2.5326,
+   "fall_s": 140.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 1520200,
+   "window_end_idx": 1520800,
+   "windows": [
+    2241
+   ],
+   "top_idx": 1520330,
+   "bottom_idx": 1520589,
+   "depth_mv": 5.018,
+   "fall_s": 259.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 1626400,
+   "window_end_idx": 1627000,
+   "windows": [
+    682
+   ],
+   "top_idx": 1626640,
+   "bottom_idx": 1626807,
+   "depth_mv": 2.0882,
+   "fall_s": 167.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 1638400,
+   "window_end_idx": 1639000,
+   "windows": [
+    767
+   ],
+   "top_idx": 1638658,
+   "bottom_idx": 1638830,
+   "depth_mv": 1.3132,
+   "fall_s": 172.0
+  },
+  {
+   "recording_id": 10,
+   "window_start_idx": 1981000,
+   "window_end_idx": 1981600,
+   "windows": [
+    2288
+   ],
+   "top_idx": 1981000,
+   "bottom_idx": 1981252,
+   "depth_mv": 1.4373,
+   "fall_s": 252.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 32400,
+   "window_end_idx": 33000,
+   "windows": [
+    10
+   ],
+   "top_idx": 32855,
+   "bottom_idx": 32978,
+   "depth_mv": 65.6003,
+   "fall_s": 123.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 123000,
+   "window_end_idx": 123600,
+   "windows": [
+    249
+   ],
+   "top_idx": 123172,
+   "bottom_idx": 123232,
+   "depth_mv": 4.9654,
+   "fall_s": 60.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 306200,
+   "window_end_idx": 306800,
+   "windows": [
+    1792
+   ],
+   "top_idx": 306513,
+   "bottom_idx": 306640,
+   "depth_mv": 1.0244,
+   "fall_s": 127.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 319400,
+   "window_end_idx": 320000,
+   "windows": [
+    851
+   ],
+   "top_idx": 319496,
+   "bottom_idx": 319559,
+   "depth_mv": 44.4584,
+   "fall_s": 63.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 333400,
+   "window_end_idx": 334000,
+   "windows": [
+    1120
+   ],
+   "top_idx": 333584,
+   "bottom_idx": 333999,
+   "depth_mv": 37.9631,
+   "fall_s": 415.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 340400,
+   "window_end_idx": 341000,
+   "windows": [
+    2079
+   ],
+   "top_idx": 340435,
+   "bottom_idx": 340467,
+   "depth_mv": 60.6883,
+   "fall_s": 32.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 457200,
+   "window_end_idx": 457800,
+   "windows": [
+    1308
+   ],
+   "top_idx": 457344,
+   "bottom_idx": 457693,
+   "depth_mv": 3.9398,
+   "fall_s": 349.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 676800,
+   "window_end_idx": 677400,
+   "windows": [
+    2321
+   ],
+   "top_idx": 676982,
+   "bottom_idx": 676991,
+   "depth_mv": 0.5963,
+   "fall_s": 9.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 696400,
+   "window_end_idx": 697000,
+   "windows": [
+    189
+   ],
+   "top_idx": 696712,
+   "bottom_idx": 696999,
+   "depth_mv": 5.7132,
+   "fall_s": 287.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 882200,
+   "window_end_idx": 882800,
+   "windows": [
+    83
+   ],
+   "top_idx": 882466,
+   "bottom_idx": 882593,
+   "depth_mv": 1.859,
+   "fall_s": 127.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 1029600,
+   "window_end_idx": 1030200,
+   "windows": [
+    1450
+   ],
+   "top_idx": 1029808,
+   "bottom_idx": 1029829,
+   "depth_mv": 6.6897,
+   "fall_s": 21.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 1105400,
+   "window_end_idx": 1106000,
+   "windows": [
+    474
+   ],
+   "top_idx": 1105803,
+   "bottom_idx": 1105905,
+   "depth_mv": 1.611,
+   "fall_s": 102.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 1128800,
+   "window_end_idx": 1129400,
+   "windows": [
+    2290
+   ],
+   "top_idx": 1128801,
+   "bottom_idx": 1129123,
+   "depth_mv": 2.0694,
+   "fall_s": 322.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 1244000,
+   "window_end_idx": 1244600,
+   "windows": [
+    108
+   ],
+   "top_idx": 1244383,
+   "bottom_idx": 1244419,
+   "depth_mv": 0.6141,
+   "fall_s": 36.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 1373000,
+   "window_end_idx": 1373600,
+   "windows": [
+    584
+   ],
+   "top_idx": 1373000,
+   "bottom_idx": 1373459,
+   "depth_mv": 1.0878,
+   "fall_s": 459.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 1444400,
+   "window_end_idx": 1445000,
+   "windows": [
+    800
+   ],
+   "top_idx": 1444401,
+   "bottom_idx": 1444840,
+   "depth_mv": 3.7536,
+   "fall_s": 439.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 1616400,
+   "window_end_idx": 1617000,
+   "windows": [
+    1797
+   ],
+   "top_idx": 1616528,
+   "bottom_idx": 1616672,
+   "depth_mv": 2.3063,
+   "fall_s": 144.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 2303400,
+   "window_end_idx": 2304000,
+   "windows": [
+    314
+   ],
+   "top_idx": 2303518,
+   "bottom_idx": 2303554,
+   "depth_mv": 0.6197,
+   "fall_s": 36.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 2386200,
+   "window_end_idx": 2386800,
+   "windows": [
+    1204
+   ],
+   "top_idx": 2386502,
+   "bottom_idx": 2386513,
+   "depth_mv": 0.5032,
+   "fall_s": 11.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 2502400,
+   "window_end_idx": 2503000,
+   "windows": [
+    1334
+   ],
+   "top_idx": 2502640,
+   "bottom_idx": 2502663,
+   "depth_mv": 0.7864,
+   "fall_s": 23.0
+  },
+  {
+   "recording_id": 11,
+   "window_start_idx": 2507600,
+   "window_end_idx": 2508200,
+   "windows": [
+    1970
+   ],
+   "top_idx": 2507950,
+   "bottom_idx": 2508065,
+   "depth_mv": 6.062,
+   "fall_s": 115.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 25600,
+   "window_end_idx": 26200,
+   "windows": [
+    267
+   ],
+   "top_idx": 25732,
+   "bottom_idx": 26199,
+   "depth_mv": 29.2849,
+   "fall_s": 467.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 32400,
+   "window_end_idx": 33000,
+   "windows": [
+    136
+   ],
+   "top_idx": 32888,
+   "bottom_idx": 32999,
+   "depth_mv": 3.6379,
+   "fall_s": 111.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 188000,
+   "window_end_idx": 188600,
+   "windows": [
+    1936
+   ],
+   "top_idx": 188052,
+   "bottom_idx": 188061,
+   "depth_mv": 12.8892,
+   "fall_s": 9.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 194400,
+   "window_end_idx": 195000,
+   "windows": [
+    823
+   ],
+   "top_idx": 194556,
+   "bottom_idx": 194660,
+   "depth_mv": 47.1921,
+   "fall_s": 104.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 195600,
+   "window_end_idx": 196200,
+   "windows": [
+    666
+   ],
+   "top_idx": 195791,
+   "bottom_idx": 195796,
+   "depth_mv": 14.2527,
+   "fall_s": 5.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 208200,
+   "window_end_idx": 208800,
+   "windows": [
+    1437
+   ],
+   "top_idx": 208260,
+   "bottom_idx": 208280,
+   "depth_mv": 9.4154,
+   "fall_s": 20.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 214000,
+   "window_end_idx": 214600,
+   "windows": [
+    1815
+   ],
+   "top_idx": 214145,
+   "bottom_idx": 214182,
+   "depth_mv": 64.7893,
+   "fall_s": 37.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 248000,
+   "window_end_idx": 248600,
+   "windows": [
+    2135
+   ],
+   "top_idx": 248423,
+   "bottom_idx": 248459,
+   "depth_mv": 7.3343,
+   "fall_s": 36.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 300400,
+   "window_end_idx": 301000,
+   "windows": [
+    1065
+   ],
+   "top_idx": 300791,
+   "bottom_idx": 300820,
+   "depth_mv": 34.4519,
+   "fall_s": 29.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 384200,
+   "window_end_idx": 384800,
+   "windows": [
+    1233
+   ],
+   "top_idx": 384227,
+   "bottom_idx": 384237,
+   "depth_mv": 6.0938,
+   "fall_s": 10.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 387200,
+   "window_end_idx": 388000,
+   "windows": [
+    1933,
+    335
+   ],
+   "top_idx": 387284,
+   "bottom_idx": 387436,
+   "depth_mv": 34.4666,
+   "fall_s": 152.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 518000,
+   "window_end_idx": 518600,
+   "windows": [
+    1892
+   ],
+   "top_idx": 518019,
+   "bottom_idx": 518036,
+   "depth_mv": 3.8768,
+   "fall_s": 17.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 520000,
+   "window_end_idx": 520600,
+   "windows": [
+    52
+   ],
+   "top_idx": 520044,
+   "bottom_idx": 520054,
+   "depth_mv": 4.4356,
+   "fall_s": 10.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 670400,
+   "window_end_idx": 671000,
+   "windows": [
+    1596
+   ],
+   "top_idx": 670644,
+   "bottom_idx": 670998,
+   "depth_mv": 1.4803,
+   "fall_s": 354.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 747400,
+   "window_end_idx": 748000,
+   "windows": [
+    865
+   ],
+   "top_idx": 747631,
+   "bottom_idx": 747809,
+   "depth_mv": 2.1962,
+   "fall_s": 178.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 971800,
+   "window_end_idx": 972400,
+   "windows": [
+    479
+   ],
+   "top_idx": 971800,
+   "bottom_idx": 971803,
+   "depth_mv": 4.8242,
+   "fall_s": 3.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 1148600,
+   "window_end_idx": 1149200,
+   "windows": [
+    1973
+   ],
+   "top_idx": 1148645,
+   "bottom_idx": 1148652,
+   "depth_mv": 0.6932,
+   "fall_s": 7.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 1335200,
+   "window_end_idx": 1335800,
+   "windows": [
+    829
+   ],
+   "top_idx": 1335540,
+   "bottom_idx": 1335546,
+   "depth_mv": 0.175,
+   "fall_s": 6.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 1370400,
+   "window_end_idx": 1371000,
+   "windows": [
+    1872
+   ],
+   "top_idx": 1370471,
+   "bottom_idx": 1370490,
+   "depth_mv": 4.2482,
+   "fall_s": 19.0
+  },
+  {
+   "recording_id": 12,
+   "window_start_idx": 1403400,
+   "window_end_idx": 1404000,
+   "windows": [
+    1093
+   ],
+   "top_idx": 1403491,
+   "bottom_idx": 1403744,
+   "depth_mv": 3.729,
+   "fall_s": 253.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 53200,
+   "window_end_idx": 53800,
+   "windows": [
+    102
+   ],
+   "top_idx": 53757,
+   "bottom_idx": 53774,
+   "depth_mv": 9.4871,
+   "fall_s": 17.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 73000,
+   "window_end_idx": 73600,
+   "windows": [
+    612
+   ],
+   "top_idx": 73392,
+   "bottom_idx": 73506,
+   "depth_mv": 473.0816,
+   "fall_s": 114.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 108200,
+   "window_end_idx": 108800,
+   "windows": [
+    770
+   ],
+   "top_idx": 108334,
+   "bottom_idx": 108415,
+   "depth_mv": 2.4698,
+   "fall_s": 81.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 124800,
+   "window_end_idx": 125400,
+   "windows": [
+    1282
+   ],
+   "top_idx": 124964,
+   "bottom_idx": 125021,
+   "depth_mv": 5.2937,
+   "fall_s": 57.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 188200,
+   "window_end_idx": 188800,
+   "windows": [
+    73
+   ],
+   "top_idx": 188363,
+   "bottom_idx": 188546,
+   "depth_mv": 6.0935,
+   "fall_s": 183.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 198400,
+   "window_end_idx": 199000,
+   "windows": [
+    701
+   ],
+   "top_idx": 198505,
+   "bottom_idx": 198706,
+   "depth_mv": 3.5906,
+   "fall_s": 201.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 317000,
+   "window_end_idx": 317600,
+   "windows": [
+    1056
+   ],
+   "top_idx": 317177,
+   "bottom_idx": 317187,
+   "depth_mv": 0.3972,
+   "fall_s": 10.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 426000,
+   "window_end_idx": 426600,
+   "windows": [
+    2106
+   ],
+   "top_idx": 426312,
+   "bottom_idx": 426334,
+   "depth_mv": 2.7022,
+   "fall_s": 22.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 516200,
+   "window_end_idx": 516800,
+   "windows": [
+    305
+   ],
+   "top_idx": 516592,
+   "bottom_idx": 516653,
+   "depth_mv": 5.4295,
+   "fall_s": 61.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 566400,
+   "window_end_idx": 567000,
+   "windows": [
+    1941
+   ],
+   "top_idx": 566400,
+   "bottom_idx": 566466,
+   "depth_mv": 2.683,
+   "fall_s": 66.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 573800,
+   "window_end_idx": 574400,
+   "windows": [
+    127
+   ],
+   "top_idx": 573982,
+   "bottom_idx": 574041,
+   "depth_mv": 0.8244,
+   "fall_s": 59.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 642800,
+   "window_end_idx": 643400,
+   "windows": [
+    278
+   ],
+   "top_idx": 642978,
+   "bottom_idx": 643088,
+   "depth_mv": 2.0162,
+   "fall_s": 110.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 926200,
+   "window_end_idx": 926800,
+   "windows": [
+    1640
+   ],
+   "top_idx": 926340,
+   "bottom_idx": 926354,
+   "depth_mv": 0.3565,
+   "fall_s": 14.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 1062400,
+   "window_end_idx": 1063000,
+   "windows": [
+    2195
+   ],
+   "top_idx": 1062491,
+   "bottom_idx": 1062558,
+   "depth_mv": 0.2082,
+   "fall_s": 67.0
+  },
+  {
+   "recording_id": 13,
+   "window_start_idx": 1478800,
+   "window_end_idx": 1479400,
+   "windows": [
+    1024
+   ],
+   "top_idx": 1478801,
+   "bottom_idx": 1479146,
+   "depth_mv": 0.7682,
+   "fall_s": 345.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 78000,
+   "window_end_idx": 78600,
+   "windows": [
+    1068
+   ],
+   "top_idx": 78172,
+   "bottom_idx": 78182,
+   "depth_mv": 4.5584,
+   "fall_s": 10.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 86800,
+   "window_end_idx": 87400,
+   "windows": [
+    320
+   ],
+   "top_idx": 87232,
+   "bottom_idx": 87279,
+   "depth_mv": 0.5639,
+   "fall_s": 47.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 109600,
+   "window_end_idx": 110200,
+   "windows": [
+    819
+   ],
+   "top_idx": 109600,
+   "bottom_idx": 109930,
+   "depth_mv": 7.2264,
+   "fall_s": 330.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 156000,
+   "window_end_idx": 156600,
+   "windows": [
+    1134
+   ],
+   "top_idx": 156412,
+   "bottom_idx": 156567,
+   "depth_mv": 4.4337,
+   "fall_s": 155.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 243600,
+   "window_end_idx": 244200,
+   "windows": [
+    1403
+   ],
+   "top_idx": 243856,
+   "bottom_idx": 243950,
+   "depth_mv": 18.133,
+   "fall_s": 94.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 254200,
+   "window_end_idx": 254800,
+   "windows": [
+    1312
+   ],
+   "top_idx": 254432,
+   "bottom_idx": 254589,
+   "depth_mv": 13.3197,
+   "fall_s": 157.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 319600,
+   "window_end_idx": 320200,
+   "windows": [
+    1411
+   ],
+   "top_idx": 319894,
+   "bottom_idx": 320055,
+   "depth_mv": 2.0315,
+   "fall_s": 161.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 359000,
+   "window_end_idx": 359600,
+   "windows": [
+    1554
+   ],
+   "top_idx": 359173,
+   "bottom_idx": 359298,
+   "depth_mv": 0.6498,
+   "fall_s": 125.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 439000,
+   "window_end_idx": 440000,
+   "windows": [
+    940,
+    877
+   ],
+   "top_idx": 439473,
+   "bottom_idx": 439494,
+   "depth_mv": 7.9888,
+   "fall_s": 21.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 469600,
+   "window_end_idx": 470200,
+   "windows": [
+    796
+   ],
+   "top_idx": 469669,
+   "bottom_idx": 469871,
+   "depth_mv": 1.1995,
+   "fall_s": 202.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 519200,
+   "window_end_idx": 519800,
+   "windows": [
+    26
+   ],
+   "top_idx": 519703,
+   "bottom_idx": 519728,
+   "depth_mv": 3.6127,
+   "fall_s": 25.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 563800,
+   "window_end_idx": 564400,
+   "windows": [
+    1689
+   ],
+   "top_idx": 563838,
+   "bottom_idx": 563849,
+   "depth_mv": 1.5916,
+   "fall_s": 11.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 606200,
+   "window_end_idx": 606800,
+   "windows": [
+    2252
+   ],
+   "top_idx": 606201,
+   "bottom_idx": 606747,
+   "depth_mv": 2.5391,
+   "fall_s": 546.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 698600,
+   "window_end_idx": 699200,
+   "windows": [
+    1401
+   ],
+   "top_idx": 698601,
+   "bottom_idx": 698797,
+   "depth_mv": 1.1678,
+   "fall_s": 196.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 711000,
+   "window_end_idx": 711600,
+   "windows": [
+    1810
+   ],
+   "top_idx": 711382,
+   "bottom_idx": 711421,
+   "depth_mv": 0.4808,
+   "fall_s": 39.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 1363400,
+   "window_end_idx": 1364000,
+   "windows": [
+    585
+   ],
+   "top_idx": 1363649,
+   "bottom_idx": 1363805,
+   "depth_mv": 2.6968,
+   "fall_s": 156.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 1384200,
+   "window_end_idx": 1384800,
+   "windows": [
+    1101
+   ],
+   "top_idx": 1384200,
+   "bottom_idx": 1384347,
+   "depth_mv": 1.5035,
+   "fall_s": 147.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 1408600,
+   "window_end_idx": 1409200,
+   "windows": [
+    138
+   ],
+   "top_idx": 1408771,
+   "bottom_idx": 1408803,
+   "depth_mv": 4.8593,
+   "fall_s": 32.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 1419000,
+   "window_end_idx": 1419600,
+   "windows": [
+    1617
+   ],
+   "top_idx": 1419249,
+   "bottom_idx": 1419393,
+   "depth_mv": 0.7465,
+   "fall_s": 144.0
+  },
+  {
+   "recording_id": 14,
+   "window_start_idx": 2559000,
+   "window_end_idx": 2559600,
+   "windows": [
+    303
+   ],
+   "top_idx": 2559331,
+   "bottom_idx": 2559599,
+   "depth_mv": 0.5356,
+   "fall_s": 268.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 153400,
+   "window_end_idx": 154000,
+   "windows": [
+    199
+   ],
+   "top_idx": 153400,
+   "bottom_idx": 153630,
+   "depth_mv": 3.055,
+   "fall_s": 230.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 239200,
+   "window_end_idx": 239800,
+   "windows": [
+    154
+   ],
+   "top_idx": 239452,
+   "bottom_idx": 239513,
+   "depth_mv": 0.6599,
+   "fall_s": 61.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 261600,
+   "window_end_idx": 262200,
+   "windows": [
+    445
+   ],
+   "top_idx": 262014,
+   "bottom_idx": 262119,
+   "depth_mv": 4.2854,
+   "fall_s": 105.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 358600,
+   "window_end_idx": 359200,
+   "windows": [
+    712
+   ],
+   "top_idx": 359059,
+   "bottom_idx": 359097,
+   "depth_mv": 0.3142,
+   "fall_s": 38.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 843600,
+   "window_end_idx": 844200,
+   "windows": [
+    988
+   ],
+   "top_idx": 843713,
+   "bottom_idx": 843792,
+   "depth_mv": 2.4271,
+   "fall_s": 79.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 951600,
+   "window_end_idx": 952200,
+   "windows": [
+    244
+   ],
+   "top_idx": 951601,
+   "bottom_idx": 952199,
+   "depth_mv": 2.2138,
+   "fall_s": 598.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 965600,
+   "window_end_idx": 966200,
+   "windows": [
+    2196
+   ],
+   "top_idx": 965720,
+   "bottom_idx": 965779,
+   "depth_mv": 0.9689,
+   "fall_s": 59.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1056600,
+   "window_end_idx": 1057200,
+   "windows": [
+    1181
+   ],
+   "top_idx": 1057128,
+   "bottom_idx": 1057199,
+   "depth_mv": 5.262,
+   "fall_s": 71.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1070800,
+   "window_end_idx": 1071400,
+   "windows": [
+    890
+   ],
+   "top_idx": 1070800,
+   "bottom_idx": 1071117,
+   "depth_mv": 15.2425,
+   "fall_s": 317.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1147800,
+   "window_end_idx": 1149000,
+   "windows": [
+    374,
+    1833
+   ],
+   "top_idx": 1148544,
+   "bottom_idx": 1148665,
+   "depth_mv": 45.4231,
+   "fall_s": 121.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1200600,
+   "window_end_idx": 1201200,
+   "windows": [
+    2246
+   ],
+   "top_idx": 1200660,
+   "bottom_idx": 1200787,
+   "depth_mv": 3.7149,
+   "fall_s": 127.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1216000,
+   "window_end_idx": 1216600,
+   "windows": [
+    2297
+   ],
+   "top_idx": 1216438,
+   "bottom_idx": 1216451,
+   "depth_mv": 0.5454,
+   "fall_s": 13.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1218200,
+   "window_end_idx": 1218800,
+   "windows": [
+    1901
+   ],
+   "top_idx": 1218720,
+   "bottom_idx": 1218799,
+   "depth_mv": 0.814,
+   "fall_s": 79.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1227800,
+   "window_end_idx": 1228400,
+   "windows": [
+    573
+   ],
+   "top_idx": 1228020,
+   "bottom_idx": 1228325,
+   "depth_mv": 71.3392,
+   "fall_s": 305.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1259000,
+   "window_end_idx": 1259600,
+   "windows": [
+    665
+   ],
+   "top_idx": 1259000,
+   "bottom_idx": 1259069,
+   "depth_mv": 1.7857,
+   "fall_s": 69.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1280800,
+   "window_end_idx": 1281400,
+   "windows": [
+    41
+   ],
+   "top_idx": 1280801,
+   "bottom_idx": 1281013,
+   "depth_mv": 7.7301,
+   "fall_s": 212.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1303800,
+   "window_end_idx": 1304400,
+   "windows": [
+    351
+   ],
+   "top_idx": 1304079,
+   "bottom_idx": 1304118,
+   "depth_mv": 0.7102,
+   "fall_s": 39.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1375400,
+   "window_end_idx": 1376000,
+   "windows": [
+    172
+   ],
+   "top_idx": 1375556,
+   "bottom_idx": 1375615,
+   "depth_mv": 0.2333,
+   "fall_s": 59.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1397400,
+   "window_end_idx": 1398000,
+   "windows": [
+    1708
+   ],
+   "top_idx": 1397623,
+   "bottom_idx": 1397657,
+   "depth_mv": 0.9149,
+   "fall_s": 34.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1426800,
+   "window_end_idx": 1427400,
+   "windows": [
+    1909
+   ],
+   "top_idx": 1427050,
+   "bottom_idx": 1427103,
+   "depth_mv": 0.7706,
+   "fall_s": 53.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1550200,
+   "window_end_idx": 1550800,
+   "windows": [
+    1563
+   ],
+   "top_idx": 1550283,
+   "bottom_idx": 1550399,
+   "depth_mv": 0.5298,
+   "fall_s": 116.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1588800,
+   "window_end_idx": 1589400,
+   "windows": [
+    1698
+   ],
+   "top_idx": 1588869,
+   "bottom_idx": 1588937,
+   "depth_mv": 0.592,
+   "fall_s": 68.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1876200,
+   "window_end_idx": 1876800,
+   "windows": [
+    625
+   ],
+   "top_idx": 1876377,
+   "bottom_idx": 1876420,
+   "depth_mv": 0.5827,
+   "fall_s": 43.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 1936400,
+   "window_end_idx": 1937000,
+   "windows": [
+    2034
+   ],
+   "top_idx": 1936814,
+   "bottom_idx": 1936835,
+   "depth_mv": 0.2618,
+   "fall_s": 21.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 2542600,
+   "window_end_idx": 2543200,
+   "windows": [
+    655
+   ],
+   "top_idx": 2542907,
+   "bottom_idx": 2543198,
+   "depth_mv": 0.9376,
+   "fall_s": 291.0
+  },
+  {
+   "recording_id": 15,
+   "window_start_idx": 2554400,
+   "window_end_idx": 2555000,
+   "windows": [
+    1373
+   ],
+   "top_idx": 2554732,
+   "bottom_idx": 2554999,
+   "depth_mv": 0.9771,
+   "fall_s": 267.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 15600,
+   "window_end_idx": 16200,
+   "windows": [
+    2058
+   ],
+   "top_idx": 15754,
+   "bottom_idx": 15874,
+   "depth_mv": 123.0139,
+   "fall_s": 120.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 95800,
+   "window_end_idx": 96400,
+   "windows": [
+    204
+   ],
+   "top_idx": 95800,
+   "bottom_idx": 95918,
+   "depth_mv": 102.9966,
+   "fall_s": 118.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 114200,
+   "window_end_idx": 114800,
+   "windows": [
+    1407
+   ],
+   "top_idx": 114535,
+   "bottom_idx": 114589,
+   "depth_mv": 6.5789,
+   "fall_s": 54.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 140800,
+   "window_end_idx": 141400,
+   "windows": [
+    2317
+   ],
+   "top_idx": 140800,
+   "bottom_idx": 140947,
+   "depth_mv": 125.1869,
+   "fall_s": 147.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 143400,
+   "window_end_idx": 144000,
+   "windows": [
+    1957
+   ],
+   "top_idx": 143767,
+   "bottom_idx": 143849,
+   "depth_mv": 10.3055,
+   "fall_s": 82.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 145800,
+   "window_end_idx": 146400,
+   "windows": [
+    1791
+   ],
+   "top_idx": 146029,
+   "bottom_idx": 146108,
+   "depth_mv": 10.851,
+   "fall_s": 79.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 157800,
+   "window_end_idx": 158400,
+   "windows": [
+    2264
+   ],
+   "top_idx": 157968,
+   "bottom_idx": 158055,
+   "depth_mv": 13.9083,
+   "fall_s": 87.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 159200,
+   "window_end_idx": 159800,
+   "windows": [
+    934
+   ],
+   "top_idx": 159581,
+   "bottom_idx": 159700,
+   "depth_mv": 43.0068,
+   "fall_s": 119.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 228000,
+   "window_end_idx": 228600,
+   "windows": [
+    326
+   ],
+   "top_idx": 228000,
+   "bottom_idx": 228036,
+   "depth_mv": 1.1144,
+   "fall_s": 36.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 318000,
+   "window_end_idx": 318600,
+   "windows": [
+    2293
+   ],
+   "top_idx": 318435,
+   "bottom_idx": 318599,
+   "depth_mv": 44.395,
+   "fall_s": 164.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 319000,
+   "window_end_idx": 319600,
+   "windows": [
+    1717
+   ],
+   "top_idx": 319060,
+   "bottom_idx": 319314,
+   "depth_mv": 61.4432,
+   "fall_s": 254.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 322600,
+   "window_end_idx": 323200,
+   "windows": [
+    2161
+   ],
+   "top_idx": 322600,
+   "bottom_idx": 322858,
+   "depth_mv": 15.8162,
+   "fall_s": 258.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 333400,
+   "window_end_idx": 334000,
+   "windows": [
+    1869
+   ],
+   "top_idx": 333567,
+   "bottom_idx": 333641,
+   "depth_mv": 2.0768,
+   "fall_s": 74.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 341600,
+   "window_end_idx": 342200,
+   "windows": [
+    850
+   ],
+   "top_idx": 342133,
+   "bottom_idx": 342199,
+   "depth_mv": 3.3862,
+   "fall_s": 66.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 359000,
+   "window_end_idx": 359600,
+   "windows": [
+    1943
+   ],
+   "top_idx": 359426,
+   "bottom_idx": 359474,
+   "depth_mv": 1.2165,
+   "fall_s": 48.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 372800,
+   "window_end_idx": 373400,
+   "windows": [
+    2274
+   ],
+   "top_idx": 373165,
+   "bottom_idx": 373308,
+   "depth_mv": 5.2729,
+   "fall_s": 143.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 379800,
+   "window_end_idx": 380400,
+   "windows": [
+    498
+   ],
+   "top_idx": 379941,
+   "bottom_idx": 380253,
+   "depth_mv": 17.2852,
+   "fall_s": 312.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 381600,
+   "window_end_idx": 382200,
+   "windows": [
+    1755
+   ],
+   "top_idx": 381744,
+   "bottom_idx": 381930,
+   "depth_mv": 2.2643,
+   "fall_s": 186.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 392600,
+   "window_end_idx": 393200,
+   "windows": [
+    768
+   ],
+   "top_idx": 392863,
+   "bottom_idx": 392913,
+   "depth_mv": 1.4041,
+   "fall_s": 50.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 412400,
+   "window_end_idx": 413000,
+   "windows": [
+    496
+   ],
+   "top_idx": 412400,
+   "bottom_idx": 412477,
+   "depth_mv": 2.4996,
+   "fall_s": 77.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 561600,
+   "window_end_idx": 562200,
+   "windows": [
+    908
+   ],
+   "top_idx": 561762,
+   "bottom_idx": 561959,
+   "depth_mv": 2.8703,
+   "fall_s": 197.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 583000,
+   "window_end_idx": 583600,
+   "windows": [
+    386
+   ],
+   "top_idx": 583392,
+   "bottom_idx": 583400,
+   "depth_mv": 2.0226,
+   "fall_s": 8.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 736400,
+   "window_end_idx": 737000,
+   "windows": [
+    907
+   ],
+   "top_idx": 736435,
+   "bottom_idx": 736454,
+   "depth_mv": 0.4474,
+   "fall_s": 19.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 879600,
+   "window_end_idx": 880200,
+   "windows": [
+    608
+   ],
+   "top_idx": 879981,
+   "bottom_idx": 880172,
+   "depth_mv": 8.341,
+   "fall_s": 191.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 887800,
+   "window_end_idx": 888400,
+   "windows": [
+    1964
+   ],
+   "top_idx": 888203,
+   "bottom_idx": 888399,
+   "depth_mv": 10.0267,
+   "fall_s": 196.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 923000,
+   "window_end_idx": 923600,
+   "windows": [
+    407
+   ],
+   "top_idx": 923326,
+   "bottom_idx": 923599,
+   "depth_mv": 6.1771,
+   "fall_s": 273.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 924200,
+   "window_end_idx": 924800,
+   "windows": [
+    1158
+   ],
+   "top_idx": 924324,
+   "bottom_idx": 924539,
+   "depth_mv": 1.6619,
+   "fall_s": 215.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 1193000,
+   "window_end_idx": 1193600,
+   "windows": [
+    2294
+   ],
+   "top_idx": 1193001,
+   "bottom_idx": 1193139,
+   "depth_mv": 0.4586,
+   "fall_s": 138.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 1295800,
+   "window_end_idx": 1296400,
+   "windows": [
+    1455
+   ],
+   "top_idx": 1296045,
+   "bottom_idx": 1296076,
+   "depth_mv": 1.2261,
+   "fall_s": 31.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 1415000,
+   "window_end_idx": 1415600,
+   "windows": [
+    990
+   ],
+   "top_idx": 1415372,
+   "bottom_idx": 1415510,
+   "depth_mv": 12.4691,
+   "fall_s": 138.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 1602400,
+   "window_end_idx": 1603000,
+   "windows": [
+    1644
+   ],
+   "top_idx": 1602617,
+   "bottom_idx": 1602707,
+   "depth_mv": 4.0386,
+   "fall_s": 90.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 1644400,
+   "window_end_idx": 1645000,
+   "windows": [
+    759
+   ],
+   "top_idx": 1644400,
+   "bottom_idx": 1644729,
+   "depth_mv": 42.3927,
+   "fall_s": 329.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 1749000,
+   "window_end_idx": 1749600,
+   "windows": [
+    1775
+   ],
+   "top_idx": 1749429,
+   "bottom_idx": 1749550,
+   "depth_mv": 6.4307,
+   "fall_s": 121.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 1824400,
+   "window_end_idx": 1825000,
+   "windows": [
+    1985
+   ],
+   "top_idx": 1824800,
+   "bottom_idx": 1824868,
+   "depth_mv": 8.6487,
+   "fall_s": 68.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 2011200,
+   "window_end_idx": 2011800,
+   "windows": [
+    1681
+   ],
+   "top_idx": 2011427,
+   "bottom_idx": 2011538,
+   "depth_mv": 6.5751,
+   "fall_s": 111.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 2308800,
+   "window_end_idx": 2309400,
+   "windows": [
+    1205
+   ],
+   "top_idx": 2309191,
+   "bottom_idx": 2309325,
+   "depth_mv": 7.9731,
+   "fall_s": 134.0
+  },
+  {
+   "recording_id": 16,
+   "window_start_idx": 2356800,
+   "window_end_idx": 2357400,
+   "windows": [
+    178
+   ],
+   "top_idx": 2357168,
+   "bottom_idx": 2357225,
+   "depth_mv": 2.2555,
+   "fall_s": 57.0
+  }
+ ]
+}

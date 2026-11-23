@@ -1,0 +1,2 @@
+sequence_id,n_widths,n_wide,wide_after_wide,switch_rate,shuffled_switch_rate,p_switch_ge,median_width_wide_s,median_width_narrow_s,median_depth_wide_mv,median_depth_narrow_mv,median_gap_before_wide_s,median_gap_before_narrow_s
+S01,468,116,2,0.48822269807280516,0.3739254817987152,0.0001999600079984003,19.587912569854392,5.822724783020283,11.904535443662951,7.6272326541295286,438.0,727.0

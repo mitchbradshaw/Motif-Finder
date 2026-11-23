@@ -1,0 +1,32 @@
+{
+ "interesting_windows": 2333,
+ "regions": 2110,
+ "regions_by_window_count": {
+  "1": 1919,
+  "2": 166,
+  "3": 20,
+  "4": 4,
+  "6": 1
+ },
+ "drops_per_region": {
+  "0 drops": 4,
+  "1 drops": 628,
+  "2 drops": 531,
+  "3 drops": 293,
+  "4 drops": 202,
+  "5 drops": 136,
+  "6+ drops": 316,
+  "multi-drop regions already inside a queued candidate": 88
+ },
+ "multi_drop_candidates": 1390,
+ "multi_drop_events": 5980,
+ "single_drop_windows": 628,
+ "queue_id": 49,
+ "created_candidates": 1390,
+ "counts": {
+  "total": 1390,
+  "judged": 0,
+  "remaining": 1390
+ },
+ "backup": "C:\\Users\\mmebr\\Documents\\CNN\\DATA\\db\\backups\\before_window_candidates_20261123_153310.sqlite"
+}

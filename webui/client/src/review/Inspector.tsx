@@ -112,6 +112,8 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const promoted = state === 'promoted' && rec?.verdict === 'seed' && !!rec.exemplarId
   const binary = queue.verdictKeys === 'binary+classes'
   const isWindow = row.unit === 'window'
+  // 2026-11-23: a sequence-review item is a run of events; its events are drawn inside it and it has no score
+  const isSequence = (row.unit as string) === 'sequence'
   const masked = blind && !rec
   const unit = { kind: 'item' as const, id }
   // review-carry: the overlap set this item stands for, the class stored with its verdict, and where a carried
@@ -183,6 +185,8 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     if (queue.source === 'suspected-artifact' && v === 'seed') return say('this queue takes artifact, interesting, not interesting or unsure — promote a seed from Explore or a detection queue')
     // fixup-FQ: a Library family queue's member is already in the Library — the question is what it is, not whether to add it
     if (queue.source === 'library-family' && v === 'seed') return say('this member is already in the Library — judge it interesting, not interesting, artifact or unsure')
+    // 2026-11-23: a seed is a single event; a sequence is accepted as interesting (stored in the Library as a sequence)
+    if (queue.source === 'sequence-review' && v === 'seed') return say('a seed is a single event — accept a sequence as interesting, or judge it not interesting, artifact or unsure')
     const next = await write(v, rec?.className, v === 'seed' ? 'promotion' : 'verdict', { advance: true })
     if (!next) return
     if (v === 'seed') {
@@ -326,6 +330,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
             <h1 className="mono">{id}</h1>
             {row.unit === 'detection' && <Chip size="sm" tone="blue">detection</Chip>}
             {row.unit === 'human span' && <Chip size="sm" tone="green">human span</Chip>}
+            {isSequence && <Chip size="sm" tone="purple" testid="sequence-chip">sequence</Chip>}
             {isWindow && <><Chip size="sm" tone="grey">window</Chip><Chip size="sm" tone="purple">{row.block === 'test' ? 'test block' : 'train block'}</Chip></>}
             {rec?.exemplarId && <Chip size="sm" tone="green" testid="exemplar-chip">exemplar {rec.exemplarId}</Chip>}
             <span className="grow" />
@@ -338,14 +343,15 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
               {row.unit === 'detection'
                 ? masked ? <Pill icon="eye-off" label="score" value="hidden until verdict" tone="purple" testid="pill-score" />
                   : <Pill icon="target" label={row.score != null ? 'score' : 'match'} value={row.score != null ? `${row.score.toFixed(2)}${q === 'q-12' ? ' · 6.1× null' : ''}` : `d ${row.d?.toFixed(2)} · seed search`} testid="pill-score" />
-                : <Pill icon="target" label="score" value={(row.unit as string) === 'member' ? 'n/a · family member' : 'n/a · human span'} testid="pill-score" title={(row.unit as string) === 'member' ? 'a flagged family member: what flagged it is on the Suspected artifact card' : 'human spans carry no machine score'} />}
+                : <Pill icon="target" label="score" value={(row.unit as string) === 'member' ? 'n/a · family member' : isSequence ? 'n/a · sequence' : 'n/a · human span'} testid="pill-score" title={(row.unit as string) === 'member' ? 'a flagged family member: what flagged it is on the Suspected artifact card' : isSequence ? 'a sequence is judged by eye: is it a run of events in order?' : 'human spans carry no machine score'} />}
               {masked ? <Pill icon="eye-off" label="family" value="hidden until verdict" tone="purple" testid="pill-family" />
                 : fam && <Pill dot={fam.colour} label="family" value={`${fam.id} d ${fam.d.toFixed(2)}`} testid="pill-family" />}
             </>}
             <ArtifactPill a={d.artifact} short={narrow} />
           </div>
           <div className="rv-meta mono" data-testid="meta-line" title={d.entry.recordingFile ? `source file ${d.entry.recordingFile}` : undefined}>{metaLine(d, narrow)}</div>
-          {members.length > 1 && <div className="rv-meta mono" data-testid="covers-line">
+          {isSequence && <div className="rv-meta mono" data-testid="sequence-line">{sequenceLine(d)}</div>}
+          {members.length > 1 && !isSequence && <div className="rv-meta mono" data-testid="covers-line">
             covers {members.length} detections · also {members.filter(m => String(m) !== id).join(', ')}
             <InfoTip label="why one item for several detections">This run's detector found overlapping spans here. They are one event, so Review asks once and writes your verdict to every one of them; each stays in the run exactly as the detector wrote it.</InfoTip>
           </div>}
@@ -355,9 +361,9 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
 
           {d.suspectedArtifact && <SuspectedArtifactCard p={d.suspectedArtifact} />}
 
-          <ContextCard d={d} title={isWindow ? 'Window in context' : row.unit === 'human span' ? 'Span in context' : 'Candidate in context'} pad={pad} setPad={p => { setPad(p); if (padQ) setQuery({ pad: null }, true) }}
+          <ContextCard d={d} title={isWindow ? 'Window in context' : row.unit === 'human span' ? 'Span in context' : isSequence ? 'Sequence in context' : 'Candidate in context'} pad={pad} setPad={p => { setPad(p); if (padQ) setQuery({ pad: null }, true) }}
             bandLabel={isWindow ? `${id} · ${row.durationS} s` : `${id} · ${row.durationS.toFixed(1)} s`} canEdit={!isWindow && !d.suspectedArtifact}
-            memberBands={members.length > 1 ? (carry.memberBands ?? []).map(b => ({ start_s: b.t0_s, end_s: b.t1_s, label: b.id })) : []} />
+            memberBands={members.length > (isSequence ? 0 : 1) ? (carry.memberBands ?? []).map(b => ({ start_s: b.t0_s, end_s: b.t1_s, label: b.id })) : []} />
 
           <div className="rv-row2">
             <ShapeCard d={d} family={masked ? null : (d.nearest.find(f => f.id === overlay) ?? d.nearest[0] ?? null)} blind={masked || isWindow} rows={data.rows} peaks={peaks} />
@@ -375,6 +381,19 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
       )}
     </Shell>
   )
+}
+
+/** 2026-11-23: what a sequence-review item is made of and where it came from, from the bridge's item fields
+ *  (`Working.review.sequence_queue.resolve_items`): its events, its provenance, and - for a hand-labelled
+ *  sequence asked again - the catalogue's earlier word. */
+function sequenceLine(d: ItemDetail) {
+  const e = d.entry as unknown as { n_events?: number | null; provenance?: string | null; origin?: string; catalogue_verdict?: Verdict | null; memberBands?: unknown[] }
+  const n = e.memberBands?.length ?? 0
+  return [e.n_events != null ? `${e.n_events} events` : 'events not counted',
+    n ? `${n} marked inside` : 'none marked yet',
+    e.origin === 'human' ? 'hand-labelled' : `proposed by ${e.provenance ?? 'a tool'}`,
+    e.catalogue_verdict ? `the catalogue said ${VERDICT_LABEL[e.catalogue_verdict] ?? e.catalogue_verdict}` : null,
+  ].filter(Boolean).join(' · ')
 }
 
 function metaLine(d: ItemDetail, narrow: boolean) {

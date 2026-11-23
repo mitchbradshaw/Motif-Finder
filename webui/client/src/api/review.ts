@@ -187,12 +187,12 @@ interface SrvQueueData { queue: SrvQueue; rows?: unknown[]; items?: unknown[]; c
 const ICONS: Record<string, ReviewQueue['icon']> = {
   'discovery-run': 'target', 'seed-search': 'scan', 'explore-spans': 'wave',
   'training-windows': 'grid', 'model-verification': 'flask', 'extract-events': 'wave',
-  'suspected-artifact': 'target', 'library-family': 'target',
+  'suspected-artifact': 'target', 'library-family': 'target', 'sequence-review': 'wave',
 }
 const RANKS: Record<string, ReviewQueue['rankKind']> = {
   'discovery-run': 'score', 'seed-search': 'distance', 'explore-spans': 'time',
   'training-windows': 'stratified', 'model-verification': 'stratified', 'extract-events': 'time',
-  'suspected-artifact': 'time', 'library-family': 'time',
+  'suspected-artifact': 'time', 'library-family': 'time', 'sequence-review': 'time',
 }
 const ORDER: Record<ReviewQueue['rankKind'], string> = {
   score: 'sorted by score', distance: 'sorted by distance', time: 'sorted by time', stratified: 'stratified by channel',

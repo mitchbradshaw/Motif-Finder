@@ -89,6 +89,10 @@ SOURCE_KINDS = (
     # a verdict lands in `annotations` over the member's span, which is what
     # the Family page's resolver counts as judged (`family_queue`)
     "library-family",
+    # 2026-11-23: "is this span a sequence?" over machine candidates and
+    # hand-labelled sequences; a verdict lands in `annotations` over the
+    # sequence's span and an accept stores a human sequence (`sequence_queue`)
+    "sequence-review",
 )
 
 _DEFAULTS = {
@@ -101,6 +105,7 @@ _DEFAULTS = {
     "suspected-artifact": ("member", "annotations", 0),
     "blind-test":         ("test window", "annotations", 1),
     "library-family":     ("member", "annotations", 0),
+    "sequence-review":    ("sequence", "annotations", 0),
 }
 
 _DETECTION_KINDS = ("discovery-run", "seed-search")
@@ -621,6 +626,9 @@ def _resolve(conn, q):
         items = resolve_items(conn, q)
     elif kind == "library-family":
         from Working.review.family_queue import resolve_items
+        items = resolve_items(conn, q)
+    elif kind == "sequence-review":
+        from Working.review.sequence_queue import resolve_items
         items = resolve_items(conn, q)
     else:                                   # pragma: no cover - CHECKed above
         raise ValueError("unresolvable source_kind: {!r}".format(kind))

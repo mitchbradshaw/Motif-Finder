@@ -42,6 +42,7 @@ from pydantic import BaseModel
 from Working.review import extraction as extraction_mod
 from Working.review import promotion as promotion_mod
 from Working.review import queues as queues_mod
+from Working.review import sequence_queue as sequence_queue_mod
 from Working.review import verdicts as verdicts_mod
 
 from . import corpus, decimate
@@ -733,6 +734,24 @@ class ExtractBody(BaseModel):
     complete: bool = False
 
 
+class SequenceSpan(BaseModel):
+    """One proposed sequence: absolute samples on one recording, and the events it is made of (inside it)."""
+    recording_id: int
+    start_idx: int
+    end_idx: int
+    events: list[ExtractEvent]
+    note: str | None = None
+    source_ref: str | None = None
+
+
+class SequenceReviewBody(BaseModel):
+    name: str
+    provenance: str
+    spans: list[SequenceSpan] = []
+    sequence_ids: list[int] = []
+    note: str | None = None
+
+
 # ── reads ───────────────────────────────────────────────────────────────────
 
 @router.get("/counts")
@@ -771,6 +790,26 @@ def post_queue(request: Request, body: QueueBody):
                          cap=body.cap, verdict_options=body.verdict_options,
                          filters=body.filters, note=body.note)
         return {"queue": _queue_payload(conn, _queue_or_404(conn, qid))}
+    finally:
+        conn.close()
+
+
+@router.post("/sequence-review")
+def post_sequence_review(request: Request, body: SequenceReviewBody):
+    """Send proposed sequences (and existing sequences, by id) to the open sequence-review queue called `name`,
+    made once. Each span becomes a machine `sequences` row with its events (sending it again is a no-op); the
+    core owns all of it (`Working.review.sequence_queue.send_to_sequence_review`)."""
+    conn = _conn(request)
+    try:
+        spans = [{"recording_id": s.recording_id, "start_idx": s.start_idx, "end_idx": s.end_idx,
+                  "events": [{"start_idx": e.start_idx, "end_idx": e.end_idx} for e in s.events],
+                  "note": s.note, "source_ref": s.source_ref} for s in body.spans]
+        out = _core_call(sequence_queue_mod.send_to_sequence_review, conn, spans=spans,
+                         sequence_ids=list(body.sequence_ids), provenance=body.provenance, name=body.name,
+                         note=body.note)
+        counts = queues_mod.queue_counts(conn, int(out["queue_id"]), exclude_recording_ids=_held_out_ids(conn))
+        return {"queueId": str(out["queue_id"]), "sequenceIds": out["sequence_ids"], "created": out["created"],
+                **counts}
     finally:
         conn.close()
 

@@ -1,0 +1,185 @@
+{
+  "inventory": {
+    "single": 2459,
+    "multiple": 455,
+    "region": 45
+  },
+  "anatomy_suspect": {
+    "threshold_frac": 0.3,
+    "single": 176,
+    "multiple": 235,
+    "by_dataset": {
+      "MJu26a": 191,
+      "M2_aug": 72,
+      "LM": 43,
+      "SO": 27,
+      "M2_concat": 24,
+      "CO": 22,
+      "SH": 18,
+      "M4": 14
+    }
+  },
+  "single_measured": 1434,
+  "single_not_half_recovered": 849,
+  "multi_fall_spans": 455,
+  "falls_in_multi_fall_spans": 2034,
+  "grid": {
+    "width_edges_s": [
+      1.233,
+      4.706,
+      17.956,
+      68.514,
+      261.425,
+      997.506
+    ],
+    "depth_edges_mv": [
+      0.336,
+      1.126,
+      3.767,
+      12.606,
+      42.181,
+      141.143
+    ],
+    "colour_max_rel_sd": 0.68
+  },
+  "chain_sensitivity": [
+    {
+      "gap_max_s": 900.0,
+      "min_events": 3,
+      "sequences": 78,
+      "events_in_sequences": 527,
+      "largest": 66
+    },
+    {
+      "gap_max_s": 900.0,
+      "min_events": 5,
+      "sequences": 30,
+      "events_in_sequences": 372,
+      "largest": 66
+    },
+    {
+      "gap_max_s": 1800.0,
+      "min_events": 3,
+      "sequences": 67,
+      "events_in_sequences": 817,
+      "largest": 525
+    },
+    {
+      "gap_max_s": 1800.0,
+      "min_events": 5,
+      "sequences": 19,
+      "events_in_sequences": 656,
+      "largest": 525
+    },
+    {
+      "gap_max_s": 3600.0,
+      "min_events": 3,
+      "sequences": 118,
+      "events_in_sequences": 1150,
+      "largest": 525
+    },
+    {
+      "gap_max_s": 3600.0,
+      "min_events": 5,
+      "sequences": 45,
+      "events_in_sequences": 906,
+      "largest": 525
+    },
+    {
+      "gap_max_s": 7200.0,
+      "min_events": 3,
+      "sequences": 132,
+      "events_in_sequences": 1503,
+      "largest": 525
+    },
+    {
+      "gap_max_s": 7200.0,
+      "min_events": 5,
+      "sequences": 61,
+      "events_in_sequences": 1268,
+      "largest": 525
+    }
+  ],
+  "gap_max_s": 3600.0,
+  "min_events": 5,
+  "sequences": 45,
+  "events_in_sequences": 906,
+  "picked": [
+    "depth_mv",
+    "isi_s"
+  ],
+  "trend_summary": [
+    {
+      "variable": "depth_mv",
+      "testable": 45,
+      "p_lt_0.05": 6,
+      "up": 3,
+      "down": 3,
+      "expected_by_chance": 2.2,
+      "median_tau": 0.0,
+      "median_abs_tau": 0.2,
+      "median_ratio_last_first_third": 0.9961323365114532
+    },
+    {
+      "variable": "fall_s",
+      "testable": 45,
+      "p_lt_0.05": 8,
+      "up": 3,
+      "down": 5,
+      "expected_by_chance": 2.2,
+      "median_tau": 0.0,
+      "median_abs_tau": 0.3220340455318667,
+      "median_ratio_last_first_third": 0.9054144385026738
+    },
+    {
+      "variable": "duration_s",
+      "testable": 34,
+      "p_lt_0.05": 5,
+      "up": 1,
+      "down": 4,
+      "expected_by_chance": 1.7,
+      "median_tau": -0.033333333333333326,
+      "median_abs_tau": 0.33333333333333337,
+      "median_ratio_last_first_third": 0.9560039464985306
+    },
+    {
+      "variable": "fall_rate_mv_s",
+      "testable": 45,
+      "p_lt_0.05": 8,
+      "up": 5,
+      "down": 3,
+      "expected_by_chance": 2.2,
+      "median_tau": 0.0,
+      "median_abs_tau": 0.19999999999999998,
+      "median_ratio_last_first_third": 1.172779846609318
+    },
+    {
+      "variable": "isi_s",
+      "testable": 45,
+      "p_lt_0.05": 3,
+      "up": 1,
+      "down": 2,
+      "expected_by_chance": 2.2,
+      "median_tau": 0.006535947712418302,
+      "median_abs_tau": 0.2795461930861952,
+      "median_ratio_last_first_third": 1.0936708860759494
+    }
+  ],
+  "width_alternation": [
+    {
+      "sequence_id": "S01",
+      "n_widths": 468,
+      "n_wide": 116,
+      "wide_after_wide": 2,
+      "switch_rate": 0.48822269807280516,
+      "shuffled_switch_rate": 0.3739254817987152,
+      "p_switch_ge": 0.0001999600079984003,
+      "median_width_wide_s": 19.587912569854392,
+      "median_width_narrow_s": 5.822724783020283,
+      "median_depth_wide_mv": 11.904535443662951,
+      "median_depth_narrow_mv": 7.6272326541295286,
+      "median_gap_before_wide_s": 438.0,
+      "median_gap_before_narrow_s": 727.0
+    }
+  ]
+}
