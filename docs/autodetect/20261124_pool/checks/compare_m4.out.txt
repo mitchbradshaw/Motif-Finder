@@ -1,0 +1,11 @@
+# output of scripts/autodetect/pool_checks/compare_m4.py as run on 2026-11-24 (the transcript does not keep the time), copied from the session transcript
+# command: cd /c/Users/mmebr/Documents/CNN && git rev-parse 79d0243e:Working/interrogation/whole_drop.py HEAD:Working/interrogation/whole_drop.py | cut -c1-12; git log --oneline -3; PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" "C:/Users/mmebr/AppData/Local/Temp/claude/3a41d06cc6096a2e/6f66a460-b66d-4eca-9aad-9880f44ef8f2/scratchpad/compare_m4.py" 2>&1 | tail -30
+
+b860988e871a
+b860988e871a
+e8055fd0 AS: failing tests - the next candidate first, verdicts saved behind
+9ccd3031 review: move on at the key press; write the verdict behind the researcher
+5e79d263 review: carry verdicts on a background worker, not between candidates
+new columns: ['recording_id', 'candidate_id', 'start', 'end', 'anchor_variant', 'member_variants', 'n_members', 'sources', 'n_sources', 'orig_start', 'orig_end', 'anchored', 'polarity', 'onset', 'extremum', 'event_end', 'recovered', 'depth_mv', 'scan_p', 'kind', 'unexplained', 'sharpness', 'p_r4', 'confidence', 'floor', 'lifts', 'start_idx', 'end_idx', 'start_s', 'end_s', 'duration_s', 'sequence_id', 'run', 'decimation', 'fs_run']
+>= 0.5: v4 drops 627, new drops 634; v4's found by new 100.0%; new's found in v4 98.9%; accepted found new 44/47 vs v4 44/47
+>= 0.6: v4 drops 544, new drops 549; v4's found by new 100.0%; new's found in v4 99.1%; accepted found new 44/47 vs v4 44/47

@@ -1,0 +1,40 @@
+# output of scripts/autodetect/pool_checks/copies_check.py as run on 2026-11-24 (the transcript does not keep the time), copied from the session transcript
+# command: cd /c/Users/mmebr/Documents/CNN && PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" "C:/Users/mmebr/AppData/Local/Temp/claude/3a41d06cc6096a2e/6f66a460-b66d-4eca-9aad-9880f44ef8f2/scratchpad/copies_check.py" 2>&1 | tail -45
+
+M1 channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+CH0: r(M1,M100)=0.12161 r(M1,M101_t)=0.08138  ratio sd M100/M1=0.05615 M101/M1=0.05622  M1 p1-p99=-0.06626..-0.03763
+CH1: r(M1,M100)=0.11339 r(M1,M101_t)=0.08762  ratio sd M100/M1=0.04046 M101/M1=0.0408  M1 p1-p99=-0.04794..-0.01908
+CH2: r(M1,M100)=0.18181 r(M1,M101_t)=0.14418  ratio sd M100/M1=0.03874 M101/M1=0.03905  M1 p1-p99=-0.07375..-0.04273
+CH3: r(M1,M100)=0.07136 r(M1,M101_t)=0.02878  ratio sd M100/M1=0.0281 M101/M1=0.02803  M1 p1-p99=-0.06998..-0.03576
+M1 vs M101_t best lag (samples): (np.float64(0.08500494401919324), 4950)
+
+amplitude scale per target file (channel 1, middle 200k samples, stored units):
+CO_fs2.mat                                         units=V     fs=2 p1..p99=-0.06176..-0.02126 step-noise=3.44e-05 NaN~0.0%
+Cordyceps militari.txt                             units=mV    fs=1 p1..p99=0.8..1.843 step-noise=0.0252 NaN~0.0%
+Enoki fungi Flammulina velutipes.txt               units=mV    fs=1 p1..p99=0.3..2.395 step-noise=0.0222 NaN~0.0%
+F2B.mat                                            units=mV    fs=10 p1..p99=26.82..30.25 step-noise=0.0469 NaN~0.0%
+Fig2A_dt0p1.csv                                    units=V     fs=10 p1..p99=-0.002319..0.0003231 step-noise=1.69e-05 NaN~0.0%
+LM_fs2.mat                                         units=V     fs=2 p1..p99=-0.53..-0.4223 step-noise=6.04e-05 NaN~0.0%
+L_LM_Jul_26_J_raw.mat                              units=mV    fs=10 p1..p99=42.44..44.27 step-noise=0.0539 NaN~0.0%
+L_LM_Jul_26_J_raw_fs2.mat                          units=mV    fs=2 p1..p99=37.01..47.33 step-noise=0.0126 NaN~0.0%
+L_R_Aug_26_PD_raw.mat                              units=V     fs=10 p1..p99=-0.1552..-0.1468 step-noise=8.37e-05 NaN~0.0%
+M1.mat                                             units=None  fs=10 p1..p99=-0.1255..-0.07284 step-noise=6.86e-05 NaN~0.0%
+M100.mat                                           units=None  fs=10 p1..p99=-0.003057..0.0002943 step-noise=6.85e-05 NaN~0.0%
+M101_t.mat                                         units=None  fs=10 p1..p99=-0.003056..0.0002867 step-noise=6.8e-05 NaN~0.0%
+M2_aug_concat_fs1.mat                              units=V     fs=1 p1..p99=-0.502..-0.3535 step-noise=3.89e-05 NaN~0.0%
+M2_aug_concat_fs2.mat                              units=V     fs=2 p1..p99=-0.5108..-0.3576 step-noise=4.61e-05 NaN~0.0%
+M2_concat_fs1.mat                                  units=V     fs=1 p1..p99=-0.266..-0.02961 step-noise=4.07e-05 NaN~0.0%
+M4_aug_concat_fs1.mat                              units=V     fs=1 p1..p99=-0.1757..-0.02313 step-noise=5.3e-05 NaN~0.0%
+MJu26a.mat                                         units=V     fs=7.24638 p1..p99=-0.01698..-0.01358 step-noise=6.38e-05 NaN~0.0%
+MJu26a_fs10.mat                                    units=V     fs=10 p1..p99=-0.02316..-0.02194 step-noise=3.84e-05 NaN~0.0%
+MJu26a_fs2.mat                                     units=V     fs=2 p1..p99=-0.02479..-0.02069 step-noise=1.01e-05 NaN~0.0%
+Mushroom_260720_0509_4hrs_CH14_fs1.mat             units=V     fs=1 p1..p99=-0.4316..-0.4182 step-noise=1.09e-05 NaN~0.0%
+SH.mat                                             units=V     fs=10 p1..p99=-0.1829..-0.1714 step-noise=0.00014 NaN~0.0%
+SH_fs2.mat                                         units=V     fs=2 p1..p99=-0.2014..-0.1481 step-noise=3.36e-05 NaN~0.0%
+SO.mat                                             units=V     fs=10 p1..p99=-0.7037..-0.6792 step-noise=0.000545 NaN~0.0%
+SO_fs2.mat                                         units=V     fs=2 p1..p99=-0.7139..-0.6066 step-noise=7.67e-05 NaN~0.0%
+Schizophyllum commune.txt                          units=mV    fs=1 p1..p99=-0.262..0.291 step-noise=0.0104 NaN~0.0%
+record-mfs2-2026-09-01-14-31-11.csv                units=mV    fs=0.8 p1..p99=3.654..5.766 step-noise=0.0637 NaN~0.0%
+record-mfs2-2026-09-01-15-22-51.csv                units=mV    fs=0.8 p1..p99=3.991..4.952 step-noise=0.0344 NaN~0.0%
+record-mfs2-2026-09-02-08-49-40.csv                units=mV    fs=0.8 p1..p99=3.39..4.369 step-noise=0.0327 NaN~0.0%
+record-mfs2-2026-09-08-09-49-38.csv                units=mV    fs=0.8 p1..p99=3.692..5.116 step-noise=0.0321 NaN~0.0%

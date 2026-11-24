@@ -1,0 +1,41 @@
+# output of scripts/autodetect/pool_checks/inventory.py as run on 2026-11-24 (the transcript does not keep the time), copied from the session transcript
+# command: cd /c/Users/mmebr/Documents/CNN && PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" "C:/Users/mmebr/AppData/Local/Temp/claude/3a41d06cc6096a2e/6f66a460-b66d-4eca-9aad-9880f44ef8f2/scratchpad/inventory.py" 2>&1 | head -80
+
+recordings columns: ['id', 'source_file', 'channel', 'fs', 'n_samples', 'global_offset', 'npy_path', 'notes', 'parent_recording_id', 'parent_offset', 'decimation', 'fs_source', 'registered_at', 'registered_by', 'warnings_json', 'active', 'units', 'units_note']
+
+246 recordings in 29 source files
+
+CO_fs2.mat                                              ch=  4 ids 641-644 fs=[2.0] n=[3456000] ~480 h units=['V'] parents=[]
+Cordyceps militari.txt                                  ch=  7 ids 615-621 fs=[1.0] n=[1900145] ~528 h units=['mV'] parents=[]
+Enoki fungi Flammulina velutipes.txt                    ch=  7 ids 622-628 fs=[1.0] n=[1078434] ~300 h units=['mV'] parents=[]
+F2B.mat                                                 ch=  5 ids 674-678 fs=[10.0] n=[5184001] ~144 h units=['mV'] parents=[]
+Fig2A_dt0p1.csv                                         ch=  5 ids 466-470 fs=[10.0] n=[12001] ~0 h units=['V'] parents=[]
+LM_fs2.mat                                              ch=  4 ids 637-640 fs=[2.0] n=[3456000] ~480 h units=['V'] parents=[]
+L_LM_Jul_26_J_raw.mat                                   ch=  5 ids 540-544 fs=[10.0] n=[22892769] ~636 h units=['mV'] parents=[]
+L_LM_Jul_26_J_raw_fs2.mat                               ch=  5 ids 645-649 fs=[2.0] n=[4578553] ~636 h units=['mV'] parents=[]
+L_R_Aug_26_PD_raw.mat                                   ch= 13 ids 679-691 fs=[10.0] n=[3851550] ~107 h units=['V'] parents=[]
+M1.mat                                                  ch= 13 ids 545-557 fs=[10.0] n=[10868600] ~302 h units=['None'] parents=[]
+M100.mat                                                ch= 13 ids 558-570 fs=[10.0] n=[10868600] ~302 h units=['None'] parents=[]
+M101_t.mat                                              ch= 13 ids 571-583 fs=[10.0] n=[10860035] ~302 h units=['None'] parents=[]
+M2_aug_concat_fs1.mat                                   ch= 16 ids 1-16 fs=[1.0] n=[2595600] ~721 h units=['V'] parents=[]
+M2_aug_concat_fs2.mat                                   ch= 16 ids 17-32 fs=[2.0] n=[5104799] ~709 h units=['V'] parents=[]
+M2_concat_fs1.mat                                       ch= 16 ids 33-48 fs=[1.0] n=[1016952] ~282 h units=['V'] parents=[]
+M4_aug_concat_fs1.mat                                   ch= 16 ids 49-64 fs=[1.0] n=[1817998] ~505 h units=['V'] parents=[]
+MJu26a.mat                                              ch= 16 ids 584-599 fs=[7.246376815848827] n=[14722842] ~564 h units=['V'] parents=[]
+MJu26a_fs10.mat                                         ch= 16 ids 650-665 fs=[10.0] n=[22892769] ~636 h units=['V'] parents=[]
+MJu26a_fs2.mat                                          ch= 16 ids 692-707 fs=[2.0] n=[4578553] ~636 h units=['V'] parents=[]
+Mushroom_260720_0509_4hrs_CH14_fs1.mat                  ch=  1 ids 385-385 fs=[1.0] n=[14401] ~4 h units=['V'] parents=[542]
+SH.mat                                                  ch=  4 ids 666-669 fs=[10.0] n=[17280001] ~480 h units=['V'] parents=[]
+SH_fs2.mat                                              ch=  4 ids 708-711 fs=[2.0] n=[3456000] ~480 h units=['V'] parents=[]
+SO.mat                                                  ch=  4 ids 670-673 fs=[10.0] n=[17280001] ~480 h units=['V'] parents=[]
+SO_fs2.mat                                              ch=  4 ids 712-715 fs=[2.0] n=[3456000] ~480 h units=['V'] parents=[]
+Schizophyllum commune.txt                               ch=  7 ids 600-606 fs=[1.0] n=[263687] ~73 h units=['mV'] parents=[]
+record-mfs2-2026-09-01-14-31-11.csv                     ch=  4 ids 607-610 fs=[0.8] n=[765] ~0 h units=['mV'] parents=[]
+record-mfs2-2026-09-01-15-22-51.csv                     ch=  4 ids 611-614 fs=[0.8] n=[50242] ~17 h units=['mV'] parents=[]
+record-mfs2-2026-09-02-08-49-40.csv                     ch=  4 ids 629-632 fs=[0.8] n=[23893] ~8 h units=['mV'] parents=[]
+record-mfs2-2026-09-08-09-49-38.csv                     ch=  4 ids 633-636 fs=[0.8] n=[84378] ~29 h units=['mV'] parents=[]
+setting: {'page': 'datasets', 'key': 'heldout.on', 'value_json': 'false'}
+
+queue 57: {'id': 57, 'name': 'Auto-detect · unreviewed drops and rises, 4 channels (24 Nov)', 'writes_to': 'adjudications', 'archived_at': None}
+adjudications columns: ['id', 'detection_id', 'verdict', 'note', 'created_at', 'carried_from', 'class_label']
+queue-57 detection verdicts: [('artifact', 2), ('interesting', 207), ('seed', 2), ('unsure', 7)]

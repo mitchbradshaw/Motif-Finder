@@ -1,0 +1,38 @@
+# output of scripts/autodetect/pool_checks/where_judged.py as run on 2026-11-24 (the transcript does not keep the time), copied from the session transcript
+# command: cd /c/Users/mmebr/Documents/CNN && PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" "C:/Users/mmebr/AppData/Local/Temp/claude/3a41d06cc6096a2e/6f66a460-b66d-4eca-9aad-9880f44ef8f2/scratchpad/where_judged.py" 2>&1 | tail -60
+
+collect(): 20497 rows in 0.8 s
+CO_fs2.mat                                    {'event_span:artifact': 2, 'event_span:interesting': 176, 'event_span:not_interesting': 224, 'event_span:seed': 2, 'event_span:unsure': 27}
+Fig2A_dt0p1.csv                               {'event_span:interesting': 34, 'event_span:not_interesting': 31}
+LM_fs2.mat                                    {'event_span:interesting': 401, 'event_span:not_interesting': 316, 'event_span:seed': 18, 'event_span:unsure': 30}
+M2_aug_concat_fs1.mat                         {'event_span:artifact': 32, 'event_span:interesting': 2469, 'event_span:not_interesting': 560, 'event_span:seed': 73, 'event_span:unsure': 123, 'labelled_window:artifact': 133, 'labelled_window:interesting': 2512, 'labelled_window:not_interesting': 9312, 'labelled_window:unsure': 2, 'reviewed_region:interesting': 34, 'reviewed_region:not_interesting': 2, 'reviewed_region:unsure': 25}
+M2_aug_concat_fs2.mat                         {'event_span:artifact': 1, 'event_span:interesting': 1}
+M2_concat_fs1.mat                             {'event_span:artifact': 6, 'event_span:interesting': 198, 'event_span:not_interesting': 318, 'event_span:seed': 3, 'event_span:unsure': 26, 'labelled_window:artifact': 8, 'labelled_window:interesting': 56, 'labelled_window:not_interesting': 310, 'labelled_window:unsure': 1, 'reviewed_region:not_interesting': 2, 'reviewed_region:unsure': 1}
+M4_aug_concat_fs1.mat                         {'event_span:artifact': 5, 'event_span:interesting': 180, 'event_span:not_interesting': 294, 'event_span:seed': 11, 'event_span:unsure': 18}
+MJu26a_fs10.mat                               {'event_span:artifact': 3, 'event_span:interesting': 1268, 'event_span:not_interesting': 476, 'event_span:seed': 1, 'event_span:unsure': 62, 'reviewed_region:interesting': 2}
+SH_fs2.mat                                    {'event_span:interesting': 109, 'event_span:not_interesting': 162, 'event_span:seed': 2, 'event_span:unsure': 27}
+SO_fs2.mat                                    {'event_span:artifact': 2, 'event_span:interesting': 138, 'event_span:not_interesting': 119, 'event_span:seed': 2, 'event_span:unsure': 34}
+Schizophyllum commune.txt                     {'event_span:interesting': 25, 'event_span:not_interesting': 72, 'event_span:unsure': 16}
+keys of a row: ['accepted', 'active_source', 'canonical_end', 'canonical_recording_id', 'canonical_start', 'created_at', 'dataset', 'detection_id', 'end_idx', 'fs', 'id', 'kind', 'note', 'physical_channel', 'placement_ambiguous', 'queue_ids', 'recording_channel', 'recording_id', 'ref', 'run_id', 'source', 'source_file', 'span_end', 'span_start', 'start_idx', 'started_at', 'stored_end_idx', 'stored_start_idx', 'thesis_scope', 'valid_bounds', 'verdict']
+
+55 queues, 19402 items in 3.6 s
+  CO_fs2.mat                                    adjudications 179
+  CO_fs2.mat                                    annotations  48
+  LM_fs2.mat                                    adjudications 192
+  LM_fs2.mat                                    annotations  67
+  L_LM_Jul_26_J_raw.mat                         adjudications 705
+  M2_aug_concat_fs1.mat                         adjudications 11306
+  M2_aug_concat_fs1.mat                         annotations  1535
+  M2_concat_fs1.mat                             adjudications 93
+  M2_concat_fs1.mat                             annotations  55
+  M4_aug_concat_fs1.mat                         adjudications 305
+  M4_aug_concat_fs1.mat                         annotations  32
+  MJu26a_fs10.mat                               adjudications 1661
+  MJu26a_fs10.mat                               annotations  53
+  MJu26a_fs2.mat                                adjudications 2813
+  Mushroom_260720_0509_4hrs_CH14_fs1.mat        adjudications 73
+  SH_fs2.mat                                    adjudications 37
+  SH_fs2.mat                                    annotations  24
+  SO_fs2.mat                                    adjudications 56
+  SO_fs2.mat                                    annotations  24
+  Schizophyllum commune.txt                     adjudications 144

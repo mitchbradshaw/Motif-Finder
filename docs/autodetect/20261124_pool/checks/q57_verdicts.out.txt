@@ -1,0 +1,52 @@
+# output of scripts/autodetect/pool_checks/q57_verdicts.py as run on 2026-11-24 (the transcript does not keep the time), copied from the session transcript
+# command: cd /c/Users/mmebr/Documents/CNN && PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" "C:/Users/mmebr/AppData/Local/Temp/claude/3a41d06cc6096a2e/6f66a460-b66d-4eca-9aad-9880f44ef8f2/scratchpad/q57_verdicts.py" 2>&1 | tail -60
+
+review_items columns: []
+218 verdict rows; 0 carried
+{'interesting': 207, 'unsure': 7, 'artifact': 2, 'seed': 2}
+ranks judged: min 1 max 222 ; first unjudged rank: [36, 99, 100, 109, 223]
+
+by verdict (medians):
+              rank  confidence   p_r4    clarity  depth_mv  sharpness  duration_s
+verdict                                                                          
+artifact      42.0       1.000  0.999     500.35     7.838      195.7      114.25
+interesting  113.0       0.999  0.995     357.50     3.513       13.3      427.00
+seed          22.0       1.000  0.997  169841.00    73.263      210.8     1074.50
+unsure       162.0       0.997  0.994      87.30     0.857       22.6       30.00
+
+polarity x verdict:
+ verdict   artifact  interesting  seed  unsure
+polarity                                     
+drop             1          198     2       4
+spike            1            9     0       3
+
+ref x verdict:
+ verdict        artifact  interesting  seed  unsure
+ref                                               
+M2_aug_CH7_B2         1           19     0       2
+M4_CH1_A1             0           41     2       2
+MJu26a_CH14           1            8     0       3
+MJu26a_CH15           0          139     0       0
+
+n sources x verdict:
+ verdict  artifact  interesting  seed  unsure
+n_src                                       
+1               0            4     0       2
+2               0           24     0       3
+3               2           69     0       2
+4               0           43     0       0
+5               0           23     0       0
+6               0           30     0       0
+7               0           14     2       0
+
+the non-accepted ones:
+     rank            ref   verdict polarity  confidence    p_r4  clarity  depth_mv  sharpness  duration_s    start_s  m4_like                                   sources  note
+9      10  M2_aug_CH7_B2  artifact    spike      0.9999  0.9998    952.0    15.285      377.3        72.0   519646.0     True    beads_sigma|event_rule|wavelet_encoded  None
+72     74    MJu26a_CH14  artifact     drop      0.9996  0.9986     48.7     0.390       14.1       156.5  1177423.0     True  beads_sigma|drop_detection_v1|event_rule  None
+97    101    MJu26a_CH14    unsure    spike      0.9992  0.9992     21.8     0.255       14.2        20.0  1631359.5     True                                event_rule  None
+145   150    MJu26a_CH14    unsure    spike      0.9974  0.9929     26.2     0.387       24.5        23.5  1760950.0     True  beads_sigma|drop_detection_v5|event_rule  None
+155   160  M2_aug_CH7_B2    unsure    spike      0.9967  0.9947     88.6     1.450       22.6       105.0   519546.0     True                    beads_sigma|event_rule  None
+157   162    MJu26a_CH14    unsure     drop      0.9966  0.9908    107.6     0.857       43.8        28.5  1203877.5     True  beads_sigma|drop_detection_v5|event_rule  None
+164   169      M4_CH1_A1    unsure     drop      0.9962  0.9938     87.3     1.441        5.6       401.0    15470.0     True                    beads_sigma|event_rule  None
+179   184      M4_CH1_A1    unsure     drop      0.9951  0.9951     61.4     0.167        0.5        69.0  1186778.0     True                                event_rule  None
+183   188  M2_aug_CH7_B2    unsure     drop      0.9946  0.9914    769.2     4.118       58.0        30.0   285603.0     True                    beads_sigma|event_rule  None
