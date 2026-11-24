@@ -1,0 +1,823 @@
+{
+ "search": {
+  "channels": 144,
+  "datasets": 17,
+  "hours_searched": 54550.51277777778,
+  "drops_found": 830648,
+  "rises_found_not_used": 26235,
+  "drops_found_conf_0.6": 371348,
+  "worker_hours": 17.22681541941667,
+  "workers": 3,
+  "first_start": "2026-11-24 18:04:42.549862100",
+  "last_finish": "2026-11-25 00:20:59",
+  "wall_clock_h": 6.271236149166667,
+  "slowest": [
+   {
+    "recording_id": 694,
+    "dataset": "MJu26a",
+    "channel": 2,
+    "minutes": 39.5,
+    "hours_of_recording": 635.9
+   },
+   {
+    "recording_id": 700,
+    "dataset": "MJu26a",
+    "channel": 8,
+    "minutes": 29.9,
+    "hours_of_recording": 635.9
+   },
+   {
+    "recording_id": 699,
+    "dataset": "MJu26a",
+    "channel": 7,
+    "minutes": 28.8,
+    "hours_of_recording": 635.9
+   },
+   {
+    "recording_id": 696,
+    "dataset": "MJu26a",
+    "channel": 4,
+    "minutes": 28.7,
+    "hours_of_recording": 635.9
+   },
+   {
+    "recording_id": 618,
+    "dataset": "Cordyceps",
+    "channel": 3,
+    "minutes": 28.7,
+    "hours_of_recording": 527.8
+   }
+  ]
+ },
+ "pool": {
+  "total": 231522,
+  "core": 131669,
+  "extended": 99853
+ },
+ "by_dataset": [
+  {
+   "dataset": "M1",
+   "species": "unknown",
+   "channels": 13,
+   "hours": 3924.7722222222224,
+   "drops_found": 176961,
+   "core": 35212,
+   "extended": 28358,
+   "core_per_100h": 897.173084354506,
+   "core_share": 0.2674281721589744
+  },
+  {
+   "dataset": "MJu26a",
+   "species": "lion's mane",
+   "channels": 16,
+   "hours": 10174.562222222223,
+   "drops_found": 215797,
+   "core": 21956,
+   "extended": 27636,
+   "core_per_100h": 215.79306824667094,
+   "core_share": 0.1667514752903113
+  },
+  {
+   "dataset": "M2_aug",
+   "species": "oyster",
+   "channels": 16,
+   "hours": 11536.0,
+   "drops_found": 47173,
+   "core": 20678,
+   "extended": 2111,
+   "core_per_100h": 179.24757281553397,
+   "core_share": 0.1570453181842347
+  },
+  {
+   "dataset": "L_R_Aug_26_PD",
+   "species": "unknown",
+   "channels": 13,
+   "hours": 1390.8374999999999,
+   "drops_found": 119060,
+   "core": 18303,
+   "extended": 20202,
+   "core_per_100h": 1315.9696945185906,
+   "core_share": 0.1390076631553365
+  },
+  {
+   "dataset": "Cordyceps",
+   "species": "Cordyceps",
+   "channels": 7,
+   "hours": 3694.7263888888892,
+   "drops_found": 138560,
+   "core": 11115,
+   "extended": 12024,
+   "core_per_100h": 300.8341844588552,
+   "core_share": 0.08441622553524368
+  },
+  {
+   "dataset": "Enoki",
+   "species": "enoki",
+   "channels": 7,
+   "hours": 2096.955,
+   "drops_found": 75919,
+   "core": 5022,
+   "extended": 6435,
+   "core_per_100h": 239.49011781368702,
+   "core_share": 0.03814109623373763
+  },
+  {
+   "dataset": "CO",
+   "species": "chocolate oyster",
+   "channels": 4,
+   "hours": 1920.0,
+   "drops_found": 7791,
+   "core": 4230,
+   "extended": 626,
+   "core_per_100h": 220.3125,
+   "core_share": 0.03212601295673241
+  },
+  {
+   "dataset": "LM",
+   "species": "lion's mane",
+   "channels": 4,
+   "hours": 1920.0,
+   "drops_found": 6639,
+   "core": 4114,
+   "extended": 271,
+   "core_per_100h": 214.27083333333331,
+   "core_share": 0.031245015911110435
+  },
+  {
+   "dataset": "M2_concat",
+   "species": "oyster",
+   "channels": 16,
+   "hours": 4519.786666666667,
+   "drops_found": 9747,
+   "core": 3896,
+   "extended": 570,
+   "core_per_100h": 86.1987586434758,
+   "core_share": 0.029589349049510515
+  },
+  {
+   "dataset": "M4",
+   "species": "oyster",
+   "channels": 16,
+   "hours": 8079.991111111111,
+   "drops_found": 17944,
+   "core": 2272,
+   "extended": 585,
+   "core_per_100h": 28.1188428150086,
+   "core_share": 0.017255390410802846
+  },
+  {
+   "dataset": "SH",
+   "species": "Asian shiitake",
+   "channels": 4,
+   "hours": 1920.0,
+   "drops_found": 6849,
+   "core": 2058,
+   "extended": 454,
+   "core_per_100h": 107.18749999999999,
+   "core_share": 0.01563010275767265
+  },
+  {
+   "dataset": "F2B",
+   "species": "unknown",
+   "channels": 5,
+   "hours": 720.0,
+   "drops_found": 2968,
+   "core": 1580,
+   "extended": 238,
+   "core_per_100h": 219.44444444444446,
+   "core_share": 0.011999787345540712
+  },
+  {
+   "dataset": "SO",
+   "species": "snow oyster",
+   "channels": 4,
+   "hours": 1920.0,
+   "drops_found": 2545,
+   "core": 1053,
+   "extended": 226,
+   "core_per_100h": 54.84375,
+   "core_share": 0.007997326629654664
+  },
+  {
+   "dataset": "S_commune",
+   "species": "split gill",
+   "channels": 7,
+   "hours": 512.7247222222222,
+   "drops_found": 2604,
+   "core": 150,
+   "extended": 109,
+   "core_per_100h": 29.255464677006128,
+   "core_share": 0.0011392203176146245
+  },
+  {
+   "dataset": "Dwij_D",
+   "species": "unknown",
+   "channels": 4,
+   "hours": 117.19166666666666,
+   "drops_found": 30,
+   "core": 14,
+   "extended": 3,
+   "core_per_100h": 11.946241911398706,
+   "core_share": 0.00010632722964403163
+  },
+  {
+   "dataset": "Dwij_C",
+   "species": "unknown",
+   "channels": 4,
+   "hours": 33.18472222222222,
+   "drops_found": 40,
+   "core": 9,
+   "extended": 4,
+   "core_per_100h": 27.120914075252166,
+   "core_share": 6.835321905687747e-05
+  },
+  {
+   "dataset": "Dwij_B",
+   "species": "unknown",
+   "channels": 4,
+   "hours": 69.78055555555555,
+   "drops_found": 21,
+   "core": 7,
+   "extended": 1,
+   "core_per_100h": 10.031447792683412,
+   "core_share": 5.3163614822015814e-05
+  }
+ ],
+ "expected_acceptance": {
+  "judged_drops_in_calibration": 4794,
+  "judged_by_dataset": {
+   "CO": 270,
+   "LM": 334,
+   "M2_aug": 2319,
+   "M2_concat": 264,
+   "M4": 216,
+   "MJu26a": 1204,
+   "SH": 86,
+   "SO": 93,
+   "S_commune": 8
+  },
+  "accepted_share_passing_core_settings": 0.858647936786655,
+  "judged_passing_core_settings": 4556,
+  "accepted_share_looser_settings_only": 0.5042016806722689,
+  "judged_looser_settings_only": 238,
+  "core_weighted_by_confidence": 0.7458591900434173,
+  "extended_weighted_by_confidence": 0.6424800703710003,
+  "bands": [
+   {
+    "band": "(0.5, 0.6]",
+    "judged": 180,
+    "accepted_share": 0.55,
+    "core": 0,
+    "extended": 36368
+   },
+   {
+    "band": "(0.6, 0.7]",
+    "judged": 208,
+    "accepted_share": 0.6298076923076923,
+    "core": 18439,
+    "extended": 14917
+   },
+   {
+    "band": "(0.7, 0.8]",
+    "judged": 247,
+    "accepted_share": 0.6558704453441295,
+    "core": 23053,
+    "extended": 17408
+   },
+   {
+    "band": "(0.8, 0.9]",
+    "judged": 372,
+    "accepted_share": 0.6989247311827957,
+    "core": 28534,
+    "extended": 16579
+   },
+   {
+    "band": "(0.9, 0.95]",
+    "judged": 342,
+    "accepted_share": 0.7923976608187134,
+    "core": 19881,
+    "extended": 8211
+   },
+   {
+    "band": "(0.95, 0.99]",
+    "judged": 768,
+    "accepted_share": 0.8138020833333334,
+    "core": 26066,
+    "extended": 5834
+   },
+   {
+    "band": "(0.99, 1.0]",
+    "judged": 2677,
+    "accepted_share": 0.9279043705640644,
+    "core": 15696,
+    "extended": 536
+   }
+  ],
+  "reweighted": {
+   "model": "HistGradientBoostingClassifier(max_depth=3, learning_rate=0.05, max_iter=200, min_samples_leaf=40, l2_regularization=1.0)",
+   "judged_used": 4794,
+   "judged_core_settings": 4556,
+   "cv_auc": 0.79405227341374,
+   "cv_brier": 0.10795194924956399,
+   "judged_accepted_share": 0.8410513141426783,
+   "core_expected": 0.6950045404488421,
+   "extended_expected": 0.4908007723601769,
+   "core_expected_by_dataset": {
+    "CO": 0.8159097776791088,
+    "Cordyceps": 0.5188874141677428,
+    "Dwij_B": 0.7424840157014753,
+    "Dwij_C": 0.6219168109851709,
+    "Dwij_D": 0.7051793938605686,
+    "Enoki": 0.5263709114983796,
+    "F2B": 0.8204248837786641,
+    "LM": 0.8322955576387743,
+    "L_R_Aug_26_PD": 0.744245389121686,
+    "M1": 0.6999828916997706,
+    "M2_aug": 0.8158478924465067,
+    "M2_concat": 0.7089798982929502,
+    "M4": 0.7839480735482474,
+    "MJu26a": 0.5827764106093332,
+    "SH": 0.7415385530884808,
+    "SO": 0.7915975630210697,
+    "S_commune": 0.46111296930308554
+   },
+   "core_share_predicted_0.8_or_more": 0.3535987969833446,
+   "core_predicted_0.8_or_more": 46558,
+   "cv_calibration": [
+    {
+     "judged": 480,
+     "predicted": 0.45707333947498413,
+     "accepted": 0.4625
+    },
+    {
+     "judged": 479,
+     "predicted": 0.7088563322321166,
+     "accepted": 0.6910229645093946
+    },
+    {
+     "judged": 479,
+     "predicted": 0.7932959812970752,
+     "accepted": 0.7974947807933194
+    },
+    {
+     "judged": 480,
+     "predicted": 0.8418528936558356,
+     "accepted": 0.8416666666666667
+    },
+    {
+     "judged": 479,
+     "predicted": 0.8775983383360167,
+     "accepted": 0.8872651356993737
+    },
+    {
+     "judged": 479,
+     "predicted": 0.9044664290589653,
+     "accepted": 0.8977035490605428
+    },
+    {
+     "judged": 480,
+     "predicted": 0.927933002779098,
+     "accepted": 0.9229166666666667
+    },
+    {
+     "judged": 479,
+     "predicted": 0.9481689498487486,
+     "accepted": 0.9457202505219207
+    },
+    {
+     "judged": 479,
+     "predicted": 0.9662347861917543,
+     "accepted": 0.9665970772442589
+    },
+    {
+     "judged": 480,
+     "predicted": 0.9924351121472864,
+     "accepted": 0.9979166666666667
+    }
+   ],
+   "cv_by_band": {
+    "fast_rises": [
+     {
+      "band": "(-0.5, 0.5]",
+      "judged": 2122,
+      "predicted": 0.8732087980636529,
+      "accepted": 0.8784165881244109
+     },
+     {
+      "band": "(0.5, 1.5]",
+      "judged": 926,
+      "predicted": 0.9139121280265737,
+      "accepted": 0.9190064794816415
+     },
+     {
+      "band": "(1.5, 2.5]",
+      "judged": 367,
+      "predicted": 0.8320032246854432,
+      "accepted": 0.8310626702997275
+     },
+     {
+      "band": "(2.5, 3.5]",
+      "judged": 151,
+      "predicted": 0.7458120134500906,
+      "accepted": 0.7086092715231788
+     },
+     {
+      "band": "(3.5, 5.5]",
+      "judged": 151,
+      "predicted": 0.6633262675354861,
+      "accepted": 0.6622516556291391
+     },
+     {
+      "band": "(5.5, 9.5]",
+      "judged": 164,
+      "predicted": 0.6068930963689237,
+      "accepted": 0.5853658536585366
+     },
+     {
+      "band": "(9.5, 1000000.0]",
+      "judged": 146,
+      "predicted": 0.6085821920169743,
+      "accepted": 0.6095890410958904
+     }
+    ],
+    "clarity": [
+     {
+      "band": "(10.0, 15.0]",
+      "judged": 88,
+      "predicted": 0.37268222854314176,
+      "accepted": 0.375
+     },
+     {
+      "band": "(15.0, 20.0]",
+      "judged": 79,
+      "predicted": 0.5596276947565838,
+      "accepted": 0.5443037974683544
+     },
+     {
+      "band": "(20.0, 30.0]",
+      "judged": 163,
+      "predicted": 0.6301824744370805,
+      "accepted": 0.6073619631901841
+     },
+     {
+      "band": "(30.0, 50.0]",
+      "judged": 273,
+      "predicted": 0.7667398001013948,
+      "accepted": 0.7545787545787546
+     },
+     {
+      "band": "(50.0, 100.0]",
+      "judged": 423,
+      "predicted": 0.8237152139123383,
+      "accepted": 0.8463356973995272
+     },
+     {
+      "band": "(100.0, 300.0]",
+      "judged": 751,
+      "predicted": 0.8480292888120563,
+      "accepted": 0.8362183754993342
+     },
+     {
+      "band": "(300.0, 1000000000000.0]",
+      "judged": 1746,
+      "predicted": 0.9041413366039327,
+      "accepted": 0.9049255441008018
+     }
+    ],
+    "depth_mv": [
+     {
+      "band": "(0.0, 0.25]",
+      "judged": 77,
+      "predicted": 0.4099754934277233,
+      "accepted": 0.4025974025974026
+     },
+     {
+      "band": "(0.25, 0.5]",
+      "judged": 169,
+      "predicted": 0.6514151663352855,
+      "accepted": 0.6272189349112426
+     },
+     {
+      "band": "(0.5, 1.0]",
+      "judged": 418,
+      "predicted": 0.7896544166609886,
+      "accepted": 0.80622009569378
+     },
+     {
+      "band": "(1.0, 2.0]",
+      "judged": 613,
+      "predicted": 0.8390188287334688,
+      "accepted": 0.8384991843393148
+     },
+     {
+      "band": "(2.0, 5.0]",
+      "judged": 993,
+      "predicted": 0.8440011418900193,
+      "accepted": 0.8489425981873112
+     },
+     {
+      "band": "(5.0, 10.0]",
+      "judged": 1001,
+      "predicted": 0.8968540510029201,
+      "accepted": 0.8931068931068931
+     },
+     {
+      "band": "(10.0, 1000000000000.0]",
+      "judged": 1523,
+      "predicted": 0.8624459981354685,
+      "accepted": 0.8581746552856205
+     }
+    ],
+    "confidence": [
+     {
+      "band": "(0.5, 0.6]",
+      "judged": 180,
+      "predicted": 0.5610460850420436,
+      "accepted": 0.55
+     },
+     {
+      "band": "(0.6, 0.7]",
+      "judged": 208,
+      "predicted": 0.6188571302259077,
+      "accepted": 0.6298076923076923
+     },
+     {
+      "band": "(0.7, 0.8]",
+      "judged": 247,
+      "predicted": 0.659281669137931,
+      "accepted": 0.6558704453441295
+     },
+     {
+      "band": "(0.8, 0.9]",
+      "judged": 372,
+      "predicted": 0.7056367959595975,
+      "accepted": 0.6989247311827957
+     },
+     {
+      "band": "(0.9, 0.95]",
+      "judged": 342,
+      "predicted": 0.7861129242318137,
+      "accepted": 0.7923976608187134
+     },
+     {
+      "band": "(0.95, 0.99]",
+      "judged": 768,
+      "predicted": 0.8203223630031048,
+      "accepted": 0.8138020833333334
+     },
+     {
+      "band": "(0.99, 1.0]",
+      "judged": 2677,
+      "predicted": 0.9269676596007761,
+      "accepted": 0.9279043705640643
+     }
+    ]
+   }
+  }
+ },
+ "concentration": {
+  "top2_datasets": [
+   "M1",
+   "MJu26a"
+  ],
+  "top2_share": 0.4341796474492857,
+  "top10_channels_share": 0.292453045135909,
+  "top10_channels": [
+   {
+    "dataset": "M1",
+    "recording_id": 557,
+    "channel": 12,
+    "core": 5171
+   },
+   {
+    "dataset": "MJu26a",
+    "recording_id": 694,
+    "channel": 2,
+    "core": 4712
+   },
+   {
+    "dataset": "M1",
+    "recording_id": 550,
+    "channel": 5,
+    "core": 4453
+   },
+   {
+    "dataset": "M1",
+    "recording_id": 545,
+    "channel": 0,
+    "core": 4294
+   },
+   {
+    "dataset": "M1",
+    "recording_id": 549,
+    "channel": 4,
+    "core": 4010
+   },
+   {
+    "dataset": "Cordyceps",
+    "recording_id": 620,
+    "channel": 5,
+    "core": 3475
+   },
+   {
+    "dataset": "L_R_Aug_26_PD",
+    "recording_id": 684,
+    "channel": 5,
+    "core": 3243
+   },
+   {
+    "dataset": "M2_aug",
+    "recording_id": 16,
+    "channel": 15,
+    "core": 3151
+   },
+   {
+    "dataset": "L_R_Aug_26_PD",
+    "recording_id": 683,
+    "channel": 4,
+    "core": 3137
+   },
+   {
+    "dataset": "MJu26a",
+    "recording_id": 696,
+    "channel": 4,
+    "core": 2861
+   }
+  ],
+  "channels_with_core": 142,
+  "median_core_per_channel": 546.5
+ },
+ "flags": {
+  "core": {
+   "finder_only": 0.30215920224198556,
+   "m4_like": 0.10810441333951044,
+   "wd_long_tail": 0.03237664142660763,
+   "several_events_in_span": 0.05558635669747625,
+   "whole_drop_measured": 0.9998632935618862,
+   "confidence_median": 0.8877930888844991
+  },
+  "extended": {
+   "finder_only": 0.3327491412376193,
+   "m4_like": 0.047630016123701845,
+   "wd_long_tail": 0.020780547404684886,
+   "several_events_in_span": 0.051115139254704414,
+   "whole_drop_measured": 0.999839764453747,
+   "confidence_median": 0.6920877270391954
+  }
+ },
+ "shapes_by_dataset": [
+  {
+   "dataset": "M1",
+   "drops": 35212,
+   "depth_mv": 1.1654488933649674,
+   "fall_s": 6.5,
+   "width_s": 13.564926466855866,
+   "recovery_s": 7.963285284990604,
+   "confidence": 0.9003319764920079
+  },
+  {
+   "dataset": "MJu26a",
+   "drops": 21956,
+   "depth_mv": 0.3340787017619675,
+   "fall_s": 10.5,
+   "width_s": 18.424358473942902,
+   "recovery_s": 8.128048202978675,
+   "confidence": 0.8475388481322061
+  },
+  {
+   "dataset": "M2_aug",
+   "drops": 20677,
+   "depth_mv": 1.5806877082505935,
+   "fall_s": 18.0,
+   "width_s": 43.76318663048272,
+   "recovery_s": 24.76114527639237,
+   "confidence": 0.9403854306521023
+  },
+  {
+   "dataset": "L_R_Aug_26_PD",
+   "drops": 18303,
+   "depth_mv": 0.9060539616830852,
+   "fall_s": 5.5,
+   "width_s": 12.639835807489135,
+   "recovery_s": 7.478001045956944,
+   "confidence": 0.9004567231055524
+  },
+  {
+   "dataset": "Cordyceps",
+   "drops": 11102,
+   "depth_mv": 0.30099997000000006,
+   "fall_s": 10.0,
+   "width_s": 17.933333355555533,
+   "recovery_s": 7.269230769230717,
+   "confidence": 0.767620257631325
+  },
+  {
+   "dataset": "Enoki",
+   "drops": 5021,
+   "depth_mv": 0.4590000000000001,
+   "fall_s": 9.0,
+   "width_s": 17.159509509202508,
+   "recovery_s": 7.1280991735536645,
+   "confidence": 0.776402506826064
+  },
+  {
+   "dataset": "CO",
+   "drops": 4230,
+   "depth_mv": 1.598324996816011,
+   "fall_s": 6.5,
+   "width_s": 24.06573758837135,
+   "recovery_s": 16.232538576834713,
+   "confidence": 0.9570860152678633
+  },
+  {
+   "dataset": "LM",
+   "drops": 4114,
+   "depth_mv": 2.629590690477258,
+   "fall_s": 9.0,
+   "width_s": 44.44311249265763,
+   "recovery_s": 30.672117145977268,
+   "confidence": 0.9782099248822267
+  },
+  {
+   "dataset": "M2_concat",
+   "drops": 3895,
+   "depth_mv": 3.4853156861229877,
+   "fall_s": 43.0,
+   "width_s": 97.79232383280794,
+   "recovery_s": 38.13044799215959,
+   "confidence": 0.9363826373724077
+  },
+  {
+   "dataset": "M4",
+   "drops": 2272,
+   "depth_mv": 1.2305616117419618,
+   "fall_s": 44.0,
+   "width_s": 112.87245249078285,
+   "recovery_s": 52.68359930794327,
+   "confidence": 0.8980961228808346
+  },
+  {
+   "dataset": "SH",
+   "drops": 2058,
+   "depth_mv": 1.7465392713954486,
+   "fall_s": 52.25,
+   "width_s": 109.32907259101091,
+   "recovery_s": 57.24039553704779,
+   "confidence": 0.8842198012936378
+  },
+  {
+   "dataset": "F2B",
+   "drops": 1580,
+   "depth_mv": 1.8614814267482487,
+   "fall_s": 10.5,
+   "width_s": 21.333195178865992,
+   "recovery_s": 10.937298875302417,
+   "confidence": 0.9761701992161319
+  },
+  {
+   "dataset": "SO",
+   "drops": 1053,
+   "depth_mv": 1.6485384065583446,
+   "fall_s": 19.0,
+   "width_s": 42.98883447675598,
+   "recovery_s": 25.85272529058409,
+   "confidence": 0.9364065728081833
+  },
+  {
+   "dataset": "S_commune",
+   "drops": 148,
+   "depth_mv": 0.16399999999999998,
+   "fall_s": 8.0,
+   "width_s": 13.519999827999982,
+   "recovery_s": 5.460000100000002,
+   "confidence": 0.7635671974624065
+  },
+  {
+   "dataset": "Dwij_D",
+   "drops": 14,
+   "depth_mv": 0.7775895060905291,
+   "fall_s": 5.0,
+   "width_s": 5.5841229114259505,
+   "recovery_s": 0.9561190574731171,
+   "confidence": 0.8469187810642819
+  },
+  {
+   "dataset": "Dwij_C",
+   "drops": 9,
+   "depth_mv": 0.9627498599451001,
+   "fall_s": 3.75,
+   "width_s": 9.761872719858076,
+   "recovery_s": 5.742319353328185,
+   "confidence": 0.8509180743920648
+  },
+  {
+   "dataset": "Dwij_B",
+   "drops": 7,
+   "depth_mv": 1.3056679951573833,
+   "fall_s": 7.5,
+   "width_s": 7.485103383361107,
+   "recovery_s": 0.6725415625561482,
+   "confidence": 0.9260338630347091
+  }
+ ]
+}

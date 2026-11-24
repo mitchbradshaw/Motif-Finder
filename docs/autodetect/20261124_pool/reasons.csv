@@ -1,0 +1,15 @@
+reason,drops
+below 0.6 confidence,422932
+IN THE POOL (core tier),131669
+not clear against the noise around it,102895
+IN THE POOL (extended tier),99853
+"a slow decline: its fall never steps beyond the step noise (new 24 Nov, from the verdicts)",37640
+"no detector, seed or rule vouched for it (R4 alone)",12664
+"already in a review queue (any queue, queue 57 included)",9016
+already judged (any copy),5338
+box longer than the channel's cap,3848
+the recovery or way back of the event just before it,3746
+its box overlaps a better candidate's,781
+its box runs into a bigger event the other way,144
+a span judged an artifact in its window,61
+a jump far bigger than the event in its window,61

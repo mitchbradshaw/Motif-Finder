@@ -1,0 +1,18 @@
+dataset,species,source_file,channels,drops_found,drops_06,judged,core,extended
+M1,unknown,M1.mat,13,176961,90465,0,35212,28358
+MJu26a,lion's mane,MJu26a_fs2.mat,16,215797,60650,1866,21956,27636
+M2_aug,oyster,M2_aug_concat_fs1.mat,16,47173,34078,3248,20678,2111
+L_R_Aug_26_PD,unknown,L_R_Aug_26_PD_raw.mat,13,119060,62817,0,18303,20202
+Cordyceps,Cordyceps,Cordyceps militari.txt,7,138560,55782,0,11115,12024
+Enoki,enoki,Enoki fungi Flammulina velutipes.txt,7,75919,37553,0,5022,6435
+CO,chocolate oyster,CO_fs2.mat,4,7791,5494,449,4230,626
+LM,lion's mane,LM_fs2.mat,4,6639,5296,535,4114,271
+M2_concat,oyster,M2_concat_fs1.mat,16,9747,5197,496,3896,570
+M4,oyster,M4_aug_concat_fs1.mat,16,17944,5976,491,2272,585
+SH,Asian shiitake,SH_fs2.mat,4,6849,3147,181,2058,454
+F2B,unknown,F2B.mat,5,2968,1907,0,1580,238
+SO,snow oyster,SO_fs2.mat,4,2545,1533,149,1053,226
+S_commune,split gill,Schizophyllum commune.txt,7,2604,1408,34,150,109
+Dwij_D,unknown,record-mfs2-2026-09-08-09-49-38.csv,4,30,17,0,14,3
+Dwij_C,unknown,record-mfs2-2026-09-02-08-49-40.csv,4,40,17,0,9,4
+Dwij_B,unknown,record-mfs2-2026-09-01-15-22-51.csv,4,21,11,0,7,1

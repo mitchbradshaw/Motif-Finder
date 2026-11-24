@@ -1,0 +1,39 @@
+{
+ "built": "2026-11-25T00:22:23",
+ "drops_considered": 830648,
+ "pool": 231522,
+ "core": 131669,
+ "extended": 99853,
+ "goal": 100000,
+ "cap": 1000000,
+ "m4_threshold": 1.7610114770216652,
+ "whole_drop": {
+  "rev": "HEAD",
+  "commit": "d32d09a1",
+  "blob": "b860988e871a",
+  "working_copy_differs": false
+ },
+ "rules": [
+  "below 0.6 confidence",
+  "no detector, seed or rule vouched for it (R4 alone)",
+  "a slow decline: its fall never steps beyond the step noise (new 24 Nov, from the verdicts)",
+  "the recovery or way back of the event just before it",
+  "already judged (any copy)",
+  "already in a review queue (any queue, queue 57 included)",
+  "box longer than the channel's cap",
+  "its box runs into a bigger event the other way",
+  "gap in the data in its window",
+  "dropout (flat line) in its window",
+  "a span judged an artifact in its window",
+  "a jump far bigger than the event in its window",
+  "not clear against the noise around it",
+  "its box overlaps a better candidate's"
+ ],
+ "recordings": 144,
+ "seconds": 19.132232700001623,
+ "confidence_quantiles": {
+  "0.1": 0.5611497095547395,
+  "0.5": 0.8141294728879562,
+  "0.9": 0.9831841029436786
+ }
+}

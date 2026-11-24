@@ -1,0 +1,103 @@
+pool: 231,522 drops measured in 72 s (142 windows left the recording or held a gap; 10,049 without fast_rises)
+judged: 4,794 drops measured in 73 s (6 windows left the recording or held a gap; 767 without fast_rises)
+
+== judged drops passing the loosest settings, by rhythm_r ==
+              judged  accepted  rejected
+rhythm_r                                
+(-0.01, 0.2]    4743     0.842     0.119
+(0.2, 0.3]        15     0.733     0.133
+(0.3, 0.4]        10     0.800     0.000
+(0.4, 0.5]         8     1.000     0.000
+(0.5, 0.6]         2     1.000     0.000
+(0.6, 0.7]         2     1.000     0.000
+(0.7, 0.8]         3     1.000     0.000
+(0.8, 1.0]         5     1.000     0.000
+
+== judged drops passing the core's settings, by rhythm_r ==
+              judged  accepted
+rhythm_r                      
+(-0.01, 0.2]    4508     0.860
+(0.2, 0.3]        14     0.786
+(0.3, 0.4]         8     0.750
+(0.4, 0.5]         8     1.000
+(0.5, 0.6]         2     1.000
+(0.6, 0.7]         2     1.000
+(0.7, 0.8]         3     1.000
+(0.8, 1.0]         5     1.000
+
+== judged drops passing the loosest settings, by fast_rises ==
+                  judged  accepted  rejected
+fast_rises                                  
+(-0.5, 0.5]         2122     0.878     0.092
+(0.5, 1.5]           926     0.919     0.054
+(1.5, 2.5]           367     0.831     0.125
+(2.5, 3.5]           151     0.709     0.212
+(3.5, 5.5]           151     0.662     0.232
+(5.5, 9.5]           164     0.585     0.305
+(9.5, 1000000.0]     146     0.610     0.219
+
+== judged drops passing the core's settings, by fast_rises ==
+                  judged  accepted
+fast_rises                        
+(-0.5, 0.5]         2076     0.882
+(0.5, 1.5]           891     0.930
+(1.5, 2.5]           349     0.842
+(2.5, 3.5]           137     0.730
+(3.5, 5.5]           129     0.698
+(5.5, 9.5]           123     0.683
+(9.5, 1000000.0]      95     0.726
+
+== judged drops with fast_rises >= 4, by dataset ==
+           judged  accepted
+dataset                    
+CO             29     0.724
+LM             24     0.667
+M2_aug        203     0.729
+M2_concat      21     0.524
+M4             21     0.524
+MJu26a        133     0.429
+SH             16     0.625
+SO             12     0.917
+S_commune       2     0.000
+
+== the pool: share of each dataset's drops by each measure (core | extended) ==
+      dataset     tier  drops  r>=0.3  r>=0.5  rises>=2  rises>=4  rises>=8  median rises
+           CO     core   4230   0.001   0.000     0.213     0.131     0.061           0.0
+           CO extended    626   0.003   0.000     0.458     0.337     0.216           1.0
+    Cordyceps     core  11115   0.141   0.018     0.934     0.796     0.469           7.0
+    Cordyceps extended  12024   0.120   0.019     0.977     0.904     0.590           9.0
+       Dwij_B     core      7   0.000   0.000     0.000     0.000     0.000           0.0
+       Dwij_B extended      1   0.000   0.000     0.000     0.000     0.000           NaN
+       Dwij_C     core      9   0.000   0.000     0.444     0.111     0.000           1.5
+       Dwij_C extended      4   0.000   0.000     0.750     0.250     0.250           2.0
+       Dwij_D     core     14   0.000   0.000     0.214     0.071     0.000           0.0
+       Dwij_D extended      3   0.000   0.000     0.333     0.333     0.000           2.5
+        Enoki     core   5022   0.203   0.030     0.957     0.855     0.585           9.0
+        Enoki extended   6435   0.143   0.026     0.979     0.909     0.600           9.0
+          F2B     core   1580   0.004   0.001     0.239     0.068     0.023           1.0
+          F2B extended    238   0.008   0.004     0.576     0.391     0.160           3.0
+           LM     core   4114   0.018   0.012     0.152     0.091     0.045           0.0
+           LM extended    271   0.011   0.000     0.454     0.369     0.255           1.0
+L_R_Aug_26_PD     core  18303   0.001   0.000     0.402     0.248     0.102           1.0
+L_R_Aug_26_PD extended  20202   0.001   0.000     0.726     0.555     0.306           4.0
+           M1     core  35212   0.009   0.001     0.407     0.269     0.130           1.0
+           M1 extended  28358   0.003   0.000     0.674     0.510     0.291           4.0
+       M2_aug     core  20678   0.003   0.001     0.288     0.147     0.049           0.0
+       M2_aug extended   2111   0.003   0.000     0.581     0.400     0.186           3.0
+    M2_concat     core   3896   0.008   0.002     0.198     0.099     0.024           0.0
+    M2_concat extended    570   0.007   0.000     0.456     0.318     0.144           2.0
+           M4     core   2272   0.008   0.002     0.276     0.152     0.054           0.0
+           M4 extended    585   0.007   0.000     0.542     0.364     0.186           2.0
+       MJu26a     core  21956   0.005   0.000     0.577     0.388     0.152           3.0
+       MJu26a extended  27636   0.006   0.000     0.889     0.762     0.491           7.0
+           SH     core   2058   0.000   0.000     0.375     0.256     0.135           1.0
+           SH extended    454   0.002   0.000     0.509     0.407     0.262           4.0
+           SO     core   1053   0.009   0.002     0.242     0.142     0.078           0.0
+           SO extended    226   0.018   0.004     0.465     0.398     0.279           2.0
+    S_commune     core    150   0.593   0.327     0.853     0.793     0.733          14.0
+    S_commune extended    109   0.523   0.248     0.945     0.881     0.761          14.0
+core drops with fast_rises >= 2: 59,979 (45.6%); by dataset {'M1': 14336, 'MJu26a': 12677, 'Cordyceps': 10385, 'L_R_Aug_26_PD': 7354, 'M2_aug': 5962, 'Enoki': 4804}
+core drops with fast_rises >= 4: 41,288 (31.4%); by dataset {'M1': 9474, 'Cordyceps': 8851, 'MJu26a': 8516, 'L_R_Aug_26_PD': 4547, 'Enoki': 4294, 'M2_aug': 3045}
+core drops with fast_rises >= 8: 20,124 (15.3%); by dataset {'Cordyceps': 5218, 'M1': 4571, 'MJu26a': 3338, 'Enoki': 2940, 'L_R_Aug_26_PD': 1874, 'M2_aug': 1018}
+
+sheets written; 87 s in all

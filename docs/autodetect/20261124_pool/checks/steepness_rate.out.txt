@@ -1,0 +1,36 @@
+== median steepness by dataset (core events; the stored rate) ==
+                     size  median
+fs   dataset                     
+0.8  Dwij_B             7    2.55
+     Dwij_C             9    2.19
+     Dwij_D            14    2.44
+1.0  Cordyceps      11102    2.07
+     Enoki           5021    2.02
+     M2_aug         20677    2.22
+     M2_concat       3895    2.61
+     M4              2272    2.13
+     S_commune        148    1.76
+2.0  CO              4230    2.00
+     LM              4114    2.16
+     MJu26a         21956    2.83
+     SH              2058    2.40
+     SO              1053    2.33
+10.0 F2B             1580    5.41
+     L_R_Aug_26_PD  18303    5.44
+     M1             35212    5.02 
+
+== 3,000 random 10 Hz core drops, steepness on the stored 10 Hz trace and on the same trace at 2 Hz ==
+               steep_10hz  steep_2hz
+dataset                             
+F2B                  5.30       3.10
+L_R_Aug_26_PD        5.51       3.37
+M1                   5.02       3.18
+all: median 5.19 at 10 Hz, 3.22 at 2 Hz; share above 4: 74% at 10 Hz, 33% at 2 Hz
+
+1-2 Hz recordings: median steepness 2.33; share above 4: 14%
+
+M1: 35,212 core events; width >= 900 s: 2.6%; fall >= 600 s: 5.0%; their median depth 33.1 mV against 1.17 mV for all M1
+L_R_Aug_26_PD: width >= 900 s 0.0%; fall >= 600 s 0.0%
+MJu26a: width >= 900 s 1.6%; fall >= 600 s 1.0%
+M2_aug: width >= 900 s 0.4%; fall >= 600 s 0.4%
+Cordyceps: width >= 900 s 0.0%; fall >= 600 s 0.0%
