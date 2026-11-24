@@ -34,6 +34,14 @@ the toolbar while verdicts are waiting, then "all saved".
 
 ## Before and after
 
+**Machine load.** From 18:00 on 24 Nov the drop auto-detect batch ran across all datasets. It used one or two Python
+workers at up to about 1.8 GB each, until about 23:00, and free RAM was often under 1 GB.
+- The "before" runs were taken 17:42–17:58, on sandbox `20261124-174240`, **without** the batch.
+- Every "after" run was taken from 18:04 on (sandboxes `-180423` and `-182902`), **with** the batch running.
+
+So the two sides were not measured under the same load, and the difference runs against the change: "after" had the
+heavier machine. The improvement is not an artefact of a quieter box.
+
 Scenario numbers are from a sandbox copy of the real database, queue 57, Playwright headless Chromium. "Step" means
 key press to the next card's context trace drawn: the Inspector's `data-item` changed **and** its
 `[data-testid="context-trace"] svg path` has a drawn `d`, checked once per animation frame. The marker is proven by
