@@ -16,6 +16,9 @@ carries done at once would, through re-judgements.
   carries are all done - an undo then takes back exactly what its verdict carried.
 * `start()` also queues what a stopped bridge left pending (the audit rows still flagged), so none is lost.
 * A carry that fails is logged with its traceback and stays pending on its audit row, retried at the next start.
+* AS (2026-11-24): the page's reads come first. Before a run of carries the worker waits for a quiet moment (no request
+  in flight or just finished, `corpus.wait_for_quiet`), never longer than MAX_YIELD_S, so carries keep a pace of their
+  own through a long burst of verdicts; drain() does not wait.
 """
 from __future__ import annotations
 
@@ -28,6 +31,13 @@ import time
 from . import corpus
 
 log = logging.getLogger("webui.review_carry")
+
+#: AS: a carry waits for this long with no page request in flight or just finished (`corpus.wait_for_quiet`) ...
+QUIET_S = 0.12
+#: ... but never longer than this, so carries keep a pace of their own through a long burst of verdicts ...
+MAX_YIELD_S = 1.0
+#: ... and then runs at most this many before it looks for a quiet moment again
+CARRY_RUN = 8
 
 
 class CarryWorker:
@@ -96,13 +106,20 @@ class CarryWorker:
         while not self._stop.is_set():
             self._wake.wait(0.5)
             self._wake.clear()
-            while not self._stop.is_set():
-                # the pop happens under the run lock, so drain() can never run a later carry before this one
-                with self._run:
-                    audit_id = self._pop()
-                    if audit_id is None:
+            while not self._stop.is_set() and self.queued():
+                # AS (2026-11-24): the page's reads come first. Wait for a moment with no request in flight (capped,
+                # so a long burst still gets its carries), then run carries until a request arrives or a run of
+                # them is done. Outside the run lock: drain() is never held off by this wait.
+                corpus.wait_for_quiet(QUIET_S, MAX_YIELD_S)
+                for _ in range(CARRY_RUN):
+                    # the pop happens under the run lock, so drain() can never run a later carry before this one
+                    with self._run:
+                        audit_id = self._pop()
+                        if audit_id is None:
+                            break
+                        self._carry(audit_id)
+                    if corpus.REQUEST_CLOCK["inflight"] > 0:
                         break
-                    self._carry(audit_id)
 
     @contextlib.contextmanager
     def drain(self):

@@ -8,21 +8,21 @@ import { useAbortableSourced, useSourced } from '../api/seam'
 import { useSize } from '../charts/useSize'
 import { useToast } from '../shell/Toast'
 import { plotPx } from './axis'
-import { VOCABULARY, getItem, invalidateAfterCarry, itemHeld, peekItem, prefetchItemThen, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, whenCarried, type CarryFields, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
+import { VOCABULARY, getItem, invalidateAfterCarry, itemHeld, peekItem, prefetchItems, touchItems, useThumbs, useQueuePeaks, postPromote, postUndo, whenCarried, type CarryFields, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
 import { goUnit, indexOf, isJudged, judged, judgedRecord, nextUnjudgedAfter, relTime, step, units } from './queue'
 import { rowJudged } from './judged'
-import { prefetchIds } from './prefetch'
-import { createCursor, land } from './cursor'
+import { prefetchIds, refillIds } from './prefetch'
+import { consumeAdvance, createCursor, land, markAdvance } from './cursor'
 import {
   AnnotateCard, ArtifactPill, ContextCard, EvidenceRail, NearestFamiliesCard, Pill, PromotionPanel, ShapeCard, VerdictCard, editInExplore, statusDot, statusText, useNow,
 } from './parts'
 import { Loading, NotFound, previousLines } from './common'
 import { SuspectedArtifactCard } from './SuspectedArtifact'
 import {
-  VERDICT_LABEL, amendWrite, applyWrite, bumpReviewVersion, clearWriteError, commitRedo, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive,
-  patchRecord, rawRecord, releaseExemplar, resend, useAutoAdvance, useDrafts, usePad, useRecords, useReviewVersion, useStack, useWriteError, type Draft, type VerdictRecord,
+  VERDICT_LABEL, amendWrite, applyWrite, bumpReviewVersion, clearWriteError, commitRedo, commitSave, commitUndo, commitWrite, effective, getRecords, getWriteError, key, lastLive,
+  patchRecord, pendingRecords, rawRecord, releaseExemplar, replayJournal, resend, savesPending, useAutoAdvance, useReplaying, useSavesPending, useDrafts, usePad, useRecords, useReviewVersion, useStack, useWriteError, type Draft, type VerdictRecord,
 } from './store'
 
 export function Inspector({ data, itemId }: { data: QueueData; itemId: string }) {
@@ -64,20 +64,25 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   // tq-review: one landing per item (`cursor.ts`) — the settle for an item not held yet, the read, then the window a
   // key press can go to next (AR, night-review: the next five unjudged items, the very next unit and the previous one,
   // `prefetch.ts`), read one at a time nearest first at the width and padding this card asks for. Moving on aborts it.
+  // AS (2026-11-24): sixteen ahead, refilled in ONE read when it runs low (`refillIds`, `prefetchItems`); the verdicts
+  // still waiting to be saved count as judged here (the page has moved past them); a landing that is the auto-advance
+  // after a verdict has no settle (`consumeAdvance`: the settle is for arrow-key scrubbing)
   const det = useAbortableSourced(signal => {
     if (!px) return Promise.resolve({ data: null, source: 'live' as const })
     const opts = { px, padS: +pad }
     return land(id, signal, {
       held: i => itemHeld(q, i, opts),
       read: i => getItem(q, i, opts),
-      warm: i => prefetchItemThen(q, i, opts),
+      warm: ids => prefetchItems(q, ids, opts),
       window: got => {
         if (!got.data) return []
         const list = units(data)
-        const recs = getRecords()
-        return prefetchIds(list, indexOf(list, { kind: 'item', id }), i => isJudged(data, recs, list[i]))
+        const recs = { ...getRecords(), ...pendingRecords(q) }
+        const ids = prefetchIds(list, indexOf(list, { kind: 'item', id }), i => isJudged(data, recs, list[i]))
+        touchItems(q, ids, opts)        // the window outlives the items passed in the cache
+        return refillIds(ids, i => itemHeld(q, i, opts))
       },
-    })
+    }, consumeAdvance(id) ? 0 : undefined)
   }, [q, id, version, px, pad])
   const records = useRecords()
   const stack = useStack()
@@ -134,7 +139,25 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   const say = (text: string) => toast.push({ text })
   /** Loud, and never a blank: the bridge's own refusal text, beside the red card the render puts up. */
   const refused = () => { const f = getWriteError(); toast.push({ kind: 'error', text: `not written · ${f?.label ?? 'write'} · ${f?.message ?? 'the bridge refused it'}` }) }
-  const advance = () => goUnit(q, nextUnjudgedAfter(data, getRecords(), unit))
+  const advance = () => {
+    // AS: a verdict still being saved counts as given; the landing this makes reads at once
+    const u = nextUnjudgedAfter(data, { ...getRecords(), ...pendingRecords(q) }, unit)
+    markAdvance(u?.kind === 'item' ? u.id : null)
+    goUnit(q, u)
+  }
+  const replaying = useReplaying()[q] ?? 0
+  const pendingSaves = useSavesPending()
+  // AS (R5): the verdicts a page that is gone left unsaved are sent again before this page takes a new one; a
+  // refused one is said loudly
+  useEffect(() => {
+    const replay = () => void replayJournal(q).then(({ n, failed }) => {
+      if (n) toast.push({ text: `saved ${n - failed.length} of ${n} verdict${n === 1 ? '' : 's'} from your last visit` })
+      for (const f of failed) toast.push({ kind: 'error', text: `not written · ${f.label} · ${f.message}` })
+    })
+    replay()
+    const t = window.setInterval(replay, 5000)
+    return () => window.clearInterval(t)
+  }, [q])   // eslint-disable-line react-hooks/exhaustive-deps
 
   const setDraft = (next: Draft) => {
     setDrafts(prev => ({ ...prev, [k]: next }))
@@ -157,28 +180,40 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     let carried = 0
     let carriedIds: number[] = []
     let carryAuditId: number | null = null
-    const send = () => v === 'seed'
-      ? postPromote(q, id, 'seed', { note, tags }).then(ack => {
-        if (ack.entry_id != null) { next.entryId = ack.entry_id; next.memberId = ack.member_id; next.entryCreated = ack.created; next.exemplarId = `entry ${ack.entry_id}` }
-        return ack
-      })
-      // review-carry: the class travels with the verdict and is stored (R3); the ack says how many other runs'
-      // detections of the same event the verdict was carried to
-      : postVerdict(q, id, v, { note, tags, classLabel: storesClass ? className : undefined }).then(ack => {
-        carried = ack.carried ?? 0; carriedIds = ack.carriedIds ?? []
-        carryAuditId = ack.carryPending ? (ack.carryAuditId ?? null) : null
-        return ack
-      })
+    // a seed goes through the promotion door at once (P21); every other verdict is saved behind the researcher (AS,
+    // below), the class travelling with it (review-carry R3) and the ack saying what it was carried to
+    const send = () => postPromote(q, id, 'seed', { note, tags }).then(ack => {
+      if (ack.entry_id != null) { next.entryId = ack.entry_id; next.memberId = ack.member_id; next.entryCreated = ack.created; next.exemplarId = `entry ${ack.entry_id}` }
+      return ack
+    })
     // 2026-11-24 (the researcher: "noticeable load time between each candidate, load time after decision"): a verdict
-    // that auto-advances moves on NOW and is written behind the researcher. The writes go to the bridge one at a time
-    // in the order given (store.ts), so undo still reverses the right one; a refusal brings the page back here, to
-    // this item's red card. A promotion still waits: its Library entry is chosen on this item.
+    // that auto-advances moves on NOW and is written behind the researcher. The writes go to the bridge in the order
+    // given (store.ts), so undo still reverses the right one; a refusal brings the page back here, to this item's red
+    // card. A promotion still waits: its Library entry is chosen on this item.
+    // AS (2026-11-24, "prioritise feeding the next candidate in faster over saving verdicts"): a verdict or class
+    // key is SAVED behind the researcher - queued, several in one request, after the next items' reads - and the
+    // backlog is shown in the toolbar; a promotion is still written at once.
     const ahead = kind !== 'promotion' && v !== 'seed' && opts.advance && auto
     if (ahead) { cursor.cancel(); setFlash(null); advance() }
-    const w = await commitWrite(send, { queueId: q, items: [id], kind, verdict: v, className, label: `${id} · ${VERDICT_LABEL[v]}`, before: { [k]: before }, after: { [k]: next } },
-      // AR: a verdict on a queue that does not write annotations changes one row's judged state and nothing else, so only
-      // the counts are re-read; a promotion, or a write that makes a human span (which can change any queue's set), re-reads the rows
-      { light: kind !== 'promotion' && queue.writes !== 'annotations' })
+    const sw = { queueId: q, items: [id], kind, verdict: v, className, label: `${id} · ${VERDICT_LABEL[v]}`, before: { [k]: before }, after: { [k]: next } }
+    // AR: a verdict on a queue that does not write annotations changes one row's judged state and nothing else, so only
+    // the counts are re-read; a promotion, or a write that makes a human span (which can change any queue's set), re-reads the rows
+    const light = kind !== 'promotion' && queue.writes !== 'annotations'
+    let w = null
+    if (v === 'seed') w = await commitWrite(send, sw, { light })
+    else {
+      const got = await commitSave(q, { target_id: id, verdict: v, note, tags, class_label: storesClass ? className : undefined }, sw, { light })
+      if ('withdrawn' in got) return null                         // Ctrl Z took it back before it was sent; the undo returned here
+      if ('failed' in got) {
+        toast.push({ kind: 'error', text: `not written · ${got.failed.label} · ${got.failed.message}` })
+        // R6: the page goes back to the refused item (its red card), once - the refusal on the card is this one
+        if (ahead && getWriteError() === got.failed) goUnit(q, unit)
+        return null
+      }
+      w = got.w
+      carried = got.ack.carried ?? 0; carriedIds = got.ack.carriedIds ?? []
+      carryAuditId = got.ack.carryPending ? (got.ack.carryAuditId ?? null) : null
+    }
     if (!w) {
       refused()
       if (ahead) goUnit(q, unit)
@@ -213,6 +248,9 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
 
   const verdict = async (v: Verdict) => {
     if (promoted) return say('confirm or undo the promotion first (Enter / Ctrl Z)')
+    // AS: never a verdict on a card not drawn yet, and none before the verdicts of a last visit are saved
+    if (!d) return say(`${id} is still loading — no verdict was given`)
+    if (replaying) return say(`saving ${replaying} verdict${replaying === 1 ? '' : 's'} from your last visit first`)
     if (binary && (v === 'seed' || v === 'artifact' || v === 'unsure')) return say('this queue takes binary verdicts and classes')
     // fixup-AD: a suspected-artifact queue asks "artifact, or what is it really?" — the four words its queue names
     if (queue.source === 'suspected-artifact' && v === 'seed') return say('this queue takes artifact, interesting, not interesting or unsure — promote a seed from Explore or a detection queue')
@@ -408,7 +446,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
           </div>
 
           <VerdictCard selected={rec?.verdict ?? null} flash={flash} binary={binary} onVerdict={verdict} onSkip={() => goUnit(q, step(data, unit, 1))}
-            previous={previousLines(data, promoted ? stack.filter(w => !(w.kind === 'promotion' && w.items[0] === id)) : stack, now)} undo={{ can: !!lastLive(q), run: undo }} />
+            previous={previousLines(data, promoted ? stack.filter(w => !(w.kind === 'promotion' && w.items[0] === id)) : stack, now)} undo={{ can: !!lastLive(q) || (pendingSaves > 0 && savesPending(q) > 0), run: undo }} />
           <AnnotateCard draft={draft} setDraft={setDraft} className={rec?.className ?? (records[k] === undefined ? carry.classLabel : undefined)} onClass={klass} />
         </div>
       )}

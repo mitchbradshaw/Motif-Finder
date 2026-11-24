@@ -639,7 +639,7 @@ def _apply(conn, queue, target_id, row_id, verdict, note, tags, window_index, cl
 
 
 def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
-                  window_index=None, class_label=None, carry=True):
+                  window_index=None, class_label=None, carry=True, client_id=None):
     """Write one verdict through the queue that asked for it.
 
     Returns a dict describing what was written:
@@ -666,6 +666,10 @@ def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
     audit row now and leaves the carry pending on that audit row
     (`carry_pending`); `run_pending_carry` does it later, with this verdict as
     given.
+
+    `client_id` (AS, 2026-11-24): the page's own id for the gesture, kept in
+    the audit payload, so a verdict sent twice (a replayed journal, a second
+    tab) is found by `audits_by_client_id` and not written again.
     """
     queue = _queue_row(conn, queue_id)
     _check_verdict(verdict)
@@ -708,6 +712,8 @@ def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
     pending = members is not None and not carry
     if pending:
         payload["carry_pending"] = True
+    if client_id is not None:
+        payload["client_id"] = str(client_id)
     audit_id = _audit(conn, queue_id, "verdict", queue["writes_to"],
                       [target_id], payload)
     conn.commit()
@@ -804,6 +810,25 @@ def _carried_ids(payload):
         out.update(int(i) for i in done.get("created") or [])
         out.update(int(u["detection_id"]) for u in done.get("updated") or [])
     return sorted(out)
+
+
+def audits_by_client_id(conn, queue_id, client_ids):
+    """AS (2026-11-24): the audit rows of this queue that carry one of these client ids, undone or not -
+    ``{client_id: {"audit_id", "payload", "undone"}}``. A verdict whose id is here was written already."""
+    want = [str(c) for c in client_ids if c is not None]
+    if not want:
+        return {}
+    out = {}
+    for start in range(0, len(want), 400):
+        chunk = want[start:start + 400]
+        marks = ",".join("?" * len(chunk))
+        for aid, payload, undone in conn.execute(
+                "SELECT id, payload_json, undone_at FROM review_audit WHERE queue_id = ? "
+                f"AND json_valid(payload_json) AND json_extract(payload_json, '$.client_id') IN ({marks}) ORDER BY id",
+                (int(queue_id), *chunk)).fetchall():
+            p = json.loads(payload or "{}")
+            out.setdefault(str(p.get("client_id")), {"audit_id": int(aid), "payload": p, "undone": undone is not None})
+    return out
 
 
 def pending_carries(conn):

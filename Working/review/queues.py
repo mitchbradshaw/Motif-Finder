@@ -1169,6 +1169,48 @@ def item_view(conn, queue_id, target_id, *, exclude_recording_ids=None):
             "detections": views["n_detections"]}
 
 
+def item_view_many(conn, queue_id, target_ids, *, exclude_recording_ids=None):
+    """`item_view` for several targets from ONE read of the structure and the verdicts (AS, 2026-11-24: the
+    Inspector's window is read in one request; the verdict overlay was 80% of every item read). Returns
+    ``{"queue", "counts", "detections", "views": {target_id (str): {"item", "rank"}}}``; each item and rank equal
+    what `item_view` answers for it (tests/test_review_momentum_core.py)."""
+    q = get_queue(conn, queue_id)
+    if q is None:
+        raise ValueError("no such queue: {!r}".format(queue_id))
+    tids = [str(t) for t in target_ids]
+    if q["source_kind"] not in _DETECTION_KINDS:
+        snap = queue_snapshot(conn, queue_id, exclude_recording_ids=exclude_recording_ids)
+        deep = {str(it.get("target_id", it.get("id"))): it for it in snap["deep"]}
+        ranks = {str(it.get("target_id", it.get("id"))): i + 1 for i, it in enumerate(snap["items"])}
+        return {"queue": q, "counts": snap["counts"], "detections": None,
+                "views": {t: {"item": deep.get(t), "rank": ranks.get(t)} for t in tids}}
+    structure = _cached_structure(conn, q)
+    views = _structure_views(q, structure, exclude_recording_ids)
+    wanted = {did for members in views["served_members"] for did in members}
+    ats = {}
+    for t in tids:
+        try:
+            ats[t] = views["deep_at"].get(int(t))
+        except ValueError:
+            ats[t] = None
+        if ats[t] is not None:
+            wanted.update(_members(structure[ats[t]]))
+    judged_verdicts, judged_tags, extras = _judged_overlay(conn, wanted)
+    judged = sum(1 for ms in views["served_members"] if _set_judged(ms, judged_verdicts))
+    total = len(views["served_ids"])
+    out = {}
+    for t in tids:
+        at = ats[t]
+        item = None if at is None else _detection_item(q, structure[at], judged_verdicts, judged_tags, extras)
+        try:
+            key = int(t)
+        except ValueError:
+            key = None
+        out[t] = {"item": item, "rank": views["rank"].get(item["target_id"] if item is not None else key)}
+    return {"queue": q, "counts": {"total": total, "judged": judged, "remaining": total - judged},
+            "detections": views["n_detections"], "views": out}
+
+
 #: (id(structure), cap, held) -> the served ids, their ranks and the deep-link index; a structure is replaced,
 #: never edited, so its id names it while it lives (the entry holds the structure, so the id is never reused)
 _VIEWS_CACHE: dict = {}

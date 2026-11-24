@@ -706,6 +706,14 @@ class VerdictBody(BaseModel):
     window_index: int | None = None
     # review-carry (R3): the class key's name (spike-train, burst, ...), stored on a detection's adjudication row
     class_label: str | None = None
+    # AS (2026-11-24): the page's id for the gesture; a verdict whose id the queue's audit already holds is answered
+    # with the original ack and not written again (a replayed journal, a second tab)
+    client_id: str | None = None
+
+
+class VerdictsBody(BaseModel):
+    """AS: several verdicts, in the order they were given."""
+    verdicts: list[VerdictBody]
 
 
 class BatchBody(BaseModel):
@@ -1026,6 +1034,31 @@ def _clusters(items: list, queue: dict) -> list:
             for no, members in sorted(byno.items())]
 
 
+@router.get("/queues/{qid}/items")
+def get_items(request: Request, qid: str, ids: str = Query(default=""),
+              px: int = Query(default=DEFAULT_PX), pad_s: int = Query(default=CONTEXT_PAD_S)):
+    """AS (2026-11-24): several items in one request - the Inspector's window, read when it runs low. One read of
+    the queue, the recordings and the verdict overlay for all of them (`queues.item_view_many`); each item is
+    exactly what `GET /items/{id}` serves, and an id not in the queue is a 404 by name in its place."""
+    conn = _conn(request)
+    try:
+        queue = _queue_or_404(conn, qid)
+        want = [i for i in (x.strip() for x in ids.split(",")) if i][:40]
+        many = queues_mod.item_view_many(conn, int(queue["id"]), want, exclude_recording_ids=_held_out_ids(conn))
+        index = _index(conn)
+        out = {}
+        for tid in want:
+            view = many["views"][tid]
+            if view["item"] is None:
+                out[tid] = {"status": 404, "error": f"no item {tid!r} in queue {queue['id']}"}
+                continue
+            out[tid] = _detail(conn, queue, view["item"], index, rank=view["rank"], px=px, pad_s=pad_s,
+                               counts=many["counts"], detections=many.get("detections"))
+        return {"items": out}
+    finally:
+        conn.close()
+
+
 @router.get("/queues/{qid}/items/{item_id}")
 def get_item(request: Request, qid: str, item_id: str,
              px: int = Query(default=DEFAULT_PX), pad_s: int = Query(default=CONTEXT_PAD_S)):
@@ -1131,20 +1164,84 @@ def post_restore(request: Request, qid: str):
         conn.close()
 
 
+#: AS: one verdict write at a time across the bridge's threads, so "is this client id written already?" and the write
+#: that follows cannot interleave with another request carrying the same id (two tabs, a replay racing a slow POST)
+_VERDICT_WRITE = threading.Lock()
+
+
+def _one_verdict(request: Request, conn, queue: dict, body: VerdictBody) -> tuple[dict, dict | None]:
+    """Write one verdict, or find it written already by its client id: `(result, None)` for a new write, or
+    `({}, audit row)` for one the queue's audit already holds. Raises the HTTPException a refusal is."""
+    if body.client_id:
+        found = verdicts_mod.audits_by_client_id(conn, int(queue["id"]), [body.client_id]).get(str(body.client_id))
+        if found is not None:
+            return {}, found
+    _refuse_held_out(conn, queue, [body.target_id])
+    # 2026-11-24: the verdict is written and answered now; its carry - the same verdict on the same event found
+    # by other runs on the channel - runs on the carry worker (`review_carry.py`), not between candidates
+    result = _core_call(verdicts_mod.write_verdict, conn, int(queue["id"]),
+                        body.target_id, body.verdict, note=body.note,
+                        tags=body.tags, window_index=body.window_index,
+                        class_label=body.class_label, carry=False, client_id=body.client_id)
+    conn.commit()
+    return result, None
+
+
+def _duplicate_ack(found: dict) -> dict:
+    """The answer a verdict already written gets again: what its audit row says was written, flagged."""
+    p = found["payload"]
+    targets = p.get("targets") or []
+    first = targets[0] if targets else {}
+    pending = bool(p.get("carry_pending"))
+    return {"verdict": {"target_id": first.get("target_id"), "row_id": first.get("row_id"), "verdict": p.get("verdict"),
+                        "writes_to": p.get("writes_to"), "audit_id": found["audit_id"]},
+            "duplicate": True, "undone": found["undone"], "auditId": found["audit_id"],
+            "carried": 0, "carriedIds": [], "carryPending": pending,
+            "carryAuditId": found["audit_id"] if pending else None}
+
+
 @router.post("/queues/{qid}/verdict")
 def post_verdict(request: Request, qid: str, body: VerdictBody):
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
-        _refuse_held_out(conn, queue, [body.target_id])
-        # 2026-11-24: the verdict is written and answered now; its carry - the same verdict on the same event found
-        # by other runs on the channel - runs on the carry worker (`review_carry.py`), not between candidates
-        result = _core_call(verdicts_mod.write_verdict, conn, int(queue["id"]),
-                            body.target_id, body.verdict, note=body.note,
-                            tags=body.tags, window_index=body.window_index,
-                            class_label=body.class_label, carry=False)
-        conn.commit()
+        with _VERDICT_WRITE:
+            result, dup = _one_verdict(request, conn, queue, body)
+        if dup is not None:
+            return {**_duplicate_ack(dup), "counts": queues_mod.queue_counts(
+                conn, int(queue["id"]), exclude_recording_ids=_held_out_ids(conn))}
         return _write_ack(request, conn, queue, result, {"verdict": _carry_free(result)})
+    finally:
+        conn.close()
+
+
+@router.post("/queues/{qid}/verdicts")
+def post_verdicts(request: Request, qid: str, body: VerdictsBody):
+    """AS (2026-11-24, the researcher: "prioritise feeding the next candidate in faster over saving verdicts"): the
+    page's queued verdicts saved in one request, in the order given - each its own audit row, so undo still reverses
+    one gesture at a time, each carry queued. A refused verdict is refused alone (`ok: false`, its status and the
+    bridge's text) and the ones after it are still written, as separate POSTs would be. One ack per verdict (a
+    client id already written answers its original, `duplicate: true`), the queue's counts once after the last."""
+    conn = _conn(request)
+    try:
+        queue = _queue_or_404(conn, qid)
+        results = []
+        for v in body.verdicts:
+            try:
+                with _VERDICT_WRITE:
+                    result, dup = _one_verdict(request, conn, queue, v)
+            except HTTPException as exc:
+                conn.rollback()
+                results.append({"ok": False, "client_id": v.client_id, "target_id": str(v.target_id),
+                                "status": exc.status_code, "error": str(exc.detail)})
+                continue
+            if dup is not None:
+                results.append({"ok": True, "client_id": v.client_id, **_duplicate_ack(dup)})
+                continue
+            results.append({"ok": True, "client_id": v.client_id,
+                            **_carry_ack(request, result, {"verdict": _carry_free(result)})})
+        return {"results": results, "carryQueued": request.app.state.carry.queued(),
+                "counts": queues_mod.queue_counts(conn, int(queue["id"]), exclude_recording_ids=_held_out_ids(conn))}
     finally:
         conn.close()
 
@@ -1153,13 +1250,18 @@ def _write_ack(request: Request, conn, queue: dict, result: dict, body: dict) ->
     """A verdict or batch answered with its carry queued: `carryPending` and the audit row it waits on
     (`carryAuditId`; `GET /queues/{qid}/carries/{id}` says when it is done and what it carried). `carried` stays in
     the shape it had (a count and the ids), and says what was carried AT ONCE - nothing, when the carry is queued."""
+    return {**_carry_ack(request, result, body),
+            "counts": queues_mod.queue_counts(conn, int(queue["id"]), exclude_recording_ids=_held_out_ids(conn))}
+
+
+def _carry_ack(request: Request, result: dict, body: dict) -> dict:
+    """`_write_ack` without the counts (a bulk save reads them once, after the last): queues the carry."""
     pending = bool(result.get("carry_pending"))
     if pending:
         request.app.state.carry.submit(int(result["audit_id"]))
     carried = list(result.get("carried") or [])
     return {**body, "carried": len(carried), "carriedIds": carried, "carryPending": pending,
-            "carryAuditId": result.get("audit_id") if pending else None,
-            "counts": queues_mod.queue_counts(conn, int(queue["id"]), exclude_recording_ids=_held_out_ids(conn))}
+            "auditId": result.get("audit_id"), "carryAuditId": result.get("audit_id") if pending else None}
 
 
 @router.get("/queues/{qid}/carries/{audit_id}")
@@ -1173,6 +1275,28 @@ def get_carry(request: Request, qid: str, audit_id: int):
         failed = request.app.state.carry.failed.get(int(audit_id))
         return {"auditId": int(audit_id), "pending": st["pending"], "carried": len(st["carried"]),
                 "carriedIds": st["carried"], "error": failed}
+    finally:
+        conn.close()
+
+
+@router.get("/queues/{qid}/carries")
+def get_carries(request: Request, qid: str, ids: str = Query(default="")):
+    """AS: `get_carry` for several audit rows at once - the page keeps ONE poller for every carry it waits on.
+    An id with no audit row is answered with its `error`, never dropped."""
+    conn = _conn(request)
+    try:
+        _queue_or_404(conn, qid)
+        out = []
+        for raw in [x.strip() for x in ids.split(",") if x.strip()][:200]:
+            try:
+                aid = int(raw)
+                st = verdicts_mod.carry_status(conn, aid)
+            except ValueError as exc:
+                out.append({"auditId": raw, "pending": False, "carried": 0, "carriedIds": [], "error": str(exc)})
+                continue
+            out.append({"auditId": aid, "pending": st["pending"], "carried": len(st["carried"]),
+                        "carriedIds": st["carried"], "error": request.app.state.carry.failed.get(aid)})
+        return {"carries": out, "queued": request.app.state.carry.queued()}
     finally:
         conn.close()
 

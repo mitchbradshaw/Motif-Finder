@@ -121,7 +121,7 @@ def test_stepping_fast_does_not_queue_a_read_for_every_item_passed():
     assert "useAbortableSourced(" in code and "land(id, signal," in code, "a superseded item read is still sent"
     cursor = _code(_src("cursor.ts"))
     assert "export const STEP_SETTLE_MS = 150" in cursor
-    assert "void settled.then(" in cursor and "if (!stayed) return" in cursor, \
+    assert "void settled.then(" in cursor and "if (!stayed" in cursor, \
         "the neighbours are still prefetched from every item passed"
 
 
@@ -142,7 +142,11 @@ def test_undo_and_redo_wait_for_a_write_in_flight():
         body = re.search(r"export async function " + fn + r"\(.*?\n}\n", store, re.S).group(0)
         assert "inFlight++" in body and "finally" in body and "inFlight--" in body, f"{fn} is not counted in flight"
         assert "await inOrder(" in body, f"{fn} is not sent in the order of the gestures"
-        if fn != "commitWrite":
+        if fn == "commitUndo":
+            # AS (2026-11-24): a verdict still WAITING in the save queue is taken back first (nothing is sent); only
+            # then does the undo wait for the writes in flight, before it looks for the write to reverse
+            assert body.index("SAVES.withdrawLast(") < body.index("await waitForWrites(") < body.index("lastLive(")
+        elif fn != "commitWrite":
             first = body.splitlines()[1]
             assert "await waitForWrites(" in first, f"{fn} does not wait for the writes in flight first"
             assert "if (inFlight) return { say: BUSY }" in body, f"{fn} does not refuse a write started meanwhile"

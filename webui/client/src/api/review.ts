@@ -294,6 +294,9 @@ function detailOf(raw: any, fallbackQueue?: ReviewQueue): ItemDetail {
 
 export const getQueues = (): Promise<Sourced<ReviewQueue[]>> =>
   live(req<SrvQueue[]>('/queues').then(qs => qs.map(queueOf)))
+/** AS: the same read, stopped when it is superseded (the rail's list re-reads on a slow beat while verdicts flow). */
+export const getQueuesAbortable = (signal: AbortSignal): Promise<Sourced<ReviewQueue[]>> =>
+  live(req<SrvQueue[]>('/queues', signal).then(qs => qs.map(queueOf)))
 
 /** 2026-11-24: the archived queues (Jobs › Archived queues), each with its counts. Review's own list leaves them out. */
 export const getArchivedQueues = (): Promise<Sourced<ReviewQueue[]>> =>
@@ -386,10 +389,12 @@ export async function loadThumbs(queueId: string, ids: string[]): Promise<void> 
   }
 }
 
-/** The rows' thumbnails for drawing: asks for any not held yet and re-renders when they land. */
-export function useThumbs(rows: QueueRow[]): (row: QueueRow) => number[] {
+/** The rows' thumbnails for drawing: asks for any not held yet and re-renders when they land. AS: `ahead` - rows
+ *  the strip will show next - go in the same read whenever one of `rows` is missing, so a step reads nothing. */
+export function useThumbs(rows: QueueRow[], ahead: QueueRow[] = []): (row: QueueRow) => number[] {
   const [, setTick] = useState(0)
-  const ids = rows.filter(r => !(r.thumb && r.thumb.length) && !THUMBS.has(thumbKey(r.queueId, r.id)))
+  const missing = (r: QueueRow) => !(r.thumb && r.thumb.length) && !THUMBS.has(thumbKey(r.queueId, r.id)) && !thumbInflight.has(thumbKey(r.queueId, r.id))
+  const ids = rows.some(missing) ? [...rows, ...ahead].filter((r, i, all) => missing(r) && all.indexOf(r) === i) : []
   const key = ids.map(r => thumbKey(r.queueId, r.id)).join(',')
   useEffect(() => {
     const f = () => setTick(t => t + 1)
@@ -431,7 +436,7 @@ export function useQueuePeaks(data: QueueData): number[] | undefined {
  * one on screen at the width and padding the card will ask for, so the step paints from here. Twelve entries: the
  * reader moves a few items either way, never far. Cleared whenever the queue's SET is re-read (a promotion, a
  * batch, an undo), since an entry carries the queue header it was read with. */
-const ITEM_LRU_MAX = 12
+const ITEM_LRU_MAX = 40   // AS: the 16-deep window, the next and previous units, the item on screen, and room
 const ITEMS = new Map<string, Promise<Sourced<ItemDetail | null>>>()
 const SETTLED = new Map<string, ItemDetail | null>()
 const itemKey = (queueId: string, itemId: string, opts: TraceOpts) => `${queueId}/${itemId}${traceQuery(opts)}`
@@ -458,8 +463,59 @@ export function prefetchItem(queueId: string, itemId: string, opts: TraceOpts = 
 }
 
 function fetchItem(queueId: string, itemId: string, opts: TraceOpts): Promise<Sourced<ItemDetail | null>> {
-  return live(req<any>(`/queues/${encodeURIComponent(queueId)}/items/${encodeURIComponent(itemId)}${traceQuery(opts)}`)
-    .then(d => (d ? detailOf(d) : null)))
+  return counted(live(req<any>(`/queues/${encodeURIComponent(queueId)}/items/${encodeURIComponent(itemId)}${traceQuery(opts)}`)
+    .then(d => (d ? detailOf(d) : null))))
+}
+
+/* AS (2026-11-24): item reads come first. How many are in flight is what a verdict save waits on (`review/saves.ts`
+ * `mayFlush`, up to a cap), so the next candidate's read is never queued behind a save. */
+let itemReads = 0
+const readIdle = new Set<() => void>()
+function counted<T>(p: Promise<T>): Promise<T> {
+  itemReads++
+  const end = () => { itemReads--; if (itemReads <= 0) { itemReads = 0; [...readIdle].forEach(f => f()) } }
+  p.then(end, end)
+  return p
+}
+export const itemReadsInFlight = () => itemReads
+/** Resolves when no item read is in flight, or after `capMs`. */
+export function readsIdle(capMs: number): Promise<void> {
+  if (itemReads <= 0) return Promise.resolve()
+  return new Promise(resolve => {
+    const done = () => { readIdle.delete(done); clearTimeout(t); resolve() }
+    const t = setTimeout(done, Math.max(0, capMs))
+    readIdle.add(done)
+  })
+}
+
+/** AS: keep these (the window, nearest first) as the most recently used entries, so the cache evicts the items
+ *  already passed and never the far end of the window - fetched early and not landed on yet, it was evicted first,
+ *  and the step to it was a cold read (measured: 13 of 50 steps over 150 ms). */
+export function touchItems(queueId: string, itemIds: string[], opts: TraceOpts = {}) {
+  for (const id of [...itemIds].reverse()) {
+    const k = itemKey(queueId, id, opts)
+    const p = ITEMS.get(k)
+    if (p) { ITEMS.delete(k); ITEMS.set(k, p) }
+  }
+}
+
+/** AS: read several items ahead of the steps to them in ONE request (`GET …/items?ids=`: the queue's verdict overlay
+ *  once, not once per item). Each id joins the item cache at once (so it is held, and a landing on it waits for this
+ *  read instead of sending its own); an id the bridge refuses is dropped from the cache, so the card reads it itself
+ *  and shows that refusal. Settles when the read does; never rejects. */
+export function prefetchItems(queueId: string, itemIds: string[], opts: TraceOpts = {}): Promise<void> {
+  const want = itemIds.filter(id => !ITEMS.has(itemKey(queueId, id, opts)))
+  if (!want.length) return Promise.resolve()
+  const all = counted(req<{ items: Record<string, any> }>(
+    `/queues/${encodeURIComponent(queueId)}/items?ids=${want.map(encodeURIComponent).join(',')}${traceQuery(opts).replace(/^\?/, '&')}`))
+  for (const id of want) {
+    remember(itemKey(queueId, id, opts), all.then(d => {
+      const got = d.items?.[id]
+      if (!got || got.status) throw new ApiError(got?.status ?? 404, got?.error ?? `no item ${id} in the batched read`, got)
+      return { data: detailOf(got), source: 'live' as const }
+    }))
+  }
+  return all.then(() => undefined, e => { console.warn('the window read failed; the card reads its own item', e instanceof Error ? e.message : String(e)) })
 }
 
 /** `opts.px` is the width of the plot that will draw the traces and `opts.padS` the context padding shown;
@@ -543,21 +599,45 @@ export interface CarryStatus { auditId: number; pending: boolean; carried: numbe
 export const getCarry = (queueId: string, auditId: number): Promise<CarryStatus> =>
   req<CarryStatus>(`/queues/${encodeURIComponent(queueId)}/carries/${auditId}`)
 
-/** Wait for a queued carry (polling, with a growing gap, up to ~40 s) and settle with its status; null when it is
- *  still pending at the end or the read fails (said in the console), which leaves the page as it was rather than
- *  guessing - the carry itself is the bridge's, and a stopped bridge picks a pending one up again at its next start. */
-export async function whenCarried(queueId: string, auditId: number): Promise<CarryStatus | null> {
-  for (const ms of [400, 800, 1500, 3000, 5000, 10000, 20000]) {
-    await new Promise(r => setTimeout(r, ms))
-    try {
-      const st = await getCarry(queueId, auditId)
-      if (!st.pending || st.error) return st
-    } catch (e) {
-      console.warn(`reading the carry of audit row ${auditId}`, e instanceof Error ? e.message : String(e))
-      return null
+/** Wait for a queued carry and settle with its status; null when it is still pending after ~60 s or the read fails
+ *  (said in the console), which leaves the page as it was rather than guessing - the carry itself is the bridge's,
+ *  and a stopped bridge picks a pending one up again at its next start.
+ *
+ *  AS (2026-11-24): ONE poller for every carry the page waits on, one request (`GET …/carries?ids=`) answering all of
+ *  them, about once a second and never while an item read is in flight (up to a cap) - it was a poller per verdict,
+ *  seven reads each, competing with the next candidate's read. */
+export function whenCarried(queueId: string, auditId: number): Promise<CarryStatus | null> {
+  return new Promise(resolve => {
+    CARRY_WAIT.set(`${queueId}/${auditId}`, { queueId, auditId, since: Date.now(), resolve })
+    if (!carryTimer) carryTimer = setTimeout(pollCarries, CARRY_POLL_MS)
+  })
+}
+const CARRY_POLL_MS = 1000, CARRY_GIVE_UP_MS = 60_000
+const CARRY_WAIT = new Map<string, { queueId: string; auditId: number; since: number; resolve: (s: CarryStatus | null) => void }>()
+let carryTimer: ReturnType<typeof setTimeout> | null = null
+async function pollCarries() {
+  await readsIdle(2000)
+  const byQueue = new Map<string, number[]>()
+  for (const w of CARRY_WAIT.values()) byQueue.set(w.queueId, [...(byQueue.get(w.queueId) ?? []), w.auditId])
+  for (const [queueId, ids] of byQueue) {
+    for (let i = 0; i < ids.length; i += 200) {
+      const chunk = ids.slice(i, i + 200)
+      try {
+        const r = await req<{ carries: CarryStatus[] }>(`/queues/${encodeURIComponent(queueId)}/carries?ids=${chunk.join(',')}`)
+        for (const st of r.carries ?? []) {
+          const k = `${queueId}/${st.auditId}`
+          const w = CARRY_WAIT.get(k)
+          if (w && (!st.pending || st.error)) { CARRY_WAIT.delete(k); w.resolve(st) }
+        }
+      } catch (e) {
+        console.warn(`reading the carries of audit rows ${chunk.join(', ')}`, e instanceof Error ? e.message : String(e))
+        for (const id of chunk) { const k = `${queueId}/${id}`; CARRY_WAIT.get(k)?.resolve(null); CARRY_WAIT.delete(k) }
+      }
     }
   }
-  return null
+  const now = Date.now()
+  for (const [k, w] of CARRY_WAIT) if (now - w.since > CARRY_GIVE_UP_MS) { CARRY_WAIT.delete(k); w.resolve(null) }
+  carryTimer = CARRY_WAIT.size ? setTimeout(pollCarries, CARRY_POLL_MS) : null
 }
 export interface PromoteAck { entry_id?: number; member_id?: number; created?: boolean; verdict?: unknown; audit_id?: number }
 export interface ExtractEvent { start_idx: number; end_idx: number }
@@ -581,6 +661,14 @@ const opt = (o: VerdictOpts) => ({
 /** One verdict on one target. `targetId` is the row's `id`, which IS the core's `target_id`. */
 export const postVerdict = (queueId: string, targetId: string, verdict: Verdict, o: VerdictOpts = {}): Promise<WriteAck> =>
   post<WriteAck>(`${qp(queueId)}/verdict`, { target_id: targetId, verdict, ...opt(o) })
+
+/** AS (2026-11-24): the page's queued verdict saves in ONE request, in gesture order: one audit row each, a refused
+ *  one refused alone (`ok: false`), a client id already written answered with its original ack (`duplicate`). */
+export interface SaveItem { client_id: string; target_id: string; verdict: Verdict; note?: string; tags?: string[]; class_label?: string }
+export type SaveResult = ({ ok: true; client_id: string; duplicate?: boolean } & WriteAck) | { ok: false; client_id: string; status: number; error: string }
+export interface SavesAck { results: SaveResult[]; counts?: QueueCounts; carryQueued?: number }
+export const postVerdicts = (queueId: string, verdicts: SaveItem[]): Promise<SavesAck> =>
+  post<SavesAck>(`${qp(queueId)}/verdicts`, { verdicts })
 
 /** N targets under ONE `review_audit` row, so one undo reverses the gesture as the single act it was. */
 export const postBatch = (queueId: string, targetIds: string[], verdict: Verdict, o: VerdictOpts = {}): Promise<WriteAck> =>

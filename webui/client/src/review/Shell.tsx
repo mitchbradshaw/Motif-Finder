@@ -9,12 +9,12 @@ import {
   Button, Checkbox, DisabledReason, EmptyState, Icon, IconButton, InfoTip, Kbd, MiniTrace, Modal, Pager, Popover, ProgressBar, RangeSlider,
   Seg, SelectField, Toggle, cx, fmtInt, usePagedList, useQueryState, type IconName,
 } from '../kit'
-import { useSourced } from '../api/seam'
+import { useAbortableSourced, useSourced } from '../api/seam'
 import { useToast } from '../shell/Toast'
-import { archiveQueue, getQueueCounts, getQueues, restoreQueue, useThumbs, VOCABULARY, type QueueData, type QueueRow, type ReviewQueue } from '../api/review'
+import { archiveQueue, getQueueCounts, getQueuesAbortable, restoreQueue, useThumbs, VOCABULARY, type QueueData, type QueueRow, type ReviewQueue } from '../api/review'
 import { SHORTCUTS } from './keys'
 import { counts, isJudged, judgedRecord, queueCounts, rowById, unitHash, unitKey, units, type UnitRef } from './queue'
-import { bumpReviewVersion, useAutoAdvance, useBlindOverrides, useCountsVersion, useFilters, useRecords, useReviewVersion } from './store'
+import { bumpReviewVersion, useAutoAdvance, useBlindOverrides, useCountsVersion, useFilters, useRecords, useReplaying, useReviewVersion, useSavesPending, useUndoing } from './store'
 
 /* The queue thumbnails used to share one hand-set domain, [-0.45, 0.45] (right in volts, served as mV), then ±450 mV after
    fixup-b. Each is drawn on its own measured domain now (charts/domain.ts, fixup-c): at 38 px a thumbnail's job is
@@ -145,6 +145,7 @@ function Toolbar({ data, judged, blind, setBlind, paused }: { data: QueueData; j
       </span>
 
       <span className="grow" />
+      <SavesPending queueId={queue.id} />
       <div className="rv-progress" data-testid="queue-progress" title={`${fmtInt(judged)} of ${fmtInt(queue.total)} judged`}>
         <div className="row1"><span><b>{fmtInt(judged)}</b> / {fmtInt(queue.total)}</span><span className="muted" data-testid="queue-pace">{paceS == null ? 'pace not yet measured' : fmtPace(paceS)}</span></div>
         <ProgressBar value={judged / queue.total} size="sm" labelPosition="none" width={164} ariaLabel="queue progress" />
@@ -161,6 +162,26 @@ function Toolbar({ data, judged, blind, setBlind, paused }: { data: QueueData; j
         <div className="rv-pop-foot"><Button variant="link" iconRight="arrow-right" onClick={() => navigate('settings/keyboard')}>Change keys in Settings › Keyboard & behaviour</Button></div>
       </Popover>
     </div>
+  )
+}
+
+/* AS (2026-11-24, the researcher: "the lag for verdicts to catch up can increase but still process slowly in the
+ * background"): the verdicts waiting to be saved, calmly - never a spinner over the card, never a blocked key. Hidden
+ * until the first verdict of the visit; then "N saving…" while the backlog lasts and "all saved" once it is empty. */
+function SavesPending({ queueId }: { queueId: string }) {
+  const n = useSavesPending()
+  const undoing = useUndoing()
+  const replaying = useReplaying()[queueId] ?? 0
+  const [seen, setSeen] = useState(false)
+  if (n > 0 && !seen) setSeen(true)
+  if (!seen && !undoing && !replaying) return null
+  const text = undoing ?? (replaying ? `saving ${replaying} verdict${replaying === 1 ? '' : 's'} from your last visit…`
+    : n > 0 ? `${n} saving…` : 'all saved')
+  return (
+    <span className={cx('rv-tool-chip static', n > 0 ? 'muted' : 'ok')} data-testid="saves-pending" data-pending={n}
+      title={n > 0 ? 'verdicts given and not yet written to the database; they are written in the order given, behind you' : 'every verdict given is written to the database'}>
+      <Icon name={n > 0 ? 'clock' : 'check'} size={13} /><span>{text}</span>
+    </span>
   )
 }
 
@@ -190,7 +211,8 @@ function QueueList({ current, onPick }: { current: string; onPick: (id: string) 
   const version = useReviewVersion()
   const countsVersion = useCountsVersion()
   const [archives, setArchives] = useState(0)          // an archive (or its undo) here re-reads the list
-  const all = useSourced(getQueues, [version, countsVersion, archives])
+  // AS: the counts version moves on a slow beat now (store.ts), not per verdict, and a superseded read is stopped
+  const all = useAbortableSourced(getQueuesAbortable, [version, countsVersion, archives])
   const records = useRecords()
   const [over] = useBlindOverrides()
   const toast = useToast()
@@ -263,8 +285,11 @@ function QueueRailCollapsed({ data, unit, left, onOpen }: { data: QueueData; uni
   }
   const rest = list.length - start - shown.length
   const row = (id: string) => rowById(data, id)!
-  // AR: rows arrive without thumbnails; the ones in this strip are paged in
-  const thumbOf = useThumbs(shown.flatMap(u => u.kind === 'item' ? [u.id] : u.members).map(row).filter(Boolean))
+  // AR: rows arrive without thumbnails; the ones in this strip are paged in. AS: with the strip's next thirty units in
+  // the same read, so a step does not ask for one thumbnail each (it was a read per verdict)
+  const ahead = list.slice(start, start + 30)
+  const thumbOf = useThumbs(shown.flatMap(u => u.kind === 'item' ? [u.id] : u.members).map(row).filter(Boolean),
+    ahead.flatMap(u => u.kind === 'item' ? [u.id] : u.members).map(row).filter(Boolean))
   const Thumb = ({ r, current }: { r: QueueRow; current: boolean }) => {
     const rec = judgedRecord(records, r)
     return (

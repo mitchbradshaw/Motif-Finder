@@ -61,7 +61,7 @@ const t0 = Date.now();
 const io = (held = [], fail = false) => ({
   held: id => held.includes(id),
   read: async id => { log.push(['read', id]); if (fail) throw new Error('boom'); return { id } },
-  warm: async id => { log.push(['warm', id]); await sleep(5) },
+  warm: async ids => { log.push(['warm', ids]); await sleep(5) },
   window: got => got ? ['n1', 'n2', 'n3'] : [],
 });
 """
@@ -99,7 +99,8 @@ a.abort();
     assert got["r"] == {"id": "A"}
 
 
-def test_the_window_is_warmed_one_at_a_time_nearest_first_and_only_after_the_settle():
+def test_the_window_is_warmed_in_one_request_and_only_after_the_settle():
+    # AS (2026-11-24): one batched read for the window (it was one read at a time, nearest first)
     got = _node(CURSOR_TS, IO + """
 const a = new AbortController();
 await M.land('A', a.signal, io(['A']), 30);
@@ -109,15 +110,15 @@ out = { before, log };
 a.abort();
 """)
     assert got["before"] == 0, "the window was read before the researcher stopped on the item"
-    assert got["log"] == [["read", "A"], ["warm", "n1"], ["warm", "n2"], ["warm", "n3"]]
+    assert got["log"] == [["read", "A"], ["warm", ["n1", "n2", "n3"]]]
 
 
 def test_moving_on_stops_the_window_and_a_failed_read_warms_nothing():
     got = _node(CURSOR_TS, IO + """
 const a = new AbortController();
-const slow = io(['A']); slow.warm = async id => { log.push(['warm', id]); await sleep(30) };
-await M.land('A', a.signal, slow, 10);
-await sleep(25); a.abort();          // during the first warm
+const slow = io(['A']);
+await M.land('A', a.signal, slow, 30);
+await sleep(10); a.abort();          // inside the settle: the window is never asked for
 await sleep(80);
 const moved = log.slice();
 log.length = 0;
@@ -126,7 +127,7 @@ const err = await M.land('B', b.signal, io(['B'], true), 10).catch(e => e.messag
 await sleep(40);
 out = { moved, err, failed: log };
 """)
-    assert got["moved"] == [["read", "A"], ["warm", "n1"]], "the window kept reading after the researcher moved"
+    assert got["moved"] == [["read", "A"]], "the window was read after the researcher moved"
     assert got["err"] == "boom", "a failed read is not reported to the card"
     assert got["failed"] == [["read", "B"]], "the window was warmed around a failed read"
 

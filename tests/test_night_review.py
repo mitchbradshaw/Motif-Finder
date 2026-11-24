@@ -72,7 +72,8 @@ def _items(n):
 
 
 def test_the_window_is_the_next_five_unjudged_then_the_previous_one():
-    got = _window(_items(20), 5, [])
+    # AS (2026-11-24): the window is sixteen deep now (PREFETCH_AHEAD); the rule is the same at any depth
+    got = _window(_items(20), 5, [], ahead=5)
     assert got == ["106", "107", "108", "109", "110", "104"]
 
 
@@ -97,9 +98,10 @@ def test_clusters_are_not_read_as_items_and_the_queue_ends_are_safe():
 def test_the_window_size_is_a_parameter_and_the_cache_holds_it():
     assert len(_window(_items(40), 0, [], ahead=3)) == 3
     ahead = int(re.search(r"export const PREFETCH_AHEAD = (\d+)", _read("review", "prefetch.ts")).group(1))
-    assert ahead == 5
+    # AS (2026-11-24): five emptied in six fast verdicts; sixteen, refilled in one batch (tests/test_as_review_momentum.py)
+    assert ahead == 16
     lru = int(re.search(r"const ITEM_LRU_MAX = (\d+)", _read("api", "review.ts")).group(1))
-    # the window (five ahead, the next unit, the previous one), the item on screen, and room for the ones passed
+    # the window (sixteen ahead, the next unit, the previous one), the item on screen, and room for the ones passed
     assert lru >= ahead + 3 + 2, "the item cache would evict the window it was asked to keep"
 
 
@@ -108,11 +110,12 @@ def test_the_inspector_keeps_the_window_warm_one_read_at_a_time_from_an_item_sto
     # aborts it; `tests/test_tq_review.py` runs it under Node. The Inspector hands it this window.
     code = _code(_read("review", "Inspector.tsx"))
     assert "prefetchIds(" in code, "the Inspector does not read the five-ahead window"
-    assert "return land(id, signal, {" in code and "warm: i => prefetchItemThen(q, i, opts)" in code, \
+    # AS (2026-11-24): the window is read in ONE batched request when it runs low, not one read at a time
+    assert "return land(id, signal, {" in code and "warm: ids => prefetchItems(q, ids, opts)" in code, \
         "the window is not read by the item's landing"
     cursor = _code(_read("review", "cursor.ts"))
-    assert "if (signal.aborted) return" in cursor and "await io.warm(" in cursor, \
-        "the window's reads are not sent one at a time, nearest first, stopping when the item changes"
+    assert "signal.aborted) return" in cursor and "await io.warm(ids)" in cursor, \
+        "the window is not read in one request, or still read after the item changed"
 
 
 def test_an_item_already_being_read_does_not_wait_the_settle():
@@ -200,7 +203,7 @@ def test_a_carry_that_reaches_no_row_of_this_queue_does_not_re_read_every_row():
     assert "function queueHoldsAny(" in api and "r.carry.members" in api
     assert "if (!carriedIds.length || queueHoldsAny(data, carriedIds)) return true" in api
     insp = _code(_read("review", "Inspector.tsx"))
-    assert "carriedIds = ack.carriedIds ?? []" in insp
+    assert "carriedIds = got.ack.carriedIds ?? []" in insp      # AS: the save's ack, from the save queue
     assert "if (invalidateAfterCarry(data, carriedIds)) bumpReviewVersion()" in insp
 
 

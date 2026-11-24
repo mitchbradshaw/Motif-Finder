@@ -5,7 +5,8 @@
  * - `land(id, signal, io)` is one landing on an item. An item not held yet is read only once it has been on screen
  *   STEP_SETTLE_MS (night-a: fast stepping sends no read for the items passed); a held one — read, or being read — is
  *   read at once (night-review). Once the settle has passed and the read is in, the prefetch window (`prefetch.ts`,
- *   the rule) is read one item at a time, nearest first. One signal ends all of it: the next landing aborts it.
+ *   the rule) is read in ONE request (AS). One signal ends the landing; the next landing aborts it before its window
+ *   is asked for. A landing from a verdict's auto-advance has no settle (`consumeAdvance`).
  * - `createCursor()` holds where the researcher is and the one pending advance after a verdict. A move to another
  *   item, an undo or an unmount cancels it; `after()` sets it only if the researcher is still on the item the
  *   verdict was given on, checked right after the write's await.
@@ -21,8 +22,8 @@ export interface LandingIO<T> {
   /** read, or being read, at the options the card asks for */
   held(id: string): boolean
   read(id: string): Promise<T>
-  /** read one item ahead of the step to it; settles when the read does and never rejects */
-  warm(id: string): Promise<void>
+  /** AS: read these items ahead of the steps to them, in ONE request; settles when it does and never rejects */
+  warm(ids: string[]): Promise<void>
   /** the ids to keep warm from this item, nearest first — empty when the read found nothing */
   window(got: T): string[]
 }
@@ -31,6 +32,7 @@ export interface LandingIO<T> {
 function settle(ms: number, signal: AbortSignal): Promise<boolean> {
   return new Promise(resolve => {
     if (signal.aborted) return resolve(false)
+    if (ms <= 0) return resolve(true)
     const stop = () => { clearTimeout(timer); resolve(false) }
     const timer = setTimeout(() => { signal.removeEventListener('abort', stop); resolve(true) }, ms)
     signal.addEventListener('abort', stop, { once: true })
@@ -43,13 +45,24 @@ export async function land<T>(id: string, signal: AbortSignal, io: LandingIO<T>,
   if (!io.held(id) && !await settled) throw new DOMException('superseded', 'AbortError')
   const got = await io.read(id)
   void settled.then(async stayed => {
-    if (!stayed) return
-    for (const next of io.window(got)) {
-      if (signal.aborted) return
-      await io.warm(next)
-    }
+    if (!stayed || signal.aborted) return
+    // AS (2026-11-24): the window in one request (it outlives the next landing: what it brings is the next steps')
+    const ids = io.window(got)
+    if (ids.length) await io.warm(ids)
   })
   return got
+}
+
+/* AS (2026-11-24, the researcher: "prioritise feeding the next candidate in faster"): a landing the page made itself,
+ * the auto-advance after a verdict, is not scrubbing - it reads at once and warms its window at once (settle 0). The
+ * Inspector marks the item it advances to and its landing takes the mark. */
+let advancedTo: string | null = null
+export function markAdvance(id: string | null) { advancedTo = id }
+/** True (once) when this landing is the auto-advance to `id`. */
+export function consumeAdvance(id: string): boolean {
+  if (advancedTo !== id) return false
+  advancedTo = null
+  return true
 }
 
 export interface Cursor {
