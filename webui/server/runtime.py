@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import os
+import re
 import shutil
 import sqlite3
 import sys
@@ -363,9 +364,16 @@ def _journal_mode(db_path: str) -> str:
         conn.close()
 
 
+#: The name project mode gives its own start-up backup (`<stamp>.sqlite`, the stamp `%Y%m%d-%H%M%S`).
+_OWN_BACKUP = re.compile(r"^\d{8}-\d{6}\.sqlite$")
+
+
 def _prune_backups(backups_dir: str, keep: int) -> list[str]:
-    """Keep the `keep` newest `<stamp>.sqlite` files (stamps sort lexically by time)."""
-    names = sorted(n for n in os.listdir(backups_dir) if n.endswith(".sqlite"))
+    """Keep the `keep` newest `<stamp>.sqlite` files (stamps sort lexically by time). Only the bridge's own: other
+    tools leave pre-write backups here under names of their own (`before_<step>_<stamp>.sqlite`), and they are not
+    the bridge's to delete (2026-11-24: counting every `*.sqlite` would have removed this start's own backup and the
+    two taken just before a review queue was written, which sort first by name)."""
+    names = sorted(n for n in os.listdir(backups_dir) if _OWN_BACKUP.match(n))
     pruned = names[:-keep] if len(names) > keep else []
     for n in pruned:
         os.remove(os.path.join(backups_dir, n))
