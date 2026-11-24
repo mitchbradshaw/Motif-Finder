@@ -106,6 +106,10 @@ def create_app(rt: Runtime, *, warm_background: bool = True) -> FastAPI:
     manager = JobManager(rt.db_path, meta_dir=getattr(rt, "meta_dir", None))
     app.state.rt = rt
     app.state.manager = manager
+    # Review's carries run off the step (2026-11-24, server/review_carry.py): started with the app, which also queues
+    # what a stopped bridge left pending
+    from .review_carry import CarryWorker
+    app.state.carry = CarryWorker(rt.db_path)
     app.state.started = time.time()
 
     def conn():
@@ -133,6 +137,7 @@ def create_app(rt: Runtime, *, warm_background: bool = True) -> FastAPI:
     @app.on_event("startup")
     async def _startup():
         manager.attach_loop(asyncio.get_running_loop())
+        app.state.carry.start()
         # warm STUMPY's numba JIT off the request path (first matrix_profile call otherwise pays ~30 s)
         def _warm():
             try:
@@ -144,6 +149,11 @@ def create_app(rt: Runtime, *, warm_background: bool = True) -> FastAPI:
         import threading
         if warm_background:
             threading.Thread(target=_warm, daemon=True, name="stumpy-warm").start()
+
+    @app.on_event("shutdown")
+    async def _shutdown():
+        # a carry still queued stays flagged on its audit row and is picked up at the next start
+        app.state.carry.stop()
 
     app.add_middleware(_RequestClock)
 

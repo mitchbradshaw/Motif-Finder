@@ -8,7 +8,7 @@ import { useAbortableSourced, useSourced } from '../api/seam'
 import { useSize } from '../charts/useSize'
 import { useToast } from '../shell/Toast'
 import { plotPx } from './axis'
-import { VOCABULARY, getItem, invalidateAfterCarry, itemHeld, peekItem, prefetchItemThen, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, type CarryFields, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
+import { VOCABULARY, getItem, invalidateAfterCarry, itemHeld, peekItem, prefetchItemThen, useThumbs, useQueuePeaks, postPromote, postUndo, postVerdict, whenCarried, type CarryFields, type ItemDetail, type QueueData, type QueueRow, type Verdict } from '../api/review'
 import { Shell, useBlind, useRails, type MicroStat } from './Shell'
 import { useReviewKeys } from './keys'
 import { goUnit, indexOf, isJudged, judged, judgedRecord, nextUnjudgedAfter, relTime, step, units } from './queue'
@@ -150,6 +150,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
      * the write joins the session stack. It was minted here ("E-0217") while the row was motif_entry 3609. */
     let carried = 0
     let carriedIds: number[] = []
+    let carryAuditId: number | null = null
     const send = () => v === 'seed'
       ? postPromote(q, id, 'seed', { note, tags }).then(ack => {
         if (ack.entry_id != null) { next.entryId = ack.entry_id; next.memberId = ack.member_id; next.entryCreated = ack.created; next.exemplarId = `entry ${ack.entry_id}` }
@@ -157,7 +158,11 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
       })
       // review-carry: the class travels with the verdict and is stored (R3); the ack says how many other runs'
       // detections of the same event the verdict was carried to
-      : postVerdict(q, id, v, { note, tags, classLabel: storesClass ? className : undefined }).then(ack => { carried = ack.carried ?? 0; carriedIds = ack.carriedIds ?? []; return ack })
+      : postVerdict(q, id, v, { note, tags, classLabel: storesClass ? className : undefined }).then(ack => {
+        carried = ack.carried ?? 0; carriedIds = ack.carriedIds ?? []
+        carryAuditId = ack.carryPending ? (ack.carryAuditId ?? null) : null
+        return ack
+      })
     const w = await commitWrite(send, { queueId: q, items: [id], kind, verdict: v, className, label: `${id} · ${VERDICT_LABEL[v]}`, before: { [k]: before }, after: { [k]: next } },
       // AR: a verdict on a queue that does not write annotations changes one row's judged state and nothing else, so only
       // the counts are re-read; a promotion, or a write that makes a human span (which can change any queue's set), re-reads the rows
@@ -168,6 +173,17 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
       // (night-review); the caches the carry can have staled are decided beside them (F1)
       if (invalidateAfterCarry(data, carriedIds)) bumpReviewVersion()
       say(`${VERDICT_LABEL[v]} · written${members.length > 1 ? ` to the ${members.length} detections of this event` : ''} · carried to ${carried} other detection${carried === 1 ? '' : 's'} of the same event`)
+    }
+    if (carryAuditId != null) {
+      // 2026-11-24 (the researcher: "any chance this process can run in the background instead of between
+      // candidates?"): the carry runs on the bridge's carry worker, so the step does not wait for it. Once it is done
+      // the rows are re-read only when it judged another item of this queue; a failed carry is said in red
+      const auditId = carryAuditId, held = data
+      void whenCarried(q, auditId).then(st => {
+        if (!st) return
+        if (st.error) { toast.push({ kind: 'error', text: `Carrying ${id}'s verdict to the same event in other runs failed: ${st.error}` }); return }
+        if (st.carriedIds.length && invalidateAfterCarry(held, st.carriedIds)) bumpReviewVersion()
+      })
     }
     // P21: the seed verdict itself creates the Library exemplar (the bridge wrote it); the panel only chooses its family
     if (v === 'seed') return next

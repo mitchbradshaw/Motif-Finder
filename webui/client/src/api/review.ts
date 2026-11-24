@@ -534,6 +534,30 @@ export interface WriteAck {
   /** review-carry: how many OTHER detections (other runs, same channel, the same event by the scoreboard's
    *  matching rule) the verdict was also written to, as carried rows; and which */
   carried?: number; carriedIds?: number[]
+  /** 2026-11-24: the carry runs on the bridge's carry worker after this answer; `getCarry` says when it is done */
+  carryPending?: boolean; carryAuditId?: number | null
+}
+
+/** A verdict's carry, once the bridge's carry worker has run it (2026-11-24). */
+export interface CarryStatus { auditId: number; pending: boolean; carried: number; carriedIds: number[]; error: string | null }
+export const getCarry = (queueId: string, auditId: number): Promise<CarryStatus> =>
+  req<CarryStatus>(`/queues/${encodeURIComponent(queueId)}/carries/${auditId}`)
+
+/** Wait for a queued carry (polling, with a growing gap, up to ~40 s) and settle with its status; null when it is
+ *  still pending at the end or the read fails (said in the console), which leaves the page as it was rather than
+ *  guessing - the carry itself is the bridge's, and a stopped bridge picks a pending one up again at its next start. */
+export async function whenCarried(queueId: string, auditId: number): Promise<CarryStatus | null> {
+  for (const ms of [400, 800, 1500, 3000, 5000, 10000, 20000]) {
+    await new Promise(r => setTimeout(r, ms))
+    try {
+      const st = await getCarry(queueId, auditId)
+      if (!st.pending || st.error) return st
+    } catch (e) {
+      console.warn(`reading the carry of audit row ${auditId}`, e instanceof Error ? e.message : String(e))
+      return null
+    }
+  }
+  return null
 }
 export interface PromoteAck { entry_id?: number; member_id?: number; created?: boolean; verdict?: unknown; audit_id?: number }
 export interface ExtractEvent { start_idx: number; end_idx: number }

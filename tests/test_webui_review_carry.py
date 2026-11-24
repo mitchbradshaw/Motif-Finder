@@ -79,6 +79,17 @@ def _queue(client, run_id):
     return r.json()["queue"]["id"]
 
 
+def _carried(client, qid, ack):
+    """2026-11-24: a verdict's carry runs on the bridge's carry worker after the answer. The answer says it is
+    queued; once the worker is done, the carry's status says how many detections it wrote."""
+    body = ack.json()
+    assert body["carryPending"] is True and body["carried"] == 0
+    assert client.app.state.carry.flush(), "the carry worker did not finish"
+    st = client.get(f"/api/review/queues/{qid}/carries/{body['carryAuditId']}").json()
+    assert st["pending"] is False and st["error"] is None
+    return st["carried"]
+
+
 def _adj(rt, did):
     conn = sqlite3.connect(rt.db_path)
     conn.row_factory = sqlite3.Row
@@ -116,7 +127,8 @@ def test_a_verdict_writes_every_member_carries_and_the_second_run_no_longer_asks
     assert str(d["b1"]) in before
     ack = client.post(f"/api/review/queues/{qa}/verdict", json={"target_id": str(d["a1"]), "verdict": "interesting"})
     assert ack.status_code == 200, ack.text
-    assert ack.json()["carried"] == 1
+    assert _adj(rt, d["a1"])["verdict"] == _adj(rt, d["a2"])["verdict"] == "interesting"   # written at once
+    assert _carried(client, qa, ack) == 1
     assert _adj(rt, d["a1"])["verdict"] == _adj(rt, d["a2"])["verdict"] == "interesting"
     assert _adj(rt, d["b1"])["carried_from"] == _adj(rt, d["a1"])["id"]
     after = [r["id"] for r in client.get(f"/api/review/queues/{qb}?include_judged=0").json()["rows"]]
@@ -137,7 +149,7 @@ def test_a_batch_reports_what_it_carried(seeded):
     ack = client.post(f"/api/review/queues/{qa}/batch",
                       json={"target_ids": [str(d["a1"]), str(d["a3"])], "verdict": "not_interesting"})
     assert ack.status_code == 200, ack.text
-    assert ack.json()["carried"] == 1
+    assert _carried(client, qa, ack) == 1
     assert _adj(rt, d["b1"])["verdict"] == "not_interesting"
 
 
@@ -173,8 +185,8 @@ def test_a_carried_row_is_seen_without_rebuilding_the_structure(seeded, monkeypa
     monkeypatch.setattr(_queries, "queue_candidates", counted)
     client.get(f"/api/review/queues/{qb}?thumbs=0")
     assert calls["n"] == 0
-    assert client.post(f"/api/review/queues/{qa}/verdict",
-                       json={"target_id": str(d["a1"]), "verdict": "interesting"}).json()["carried"] == 1
+    ack = client.post(f"/api/review/queues/{qa}/verdict", json={"target_id": str(d["a1"]), "verdict": "interesting"})
+    assert _carried(client, qa, ack) == 1
     n = calls["n"]
     row = next(r for r in client.get(f"/api/review/queues/{qb}?thumbs=0").json()["rows"] if r["id"] == str(d["b1"]))
     # the structure reads no adjudication: the carried row is laid over it fresh, and nothing is rebuilt
@@ -208,3 +220,39 @@ def test_a_picked_overlap_set_reads_as_one_item_in_discoverys_marks(seeded):
         assert disc._picked_states(conn, 1) == {d["a1"]: ("judged", "interesting"), d["a2"]: ("judged", "interesting")}
     finally:
         conn.close()
+
+
+def test_an_undo_straight_after_a_verdict_leaves_nothing_carried(seeded):
+    """2026-11-24: the undo waits for the queued carries, then takes back exactly what its verdict carried."""
+    client, rt, info = seeded
+    d = info["d"]
+    qa = _queue(client, info["runs"][0])
+    ack = client.post(f"/api/review/queues/{qa}/verdict", json={"target_id": str(d["a1"]), "verdict": "interesting"})
+    assert ack.status_code == 200 and ack.json()["carryPending"] is True
+    assert client.post(f"/api/review/queues/{qa}/undo").status_code == 200
+    assert client.app.state.carry.flush()
+    assert _adj(rt, d["a1"]) is None and _adj(rt, d["b1"]) is None
+    st = client.get(f"/api/review/queues/{qa}/carries/{ack.json()['carryAuditId']}").json()
+    assert st["pending"] is False
+
+
+def test_a_carry_a_stopped_bridge_left_pending_is_done_at_the_next_start(tmp_path):
+    """A verdict whose carry never ran (the bridge stopped first) is carried when the next bridge starts."""
+    from Working.review import verdicts as V
+    info = _seed(tmp_path)
+    d = info["d"]
+    conn = sqlite3.connect(info["db"])
+    conn.row_factory = sqlite3.Row
+    qa = Q.create_queue(conn, name="A", source_kind="discovery-run", filters={"run_ids": [info["runs"][0]]})
+    out = V.write_verdict(conn, qa, d["a1"], "interesting", carry=False)
+    conn.close()
+    rt = Runtime("sandbox", stamp="test-carry-restart", db_source=info["db"],
+                 runtime_root=str(tmp_path / "runtime")).setup()
+    try:
+        with TestClient(create_app(rt)) as client:
+            assert client.app.state.carry.flush()
+            st = client.get(f"/api/review/queues/{qa}/carries/{out['audit_id']}").json()
+            assert st["pending"] is False and st["carriedIds"] == [d["b1"]]
+            assert _adj(rt, d["b1"])["carried_from"] == _adj(rt, d["a1"])["id"]
+    finally:
+        rt.restore()

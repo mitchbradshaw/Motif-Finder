@@ -420,17 +420,21 @@ def _members_of(conn, queue, target_id):
     return _queues.detection_set(conn, queue["id"], target_id)
 
 
-def _carry_targets(conn, targets):
+def _carry_targets(conn, targets, *, verdict=None, class_label=None, given=False):
     """Carry each written member's verdict to the same event on its channel (`overlap.carry`), recording on its
     audit entry exactly which rows were created and which (carried by this same source before) rewritten, so an
-    undo reverses those and nothing else. Returns the detection ids written, ascending."""
-    from Working.review.overlap import carry
+    undo reverses those and nothing else. Returns the detection ids written, ascending.
+
+    `given=True` carries `verdict` / `class_label` as the gesture gave them (a deferred carry run later,
+    `run_pending_carry`) instead of what each member's row says now."""
+    from Working.review.overlap import SOURCE_CLASS, carry
     out = set()
     for t in targets:
         adj = _adjudications.get_adjudication(conn, t["row_id"])
         if adj is None:
             continue
-        done = carry(conn, adj["id"])
+        done = (carry(conn, adj["id"], verdict=verdict, class_label=class_label) if given
+                else carry(conn, adj["id"], class_label=SOURCE_CLASS))
         t["carried"] = done
         out.update(done["created"])
         out.update(u["detection_id"] for u in done["updated"])
@@ -635,7 +639,7 @@ def _apply(conn, queue, target_id, row_id, verdict, note, tags, window_index, cl
 
 
 def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
-                  window_index=None, class_label=None):
+                  window_index=None, class_label=None, carry=True):
     """Write one verdict through the queue that asked for it.
 
     Returns a dict describing what was written:
@@ -657,6 +661,11 @@ def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
     other runs on its channel (`carried`: the detection ids written). The
     class label (`class_label`) is stored on the row for a queue that writes
     `adjudications`; the other stores have no class column and do not take it.
+
+    `carry=False` (2026-11-24, the bridge's verdicts) writes the verdict and its
+    audit row now and leaves the carry pending on that audit row
+    (`carry_pending`); `run_pending_carry` does it later, with this verdict as
+    given.
     """
     queue = _queue_row(conn, queue_id)
     _check_verdict(verdict)
@@ -685,7 +694,7 @@ def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
                                                  class_label),
                     "window_index": None} for m in members]
         prior, row_id = targets[0]["prior"], target_id
-        carried = _carry_targets(conn, targets)
+        carried = _carry_targets(conn, targets) if carry else []
     payload = {
         "writes_to": queue["writes_to"],
         "verdict": verdict,
@@ -696,6 +705,9 @@ def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
     }
     if class_label is not None:
         payload["class_label"] = class_label
+    pending = members is not None and not carry
+    if pending:
+        payload["carry_pending"] = True
     audit_id = _audit(conn, queue_id, "verdict", queue["writes_to"],
                       [target_id], payload)
     conn.commit()
@@ -705,11 +717,11 @@ def write_verdict(conn, queue_id, target_id, verdict, *, note=None, tags=None,
     if members is not None:
         # promotion's reversal reads `targets` (every member, with what it carried); the bridge reads `carried`
         out.update({"members": members, "carried": carried, "targets": targets,
-                    "class_label": class_label})
+                    "class_label": class_label, "carry_pending": pending})
     return out
 
 
-def write_batch(conn, queue_id, target_ids, verdict, *, note=None, tags=None, class_label=None):
+def write_batch(conn, queue_id, target_ids, verdict, *, note=None, tags=None, class_label=None, carry=True):
     """The same verdict against N targets, under ONE `review_audit` row.
 
     Every target is resolved and checked before anything is written, so a batch
@@ -719,6 +731,8 @@ def write_batch(conn, queue_id, target_ids, verdict, *, note=None, tags=None, cl
     copies in the ledger would take N undos to reverse. An empty batch writes
     no audit row and returns `audit_id: None` — auditing a gesture that touched
     nothing puts an un-undoable row in the ledger.
+
+    `carry=False`: as `write_verdict`'s — the carry waits on the audit row.
     """
     queue = _queue_row(conn, queue_id)
     _check_verdict(verdict)
@@ -758,19 +772,85 @@ def write_batch(conn, queue_id, target_ids, verdict, *, note=None, tags=None, cl
             window_set_id = coords[0]
         targets.append({"target_id": tid, "row_id": row_id, "prior": prior,
                         "window_index": coords[1] if coords else None})
-    carried = _carry_targets(conn, targets) if sets else []
+    carried = _carry_targets(conn, targets) if sets and carry else []
     ids = [t for t, _ in resolved]
     payload = {"writes_to": queue["writes_to"], "verdict": verdict,
                "note": note, "window_set_id": window_set_id,
                "targets": targets}
     if class_label is not None:
         payload["class_label"] = class_label
+    pending = bool(sets) and not carry
+    if pending:
+        payload["carry_pending"] = True
     audit_id = _audit(conn, queue_id, "batch", queue["writes_to"], ids, payload)
     conn.commit()
     # `count`: the rows written — on a detection queue every member of every set, which is what the gesture changed
     return {"queue_id": queue_id, "verdict": verdict, "count": len(targets),
             "target_ids": ids, "writes_to": queue["writes_to"],
-            "audit_id": audit_id, "carried": carried}
+            "audit_id": audit_id, "carried": carried, "carry_pending": pending}
+
+
+# ── deferred carry (2026-11-24) ─────────────────────────────────────────────
+# The researcher: "it is related to 'carried to X other detections' ... any chance this process can run in the
+# background instead of between candidates?". A verdict written with `carry=False` leaves `carry_pending` on its
+# audit row; the bridge's carry worker runs these in audit order with `run_pending_carry`, and a restarted bridge
+# finds the ones it had not run with `pending_carries`. Each carries the verdict as GIVEN (the audit row's), so a
+# re-judgement's carry, run after it, rewrites it exactly as carries done at once would.
+
+def _carried_ids(payload):
+    out = set()
+    for t in payload.get("targets") or []:
+        done = t.get("carried") or {}
+        out.update(int(i) for i in done.get("created") or [])
+        out.update(int(u["detection_id"]) for u in done.get("updated") or [])
+    return sorted(out)
+
+
+def pending_carries(conn):
+    """The audit ids whose carry has not run yet (and whose verdict stands), oldest first."""
+    out = []
+    for row in conn.execute("SELECT id, payload_json FROM review_audit WHERE undone_at IS NULL "
+                            "AND payload_json LIKE '%carry_pending%' ORDER BY id").fetchall():
+        if json.loads(row[1] or "{}").get("carry_pending"):
+            out.append(int(row[0]))
+    return out
+
+
+def carry_status(conn, audit_id):
+    """`{"pending": bool, "carried": [detection ids written]}` for one audit row."""
+    row = conn.execute("SELECT payload_json FROM review_audit WHERE id = ?", (int(audit_id),)).fetchone()
+    if row is None:
+        raise ValueError(f"no review_audit row {audit_id}")
+    payload = json.loads(row[0] or "{}")
+    return {"pending": bool(payload.get("carry_pending")), "carried": _carried_ids(payload)}
+
+
+def run_pending_carry(conn, audit_id):
+    """Run audit row `audit_id`'s pending carry: each member's verdict, as the gesture gave it, to the same event in
+    other runs on its channel; what each wrote is recorded on the row (as a carry done at once records it), so its
+    undo reverses exactly that. An undone verdict is not carried. Running it again carries nothing more. Commits.
+    Returns `{"carried": [detection ids], "ran": bool, "skipped": reason or None}`."""
+    row = conn.execute("SELECT id, undone_at, payload_json FROM review_audit WHERE id = ?",
+                       (int(audit_id),)).fetchone()
+    if row is None:
+        raise ValueError(f"no review_audit row {audit_id}")
+    payload = json.loads(row[2] or "{}")
+    if not payload.get("carry_pending"):
+        return {"carried": _carried_ids(payload), "ran": False, "skipped": None}
+    if row[1] is not None:
+        payload["carry_pending"] = False
+        payload["carry_skipped"] = "undone"
+        conn.execute("UPDATE review_audit SET payload_json = ? WHERE id = ?", (json.dumps(payload), int(audit_id)))
+        conn.commit()
+        return {"carried": [], "ran": False, "skipped": "undone"}
+    targets = payload.get("targets") or []
+    carried = _carry_targets(conn, targets, verdict=payload.get("verdict"),
+                             class_label=payload.get("class_label"), given=True)
+    payload["targets"] = targets
+    payload["carry_pending"] = False
+    conn.execute("UPDATE review_audit SET payload_json = ? WHERE id = ?", (json.dumps(payload), int(audit_id)))
+    conn.commit()
+    return {"carried": carried, "ran": True, "skipped": None}
 
 
 def undo_last(conn, queue_id=None):

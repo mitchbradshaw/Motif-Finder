@@ -149,12 +149,21 @@ def _candidates(conn, recording_id, source_id, start, end, rule):
     return out
 
 
-def carry(conn, adjudication_id, *, rule=None):
+#: `carry`'s class label when the caller names none: the source row's own.
+SOURCE_CLASS = object()
+
+
+def carry(conn, adjudication_id, *, rule=None, verdict=None, class_label=SOURCE_CLASS):
     """Carry one adjudication's verdict, and say exactly what was written:
     ``{"created": [detection ids], "updated": [{"detection_id", "verdict",
     "class_label", "note"}]}`` — `updated` holds the PRIOR state of a row this
     same source had carried before and now rewrites (a re-judgement of A), so
     the caller can put it back. Does not commit.
+
+    `verdict` / `class_label` carry what a verdict said when it was GIVEN rather
+    than what the source row says now: a carry run later (deferred, 2026-11-24)
+    for a verdict since re-judged must still carry its own verdict, so that the
+    re-judgement's carry, run after it, rewrites it as it would have at once.
 
     Nothing is carried from a row that is itself carried, or that does not
     exist."""
@@ -168,7 +177,9 @@ def carry(conn, adjudication_id, *, rule=None):
     rule = rule or rule_from_settings(conn)
     # `seed` names the ONE detection promoted to the Library (P21: it implies interesting). A carried row is not
     # a promotion — it has no Library entry — so it carries what the seed implies, never the word itself
-    verdict = "interesting" if src["verdict"] == "seed" else src["verdict"]
+    given = src["verdict"] if verdict is None else verdict
+    verdict = "interesting" if given == "seed" else given
+    label = src["class_label"] if class_label is SOURCE_CLASS else class_label
     start, end = absolute_bounds(src["start_idx"], src["end_idx"], src["span_start"])
     note = carried_note(src["detection_id"], rule)
     matched = [did for did, a, b in _candidates(conn, src["recording_id"], src["detection_id"], start, end, rule)
@@ -187,13 +198,13 @@ def carry(conn, adjudication_id, *, rule=None):
         if row is None:
             conn.execute("INSERT INTO adjudications (detection_id, verdict, note, created_at, class_label, "
                          "carried_from) VALUES (?, ?, ?, ?, ?, ?)",
-                         (did, verdict, note, now, src["class_label"], int(src["id"])))
+                         (did, verdict, note, now, label, int(src["id"])))
             done["created"].append(did)
         elif row["carried_from"] is not None and int(row["carried_from"]) == int(src["id"]):
             done["updated"].append({"detection_id": did, "verdict": row["verdict"],
                                     "class_label": row["class_label"], "note": row["note"]})
             conn.execute("UPDATE adjudications SET verdict = ?, class_label = ?, note = ? WHERE detection_id = ?",
-                         (verdict, src["class_label"], note, did))
+                         (verdict, label, note, did))
         # else: a person's own row, or one another verdict carried first — never overwritten
     return done
 

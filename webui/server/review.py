@@ -1137,18 +1137,42 @@ def post_verdict(request: Request, qid: str, body: VerdictBody):
     try:
         queue = _queue_or_404(conn, qid)
         _refuse_held_out(conn, queue, [body.target_id])
+        # 2026-11-24: the verdict is written and answered now; its carry - the same verdict on the same event found
+        # by other runs on the channel - runs on the carry worker (`review_carry.py`), not between candidates
         result = _core_call(verdicts_mod.write_verdict, conn, int(queue["id"]),
                             body.target_id, body.verdict, note=body.note,
                             tags=body.tags, window_index=body.window_index,
-                            class_label=body.class_label)
+                            class_label=body.class_label, carry=False)
         conn.commit()
-        # review-carry: `carried` — how many other detections (other runs, same channel, the same event by the
-        # scoreboard's rule) the verdict was written to; the page's toast says "carried to N other detections"
-        carried = list(result.get("carried") or [])
-        return {"verdict": _carry_free(result), "carried": len(carried), "carriedIds": carried,
-                "counts": queues_mod.queue_counts(
-                    conn, int(queue["id"]),
-                    exclude_recording_ids=_held_out_ids(conn))}
+        return _write_ack(request, conn, queue, result, {"verdict": _carry_free(result)})
+    finally:
+        conn.close()
+
+
+def _write_ack(request: Request, conn, queue: dict, result: dict, body: dict) -> dict:
+    """A verdict or batch answered with its carry queued: `carryPending` and the audit row it waits on
+    (`carryAuditId`; `GET /queues/{qid}/carries/{id}` says when it is done and what it carried). `carried` stays in
+    the shape it had (a count and the ids), and says what was carried AT ONCE - nothing, when the carry is queued."""
+    pending = bool(result.get("carry_pending"))
+    if pending:
+        request.app.state.carry.submit(int(result["audit_id"]))
+    carried = list(result.get("carried") or [])
+    return {**body, "carried": len(carried), "carriedIds": carried, "carryPending": pending,
+            "carryAuditId": result.get("audit_id") if pending else None,
+            "counts": queues_mod.queue_counts(conn, int(queue["id"]), exclude_recording_ids=_held_out_ids(conn))}
+
+
+@router.get("/queues/{qid}/carries/{audit_id}")
+def get_carry(request: Request, qid: str, audit_id: int):
+    """Whether a verdict's carry has run, and the detections it wrote (`carriedIds`) - the page re-reads its rows
+    when one of them is an item of the queue on screen."""
+    conn = _conn(request)
+    try:
+        _queue_or_404(conn, qid)
+        st = _core_call(verdicts_mod.carry_status, conn, int(audit_id))
+        failed = request.app.state.carry.failed.get(int(audit_id))
+        return {"auditId": int(audit_id), "pending": st["pending"], "carried": len(st["carried"]),
+                "carriedIds": st["carried"], "error": failed}
     finally:
         conn.close()
 
@@ -1161,13 +1185,9 @@ def post_batch(request: Request, qid: str, body: BatchBody):
         _refuse_held_out(conn, queue, list(body.target_ids))
         result = _core_call(verdicts_mod.write_batch, conn, int(queue["id"]),
                             list(body.target_ids), body.verdict, note=body.note,
-                            tags=body.tags, class_label=body.class_label)
+                            tags=body.tags, class_label=body.class_label, carry=False)
         conn.commit()
-        carried = list(result.get("carried") or [])
-        return {"batch": result, "carried": len(carried), "carriedIds": carried,
-                "counts": queues_mod.queue_counts(
-                    conn, int(queue["id"]),
-                    exclude_recording_ids=_held_out_ids(conn))}
+        return _write_ack(request, conn, queue, result, {"batch": result})
     finally:
         conn.close()
 
@@ -1177,8 +1197,10 @@ def post_undo(request: Request, qid: str):
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
-        result = _core_call(verdicts_mod.undo_last, conn, int(queue["id"]))
-        conn.commit()
+        # the queued carries first (2026-11-24): an undo then takes back exactly what its verdict carried
+        with request.app.state.carry.drain():
+            result = _core_call(verdicts_mod.undo_last, conn, int(queue["id"]))
+            conn.commit()
         return {"undone": result, "counts": queues_mod.queue_counts(
                     conn, int(queue["id"]),
                     exclude_recording_ids=_held_out_ids(conn))}
@@ -1192,9 +1214,11 @@ def post_promote(request: Request, qid: str, body: PromoteBody):
     try:
         queue = _queue_or_404(conn, qid)
         _refuse_held_out(conn, queue, [body.target_id])
-        result = _core_call(promotion_mod.promote, conn, int(queue["id"]), body.target_id,
-                            verdict=body.verdict, note=body.note, tags=body.tags)
-        conn.commit()
+        # a promotion carries at once, so the carries queued before it go first and the order stays the gestures'
+        with request.app.state.carry.drain():
+            result = _core_call(promotion_mod.promote, conn, int(queue["id"]), body.target_id,
+                                verdict=body.verdict, note=body.note, tags=body.tags)
+            conn.commit()
         return result
     finally:
         conn.close()
@@ -1216,8 +1240,9 @@ def post_unpromote(request: Request, qid: str, body: UnpromoteBody):
     conn = _conn(request)
     try:
         queue = _queue_or_404(conn, qid)
-        out = _core_call(promotion_mod.unpromote, conn, int(body.audit_id))
-        conn.commit()
+        with request.app.state.carry.drain():
+            out = _core_call(promotion_mod.unpromote, conn, int(body.audit_id))
+            conn.commit()
         return {"unpromoted": out,
                 "counts": queues_mod.queue_counts(
                     conn, int(queue["id"]),
@@ -1263,11 +1288,9 @@ def _cluster_batch(request: Request, qid: str, no: int, verdict: str):
             raise HTTPException(status_code=404,
                                 detail=_no_clusters(queue, no))
         result = _core_call(verdicts_mod.write_batch, conn, int(queue["id"]),
-                            cluster["members"], verdict, note=f"cluster {no}")
+                            cluster["members"], verdict, note=f"cluster {no}", carry=False)
         conn.commit()
-        return {"batch": result, "counts": queues_mod.queue_counts(
-                    conn, int(queue["id"]),
-                    exclude_recording_ids=_held_out_ids(conn))}
+        return _write_ack(request, conn, queue, result, {"batch": result})
     finally:
         conn.close()
 
