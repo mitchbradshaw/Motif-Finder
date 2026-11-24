@@ -15,13 +15,17 @@ What this file adds, and nothing else:
 * a random sample for the two figures that compare every drop with every other (the shape map's per-cell medoids,
   whose distance matrix grows with the square of a cell's drops, and the t-SNE shape space): `SAMPLE_MAP` and
   `SAMPLE_TSNE`, said in their captions;
-* wording: where a figure or caption says "reviewed", it says what these drops are - candidates nobody has judged.
+* wording: where a figure or caption says "reviewed", it says what these drops are - candidates nobody has judged;
+* the width-amplitude figure, which has room for six species, drawn once per six (`species_plane_in_sixes`);
+* `POOL_MIN_P_ACCEPT=0.8`: only the drops the verdict model (`pool_summary.py`) puts at least that likely to be
+  accepted, into `..._pool_plots_p80/` (and `events_p80.csv`, `event_shapes_p80.npz`), to see which patterns survive
+  the noise; `POOL_TIERS=core,extended` draws both tiers (default: the core).
 
 Writes docs/library_analysis/20261124_pool_plots/ (index.html, the figures, captions.json); the event table and every
 drop's waveform go beside the pool (DATA/derived/autodetect/pool_20261124/events.csv, event_shapes.npz). Read-only
 on the database and the channels.
 
-    PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" scripts/autodetect/pool_plots.py [species map grids extra]
+    PYTHONIOENCODING=utf-8 "/c/ProgramData/anaconda3/python.exe" scripts/autodetect/pool_plots.py [sheets species map grids extra]
 """
 from __future__ import annotations
 
@@ -45,7 +49,11 @@ import drop_plots_20261123 as dp  # noqa: E402
 fs = dp.fs
 
 POOL = os.path.join(ROOT, "DATA", "derived", "autodetect", "pool_20261124", "pool.parquet")
-OUT = os.path.join(ROOT, "docs", "library_analysis", "20261124_pool_plots")
+#: Draw only the drops the verdict model (`pool_summary.py`, `p_accept.parquet`) puts at least this likely to be
+#: accepted - a cleaner subset, to see which patterns survive the noise. Unset: every drop of the tiers drawn.
+MIN_P_ACCEPT = float(os.environ["POOL_MIN_P_ACCEPT"]) if os.environ.get("POOL_MIN_P_ACCEPT") else None
+VARIANT = "" if MIN_P_ACCEPT is None else f"_p{round(MIN_P_ACCEPT * 100):02d}"
+OUT = os.path.join(ROOT, "docs", "library_analysis", "20261124_pool_plots" + VARIANT)
 SAMPLE_MAP = 30_000
 SAMPLE_TSNE = 20_000
 SEED = 20261124
@@ -84,8 +92,15 @@ def _rewrite(text):
 _save = dp.save
 
 
+#: A suffix for the next figure's file name (a figure drawn in parts: `species_plane_in_sixes`).
+SUFFIX = [""]
+
+
 def save(fig, name, section, caption, dpi=170):
     """`drop_plots.save`, after the figure's own words are made true of the pool."""
+    if SUFFIX[0]:
+        stem, ext = os.path.splitext(name)
+        name = stem + SUFFIX[0] + ext
     for t in fig.texts:
         t.set_text(_rewrite(t.get_text()))
     for ax in fig.axes:
@@ -102,7 +117,7 @@ def setup():
     dp.OUT = OUT
     dp.CAPTIONS_FILE = os.path.join(OUT, "captions.json")
     # the bulky by-products (every drop's waveform, the event table) stay with the pool, out of docs/
-    dp.SHAPES_FILE = os.path.join(os.path.dirname(POOL), "event_shapes.npz")
+    dp.SHAPES_FILE = os.path.join(os.path.dirname(POOL), f"event_shapes{VARIANT}.npz")
     dp.save = save
     for d, (sp, colour) in NEW.items():
         fs.RECORDINGS[d] = (sp, colour)
@@ -123,6 +138,11 @@ def pool_events():
     # the core tier: the queue's settings (the extended tier, 0.5-0.6 confidence or 10-15 clarity, stays out of the
     # figures; POOL_TIERS=core,extended draws both)
     p = p[p["tier"].isin(os.environ.get("POOL_TIERS", "core").split(",")) & p["wd_ok"].astype(bool)]
+    if MIN_P_ACCEPT is not None:
+        pa = pd.read_parquet(os.path.join(os.path.dirname(POOL), "p_accept.parquet"),
+                             columns=["recording_id", "candidate_id", "p_accept"])
+        p = p.merge(pa, on=["recording_id", "candidate_id"], how="left", validate="one_to_one")
+        p = p[p["p_accept"] >= MIN_P_ACCEPT]
     p = p.reset_index(drop=True)
     d = p["decimation"].astype(int).to_numpy()
 
@@ -212,6 +232,24 @@ def contact_sheets(ev, recs):
              f"A look at a typical candidate, not the best ones.")
 
 
+def species_plane_in_sixes(ev):
+    """`drop_plots.fig_species_plane` has room for six species (a 2 x 3 grid of small panels beside the big one);
+    the pool has more. Drawn once per six species, in the script's order, as `species_width_amplitude.png`,
+    `species_width_amplitude_2.png`, ...; each part's grey background is its own species' drops."""
+    g = ev[(ev["width_s"] > 0) & (ev["depth_mv"] > 0)]
+    sps = dp.species_present(g, least=10)
+    parts = [sps[i:i + 6] for i in range(0, len(sps), 6)]
+    try:
+        for k, part in enumerate(parts):
+            SUFFIX[0] = "" if k == 0 else f"_{k + 1}"
+            POOL_NOTE[f"species_width_amplitude{SUFFIX[0]}.png"] = (
+                f" Part {k + 1} of {len(parts)}: {', '.join(part)} (the figure has room for six species; the grey "
+                f"is this part's drops)." if len(parts) > 1 else "")
+            attempt(dp.fig_species_plane, ev[ev["species"].isin(part)])
+    finally:
+        SUFFIX[0] = ""
+
+
 def sample(ev, n):
     return ev if len(ev) <= n else ev.sample(n=n, random_state=SEED).sort_values(
         ["dataset", "recording_id", "top_idx"]).reset_index(drop=True)
@@ -224,7 +262,7 @@ def main(stages):
     conn = sqlite3.connect(f"file:{dp.DB}?mode=ro", uri=True)
     recs = dp.recordings(conn)
     ev = pool_events()
-    ev.to_csv(os.path.join(os.path.dirname(POOL), "events.csv"), index=False)
+    ev.to_csv(os.path.join(os.path.dirname(POOL), f"events{VARIANT}.csv"), index=False)
     print(f"pool events: {len(ev):,} drops in {ev['dataset'].nunique()} datasets ({time.time() - t0:.0f} s)",
           flush=True)
     print(ev.groupby(["species", "dataset"]).size().to_string(), flush=True)
@@ -236,7 +274,7 @@ def main(stages):
         attempt(dp.fig_anatomy, ev, recs)
         attempt(dp.fig_species_boxes, ev)
         attempt(dp.fig_species_rainclouds, ev)
-        attempt(dp.fig_species_plane, ev)
+        species_plane_in_sixes(ev)
         attempt(dp.fig_species_asymmetry, ev)
         attempt(dp.fig_species_shapes, ev, recs)
         attempt(dp.species_table, ev)
@@ -289,7 +327,9 @@ def main(stages):
         html = fh.read()
     html = html.replace("<title>Drop plots 23 Nov</title>", "<title>Drop pool plots 24 Nov</title>").replace(
         "<h1>Drop events and sequences: experimental plots (23 Nov 2026)</h1>",
-        f"<h1>The auto-detect drop pool: {len(ev):,} unjudged drops through the 23 Nov drop plots (24 Nov 2026)</h1>")
+        f"<h1>The auto-detect drop pool: {len(ev):,} unjudged drops through the 23 Nov drop plots (24 Nov 2026)"
+        + ("" if MIN_P_ACCEPT is None else f", only the drops the verdict model puts at {MIN_P_ACCEPT:.0%} or more")
+        + "</h1>")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(html)
     print(f"index written; {time.time() - t0:.0f} s in all", flush=True)

@@ -27,6 +27,10 @@ review queue) ... up to 1M ... feed them into the plotting structures of the Neu
   - tested and NOT made rules, because the verdicts do not back them: drops only the event-rule finder vouched for
     (80 % of 491 accepted, against 89 %; they stay, flagged `finder_only`), a dip small against the slow wander around
     it (`prominence`: the lowest band was accepted 88 %), the slow lead-in of a deeper drop (`shoulder`: 88 %).
+  These numbers are from the first 38 channels (24 Nov evening, 2,535 judged drops). On all 144 (25 Nov, 4,794 judged
+  drops on nine datasets): finder-only 77 % against 87 % among the drops passing the core's settings; 7 judged slow
+  declines, 2 accepted (both on S_commune, at the extended tier's confidence and clarity) and none of the 5 at the
+  core's; the rules stand (`docs/autodetect/20261124_pool/checks/core_verdicts.out.txt`).
 * Every candidate that lands on a judged span keeps its label (`label`), so how often each band was accepted can be
   read off the researcher's own past verdicts (`calibration.csv`).
 
@@ -73,6 +77,37 @@ FLAGS = os.path.join(POOL, "flags")
 SEQS = os.path.join(POOL, "seqs")
 DOCS = os.path.join(ROOT, "docs", "autodetect", "20261124_pool")
 REFS = os.path.join(POOL, "reference_spans.parquet")
+#: the columns of the pool's committed copy (docs/.../pool_compact.parquet): enough to find, rank and redraw a drop.
+#: Times are left out (start_s = start_idx / fs_run), and so are priority (confidence + 0.1 when m4_like) and
+#: n_sources (count the `|`s); the full pool, at full precision, is DATA/derived/autodetect/pool_20261124/pool.parquet
+COMPACT = ("rank", "tier", "dataset", "species", "source_file", "recording_id", "channel", "native_fs", "decimation",
+           "fs_run", "candidate_id", "start_idx", "end_idx", "onset", "extremum", "event_end", "confidence", "p_r4",
+           "m4_like", "clarity", "depth_mv", "sharpness", "sources", "finder_only", "prominence", "shoulder",
+           "glitch", "wd_ok", "wd_top", "wd_bottom", "wd_recovery", "wd_depth_mv", "wd_fall_s", "wd_width_s",
+           "wd_recovery_s", "wd_steep_s", "wd_n_events", "wd_long_tail", "sequence_id")
+#: decimals kept in the committed copy: finer than any rule or figure reads
+COMPACT_DECIMALS = {"confidence": 4, "p_r4": 4, "clarity": 1, "depth_mv": 3, "wd_depth_mv": 3, "sharpness": 2,
+                    "prominence": 2, "wd_fall_s": 1, "wd_width_s": 1, "wd_recovery_s": 1, "wd_steep_s": 1}
+
+
+def compact(pool):
+    """The `COMPACT` columns, rounded to `COMPACT_DECIMALS`, at 32 bits (the longest channel is ~2M run samples), the
+    whole-drop sample indices as integers (-1 where the rule could not measure), the text as categories."""
+    out = pool[[k for k in COMPACT if k in pool]].copy()
+    for k in ("wd_top", "wd_bottom", "wd_recovery", "wd_n_events"):
+        if k in out:
+            out[k] = np.nan_to_num(out[k].to_numpy(float), nan=-1).round().astype(np.int32)
+    for k in out.columns:
+        v = out[k]
+        if v.dtype == object or str(v.dtype) == "string":
+            out[k] = v.astype("category")
+        elif v.dtype.kind == "i":
+            out[k] = v.astype(np.int32)
+        elif v.dtype.kind == "f":
+            out[k] = v.round(COMPACT_DECIMALS.get(k, 6)).astype(np.float32)
+    return out
+
+
 #: The most kept ("go for gold, up to 1M surviving candidates").
 CAP = 1_000_000
 #: The least the researcher asked for.
@@ -310,8 +345,10 @@ def flags_one(conn, rid, refs, rule, log):
 
 def slow_only(c):
     """A drop whose fall never steps further in a second than the channel's own step noise (`sharpness` <= 1): a
-    slow decline. Of the judged drops, all 5 such were rejected or unsure (queue 57's #184 among them); 80-91 % of
-    every sharper band was accepted. A drop whose sharpness cannot be read passes (the pipeline's convention)."""
+    slow decline. Of the judged drops on the first 38 channels, all 5 such were rejected or unsure (queue 57's #184
+    among them); 80-91 % of every sharper band was accepted. On all 144 channels: 7 judged, the 5 at the core's
+    confidence and clarity all rejected or unsure (one M4 stretch), the 2 accepted both on S_commune below them. It
+    removes 37,640 drops, 97 % on Cordyceps and Enoki. A drop whose sharpness cannot be read passes (the pipeline's convention)."""
     s = pd.to_numeric(c["sharpness"], errors="coerce")
     return (s <= MIN_SHARPNESS).fillna(False)
 
@@ -499,6 +536,8 @@ def cmd_choose(args):
     pool = allc.loc[chosen].copy()
     pool["rank"] = np.arange(1, len(pool) + 1)
     pool.to_parquet(os.path.join(POOL, "pool.parquet"), index=False)
+    # the pool itself in git as well (the data folder is gitignored): where each drop is and what it measured
+    compact(pool).to_parquet(os.path.join(DOCS, "pool_compact.parquet"), index=False, compression="zstd")
     reasons = allc["left_out"].where(allc["left_out"] != "", "IN THE POOL (" + allc["tier"] + " tier)").value_counts() \
         .rename_axis("reason").reset_index(name="drops")
     reasons.to_csv(os.path.join(DOCS, "reasons.csv"), index=False)
