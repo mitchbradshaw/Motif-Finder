@@ -46,8 +46,10 @@ OUT = os.path.join(POOL, "provenance")
 DB = os.path.join(ROOT, "DATA", "db", "annotations.sqlite")
 
 #: the pool's own scripts: where the import walk starts
-ENTRY = ("scripts/autodetect/run_pool.py", "scripts/autodetect/build_pool.py", "scripts/autodetect/pool_plots.py",
-         "scripts/autodetect/pool_provenance.py")
+ENTRY = ("scripts/autodetect/run_pool.py", "scripts/autodetect/build_pool.py", "scripts/autodetect/pool_rhythm.py",
+         "scripts/autodetect/pool_summary.py", "scripts/autodetect/pool_plots.py",
+         "scripts/autodetect/pool_provenance.py", "scripts/autodetect/pool_checks/core_verdicts.py",
+         "scripts/autodetect/pool_checks/acceptance_models.py", "scripts/autodetect/pool_checks/steepness_rate.py")
 #: where a bare ``import name`` may be found (the scripts put these on sys.path)
 BARE_DIRS = ("scripts/autodetect", "scripts/library_analysis", "scripts/thesis")
 #: the inputs that are files, beside the channels
