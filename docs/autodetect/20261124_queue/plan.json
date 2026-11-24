@@ -1,0 +1,159 @@
+{
+ "built": "2026-11-24T09:12:10",
+ "selected": 5291,
+ "drops": 4440,
+ "rises": 851,
+ "m4_like": 654,
+ "confidence": {
+  "min": 0.601,
+  "p10": 0.718,
+  "median": 0.947
+ },
+ "by_channel": {
+  "M2_aug_CH7_B2": {
+   "candidates": 6003,
+   "left_out": {
+    "below 0.6 confidence": 1272,
+    "already reviewed (any copy)": 625,
+    "no detector, seed or rule vouched for it (R4 alone)": 359,
+    "waiting in an open queue (54-56)": 300,
+    "the recovery or way back of the event just before it": 202,
+    "box longer than the channel's cap": 149,
+    "its box overlaps a better candidate's": 110,
+    "a slow rise, not a spike (box over 3 minutes)": 64,
+    "not clear against the noise around it": 16,
+    "its box runs into a bigger event the other way": 9,
+    "a span you judged an artifact in its window": 6,
+    "a jump far bigger than the event in its window": 1
+   },
+   "selected": 2890,
+   "selected_drops": 2702,
+   "selected_rises": 188,
+   "selected_m4_like": 56,
+   "box_cap_s": 572.1,
+   "judged_event_spans": 634,
+   "artifact_spans": 12,
+   "pending_spans": 429
+  },
+  "M4_CH1_A1": {
+   "candidates": 1449,
+   "left_out": {
+    "below 0.6 confidence": 761,
+    "not clear against the noise around it": 175,
+    "already reviewed (any copy)": 65,
+    "box longer than the channel's cap": 61,
+    "no detector, seed or rule vouched for it (R4 alone)": 58,
+    "the recovery or way back of the event just before it": 23,
+    "a slow rise, not a spike (box over 3 minutes)": 13,
+    "its box overlaps a better candidate's": 5,
+    "its box runs into a bigger event the other way": 1
+   },
+   "selected": 287,
+   "selected_drops": 266,
+   "selected_rises": 21,
+   "selected_m4_like": 226,
+   "box_cap_s": 1200.0,
+   "judged_event_spans": 122,
+   "artifact_spans": 0,
+   "pending_spans": 1
+  },
+  "MJu26a_CH14": {
+   "candidates": 7047,
+   "left_out": {
+    "below 0.6 confidence": 3264,
+    "already reviewed (any copy)": 663,
+    "not clear against the noise around it": 409,
+    "the recovery or way back of the event just before it": 326,
+    "no detector, seed or rule vouched for it (R4 alone)": 180,
+    "box longer than the channel's cap": 146,
+    "its box overlaps a better candidate's": 80,
+    "waiting in an open queue (54-56)": 64,
+    "a jump far bigger than the event in its window": 53,
+    "its box runs into a bigger event the other way": 25,
+    "a span you judged an artifact in its window": 1
+   },
+   "selected": 1836,
+   "selected_drops": 1201,
+   "selected_rises": 635,
+   "selected_m4_like": 140,
+   "box_cap_s": 161.2,
+   "judged_event_spans": 737,
+   "artifact_spans": 2,
+   "pending_spans": 116
+  },
+  "MJu26a_CH15": {
+   "candidates": 643,
+   "left_out": {
+    "already reviewed (any copy)": 202,
+    "below 0.6 confidence": 111,
+    "no detector, seed or rule vouched for it (R4 alone)": 28,
+    "box longer than the channel's cap": 12,
+    "a slow rise, not a spike (box over 3 minutes)": 8,
+    "its box overlaps a better candidate's": 2,
+    "not clear against the noise around it": 1,
+    "the recovery or way back of the event just before it": 1
+   },
+   "selected": 278,
+   "selected_drops": 271,
+   "selected_rises": 7,
+   "selected_m4_like": 232,
+   "box_cap_s": 1200.0,
+   "judged_event_spans": 549,
+   "artifact_spans": 0,
+   "pending_spans": 44
+  }
+ },
+ "open_queues_checked": [
+  {
+   "queue_id": 54,
+   "name": "Events \u00b7 drops in candidate sequences (v2, 23 Nov)",
+   "pending_items": 966,
+   "pending_spans_on_these_channels": 142
+  },
+  {
+   "queue_id": 55,
+   "name": "Events \u00b7 drops in interesting 10-min windows (v2, 23 Nov)",
+   "pending_items": 4476,
+   "pending_spans_on_these_channels": 398
+  },
+  {
+   "queue_id": 56,
+   "name": "Events \u00b7 CH14 small drops, sample of 50 (24 Nov)",
+   "pending_items": 50,
+   "pending_spans_on_these_channels": 50
+  }
+ ],
+ "m4_threshold": 1.761,
+ "matching_rule": {
+  "criterion": "reciprocal_iou_onset",
+  "iou": 0.5,
+  "onset": 0.25
+ },
+ "seconds": 8.4,
+ "settings": {
+  "min_confidence": 0.6,
+  "same_share": 0.5,
+  "same_ratio": 4.0,
+  "region_s": 3600.0,
+  "overlap_share": 0.2,
+  "pad_s": 120.0,
+  "max_box_s": 1200.0,
+  "box_quantile": 0.95,
+  "flat_s": 60.0,
+  "jump_noise_k": 30.0,
+  "jump_event_k": 3.0,
+  "return_gap_s": 30.0,
+  "recovery_share": 0.8,
+  "return_tol": 1.25,
+  "clarity_min": 15.0,
+  "clarity_smooth_s": 10.0,
+  "slow_rise_s": 180.0,
+  "swing_k": 2.0,
+  "m4_bonus": 0.1,
+  "recent": "2026-11-17",
+  "target": [
+   5000,
+   8000
+  ]
+ }
+}

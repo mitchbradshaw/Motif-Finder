@@ -41,6 +41,7 @@ from .cnn_routes import router as cnn_router
 from .jobs_routes import router as jobs_router   # fixup-aj
 from .registration import router as registration_router
 from .reports import router as reports_router   # reports (2026-10-19)
+from .autodetect_routes import router as autodetect_router   # auto-detect on the site (2026-11-23)
 from .cross_routes import router as cross_router   # xc-S1: the cross-channel census
 
 log = logging.getLogger("webui")
@@ -607,6 +608,10 @@ def create_app(rt: Runtime, *, warm_background: bool = True) -> FastAPI:
     # reports (2026-10-19): a detection run's figures and tables, saved snapshots (server/reports.py). Before the
     # /api guard.
     app.include_router(reports_router)
+
+    # auto-detect (2026-11-23): one button on a channel, its results on disk, a send to Review
+    # (server/autodetect_routes.py). Before the /api guard.
+    app.include_router(autodetect_router)
 
     # ------------------------------------------------- /api never falls through --
     # Registered after every real /api route and before the SPA catch-all: an

@@ -1,0 +1,2070 @@
+{
+ "built": "2026-11-19T20:13:41",
+ "inventory": "docs/library_analysis/20261118/inventory_with_checks.csv",
+ "rule": "single-event spans (status single, anatomy check passed, depth > 0) of the 9 Nov accepted catalogue; g-11's recipe: shape-distance Ward, cut 0.6, min_group 10, omit_d 0.5, on the Library's 64-px envelope; seed = medoid's samples in mV; durations = member duration quartiles; min_corr = 10th percentile of member-to-medoid Pearson r at 256 points",
+ "n_events": 2283,
+ "n_items": 2283,
+ "n_families": 64,
+ "n_assigned": 2061,
+ "n_omitted": 222,
+ "omitted_by_reason": {
+  "group_too_small": 217,
+  "past_cut": 5
+ },
+ "families": [
+  {
+   "label": "F-01",
+   "n_members": 162,
+   "durations_s": [
+    377.0,
+    377.0,
+    377.0
+   ],
+   "min_corr": 0.9945,
+   "member_corr_quantiles": {
+    "0.1": 0.9945,
+    "0.5": 0.9976,
+    "0.9": 0.9988
+   },
+   "datasets": {
+    "M2_aug": 59,
+    "LM": 43,
+    "M4": 32,
+    "M2_concat": 14,
+    "MJu26a": 7,
+    "SO": 3,
+    "CO": 2,
+    "SH": 2
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 377,
+   "medoid": {
+    "event_id": "accepted-36290c49e3728bbf",
+    "dataset": "M2_aug",
+    "recording_id": 4,
+    "channel": 3,
+    "start_idx": 2106734,
+    "end_idx": 2107111,
+    "duration_s": 377.0
+   }
+  },
+  {
+   "label": "F-02",
+   "n_members": 413,
+   "durations_s": [
+    377.0,
+    377.0,
+    377.0
+   ],
+   "min_corr": 0.9937,
+   "member_corr_quantiles": {
+    "0.1": 0.9937,
+    "0.5": 0.9973,
+    "0.9": 0.9992
+   },
+   "datasets": {
+    "M2_aug": 157,
+    "LM": 120,
+    "M2_concat": 50,
+    "M4": 31,
+    "MJu26a": 15,
+    "SH": 15,
+    "SO": 14,
+    "CO": 11
+   },
+   "exemplar_fs": 2.0,
+   "exemplar_len": 754,
+   "medoid": {
+    "event_id": "accepted-02ef9d238c45c20e",
+    "dataset": "LM",
+    "recording_id": 637,
+    "channel": 0,
+    "start_idx": 880452,
+    "end_idx": 881206,
+    "duration_s": 377.0
+   }
+  },
+  {
+   "label": "F-03",
+   "n_members": 20,
+   "durations_s": [
+    148.0,
+    148.0,
+    148.0
+   ],
+   "min_corr": 0.9268,
+   "member_corr_quantiles": {
+    "0.1": 0.9268,
+    "0.5": 0.9706,
+    "0.9": 0.9897
+   },
+   "datasets": {
+    "M2_aug": 20
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 148,
+   "medoid": {
+    "event_id": "accepted-bf9776b75c7084b9",
+    "dataset": "M2_aug",
+    "recording_id": 1,
+    "channel": 0,
+    "start_idx": 888134,
+    "end_idx": 888282,
+    "duration_s": 148.0
+   }
+  },
+  {
+   "label": "F-04",
+   "n_members": 28,
+   "durations_s": [
+    148.0,
+    148.0,
+    148.0
+   ],
+   "min_corr": 0.8842,
+   "member_corr_quantiles": {
+    "0.1": 0.8842,
+    "0.5": 0.9189,
+    "0.9": 0.9639
+   },
+   "datasets": {
+    "M2_aug": 28
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 148,
+   "medoid": {
+    "event_id": "accepted-e6acf7a95409d8f7",
+    "dataset": "M2_aug",
+    "recording_id": 12,
+    "channel": 11,
+    "start_idx": 845747,
+    "end_idx": 845895,
+    "duration_s": 148.0
+   }
+  },
+  {
+   "label": "F-05",
+   "n_members": 23,
+   "durations_s": [
+    546.5,
+    608.0,
+    897.95
+   ],
+   "min_corr": 0.9087,
+   "member_corr_quantiles": {
+    "0.1": 0.9087,
+    "0.5": 0.9687,
+    "0.9": 0.9865
+   },
+   "datasets": {
+    "M2_aug": 12,
+    "M2_concat": 4,
+    "M4": 2,
+    "LM": 2,
+    "MJu26a": 1,
+    "SH": 1,
+    "SO": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 602,
+   "medoid": {
+    "event_id": "accepted-8b431eb51bc81f5d",
+    "dataset": "M2_aug",
+    "recording_id": 16,
+    "channel": 15,
+    "start_idx": 329033,
+    "end_idx": 329635,
+    "duration_s": 602.0
+   }
+  },
+  {
+   "label": "F-06",
+   "n_members": 21,
+   "durations_s": [
+    28.5,
+    400.0,
+    800.5
+   ],
+   "min_corr": 0.9216,
+   "member_corr_quantiles": {
+    "0.1": 0.9216,
+    "0.5": 0.9486,
+    "0.9": 0.9889
+   },
+   "datasets": {
+    "M2_aug": 5,
+    "CO": 4,
+    "MJu26a": 4,
+    "LM": 3,
+    "SO": 3,
+    "M4": 1,
+    "SH": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 28,
+   "medoid": {
+    "event_id": "accepted-039c0fc7f417a400",
+    "dataset": "M4",
+    "recording_id": 50,
+    "channel": 1,
+    "start_idx": 160079,
+    "end_idx": 160107,
+    "duration_s": 28.0
+   }
+  },
+  {
+   "label": "F-07",
+   "n_members": 33,
+   "durations_s": [
+    251.0,
+    623.0,
+    730.5
+   ],
+   "min_corr": 0.9537,
+   "member_corr_quantiles": {
+    "0.1": 0.9537,
+    "0.5": 0.9774,
+    "0.9": 0.9919
+   },
+   "datasets": {
+    "M2_aug": 11,
+    "CO": 11,
+    "LM": 8,
+    "M2_concat": 2,
+    "M4": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 236,
+   "medoid": {
+    "event_id": "accepted-96f10bfec741398e",
+    "dataset": "M2_concat",
+    "recording_id": 34,
+    "channel": 1,
+    "start_idx": 282933,
+    "end_idx": 283169,
+    "duration_s": 236.0
+   }
+  },
+  {
+   "label": "F-08",
+   "n_members": 24,
+   "durations_s": [
+    400.0,
+    728.0,
+    736.5
+   ],
+   "min_corr": 0.9282,
+   "member_corr_quantiles": {
+    "0.1": 0.9282,
+    "0.5": 0.9644,
+    "0.9": 0.9802
+   },
+   "datasets": {
+    "M2_aug": 11,
+    "LM": 5,
+    "CO": 5,
+    "M2_concat": 1,
+    "M4": 1,
+    "MJu26a": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 1211,
+   "medoid": {
+    "event_id": "accepted-89551e7d75e3650b",
+    "dataset": "M2_aug",
+    "recording_id": 6,
+    "channel": 5,
+    "start_idx": 263534,
+    "end_idx": 264745,
+    "duration_s": 1211.0
+   }
+  },
+  {
+   "label": "F-09",
+   "n_members": 23,
+   "durations_s": [
+    15.5,
+    603.0,
+    1383.0
+   ],
+   "min_corr": 0.8857,
+   "member_corr_quantiles": {
+    "0.1": 0.8857,
+    "0.5": 0.9384,
+    "0.9": 0.987
+   },
+   "datasets": {
+    "M2_aug": 8,
+    "MJu26a": 7,
+    "M2_concat": 3,
+    "SO": 2,
+    "M4": 1,
+    "LM": 1,
+    "CO": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 17030,
+   "medoid": {
+    "event_id": "accepted-210b31d92d0ed4e4",
+    "dataset": "MJu26a",
+    "recording_id": 664,
+    "channel": 14,
+    "start_idx": 11170350,
+    "end_idx": 11187380,
+    "duration_s": 1703.0
+   }
+  },
+  {
+   "label": "F-11",
+   "n_members": 18,
+   "durations_s": [
+    169.5,
+    482.0,
+    892.875
+   ],
+   "min_corr": 0.8928,
+   "member_corr_quantiles": {
+    "0.1": 0.8928,
+    "0.5": 0.9621,
+    "0.9": 0.9829
+   },
+   "datasets": {
+    "M2_aug": 8,
+    "LM": 4,
+    "M2_concat": 3,
+    "CO": 1,
+    "SH": 1,
+    "SO": 1
+   },
+   "exemplar_fs": 2.0,
+   "exemplar_len": 1453,
+   "medoid": {
+    "event_id": "accepted-22a5cb6e960c994e",
+    "dataset": "LM",
+    "recording_id": 640,
+    "channel": 3,
+    "start_idx": 278025,
+    "end_idx": 279478,
+    "duration_s": 726.5
+   }
+  },
+  {
+   "label": "F-12",
+   "n_members": 18,
+   "durations_s": [
+    91.75,
+    382.5,
+    604.5
+   ],
+   "min_corr": 0.919,
+   "member_corr_quantiles": {
+    "0.1": 0.919,
+    "0.5": 0.9478,
+    "0.9": 0.9653
+   },
+   "datasets": {
+    "M2_aug": 8,
+    "M2_concat": 4,
+    "CO": 3,
+    "LM": 1,
+    "MJu26a": 1,
+    "SO": 1
+   },
+   "exemplar_fs": 2.0,
+   "exemplar_len": 54,
+   "medoid": {
+    "event_id": "accepted-b1de665330519976",
+    "dataset": "CO",
+    "recording_id": 641,
+    "channel": 0,
+    "start_idx": 748700,
+    "end_idx": 748754,
+    "duration_s": 27.0
+   }
+  },
+  {
+   "label": "F-14",
+   "n_members": 11,
+   "durations_s": [
+    3.8,
+    3.8,
+    44.55
+   ],
+   "min_corr": 0.9385,
+   "member_corr_quantiles": {
+    "0.1": 0.9385,
+    "0.5": 0.9668,
+    "0.9": 0.9816
+   },
+   "datasets": {
+    "MJu26a": 8,
+    "M2_aug": 2,
+    "SO": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 38,
+   "medoid": {
+    "event_id": "accepted-368fe470f5ab5f81",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 14741815,
+    "end_idx": 14741853,
+    "duration_s": 3.8
+   }
+  },
+  {
+   "label": "F-20",
+   "n_members": 77,
+   "durations_s": [
+    105.0,
+    105.0,
+    105.0
+   ],
+   "min_corr": 0.9857,
+   "member_corr_quantiles": {
+    "0.1": 0.9857,
+    "0.5": 0.993,
+    "0.9": 0.9971
+   },
+   "datasets": {
+    "M2_aug": 74,
+    "LM": 1,
+    "CO": 1,
+    "SH": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 105,
+   "medoid": {
+    "event_id": "accepted-f5ced8a04f4acdac",
+    "dataset": "M2_aug",
+    "recording_id": 7,
+    "channel": 6,
+    "start_idx": 1654481,
+    "end_idx": 1654586,
+    "duration_s": 105.0
+   }
+  },
+  {
+   "label": "F-21",
+   "n_members": 71,
+   "durations_s": [
+    105.0,
+    105.0,
+    105.0
+   ],
+   "min_corr": 0.9716,
+   "member_corr_quantiles": {
+    "0.1": 0.9716,
+    "0.5": 0.9884,
+    "0.9": 0.9942
+   },
+   "datasets": {
+    "M2_aug": 70,
+    "M2_concat": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 105,
+   "medoid": {
+    "event_id": "accepted-5741bd5d5ba8a736",
+    "dataset": "M2_aug",
+    "recording_id": 6,
+    "channel": 5,
+    "start_idx": 581578,
+    "end_idx": 581683,
+    "duration_s": 105.0
+   }
+  },
+  {
+   "label": "F-22",
+   "n_members": 10,
+   "durations_s": [
+    165.5,
+    603.0,
+    787.75
+   ],
+   "min_corr": 0.9206,
+   "member_corr_quantiles": {
+    "0.1": 0.9206,
+    "0.5": 0.9353,
+    "0.9": 0.965
+   },
+   "datasets": {
+    "M2_aug": 5,
+    "M4": 2,
+    "LM": 2,
+    "CO": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 603,
+   "medoid": {
+    "event_id": "accepted-eb8232fe6cc69adf",
+    "dataset": "M4",
+    "recording_id": 54,
+    "channel": 5,
+    "start_idx": 1599773,
+    "end_idx": 1600376,
+    "duration_s": 603.0
+   }
+  },
+  {
+   "label": "F-23",
+   "n_members": 103,
+   "durations_s": [
+    105.0,
+    105.0,
+    105.0
+   ],
+   "min_corr": 0.9697,
+   "member_corr_quantiles": {
+    "0.1": 0.9697,
+    "0.5": 0.9802,
+    "0.9": 0.9903
+   },
+   "datasets": {
+    "M2_aug": 102,
+    "M2_concat": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 105,
+   "medoid": {
+    "event_id": "accepted-f2ad2a4a3cbc8cc7",
+    "dataset": "M2_aug",
+    "recording_id": 2,
+    "channel": 1,
+    "start_idx": 250708,
+    "end_idx": 250813,
+    "duration_s": 105.0
+   }
+  },
+  {
+   "label": "F-25",
+   "n_members": 20,
+   "durations_s": [
+    657.0,
+    722.0,
+    777.75
+   ],
+   "min_corr": 0.941,
+   "member_corr_quantiles": {
+    "0.1": 0.941,
+    "0.5": 0.9758,
+    "0.9": 0.9905
+   },
+   "datasets": {
+    "LM": 11,
+    "M2_aug": 6,
+    "M2_concat": 1,
+    "M4": 1,
+    "MJu26a": 1
+   },
+   "exemplar_fs": 2.0,
+   "exemplar_len": 1377,
+   "medoid": {
+    "event_id": "accepted-7aa60a27b76cfa0a",
+    "dataset": "LM",
+    "recording_id": 638,
+    "channel": 1,
+    "start_idx": 1717289,
+    "end_idx": 1718666,
+    "duration_s": 688.5
+   }
+  },
+  {
+   "label": "F-27",
+   "n_members": 20,
+   "durations_s": [
+    329.0,
+    602.5,
+    714.5
+   ],
+   "min_corr": 0.8994,
+   "member_corr_quantiles": {
+    "0.1": 0.8994,
+    "0.5": 0.9467,
+    "0.9": 0.9772
+   },
+   "datasets": {
+    "M2_aug": 11,
+    "MJu26a": 3,
+    "LM": 2,
+    "CO": 2,
+    "M2_concat": 1,
+    "M4": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 622,
+   "medoid": {
+    "event_id": "accepted-87c0969ab2df733b",
+    "dataset": "M2_aug",
+    "recording_id": 1,
+    "channel": 0,
+    "start_idx": 1790312,
+    "end_idx": 1790934,
+    "duration_s": 622.0
+   }
+  },
+  {
+   "label": "F-28",
+   "n_members": 15,
+   "durations_s": [
+    623.75,
+    685.0,
+    1642.5
+   ],
+   "min_corr": 0.9476,
+   "member_corr_quantiles": {
+    "0.1": 0.9476,
+    "0.5": 0.9667,
+    "0.9": 0.9872
+   },
+   "datasets": {
+    "M2_aug": 10,
+    "LM": 2,
+    "M2_concat": 1,
+    "M4": 1,
+    "CO": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 40,
+   "medoid": {
+    "event_id": "accepted-d85332c7ce41f13c",
+    "dataset": "M2_aug",
+    "recording_id": 1,
+    "channel": 0,
+    "start_idx": 1321920,
+    "end_idx": 1321960,
+    "duration_s": 40.0
+   }
+  },
+  {
+   "label": "F-33",
+   "n_members": 10,
+   "durations_s": [
+    155.125,
+    324.0,
+    397.0
+   ],
+   "min_corr": 0.8953,
+   "member_corr_quantiles": {
+    "0.1": 0.8953,
+    "0.5": 0.922,
+    "0.9": 0.9388
+   },
+   "datasets": {
+    "M2_aug": 6,
+    "SH": 2,
+    "M4": 1,
+    "LM": 1
+   },
+   "exemplar_fs": 2.0,
+   "exemplar_len": 160,
+   "medoid": {
+    "event_id": "accepted-9006fb903cf42f57",
+    "dataset": "LM",
+    "recording_id": 637,
+    "channel": 0,
+    "start_idx": 540640,
+    "end_idx": 540800,
+    "duration_s": 80.0
+   }
+  },
+  {
+   "label": "F-35",
+   "n_members": 59,
+   "durations_s": [
+    816.0,
+    816.0,
+    816.0
+   ],
+   "min_corr": 0.9892,
+   "member_corr_quantiles": {
+    "0.1": 0.9892,
+    "0.5": 0.9948,
+    "0.9": 0.997
+   },
+   "datasets": {
+    "M2_aug": 56,
+    "M2_concat": 1,
+    "LM": 1,
+    "SO": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 816,
+   "medoid": {
+    "event_id": "accepted-0ee593172a937e49",
+    "dataset": "M2_aug",
+    "recording_id": 13,
+    "channel": 12,
+    "start_idx": 1823,
+    "end_idx": 2639,
+    "duration_s": 816.0
+   }
+  },
+  {
+   "label": "F-36",
+   "n_members": 34,
+   "durations_s": [
+    400.0,
+    602.0,
+    605.375
+   ],
+   "min_corr": 0.9011,
+   "member_corr_quantiles": {
+    "0.1": 0.9011,
+    "0.5": 0.9818,
+    "0.9": 0.9972
+   },
+   "datasets": {
+    "M2_aug": 11,
+    "MJu26a": 10,
+    "LM": 4,
+    "M2_concat": 3,
+    "M4": 3,
+    "CO": 2,
+    "SH": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 4000,
+   "medoid": {
+    "event_id": "accepted-6f2b5599805674cd",
+    "dataset": "MJu26a",
+    "recording_id": 664,
+    "channel": 14,
+    "start_idx": 7765841,
+    "end_idx": 7769841,
+    "duration_s": 400.0
+   }
+  },
+  {
+   "label": "F-39",
+   "n_members": 13,
+   "durations_s": [
+    720.0,
+    1200.0,
+    1203.0
+   ],
+   "min_corr": 0.9295,
+   "member_corr_quantiles": {
+    "0.1": 0.9295,
+    "0.5": 0.9701,
+    "0.9": 0.9905
+   },
+   "datasets": {
+    "M2_aug": 12,
+    "LM": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 1200,
+   "medoid": {
+    "event_id": "accepted-8b191888086b0246",
+    "dataset": "M2_aug",
+    "recording_id": 4,
+    "channel": 3,
+    "start_idx": 1531694,
+    "end_idx": 1532894,
+    "duration_s": 1200.0
+   }
+  },
+  {
+   "label": "F-40",
+   "n_members": 39,
+   "durations_s": [
+    21.5,
+    21.5,
+    21.5
+   ],
+   "min_corr": 0.9526,
+   "member_corr_quantiles": {
+    "0.1": 0.9526,
+    "0.5": 0.9731,
+    "0.9": 0.988
+   },
+   "datasets": {
+    "LM": 36,
+    "M2_aug": 1,
+    "M2_concat": 1,
+    "CO": 1
+   },
+   "exemplar_fs": 2.0,
+   "exemplar_len": 43,
+   "medoid": {
+    "event_id": "accepted-dcd6a753463edd2a",
+    "dataset": "LM",
+    "recording_id": 639,
+    "channel": 2,
+    "start_idx": 944784,
+    "end_idx": 944827,
+    "duration_s": 21.5
+   }
+  },
+  {
+   "label": "F-42",
+   "n_members": 27,
+   "durations_s": [
+    244.0,
+    247.0,
+    386.5
+   ],
+   "min_corr": 0.8724,
+   "member_corr_quantiles": {
+    "0.1": 0.8724,
+    "0.5": 0.9539,
+    "0.9": 0.9914
+   },
+   "datasets": {
+    "M2_aug": 22,
+    "M2_concat": 2,
+    "M4": 1,
+    "LM": 1,
+    "CO": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 246,
+   "medoid": {
+    "event_id": "accepted-e02dcd300b3ed9ca",
+    "dataset": "M2_aug",
+    "recording_id": 2,
+    "channel": 1,
+    "start_idx": 1075680,
+    "end_idx": 1075926,
+    "duration_s": 246.0
+   }
+  },
+  {
+   "label": "F-43",
+   "n_members": 10,
+   "durations_s": [
+    172.5,
+    227.5,
+    1903.0
+   ],
+   "min_corr": 0.8266,
+   "member_corr_quantiles": {
+    "0.1": 0.8266,
+    "0.5": 0.9128,
+    "0.9": 0.9577
+   },
+   "datasets": {
+    "M2_aug": 4,
+    "LM": 2,
+    "SO": 2,
+    "MJu26a": 1,
+    "SH": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 2500,
+   "medoid": {
+    "event_id": "accepted-037dc083682eb939",
+    "dataset": "M2_aug",
+    "recording_id": 6,
+    "channel": 5,
+    "start_idx": 1431844,
+    "end_idx": 1434344,
+    "duration_s": 2500.0
+   }
+  },
+  {
+   "label": "F-46",
+   "n_members": 38,
+   "durations_s": [
+    8.5,
+    8.7,
+    9.175
+   ],
+   "min_corr": 0.9767,
+   "member_corr_quantiles": {
+    "0.1": 0.9767,
+    "0.5": 0.9938,
+    "0.9": 0.9978
+   },
+   "datasets": {
+    "MJu26a": 36,
+    "SH": 2
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 88,
+   "medoid": {
+    "event_id": "accepted-a695e71c860f86be",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 13775547,
+    "end_idx": 13775635,
+    "duration_s": 8.8
+   }
+  },
+  {
+   "label": "F-47",
+   "n_members": 56,
+   "durations_s": [
+    9.675,
+    10.15,
+    11.025
+   ],
+   "min_corr": 0.9721,
+   "member_corr_quantiles": {
+    "0.1": 0.9721,
+    "0.5": 0.9893,
+    "0.9": 0.9981
+   },
+   "datasets": {
+    "MJu26a": 56
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 101,
+   "medoid": {
+    "event_id": "accepted-866efa95bfc58b26",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 15149514,
+    "end_idx": 15149615,
+    "duration_s": 10.1
+   }
+  },
+  {
+   "label": "F-48",
+   "n_members": 57,
+   "durations_s": [
+    10.2,
+    10.7,
+    11.4
+   ],
+   "min_corr": 0.9746,
+   "member_corr_quantiles": {
+    "0.1": 0.9746,
+    "0.5": 0.9894,
+    "0.9": 0.9974
+   },
+   "datasets": {
+    "MJu26a": 57
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 106,
+   "medoid": {
+    "event_id": "accepted-7020cdd5060d2447",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 16540368,
+    "end_idx": 16540474,
+    "duration_s": 10.6
+   }
+  },
+  {
+   "label": "F-49",
+   "n_members": 13,
+   "durations_s": [
+    76.0,
+    157.5,
+    270.5
+   ],
+   "min_corr": 0.9012,
+   "member_corr_quantiles": {
+    "0.1": 0.9012,
+    "0.5": 0.9115,
+    "0.9": 0.9605
+   },
+   "datasets": {
+    "M2_aug": 3,
+    "MJu26a": 3,
+    "SH": 3,
+    "CO": 2,
+    "M2_concat": 1,
+    "SO": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 400,
+   "medoid": {
+    "event_id": "accepted-851e0e7cc2d84494",
+    "dataset": "M2_aug",
+    "recording_id": 1,
+    "channel": 0,
+    "start_idx": 1574185,
+    "end_idx": 1574585,
+    "duration_s": 400.0
+   }
+  },
+  {
+   "label": "F-50",
+   "n_members": 18,
+   "durations_s": [
+    12.825,
+    13.35,
+    13.95
+   ],
+   "min_corr": 0.9121,
+   "member_corr_quantiles": {
+    "0.1": 0.9121,
+    "0.5": 0.9879,
+    "0.9": 0.9972
+   },
+   "datasets": {
+    "MJu26a": 14,
+    "M2_aug": 4
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 128,
+   "medoid": {
+    "event_id": "accepted-d927f8b385f39d55",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 14555217,
+    "end_idx": 14555345,
+    "duration_s": 12.8
+   }
+  },
+  {
+   "label": "F-51",
+   "n_members": 74,
+   "durations_s": [
+    9.9,
+    10.65,
+    11.0
+   ],
+   "min_corr": 0.9807,
+   "member_corr_quantiles": {
+    "0.1": 0.9807,
+    "0.5": 0.9911,
+    "0.9": 0.9989
+   },
+   "datasets": {
+    "MJu26a": 74
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 105,
+   "medoid": {
+    "event_id": "accepted-65784b74c79bb23e",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 15677368,
+    "end_idx": 15677473,
+    "duration_s": 10.5
+   }
+  },
+  {
+   "label": "F-53",
+   "n_members": 15,
+   "durations_s": [
+    604.0,
+    613.0,
+    733.0
+   ],
+   "min_corr": 0.8586,
+   "member_corr_quantiles": {
+    "0.1": 0.8586,
+    "0.5": 0.969,
+    "0.9": 0.9939
+   },
+   "datasets": {
+    "M2_aug": 5,
+    "LM": 4,
+    "M2_concat": 2,
+    "M4": 2,
+    "CO": 1,
+    "MJu26a": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 783,
+   "medoid": {
+    "event_id": "accepted-27c087b62cec8e6c",
+    "dataset": "M4",
+    "recording_id": 49,
+    "channel": 0,
+    "start_idx": 724246,
+    "end_idx": 725029,
+    "duration_s": 783.0
+   }
+  },
+  {
+   "label": "F-54",
+   "n_members": 10,
+   "durations_s": [
+    603.75,
+    657.5,
+    1910.5
+   ],
+   "min_corr": 0.9282,
+   "member_corr_quantiles": {
+    "0.1": 0.9282,
+    "0.5": 0.955,
+    "0.9": 0.9699
+   },
+   "datasets": {
+    "M2_aug": 7,
+    "M4": 2,
+    "M2_concat": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 693,
+   "medoid": {
+    "event_id": "accepted-33704f3d5a43fe15",
+    "dataset": "M4",
+    "recording_id": 51,
+    "channel": 2,
+    "start_idx": 1018710,
+    "end_idx": 1019403,
+    "duration_s": 693.0
+   }
+  },
+  {
+   "label": "F-59",
+   "n_members": 13,
+   "durations_s": [
+    10.7,
+    11.9,
+    645.5
+   ],
+   "min_corr": 0.9277,
+   "member_corr_quantiles": {
+    "0.1": 0.9277,
+    "0.5": 0.9512,
+    "0.9": 0.9899
+   },
+   "datasets": {
+    "MJu26a": 8,
+    "M2_aug": 3,
+    "M2_concat": 1,
+    "CO": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 107,
+   "medoid": {
+    "event_id": "accepted-f286fdf16abfacfb",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 14588416,
+    "end_idx": 14588523,
+    "duration_s": 10.7
+   }
+  },
+  {
+   "label": "F-60",
+   "n_members": 13,
+   "durations_s": [
+    105.0,
+    190.5,
+    825.0
+   ],
+   "min_corr": 0.8832,
+   "member_corr_quantiles": {
+    "0.1": 0.8832,
+    "0.5": 0.9429,
+    "0.9": 0.9772
+   },
+   "datasets": {
+    "M2_aug": 4,
+    "M4": 3,
+    "MJu26a": 2,
+    "M2_concat": 1,
+    "CO": 1,
+    "SH": 1,
+    "SO": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 173,
+   "medoid": {
+    "event_id": "accepted-7bc06d1e58610b45",
+    "dataset": "M2_aug",
+    "recording_id": 7,
+    "channel": 6,
+    "start_idx": 1163000,
+    "end_idx": 1163173,
+    "duration_s": 173.0
+   }
+  },
+  {
+   "label": "F-61",
+   "n_members": 12,
+   "durations_s": [
+    85.875,
+    139.5,
+    401.625
+   ],
+   "min_corr": 0.8653,
+   "member_corr_quantiles": {
+    "0.1": 0.8653,
+    "0.5": 0.9536,
+    "0.9": 0.9797
+   },
+   "datasets": {
+    "CO": 4,
+    "SO": 3,
+    "LM": 2,
+    "SH": 2,
+    "M2_concat": 1
+   },
+   "exemplar_fs": 2.0,
+   "exemplar_len": 32,
+   "medoid": {
+    "event_id": "accepted-17ecc1265c26db4d",
+    "dataset": "CO",
+    "recording_id": 643,
+    "channel": 2,
+    "start_idx": 1527098,
+    "end_idx": 1527130,
+    "duration_s": 16.0
+   }
+  },
+  {
+   "label": "F-63",
+   "n_members": 21,
+   "durations_s": [
+    187.0,
+    238.5,
+    400.0
+   ],
+   "min_corr": 0.8997,
+   "member_corr_quantiles": {
+    "0.1": 0.8997,
+    "0.5": 0.9623,
+    "0.9": 0.9817
+   },
+   "datasets": {
+    "M2_aug": 6,
+    "SH": 6,
+    "SO": 3,
+    "CO": 2,
+    "MJu26a": 2,
+    "M2_concat": 1,
+    "LM": 1
+   },
+   "exemplar_fs": 2.0,
+   "exemplar_len": 800,
+   "medoid": {
+    "event_id": "accepted-a8c5199cc107fb48",
+    "dataset": "SH",
+    "recording_id": 708,
+    "channel": 0,
+    "start_idx": 1151591,
+    "end_idx": 1152391,
+    "duration_s": 400.0
+   }
+  },
+  {
+   "label": "F-64",
+   "n_members": 10,
+   "durations_s": [
+    112.5,
+    316.5,
+    621.25
+   ],
+   "min_corr": 0.8744,
+   "member_corr_quantiles": {
+    "0.1": 0.8744,
+    "0.5": 0.9597,
+    "0.9": 0.9682
+   },
+   "datasets": {
+    "M2_concat": 3,
+    "SO": 3,
+    "M2_aug": 1,
+    "LM": 1,
+    "MJu26a": 1,
+    "SH": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 56,
+   "medoid": {
+    "event_id": "accepted-e66bcd0926e0459a",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 16142321,
+    "end_idx": 16142377,
+    "duration_s": 5.6
+   }
+  },
+  {
+   "label": "F-65",
+   "n_members": 12,
+   "durations_s": [
+    201.75,
+    349.5,
+    400.0
+   ],
+   "min_corr": 0.8381,
+   "member_corr_quantiles": {
+    "0.1": 0.8381,
+    "0.5": 0.923,
+    "0.9": 0.9562
+   },
+   "datasets": {
+    "M2_aug": 4,
+    "SO": 3,
+    "CO": 2,
+    "M2_concat": 1,
+    "M4": 1,
+    "SH": 1
+   },
+   "exemplar_fs": 2.0,
+   "exemplar_len": 800,
+   "medoid": {
+    "event_id": "accepted-e2de23656c2216f4",
+    "dataset": "CO",
+    "recording_id": 644,
+    "channel": 3,
+    "start_idx": 2334351,
+    "end_idx": 2335151,
+    "duration_s": 400.0
+   }
+  },
+  {
+   "label": "F-73",
+   "n_members": 10,
+   "durations_s": [
+    50.0,
+    90.0,
+    137.5
+   ],
+   "min_corr": 0.8724,
+   "member_corr_quantiles": {
+    "0.1": 0.8724,
+    "0.5": 0.9364,
+    "0.9": 0.9784
+   },
+   "datasets": {
+    "M2_aug": 6,
+    "CO": 3,
+    "MJu26a": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 100,
+   "medoid": {
+    "event_id": "accepted-b142c931ba7137ea",
+    "dataset": "M2_aug",
+    "recording_id": 1,
+    "channel": 0,
+    "start_idx": 712540,
+    "end_idx": 712640,
+    "duration_s": 100.0
+   }
+  },
+  {
+   "label": "F-74",
+   "n_members": 10,
+   "durations_s": [
+    40.0,
+    40.0,
+    70.0
+   ],
+   "min_corr": 0.9205,
+   "member_corr_quantiles": {
+    "0.1": 0.9205,
+    "0.5": 0.9613,
+    "0.9": 0.9924
+   },
+   "datasets": {
+    "LM": 6,
+    "M2_aug": 2,
+    "M4": 2
+   },
+   "exemplar_fs": 2.0,
+   "exemplar_len": 80,
+   "medoid": {
+    "event_id": "accepted-9c56d193f95b90aa",
+    "dataset": "LM",
+    "recording_id": 637,
+    "channel": 0,
+    "start_idx": 553360,
+    "end_idx": 553440,
+    "duration_s": 40.0
+   }
+  },
+  {
+   "label": "F-76",
+   "n_members": 13,
+   "durations_s": [
+    40.0,
+    89.5,
+    126.0
+   ],
+   "min_corr": 0.8276,
+   "member_corr_quantiles": {
+    "0.1": 0.8276,
+    "0.5": 0.9285,
+    "0.9": 0.9694
+   },
+   "datasets": {
+    "M2_aug": 11,
+    "CO": 2
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 80,
+   "medoid": {
+    "event_id": "accepted-d2bb23be100a6e7a",
+    "dataset": "M2_aug",
+    "recording_id": 1,
+    "channel": 0,
+    "start_idx": 651460,
+    "end_idx": 651540,
+    "duration_s": 80.0
+   }
+  },
+  {
+   "label": "F-80",
+   "n_members": 10,
+   "durations_s": [
+    295.25,
+    400.0,
+    553.75
+   ],
+   "min_corr": 0.8577,
+   "member_corr_quantiles": {
+    "0.1": 0.8577,
+    "0.5": 0.9114,
+    "0.9": 0.9478
+   },
+   "datasets": {
+    "M2_aug": 4,
+    "M2_concat": 2,
+    "MJu26a": 2,
+    "CO": 1,
+    "SO": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 108,
+   "medoid": {
+    "event_id": "accepted-c873b061213986a6",
+    "dataset": "M2_aug",
+    "recording_id": 2,
+    "channel": 1,
+    "start_idx": 1638013,
+    "end_idx": 1638121,
+    "duration_s": 108.0
+   }
+  },
+  {
+   "label": "F-83",
+   "n_members": 13,
+   "durations_s": [
+    38.0,
+    89.0,
+    111.0
+   ],
+   "min_corr": 0.8694,
+   "member_corr_quantiles": {
+    "0.1": 0.8694,
+    "0.5": 0.9119,
+    "0.9": 0.9517
+   },
+   "datasets": {
+    "MJu26a": 10,
+    "M2_aug": 2,
+    "SO": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 920,
+   "medoid": {
+    "event_id": "accepted-6675dd6c04d54527",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 15786920,
+    "end_idx": 15787840,
+    "duration_s": 92.0
+   }
+  },
+  {
+   "label": "F-86",
+   "n_members": 33,
+   "durations_s": [
+    65.0,
+    76.1,
+    253.5
+   ],
+   "min_corr": 0.9063,
+   "member_corr_quantiles": {
+    "0.1": 0.9063,
+    "0.5": 0.967,
+    "0.9": 0.9954
+   },
+   "datasets": {
+    "MJu26a": 29,
+    "LM": 2,
+    "M2_aug": 1,
+    "CO": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 682,
+   "medoid": {
+    "event_id": "accepted-35fdc53e808a2b4b",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 16751200,
+    "end_idx": 16751882,
+    "duration_s": 68.2
+   }
+  },
+  {
+   "label": "F-87",
+   "n_members": 28,
+   "durations_s": [
+    53.9,
+    59.15,
+    65.05
+   ],
+   "min_corr": 0.9086,
+   "member_corr_quantiles": {
+    "0.1": 0.9086,
+    "0.5": 0.9543,
+    "0.9": 0.993
+   },
+   "datasets": {
+    "MJu26a": 22,
+    "SO": 3,
+    "M2_aug": 2,
+    "SH": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 554,
+   "medoid": {
+    "event_id": "accepted-113cffcdbd182d72",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 16523621,
+    "end_idx": 16524175,
+    "duration_s": 55.4
+   }
+  },
+  {
+   "label": "F-88",
+   "n_members": 13,
+   "durations_s": [
+    61.6,
+    68.3,
+    377.0
+   ],
+   "min_corr": 0.8621,
+   "member_corr_quantiles": {
+    "0.1": 0.8621,
+    "0.5": 0.937,
+    "0.9": 0.9816
+   },
+   "datasets": {
+    "MJu26a": 6,
+    "M2_aug": 4,
+    "LM": 3
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 298,
+   "medoid": {
+    "event_id": "accepted-1aea6fa86cac7a74",
+    "dataset": "M2_aug",
+    "recording_id": 2,
+    "channel": 1,
+    "start_idx": 1594200,
+    "end_idx": 1594498,
+    "duration_s": 298.0
+   }
+  },
+  {
+   "label": "F-89",
+   "n_members": 10,
+   "durations_s": [
+    254.5,
+    341.0,
+    597.75
+   ],
+   "min_corr": 0.9446,
+   "member_corr_quantiles": {
+    "0.1": 0.9446,
+    "0.5": 0.9943,
+    "0.9": 0.9984
+   },
+   "datasets": {
+    "M2_aug": 8,
+    "M2_concat": 1,
+    "LM": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 370,
+   "medoid": {
+    "event_id": "accepted-ad0738331226a0b8",
+    "dataset": "M2_aug",
+    "recording_id": 2,
+    "channel": 1,
+    "start_idx": 1605031,
+    "end_idx": 1605401,
+    "duration_s": 370.0
+   }
+  },
+  {
+   "label": "F-90",
+   "n_members": 20,
+   "durations_s": [
+    645.875,
+    811.2,
+    1019.1
+   ],
+   "min_corr": 0.9679,
+   "member_corr_quantiles": {
+    "0.1": 0.9679,
+    "0.5": 0.9864,
+    "0.9": 0.9967
+   },
+   "datasets": {
+    "MJu26a": 16,
+    "M2_concat": 2,
+    "CO": 2
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 7974,
+   "medoid": {
+    "event_id": "accepted-5427476a11f7a385",
+    "dataset": "MJu26a",
+    "recording_id": 664,
+    "channel": 14,
+    "start_idx": 9780389,
+    "end_idx": 9788363,
+    "duration_s": 797.4
+   }
+  },
+  {
+   "label": "F-97",
+   "n_members": 11,
+   "durations_s": [
+    153.25,
+    175.0,
+    397.75
+   ],
+   "min_corr": 0.7868,
+   "member_corr_quantiles": {
+    "0.1": 0.7868,
+    "0.5": 0.9043,
+    "0.9": 0.928
+   },
+   "datasets": {
+    "M2_aug": 4,
+    "CO": 4,
+    "LM": 1,
+    "MJu26a": 1,
+    "SO": 1
+   },
+   "exemplar_fs": 2.0,
+   "exemplar_len": 377,
+   "medoid": {
+    "event_id": "accepted-313a35906025b5ea",
+    "dataset": "CO",
+    "recording_id": 644,
+    "channel": 3,
+    "start_idx": 2579794,
+    "end_idx": 2580171,
+    "duration_s": 188.5
+   }
+  },
+  {
+   "label": "F-99",
+   "n_members": 10,
+   "durations_s": [
+    17.125,
+    18.4,
+    18.975
+   ],
+   "min_corr": 0.9536,
+   "member_corr_quantiles": {
+    "0.1": 0.9536,
+    "0.5": 0.9687,
+    "0.9": 0.984
+   },
+   "datasets": {
+    "MJu26a": 10
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 188,
+   "medoid": {
+    "event_id": "accepted-7253614d5217100d",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 16594228,
+    "end_idx": 16594416,
+    "duration_s": 18.8
+   }
+  },
+  {
+   "label": "F-100",
+   "n_members": 12,
+   "durations_s": [
+    70.25,
+    249.3,
+    360.125
+   ],
+   "min_corr": 0.8706,
+   "member_corr_quantiles": {
+    "0.1": 0.8706,
+    "0.5": 0.9582,
+    "0.9": 0.9855
+   },
+   "datasets": {
+    "M2_aug": 7,
+    "MJu26a": 3,
+    "CO": 1,
+    "SO": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 4955,
+   "medoid": {
+    "event_id": "accepted-6d2ee61a4525fe29",
+    "dataset": "MJu26a",
+    "recording_id": 664,
+    "channel": 14,
+    "start_idx": 7889474,
+    "end_idx": 7894429,
+    "duration_s": 495.5
+   }
+  },
+  {
+   "label": "F-101",
+   "n_members": 14,
+   "durations_s": [
+    34.325,
+    35.4,
+    39.325
+   ],
+   "min_corr": 0.9752,
+   "member_corr_quantiles": {
+    "0.1": 0.9752,
+    "0.5": 0.9838,
+    "0.9": 0.9904
+   },
+   "datasets": {
+    "MJu26a": 14
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 385,
+   "medoid": {
+    "event_id": "accepted-ea00aacc30815dc6",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 15520812,
+    "end_idx": 15521197,
+    "duration_s": 38.5
+   }
+  },
+  {
+   "label": "F-102",
+   "n_members": 15,
+   "durations_s": [
+    38.0,
+    39.8,
+    42.8
+   ],
+   "min_corr": 0.9586,
+   "member_corr_quantiles": {
+    "0.1": 0.9586,
+    "0.5": 0.9841,
+    "0.9": 0.9955
+   },
+   "datasets": {
+    "MJu26a": 14,
+    "M4": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 433,
+   "medoid": {
+    "event_id": "accepted-01b28fe2dea017a1",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 15609351,
+    "end_idx": 15609784,
+    "duration_s": 43.3
+   }
+  },
+  {
+   "label": "F-103",
+   "n_members": 19,
+   "durations_s": [
+    205.0,
+    416.0,
+    636.5
+   ],
+   "min_corr": 0.7972,
+   "member_corr_quantiles": {
+    "0.1": 0.7972,
+    "0.5": 0.8945,
+    "0.9": 0.9524
+   },
+   "datasets": {
+    "M2_aug": 13,
+    "MJu26a": 3,
+    "CO": 2,
+    "LM": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 196,
+   "medoid": {
+    "event_id": "accepted-c66a77980404bd2e",
+    "dataset": "M2_aug",
+    "recording_id": 12,
+    "channel": 11,
+    "start_idx": 297474,
+    "end_idx": 297670,
+    "duration_s": 196.0
+   }
+  },
+  {
+   "label": "F-104",
+   "n_members": 11,
+   "durations_s": [
+    29.0,
+    153.5,
+    607.5
+   ],
+   "min_corr": 0.9308,
+   "member_corr_quantiles": {
+    "0.1": 0.9308,
+    "0.5": 0.9527,
+    "0.9": 0.9748
+   },
+   "datasets": {
+    "MJu26a": 5,
+    "SO": 3,
+    "M2_concat": 2,
+    "SH": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 533,
+   "medoid": {
+    "event_id": "accepted-0d58b5f770a65199",
+    "dataset": "M2_concat",
+    "recording_id": 43,
+    "channel": 10,
+    "start_idx": 308146,
+    "end_idx": 308679,
+    "duration_s": 533.0
+   }
+  },
+  {
+   "label": "F-105",
+   "n_members": 25,
+   "durations_s": [
+    38.4,
+    55.0,
+    463.4
+   ],
+   "min_corr": 0.9243,
+   "member_corr_quantiles": {
+    "0.1": 0.9243,
+    "0.5": 0.9548,
+    "0.9": 0.9871
+   },
+   "datasets": {
+    "MJu26a": 14,
+    "M2_aug": 4,
+    "CO": 4,
+    "M2_concat": 1,
+    "SH": 1,
+    "SO": 1
+   },
+   "exemplar_fs": 1.0,
+   "exemplar_len": 14,
+   "medoid": {
+    "event_id": "accepted-0b566512c763eeb2",
+    "dataset": "M2_aug",
+    "recording_id": 10,
+    "channel": 9,
+    "start_idx": 787867,
+    "end_idx": 787881,
+    "duration_s": 14.0
+   }
+  },
+  {
+   "label": "F-106",
+   "n_members": 34,
+   "durations_s": [
+    33.625,
+    35.25,
+    37.975
+   ],
+   "min_corr": 0.9474,
+   "member_corr_quantiles": {
+    "0.1": 0.9474,
+    "0.5": 0.9788,
+    "0.9": 0.9943
+   },
+   "datasets": {
+    "MJu26a": 32,
+    "M2_aug": 2
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 358,
+   "medoid": {
+    "event_id": "accepted-0d5df695c5ccc05b",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 15136418,
+    "end_idx": 15136776,
+    "duration_s": 35.8
+   }
+  },
+  {
+   "label": "F-108",
+   "n_members": 21,
+   "durations_s": [
+    29.7,
+    32.9,
+    34.5
+   ],
+   "min_corr": 0.8724,
+   "member_corr_quantiles": {
+    "0.1": 0.8724,
+    "0.5": 0.9856,
+    "0.9": 0.9978
+   },
+   "datasets": {
+    "MJu26a": 20,
+    "M2_aug": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 329,
+   "medoid": {
+    "event_id": "accepted-45c4730fc24ce6d0",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 14913855,
+    "end_idx": 14914184,
+    "duration_s": 32.9
+   }
+  },
+  {
+   "label": "F-109",
+   "n_members": 13,
+   "durations_s": [
+    141.5,
+    281.0,
+    785.0
+   ],
+   "min_corr": 0.692,
+   "member_corr_quantiles": {
+    "0.1": 0.692,
+    "0.5": 0.8396,
+    "0.9": 0.9436
+   },
+   "datasets": {
+    "M2_aug": 5,
+    "CO": 3,
+    "MJu26a": 3,
+    "M2_concat": 2
+   },
+   "exemplar_fs": 2.0,
+   "exemplar_len": 275,
+   "medoid": {
+    "event_id": "accepted-909c01803f362999",
+    "dataset": "CO",
+    "recording_id": 644,
+    "channel": 3,
+    "start_idx": 2106626,
+    "end_idx": 2106901,
+    "duration_s": 137.5
+   }
+  },
+  {
+   "label": "F-110",
+   "n_members": 12,
+   "durations_s": [
+    95.175,
+    264.75,
+    704.125
+   ],
+   "min_corr": 0.7803,
+   "member_corr_quantiles": {
+    "0.1": 0.7803,
+    "0.5": 0.9009,
+    "0.9": 0.9769
+   },
+   "datasets": {
+    "M2_aug": 3,
+    "CO": 3,
+    "MJu26a": 3,
+    "M2_concat": 1,
+    "SH": 1,
+    "SO": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 543,
+   "medoid": {
+    "event_id": "accepted-d3018592c8a08135",
+    "dataset": "MJu26a",
+    "recording_id": 652,
+    "channel": 2,
+    "start_idx": 19561883,
+    "end_idx": 19562426,
+    "duration_s": 54.3
+   }
+  },
+  {
+   "label": "F-113",
+   "n_members": 24,
+   "durations_s": [
+    11.85,
+    12.65,
+    13.5
+   ],
+   "min_corr": 0.9642,
+   "member_corr_quantiles": {
+    "0.1": 0.9642,
+    "0.5": 0.9877,
+    "0.9": 0.9977
+   },
+   "datasets": {
+    "MJu26a": 23,
+    "M2_aug": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 123,
+   "medoid": {
+    "event_id": "accepted-54121fecf9aa2de9",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 15934707,
+    "end_idx": 15934830,
+    "duration_s": 12.3
+   }
+  },
+  {
+   "label": "F-114",
+   "n_members": 16,
+   "durations_s": [
+    14.2,
+    15.8,
+    307.25
+   ],
+   "min_corr": 0.8854,
+   "member_corr_quantiles": {
+    "0.1": 0.8854,
+    "0.5": 0.9699,
+    "0.9": 0.9964
+   },
+   "datasets": {
+    "MJu26a": 10,
+    "M4": 2,
+    "SH": 2,
+    "M2_aug": 1,
+    "CO": 1
+   },
+   "exemplar_fs": 10.0,
+   "exemplar_len": 147,
+   "medoid": {
+    "event_id": "accepted-960a7a778d2bdad8",
+    "dataset": "MJu26a",
+    "recording_id": 663,
+    "channel": 13,
+    "start_idx": 16055990,
+    "end_idx": 16056137,
+    "duration_s": 14.7
+   }
+  }
+ ]
+}

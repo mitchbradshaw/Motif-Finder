@@ -1,0 +1,1101 @@
+{
+ "reference": {
+  "key": "MJu26a_CH15",
+  "title": "MJu26a CH15 (lion's mane), 120-384 h at 2 Hz",
+  "rec": 706,
+  "canonical": 664,
+  "start_h": 120.0,
+  "hours": 264.0,
+  "why": "the 143-member long train (loose boundaries, long members)"
+ },
+ "key": "MJu26a_CH15",
+ "every_family": false,
+ "seed_min_family_line": 0.95,
+ "recording": {
+  "id": 706,
+  "source_file": "MJu26a_fs2.mat",
+  "channel": 14,
+  "fs": 2.0,
+  "units": "V",
+  "npy_path": "DATA/derived/channels/MJu26a_fs2/CH14.npy"
+ },
+ "stretch": {
+  "start_idx": 864000,
+  "end_idx": 2764800,
+  "n_samples": 1900800
+ },
+ "floor_mv": 0.03,
+ "floor_source": "Settings \u203a Datasets meta.MJu26a.noise_floor",
+ "wall_s": 49.8274437,
+ "timings": {
+  "detector:drop_detection_v1": 0.3613573999998607,
+  "detector:drop_detection_v5": 0.5607233000000633,
+  "detector:wavelet_encoded": 8.408889700000145,
+  "detector:BEADs_invert_detect_v1": 0.31453850000002603,
+  "seeds": 24.097287699999924,
+  "r4_scan": 15.432052800000065,
+  "merge": 0.11220129999992423,
+  "r4_candidates": 0.1262014999999792,
+  "sequences": 0.00936960000012732
+ },
+ "scan_windows": 50676,
+ "info": {
+  "n_samples": 1900800,
+  "fs": 2.0,
+  "start_idx": 864000,
+  "units": "V",
+  "unit_note": null,
+  "floor_mv": 0.03,
+  "detector_counts": {
+   "drop_detection_v1": 138,
+   "drop_detection_v5": 178,
+   "wavelet_encoded": 187,
+   "BEADs_invert_detect_v1": 122
+  },
+  "seed_report": [
+   {
+    "family": "F-01",
+    "n_members": 162,
+    "min_corr": 0.9945,
+    "lengths": [
+     754
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 40,
+    "below_floor": 0,
+    "kept": 40,
+    "skipped": null
+   },
+   {
+    "family": "F-02",
+    "n_members": 413,
+    "min_corr": 0.9937,
+    "lengths": [
+     754
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 27,
+    "below_floor": 0,
+    "kept": 27,
+    "skipped": null
+   },
+   {
+    "family": "F-03",
+    "n_members": 20,
+    "min_corr": 0.9268,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.927 < 0.95)"
+   },
+   {
+    "family": "F-04",
+    "n_members": 28,
+    "min_corr": 0.8842,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.884 < 0.95)"
+   },
+   {
+    "family": "F-05",
+    "n_members": 23,
+    "min_corr": 0.9087,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.909 < 0.95)"
+   },
+   {
+    "family": "F-06",
+    "n_members": 21,
+    "min_corr": 0.9216,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.922 < 0.95)"
+   },
+   {
+    "family": "F-07",
+    "n_members": 33,
+    "min_corr": 0.9537,
+    "lengths": [
+     502,
+     1246,
+     1461
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 116,
+    "below_floor": 0,
+    "kept": 116,
+    "skipped": null
+   },
+   {
+    "family": "F-08",
+    "n_members": 24,
+    "min_corr": 0.9282,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.928 < 0.95)"
+   },
+   {
+    "family": "F-09",
+    "n_members": 23,
+    "min_corr": 0.8857,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.886 < 0.95)"
+   },
+   {
+    "family": "F-11",
+    "n_members": 18,
+    "min_corr": 0.8928,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.893 < 0.95)"
+   },
+   {
+    "family": "F-12",
+    "n_members": 18,
+    "min_corr": 0.919,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.919 < 0.95)"
+   },
+   {
+    "family": "F-14",
+    "n_members": 11,
+    "min_corr": 0.9385,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.939 < 0.95)"
+   },
+   {
+    "family": "F-20",
+    "n_members": 77,
+    "min_corr": 0.9857,
+    "lengths": [
+     210
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": null
+   },
+   {
+    "family": "F-21",
+    "n_members": 71,
+    "min_corr": 0.9716,
+    "lengths": [
+     210
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": null
+   },
+   {
+    "family": "F-22",
+    "n_members": 10,
+    "min_corr": 0.9206,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.921 < 0.95)"
+   },
+   {
+    "family": "F-23",
+    "n_members": 103,
+    "min_corr": 0.9697,
+    "lengths": [
+     210
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": null
+   },
+   {
+    "family": "F-25",
+    "n_members": 20,
+    "min_corr": 0.941,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.941 < 0.95)"
+   },
+   {
+    "family": "F-27",
+    "n_members": 20,
+    "min_corr": 0.8994,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.899 < 0.95)"
+   },
+   {
+    "family": "F-28",
+    "n_members": 15,
+    "min_corr": 0.9476,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.948 < 0.95)"
+   },
+   {
+    "family": "F-33",
+    "n_members": 10,
+    "min_corr": 0.8953,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.895 < 0.95)"
+   },
+   {
+    "family": "F-35",
+    "n_members": 59,
+    "min_corr": 0.9892,
+    "lengths": [
+     1632
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 19,
+    "below_floor": 0,
+    "kept": 19,
+    "skipped": null
+   },
+   {
+    "family": "F-36",
+    "n_members": 34,
+    "min_corr": 0.9011,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.901 < 0.95)"
+   },
+   {
+    "family": "F-39",
+    "n_members": 13,
+    "min_corr": 0.9295,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.929 < 0.95)"
+   },
+   {
+    "family": "F-40",
+    "n_members": 39,
+    "min_corr": 0.9526,
+    "lengths": [
+     43
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 1,
+    "below_floor": 0,
+    "kept": 1,
+    "skipped": null
+   },
+   {
+    "family": "F-42",
+    "n_members": 27,
+    "min_corr": 0.8724,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.872 < 0.95)"
+   },
+   {
+    "family": "F-43",
+    "n_members": 10,
+    "min_corr": 0.8266,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.827 < 0.95)"
+   },
+   {
+    "family": "F-46",
+    "n_members": 38,
+    "min_corr": 0.9767,
+    "lengths": [
+     17,
+     18
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": null
+   },
+   {
+    "family": "F-47",
+    "n_members": 56,
+    "min_corr": 0.9721,
+    "lengths": [
+     19,
+     20,
+     22
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": null
+   },
+   {
+    "family": "F-48",
+    "n_members": 57,
+    "min_corr": 0.9746,
+    "lengths": [
+     20,
+     21,
+     23
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": null
+   },
+   {
+    "family": "F-49",
+    "n_members": 13,
+    "min_corr": 0.9012,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.901 < 0.95)"
+   },
+   {
+    "family": "F-50",
+    "n_members": 18,
+    "min_corr": 0.9121,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.912 < 0.95)"
+   },
+   {
+    "family": "F-51",
+    "n_members": 74,
+    "min_corr": 0.9807,
+    "lengths": [
+     20,
+     21,
+     22
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": null
+   },
+   {
+    "family": "F-53",
+    "n_members": 15,
+    "min_corr": 0.8586,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.859 < 0.95)"
+   },
+   {
+    "family": "F-54",
+    "n_members": 10,
+    "min_corr": 0.9282,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.928 < 0.95)"
+   },
+   {
+    "family": "F-59",
+    "n_members": 13,
+    "min_corr": 0.9277,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.928 < 0.95)"
+   },
+   {
+    "family": "F-60",
+    "n_members": 13,
+    "min_corr": 0.8832,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.883 < 0.95)"
+   },
+   {
+    "family": "F-61",
+    "n_members": 12,
+    "min_corr": 0.8653,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.865 < 0.95)"
+   },
+   {
+    "family": "F-63",
+    "n_members": 21,
+    "min_corr": 0.8997,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.900 < 0.95)"
+   },
+   {
+    "family": "F-64",
+    "n_members": 10,
+    "min_corr": 0.8744,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.874 < 0.95)"
+   },
+   {
+    "family": "F-65",
+    "n_members": 12,
+    "min_corr": 0.8381,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.838 < 0.95)"
+   },
+   {
+    "family": "F-73",
+    "n_members": 10,
+    "min_corr": 0.8724,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.872 < 0.95)"
+   },
+   {
+    "family": "F-74",
+    "n_members": 10,
+    "min_corr": 0.9205,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.920 < 0.95)"
+   },
+   {
+    "family": "F-76",
+    "n_members": 13,
+    "min_corr": 0.8276,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.828 < 0.95)"
+   },
+   {
+    "family": "F-80",
+    "n_members": 10,
+    "min_corr": 0.8577,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.858 < 0.95)"
+   },
+   {
+    "family": "F-83",
+    "n_members": 13,
+    "min_corr": 0.8694,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.869 < 0.95)"
+   },
+   {
+    "family": "F-86",
+    "n_members": 33,
+    "min_corr": 0.9063,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.906 < 0.95)"
+   },
+   {
+    "family": "F-87",
+    "n_members": 28,
+    "min_corr": 0.9086,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.909 < 0.95)"
+   },
+   {
+    "family": "F-88",
+    "n_members": 13,
+    "min_corr": 0.8621,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.862 < 0.95)"
+   },
+   {
+    "family": "F-89",
+    "n_members": 10,
+    "min_corr": 0.9446,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.945 < 0.95)"
+   },
+   {
+    "family": "F-90",
+    "n_members": 20,
+    "min_corr": 0.9679,
+    "lengths": [
+     1292,
+     1622,
+     2038
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 294,
+    "below_floor": 0,
+    "kept": 294,
+    "skipped": null
+   },
+   {
+    "family": "F-97",
+    "n_members": 11,
+    "min_corr": 0.7868,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.787 < 0.95)"
+   },
+   {
+    "family": "F-99",
+    "n_members": 10,
+    "min_corr": 0.9536,
+    "lengths": [
+     34,
+     37,
+     38
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": null
+   },
+   {
+    "family": "F-100",
+    "n_members": 12,
+    "min_corr": 0.8706,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.871 < 0.95)"
+   },
+   {
+    "family": "F-101",
+    "n_members": 14,
+    "min_corr": 0.9752,
+    "lengths": [
+     69,
+     71,
+     79
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": null
+   },
+   {
+    "family": "F-102",
+    "n_members": 15,
+    "min_corr": 0.9586,
+    "lengths": [
+     76,
+     80,
+     86
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": null
+   },
+   {
+    "family": "F-103",
+    "n_members": 19,
+    "min_corr": 0.7972,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.797 < 0.95)"
+   },
+   {
+    "family": "F-104",
+    "n_members": 11,
+    "min_corr": 0.9308,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.931 < 0.95)"
+   },
+   {
+    "family": "F-105",
+    "n_members": 25,
+    "min_corr": 0.9243,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.924 < 0.95)"
+   },
+   {
+    "family": "F-106",
+    "n_members": 34,
+    "min_corr": 0.9474,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.947 < 0.95)"
+   },
+   {
+    "family": "F-108",
+    "n_members": 21,
+    "min_corr": 0.8724,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.872 < 0.95)"
+   },
+   {
+    "family": "F-109",
+    "n_members": 13,
+    "min_corr": 0.692,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.692 < 0.95)"
+   },
+   {
+    "family": "F-110",
+    "n_members": 12,
+    "min_corr": 0.7803,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.780 < 0.95)"
+   },
+   {
+    "family": "F-113",
+    "n_members": 24,
+    "min_corr": 0.9642,
+    "lengths": [
+     24,
+     25,
+     27
+    ],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": null
+   },
+   {
+    "family": "F-114",
+    "n_members": 16,
+    "min_corr": 0.8854,
+    "lengths": [],
+    "capped_lengths": [],
+    "matches_before_floor": 0,
+    "below_floor": 0,
+    "kept": 0,
+    "skipped": "members too unlike their medoid (line r 0.885 < 0.95)"
+   }
+  ],
+  "scan_windows_above_min_p": 6291,
+  "scan_p_quantiles": {
+   "0.5": 0.029150643672282983,
+   "0.9": 0.6894301441974096,
+   "0.99": 0.9940889815531437
+  },
+  "sequence_info": {
+   "min_confidence": 0.5,
+   "min_events": 5,
+   "n_in": 663,
+   "rule": "gap <= 3600 s",
+   "cut_s": 3600.0,
+   "reason": "logISI found no trains (one hump: the log-gap density has no peak after the intra-train peak at 1438 s, so no valley to cut at - no trains); the fixed-gap rule was used",
+   "n_sequences": 20
+  },
+  "errors": {},
+  "counts": {
+   "proposals": 1122,
+   "candidates": 673,
+   "r4_scan_only": 198,
+   "sequences": 20
+  }
+ },
+ "evaluation": {
+  "by_threshold": [
+   {
+    "threshold": 0.3,
+    "candidates": 673,
+    "r4_scan_only": 198,
+    "accepted_found": 173,
+    "accepted_total": 186,
+    "recall": 0.9301075268817204,
+    "on_accepted": 266,
+    "on_rejected": 20,
+    "hit_rate": 0.9300699300699301,
+    "unjudged": 387,
+    "proposals": 475,
+    "proposals_found": 167,
+    "proposals_recall": 0.8978494623655914,
+    "proposals_hit_rate": 0.9404255319148936
+   },
+   {
+    "threshold": 0.35,
+    "candidates": 673,
+    "r4_scan_only": 198,
+    "accepted_found": 173,
+    "accepted_total": 186,
+    "recall": 0.9301075268817204,
+    "on_accepted": 266,
+    "on_rejected": 20,
+    "hit_rate": 0.9300699300699301,
+    "unjudged": 387,
+    "proposals": 475,
+    "proposals_found": 167,
+    "proposals_recall": 0.8978494623655914,
+    "proposals_hit_rate": 0.9404255319148936
+   },
+   {
+    "threshold": 0.4,
+    "candidates": 673,
+    "r4_scan_only": 198,
+    "accepted_found": 173,
+    "accepted_total": 186,
+    "recall": 0.9301075268817204,
+    "on_accepted": 266,
+    "on_rejected": 20,
+    "hit_rate": 0.9300699300699301,
+    "unjudged": 387,
+    "proposals": 475,
+    "proposals_found": 167,
+    "proposals_recall": 0.8978494623655914,
+    "proposals_hit_rate": 0.9404255319148936
+   },
+   {
+    "threshold": 0.45,
+    "candidates": 670,
+    "r4_scan_only": 198,
+    "accepted_found": 172,
+    "accepted_total": 186,
+    "recall": 0.9247311827956989,
+    "on_accepted": 264,
+    "on_rejected": 20,
+    "hit_rate": 0.9295774647887324,
+    "unjudged": 386,
+    "proposals": 472,
+    "proposals_found": 166,
+    "proposals_recall": 0.8924731182795699,
+    "proposals_hit_rate": 0.9399141630901288
+   },
+   {
+    "threshold": 0.5,
+    "candidates": 663,
+    "r4_scan_only": 198,
+    "accepted_found": 172,
+    "accepted_total": 186,
+    "recall": 0.9247311827956989,
+    "on_accepted": 263,
+    "on_rejected": 20,
+    "hit_rate": 0.9293286219081273,
+    "unjudged": 380,
+    "proposals": 465,
+    "proposals_found": 166,
+    "proposals_recall": 0.8924731182795699,
+    "proposals_hit_rate": 0.9396551724137931
+   },
+   {
+    "threshold": 0.55,
+    "candidates": 636,
+    "r4_scan_only": 181,
+    "accepted_found": 172,
+    "accepted_total": 186,
+    "recall": 0.9247311827956989,
+    "on_accepted": 258,
+    "on_rejected": 18,
+    "hit_rate": 0.9347826086956522,
+    "unjudged": 360,
+    "proposals": 455,
+    "proposals_found": 166,
+    "proposals_recall": 0.8924731182795699,
+    "proposals_hit_rate": 0.9388646288209607
+   },
+   {
+    "threshold": 0.6,
+    "candidates": 615,
+    "r4_scan_only": 167,
+    "accepted_found": 172,
+    "accepted_total": 186,
+    "recall": 0.9247311827956989,
+    "on_accepted": 251,
+    "on_rejected": 18,
+    "hit_rate": 0.9330855018587361,
+    "unjudged": 346,
+    "proposals": 448,
+    "proposals_found": 166,
+    "proposals_recall": 0.8924731182795699,
+    "proposals_hit_rate": 0.9385964912280702
+   },
+   {
+    "threshold": 0.65,
+    "candidates": 604,
+    "r4_scan_only": 159,
+    "accepted_found": 172,
+    "accepted_total": 186,
+    "recall": 0.9247311827956989,
+    "on_accepted": 250,
+    "on_rejected": 18,
+    "hit_rate": 0.9328358208955224,
+    "unjudged": 336,
+    "proposals": 445,
+    "proposals_found": 166,
+    "proposals_recall": 0.8924731182795699,
+    "proposals_hit_rate": 0.9385964912280702
+   },
+   {
+    "threshold": 0.7,
+    "candidates": 589,
+    "r4_scan_only": 148,
+    "accepted_found": 172,
+    "accepted_total": 186,
+    "recall": 0.9247311827956989,
+    "on_accepted": 245,
+    "on_rejected": 18,
+    "hit_rate": 0.9315589353612167,
+    "unjudged": 326,
+    "proposals": 441,
+    "proposals_found": 166,
+    "proposals_recall": 0.8924731182795699,
+    "proposals_hit_rate": 0.9380530973451328
+   },
+   {
+    "threshold": 0.75,
+    "candidates": 561,
+    "r4_scan_only": 128,
+    "accepted_found": 171,
+    "accepted_total": 186,
+    "recall": 0.9193548387096774,
+    "on_accepted": 235,
+    "on_rejected": 16,
+    "hit_rate": 0.9362549800796812,
+    "unjudged": 310,
+    "proposals": 433,
+    "proposals_found": 166,
+    "proposals_recall": 0.8924731182795699,
+    "proposals_hit_rate": 0.9372197309417041
+   },
+   {
+    "threshold": 0.8,
+    "candidates": 538,
+    "r4_scan_only": 113,
+    "accepted_found": 171,
+    "accepted_total": 186,
+    "recall": 0.9193548387096774,
+    "on_accepted": 230,
+    "on_rejected": 16,
+    "hit_rate": 0.9349593495934959,
+    "unjudged": 292,
+    "proposals": 425,
+    "proposals_found": 166,
+    "proposals_recall": 0.8924731182795699,
+    "proposals_hit_rate": 0.9369369369369369
+   },
+   {
+    "threshold": 0.85,
+    "candidates": 497,
+    "r4_scan_only": 95,
+    "accepted_found": 171,
+    "accepted_total": 186,
+    "recall": 0.9193548387096774,
+    "on_accepted": 222,
+    "on_rejected": 16,
+    "hit_rate": 0.9327731092436975,
+    "unjudged": 259,
+    "proposals": 402,
+    "proposals_found": 166,
+    "proposals_recall": 0.8924731182795699,
+    "proposals_hit_rate": 0.9348837209302325
+   },
+   {
+    "threshold": 0.9,
+    "candidates": 456,
+    "r4_scan_only": 76,
+    "accepted_found": 167,
+    "accepted_total": 186,
+    "recall": 0.8978494623655914,
+    "on_accepted": 216,
+    "on_rejected": 13,
+    "hit_rate": 0.9432314410480349,
+    "unjudged": 227,
+    "proposals": 380,
+    "proposals_found": 162,
+    "proposals_recall": 0.8709677419354839,
+    "proposals_hit_rate": 0.9423076923076923
+   },
+   {
+    "threshold": 0.95,
+    "candidates": 379,
+    "r4_scan_only": 59,
+    "accepted_found": 157,
+    "accepted_total": 186,
+    "recall": 0.8440860215053764,
+    "on_accepted": 188,
+    "on_rejected": 11,
+    "hit_rate": 0.9447236180904522,
+    "unjudged": 180,
+    "proposals": 320,
+    "proposals_found": 152,
+    "proposals_recall": 0.8172043010752689,
+    "proposals_hit_rate": 0.9392265193370166
+   }
+  ],
+  "by_source": {
+   "BEADs_invert_detect_v1": {
+    "proposals": 122,
+    "accepted_reached": 72
+   },
+   "drop_detection_v1": {
+    "proposals": 138,
+    "accepted_reached": 114
+   },
+   "drop_detection_v5": {
+    "proposals": 178,
+    "accepted_reached": 140
+   },
+   "seed": {
+    "proposals": 497,
+    "accepted_reached": 138
+   },
+   "wavelet_encoded": {
+    "proposals": 187,
+    "accepted_reached": 83
+   },
+   "r4_scan (own candidates)": {
+    "proposals": 198,
+    "accepted_reached": 42
+   }
+  },
+  "labels": {
+   "unjudged": 387,
+   "accepted": 266,
+   "rejected": 20
+  }
+ },
+ "known_counts": {
+  "accepted": 186,
+  "rejected": 117,
+  "windows": 0
+ }
+}

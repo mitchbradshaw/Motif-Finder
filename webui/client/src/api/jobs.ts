@@ -46,6 +46,7 @@ const KIND_LABEL: Record<string, string> = {
   chain_run: 'chain run', training: 'training', sweep: 'Discovery sweep', import: 'import', regroup: 'Library grouping',
   cross_channel: 'cross-channel',
   cross_census: 'cross-channel census',   // xc-S1
+  autodetect: 'auto-detect',              // 2026-11-23: Explore › Auto-detect
 }
 
 function when(v: number | string | null | undefined): Date | null {
@@ -86,6 +87,10 @@ export function toLiveJob(j: JobRow): LiveJob {
     routeLabel = 'Models'
   } else if (kind === 'sweep') { route = 'discovery/runs'; routeLabel = 'Discovery' }
   else if (kind === 'regroup' || kind === 'cross_channel' || (kind === 'import' && meta.what !== 'cluster results')) { route = 'library'; routeLabel = 'Library' }
+  else if (kind === 'autodetect' && meta.recording_id != null) {
+    // the channel's Auto-detect page; a finished run opens on its own result
+    route = `explore/autodetect/${String(meta.recording_id)}${j.status === 'completed' ? `?job=${j.job_id}` : ''}`; routeLabel = 'Auto-detect'
+  }
   return {
     id: j.job_id, kind, kindLabel: KIND_LABEL[kind] ?? kind, status: j.status, stage, where: String(meta.where ?? 'this machine'),
     fraction, message, started, finished, durationS: Number.isFinite(durationS as number) ? durationS : (elapsed ?? null),

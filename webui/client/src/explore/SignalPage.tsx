@@ -11,7 +11,7 @@ import { ApiError, getChannel, getRecordings, getSpans, listRuns, type Channel, 
 import { useSourced } from '../api/seam'
 import { getSignalDemo, getWholeChannelSpans } from '../api/explore'
 import { annotationKind, parseToggles, visibleDetections, type SpanKind, type ToggleKind, type Toggles } from './bandModel'
-import { Callout, Dropdown, InfoTip, Seg, useDemoState, useQueryState } from '../kit'
+import { Button, Callout, Dropdown, InfoTip, Seg, useDemoState, useQueryState } from '../kit'
 import { ErrorBoundary } from '../shell/ErrorBoundary'
 import { Header } from '../shell/Header'
 import { useToast } from '../shell/Toast'
@@ -303,6 +303,8 @@ function SignalBody({ ch }: { ch: Channel }) {
           <span className="ex-topbar-seg"><Seg size="sm" value="signal" onChange={v => { if (v === 'cross') navigate(`explore/cross-channel/${ch.id}${index >= 0 ? `?window=motif-${index + 1}` : ''}`) }}
             options={[{ value: 'signal', label: 'Signal' }, { value: 'cross', label: 'Cross-channel' }]} ariaLabel="mode" testid="mode-seg" /></span>
           <DetectionsChip ref={pickerAnchor} label={chipLabel(runs, st)} open={popover === 'detections'} onClick={() => setPopover(popover === 'detections' ? null : 'detections')} />
+          <Button size="sm" variant="next" icon="sparkle" onClick={() => navigate(`explore/autodetect/${ch.id}`)} testid="autodetect-open"
+            title="Auto-detect: find this channel's drops and sharp rises with every detector, the seed families and R4, shaded by confidence; send them to Review">Auto-detect</Button>
           <Dropdown size="md" variant="outline" prefix="display" value="raw" onChange={() => {}} testid="display-chip"
             options={[{ value: 'raw', label: 'raw', description: ch.display_unit === null ? 'as stored — this recording declares no unit' : `in mV, converted from the ${ch.units ?? 'declared'} the files hold` }, { value: 'detrended', label: 'detrended (display only)', disabled: true, reason: 'the bridge serves raw mV only — no display transform yet' }]} />
           <InfoTip title="Signal" testid="signal-info">Three tiers on one time axis: the channel, the span you chose, the motif you opened. Press ? for the keyboard map.</InfoTip>

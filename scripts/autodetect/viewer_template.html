@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --ink: #1c2026; --muted: #5d6570; --line: #e2e4e7; --grid: #eef0f2;
+  --trace: #1f2933; --cand: #4f46e5; --scan: #d97706; --seq: #0d9488; --acc: #15803d; --rej: #c2410c;
+  --winy: #86efac; --winn: #d1d5db; --sel: #111827; --chip: #f0f1f3; --accent: #4f46e5; --rise: #db2777;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111316; --panel: #191c20; --ink: #e6e8eb; --muted: #9aa3ae; --line: #2a2f35; --grid: #20242a;
+    --trace: #d5dce5; --cand: #8f8aff; --scan: #f5a524; --seq: #2dd4bf; --acc: #4ade80; --rej: #fb923c;
+    --winy: #166534; --winn: #374151; --sel: #ffffff; --chip: #23272d; --accent: #8f8aff; --rise: #f472b6;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111316; --panel: #191c20; --ink: #e6e8eb; --muted: #9aa3ae; --line: #2a2f35; --grid: #20242a;
+  --trace: #d5dce5; --cand: #8f8aff; --scan: #f5a524; --seq: #2dd4bf; --acc: #4ade80; --rej: #fb923c;
+  --winy: #166534; --winn: #374151; --sel: #ffffff; --chip: #23272d; --accent: #8f8aff; --rise: #f472b6;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+       font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1500px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 20px; margin: 0 0 2px; font-weight: 650; }
+h2 { font-size: 15px; margin: 0 0 8px; font-weight: 650; }
+.sub { color: var(--muted); margin: 0 0 10px; }
+a { color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+.chip { background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 12.5px; }
+.chip b { font-weight: 650; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 8px; }
+.controls .grp { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+button { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--chip); color: var(--ink);
+         border-radius: 7px; padding: 3px 9px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+label { font-size: 13px; color: var(--ink); user-select: none; }
+input[type=range] { width: 150px; vertical-align: middle; }
+.sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 3px; }
+#plotwrap { position: relative; }
+canvas { display: block; width: 100%; touch-action: none; }
+#main { height: 420px; cursor: grab; }
+#main.dragging { cursor: grabbing; }
+#overview { height: 64px; margin-top: 6px; cursor: pointer; }
+#tip { position: absolute; pointer-events: none; display: none; background: var(--panel); color: var(--ink);
+       border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font-size: 12.5px; max-width: 360px;
+       box-shadow: 0 4px 16px rgba(0,0,0,.12); z-index: 5; }
+#tip .t { font-weight: 650; margin-bottom: 2px; }
+.hint { color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1fr); } #main { height: 340px; } }
+#detail { min-height: 120px; font-size: 13px; }
+#detail .kv { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 2px 8px; }
+#detail .kv div:nth-child(odd) { color: var(--muted); }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+th, td { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+th { cursor: pointer; color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--panel); }
+tr.sel td { background: var(--chip); }
+tbody tr { cursor: pointer; }
+tbody tr:hover td { background: var(--chip); }
+.tablewrap { max-height: 420px; overflow: auto; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.bar { display: inline-block; height: 8px; border-radius: 2px; background: var(--cand); vertical-align: middle; }
+svg text { fill: var(--muted); font-size: 11.5px; }
+svg .ttl { fill: var(--ink); font-size: 12.5px; font-weight: 600; }
+.charts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1100px) { .charts { grid-template-columns: minmax(0, 1fr); } }
+details summary { cursor: pointer; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title"></h1>
+  <p class="sub" id="why"></p>
+  <div class="chips" id="chips"></div>
+
+  <div class="panel">
+    <div class="controls">
+      <div class="grp">
+        <button id="zin" title="Zoom in (+)">＋</button>
+        <button id="zout" title="Zoom out (−)">－</button>
+        <button id="zreset" title="Whole stretch (0 or double-click)">Whole stretch</button>
+        <label title="An hour on the recording's clock, as h:mm (220:08) or decimal hours (220.13); Enter shows 20 minutes round it">go to <input id="goto" placeholder="h:mm" size="7" style="font:inherit;font-size:13px;padding:2px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)"></label>
+      </div>
+      <div class="grp">
+        <button id="prev" title="Previous candidate (p)">◀ Prev</button>
+        <button id="next" title="Next candidate (n)">Next ▶</button>
+        <label>order <select id="order"><option value="time">by time</option><option value="conf">by confidence</option></select></label>
+        <span id="navpos" class="hint" style="margin:0"></span>
+      </div>
+      <div class="grp">
+        <label for="minc">min confidence <b id="mincv">0.30</b></label>
+        <input id="minc" type="range" min="0.30" max="1" step="0.01" value="0.30">
+      </div>
+    </div>
+    <div class="controls">
+      <div class="grp" id="srcs"></div>
+      <div class="grp">
+        <span class="hint" style="margin:0">type:</span>
+        <label><input type="checkbox" id="showdrop" checked> ▼ drops <span class="hint" style="margin:0" id="ndrop"></span></label>
+        <label><input type="checkbox" id="showrise" checked> ▲ rises <span class="hint" style="margin:0" id="nrise"></span></label>
+        <label><input type="checkbox" id="showmark" checked> markers</label>
+      </div>
+      <div class="grp">
+        <label><input type="checkbox" id="showseq" checked> sequences</label>
+        <label><input type="checkbox" id="showknown" checked> your reviews</label>
+        <label><input type="checkbox" id="showwin" checked> 10-min windows</label>
+      </div>
+    </div>
+    <div id="plotwrap"><canvas id="main"></canvas><div id="tip"></div></div>
+    <canvas id="overview"></canvas>
+    <div class="legend" id="legend"></div>
+    <div class="hint">Scroll to zoom at the cursor · drag to pan · shift-drag to zoom into a range · double-click for
+      the whole stretch · click a shaded region for its details · keys: ← → pan, + − zoom, n / p next / previous
+      candidate, 0 whole stretch. Drag the box in the strip below to scan across.</div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel"><h2>Selected candidate</h2><div id="detail"><span class="hint">Click a shaded region, or a row
+      below.</span></div></div>
+    <div class="panel"><h2>How it did against your reviews</h2><div id="chart1"></div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Candidates <span class="hint" id="tcount" style="font-weight:400"></span></h2>
+    <div class="tablewrap"><table id="tbl"><thead></thead><tbody></tbody></table></div>
+    <div style="margin-top:6px"><button id="more" style="display:none"></button></div>
+  </div>
+
+  <div class="charts">
+    <div class="panel"><div id="chart2"></div></div>
+    <div class="panel"><div id="chart3"></div></div>
+    <div class="panel"><h2>Run</h2><div id="runinfo" style="font-size:13px"></div></div>
+  </div>
+  <div class="panel"><details><summary>Seed families on this channel</summary><div id="seedtbl" style="margin-top:8px"></div></details></div>
+  <p class="hint"><a href="index.html">← all references</a></p>
+</main>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById("data").textContent);
+const FS = D.fs, N = D.n, T0 = D.start_idx;
+const SRC_NAMES = D.source_names;            // index -> source key
+const SRC_LABEL = {drop_detection_v1: "drop v1", drop_detection_v5: "drop v5", wavelet_encoded: "wavelet",
+                   BEADs_invert_detect_v1: "BEADS", seed: "seed", r4_scan: "R4 scan", beads_sigma: "BEADS σ",
+                   event_rule: "event rule", none: "R4 alone, inside another box"};
+const srcLabel = (k) => { const inv = / \(inverted\)$/.test(k), b = k.replace(/ \(inverted\)$/, ""); return (SRC_LABEL[b] || b) + (inv ? " (inverted run)" : ""); };
+const KNOWN_LABEL = {accepted: "an accepted event", rejected: "a rejected span", window_interesting: "an interesting 10-min window",
+                     window_not: "a not-interesting 10-min window", unjudged: "nothing reviewed"};
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// ── the signal ──────────────────────────────────────────────────────────
+function decode(b64) {
+  const bin = atob(b64), u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new Int16Array(u8.buffer);
+}
+const Q = decode(D.signal.b64), Y = new Float32Array(Q.length);
+for (let i = 0; i < Q.length; i++) Y[i] = Q[i] === -32768 ? NaN : Q[i] * D.signal.scale + D.signal.offset;
+const LEVELS = [];
+(function pyramid() {
+  let mn = Y, mx = Y, b = 1;
+  for (const f of [8, 8, 8, 8, 8]) {
+    const nb = Math.ceil(mn.length / f), lo = new Float32Array(nb), hi = new Float32Array(nb);
+    for (let i = 0; i < nb; i++) {
+      let a = Infinity, z = -Infinity;
+      const e = Math.min(mn.length, (i + 1) * f);
+      for (let j = i * f; j < e; j++) { const u = mn[j], w = mx[j]; if (u < a) a = u; if (w > z) z = w; }
+      lo[i] = a === Infinity ? NaN : a; hi[i] = z === -Infinity ? NaN : z;
+    }
+    b *= f; LEVELS.push({b, mn: lo, mx: hi}); mn = lo; mx = hi;
+    if (nb < 64) break;
+  }
+})();
+function envelope(v0, v1, cols) {
+  const spp = (v1 - v0) / cols, mins = new Float32Array(cols), maxs = new Float32Array(cols);
+  let L = null;
+  for (const l of LEVELS) if (l.b <= spp / 2) L = l;
+  const mnA = L ? L.mn : Y, mxA = L ? L.mx : Y, b = L ? L.b : 1;
+  for (let c = 0; c < cols; c++) {
+    const s0 = v0 + c * spp, s1 = s0 + spp;
+    let i0 = Math.max(0, Math.floor(s0 / b)), i1 = Math.min(mnA.length, Math.max(i0 + 1, Math.ceil(s1 / b)));
+    let a = Infinity, z = -Infinity;
+    for (let i = i0; i < i1; i++) { const u = mnA[i], w = mxA[i]; if (u < a) a = u; if (w > z) z = w; }
+    mins[c] = a === Infinity ? NaN : a; maxs[c] = z === -Infinity ? NaN : z;
+  }
+  return {mins, maxs, spp};
+}
+
+// ── candidates and the rest ─────────────────────────────────────────────
+const C = D.cands;                     // columnar
+const NC = C.s.length;
+const order = Array.from({length: NC}, (_, i) => i).sort((a, b) => C.s[a] - C.s[b] || C.e[a] - C.e[b]);
+const maxDur = NC ? Math.max(...Array.from({length: NC}, (_, i) => C.e[i] - C.s[i])) : 0;
+const state = {v0: 0, v1: N, minc: 0.30, src: new Set(SRC_NAMES.concat(["r4_scan", "none"])), seq: true, known: true,
+               win: true, sel: -1, hover: -1, navOrder: "time", rows: 300, sortKey: "c", sortDir: -1,
+               drop: true, rise: true, mark: true};
+
+const scanOn = () => state.src.has("r4_scan");
+const SEQS = () => scanOn() ? D.seqs : D.seqs2;
+const seqOf = (i) => scanOn() ? C.seq[i] : C.seq2[i];
+function srcList(i) { const out = []; const m = C.src[i]; for (let k = 0; k < SRC_NAMES.length; k++) if (m & (1 << k)) out.push(SRC_NAMES[k]); return out; }
+function shown(i) {
+  if (C.c[i] < state.minc - 1e-9) return false;
+  if (C.pol[i] ? !state.rise : !state.drop) return false;
+  if (C.k[i] === 1) return state.src.has("r4_scan");
+  const m = C.src[i];
+  if (!m) return state.src.has("none");        // an event inside another candidate's box that no source vouched for
+  for (let k = 0; k < SRC_NAMES.length; k++) if ((m & (1 << k)) && state.src.has(SRC_NAMES[k])) return true;
+  return false;
+}
+const typeWord = (i) => C.pol[i] ? "rise" : "drop";
+function foundBy(i) {
+  if (C.k[i] === 1) return "R4's window scan";
+  const s = srcList(i);
+  return (s.length ? s.map(k => SRC_LABEL[k] || k).join(", ") : "no source (" + SRC_LABEL.none + ")") + (C.inv[i] ? " · on the inverted signal" : "");
+}
+function filtered() { const out = []; for (const i of order) if (shown(i)) out.push(i); return out; }
+let FILT = filtered();
+
+// ── formatting ──────────────────────────────────────────────────────────
+const H = (idx) => (idx + T0) / FS / 3600;
+function fmtT(idx, step) {
+  const s = (idx + T0) / FS;
+  if (step >= 3600) return (s / 3600).toFixed(step >= 36000 ? 0 : 0) + " h";
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = Math.floor(s % 60);
+  if (step >= 60) return `${h}:${String(m).padStart(2, "0")}`;
+  return `${h}:${String(m).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+}
+function fmtDur(n) {
+  const s = n / FS;
+  if (s < 120) return s.toFixed(s < 10 ? 1 : 0) + " s";
+  if (s < 7200) return (s / 60).toFixed(1) + " min";
+  return (s / 3600).toFixed(1) + " h";
+}
+const pct = (v) => v == null ? "–" : (100 * v).toFixed(0) + " %";
+function niceStep(range, target) {
+  const raw = range / target;
+  const steps = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400, 172800];
+  for (const s of steps) if (s * FS >= raw) return s * FS;
+  return steps[steps.length - 1] * FS;
+}
+function niceY(lo, hi, target) {
+  const r = (hi - lo) / target, p = Math.pow(10, Math.floor(Math.log10(r))), m = r / p;
+  return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
+}
+
+// ── the main plot ───────────────────────────────────────────────────────
+const cv = document.getElementById("main"), ov = document.getElementById("overview"), tip = document.getElementById("tip");
+const ML = 58, MR = 12, MT = 6, MB = 22;
+let geo = null;
+function sizeCanvas(c) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+  const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); return {g, w, h};
+}
+function alphaOf(c) { return 0.07 + 0.55 * Math.max(0, Math.min(1, (c - 0.3) / 0.7)); }
+let PAL = null;                                   // read once per draw: the theme can change under the page
+function palette() { PAL = {cand: css("--cand"), scan: css("--scan"), rise: css("--rise")}; return PAL; }
+function colOf(i) { const P = PAL || palette(); return C.k[i] === 1 ? P.scan : C.pol[i] ? P.rise : P.cand; }
+function rgba(hex, a) {
+  const h = hex.replace("#", ""); const n = parseInt(h.length === 3 ? h.split("").map(x => x + x).join("") : h, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+function visible(v0, v1, fn) {
+  // candidates in time order overlapping [v0, v1)
+  let lo = 0, hi = order.length;
+  const key = v0 - maxDur;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (C.s[order[m]] < key) lo = m + 1; else hi = m; }
+  for (let j = lo; j < order.length; j++) { const i = order[j]; if (C.s[i] >= v1) break; if (C.e[i] > v0) fn(i); }
+}
+function draw() {
+  const {g, w, h} = sizeCanvas(cv);
+  palette();
+  const S0 = SEQS(), seqTwo = !!(S0.pol && S0.pol.some(v => v === 1) && S0.pol.some(v => v === 0));
+  const seqH = state.seq && S0.s.length ? (seqTwo ? 26 : 16) : 0;   // drop sequences above rise sequences
+  const stripH = 12;                              // candidates too narrow to shade are drawn here, as ticks
+  const knownRows = state.known ? (D.windows.s.length && state.win ? 3 : 2) : 0;
+  const knownH = knownRows ? knownRows * 7 + 6 : 0;
+  const stripY = MT + seqH + 1;
+  const x0 = ML, x1 = w - MR, yTop = MT + seqH + stripH, yBot = h - MB - knownH;
+  const cols = Math.max(1, Math.floor(x1 - x0));
+  const {v0, v1} = state;
+  const X = (i) => x0 + (i - v0) / (v1 - v0) * (x1 - x0);
+  geo = {x0, x1, yTop, yBot, seqH, seqTwo, knownH, w, h, X, stripY, stripH};
+  g.clearRect(0, 0, w, h);
+  const env = envelope(v0, v1, cols);
+  let lo = Infinity, hi = -Infinity;
+  for (let c = 0; c < cols; c++) { const a = env.mins[c], z = env.maxs[c]; if (a < lo) lo = a; if (z > hi) hi = z; }
+  if (!isFinite(lo)) { lo = -1; hi = 1; }
+  if (hi - lo < 1e-6) { lo -= 0.5; hi += 0.5; }
+  const pad = (hi - lo) * 0.06; lo -= pad; hi += pad;
+  const Yp = (v) => yBot - (v - lo) / (hi - lo) * (yBot - yTop);
+  geo.Yp = Yp;
+  // grid + axes
+  g.font = "11.5px system-ui, sans-serif"; g.fillStyle = css("--muted"); g.strokeStyle = css("--grid"); g.lineWidth = 1;
+  const xs = niceStep(v1 - v0, Math.max(3, Math.floor((x1 - x0) / 110)));
+  const firstTick = Math.ceil((v0 + T0) / xs) * xs - T0;
+  g.textAlign = "center"; g.textBaseline = "top";
+  for (let t = firstTick; t <= v1; t += xs) {
+    const x = X(t); g.beginPath(); g.moveTo(x + .5, yTop); g.lineTo(x + .5, yBot); g.stroke();
+    g.fillText(fmtT(t, xs / FS), x, h - MB + 5);
+  }
+  const ys = niceY(lo, hi, 5);
+  g.textAlign = "right"; g.textBaseline = "middle";
+  for (let v = Math.ceil(lo / ys) * ys; v <= hi; v += ys) {
+    const y = Yp(v); g.beginPath(); g.moveTo(x0, y + .5); g.lineTo(x1, y + .5); g.stroke();
+    g.fillText((Math.abs(ys) < 0.01 ? v.toFixed(3) : Math.abs(ys) < 0.1 ? v.toFixed(2) : Math.abs(ys) < 1 ? v.toFixed(1) : v.toFixed(0)), x0 - 6, y);
+  }
+  g.save(); g.translate(13, (yTop + yBot) / 2); g.rotate(-Math.PI / 2); g.textAlign = "center"; g.fillText("mV", 0, 0); g.restore();
+  // candidates: every one as a tick in the strip; those at least SHADE_MIN_PX wide also shade the plot
+  const SHADE_MIN_PX = 3;
+  g.save(); g.beginPath(); g.rect(x0, stripY, x1 - x0, stripH - 2); g.clip();
+  g.fillStyle = css("--grid"); g.fillRect(x0, stripY, x1 - x0, stripH - 2);
+  visible(v0, v1, (i) => {
+    if (!shown(i)) return;
+    const a = X(C.s[i]), b = X(C.e[i]);
+    g.fillStyle = rgba(colOf(i), Math.min(1, alphaOf(C.c[i]) + 0.3));
+    g.fillRect(a, stripY, Math.max(1, b - a), stripH - 2);
+  });
+  g.restore();
+  g.save(); g.beginPath(); g.rect(x0, yTop, x1 - x0, yBot - yTop); g.clip();
+  visible(v0, v1, (i) => {
+    if (!shown(i)) return;
+    const a = X(C.s[i]), b = X(C.e[i]);
+    if (b - a < SHADE_MIN_PX) return;
+    g.fillStyle = rgba(colOf(i), alphaOf(C.c[i]));
+    g.fillRect(a, yTop, b - a, yBot - yTop);
+  });
+  // trace
+  g.strokeStyle = css("--trace"); g.lineWidth = 1; g.beginPath();
+  if (env.spp > 1.2) {
+    let pen = false;
+    for (let c = 0; c < cols; c++) {
+      const a = env.mins[c], z = env.maxs[c];
+      if (!(a === a)) { pen = false; continue; }
+      const x = x0 + c + .5;
+      if (!pen) { g.moveTo(x, Yp(z)); pen = true; } else g.lineTo(x, Yp(z));
+      g.lineTo(x, Yp(a));
+    }
+  } else {
+    const i0 = Math.max(0, Math.floor(v0) - 1), i1 = Math.min(N - 1, Math.ceil(v1) + 1);
+    let pen = false;
+    for (let i = i0; i <= i1; i++) {
+      const v = Y[i]; if (!(v === v)) { pen = false; continue; }
+      const x = X(i + .5), y = Yp(v);
+      if (!pen) { g.moveTo(x, y); pen = true; } else g.lineTo(x, y);
+    }
+  }
+  g.stroke();
+  if (env.spp < 0.12) {
+    g.fillStyle = css("--trace");
+    const i0 = Math.max(0, Math.floor(v0)), i1 = Math.min(N - 1, Math.ceil(v1));
+    for (let i = i0; i <= i1; i++) { const v = Y[i]; if (v === v) { g.beginPath(); g.arc(X(i + .5), Yp(v), 2, 0, 6.29); g.fill(); } }
+  }
+  // markers: every candidate's bottom (▼ below a drop) or peak (▲ above a rise), so a narrow one shows at any zoom
+  if (state.mark) {
+    const fine = env.spp <= 1.2;
+    const tri = (x, y, up, size, fill, stroke) => {
+      g.beginPath();
+      if (up) { g.moveTo(x, y - size); g.lineTo(x - size * 0.8, y + size * 0.4); g.lineTo(x + size * 0.8, y + size * 0.4); }
+      else { g.moveTo(x, y + size); g.lineTo(x - size * 0.8, y - size * 0.4); g.lineTo(x + size * 0.8, y - size * 0.4); }
+      g.closePath(); g.fillStyle = fill; g.fill();
+      if (stroke) { g.strokeStyle = stroke; g.lineWidth = 1.5; g.stroke(); }
+    };
+    const markAt = (i) => {
+      const ex = C.ex[i], x = X(ex + .5), c = Math.max(0, Math.min(cols - 1, Math.floor(x - x0)));
+      const v = fine ? Y[Math.max(0, Math.min(N - 1, ex))] : (C.pol[i] ? env.maxs[c] : env.mins[c]);
+      return {x, y: Yp(v) + (C.pol[i] ? -9 : 9)};
+    };
+    visible(v0, v1, (i) => {
+      if (!shown(i) || C.ex[i] == null) return;
+      const {x, y} = markAt(i); if (x < x0 - 6 || x > x1 + 6 || !(y === y)) return;
+      tri(x, y, C.pol[i] === 1, 5, rgba(colOf(i), 0.45 + 0.55 * Math.max(0, Math.min(1, (C.c[i] - 0.3) / 0.7))), null);
+    });
+    for (const i of [state.hover, state.sel]) {
+      if (i < 0 || !shown(i) || C.ex[i] == null) continue;
+      const {x, y} = markAt(i); if (x < x0 - 6 || x > x1 + 6 || !(y === y)) continue;
+      tri(x, y, C.pol[i] === 1, 7, rgba(colOf(i), 1), css("--sel"));
+    }
+  }
+  // selection / hover outline
+  for (const [i, wdt] of [[state.hover, 1], [state.sel, 2]]) {
+    if (i < 0 || !shown(i)) continue;
+    const a = X(C.s[i]), b = X(C.e[i]);
+    if (b < x0 || a > x1) continue;
+    g.strokeStyle = css("--sel"); g.lineWidth = wdt; g.strokeRect(a + .5, yTop + .5, Math.max(1.5, b - a) - 1, yBot - yTop - 1);
+  }
+  g.restore();
+  // sequences band
+  if (seqH) {
+    const S = S0; g.save(); g.beginPath(); g.rect(x0, MT, x1 - x0, seqH); g.clip();
+    const rowH = seqTwo ? 11 : seqH - 5;
+    for (let k = 0; k < S.s.length; k++) {
+      const a = X(S.s[k]), b = X(S.e[k]); if (b < x0 || a > x1) continue;
+      const rise = S.pol && S.pol[k] === 1, y = MT + 2 + (seqTwo && rise ? 13 : 0);
+      g.fillStyle = rgba(css(rise ? "--rise" : "--seq"), 0.85); g.fillRect(a, y, Math.max(2, b - a), rowH);
+      if (b - a > 70) { g.fillStyle = "#fff"; g.textAlign = "left"; g.textBaseline = "middle"; g.font = "600 10px system-ui"; g.fillText(`S${S.id[k]} · ${S.n[k]} ${rise ? "rises" : "drops"}`, Math.max(a, x0) + 4, y + rowH / 2 + .5); }
+    }
+    g.restore();
+  }
+  // your reviews
+  if (knownRows) {
+    let y = yBot + 4;
+    const row = (src, color, minW) => {
+      g.fillStyle = color;
+      for (let k = 0; k < src.s.length; k++) { const a = X(src.s[k]), b = X(src.e[k]); if (b < x0 || a > x1) continue; g.fillRect(Math.max(a, x0), y, Math.max(minW, Math.min(b, x1) - Math.max(a, x0)), 5); }
+      y += 7;
+    };
+    row(D.accepted, css("--acc"), 2);
+    row(D.rejected, css("--rej"), 2);
+    if (D.windows.s.length && state.win) {
+      const W = D.windows; g.save();
+      for (let k = 0; k < W.s.length; k++) { const a = X(W.s[k]), b = X(W.e[k]); if (b < x0 || a > x1) continue; g.fillStyle = W.v[k] ? css("--winy") : css("--winn"); g.fillRect(Math.max(a, x0), y, Math.max(1, Math.min(b, x1) - Math.max(a, x0) - 1), 5); }
+      g.restore();
+    }
+  }
+  // box-zoom rubber band
+  if (drag && drag.box) {
+    const a = Math.min(drag.x, drag.cx), b = Math.max(drag.x, drag.cx);
+    g.fillStyle = rgba(css("--accent"), 0.12); g.fillRect(a, yTop, b - a, yBot - yTop);
+    g.strokeStyle = css("--accent"); g.strokeRect(a + .5, yTop + .5, b - a, yBot - yTop);
+  }
+  drawOverview();
+}
+
+// ── the overview strip ──────────────────────────────────────────────────
+let ovCache = null;
+function buildOverview() {
+  const {g, w, h} = sizeCanvas(ov);
+  const off = document.createElement("canvas"); const dpr = window.devicePixelRatio || 1;
+  off.width = Math.round(w * dpr); off.height = Math.round(h * dpr);
+  const o = off.getContext("2d"); o.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cols = Math.max(1, Math.floor(w)), env = envelope(0, N, cols);
+  let lo = Infinity, hi = -Infinity; for (let c = 0; c < cols; c++) { if (env.mins[c] < lo) lo = env.mins[c]; if (env.maxs[c] > hi) hi = env.maxs[c]; }
+  const top = 4, bot = h - 14;
+  o.fillStyle = css("--panel"); o.fillRect(0, 0, w, h);
+  o.strokeStyle = css("--muted"); o.lineWidth = 1; o.beginPath();
+  for (let c = 0; c < cols; c++) { const a = env.mins[c], z = env.maxs[c]; if (!(a === a)) continue; o.moveTo(c + .5, bot - (z - lo) / (hi - lo + 1e-12) * (bot - top)); o.lineTo(c + .5, bot - (a - lo) / (hi - lo + 1e-12) * (bot - top)); }
+  o.stroke();
+  palette();
+  for (const i of FILT) { const x = C.s[i] / N * w; o.fillStyle = rgba(colOf(i), 0.25 + 0.75 * Math.max(0, (C.c[i] - 0.3) / 0.7)); o.fillRect(x, h - 12, Math.max(1, (C.e[i] - C.s[i]) / N * w), 5); }
+  const S = SEQS(), cSeq = css("--seq"), cRiseSeq = css("--rise");
+  for (let k = 0; k < S.s.length; k++) { o.fillStyle = S.pol && S.pol[k] === 1 ? cRiseSeq : cSeq; o.fillRect(S.s[k] / N * w, h - 6, Math.max(2, (S.e[k] - S.s[k]) / N * w), 4); }
+  ovCache = off;
+}
+function drawOverview() {
+  const {g, w, h} = sizeCanvas(ov);
+  if (!w || !h) return;                           // not laid out yet (a hidden pane): the next draw paints it
+  if (!ovCache || ovCache.width !== ov.width || !ovCache.width) buildOverview();
+  if (!ovCache.width || !ovCache.height) return;
+  g.clearRect(0, 0, w, h); g.drawImage(ovCache, 0, 0, w, h);
+  const a = state.v0 / N * w, b = state.v1 / N * w;
+  g.fillStyle = rgba(css("--accent"), 0.16); g.fillRect(a, 0, Math.max(3, b - a), h);
+  g.strokeStyle = css("--accent"); g.lineWidth = 1.5; g.strokeRect(a + .5, .5, Math.max(3, b - a) - 1, h - 1);
+}
+
+// ── view changes ────────────────────────────────────────────────────────
+const MIN_SPAN = 30;
+function setView(v0, v1) {
+  let span = Math.max(MIN_SPAN, Math.min(N, v1 - v0));
+  let a = v0, b = v0 + span;
+  if (a < 0) { a = 0; b = span; } if (b > N) { b = N; a = N - span; }
+  state.v0 = a; state.v1 = b; requestDraw();
+}
+function zoomAt(frac, factor) {
+  const span = state.v1 - state.v0, c = state.v0 + frac * span, ns = span * factor;
+  setView(c - frac * ns, c - frac * ns + ns);
+}
+let pending = false;
+function requestDraw() { if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; draw(); }); } }
+function focusCandidate(i) {
+  const d = C.e[i] - C.s[i], width = Math.max(d * 8, 600 * FS), mid = (C.s[i] + C.e[i]) / 2;
+  state.sel = i; setView(mid - width / 2, mid + width / 2); showDetail(i); markRow(i); updateNavPos();
+}
+
+// ── pointer interaction ─────────────────────────────────────────────────
+let drag = null;
+function fracOf(e) { const r = cv.getBoundingClientRect(); return {x: e.clientX - r.left, y: e.clientY - r.top}; }
+function sampleAtX(x) { return state.v0 + (x - geo.x0) / (geo.x1 - geo.x0) * (state.v1 - state.v0); }
+cv.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const {x} = fracOf(e), frac = Math.max(0, Math.min(1, (x - geo.x0) / (geo.x1 - geo.x0)));
+  if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) { const span = state.v1 - state.v0; setView(state.v0 + e.deltaX / (geo.x1 - geo.x0) * span, state.v1 + e.deltaX / (geo.x1 - geo.x0) * span); return; }
+  zoomAt(frac, Math.pow(1.0015, e.deltaY));
+}, {passive: false});
+cv.addEventListener("pointerdown", (e) => {
+  const {x} = fracOf(e); cv.setPointerCapture(e.pointerId);
+  drag = {x, cx: x, v0: state.v0, v1: state.v1, moved: false, box: e.shiftKey};
+  if (!drag.box) cv.classList.add("dragging");
+});
+cv.addEventListener("pointermove", (e) => {
+  const {x, y} = fracOf(e);
+  if (drag) {
+    drag.cx = x; if (Math.abs(x - drag.x) > 3) drag.moved = true;
+    if (drag.box) { requestDraw(); return; }
+    const span = drag.v1 - drag.v0, dx = (x - drag.x) / (geo.x1 - geo.x0) * span;
+    setView(drag.v0 - dx, drag.v1 - dx); hideTip(); return;
+  }
+  hoverAt(x, y, e);
+});
+cv.addEventListener("pointerup", (e) => {
+  const {x, y} = fracOf(e); cv.classList.remove("dragging");
+  if (drag && drag.box && drag.moved) {
+    const a = sampleAtX(Math.min(drag.x, x)), b = sampleAtX(Math.max(drag.x, x)); drag = null; setView(a, b); return;
+  }
+  if (drag && !drag.moved) { const i = pick(x, y); if (i >= 0) { state.sel = i; showDetail(i); markRow(i); updateNavPos(); requestDraw(); } }
+  drag = null; requestDraw();
+});
+cv.addEventListener("pointerleave", () => { state.hover = -1; hideTip(); requestDraw(); });
+cv.addEventListener("dblclick", () => setView(0, N));
+function pick(x, y) {
+  if (!geo || x < geo.x0 || x > geo.x1 || y < geo.stripY || y > geo.yBot) return -1;
+  const s = sampleAtX(x), tol = 3 / (geo.x1 - geo.x0) * (state.v1 - state.v0);
+  let best = -1;
+  visible(s - tol, s + tol, (i) => {
+    if (!shown(i)) return;
+    if (best < 0 || (C.e[i] - C.s[i]) < (C.e[best] - C.s[best])) best = i;
+  });
+  return best;
+}
+function hoverAt(x, y, e) {
+  if (!geo) return;
+  // sequences band
+  if (state.seq && geo.seqH && y >= MT && y < MT + geo.seqH) {
+    const s = sampleAtX(x), S = SEQS(), wantRise = geo.seqTwo ? (y >= MT + 14) : null;
+    for (let k = 0; k < S.s.length; k++) if (S.s[k] <= s && s <= S.e[k]) {
+      const rise = !!(S.pol && S.pol[k] === 1);
+      if (wantRise !== null && rise !== wantRise) continue;
+      showTip(e, `<div class="t">Sequence S${S.id[k]} · ${rise ? "rises" : "drops"}</div>${S.n[k]} candidates · ${H(S.s[k]).toFixed(2)}–${H(S.e[k]).toFixed(2)} h (${fmtDur(S.e[k] - S.s[k])})<br>mean confidence ${S.mc[k].toFixed(2)} · median gap ${S.gap[k] == null ? "–" : (S.gap[k] / 60).toFixed(1) + " min"}<br>rule: ${S.rule[k]}`);
+      return;
+    }
+  }
+  // reviews track
+  if (state.known && y > geo.yBot) {
+    const s = sampleAtX(x), tol = 2 / (geo.x1 - geo.x0) * (state.v1 - state.v0), rowY = Math.floor((y - geo.yBot - 4) / 7);
+    const src = rowY === 0 ? D.accepted : rowY === 1 ? D.rejected : D.windows;
+    const name = rowY === 0 ? "Accepted (9 Nov catalogue)" : rowY === 1 ? "Rejected (your not-interesting / artefact verdict)" : "10-minute window";
+    for (let k = 0; k < src.s.length; k++) if (src.s[k] - tol <= s && s <= src.e[k] + tol) {
+      const extra = rowY === 2 ? (src.v[k] ? " · interesting" : " · not interesting") : (rowY === 0 && src.tr && src.tr[k] ? ` · train ${src.tr[k]}` : "");
+      showTip(e, `<div class="t">${name}${extra}</div>${H(src.s[k]).toFixed(3)}–${H(src.e[k]).toFixed(3)} h (${fmtDur(src.e[k] - src.s[k])})`);
+      return;
+    }
+  }
+  const i = pick(x, y);
+  if (i !== state.hover) { state.hover = i; requestDraw(); }
+  if (i < 0) { hideTip(); return; }
+  showTip(e, candHtml(i, true));
+}
+function showTip(e, html) {
+  const r = cv.getBoundingClientRect(); tip.innerHTML = html; tip.style.display = "block";
+  let x = e.clientX - r.left + 14, y = e.clientY - r.top + 14;
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  if (x + tw > r.width) x = e.clientX - r.left - tw - 14;
+  if (y + th > r.height + 70) y = e.clientY - r.top - th - 10;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+function hideTip() { tip.style.display = "none"; }
+
+// overview drag
+let ovDrag = null;
+ov.addEventListener("pointerdown", (e) => {
+  const r = ov.getBoundingClientRect(), x = e.clientX - r.left, s = x / r.width * N; ov.setPointerCapture(e.pointerId);
+  const span = state.v1 - state.v0;
+  if (s < state.v0 || s > state.v1) setView(s - span / 2, s + span / 2);
+  ovDrag = {x, v0: state.v0};
+});
+ov.addEventListener("pointermove", (e) => {
+  if (!ovDrag) return; const r = ov.getBoundingClientRect(), x = e.clientX - r.left, span = state.v1 - state.v0;
+  const v0 = ovDrag.v0 + (x - ovDrag.x) / r.width * N; setView(v0, v0 + span);
+});
+ov.addEventListener("pointerup", () => { ovDrag = null; });
+
+// keys
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  const span = state.v1 - state.v0;
+  if (e.key === "ArrowLeft") { setView(state.v0 - span * 0.2, state.v1 - span * 0.2); e.preventDefault(); }
+  else if (e.key === "ArrowRight") { setView(state.v0 + span * 0.2, state.v1 + span * 0.2); e.preventDefault(); }
+  else if (e.key === "+" || e.key === "=") zoomAt(0.5, 0.6);
+  else if (e.key === "-" || e.key === "_") zoomAt(0.5, 1 / 0.6);
+  else if (e.key === "0") setView(0, N);
+  else if (e.key === "n") step(1);
+  else if (e.key === "p") step(-1);
+  else if (e.key === "Escape") { state.sel = -1; requestDraw(); }
+});
+
+// ── navigation ──────────────────────────────────────────────────────────
+function navList() {
+  const L = FILT.slice();
+  if (state.navOrder === "conf") L.sort((a, b) => C.c[b] - C.c[a] || C.s[a] - C.s[b]);
+  return L;
+}
+function step(dir) {
+  const L = navList(); if (!L.length) return;
+  let k = L.indexOf(state.sel);
+  if (k < 0) {
+    if (state.navOrder === "time") { const mid = (state.v0 + state.v1) / 2; k = dir > 0 ? L.findIndex(i => C.s[i] > mid) : (() => { let j = -1; L.forEach((i, q) => { if (C.s[i] < mid) j = q; }); return j; })(); if (k < 0) k = dir > 0 ? 0 : L.length - 1; }
+    else k = 0;
+  } else k = (k + dir + L.length) % L.length;
+  focusCandidate(L[k]);
+}
+function updateNavPos() {
+  const L = navList(), k = L.indexOf(state.sel);
+  document.getElementById("navpos").textContent = k >= 0 ? `${k + 1} of ${L.length}` : `${L.length} shown`;
+}
+document.getElementById("prev").onclick = () => step(-1);
+document.getElementById("next").onclick = () => step(1);
+document.getElementById("order").onchange = (e) => { state.navOrder = e.target.value; updateNavPos(); };
+document.getElementById("zin").onclick = () => zoomAt(0.5, 0.5);
+document.getElementById("zout").onclick = () => zoomAt(0.5, 2);
+document.getElementById("zreset").onclick = () => setView(0, N);
+
+// ── details ─────────────────────────────────────────────────────────────
+function candHtml(i, short) {
+  const lifts = JSON.parse(C.lifts[i]);
+  const how = lifts.map(([k, v], q) => (q === 0 ? `R4 ${v.toFixed(2)}` : `+ ${SRC_LABEL[k] || k} → ${v.toFixed(2)}`)).join(" ");
+  const fam = C.fam[i] ? ` (${C.fam[i]})` : "";
+  const seq = seqOf(i) >= 0 ? `in sequence S${seqOf(i)}` : "in no sequence";
+  return `<div class="t">Candidate #${C.id[i]} · ${C.pol[i] ? "▲ rise" : "▼ drop"} · confidence ${C.c[i].toFixed(2)}</div>` +
+    `${H(C.s[i]).toFixed(3)}–${H(C.e[i]).toFixed(3)} h · ${fmtDur(C.e[i] - C.s[i])}` + (C.dep[i] != null ? ` · ${C.dep[i].toFixed(2)} mV` : "") +
+    (C.pol[i] && C.shp[i] != null ? ` · sharpness ${C.shp[i].toFixed(0)}` : "") + `<br>` +
+    `found by: ${foundBy(i)}${fam}${C.both[i] ? " · the other run found it too" : ""}<br>` +
+    `how: ${how}<br>` +
+    (C.k[i] === 1 ? "R4 found it alone (window scan)<br>" : (C.sp[i] != null ? `R4 scan agreed (${C.sp[i].toFixed(2)})<br>` : "")) +
+    `lands on: ${KNOWN_LABEL[D.known_names[C.kn[i]]]} · ${seq}`;
+}
+function showDetail(i) {
+  const el = document.getElementById("detail");
+  const lifts = JSON.parse(C.lifts[i]);
+  const run = C.inv[i] ? "the inverted signal (the same whole process on −x: its drops are this signal's rises" + (D.r4_inverted ? ", and R4 scored it inverted too" : "") + ")" : "the signal as recorded";
+  const boxEnd = C.rec[i] ? (C.pol[i] ? "half way back down" : "half recovery") : "where it levels off";
+  el.innerHTML = `<div class="kv">
+    <div>candidate</div><div>#${C.id[i]} (${C.k[i] === 1 ? "R4 window scan" : "proposal"})</div>
+    <div>when</div><div>${H(C.s[i]).toFixed(4)}–${H(C.e[i]).toFixed(4)} h · ${fmtDur(C.e[i] - C.s[i])}</div>
+    <div>samples</div><div>${C.s[i] + T0}–${C.e[i] + T0} (recording ${D.recording_id})</div>
+    <div>confidence</div><div><b>${C.c[i].toFixed(3)}</b> <span class="bar" style="width:${Math.round(C.c[i] * 120)}px;background:${colOf(i)}"></span></div>
+    <div>R4 on its span</div><div>${C.p[i] == null ? "could not read" : C.p[i].toFixed(3)}</div>
+    <div>found on</div><div>${run}${C.both[i] ? "; the run on the other signal found it too" : ""}</div>
+    <div>found by</div><div>${foundBy(i).replace(" · on the inverted signal", "")}</div>
+    <div>seed families</div><div>${C.fam[i] || "–"}</div>
+    <div>event</div><div>${C.dep[i] == null ? "–" : (C.pol[i] ? "▲ rise" : "▼ drop") + " of " + C.dep[i].toFixed(3) + " mV; box runs to " + boxEnd}${C.ex[i] != null ? " · " + (C.pol[i] ? "peak" : "bottom") + " at " + H(C.ex[i]).toFixed(4) + " h" : ""}</div>
+    <div>sharpness</div><div>${C.shp[i] == null ? "–" : "steepest 1-second step " + C.shp[i].toFixed(1) + " × the channel's 1-second step noise" + (C.pol[i] && D.rise_sharpness ? " (a rise needs " + D.rise_sharpness + ")" : "")}</div>
+    <div>boxes it came from</div><div>${H(C.os[i]).toFixed(3)}–${H(C.oe[i]).toFixed(3)} h (first proposed by ${C.anchor[i]})</div>
+    <div>flat test</div><div>${C.unx[i] == null ? "–" : C.unx[i].toFixed(2) + " of its range not explained by a smooth curve (needs 0.15)"}</div>
+    <div>how it was built</div><div>${lifts.map(([k, v], q) => (q === 0 ? `R4 ${v.toFixed(3)}` : `${SRC_LABEL[k] || k} → ${v.toFixed(3)}`)).join("<br>")}</div>
+    <div>R4 scan</div><div>${C.k[i] === 1 ? "found it alone" : C.sp[i] == null ? "no window above 0.5 here" : "a window here scored " + C.sp[i].toFixed(3)}</div>
+    <div>lands on</div><div>${KNOWN_LABEL[D.known_names[C.kn[i]]]}</div>
+    <div>sequence</div><div>${seqOf(i) >= 0 ? "S" + seqOf(i) : "none"}${scanOn() ? "" : " (sequences without R4's scan)"}</div></div>`;
+}
+
+// ── the table ───────────────────────────────────────────────────────────
+// [key, heading, sort value, cell, numeric]
+const COLS = [["id", "#", (i) => C.id[i], (i) => C.id[i], true],
+              ["s", "start (h)", (i) => C.s[i], (i) => H(C.s[i]).toFixed(3), true],
+              ["d", "duration", (i) => C.e[i] - C.s[i], (i) => fmtDur(C.e[i] - C.s[i]), true],
+              ["pol", "type", (i) => C.pol[i] * 2 + C.inv[i], (i) => `<span style="color:${colOf(i)}">${C.pol[i] ? "▲ rise" : "▼ drop"}</span>${C.inv[i] ? " <span class='hint' style='margin:0'>inv</span>" : ""}`, false],
+              ["dep", "mV", (i) => C.dep[i] == null ? -1 : C.dep[i], (i) => C.dep[i] == null ? "–" : C.dep[i].toFixed(2), true],
+              ["c", "confidence", (i) => C.c[i], (i) => `<span class="bar" style="width:${Math.round(C.c[i] * 50)}px;opacity:${0.35 + 0.65 * C.c[i]};background:${colOf(i)}"></span> ${C.c[i].toFixed(2)}`, true],
+              ["p", "R4", (i) => C.p[i] == null ? -1 : C.p[i], (i) => C.p[i] == null ? "–" : C.p[i].toFixed(2), true],
+              ["src", "found by", (i) => foundBy(i), (i) => foundBy(i).replace(" · on the inverted signal", ""), false],
+              ["kn", "lands on", (i) => D.known_names[C.kn[i]], (i) => D.known_names[C.kn[i]].replace("_", " "), false],
+              ["seq", "sequence", (i) => seqOf(i), (i) => seqOf(i) >= 0 ? "S" + seqOf(i) : "", true]];
+function renderTable() {
+  palette();
+  const thead = document.querySelector("#tbl thead"), tbody = document.querySelector("#tbl tbody");
+  thead.innerHTML = "<tr>" + COLS.map(([k, n, , , num]) => `<th data-k="${k}" class="${num ? "num" : ""}">${n}${state.sortKey === k ? (state.sortDir > 0 ? " ▲" : " ▼") : ""}</th>`).join("") + "</tr>";
+  thead.querySelectorAll("th").forEach(th => th.onclick = () => { const k = th.dataset.k; if (state.sortKey === k) state.sortDir *= -1; else { state.sortKey = k; state.sortDir = ["c", "p", "d", "dep"].includes(k) ? -1 : 1; } renderTable(); });
+  const f = COLS.find(c => c[0] === state.sortKey)[2];
+  const L = FILT.slice().sort((a, b) => { const x = f(a), y = f(b); return (x < y ? -1 : x > y ? 1 : 0) * state.sortDir || C.s[a] - C.s[b]; });
+  const rows = L.slice(0, state.rows);
+  tbody.innerHTML = rows.map(i => `<tr data-i="${i}" class="${i === state.sel ? "sel" : ""}">` + COLS.map(([, , , cell, num]) => `<td class="${num ? "num" : ""}">${cell(i)}</td>`).join("") + "</tr>").join("");
+  tbody.querySelectorAll("tr").forEach(tr => tr.onclick = () => focusCandidate(+tr.dataset.i));
+  document.getElementById("tcount").textContent = `${FILT.length} shown of ${NC} (min confidence ${state.minc.toFixed(2)})`;
+  const more = document.getElementById("more");
+  if (L.length > state.rows) { more.style.display = ""; more.textContent = `Show all ${L.length}`; more.onclick = () => { state.rows = 1e9; renderTable(); }; } else more.style.display = "none";
+}
+function markRow(i) { document.querySelectorAll("#tbl tbody tr").forEach(tr => tr.classList.toggle("sel", +tr.dataset.i === i)); }
+
+// ── filters ─────────────────────────────────────────────────────────────
+function refilter() { FILT = filtered(); ovCache = null; renderTable(); updateNavPos(); requestDraw(); drawChart1(); }
+const minc = document.getElementById("minc");
+minc.oninput = () => { state.minc = +minc.value; document.getElementById("mincv").textContent = state.minc.toFixed(2); refilter(); };
+(function sourceToggles() {
+  const el = document.getElementById("srcs");
+  const all = SRC_NAMES.concat(D.has_scan ? ["r4_scan"] : [], D.source_counts.none ? ["none"] : []);
+  el.innerHTML = "<span class='hint' style='margin:0'>found by:</span> " + all.map(s => `<label${s === "none" ? ` title="An event inside another candidate's box that the box does not mainly point at (less than half as deep as the deepest event in it): no source vouches for it and its confidence is R4's alone"` : ""}><input type="checkbox" data-s="${s}" checked> ${SRC_LABEL[s] || s} <span class="hint" style="margin:0">(${D.source_counts[s] || 0})</span></label>`).join(" ");
+  el.querySelectorAll("input").forEach(cb => cb.onchange = () => { if (cb.checked) state.src.add(cb.dataset.s); else state.src.delete(cb.dataset.s); refilter(); });
+})();
+document.getElementById("ndrop").textContent = `(${D.source_counts.drop || 0})`;
+document.getElementById("nrise").textContent = `(${D.source_counts.spike || 0})`;
+document.getElementById("showdrop").onchange = (e) => { state.drop = e.target.checked; refilter(); };
+document.getElementById("showrise").onchange = (e) => { state.rise = e.target.checked; refilter(); };
+document.getElementById("showmark").onchange = (e) => { state.mark = e.target.checked; requestDraw(); };
+document.getElementById("showseq").onchange = (e) => { state.seq = e.target.checked; requestDraw(); };
+document.getElementById("showknown").onchange = (e) => { state.known = e.target.checked; requestDraw(); };
+const winBox = document.getElementById("showwin");
+if (!D.windows.s.length) winBox.parentElement.style.display = "none";
+winBox.onchange = (e) => { state.win = e.target.checked; requestDraw(); };
+document.getElementById("legend").innerHTML =
+  `<span><span class="sw" style="background:${rgba(css("--cand"), .55)}"></span>▼ drop</span>` +
+  `<span><span class="sw" style="background:${rgba(css("--rise"), .55)}"></span>▲ rise</span>` +
+  (D.has_scan ? `<span><span class="sw" style="background:${rgba(css("--scan"), .55)}"></span>found by R4's window scan alone</span>` : "") +
+  `<span>darker = more confident · a marker sits below every drop's bottom and above every rise's peak · the thin strip above the trace marks every box, and boxes shade the plot once wide enough to see</span>` +
+  `<span><span class="sw" style="background:${css("--seq")}"></span>/<span class="sw" style="background:${css("--rise")}"></span>sequence of drops / of rises (top band)</span>` +
+  `<span><span class="sw" style="background:${css("--acc")}"></span>accepted by you</span>` +
+  `<span><span class="sw" style="background:${css("--rej")}"></span>rejected by you</span>` +
+  (D.windows.s.length ? `<span><span class="sw" style="background:${css("--winy")}"></span>/<span class="sw" style="background:${css("--winn")}"></span>10-min window interesting / not</span>` : "");
+
+// ── charts ──────────────────────────────────────────────────────────────
+const SVGNS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs, parent) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function drawChart1() {
+  const host = document.getElementById("chart1"); host.innerHTML = "";
+  const R = D.eval.by_threshold; if (!R.length) return;
+  const W = host.clientWidth || 520, Hh = 240, ml = 38, mr = 10, mt = 10, mb = 34;
+  const legend = document.createElement("div"); legend.className = "legend"; legend.style.marginBottom = "4px"; host.appendChild(legend);
+  const svg = svgEl("svg", {width: W, height: Hh, viewBox: `0 0 ${W} ${Hh}`}, host);
+  const xs = (t) => ml + (t - 0.3) / (0.95 - 0.3) * (W - ml - mr), ys = (v) => mt + (1 - v) * (Hh - mt - mb);
+  for (let v = 0; v <= 1.0001; v += 0.25) { svgEl("line", {x1: ml, x2: W - mr, y1: ys(v), y2: ys(v), stroke: css("--grid")}, svg); const t = svgEl("text", {x: ml - 6, y: ys(v) + 4, "text-anchor": "end"}, svg); t.textContent = Math.round(v * 100) + "%"; }
+  for (const t of [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]) { const tx = svgEl("text", {x: xs(t), y: Hh - mb + 16, "text-anchor": "middle"}, svg); tx.textContent = t.toFixed(1); }
+  const xl = svgEl("text", {x: (ml + W - mr) / 2, y: Hh - 4, "text-anchor": "middle"}, svg); xl.textContent = "candidates kept: confidence at least …";
+  const series = [["recall", "your accepted events found", css("--acc")], ["hit_rate", "hit rate on reviewed material", css("--cand")]];
+  if (R[0].windows_interesting_touched != null) series.push(["windows_interesting_touched", "interesting 10-min windows touched", css("--seq")], ["windows_not_touched", "not-interesting windows touched", css("--rej")]);
+  series.forEach(([k, name, col], q) => {
+    const pts = R.filter(r => r[k] != null).map(r => `${xs(r.threshold)},${ys(r[k])}`).join(" ");
+    svgEl("polyline", {points: pts, fill: "none", stroke: col, "stroke-width": 2}, svg);
+    R.forEach(r => { if (r[k] != null) svgEl("circle", {cx: xs(r.threshold), cy: ys(r[k]), r: 2.5, fill: col}, svg); });
+    legend.insertAdjacentHTML("beforeend", `<span><span class="sw" style="background:${col}"></span>${name}</span>`);
+  });
+  const cur = svgEl("line", {x1: xs(state.minc), x2: xs(state.minc), y1: mt, y2: Hh - mb, stroke: css("--muted"), "stroke-dasharray": "3 3"}, svg);
+  const hv = svgEl("line", {x1: 0, x2: 0, y1: mt, y2: Hh - mb, stroke: css("--ink"), opacity: 0}, svg);
+  const ov2 = svgEl("rect", {x: ml, y: mt, width: W - ml - mr, height: Hh - mt - mb, fill: "transparent"}, svg);
+  const tipc = document.createElement("div"); tipc.className = "hint"; tipc.style.minHeight = "52px"; host.appendChild(tipc);
+  const say = (r) => { tipc.innerHTML = `at ≥ ${r.threshold.toFixed(2)}: <b>${r.candidates}</b> candidates (${r.r4_scan_only} R4-scan only) · found <b>${r.accepted_found}</b> of ${r.accepted_total} accepted (${pct(r.recall)}) · on accepted ${r.on_accepted}, on rejected ${r.on_rejected}, unreviewed ${r.unjudged} · hit rate ${pct(r.hit_rate)}` + (r.windows_interesting_touched != null ? ` · windows touched: interesting ${pct(r.windows_interesting_touched)}, not ${pct(r.windows_not_touched)}` : "") + (r.proposals != null ? `<br>without R4's scan: ${r.proposals} candidates · found ${r.proposals_found} of ${r.accepted_total} (${pct(r.proposals_recall)}) · hit rate ${pct(r.proposals_hit_rate)}` : ""); };
+  const near = (t) => R.reduce((a, b) => Math.abs(b.threshold - t) < Math.abs(a.threshold - t) ? b : a);
+  say(near(state.minc));
+  ov2.addEventListener("mousemove", (e) => { const bb = svg.getBoundingClientRect(); const t = 0.3 + (e.clientX - bb.left - ml) / (W - ml - mr) * 0.65; const r = near(t); hv.setAttribute("x1", xs(r.threshold)); hv.setAttribute("x2", xs(r.threshold)); hv.setAttribute("opacity", 0.4); say(r); });
+  ov2.addEventListener("mouseleave", () => { hv.setAttribute("opacity", 0); say(near(state.minc)); });
+  ov2.addEventListener("click", (e) => { const bb = svg.getBoundingClientRect(); const t = 0.3 + (e.clientX - bb.left - ml) / (W - ml - mr) * 0.65; const r = near(t); minc.value = r.threshold; minc.oninput(); });
+}
+function hbar(hostId, title, rows, fmt, colors) {
+  const host = document.getElementById(hostId); host.innerHTML = "";
+  const W = host.clientWidth || 400, rowH = 22, ml = 120, mr = 70, mt = 26;
+  const Hh = mt + rows.length * rowH + 8, max = Math.max(1e-9, ...rows.flatMap(r => r.v));
+  const svg = svgEl("svg", {width: W, height: Hh, viewBox: `0 0 ${W} ${Hh}`}, host);
+  const t = svgEl("text", {x: 0, y: 15, class: "ttl"}, svg); t.textContent = title;
+  rows.forEach((r, q) => {
+    const y = mt + q * rowH; const lab = svgEl("text", {x: ml - 6, y: y + 14, "text-anchor": "end"}, svg); lab.textContent = r.label;
+    const bh = (rowH - 6) / r.v.length;
+    r.v.forEach((v, j) => {
+      const w = (W - ml - mr) * v / max, rect = svgEl("rect", {x: ml, y: y + 2 + j * bh, width: Math.max(1, w), height: bh - 1, fill: colors[j], rx: 2}, svg);
+      const tt = svgEl("title", {}, rect); tt.textContent = `${r.label}: ${fmt(v, j)}`;
+      const vl = svgEl("text", {x: ml + Math.max(1, w) + 4, y: y + 2 + j * bh + bh - 2}, svg); vl.textContent = fmt(v, j);
+    });
+  });
+}
+function drawCharts() {
+  drawChart1();
+  const bs = D.eval.by_source, keys = Object.keys(bs), nAcc = D.accepted.s.length || 1;
+  document.getElementById("chart2").innerHTML = `<h2>Who reached your accepted events</h2>
+    <table><thead><tr><th>source</th><th class="num">proposed</th><th class="num">per hour</th><th>accepted events reached (of ${D.accepted.s.length})</th></tr></thead><tbody>` +
+    keys.map(k => { const r = bs[k], name = k.startsWith("r4_scan") ? "R4 scan (own candidates)" : srcLabel(k);
+      return `<tr style="cursor:default"><td>${name}</td><td class="num">${r.proposals.toLocaleString()}</td><td class="num">${(r.proposals / D.hours).toFixed(1)}</td>` +
+             `<td><span class="bar" style="width:${Math.round(110 * r.accepted_reached / nAcc)}px;background:${css("--acc")}"></span> ${r.accepted_reached} (${pct(r.accepted_reached / nAcc)})</td></tr>`; }).join("") +
+    `</tbody></table><div class="hint">Raw proposals before merging; "reached" = covers at least half of the shorter of it and the accepted span.</div>`;
+  // stages of the two runs side by side (the signal, then the inverted signal)
+  const tm = D.timings, stages = [], val = {};
+  const nice = (k) => k.replace("detector:", "").replace("drop_detection_", "drop ").replace("BEADs_invert_detect_v1", "BEADS").replace("wavelet_encoded", "wavelet").replace("r4_candidates", "R4 on candidates").replace("r4_scan", "R4 scan").replace("beads_sigma", "BEADS σ");
+  const twoRuns = Object.keys(tm).some(k => k.startsWith("inverted:"));
+  for (const k of Object.keys(tm)) {
+    const m = /^(normal|inverted):(.*)$/.exec(k), run = m ? m[1] : "normal", st = m ? m[2] : k;
+    if (!(st in val)) { val[st] = [0, 0]; stages.push(st); }
+    val[st][run === "inverted" ? 1 : 0] = tm[k];
+  }
+  hbar("chart3", `Run time per stage (total ${(D.wall_s / 60).toFixed(1)} min)`, stages.map(st => ({label: nice(st), v: twoRuns ? val[st] : [val[st][0]]})),
+       (v, j) => (v < 60 ? v.toFixed(1) + " s" : (v / 60).toFixed(1) + " min") + (twoRuns ? (j ? " inverted" : " signal") : ""), [css("--seq"), css("--rise")]);
+}
+
+// ── header, run info, seed table ────────────────────────────────────────
+document.getElementById("title").textContent = D.title;
+document.getElementById("why").textContent = D.why;
+(function chips() {
+  const r5 = D.eval.by_threshold.find(r => Math.abs(r.threshold - 0.5) < 1e-6) || {};
+  const bp = D.by_polarity || {}, dr = bp.drops || {}, ri = bp.rises || {};
+  const items = [[`${D.hours.toFixed(0)} h`, `${N.toLocaleString()} samples at ${FS} Hz`], [`${(D.wall_s / 60).toFixed(1)} min`, "to run"],
+                 [NC, "candidates"], [D.seqs.s.length, "sequences"], [D.accepted.s.length, "accepted events here"],
+                 [r5.accepted_found != null ? `${r5.accepted_found} of ${r5.accepted_total}` : "–", "found at ≥ 0.5"], [pct(r5.hit_rate), "hit rate at ≥ 0.5"]];
+  if (bp.rises) items.push([`${dr.candidates_05 || 0} ▼ · ${ri.candidates_05 || 0} ▲`, `drops · rises at ≥ 0.5 (${ri.from_inverted_run || 0} rises from the inverted run, ${ri.found_by_both_runs || 0} found by both)`]);
+  document.getElementById("chips").innerHTML = items.map(([a, b]) => `<span class="chip"><b>${a}</b> ${b}</span>`).join("");
+})();
+document.getElementById("runinfo").innerHTML = D.run_notes.map(s => `<div style="margin-bottom:4px">${s}</div>`).join("");
+document.getElementById("seedtbl").innerHTML = "<table><thead><tr><th>family</th><th class='num'>members</th><th class='num'>line r ≥</th><th>lengths searched</th><th class='num'>matches</th><th class='num'>below floor</th><th class='num'>kept</th><th>capped</th></tr></thead><tbody>" +
+  D.seed_report.slice().sort((a, b) => b.kept - a.kept || b.min_corr - a.min_corr).map(r => r.skipped
+    ? `<tr style="opacity:.55"><td>${r.family}</td><td class="num">${r.n_members}</td><td class="num">${r.min_corr.toFixed(3)}</td><td colspan="5">not searched: ${r.skipped}</td></tr>`
+    : `<tr><td>${r.family}</td><td class="num">${r.n_members}</td><td class="num">${r.min_corr.toFixed(3)}</td><td>${r.lengths.join(", ") || "too short at this rate"}</td><td class="num">${r.matches_before_floor}</td><td class="num">${r.below_floor}</td><td class="num">${r.kept}</td><td>${r.capped_lengths.length ? "yes" : ""}</td></tr>`).join("") + "</tbody></table>";
+
+// ── go to a time (the box, or #t=220:08 in the address) ─────────────────
+function parseHour(s) {
+  s = String(s || "").trim(); if (!s) return null;
+  const m = /^(\d+):(\d{1,2}(?:\.\d+)?)$/.exec(s);
+  const h = m ? (+m[1] + (+m[2]) / 60) : parseFloat(s);
+  return isFinite(h) ? h : null;
+}
+function gotoHour(h, spanMin) { const c = h * 3600 * FS - T0, half = (spanMin || 20) * 60 * FS / 2; setView(c - half, c + half); }
+document.getElementById("goto").onkeydown = (e) => { if (e.key === "Enter") { const h = parseHour(e.target.value); if (h != null) gotoHour(h); } };
+function fromHash() { const m = /[#&]t=([^&]+)/.exec(location.hash); if (m) { const h = parseHour(decodeURIComponent(m[1])); if (h != null) { document.getElementById("goto").value = decodeURIComponent(m[1]); gotoHour(h); } } }
+window.addEventListener("hashchange", fromHash);
+
+window.addEventListener("resize", () => { ovCache = null; requestDraw(); drawCharts(); });
+renderTable(); updateNavPos(); draw(); drawCharts(); fromHash();
+</script>
+</body>
+</html>

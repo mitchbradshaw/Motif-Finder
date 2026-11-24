@@ -51,7 +51,8 @@ log = logging.getLogger("webui.jobs")
 
 KINDS = ("chain_run", "sweep", "import", "regroup", "training",
          "cross_channel",      # fixup-W: Library › Family *Classify across channels*
-         "cross_census")       # xc-S1: Explore › Cross-channel's census
+         "cross_census",       # xc-S1: Explore › Cross-channel's census
+         "autodetect")         # 2026-11-23: Explore › Auto-detect on one channel
 TERMINAL = ("completed", "failed", "cancelled")
 
 

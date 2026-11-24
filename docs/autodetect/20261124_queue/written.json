@@ -1,0 +1,96 @@
+{
+ "written": "2026-11-24T09:05:59",
+ "backup": "C:\\Users\\mmebr\\Documents\\CNN\\DATA\\db\\backups\\before_autodetect_queue_20261124_090532.sqlite",
+ "queue_id": 57,
+ "queue_name": "Auto-detect \u00b7 unreviewed drops and rises, 4 channels (24 Nov)",
+ "config_id": 9694,
+ "detections": 5297,
+ "first_detection_id": 13389236,
+ "last_detection_id": 13394532,
+ "runs": {
+  "M4_CH1_A1": [
+   9064,
+   9065
+  ],
+  "MJu26a_CH15": [
+   9066,
+   9067
+  ],
+  "M2_aug_CH7_B2": [
+   9068,
+   9069
+  ],
+  "MJu26a_CH14": [
+   9070,
+   9071
+  ]
+ },
+ "review_items": 5297,
+ "review_items_asked": 5293,
+ "held_back_by_review": 4,
+ "one_item_per_detection": true,
+ "wal_checkpoint": [
+  0,
+  599,
+  599
+ ],
+ "updates": [
+  {
+   "at": "2026-11-24T09:12:26",
+   "why": "swing rule: 17 boxes ran into a bigger event the other way (rank 36 a 0.6 mV rise whose box ran into a 12 mV drop)",
+   "backup": "C:\\Users\\mmebr\\Documents\\CNN\\DATA\\db\\backups\\before_autodetect_queue_20261124_091217.sqlite",
+   "taken_off_the_list": [
+    13389834,
+    13390003,
+    13390042,
+    13390052,
+    13390114,
+    13392693,
+    13392696,
+    13392697,
+    13392699,
+    13392724,
+    13392751,
+    13392753,
+    13392757,
+    13392909,
+    13393057,
+    13393190,
+    13393628
+   ],
+   "kept_because_judged": [],
+   "added_detection_ids": [
+    13394533,
+    13394534,
+    13394535,
+    13394536,
+    13394537,
+    13394538,
+    13394539,
+    13394540,
+    13394541,
+    13394542,
+    13394543
+   ],
+   "runs_added": {
+    "MJu26a_CH14": [
+     9072
+    ],
+    "M2_aug_CH7_B2": [
+     9073
+    ]
+   },
+   "listed_now": 5291,
+   "review_items": 5291,
+   "review_items_asked": 5287,
+   "held_back_by_review": 4,
+   "one_item_per_detection": true,
+   "wal_checkpoint": [
+    0,
+    32,
+    32
+   ],
+   "note": "meta_json 'rank' is the rank when the row was written; the queue's list is the plan's current order"
+  }
+ ]
+}
