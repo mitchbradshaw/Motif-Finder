@@ -483,6 +483,73 @@ export function ReviewQueuesCard({ q }: { q: LiveRead<ReviewQueue[]> }) {
   )
 }
 
+/* ------------------------------------------------------------------ archived queues (2026-11-24) */
+/* The researcher: "archive queues ... and store them in a new block on the jobs page, labelled 'archived queues', with
+ * the ability to restore them to review". An archived queue is out of Review's list and the header's count; its
+ * items and verdicts are kept, and Restore puts it back as it was. */
+function dateOf(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10)
+  return d.toDateString() === new Date().toDateString() ? 'today' : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+export function ArchivedQueuesCard({ q, onRestore }: { q: LiveRead<ReviewQueue[]>; onRestore: (x: ReviewQueue) => Promise<void> }) {
+  const data = q.data
+  const queues = useMemo(() => [...(data ?? [])].sort((a, b) => String(b.archivedAt ?? '').localeCompare(String(a.archivedAt ?? '')) || Number(b.id) - Number(a.id)), [data])
+  const left = queues.reduce((n, x) => n + Math.max(0, x.total - x.judged), 0)
+  const [busy, setBusy] = useState<string | null>(null)
+  const restore = (x: ReviewQueue) => { setBusy(x.id); onRestore(x).finally(() => setBusy(null)) }
+  return (
+    <section className="jb-live-card" data-testid="archived-queues" id="jobs-archived">
+      <div className="head">
+        <Icon name="archive" size={14} />
+        <h3>Archived queues</h3>
+        <Chip tone="green" size="sm" testid="live-chip-archived">live</Chip>
+        <span className="jb-mono jb-small jb-muted" data-testid="archived-summary">{data ? `${queues.length} archived queue${queues.length === 1 ? '' : 's'}${left ? ` · ${left} still to judge` : ''}` : ''}</span>
+        <InfoTip title="Archived queues">Out of Review's queue list and the header's count, nothing lost: every item and verdict is kept, and nothing new is added to an archived queue. Restore puts one back in Review as it was. Archive a queue from Review's queue list (the box icon beside its name).</InfoTip>
+        <span className="jb-spacer" />
+      </div>
+      {q.error && !data && <LoadFailed what="the archived queues" error={q.error} onRetry={q.reload} />}
+      {!data && q.loading && <Loading height={80} testid="archived-loading" />}
+      {data && !queues.length && <EmptyState size="sm" bordered testid="archived-queues-empty" icon="archive" title="No archived queue"
+        caption="archive a queue from Review's queue list (the box icon beside its name); it then waits here until you restore it" />}
+      {!!queues.length && (
+        <table className="jb-table jb-live" data-testid="archived-table">
+          <colgroup><col style={{ width: 56 }} /><col /><col style={{ width: 200 }} /><col style={{ width: 110 }} /><col style={{ width: 150 }} /><col style={{ width: 170 }} /></colgroup>
+          <thead><tr><th>queue</th><th>what is judged</th><th>judged</th><th>made</th><th>archived</th><th /></tr></thead>
+          <tbody>
+            {queues.map(x => {
+              const frac = x.total ? x.judged / x.total : 0
+              return (
+                <tr key={x.id} className="jb-tr" data-testid={`archived-queue-row-${x.id}`} tabIndex={0}
+                  onClick={() => navigate(`review/queue/${x.id}`)} onKeyDown={e => { if (e.key === 'Enter') navigate(`review/queue/${x.id}`) }}>
+                  <td><span className="jb-id">q-{x.id}</span></td>
+                  <td>
+                    <span className="jb-job">
+                      <Icon name="checklist" size={13} className="ic" />
+                      <span className="txt">
+                        <div className="t" title={x.title}>{x.title}{x.blind && <Badge status="blind" />}</div>
+                        <div className="s" title={x.subtitle}>{x.source.replace(/-/g, ' ')} · {x.subtitle}</div>
+                      </span>
+                    </span>
+                  </td>
+                  <td><span className="jb-prog"><ProgressBar value={frac} width={96} size="sm" tone="green" labelPosition="none" /><span className="jb-muted">{x.judged} / {x.total}</span></span></td>
+                  <td><span className="jb-time">{dateOf(x.createdAt)}</span></td>
+                  <td><span className="jb-time" title={x.archivedAt ?? ''}>{dateOf(x.archivedAt)}</span></td>
+                  <td className="jb-act" onClick={e => e.stopPropagation()}>
+                    <Button size="sm" variant="primary" icon="undo" loading={busy === x.id} testid={`archived-restore-${x.id}`} onClick={() => restore(x)}>Restore to Review</Button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </section>
+  )
+}
+
 /* ------------------------------------------------------------------ the Manifest inbox */
 export function InboxLive({ imp, cluster, attempts }: { imp: ReturnType<typeof useImport>; cluster: ClusterList | null; attempts: LiveRead<{ attempts: ImportAttempt[]; roots: string[] }> }) {
   const [path, setPath] = useState('')

@@ -54,6 +54,7 @@ export const ICONS = {
   compare: P('M7 4v10M7 14l-3-3M7 14l3-3M17 20V10M17 10l-3 3M17 10l3 3'),
   library: <g><rect x="4" y="4" width="4" height="16" rx="1" /><rect x="10" y="4" width="4" height="16" rx="1" />{P('M16.5 5l3.5 14.5')}</g>,
   inbox: P('M3.5 13.5l2.5-8h12l2.5 8v5h-17zM3.5 13.5h5l1 2.5h5l1-2.5h5'),
+  archive: P('M3 4.5h18v4H3zM4.5 8.5v11h15v-11M10 12.5h4'),
   mail: <g><rect x="3.5" y="5.5" width="17" height="13" rx="2" />{P('M4 7l8 6 8-6')}</g>,
   tag: <g>{P('M3.5 12.5V4h8.5l8.5 8.5-8.5 8.5z')}<circle cx="8" cy="8.5" r="1.2" /></g>,
   layers: P('M12 4l8.5 4.5L12 13 3.5 8.5zM3.5 12.5L12 17l8.5-4.5M3.5 16.5L12 21l8.5-4.5'),

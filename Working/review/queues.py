@@ -213,13 +213,27 @@ def get_queue(conn, queue_id):
     return q
 
 
-def list_queues(conn, *, include_closed=False, exclude_recording_ids=None):
+#: Which queues `list_queues` returns by their archive state (2026-11-24): Review's list leaves archived ones out,
+#: the Jobs page's *Archived queues* block reads only those.
+ARCHIVED_CHOICES = ("exclude", "only", "include")
+
+
+def list_queues(conn, *, include_closed=False, exclude_recording_ids=None, archived="exclude"):
     """Every queue, newest last, each carrying its live total/judged/remaining.
     `exclude_recording_ids` as `queue_counts` takes it (AR: the bridge counted
-    each queue twice, once here and again with the held-out set)."""
+    each queue twice, once here and again with the held-out set). `archived`:
+    "exclude" (Review's list), "only" (the Jobs page's archived block) or
+    "include"."""
+    if archived not in ARCHIVED_CHOICES:
+        raise ValueError("archived must be one of {}, got {!r}".format(", ".join(ARCHIVED_CHOICES), archived))
+    where = [] if include_closed else ["closed_at IS NULL"]
+    if archived == "exclude":
+        where.append("archived_at IS NULL")
+    elif archived == "only":
+        where.append("archived_at IS NOT NULL")
     sql = "SELECT * FROM review_queues"
-    if not include_closed:
-        sql += " WHERE closed_at IS NULL"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY id"
     out = []
     for row in conn.execute(sql).fetchall():
@@ -237,6 +251,49 @@ def close_queue(conn, queue_id):
     conn.execute("UPDATE review_queues SET closed_at = ? WHERE id = ?",
                  (_now(), queue_id))
     conn.commit()
+
+
+# ── archive (2026-11-24) ────────────────────────────────────────────────────
+# The researcher: "implement functionality to archive queues ... and store them in a new block on the jobs page,
+# labelled 'archived queues', with the ability to restore them to review". An archived queue leaves Review's list
+# (`list_queues`) and the header's count (`header_counts`), and no lookup that widens an open queue finds it, so a
+# later send makes a new queue instead of filling a hidden one. It is NOT closed: its items, its verdicts and a blind
+# test's own lookup of its queue are untouched. Restoring clears the stamp, and the queue is back as it was.
+
+def _require_queue(conn, queue_id):
+    if conn.execute("SELECT 1 FROM review_queues WHERE id = ?", (int(queue_id),)).fetchone() is None:
+        raise ValueError("no such queue: {!r}".format(queue_id))
+
+
+def archive_queue(conn, queue_id):
+    """Archive one queue. True when it was archived now, False when it already was."""
+    _require_queue(conn, queue_id)
+    cur = conn.execute("UPDATE review_queues SET archived_at = ? WHERE id = ? AND archived_at IS NULL",
+                       (_now(), int(queue_id)))
+    conn.commit()
+    return cur.rowcount > 0
+
+
+def restore_queue(conn, queue_id):
+    """Put an archived queue back in Review. True when it was archived, False when it was not."""
+    _require_queue(conn, queue_id)
+    cur = conn.execute("UPDATE review_queues SET archived_at = NULL WHERE id = ? AND archived_at IS NOT NULL",
+                       (int(queue_id),))
+    conn.commit()
+    return cur.rowcount > 0
+
+
+def archive_queues_before(conn, cutoff):
+    """Archive every open, unarchived queue made before `cutoff` (an ISO time, compared as stored: `created_at` is
+    UTC ISO from `_now`); returns their ids. A closed queue is already out of Review and is left alone."""
+    ids = [int(r[0]) for r in conn.execute(
+        "SELECT id FROM review_queues WHERE closed_at IS NULL AND archived_at IS NULL AND created_at < ? "
+        "ORDER BY id", (str(cutoff),)).fetchall()]
+    if ids:
+        now = _now()
+        conn.executemany("UPDATE review_queues SET archived_at = ? WHERE id = ?", [(now, i) for i in ids])
+        conn.commit()
+    return ids
 
 
 def _normalised_filters(filters):
@@ -270,7 +327,7 @@ def find_open_queue(conn, *, source_kind, filters=None, source_ref=None,
     want_ref = None if source_ref is None else str(source_ref)
     for row in conn.execute(
             "SELECT id, source_ref, filters_json, note FROM review_queues "
-            "WHERE closed_at IS NULL AND source_kind = ? ORDER BY id",
+            "WHERE closed_at IS NULL AND archived_at IS NULL AND source_kind = ? ORDER BY id",
             (source_kind,)).fetchall():
         if row["source_ref"] != want_ref:
             continue
@@ -293,7 +350,7 @@ def find_open_queue_by_note(conn, *, source_kind, note):
     The caller writes a stable note at creation and finds the queue by it.
     """
     row = conn.execute(
-        "SELECT id FROM review_queues WHERE closed_at IS NULL AND source_kind = ? "
+        "SELECT id FROM review_queues WHERE closed_at IS NULL AND archived_at IS NULL AND source_kind = ? "
         "AND note = ? ORDER BY id DESC LIMIT 1", (source_kind, note)).fetchone()
     return None if row is None else int(row["id"])
 
@@ -591,11 +648,11 @@ def _median(xs):
 
 
 def header_counts(conn, *, exclude_recording_ids=None):
-    """What the header badge shows: unjudged items across every open queue."""
+    """What the header badge shows: unjudged items across every open queue that is not archived."""
     by_queue = []
     need_you = 0
     for row in conn.execute(
-            "SELECT id, name FROM review_queues WHERE closed_at IS NULL "
+            "SELECT id, name FROM review_queues WHERE closed_at IS NULL AND archived_at IS NULL "
             "ORDER BY id").fetchall():
         remaining = queue_counts(
             conn, row["id"],

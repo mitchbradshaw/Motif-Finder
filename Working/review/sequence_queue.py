@@ -135,9 +135,9 @@ def register_candidates(conn, spans, *, provenance):
 
 
 def open_queue(conn, name):
-    """The id of the open sequence-review queue called `name`, or None."""
-    row = conn.execute("SELECT id FROM review_queues WHERE closed_at IS NULL AND source_kind = ? AND name = ? "
-                       "ORDER BY id DESC LIMIT 1", (SOURCE_KIND, name)).fetchone()
+    """The id of the open sequence-review queue called `name`, or None (an archived one is not widened)."""
+    row = conn.execute("SELECT id FROM review_queues WHERE closed_at IS NULL AND archived_at IS NULL "
+                       "AND source_kind = ? AND name = ? ORDER BY id DESC LIMIT 1", (SOURCE_KIND, name)).fetchone()
     return None if row is None else int(row[0])
 
 

@@ -11,10 +11,10 @@ import {
 } from '../kit'
 import { useSourced } from '../api/seam'
 import { useToast } from '../shell/Toast'
-import { getQueueCounts, getQueues, useThumbs, VOCABULARY, type QueueData, type QueueRow } from '../api/review'
+import { archiveQueue, getQueueCounts, getQueues, restoreQueue, useThumbs, VOCABULARY, type QueueData, type QueueRow, type ReviewQueue } from '../api/review'
 import { SHORTCUTS } from './keys'
 import { counts, isJudged, judgedRecord, queueCounts, rowById, unitHash, unitKey, units, type UnitRef } from './queue'
-import { useAutoAdvance, useBlindOverrides, useCountsVersion, useFilters, useRecords, useReviewVersion } from './store'
+import { bumpReviewVersion, useAutoAdvance, useBlindOverrides, useCountsVersion, useFilters, useRecords, useReviewVersion } from './store'
 
 /* The queue thumbnails used to share one hand-set domain, [-0.45, 0.45] (right in volts, served as mV), then ±450 mV after
    fixup-b. Each is drawn on its own measured domain now (charts/domain.ts, fixup-c): at 38 px a thumbnail's job is
@@ -137,6 +137,8 @@ function Toolbar({ data, judged, blind, setBlind, paused }: { data: QueueData; j
         <p style={{ margin: 0 }}>Verdicts from now on are stored as sighted. {queue.source === 'model-verification' ? 'The registration sample expects blind verdicts.' : 'The manual-label arm expects blind verdicts.'}</p>
       </Modal>
 
+      {queue.archivedAt && <ArchivedChip queue={queue} />}
+
       <span className="rv-tool-chip static" data-testid="writes-chip">
         <Icon name="database" size={13} /><span className="muted">writes</span><span>{queue.writes}</span>
         <InfoTip title="Write target">Each verdict writes one {queue.writes === 'adjudications' ? 'adjudication row on the detection (§4.1)' : queue.writes === 'annotations' ? 'annotation verdict on the human span' : 'window verdict on the window set (B15)'}. Nothing on this page writes a machine row.</InfoTip>
@@ -162,6 +164,24 @@ function Toolbar({ data, judged, blind, setBlind, paused }: { data: QueueData; j
   )
 }
 
+/* An archived queue opened by its link (2026-11-24): it is out of the list, so the toolbar says why and puts it back. */
+function ArchivedChip({ queue }: { queue: ReviewQueue }) {
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  const restore = () => {
+    setBusy(true)
+    restoreQueue(queue.id)
+      .then(() => { setBusy(false); toast.push({ text: `${queue.title} is back in Review` }); bumpReviewVersion() })
+      .catch(e => { setBusy(false); toast.push({ kind: 'error', text: `Not restored: ${e instanceof Error ? e.message : String(e)}` }) })
+  }
+  return (
+    <span className="rv-tool-chip static rv-archived-chip" data-testid="archived-chip" title={`archived ${queue.archivedAt?.slice(0, 16).replace('T', ' ')} — out of Review's list and the header's count; its items and verdicts are kept`}>
+      <Icon name="archive" size={13} /><span>archived</span>
+      <Button size="sm" variant="link" onClick={restore} loading={busy} testid="archived-restore">Restore to Review</Button>
+    </span>
+  )
+}
+
 /* ================= queue list (rail + picker) ================= */
 function QueueList({ current, onPick }: { current: string; onPick: (id: string) => void }) {
   // re-read the queue list after an accepted write, so the rail's counts come from the database. AR: the HEADERS
@@ -169,9 +189,25 @@ function QueueList({ current, onPick }: { current: string; onPick: (id: string) 
   // every verdict
   const version = useReviewVersion()
   const countsVersion = useCountsVersion()
-  const all = useSourced(getQueues, [version, countsVersion])
+  const [archives, setArchives] = useState(0)          // an archive (or its undo) here re-reads the list
+  const all = useSourced(getQueues, [version, countsVersion, archives])
   const records = useRecords()
   const [over] = useBlindOverrides()
+  const toast = useToast()
+  /* 2026-11-24 (the researcher): "archive queues with a button archive icon next to the queue name in the dropdown
+   * queue list on review". The queue leaves this list and the header's count and waits in Jobs › Archived queues,
+   * items and verdicts kept; the toast undoes it. The page stays where it is, even for the queue on screen: archiving
+   * is often several queues in a row from this list, and a jump would close it (the toolbar says "archived" once the
+   * queue is read again). */
+  const archive = (q: ReviewQueue) => {
+    archiveQueue(q.id).then(() => {
+      setArchives(n => n + 1)
+      toast.push({
+        text: `Archived ${q.title} — it waits in Jobs › Archived queues`,
+        action: { label: 'Undo', onClick: () => restoreQueue(q.id).then(() => setArchives(n => n + 1)).catch(e => toast.push({ kind: 'error', text: `Not restored: ${e instanceof Error ? e.message : String(e)}` })) },
+      })
+    }).catch(e => toast.push({ kind: 'error', text: `Not archived: ${e instanceof Error ? e.message : String(e)}` }))
+  }
   /* site-changes (the researcher, 2026-10-20): "once queues in review get to 0 they should be removed". A queue with
    * nothing left is FILED, not deleted: it drops out of the list into one folded line that opens them all. The queue
    * open now always stays listed, finished or not, so the rail never loses the row you are on. */
@@ -184,11 +220,15 @@ function QueueList({ current, onPick }: { current: string; onPick: (id: string) 
   const row = ({ q, c }: (typeof listed)[number], finished = false) => {
     const blind = over[q.id] ?? q.blind
     return (
-      <button key={q.id} type="button" className={cx('rv-queue-row', q.id === current && 'on', finished && 'done')} onClick={() => onPick(q.id)} data-testid={`queue-row-${q.id}`} data-left={c.left}>
-        <Icon name={QUEUE_ICON[q.icon]} size={15} />
-        <span className="txt"><b>{q.title}</b><span className="mono muted">{q.subtitle}</span></span>
-        <span className="cnt"><b>{q.source === 'model-verification' ? `${c.left} / ${q.total}` : fmtInt(c.left)}</b>{blind && <span className="rv-blind-badge">blind</span>}</span>
-      </button>
+      <div key={q.id} className="rv-queue-item">
+        <button type="button" className={cx('rv-queue-row', q.id === current && 'on', finished && 'done')} onClick={() => onPick(q.id)} data-testid={`queue-row-${q.id}`} data-left={c.left}>
+          <Icon name={QUEUE_ICON[q.icon]} size={15} />
+          <span className="txt"><b>{q.title}</b><span className="mono muted">{q.subtitle}</span></span>
+          <span className="cnt"><b>{q.source === 'model-verification' ? `${c.left} / ${q.total}` : fmtInt(c.left)}</b>{blind && <span className="rv-blind-badge">blind</span>}</span>
+        </button>
+        <IconButton icon="archive" label={`Archive ${q.title} (out of Review; restore it from Jobs › Archived queues)`} className="rv-queue-archive"
+          onClick={() => archive(q)} testid={`queue-archive-${q.id}`} />
+      </div>
     )
   }
   return (

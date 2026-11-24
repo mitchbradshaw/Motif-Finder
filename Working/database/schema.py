@@ -1671,6 +1671,17 @@ def _review_queues_rebuild_sql():
         "CREATE TABLE IF NOT EXISTS review_queues (", "CREATE TABLE review_queues_rebuild (", 1)
 
 
+# queue archive (2026-11-24, the researcher: "implement functionality to archive queues ... with the ability to
+# restore them to review"). `archived_at`: when the researcher archived the queue - it leaves Review's list and the
+# header's count, and nothing widens it (`Working.review.queues.archive_queue`). NULL = not archived. It is not
+# `closed_at`: an archived queue is still open, so a blind test's page still finds its queue. Nullable and additive.
+_REVIEW_QUEUES_NEW_COLUMNS = [("archived_at", "TEXT")]
+
+
+def _migrate_review_queues_columns(conn):
+    _migrate_columns(conn, "review_queues", _REVIEW_QUEUES_NEW_COLUMNS)
+
+
 def _migrate_review_queues_kinds(conn, db_path=None):
     """Rebuild `review_queues` so its CHECKs accept the `suspected-artifact`
     kind and the `member` unit. Returns the backup path, or None."""
@@ -1768,6 +1779,9 @@ def init_db(db_path=None):
     _migrate_annotations_verdict(conn, db_path)
     # After the review tables exist (fixup-AD): widen the queue kinds once.
     _migrate_review_queues_kinds(conn, db_path)
+    # queue archive (2026-11-24): after the kinds rebuild, which rebuilds from the CREATE text and would refuse a
+    # live column it does not know (additive)
+    _migrate_review_queues_columns(conn)
     # round A_2, P3: a windowed run's provenance and what each window fitted (additive)
     _migrate_windowed_tables(conn)
     # review-carry (2026-10-18): a carried verdict's source row, and the class label given in Review (additive)

@@ -3,6 +3,7 @@
  *   2. Waiting on the cluster — every script the site wrote for the cluster, whatever wrote it, with its state and
  *      how its results come back;
  *   3. Waiting in review — the open review queues and how much is left to judge;
+ *   4. Archived queues (2026-11-24) — queues archived from Review's list, each with Restore to Review;
  *   plus the Manifest inbox in a drawer.
  * The fixture half (paused runs, hand-marked cluster jobs, a canon of invented ids) is gone: nothing on this page is
  * drawn from anything but the bridge. Deep links: `?section=local|cluster|review` (and the older `?kind=cluster`,
@@ -10,19 +11,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Chip, Drawer, PageTitle, Page, useQueryState } from '../kit'
 import { getClusterJobs, getInboxAttempts, getLocalJobs, isActive } from '../api/jobs'
-import { getQueues } from '../api/review'
+import { getArchivedQueues, getQueues, restoreQueue, type ReviewQueue } from '../api/review'
 import { Header } from '../shell/Header'
-import { ClusterJobsCard, InboxLive, LocalJobsCard, ReviewQueuesCard, useImport, useLiveRead, useSeedImport } from './LiveJobs'
+import { useToast } from '../shell/Toast'
+import { navigate } from '../state'
+import { ArchivedQueuesCard, ClusterJobsCard, InboxLive, LocalJobsCard, ReviewQueuesCard, useImport, useLiveRead, useSeedImport } from './LiveJobs'
 
-type Section = 'local' | 'cluster' | 'review'
-const SECTION_ID: Record<Section, string> = { local: 'jobs-live-local', cluster: 'jobs-cluster', review: 'jobs-review' }
+type Section = 'local' | 'cluster' | 'review' | 'archived'
+const SECTION_ID: Record<Section, string> = { local: 'jobs-live-local', cluster: 'jobs-cluster', review: 'jobs-review', archived: 'jobs-archived' }
 
 export function AllPage() {
   const [sectionQ, setSection] = useQueryState('section', '')
   const [kindAlias] = useQueryState('kind', '')              // Models links in as ?kind=cluster
   const [filterAlias] = useQueryState('filter', '')          // Review links in as ?filter=queues; older links said ?filter=local
   const [drawer, setDrawer] = useQueryState('drawer', '')
-  const section: Section | null = sectionQ === 'local' || sectionQ === 'cluster' || sectionQ === 'review' ? sectionQ
+  const section: Section | null = sectionQ === 'local' || sectionQ === 'cluster' || sectionQ === 'review' || sectionQ === 'archived' ? sectionQ
     : kindAlias === 'cluster' ? 'cluster' : filterAlias === 'queues' ? 'review' : filterAlias === 'local' ? 'local' : null
 
   // six rows, so the three boards fit one screen (the researcher, 2026-10-13); "show older jobs" pages further
@@ -32,7 +35,13 @@ export function AllPage() {
   const local = useLiveRead(() => getLocalJobs(limit), [limit, reloadKey], d => (d?.some(isActive) ? 2000 : 8000))
   const cluster = useLiveRead(getClusterJobs, [reloadKey], d => (d?.jobs.some(j => j.state === 'importing') ? 1500 : 10000))
   const queues = useLiveRead(getQueues, [reloadKey], () => 15000)
+  const archived = useLiveRead(getArchivedQueues, [reloadKey], () => 30000)
   const attempts = useLiveRead(getInboxAttempts, [reloadKey], () => 10000)
+  const toast = useToast()
+  // 2026-11-24: a restored queue goes back to Review's list; both blocks re-read
+  const onRestore = useCallback((x: ReviewQueue) => restoreQueue(x.id)
+    .then(() => { toast.push({ text: `${x.title} is back in Review`, action: { label: 'Open it →', onClick: () => navigate(`review/queue/${x.id}`) } }); bump() })
+    .catch(e => { toast.push({ kind: 'error', text: `Not restored: ${e instanceof Error ? e.message : String(e)}` }) }), [toast, bump])
   const imp = useImport(bump)
   const seedImp = useSeedImport(bump)
 
@@ -73,6 +82,7 @@ export function AllPage() {
           <LocalJobsCard q={local} limit={limit} onMore={() => setLimit(l => l + 100)} />
           <ClusterJobsCard q={cluster} imp={imp} seedImp={seedImp} />
           <ReviewQueuesCard q={queues} />
+          <ArchivedQueuesCard q={archived} onRestore={onRestore} />
         </div>
 
         <Drawer open={drawer === 'inbox'} onClose={() => setDrawer(null)} title="Manifest inbox" side="right" width={520} testid="inbox-drawer"

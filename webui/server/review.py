@@ -766,13 +766,19 @@ def get_counts(request: Request):
 
 
 @router.get("/queues")
-def get_queues(request: Request, include_closed: int = Query(default=0)):
+def get_queues(request: Request, include_closed: int = Query(default=0), archived: str = Query(default="exclude")):
+    """The queues, each with its counts. `archived` (2026-11-24): "exclude" - Review's list - leaves archived queues
+    out; "only" is the Jobs page's *Archived queues* block; "include" both."""
+    if archived not in queues_mod.ARCHIVED_CHOICES:
+        raise HTTPException(status_code=422, detail=f"archived must be one of {', '.join(queues_mod.ARCHIVED_CHOICES)}; "
+                                                    f"got {archived!r}")
     conn = _conn(request)
     try:
         held = _held_out_ids(conn)
         out = []
         # AR: one count per queue, with the held-out set (it was counted twice, once without it)
-        for q in queues_mod.list_queues(conn, include_closed=bool(include_closed), exclude_recording_ids=held):
+        for q in queues_mod.list_queues(conn, include_closed=bool(include_closed), exclude_recording_ids=held,
+                                        archived=archived):
             counts = {k: q[k] for k in ("total", "judged", "remaining")}
             out.append(_queue_payload(conn, q, counts=counts, filters="summary", detections=q.get("detections")))
         return out
@@ -1098,6 +1104,31 @@ def _carry_free(result: dict) -> dict:
     """The verdict record without its per-member audit detail (`targets`: each member's prior and what it carried,
     which the core keeps for undo and promotion); everything else as the core returned it."""
     return {k: v for k, v in result.items() if k != "targets"}
+
+
+@router.post("/queues/{qid}/archive")
+def post_archive(request: Request, qid: str):
+    """Archive a queue (2026-11-24): it leaves Review's list and the header's count and waits in Jobs › Archived
+    queues. Its items and verdicts are untouched. Archiving an archived queue changes nothing."""
+    conn = _conn(request)
+    try:
+        q = _queue_or_404(conn, qid)
+        changed = _core_call(queues_mod.archive_queue, conn, int(q["id"]))
+        return {"queue": _queue_payload(conn, _queue_or_404(conn, qid), filters="summary"), "changed": bool(changed)}
+    finally:
+        conn.close()
+
+
+@router.post("/queues/{qid}/restore")
+def post_restore(request: Request, qid: str):
+    """Put an archived queue back in Review, as it was."""
+    conn = _conn(request)
+    try:
+        q = _queue_or_404(conn, qid)
+        changed = _core_call(queues_mod.restore_queue, conn, int(q["id"]))
+        return {"queue": _queue_payload(conn, _queue_or_404(conn, qid), filters="summary"), "changed": bool(changed)}
+    finally:
+        conn.close()
 
 
 @router.post("/queues/{qid}/verdict")

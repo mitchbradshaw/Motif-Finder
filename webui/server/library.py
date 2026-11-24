@@ -1683,7 +1683,8 @@ def _open_artifact_queue(conn, member_ids):
     from Working.review import queues as rq
     want = sorted(int(m) for m in member_ids)
     for row in conn.execute("SELECT id, source_ref, filters_json FROM review_queues "
-                            "WHERE closed_at IS NULL AND source_kind = ? ORDER BY id DESC", (aq.SOURCE_KIND,)):
+                            "WHERE closed_at IS NULL AND archived_at IS NULL AND source_kind = ? ORDER BY id DESC",
+                            (aq.SOURCE_KIND,)):
         f = json.loads(row["filters_json"] or "{}")
         if sorted(int(m) for m in f.get("member_ids") or []) == want:
             return {"id": int(row["id"]), **rq.queue_counts(conn, int(row["id"]))}

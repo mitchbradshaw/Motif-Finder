@@ -18,6 +18,8 @@ export interface ReviewQueue {
   order: string; total: number; judged: number; paceS: number | null
   channels: string[]; scoreFloor: number | null
   previousLine: string | null; rankKind: 'score' | 'distance' | 'time' | 'stratified'
+  /** live queues only: when it was made, and when the researcher archived it (null while it is in Review) */
+  createdAt?: string | null; archivedAt?: string | null
 }
 
 const q = (id: string) => REVIEW_QUEUES.find(x => x.id === id)

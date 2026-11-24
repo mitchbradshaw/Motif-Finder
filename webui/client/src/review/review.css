@@ -264,3 +264,10 @@
 .rv-ev-fam { display: flex; align-items: center; gap: 10px; }
 .rv-ev-fam .k-mini { border: 1px solid var(--border); border-radius: 4px; }
 .rv-write-target { display: flex; align-items: center; gap: 7px; font-size: 10.5px; color: var(--text-2); background: var(--k-fill); padding: 8px 10px; border-radius: 8px; margin-top: 6px; }
+/* queue archive (2026-11-24): the archive button beside each queue in the list, and the toolbar chip of an archived queue */
+.rv-queue-item { display: flex; align-items: center; gap: 2px; }
+.rv-queue-item > .rv-queue-row { flex: 1; min-width: 0; }
+.rv-queue-item > .rv-queue-archive { flex: none; color: var(--muted); opacity: 0.55; }
+.rv-queue-item:hover > .rv-queue-archive, .rv-queue-item > .rv-queue-archive:focus-visible { opacity: 1; }
+.rv-queue-item > .rv-queue-archive:hover { color: var(--text); }
+.rv-archived-chip { border-color: var(--amber, #d97706); color: var(--amber-700, #92400e); }

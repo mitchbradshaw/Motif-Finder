@@ -89,8 +89,8 @@ def open_family_queue(conn, family, grouping=None):
     """The id of the open queue of this kind over `family` (and `grouping`,
     when the queue names one and the caller does), or None."""
     for row in conn.execute(
-            "SELECT id, filters_json FROM review_queues WHERE closed_at IS NULL AND source_kind = ? "
-            "AND source_ref = ? ORDER BY id DESC", (SOURCE_KIND, str(family))):
+            "SELECT id, filters_json FROM review_queues WHERE closed_at IS NULL AND archived_at IS NULL "
+            "AND source_kind = ? AND source_ref = ? ORDER BY id DESC", (SOURCE_KIND, str(family))):
         f = json.loads(row["filters_json"] or "{}")
         if grouping is not None and f.get("grouping") not in (None, str(grouping)):
             continue

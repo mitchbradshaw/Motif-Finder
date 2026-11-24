@@ -250,10 +250,11 @@
   "settle_ms": 1500,
   "expect": [
    "[data-testid=\"queue-picker\"]",
-   "[data-testid=\"queue-row-1\"], [data-testid=\"queue-finished-toggle\"]",
-   "[data-testid=\"queue-row-2\"]"
+   "[data-testid=\"queue-picker\"] [data-testid^=\"queue-row-\"], [data-testid=\"queue-finished-toggle\"]",
+   "[data-testid=\"queue-row-2\"], [data-testid=\"archived-chip\"]"
   ],
   "_timing": "fixup-smoke2: the picker reads every queue in full, as the rail does; wait until the list (or its error) is drawn in the popover, then assert queues 1 and 2 are listed. site-changes 2026-10-20: a finished queue is filed under the 'N finished queues' fold, so queue 1 (30 of 30 judged on the real copy) is listed OR folded; queue 2, the one open, always shows",
+  "_why_2026_11_24": "queue archive: the researcher archived every queue older than a week (1-47, 24 Nov), and an archived queue leaves the list - so the list holds SOME live queue (or the finished fold), and queue 2, opened by its link, is either listed or, archived, carries the toolbar's 'archived' chip with Restore",
   "actions": [
    {
     "wait_for": [

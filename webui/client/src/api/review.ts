@@ -181,6 +181,9 @@ interface SrvQueue {
   total?: number; judged?: number; remaining?: number; pace_s?: number | null
   /** review-carry: a detection queue's items are overlap sets; this many detections stand behind its `total` */
   detections?: number | null
+  created_at?: string | null
+  /** 2026-11-24: when the researcher archived the queue (out of Review's list, kept in Jobs › Archived queues) */
+  archived_at?: string | null
 }
 interface SrvQueueData { queue: SrvQueue; rows?: unknown[]; items?: unknown[]; clusters?: unknown[] }
 
@@ -233,6 +236,7 @@ function queueOf(q: SrvQueue): ReviewQueue {
     // one-second resolution", not "unmeasured" (fixup-a item 8)
     paceS: q.pace_s == null ? null : Number(q.pace_s),
     channels: [], scoreFloor: null, previousLine: null, rankKind,
+    createdAt: q.created_at ?? null, archivedAt: q.archived_at ?? null,
   }
 }
 
@@ -290,6 +294,10 @@ function detailOf(raw: any, fallbackQueue?: ReviewQueue): ItemDetail {
 
 export const getQueues = (): Promise<Sourced<ReviewQueue[]>> =>
   live(req<SrvQueue[]>('/queues').then(qs => qs.map(queueOf)))
+
+/** 2026-11-24: the archived queues (Jobs › Archived queues), each with its counts. Review's own list leaves them out. */
+export const getArchivedQueues = (): Promise<Sourced<ReviewQueue[]>> =>
+  live(req<SrvQueue[]>('/queues?archived=only').then(qs => qs.map(queueOf)))
 
 /** Every queue with its rows (queue picker and queue rail counts). */
 export async function getAllQueues(): Promise<Sourced<QueueData[]>> {
@@ -511,6 +519,13 @@ async function post<T>(path: string, body: unknown = {}): Promise<T> {
   }
   return r.json() as Promise<T>
 }
+
+/** 2026-11-24: archive a queue (it leaves Review's list and the header's count; items and verdicts untouched) or put
+ *  it back. `changed` is false when it was already in that state. */
+export const archiveQueue = (queueId: string): Promise<{ queue: ReviewQueue; changed: boolean }> =>
+  post<{ queue: SrvQueue; changed: boolean }>(`/queues/${encodeURIComponent(queueId)}/archive`).then(r => ({ queue: queueOf(r.queue), changed: r.changed }))
+export const restoreQueue = (queueId: string): Promise<{ queue: ReviewQueue; changed: boolean }> =>
+  post<{ queue: SrvQueue; changed: boolean }>(`/queues/${encodeURIComponent(queueId)}/restore`).then(r => ({ queue: queueOf(r.queue), changed: r.changed }))
 
 /** The live counts the bridge returns with every write, straight off the resolved source. */
 export interface QueueCounts { total: number; judged: number; remaining: number }
