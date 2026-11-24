@@ -98,7 +98,13 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
   // refusal card belongs to the item it was raised on (a new failure re-raises it)
   const [cursor] = useState(createCursor)
   useEffect(() => cursor.cancel, [cursor])
-  useEffect(() => { cursor.moveTo(id); setFlash(null); setOverlay(''); clearWriteError() }, [cursor, id])
+  // 2026-11-24: a verdict is written behind the researcher, so a refusal can come back after the page moved on; the
+  // page then returns to the refused item, and landing there keeps its red card (any other item's is dropped)
+  const dropRefusalUnlessOf = (itemId: string) => {
+    const refusal = getWriteError()
+    if (!refusal || refusal.itemId !== itemId || refusal.queueId !== q) clearWriteError()
+  }
+  useEffect(() => { cursor.moveTo(id); setFlash(null); setOverlay(''); dropRefusalUnlessOf(id) }, [cursor, id])   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (padQ === '30' || padQ === '120' || padQ === '300') setPad(padQ) }, [padQ, setPad])
 
   // AR: a step paints from the item cache (prefetched by the landing) in the same frame, before the read resolves;
@@ -163,11 +169,21 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
         carryAuditId = ack.carryPending ? (ack.carryAuditId ?? null) : null
         return ack
       })
+    // 2026-11-24 (the researcher: "noticeable load time between each candidate, load time after decision"): a verdict
+    // that auto-advances moves on NOW and is written behind the researcher. The writes go to the bridge one at a time
+    // in the order given (store.ts), so undo still reverses the right one; a refusal brings the page back here, to
+    // this item's red card. A promotion still waits: its Library entry is chosen on this item.
+    const ahead = kind !== 'promotion' && v !== 'seed' && opts.advance && auto
+    if (ahead) { cursor.cancel(); setFlash(null); advance() }
     const w = await commitWrite(send, { queueId: q, items: [id], kind, verdict: v, className, label: `${id} · ${VERDICT_LABEL[v]}`, before: { [k]: before }, after: { [k]: next } },
       // AR: a verdict on a queue that does not write annotations changes one row's judged state and nothing else, so only
       // the counts are re-read; a promotion, or a write that makes a human span (which can change any queue's set), re-reads the rows
       { light: kind !== 'promotion' && queue.writes !== 'annotations' })
-    if (!w) { refused(); return null }
+    if (!w) {
+      refused()
+      if (ahead) goUnit(q, unit)
+      return null
+    }
     if (carried > 0) {
       // a carried row can judge other items of this queue (other runs' detections in it): re-read the rows — only then
       // (night-review); the caches the carry can have staled are decided beside them (F1)
@@ -187,6 +203,7 @@ function InspectorItem({ data, row }: { data: QueueData; row: QueueRow }) {
     }
     // P21: the seed verdict itself creates the Library exemplar (the bridge wrote it); the panel only chooses its family
     if (v === 'seed') return next
+    if (ahead) return next
     // night-review: the flash, then the advance, one frame after the bridge's accept — and only if the researcher is
     // still on this item now that the write is back (the cursor drops it if they move on before it fires)
     const flashes = opts.flash !== false, advances = opts.advance && auto

@@ -144,16 +144,20 @@ export function writeLabel(w: SessionWrite): string {
  * That asymmetry is the whole point: a verdict that did not land must not look like one that did.
  * ------------------------------------------------------------------------------------------------ */
 
-export interface WriteFailure { message: string; status?: number; label: string; at: number }
+export interface WriteFailure {
+  message: string; status?: number; label: string; at: number
+  /** 2026-11-24: the item the refused write was about, so its card can be shown on it after the page moved on */
+  queueId?: string; itemId?: string
+}
 const ERR = 'review.writeError', VERSION = 'review.dataVersion'
 
 export function useWriteError() { return useDemoState<WriteFailure | null>(ERR, () => null)[0] }
 /** The same failure, read imperatively right after an awaited commit returned null. */
 export const getWriteError = () => getDemo<WriteFailure | null>(ERR, () => null)
 export const clearWriteError = () => setDemo<WriteFailure | null>(ERR, null)
-function failed(e: unknown, label: string): WriteFailure {
+function failed(e: unknown, label: string, queueId?: string, itemId?: string): WriteFailure {
   const status = (e as { status?: number } | null)?.status
-  return { message: e instanceof Error ? e.message : String(e), status, label, at: Date.now() }
+  return { message: e instanceof Error ? e.message : String(e), status, label, at: Date.now(), queueId, itemId }
 }
 
 /** Bumped after every accepted write that can change the queue's SET of rows (a promotion, a batch, an undo or
@@ -182,6 +186,28 @@ export function refreshAfterSpanEdit() {
  *  undid the PREVIOUS item (the new write joins the stack only on its ack) while the new one still landed. */
 let inFlight = 0
 
+/* 2026-11-24 (the researcher: "noticeable load time between each candidate, load time after decision"): the Inspector
+ * moves on the moment a verdict key is pressed and the verdict is written behind it. So more than one write can be
+ * outstanding, and they go to the bridge ONE AT A TIME IN THE ORDER GIVEN: the audit rows, which undo walks newest
+ * first, then keep the gestures' order, and the stack's last write is the bridge's last too. */
+let chain: Promise<unknown> = Promise.resolve()
+function inOrder<T>(send: () => Promise<T>): Promise<T> {
+  const run = chain.then(() => send())
+  chain = run.catch(() => undefined)
+  return run
+}
+/** Resolves once every write sent so far has been answered (accepted or refused). */
+export const writesSettled = (): Promise<void> => chain.then(() => undefined)
+
+/** Wait for the writes still outstanding before an undo or redo; a refusal among them is said, not reversed past. */
+async function waitForWrites(verb: 'undone' | 'redone'): Promise<string | null> {
+  if (!inFlight) return null
+  const before = getWriteError()
+  await writesSettled()
+  const after = getWriteError()
+  return after && after !== before ? `${after.label} was not written, so nothing was ${verb}` : null
+}
+
 /** What an undo or redo came to: the write it reversed or replayed; a plain refusal to toast (`say`: a write still
  *  in flight, or nothing to reverse); or the bridge's refusal (`failed`), recorded for the red card. tq-review: the
  *  in-flight refusal was copied into both pages' undo and redo; it is decided here, once, before anything else. */
@@ -193,8 +219,10 @@ export type Reversal = { w: SessionWrite } | { say: string } | { failed: true }
 export async function commitWrite(send: () => Promise<unknown>, w: Omit<SessionWrite, 'id' | 'at' | 'undone'>,
                                   opts: { light?: boolean } = {}): Promise<SessionWrite | null> {
   inFlight++
-  try { await send() } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, w.label)); return null } finally { inFlight-- }
-  clearWriteError()
+  try { await inOrder(send) } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, w.label, w.queueId, w.items[0])); return null } finally { inFlight-- }
+  // an accepted write takes back the red card of ITS item (a retry); another item's refusal stays on screen
+  const err = getWriteError()
+  if (err && (!err.itemId || (err.itemId === w.items[0] && err.queueId === w.queueId))) clearWriteError()
   const full = applyWrite(w)
   if (!opts.light) bumpReviewVersion()
   bumpCountsVersion()
@@ -206,11 +234,13 @@ const BUSY = 'a verdict is still being written — try again'
 /** Ctrl-Z on this queue's last live write. `send` posts the undo (`postUndo` — the server restores the prior verdict
  *  from its audit row; the local stack is only marked undone once it has). */
 export async function commitUndo(queueId: string, send: (w: SessionWrite) => Promise<unknown>): Promise<Reversal> {
+  const refusedMeanwhile = await waitForWrites('undone')      // Ctrl Z straight after a verdict undoes THAT verdict
+  if (refusedMeanwhile) return { say: refusedMeanwhile }
   if (inFlight) return { say: BUSY }
   const w = lastLive(queueId)
   if (!w) return { say: 'nothing to undo in this queue' }
   inFlight++
-  try { await send(w) } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, `undo · ${w.label}`)); return { failed: true } } finally { inFlight-- }
+  try { await inOrder(() => send(w)) } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, `undo · ${w.label}`)); return { failed: true } } finally { inFlight-- }
   clearWriteError()
   undoWrite(w)
   bumpReviewVersion(); bumpCountsVersion()
@@ -220,11 +250,13 @@ export async function commitUndo(queueId: string, send: (w: SessionWrite) => Pro
 /** Ctrl-Shift-Z on this queue's next undone write. The bridge has no redo route, so `send` re-sends the original
  *  write (`resend` — the core's writers are upserts) and only then is the stack entry un-marked. */
 export async function commitRedo(queueId: string, send: (w: SessionWrite) => Promise<unknown>): Promise<Reversal> {
+  const refusedMeanwhile = await waitForWrites('redone')
+  if (refusedMeanwhile) return { say: refusedMeanwhile }
   if (inFlight) return { say: BUSY }
   const w = nextRedo(queueId)
   if (!w) return { say: 'nothing to redo' }
   inFlight++
-  try { await send(w) } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, `redo · ${w.label}`)); return { failed: true } } finally { inFlight-- }
+  try { await inOrder(() => send(w)) } catch (e) { setDemo<WriteFailure | null>(ERR, failed(e, `redo · ${w.label}`)); return { failed: true } } finally { inFlight-- }
   clearWriteError()
   redoWrite(w)
   bumpReviewVersion(); bumpCountsVersion()

@@ -133,7 +133,16 @@ def test_the_advance_after_a_verdict_is_a_frame_not_a_third_of_a_second():
     code = _code(_read("review", "Inspector.tsx"))
     w = re.search(r"async function write\(.*?\n  \}\n", code, re.S).group(0)
     assert "cursor.after(id, () => { setFlash(null); if (advances) advance() })" in w
-    assert w.index("await commitWrite(") < w.index("cursor.after("), "the advance no longer waits for the bridge"
+    assert w.index("await commitWrite(") < w.index("cursor.after("), "the flash no longer waits for the bridge"
+    # 2026-11-24 (the researcher: "noticeable load time between each candidate, load time after decision"): a verdict
+    # that auto-advances moves on BEFORE its write is answered - the write goes behind the researcher, in order
+    # (store.ts) - and a refusal brings the page back to the refused item. A promotion still waits on its item.
+    assert "const ahead = kind !== 'promotion' && v !== 'seed' && opts.advance && auto" in w
+    go = w.index("if (ahead) { cursor.cancel(); setFlash(null); advance() }")
+    assert go < w.index("await commitWrite("), "the auto-advance still waits for the bridge's answer"
+    refused = w[w.index("if (!w) {"):]
+    assert "refused()" in refused and "if (ahead) goUnit(q, unit)" in refused, \
+        "a refusal that came back after the page moved on is not brought back to its item"
 
 
 # ── 2. the grouping tree by default ──────────────────────────────────────────

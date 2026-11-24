@@ -133,14 +133,21 @@ def test_undo_and_redo_wait_for_a_write_in_flight():
     flight; undo and redo refuse while one is."""
     # tq-review: the refusal was copied into both pages' undo and redo; `commitUndo`/`commitRedo` now decide it
     # themselves, first, before looking for a write to reverse (the same order and the same text as the copies)
+    # 2026-11-24: verdicts are written behind the researcher (the Inspector moves on at once), so an undo or redo
+    # pressed inside a write's round trip WAITS for the writes outstanding - which go out one at a time, in the order
+    # given - and then reverses the newest; it says so, rather than reversing past it, when one of them was refused.
+    # The data risk above (undoing A while B lands) needs only that the reversal comes after every earlier write.
     store = _code(_src("store.ts"))
     for fn in ("commitWrite", "commitUndo", "commitRedo"):
         body = re.search(r"export async function " + fn + r"\(.*?\n}\n", store, re.S).group(0)
         assert "inFlight++" in body and "finally" in body and "inFlight--" in body, f"{fn} is not counted in flight"
+        assert "await inOrder(" in body, f"{fn} is not sent in the order of the gestures"
         if fn != "commitWrite":
             first = body.splitlines()[1]
-            assert "if (inFlight) return { say: BUSY }" in first, f"{fn} does not refuse while a write is in flight"
+            assert "await waitForWrites(" in first, f"{fn} does not wait for the writes in flight first"
+            assert "if (inFlight) return { say: BUSY }" in body, f"{fn} does not refuse a write started meanwhile"
     assert "const BUSY = 'a verdict is still being written — try again'" in store
+    assert "chain = run.catch(() => undefined)" in store, "a refused write would stop every write after it"
     for name in ("Inspector.tsx", "ClusterView.tsx"):
         code = _code(_src(name))
         for fn, commit in (("undo", "commitUndo"), ("redo", "commitRedo")):
