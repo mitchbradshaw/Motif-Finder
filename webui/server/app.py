@@ -104,6 +104,7 @@ class _RequestClock:
 def create_app(rt: Runtime, *, warm_background: bool = True) -> FastAPI:
     app = FastAPI(title="Underground Brains — web UI bridge", docs_url="/api/docs", openapi_url="/api/openapi.json")
     manager = JobManager(rt.db_path, meta_dir=getattr(rt, "meta_dir", None))
+    rt.track_jobs(manager)      # rt.restore() stops these jobs before it puts the core's paths back
     app.state.rt = rt
     app.state.manager = manager
     # Review's carries run off the step (2026-11-24, server/review_carry.py): started with the app, which also queues

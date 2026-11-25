@@ -34,7 +34,9 @@ refusal is a property of the routes and of that setting, read per request
 (a2-p1), not of the mode.
 
 ``restore()`` puts every module attribute back; tests use it, the server
-does not need to.
+does not need to. It first stops every job an app over this runtime started
+(``track_jobs``): the core reads these paths at the moment it writes, so a job
+still running once they are back writes into the checkout.
 
 Nothing here imports Panel, HoloViews, Bokeh, matplotlib or FastAPI.
 """
@@ -55,6 +57,8 @@ HELD_OUT_FILE = "M4_aug_concat_fs1.mat"
 
 MODES = ("sandbox", "project")
 BACKUPS_KEPT = 10
+#: How long ``restore()`` waits for one app's cancelled jobs to stop (s).
+JOBS_STOP_S = 120.0
 _DEFAULT_CLIENT_DIST = os.path.join(WEBUI_DIR, "client", "dist")
 
 
@@ -96,6 +100,7 @@ class Runtime:
         self.db_backup: str | None = None
         self.journal_mode: str | None = None
         self._originals: dict | None = None
+        self._job_managers: list = []
 
     # ------------------------------------------------------------ setup --
     def setup(self) -> "Runtime":
@@ -260,8 +265,23 @@ class Runtime:
                 ("trace_shape.RESULTS_DIR", _tsh.RESULTS_DIR),
                 ("shape_cluster.RESULTS_DIR", _csc.RESULTS_DIR))
 
+    def track_jobs(self, manager) -> None:
+        """Have ``restore()`` stop ``manager``'s jobs before it puts a single path back (``create_app``)."""
+        self._job_managers.append(manager)
+
     def restore(self) -> None:
-        """Put every core module attribute back to what it was before setup()."""
+        """Put every core module attribute back to what it was before setup().
+
+        Every job of a tracked manager is stopped first, cancelled and waited for: a sweep a test started
+        and never waited for would otherwise write its step cache and matrix profiles into the checkout's
+        DATA/ and Results/ (2026-10-16). If one is still running ``JOBS_STOP_S`` after its cancel, nothing
+        is put back and this raises: the job goes on writing where setup() pointed it."""
+        for manager in self._job_managers:
+            alive = manager.stop_all(JOBS_STOP_S)
+            if alive:
+                names = ", ".join(f"{getattr(j, 'kind', 'chain_run')} {j.id}" for j in alive)
+                raise RuntimeError(f"restore() refused: {names} still running {JOBS_STOP_S:g} s after a "
+                                   f"cancel; every core path is left as setup() set it ({self.mode} {self.dir})")
         if not self._originals:
             return
         import Working.config as cfg

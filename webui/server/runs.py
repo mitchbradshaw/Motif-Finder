@@ -113,6 +113,7 @@ class Job:
         self.events: list[dict] = []
         self.subscribers: list[asyncio.Queue] = []
         self.cancel_event = threading.Event()
+        self.thread: threading.Thread | None = None   # the worker, for `RunManager.stop_all`
         self._windowset = None          # last WindowSet seen, for Grouping strips
         self.frame_sources: dict[int, tuple] = {}   # step -> (Encoding, ctx) while the run is recent (fixup-h)
         self.log_lines: list[str] = []
@@ -194,6 +195,7 @@ class RunManager:
         finally:
             conn.close()
         t = threading.Thread(target=self._run, args=(job,), name=f"run-{job.id}", daemon=True)
+        job.thread = t
         job.status = "running"
         t.start()
         return job
@@ -249,6 +251,19 @@ class RunManager:
         job.cancel_event.set()
         self._emit(job, {"event": "cancel_requested", "step": job.current_step})
         return True
+
+    def stop_all(self, timeout: float) -> list:
+        """Cancel every job whose worker is still running and wait for the workers, ``timeout`` seconds in
+        all; the jobs still running after that (empty when every one stopped). ``Runtime.restore()`` calls it
+        before it puts a single core path back: a worker alive past that point writes into the checkout."""
+        with self._lock:
+            live = [j for j in self.jobs.values() if j.thread is not None and j.thread.is_alive()]
+        for job in live:
+            self.cancel(job)
+        deadline = time.monotonic() + timeout
+        for job in live:
+            job.thread.join(max(0.0, deadline - time.monotonic()))
+        return [j for j in live if j.thread.is_alive()]
 
     def _latest_db_run_id(self, job: Job) -> int | None:
         """The core writes the runs row before raising; find it by the recipe's config hash."""
