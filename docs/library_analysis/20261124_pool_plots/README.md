@@ -30,13 +30,15 @@ judged or been shown in a queue. As in the 23 Nov plots, every drop is treated a
 4. **M1 has a second kind of drop: long, deep slides.** 5% of M1's core drops fall for over 10 minutes and are about
    33 mV deep (median), against 1.2 mV for M1 as a whole. They are stretches of M1's slow drift, read as one drop
    (`sheets/M1.png` shows a few). They make M1's separate patch far up and right in `species_fingerprints.png`.
-5. **Six datasets have never been judged at all:** M1, L_R_Aug_26_PD, Cordyceps, Enoki, F2B and the Dwij loggers.
+5. **M2_concat's species is contested.** It is drawn in the oyster row, as the thesis does. But the database's species
+   label of 3 Nov says lion's mane. Until the researcher settles it, the oyster row may hold a lion's mane recording.
+6. **Six datasets have never been judged at all:** M1, L_R_Aug_26_PD, Cordyceps, Enoki, F2B and the Dwij loggers.
    Their species is unknown except for Cordyceps and enoki, so each is its own row ("(species ?)"); none is pooled with
    another.
-6. **Crowding.** The figures were laid out for the 7 datasets of 23 Nov; here there are 17. Labels overlap in the
+7. **Crowding.** The figures were laid out for the 7 datasets of 23 Nov; here there are 17. Labels overlap in the
    boxplots. The width–amplitude figure is drawn in two parts (`species_width_amplitude.png` and `_2.png`), because
    it has room for six species.
-7. **Two figures use a random sample.** The shape map uses 30,000 drops and the t-SNE shape space 20,000: both compare
+8. **Two figures use a random sample.** The shape map uses 30,000 drops and the t-SNE shape space 20,000: both compare
    every drop with every other. Their captions say so.
 
 ## What the plots show

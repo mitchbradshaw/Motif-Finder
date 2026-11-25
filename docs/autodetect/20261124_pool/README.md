@@ -168,6 +168,14 @@ by priority (confidence, plus 0.1 when M4-like), then confidence, then sharpness
 
 "Likely accepted" is the acceptance model's average over that dataset's core drops (see below).
 
+**Species labels.** The species come from the thesis figure style (`scripts/thesis/figstyle.py`), which matches the
+thesis corpus table (`docs/thesis/chapters/05_methodology.tex`).
+
+* **M2_concat is contested.** The style and the thesis call it oyster, but the database's `datasets` table (the
+  researcher's labels of 3 Nov) and the RQ6 log of 3 Nov call it lion's mane. The plots draw it in the oyster row.
+  Ask the researcher before reading the oyster row as one species.
+* The database has no species for SH_fs2 and SO_fs2, and no row for M4. Their names here are the thesis's.
+
 **Why the rest were left out.** Each drop is counted under the first rule it fails (`reasons.csv`):
 
 | reason | drops |
@@ -242,7 +250,7 @@ The plots are in `docs/library_analysis/20261124_pool_plots/`. Open `index.html`
 drop alike. Beside them, `docs/library_analysis/20261124_pool_plots_p80/` draws the same figures over the cleaner
 subset: the 46,558 core drops the model puts at 0.8 or more.
 
-Read the plots folder's README first: it has seven warnings for reading the figures. What came out:
+Read the plots folder's README first: it has eight warnings for reading the figures. What came out:
 
 1. **Every species' drop has the same form.**
    * In the cleaner set, each species' typical drop is a fall, then a slow, partial climb back: a third to a half of
