@@ -102,8 +102,8 @@ export function App() {
             <span className="stop-n">{i + 1}</span><span>{s.label}</span></button>)}
         </div>
         <div className="rail-foot2">
-          <button className="foot-btn" onClick={() => { if (tourStep() === null) startTour(); if (page === 'welcome') go('explore') }} data-testid="tour-help">? Tour</button>
-          <button className="foot-btn" onClick={() => setConfirm(true)} data-testid="start-over">Start over</button>
+          <button className="foot-btn" title="Guided tour" onClick={() => { if (tourStep() === null) startTour(); if (page === 'welcome') go('explore') }} data-testid="tour-help"><span className="foot-long">? Tour</span><span className="foot-short">?</span></button>
+          <button className="foot-btn" title="Start over" onClick={() => setConfirm(true)} data-testid="start-over"><span className="foot-long">Start over</span><span className="foot-short">↺</span></button>
         </div>
       </nav>
       <main className="main2">

@@ -104,6 +104,15 @@ export const api = {
   manifest: () => cached<Manifest>('/api/demo/manifest'),
   signal: (sid: number, a: number, b: number, px: number, combo?: string) =>
     cached<Envelope>(`/api/demo/signal/${sid}?a=${Math.round(a)}&b=${Math.round(b)}&px=${Math.round(px)}${combo ? `&combo=${combo}` : ''}`),
+  snippets: (sid: number, spans: [number, number][], px = 120) => {
+    const key = `/api/demo/snippets#${sid}:${px}:${spans.map(([a, b]) => `${a}-${b}`).join(',')}`
+    const hit = cache.get(key)
+    if (hit) return hit as Promise<Envelope[]>
+    const p = req<Envelope[]>('POST', '/api/demo/snippets', { slice: sid, spans, px })
+    cache.set(key, p)
+    p.catch(() => cache.delete(key))
+    return p
+  },
   auto: (sid: number) => cached<{ slice: number; n: number; events: AutoEv[] }>(`/api/demo/auto/${sid}`),
   chain: (combo: string, sid: number) => cached<Chain>(`/api/demo/chain/${combo}/${sid}`),
   discovery: (combo: string) => cached<Summary>(`/api/demo/discovery/${combo}`),

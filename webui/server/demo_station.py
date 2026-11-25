@@ -69,7 +69,18 @@ class Store:
         k = 1000.0 if (s["units"] or "V") == "V" else 1.0
         return np.asarray(a, dtype=np.float64) * k
 
-    @lru_cache(maxsize=512)
+    @lru_cache(maxsize=256)
+    def summary(self, key: str) -> dict | None:
+        """Discovery's summary of a setting, pre-computed (precompute_summaries.py); None when it is not there."""
+        p = self.dir / "summary" / f"{key}.json"
+        return json.loads(p.read_text()) if p.exists() else None
+
+    @lru_cache(maxsize=256)
+    def judge(self, key: str) -> list | None:
+        p = self.dir / "judge" / f"{key}.json"
+        return json.loads(p.read_text()) if p.exists() else None
+
+    @lru_cache(maxsize=96)
     def chain(self, combo: str, sid: int) -> dict:
         p = self.dir / "chains" / combo / f"{sid}.json"
         if not p.exists():
@@ -100,10 +111,11 @@ class State:
     def __init__(self, path: Path):
         self.path = path
         self.lock = threading.Lock()
-        self.claim = None
-        self.epoch = 0
-        self.last_input = time.time()
         self.data = self._load()
+        # the claim and epoch live in the file too, so a station the launcher restarts keeps its visitor
+        self.claim = self.data.get("_claim")
+        self.epoch = int(self.data.get("_epoch", 0))
+        self.last_input = time.time()
 
     def _blank(self):
         return {"runs": [], "verdicts": {}, "seeds": [], "created": time.time()}
@@ -117,19 +129,20 @@ class State:
         return self._blank()
 
     def save(self):
+        self.data["_claim"], self.data["_epoch"] = self.claim, self.epoch
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.data))
         os.replace(tmp, self.path)
 
     def reset(self, claim=None):
+        """Everything the last visitor did is gone; the file holds only the new claim and epoch."""
         with self.lock:
             self.data = self._blank()
-            if self.path.exists():
-                self.path.unlink()
             self.claim = claim
             self.epoch += 1
             self.last_input = time.time()
+            self.save()
 
 
 # ── reading helpers ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -252,6 +265,12 @@ class LiveSeed(BaseModel):
     b: int
 
 
+class Snips(BaseModel):
+    slice: int
+    spans: list[list[int]]
+    px: int = 120
+
+
 def create_station(*, station: int, admin_key: str, hub: str | None, dist: Path = DIST,
                    store_dir: Path = STORE, state_dir: Path = STATE_DIR, seed_worker: str | None = None) -> FastAPI:
     store = Store(store_dir)
@@ -307,7 +326,8 @@ def create_station(*, station: int, admin_key: str, hub: str | None, dist: Path 
 
     @app.get("/api/demo/state")
     def get_state():
-        return {"station": station, "hub": hub, "epoch": state.epoch, **state.data}
+        return {"station": station, "hub": hub, "epoch": state.epoch,
+                **{k: v for k, v in state.data.items() if not k.startswith("_")}}
 
     # ── the data ──
     @app.get("/api/demo/manifest")
@@ -332,6 +352,16 @@ def create_station(*, station: int, admin_key: str, hub: str | None, dist: Path 
         b = b or len(x)
         return envelope(x, a, b, px)
 
+    @app.post("/api/demo/snippets")
+    def snippets(body: Snips):
+        """Many short envelopes of one channel in one request (Analyse's Describe step draws up to 40 events)."""
+        if body.slice not in store.slices:
+            raise HTTPException(404, f"no slice {body.slice}")
+        if len(body.spans) > 200:
+            raise HTTPException(400, "at most 200 spans")
+        x = store.x(body.slice)
+        return [envelope(x, a, b, body.px) for a, b in body.spans]
+
     @app.get("/api/demo/auto/{sid}")
     def auto(sid: int):
         if sid not in store.slices:
@@ -344,19 +374,23 @@ def create_station(*, station: int, admin_key: str, hub: str | None, dist: Path 
             raise HTTPException(404, "unknown setting or slice")
         return store.chain(combo, sid)
 
+    def summary(key: str):
+        if key != "auto" and key not in store.combos:
+            raise HTTPException(404, f"no setting {key}")
+        s = store.summary(key)
+        if s is None:
+            s = auto_summary(store) if key == "auto" else summary_of(store, key)
+        return s
+
     @app.get("/api/demo/discovery/{combo}")
     def discovery(combo: str):
-        if combo == "auto":
-            return auto_summary(store)
-        if combo not in store.combos:
-            raise HTTPException(404, f"no setting {combo}")
-        return summary_of(store, combo)
+        return summary(combo)
 
     @app.get("/api/demo/references")
     def references():
         out = []
         for r in store.manifest["references"]:
-            s = auto_summary(store) if r["combo"] is None else summary_of(store, r["combo"])
+            s = summary("auto" if r["combo"] is None else r["combo"])
             out.append({**r, "n": s["n"], "null": s["null"], "ratio": s["ratio"], "by_dataset": s["by_dataset"]})
         return out
 
@@ -375,7 +409,9 @@ def create_station(*, station: int, admin_key: str, hub: str | None, dist: Path 
     def judge(combo: str):
         if combo not in store.combos:
             raise HTTPException(404, f"no setting {combo}")
-        items = judge_items(store, combo)
+        items = store.judge(combo)
+        if items is None:
+            items = judge_items(store, combo)
         mine = state.data["verdicts"].get(combo, {})
         return {"combo": combo, "items": items, "verdicts": mine}
 

@@ -22,7 +22,7 @@ export const STEPS: TourStep[] = [
   { route: 'analyse', target: 'step-find', title: 'Finding events',
     text: "…then it finds the events. This is the thesis drop detector: it spells the trace as letters and catches the steep falls." },
   { route: 'build', target: 'detectors', title: 'Build your own', wait: 'knob',
-    text: 'Pick a detector or change a setting. Every combination answers at once: all 108 were computed in advance.' },
+    text: 'Change a setting: try 5 s letters and watch more drops appear. Every combination answers at once, because all 108 were computed in advance.' },
   { route: 'build', target: 'run-btn', title: 'Run it everywhere', wait: 'run',
     text: 'Run your detector on all 12 electrodes, in three species.' },
   { route: 'discovery', target: 'chance', title: 'Better than chance?',

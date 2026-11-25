@@ -131,14 +131,22 @@ export function Notches({ label, unit, values, value, onChange, testid }: { labe
 
 function Letters({ letters, a, b }: { letters: { seg: number; letters: string[] }; a: number; b: number }) {
   const i0 = Math.max(0, Math.floor(a / letters.seg)), i1 = Math.min(letters.letters.length, Math.ceil(b / letters.seg))
-  const cells = letters.letters.slice(i0, i1)
+  const raw = letters.letters.slice(i0, i1)
+  // a 24 h view of 5 s letters is 17,000 cells: draw at most ~600, each group showing its most telling letter
+  // (a fast fall first, then a fall, a fast rise, a rise, flat), so no drop disappears from the strip
+  const per = Math.max(1, Math.ceil(raw.length / 600))
+  const rank: Record<string, number> = { '0': 0, '1': 1, '4': 2, '3': 3, '2': 4, '-1': 5 }
+  const cells: { l: string; n: number }[] = []
+  for (let k = 0; k < raw.length; k += per) {
+    const grp = raw.slice(k, k + per)
+    cells.push({ l: grp.reduce((m, x) => (rank[x] ?? 9) < (rank[m] ?? 9) ? x : m, grp[0]), n: grp.length })
+  }
   const many = cells.length > 400
   return (
     <div className="letters" title="each segment of the cleaned trace as a letter: red = falling fast, orange = falling, grey = flat, blue = rising">
-      {cells.map((l, k) => {
-        const [col, name] = LETTER[l] ?? ['#fff', l]
-        const s0 = Math.max(a, (i0 + k) * letters.seg), s1 = Math.min(b, (i0 + k + 1) * letters.seg)
-        return <i key={k} style={{ flexGrow: Math.max(1, s1 - s0), background: col, borderRight: many ? 'none' : undefined }} title={name} />
+      {cells.map((c, k) => {
+        const [col, name] = LETTER[c.l] ?? ['#fff', c.l]
+        return <i key={k} style={{ flexGrow: c.n, background: col, borderRight: many ? 'none' : undefined }} title={name} />
       })}
     </div>
   )
@@ -146,10 +154,11 @@ function Letters({ letters, a, b }: { letters: { seg: number; letters: string[] 
 
 function MiniIcicles({ sid, fs, rows }: { sid: number; fs: number; rows: { s: number; e: number; depth: number }[] }) {
   const ok = rows.filter(r => r.e > r.s)
-  const env = useAsync(async () => Promise.all(ok.map(r => {
-    const pre = Math.max(1, Math.round((r.e - r.s) / 6))
-    return api.signal(sid, Math.max(0, r.s - pre), r.e, 120).then(e => ({ e, pre, depth: r.depth }))
-  })), [sid, ok.map(r => `${r.s}-${r.e}`).join(',')])
+  const env = useAsync(async () => {
+    const pres = ok.map(r => Math.max(1, Math.round((r.e - r.s) / 6)))
+    const envs = ok.length ? await api.snippets(sid, ok.map((r, k) => [Math.max(0, r.s - pres[k]), r.e] as [number, number])) : []
+    return envs.map((e, k) => ({ e, pre: pres[k], depth: ok[k].depth }))
+  }, [sid, ok.map(r => `${r.s}-${r.e}`).join(',')])
   // each result carries its own depth: while a new detector's events load, the previous list is still shown
   const data = (env.data ?? []).map(({ e, pre, depth }) => {
     const mid = e.lo.map((lo, i) => (lo + e.hi[i]) / 2)

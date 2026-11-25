@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Overview, Trace, type Box } from '../charts'
 import { api, fmtDur, fmtH, go, useAsync, useDemo } from '../store'
-import { tourSignal } from '../tour'
+import { onTourSkip, tourSignal } from '../tour'
 
 const ZOOMS: [string, number][] = [['24 h', 24 * 3600], ['6 h', 6 * 3600], ['2 h', 2 * 3600], ['30 min', 1800], ['5 min', 300]]
 
@@ -34,6 +34,12 @@ export function ExplorePage() {
   const span = thread.span
   const spanS = span ? (span[1] - span[0]) / s.fs : 0
   useEffect(() => { if (span) tourSignal('span') }, [span])
+  // the tour's "Mark a stretch" skipped: mark one around the first drop in view (or the middle of the view)
+  useEffect(() => onTourSkip('span', () => {
+    const ev = auto.data?.events.find(e => e.e > a && e.s < b)
+    const pad = Math.round(90 * s.fs)
+    set({ span: ev ? [Math.max(0, ev.s - pad), Math.min(s.n, ev.e + pad)] : [Math.round(a + width * 0.45), Math.round(a + width * 0.55)] })
+  }), [auto.data, a, b, width, s.fs, s.n, set])
 
   return (
     <div className="page-body explore">

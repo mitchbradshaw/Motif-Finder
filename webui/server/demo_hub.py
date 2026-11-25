@@ -64,11 +64,13 @@ class Station:
         return f"http://127.0.0.1:{self.port}"
 
 
-def create_hub(*, stations: list[Station], admin_key: str, port: int, public_url: str | None = None) -> FastAPI:
+def create_hub(*, stations: list[Station], admin_key: str, port: int, public_url: str | None = None,
+               http: httpx.Client | None = None, poll: bool = True) -> FastAPI:
+    """`http` and `poll` are for tests: a client whose transport reaches in-process stations, and no poller thread."""
     app = FastAPI(title="MycoWave demo hub", docs_url=None, redoc_url=None, openapi_url=None)
     lock = threading.Lock()
     hdr = {"x-demo-admin": admin_key}
-    client = httpx.Client(timeout=3.0)
+    client = http or httpx.Client(timeout=3.0)
 
     def poll_once():
         for st in stations:
@@ -91,7 +93,8 @@ def create_hub(*, stations: list[Station], admin_key: str, port: int, public_url
             poll_once()
             time.sleep(POLL_S)
 
-    threading.Thread(target=poller, name="hub-poller", daemon=True).start()
+    if poll:
+        threading.Thread(target=poller, name="hub-poller", daemon=True).start()
 
     def public():
         if public_url:

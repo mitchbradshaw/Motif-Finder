@@ -7,6 +7,9 @@ import { api, fmtH, go, useDemo } from '../store'
 import type { Seed } from '../api'
 import { tourSignal } from '../tour'
 
+/** Live results by stretch, for the life of the page: coming back to the Seed page does not search again. */
+const LIVE = new Map<string, Seed>()
+
 export function SeedPage() {
   const { m, thread, set, slice } = useDemo()
   const [shelf, setShelf] = useState<Seed[] | null>(null)
@@ -14,13 +17,17 @@ export function SeedPage() {
   const [err, setErr] = useState<string | null>(null)
   const [searching, setSearching] = useState(false)
   useEffect(() => { api.seeds().then(r => setShelf(r.seeds.filter(s => s.n_kept >= 3)), e => setErr(String(e.message || e))) }, [])
-  const span = thread.span
+  const sl = slice(thread.slice)
+  // a marked stretch is a seed only when it can be searched: 8 samples to 5 minutes
+  const span = thread.span && thread.span[1] - thread.span[0] >= 8 && (thread.span[1] - thread.span[0]) / sl.fs <= 300 ? thread.span : null
   const liveKey = span ? `${thread.slice}:${span[0]}:${span[1]}` : null
   useEffect(() => {
-    if (thread.seed !== 'live' || !span) return
+    if (thread.seed !== 'live' || !span || !liveKey) return
     if (live && `${live.slice}:${live.a}:${live.b}` === liveKey) return
+    const hit = LIVE.get(liveKey)
+    if (hit) { setLive(hit); return }
     setSearching(true); setErr(null)
-    api.liveSeed(thread.slice, span[0], span[1]).then(r => { setLive(r); setSearching(false) },
+    api.liveSeed(thread.slice, span[0], span[1]).then(r => { LIVE.set(liveKey, r); setLive(r); setSearching(false) },
       e => { setErr(String(e.message || e)); setSearching(false) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thread.seed, liveKey])
