@@ -23,7 +23,7 @@ from playwright.async_api import async_playwright
 ROOT = Path(__file__).resolve().parents[2]
 
 
-async def visitor(browser, hub: str, k: int, shots: Path | None, tour: bool, report: dict):
+async def visitor(browser, hub: str, k: int, shots: Path | None, tour: bool, report: dict, keep: list | None = None):
     ctx = await browser.new_context(viewport={"width": 1440, "height": 900})
     page = await ctx.new_page()
     errs, fails, times = [], [], {}
@@ -54,7 +54,42 @@ async def visitor(browser, hub: str, k: int, shots: Path | None, tour: bool, rep
     else:
         await walk_stops(page, timed)
     report.setdefault("visitors", []).append({"k": k, "station": station, "times": times, "errors": errs, "failed": fails})
+    if keep is not None:
+        keep.append((ctx, page, errs))
+    else:
+        await ctx.close()
+
+
+async def stress_after(browser, hub: str, admin_key: str, keep: list, report: dict):
+    """With every station taken: a further visitor is told to wait; then the operator frees one station and its old
+    tab says the copy has moved on (it cannot write into the next visitor's copy)."""
+    problems = report.setdefault("stress", [])
+    ctx = await browser.new_context(viewport={"width": 1440, "height": 900})
+    page = await ctx.new_page()
+    await page.goto(hub)
+    await page.click("text=Start the demo")
+    await page.wait_for_load_state()
+    if "/busy" not in page.url:
+        problems.append(f"the visitor after the last station was sent to {page.url}, not /busy")
     await ctx.close()
+    ctx0, page0, _ = keep[0]
+    station = page0.url.split("#")[0]
+    port = int(station.split(":")[2].split("/")[0])
+    n = port - int(hub.rsplit(":", 1)[1].strip("/"))
+    import urllib.request
+    req = urllib.request.Request(f"{hub}/admin/reset/{n}?key={admin_key}", method="POST")
+    try:
+        urllib.request.urlopen(req, timeout=10).read()
+    except Exception as e:          # a 303 to /admin is fine; anything else is not
+        if "303" not in str(e):
+            problems.append(f"admin reset failed: {e}")
+    await page0.reload()
+    try:
+        await page0.wait_for_selector('[data-testid="station-lost"]', timeout=10000)
+    except Exception:
+        problems.append("the reset station's old tab did not say the copy moved on")
+    for c, _, _ in keep:
+        await c.close()
 
 
 async def walk_stops(page, timed):
@@ -146,6 +181,8 @@ async def main():
     ap.add_argument("--visitors", type=int, default=1)
     ap.add_argument("--shots", default=str(ROOT / "DATA/neurips_demo/shots"))
     ap.add_argument("--tour", action="store_true")
+    ap.add_argument("--stress", action="store_true", help="after the walks: a busy visitor and an operator reset")
+    ap.add_argument("--admin-key", default="booth")
     a = ap.parse_args()
     SHOTS = Path(a.shots) if a.shots else None
     if SHOTS:
@@ -153,7 +190,13 @@ async def main():
     report: dict = {}
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        await asyncio.gather(*(visitor(browser, a.hub, k, SHOTS if k == 0 else None, a.tour, report) for k in range(a.visitors)))
+        keep = [] if a.stress else None
+        t0 = time.perf_counter()
+        await asyncio.gather(*(visitor(browser, a.hub, k, SHOTS if k == 0 else None, a.tour, report, keep)
+                               for k in range(a.visitors)))
+        report["wall_s"] = round(time.perf_counter() - t0, 1)
+        if a.stress:
+            await stress_after(browser, a.hub, a.admin_key, keep, report)
         await browser.close()
     bad = 0
     for v in report["visitors"]:
@@ -163,6 +206,11 @@ async def main():
         for e in v["errors"] + v["failed"]:
             print("   !", e[:300])
             bad += 1
+    for prob in report.get("stress", []):
+        print("   ! stress:", prob)
+        bad += 1
+    if "wall_s" in report:
+        print(f"{len(report['visitors'])} visitors in parallel, {report['wall_s']} s wall")
     stations = report["stations"]
     if len(set(stations)) != len(stations):
         print("   ! two visitors were given the same station:", stations)

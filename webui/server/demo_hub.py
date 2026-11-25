@@ -253,7 +253,7 @@ _FRONT = f"""<!doctype html><html lang=en><head><meta charset=utf-8><meta name=v
 <h1>Myco<span>Wave</span></h1>{_WAVE}
 <p class=sub>Fungi send electrical spikes through their mycelium. MycoWave finds them in weeks of recordings,
 sorts them into families, and lets you search for more like any one you pick.</p>
-<div class=row><div><a class=go id=go href="/claim">Start the demo</a>
+<div class=row><div><a class=go id=go href="/claim" onclick="if(this.dataset.busy)return false;this.dataset.busy=1;this.textContent='Starting…'">Start the demo</a>
 <p class=small>You get your own private copy. Nothing you do affects anyone else. <span id=free></span></p></div>
 <div class=qr>{{{{WIFI}}}}<img src="/qr.svg" alt="QR code"><div>Scan to try it on your own laptop or tablet</div><div class=url>{{{{URL}}}}</div></div></div>
 <div id=phone style="display:none" class=small><b>On a phone?</b> MycoWave draws long recordings and needs a wider screen:

@@ -86,7 +86,9 @@ export function ExplorePage() {
             </button>
             {thread.autoOn && auto.data && <div className="stat-line" data-testid="auto-count">
               <b>{auto.data.n}</b> drops in 24 h · <b>{inView}</b> in view
+              {span && <> · <b>{boxes.filter(x => x.e > span[0] && x.s < span[1]).length}</b> in your stretch</>}
             </div>}
+            {thread.autoOn && <p className="hint">Darker means more confident.</p>}
             {auto.error && <div className="error-line">{auto.error.message}</div>}
           </div>
 
