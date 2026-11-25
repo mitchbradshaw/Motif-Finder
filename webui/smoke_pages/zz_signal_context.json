@@ -1,0 +1,39 @@
+[
+  {
+    "page": "analyse.block",
+    "state": "signal-context-settings",
+    "hash": "analyse/chain",
+    "settle_ms": 900,
+    "actions": [
+      {"click": "[data-testid=\"import-button\"]"},
+      {"click": "[data-testid=\"template-signal_threshold\"]"},
+      {"wait": 600},
+      {"click_if": "[data-testid=\"use-example\"]"},
+      {"wait": 900},
+      {"click": "[data-testid=\"settings-step-2\"]"},
+      {"wait_for": ["[data-testid=\"param-context_left_s\"]", 15000]},
+      {"fill": ["[data-testid=\"param-context_left_s\"]", "15"]},
+      {"fill": ["[data-testid=\"param-context_right_s\"]", "30"]}
+    ],
+    "expect": [
+      "[data-testid=\"param-context_left_s\"][value=\"15\"][min=\"0\"]",
+      "[data-testid=\"param-context_right_s\"][value=\"30\"][min=\"0\"]"
+    ]
+  },
+  {
+    "page": "analyse.block",
+    "state": "signal-context-run",
+    "hash": "analyse/block/1",
+    "actions": [
+      {"click": "[data-testid=\"run-button\"]"},
+      {"wait_for": ["[data-testid=\"event-slideshow\"] [data-plot-box]", 60000]}
+    ],
+    "expect": [
+      "[data-view=\"spanset\"][data-modifier=\"signal->spanset\"]",
+      "[data-testid=\"param-context_left_s\"][value=\"15\"]",
+      "[data-testid=\"param-context_right_s\"][value=\"30\"]",
+      "[data-testid=\"duration-histogram\"]"
+    ],
+    "expect_absent": ["[data-testid=\"render-error\"]", "[data-testid=\"run-refused-card\"]"]
+  }
+]

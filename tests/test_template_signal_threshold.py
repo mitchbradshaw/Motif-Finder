@@ -86,16 +86,19 @@ def test_signal_threshold_is_a_canonical_detection_template_of_two_blocks():
     assert "signal_threshold" in {t["name"] for t in CANONICAL}
 
 
-def test_template_runs_end_to_end_and_writes_its_spans(db_and_signal):
+@pytest.mark.parametrize("left, right", [(0.0, 0.0), (15.0, 30.0)])
+def test_template_runs_end_to_end_and_writes_its_spans(db_and_signal, left, right):
     db, x = db_and_signal
     tpl = canonical("signal_threshold")
+    tpl["steps"][1]["params"].update(context_left_s=left, context_right_s=right)
     recipe = apply_template(None, tpl, recording_id=1)
     out = execute_recipe(recipe, db_path=db, force=True)
     assert out["result"].output_kind == "spanset"
     got = list(zip(out["result"].value.starts, out["result"].value.ends))
     assert len(got) == len(DROPS), got
     for span, drop in zip(got, DROPS):
-        assert iou(span, drop) >= 0.8, (span, drop)
+        expected = (drop[0] - int(left * FS), drop[1] + int(right * FS))
+        assert iou(span, expected) >= 0.8, (span, expected)
     assert all(s > 0 for s in out["result"].value.scores), "a span scores by how far under the cut it went"
     conn = init_db(db)
     try:

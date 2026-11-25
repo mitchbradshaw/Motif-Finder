@@ -52,13 +52,15 @@ def test_registered_with_the_standard_types_and_parameters():
     spec = get_adapter(NAME)
     assert spec.input_kind == "signal" and spec.output_kind == "spanset"
     assert spec.stage == "detection" and spec.category == "detect"
-    assert {p.name for p in spec.params} == {"threshold", "direction", "min_duration_s", "merge_gap_s"}
+    assert {p.name for p in spec.params} == {
+        "threshold", "direction", "min_duration_s", "merge_gap_s", "context_left_s", "context_right_s"}
     thr = next(p for p in spec.params if p.name == "threshold")
     assert thr.type is float, "the cut must be a float named `threshold` — the drawing standard's convention"
     d = spec.validate_params({})
-    assert d == {"threshold": 0.0, "direction": "above", "min_duration_s": 0.0, "merge_gap_s": 0.0}, \
-        "the two tidying parameters default to 0.0: off, so a recipe that names neither runs exactly as before"
-    for name in ("min_duration_s", "merge_gap_s"):
+    assert d == {"threshold": 0.0, "direction": "above", "min_duration_s": 0.0, "merge_gap_s": 0.0,
+                 "context_left_s": 0.0, "context_right_s": 0.0}, \
+        "tidying and context default to off, so existing recipes run exactly as before"
+    for name in ("min_duration_s", "merge_gap_s", "context_left_s", "context_right_s"):
         p = next(p for p in spec.params if p.name == name)
         assert p.type is float and p.default == 0.0
         with pytest.raises(ValueError, match=name):
@@ -239,6 +241,54 @@ def test_tidying_is_the_scores_siblings_helper_and_the_blocks_still_agree():
     assert spans(mine) == spans(theirs)
     assert 0 < len(spans(mine)) < len(spans(run(x, threshold=thr))), "the tidying did something on noise"
     assert np.allclose(np.asarray(mine.value.scores), np.asarray(theirs.value.scores) - thr)
+
+
+@pytest.mark.parametrize("direction, threshold, amplitude", [
+    ("above", 0.5, 2.0), ("below", -0.5, -2.0), ("either", 0.5, -2.0),
+])
+@pytest.mark.parametrize("left, right, expected", [
+    (3.0, 0.0, [(7, 15)]), (0.0, 7.0, [(10, 22)]), (3.0, 7.0, [(7, 22)]),
+])
+def test_context_extends_each_side_without_changing_scores(direction, threshold, amplitude,
+                                                          left, right, expected):
+    x = np.zeros(30)
+    x[10:15] = amplitude
+    r = run(x, threshold=threshold, direction=direction,
+            context_left_s=left, context_right_s=right)
+    assert spans(r) == expected
+    assert r.value.scores == (1.5,)
+    assert r.meta["context_left_s"] == left and r.meta["context_right_s"] == right
+
+
+def test_context_clips_to_the_analysed_signal_and_keeps_overlapping_events():
+    x = np.zeros(20)
+    x[1:3] = 1.0
+    x[17:19] = 2.0
+    r = run(x, threshold=0.5, context_left_s=15.0, context_right_s=15.0)
+    assert spans(r) == [(0, 18), (2, 20)]
+    assert r.value.scores == (0.5, 1.5)
+    assert r.meta["n_spans"] == 2
+    assert spans(run([], context_left_s=5.0, context_right_s=5.0)) == []
+    assert spans(run(np.zeros(20), context_left_s=5.0, context_right_s=5.0)) == []
+
+
+def test_context_runs_after_merging_and_duration_filtering():
+    r = run(graze_then_drop(), threshold=-0.005, direction="below", min_duration_s=2.0,
+            context_left_s=5.0, context_right_s=10.0)
+    assert spans(r) == [(7, 50)], "padding must not rescue the one-sample graze"
+    assert r.value.scores == pytest.approx((0.025,))
+    r = run(graze_then_drop(), threshold=-0.005, direction="below", min_duration_s=30.0,
+            merge_gap_s=2.0, context_left_s=5.0, context_right_s=10.0)
+    assert spans(r) == [(5, 50)], "merge the core events, filter, then pad the kept event"
+
+
+def test_context_seconds_use_the_signals_sample_rate_and_round_to_samples():
+    x = np.zeros(20)
+    x[10:12] = 1.0
+    spec = get_adapter(NAME)
+    r = spec.run(x, 100.0 + np.arange(len(x)) / 2.0, 2.0,
+                 **spec.validate_params({"context_left_s": 1.6, "context_right_s": 0.6}))
+    assert spans(r) == [(7, 13)], "context uses fs and stays relative to the analysed span"
 
 
 def test_filed_as_a_detector_for_discovery_compare():

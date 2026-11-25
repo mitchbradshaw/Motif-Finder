@@ -18,7 +18,7 @@ A span's score is how far past the cut it reaches, in the signal's units
 (`max(x) - threshold`, `threshold - min(x)`, `max|x| - |threshold|`), so a
 stronger event scores higher whichever side the cut is on and the slideshow
 sorts the same way for a rise and for a drop. A NaN sample compares False on
-every side and never belongs to a span. No crossing is an empty SpanSet, not
+every side and never triggers a detection. No crossing is an empty SpanSet, not
 an error. `Working.execution.execute_recipe` writes the spans to
 `detections`, span offset added, like any other spanset.
 
@@ -30,6 +30,12 @@ a drop fragmented by one sample's recovery is one event long enough to keep;
 either one turns a one-sample graze of the cut (a 1 s span at 1 Hz, seen right
 before a real drop on CH1_A1 336–338 h) into nothing or into part of the
 drop. Seconds convert to samples at the recording's fs.
+
+`context_left_s` and `context_right_s` optionally extend each kept span by
+that many seconds before and after the detection, clipped to the analysed
+signal's boundaries. Context is added after merging and duration filtering;
+it never changes an event's score or merges separate events, even if their
+context overlaps. Both default to 0.0. Seconds convert as round(seconds * fs).
 
 The run-finding and the tidying are `detection.threshold`'s own helpers
 (`spans_from_mask`, `tidy_spans`), so the two blocks are one rule applied to
@@ -65,15 +71,20 @@ def _mask_and_excursion(x, threshold, direction):
     raise ValueError(f"detection.signal_threshold: direction must be one of {DIRECTIONS}, got {direction!r}")
 
 
-def _run(x, t, fs, threshold=0.0, direction="above", min_duration_s=0.0, merge_gap_s=0.0):
+def _run(x, t, fs, threshold=0.0, direction="above", min_duration_s=0.0, merge_gap_s=0.0,
+         context_left_s=0.0, context_right_s=0.0):
     xs = np.asarray(x, dtype=float).ravel()
     threshold = float(threshold)
-    with np.errstate(invalid="ignore"):          # a NaN sample compares False: never in a span
+    with np.errstate(invalid="ignore"):          # a NaN sample never triggers a detection
         mask, excursion = _mask_and_excursion(xs, threshold, direction)
     starts, ends = spans_from_mask(mask)
     scores = tuple(excursion(xs[s:e]) for s, e in zip(starts, ends))
     starts, ends, scores = tidy_spans(starts, ends, scores, fs,
                                       min_duration_s=min_duration_s, merge_gap_s=merge_gap_s)
+    left = int(round(float(context_left_s) * float(fs)))
+    right = int(round(float(context_right_s) * float(fs)))
+    starts = tuple(max(0, s - left) for s in starts)
+    ends = tuple(min(len(xs), e + right) for e in ends)
     return AdapterResult(
         output_kind="spanset",
         value=SpanSet(starts=starts, ends=ends, scores=scores),
@@ -85,6 +96,8 @@ def _run(x, t, fs, threshold=0.0, direction="above", min_duration_s=0.0, merge_g
             "direction": direction,
             "min_duration_s": float(min_duration_s),
             "merge_gap_s": float(merge_gap_s),
+            "context_left_s": float(context_left_s),
+            "context_right_s": float(context_right_s),
         },
     )
 
@@ -104,6 +117,16 @@ SPEC = register(AdapterSpec(
                   "x < threshold (a drop after baseline removal), `either` keeps |x| > |threshold|",
                   choices=list(DIRECTIONS)),
         *tidy_param_specs(),
+        ParamSpec("context_left_s", float, 0.0,
+                  "Add this many seconds before each detected span (0 adds no context). "
+                  "Applied after merging and duration filtering, clipped to the analysed signal; "
+                  "overlapping context keeps separate events and their original scores",
+                  min=0.0),
+        ParamSpec("context_right_s", float, 0.0,
+                  "Add this many seconds after each detected span (0 adds no context). "
+                  "Applied after merging and duration filtering, clipped to the analysed signal; "
+                  "overlapping context keeps separate events and their original scores",
+                  min=0.0),
     ],
     run=_run,
     input_kind="signal",
@@ -114,6 +137,8 @@ SPEC = register(AdapterSpec(
         "units and keeps the contiguous runs above it, below it, or past it on either side "
         "of zero, written to `detections`. Put baseline removal before it; a span scores by "
         "how far past the cut it reaches. Optionally join spans closer than `merge_gap_s` and "
-        "drop those shorter than `min_duration_s` (both off at 0)."
+        "drop those shorter than `min_duration_s` (both off at 0). Add context before and after "
+        "each kept span with `context_left_s` and `context_right_s` (seconds, both off at 0); "
+        "context is clipped to the analysed signal and leaves event scores unchanged."
     ),
 ))

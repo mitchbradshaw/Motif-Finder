@@ -34,6 +34,8 @@ export function paramCaption(step: Step, adapter: AdapterCard | undefined): stri
       return (p.direction === 'below' ? `spans where signal < ${fmtNum(p.threshold ?? 0)}`
         : p.direction === 'either' ? `spans where |signal| > ${fmtNum(Math.abs(Number(p.threshold ?? 0)))}`
         : `spans where signal > ${fmtNum(p.threshold ?? 0)}`) + tidyCaption(p)
+        + (Number(p.context_left_s ?? 0) > 0 || Number(p.context_right_s ?? 0) > 0
+          ? ` · context ${fmtNum(p.context_left_s ?? 0)} s left / ${fmtNum(p.context_right_s ?? 0)} s right` : '')
     case 'detection.sax_dsax':
       return `${segCaption(p)} → dSAX letters · alphabet ${fmtNum(p.alphabet_size ?? 3)} · cutlines ${String(p.threshold_mode ?? 'learned')}`
     case 'detection.sax_csax':
