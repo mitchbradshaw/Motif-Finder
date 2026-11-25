@@ -1,0 +1,153 @@
+{
+ "drops": 29128,
+ "drops_pool": 25938,
+ "drops_library": 3190,
+ "p_min": 0.8,
+ "recordings": 7,
+ "species": 5,
+ "electrodes": 64,
+ "electrodes_with_drops": 64,
+ "recording_hours": {
+  "M2_aug": 721.0,
+  "M4": 504.99944444444446,
+  "MJu26a": 635.9101388888889,
+  "CO": 480.0,
+  "LM": 480.0,
+  "SH": 480.0,
+  "SO": 480.0
+ },
+ "recording_hours_total": 3781.9095833333336,
+ "electrode_hours": 37470.55333333333,
+ "never_half_back_share": 0.155760780005493,
+ "species_stats": {
+  "Asian shiitake": {
+   "drops": 793,
+   "recordings": [
+    "SH"
+   ],
+   "fall_s_median": 53.5,
+   "depth_mv_median": 1.911825799420967,
+   "recovery_s_median": 76.77537129467078,
+   "recovery_ratio_median": 1.4782958259568628,
+   "steepness_1hz_median": 2.4424590262316404,
+   "never_half_back": 0.1841109709962169
+  },
+  "chocolate oyster": {
+   "drops": 2885,
+   "recordings": [
+    "CO"
+   ],
+   "fall_s_median": 7.0,
+   "depth_mv_median": 2.1059334202067106,
+   "recovery_s_median": 20.98645120751553,
+   "recovery_ratio_median": 2.9245746920244833,
+   "steepness_1hz_median": 1.739034143550407,
+   "never_half_back": 0.11369150779896015
+  },
+  "lion's mane": {
+   "drops": 8264,
+   "recordings": [
+    "LM",
+    "MJu26a"
+   ],
+   "fall_s_median": 23.5,
+   "depth_mv_median": 1.588096836484219,
+   "recovery_s_median": 56.39565972300932,
+   "recovery_ratio_median": 1.809853480706603,
+   "steepness_1hz_median": 2.036376741076066,
+   "never_half_back": 0.1659002904162633
+  },
+  "oyster": {
+   "drops": 16560,
+   "recordings": [
+    "M2_aug",
+    "M4"
+   ],
+   "fall_s_median": 17.0,
+   "depth_mv_median": 1.8592038586859871,
+   "recovery_s_median": 28.81582580110808,
+   "recovery_ratio_median": 1.7131163475746494,
+   "steepness_1hz_median": 2.2381556493767985,
+   "never_half_back": 0.15766908212560388
+  },
+  "snow oyster": {
+   "drops": 626,
+   "recordings": [
+    "SO"
+   ],
+   "fall_s_median": 18.0,
+   "depth_mv_median": 2.4358355246634176,
+   "recovery_s_median": 29.461846012817432,
+   "recovery_ratio_median": 1.942243640690014,
+   "steepness_1hz_median": 2.079339069394911,
+   "never_half_back": 0.12939297124600638
+  }
+ },
+ "fastest_species": "chocolate oyster",
+ "slowest_species": "Asian shiitake",
+ "tempo_ratio": 7.642857142857143,
+ "wavemap": {
+  "drops_on_map": 29124,
+  "occupied_cells": 382,
+  "glyph_cells": 324,
+  "busiest_cell": 539,
+  "badge_counts": {
+   "1": 539,
+   "2": 442,
+   "3": 128,
+   "4": 63,
+   "5": 0
+  },
+  "never_share": 0.1557478368355995,
+  "x_range": [
+   0.13717442203357394,
+   39.410045006617544
+  ],
+  "y_range": [
+   1.0,
+   10.723160888958503
+  ]
+ },
+ "ch14_kinds": {
+  "drops_all": 1313,
+  "big": 491,
+  "thin": 266,
+  "wide": 225,
+  "p_thin_after_wide": 0.6964285714285714,
+  "p_thin_after_wide_block_null": 0.5520301339285716,
+  "p_thin_after_wide_full_null": 0.5422633928571429,
+  "p_value_thin_after_wide": 0.00024993751562109475,
+  "p_wide_after_thin": 0.5902255639097744,
+  "p_wide_after_thin_block_null": 0.46786466165413526,
+  "switch": 0.6387755102040816,
+  "switch_block_null": 0.506340306122449,
+  "p_value_switch": 0.00024993751562109475,
+  "wide_wide_ratio": 0.6776603775465205,
+  "thin_thin_ratio": 0.770056800519965,
+  "thin_depth_mv": 8.744917116669313,
+  "wide_depth_mv": 12.048251403598384,
+  "thin_width_s": 6.7334987188107345,
+  "wide_width_s": 23.94614433385432,
+  "hours": 90.49877777777778,
+  "recording_id": 663,
+  "start_idx": 13775554,
+  "fs": 10.0
+ },
+ "crescendo": {
+  "drops": 17,
+  "depth_first": 19.58827218570974,
+  "depth_last": 58.69938014151813,
+  "gap_first_min": 11.0,
+  "gap_last_min": 56.916666666666664,
+  "hours": 7.113333333333333
+ },
+ "metronome": {
+  "drops": 14,
+  "mean_gap_min": 8.51153846153846,
+  "cv_percent": 3.9853077278137685,
+  "gap_min": 7.983333333333333,
+  "gap_max": 9.316666666666666,
+  "depth_mv_median": 7.7405711245039015,
+  "depth_cv_percent": 2.3078255587779015
+ }
+}

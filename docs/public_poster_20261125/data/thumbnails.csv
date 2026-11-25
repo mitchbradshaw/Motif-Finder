@@ -1,0 +1,11 @@
+id,title,dataset,channel_0based,recording_id,start_idx,end_idx,hours,species,bar_mv
+137,Fading burst,M2_aug,0,1,889920,896400,1.8,oyster,10
+130,Bursts and pauses,M2_aug,0,1,1046691,1056005,2.587222222222222,oyster,10
+136,Ripples on a slow wave,M2_aug,5,6,1332000,1656000,90.0,oyster,50
+m54_144,Regular spike train,M4,5,54,1675287,1712280,10.275833333333333,oyster,2
+m644_123,Spikes on a rising baseline,CO,3,644,2097004,2114278,2.3991666666666664,chocolate oyster,5
+m637_155,Growing amplitude,LM,0,637,1031132,1043016,1.6505555555555556,lion's mane,5
+m638_252,Large square drops,LM,1,638,1894616,2021671,17.646527777777777,lion's mane,50
+m697_258,Sawtooth with drift,MJu26a,5,697,4174639,4206397,4.410833333333334,lion's mane,1
+m710_51,Accelerating sequence,SH,2,710,880984,886958,0.8297222222222222,Asian shiitake,2
+m714_174,Ripples on a rising trend,SO,2,714,1761751,1889391,17.727777777777778,snow oyster,20

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The electric pulse of mushrooms — A1 poster</title>
+<style>
+  @page { size: 841mm 594mm; margin: 0; }
+  :root {
+    --purple: #4b1d73; --purple2: #6d2a8f; --magenta: #a3238f; --lilac: #f3e4f8; --ink: #1d1a24; --ink2: #4a4655;
+    --muted: #8b8696; --bg: #f5f0f8; --card: #ffffff; --line: #e4d8ec;
+    --oyster: #2a78d6; --lion: #eb6834; --choc: #a4511c; --shiitake: #6250d6; --snow: #e87ba4;
+    --thin: #00a6d6; --wide: #e0187a; --hot: #ff6a00; --metro: #0f9d8a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 841mm; height: 594mm; }
+  body { font-family: "Segoe UI", "Segoe UI Variable", Arial, sans-serif; color: var(--ink); background: var(--bg);
+         position: relative; overflow: hidden; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .abs { position: absolute; }
+
+  /* header */
+  header { position: absolute; left: 0; top: 0; width: 841mm; height: 76mm;
+           background: linear-gradient(100deg, #2e0f52 0%, #4b1d73 38%, #7a2490 70%, #a3238f 100%); color: white; }
+  header h1 { position: absolute; left: 14mm; top: 7mm; font-size: 100pt; font-weight: 800; letter-spacing: -1.5pt;
+              line-height: 1; white-space: nowrap; }
+  header h1 .glow { color: #ffd166; }
+  header .sub { position: absolute; left: 15mm; top: 44mm; font-size: 29pt; font-style: italic; font-weight: 600;
+                color: #f6e3ff; white-space: nowrap; }
+  header .who { position: absolute; left: 15mm; top: 59mm; font-size: 22pt; font-weight: 600; color: #ead2f7;
+                white-space: nowrap; letter-spacing: .2pt; }
+  header .logo { position: absolute; right: 14mm; top: 6mm; width: 64mm; height: 64mm; border-radius: 50%;
+                 background: white; box-shadow: 0 0 0 2.2mm rgba(255,255,255,.18); }
+  header .logo img { width: 100%; height: 100%; border-radius: 50%; }
+  header .facts { position: absolute; right: 88mm; top: 10mm; display: grid; grid-template-columns: repeat(2, auto);
+                  gap: 3mm 4mm; }
+  .fact { background: rgba(255,255,255,.12); border: .5mm solid rgba(255,255,255,.28); border-radius: 4mm;
+          padding: 2.2mm 4.5mm 2.4mm; min-width: 46mm; }
+  .fact b { display: block; font-size: 34pt; font-weight: 800; line-height: 1.02; color: #ffd166; }
+  .fact span { display: block; font-size: 15pt; font-weight: 600; color: #f3dcff; line-height: 1.1; }
+
+  /* column bands */
+  .band { position: absolute; height: 15mm; border-radius: 3mm; color: white; display: flex; align-items: center;
+          padding: 0 6mm; font-size: 27pt; font-weight: 800; letter-spacing: 1.2pt;
+          background: linear-gradient(90deg, #4b1d73, #a3238f); }
+  .band small { font-size: 20pt; font-weight: 600; letter-spacing: .3pt; margin-left: 5mm; color: #ffe0f6; }
+
+  /* cards */
+  .card { position: absolute; background: var(--card); border-radius: 4mm; overflow: hidden;
+          box-shadow: 0 .6mm 2.2mm rgba(60, 20, 90, .12); border: .35mm solid var(--line); }
+  .card .hd { height: 13mm; display: flex; align-items: baseline; gap: 5mm; padding: 2.4mm 6mm 0;
+              background: linear-gradient(90deg, #f6dcfb, #fbe9f4 60%, #ffffff); border-bottom: .35mm solid var(--line); }
+  .card .hd h2 { font-size: 25pt; font-weight: 800; color: var(--purple); letter-spacing: .6pt; white-space: nowrap; }
+  .card .hd .tag { font-size: 18.5pt; font-weight: 600; color: var(--magenta); white-space: nowrap; }
+  .card .hd .tag.sp { font-weight: 700; }
+  .lead { font-size: 18.5pt; line-height: 1.28; color: var(--ink2); padding: 2.2mm 6mm 0; }
+  .lead b { color: var(--ink); }
+  img.fig { display: block; }
+
+  /* intro */
+  .intro-text { position: absolute; left: 6mm; top: 17mm; width: 200mm; font-size: 20.5pt; line-height: 1.33; }
+  .intro-text p + p { margin-top: 2.6mm; }
+  .intro-text b { color: var(--purple); }
+  .drop-word { color: var(--hot); font-weight: 800; }
+
+  /* map legend */
+  .legend { position: absolute; left: 330mm; top: 16mm; width: 70mm; }
+  .legend .how { font-size: 16.5pt; line-height: 1.28; color: var(--ink2); }
+  .legend .key-title { font-size: 14pt; font-weight: 700; color: var(--ink2); margin-top: 2mm; }
+  .legend .item { display: grid; grid-template-columns: 9mm 1fr; column-gap: 2.2mm; margin-top: 4.2mm;
+                  align-items: start; }
+  .legend .num { width: 8.2mm; height: 8.2mm; border-radius: 50%; border: .75mm solid var(--purple);
+                 color: var(--purple); font-weight: 800; font-size: 15pt; display: flex; align-items: center;
+                 justify-content: center; line-height: 1; }
+  .legend .item b { display: block; font-size: 19pt; color: var(--ink); line-height: 1.1; }
+  .legend .item span { display: block; font-size: 15.5pt; color: var(--ink2); line-height: 1.22; }
+  .legend .item img { width: 30mm; height: 17.6mm; margin-top: .6mm; }
+
+  .note { font-size: 14pt; color: var(--muted); line-height: 1.25; }
+
+  /* footer strip */
+  .strip { position: absolute; left: 12mm; top: 567mm; width: 817mm; height: 19mm; border-radius: 3.5mm;
+           background: #2e0f52; color: #f3e6fb; display: flex; align-items: center; gap: 7mm; padding: 0 7mm; }
+  .strip .k { font-size: 21pt; font-weight: 800; color: #ffd166; white-space: nowrap; letter-spacing: .8pt; }
+  .strip .f { font-size: 17.5pt; font-weight: 600; line-height: 1.2; }
+  .strip .f i { color: #ffd166; font-style: normal; font-weight: 800; }
+  .strip .s { font-size: 12.5pt; color: #cbb6dc; line-height: 1.25; width: 238mm; flex: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>The electric <span class="glow">pulse</span> of mushrooms</h1>
+  <div class="sub">What do fungal electrical signals look like, and do they follow a rhythm?</div>
+  <div class="who">Mitchell Bradshaw · Janet Wiles · UQ EAIT</div>
+  <div class="facts">
+    <div class="fact"><b>5</b><span>species</span></div>
+    <div class="fact"><b>64</b><span>electrodes</span></div>
+    <div class="fact"><b>3,782</b><span>hours recorded</span></div>
+    <div class="fact"><b>29,128</b><span>drops detected</span></div>
+  </div>
+  <div class="logo"><img src="figures/mycowave_logo_round.png" alt="MycoWave logo"></div>
+</header>
+
+<!-- ───────────── LEFT: single drops ───────────── -->
+<div class="band" style="left:12mm; top:82mm; width:404mm;">PART 1<small>Individual drops</small></div>
+
+<div class="card" style="left:12mm; top:101mm; width:404mm; height:96mm;">
+  <div class="hd"><h2>INTRODUCTION</h2><span class="tag">Electrical drops in fungal mycelium</span></div>
+  <div class="intro-text">
+    <p>Fungal <b>mycelium</b>, the network of fine threads beneath every mushroom, produces slow electrical
+       potentials lasting from seconds to hours. Interest in reading them as living sensors is growing, but the
+       field is young.</p>
+    <p>We recorded five edible species on 64 electrodes for 20–30 days each. The dominant event is a
+       <span class="drop-word">drop</span>: a sudden fall in potential followed by a slower recovery.</p>
+  </div>
+  <img class="fig abs" src="figures/intro_anatomy.svg" style="left:212mm; top:14mm; width:186mm; height:80mm;" alt="anatomy of one drop">
+</div>
+
+<div class="card" style="left:12mm; top:203mm; width:404mm; height:224mm;">
+  <div class="hd"><h2>DROP SHAPES</h2><span class="tag">29,124 drops, each normalised to the same depth and fall time</span></div>
+  <img class="fig abs" src="figures/wavemap.svg" style="left:3mm; top:13mm; width:318mm; height:210mm;" alt="20 by 20 map of drop shapes">
+  <div class="legend">
+    <div class="how">Each cell holds the drops of one <b>steepness</b> (rows) and one <b>recovery rate</b>
+      (columns). The white line is the cell's median drop.</div>
+    <div class="key-title">Drops per cell</div>
+    <img src="figures/wavemap_colorbar.svg" style="width:70mm; height:19.25mm; margin-top:-1mm;" alt="colour key">
+    <div class="item"><div class="num">1</div><div><b>Typical drop</b><span>V-shaped: falls and recovers at a similar rate</span></div></div>
+    <div class="item"><div class="num">2</div><div><b>Step</b><span>falls without recovering: 16% of drops</span></div></div>
+    <div class="item"><div class="num">3</div><div><b>Spike</b><span>sharp fall, immediate recovery</span></div></div>
+    <div class="item"><div class="num">4</div><div><b>Well</b><span>sharp fall, rapid recovery</span></div></div>
+    <div class="item"><div class="num">5</div><div><b>Empty region</b><span>gradual falls rarely recover quickly</span></div></div>
+  </div>
+</div>
+
+<div class="card" style="left:12mm; top:433mm; width:404mm; height:128mm;">
+  <div class="hd"><h2>SPECIES COMPARISON</h2><span class="tag">Shared shapes, distinct time scales</span></div>
+  <img class="fig abs" src="figures/species_fingerprints.svg" style="left:2mm; top:12.5mm; width:232mm; height:115mm;" alt="species fingerprints">
+  <img class="fig abs" src="figures/species_boxes.svg" style="left:236mm; top:12.5mm; width:166mm; height:115mm;" alt="species box plots">
+</div>
+
+<!-- ───────────── RIGHT: trains ───────────── -->
+<div class="band" style="left:425mm; top:82mm; width:404mm;">PART 2<small>Drop sequences</small></div>
+
+<div class="card" style="left:425mm; top:101mm; width:404mm; height:134mm;">
+  <div class="hd"><h2>ALTERNATING DROP TYPES</h2><span class="tag sp" style="color:var(--lion)">Lion's mane · 90 hours · 491 drops</span></div>
+  <div class="lead">Two drop types alternate through this 90-hour sequence: shallow, <b style="color:var(--thin)">narrow</b>
+    drops that recover within seconds, and deep, <b style="color:var(--wide)">wide</b> drops that recover in two stages. After a
+    wide drop, the next is narrow <b>70%</b> of the time, against <b>54%</b> in a shuffled order.</div>
+  <img class="fig abs" src="figures/train_heartbeat.svg" style="left:6mm; top:35mm; width:392mm; height:96mm;" alt="CH14 heartbeat train">
+</div>
+
+<div class="card" style="left:425mm; top:241mm; width:404mm; height:104mm;">
+  <div class="hd"><h2>PROGRESSIVE GROWTH</h2><span class="tag sp" style="color:var(--oyster)">Oyster · 7 hours · 17 drops</span></div>
+  <div class="lead">Each drop is deeper than the last, from <b>20 to 59 mV</b>, while the interval between drops lengthens from <b>11 to 57 minutes</b>.</div>
+  <img class="fig abs" src="figures/train_crescendo.svg" style="left:6mm; top:23.5mm; width:392mm; height:79mm;" alt="crescendo train">
+</div>
+
+<div class="card" style="left:425mm; top:351mm; width:404mm; height:104mm;">
+  <div class="hd"><h2>REGULAR TIMING</h2><span class="tag sp" style="color:var(--oyster)">Oyster · 2 hours · 14 drops</span></div>
+  <div class="lead">Fourteen near-identical drops at a mean interval of <b>8.5 minutes</b>, varying by only <b>4%</b>; a random process would vary by about 100%.</div>
+  <img class="fig abs" src="figures/train_metronome.svg" style="left:6mm; top:23.5mm; width:392mm; height:79mm;" alt="metronome train">
+</div>
+
+<div class="card" style="left:425mm; top:461mm; width:404mm; height:100mm;">
+  <div class="hd"><h2>FURTHER SEQUENCES</h2><span class="tag">Ten sequences across all five species</span></div>
+  <img class="fig abs" src="figures/train_thumbnails.svg" style="left:6mm; top:13.5mm; width:392mm; height:86mm;" alt="ten more trains">
+</div>
+
+<div class="strip">
+  <div class="k">CONCLUSIONS</div>
+  <div class="f">Drop shapes vary smoothly from <i>spikes to steps</i>, and all five species share them. Time scales
+    differ: median fall times range from <i>7 s to 54 s</i>. Drops occur in <i>structured sequences</i>: alternating,
+    progressive and regular.</div>
+  <div class="s">Drops detected automatically (MycoWave auto-detect) in recordings from the Underground Brains lab, UQ;
+    shown are those a model of our human verdicts rates at least 80% likely to be real. Each species is represented by one
+    or two cultures, so differences may also reflect growth conditions; neighbouring electrodes often register the same drop.</div>
+</div>
+
+</body>
+</html>
