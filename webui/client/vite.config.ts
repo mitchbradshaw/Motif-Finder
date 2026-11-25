@@ -21,7 +21,11 @@ export default defineConfig(({ mode }) => ({
     host: '127.0.0.1',   // Vite 8 otherwise binds ::1 only on this machine (builders' finding)
     port: 5173,
     strictPort: true,
-    proxy: { '/api': { target: 'http://127.0.0.1:8765', changeOrigin: true } },
+    proxy: { '/api': { target: mode === 'neurips' ? 'http://127.0.0.1:8901' : 'http://127.0.0.1:8765', changeOrigin: true } },
   },
-  build: { outDir: mode === 'demo' ? 'dist-demo' : 'dist', sourcemap: true, chunkSizeWarningLimit: 1200 },
+  // NeurIPS demo (`npm run build:neurips` → dist-neurips/, served by webui/server/demo_station.py): its own entry,
+  // demo.html → src/demo/, so the normal build neither imports nor ships it. `vite --mode neurips` proxies /api to station 1.
+  build: mode === 'neurips'
+    ? { outDir: 'dist-neurips', sourcemap: false, chunkSizeWarningLimit: 1200, rollupOptions: { input: 'demo.html' } }
+    : { outDir: mode === 'demo' ? 'dist-demo' : 'dist', sourcemap: true, chunkSizeWarningLimit: 1200 },
 }))
