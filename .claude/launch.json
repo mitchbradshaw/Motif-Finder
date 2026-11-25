@@ -40,6 +40,18 @@
       "port": 8825
     },
     {
+      "name": "neurips-demo",
+      "runtimeExecutable": "C:/Users/mmebr/Documents/CNN/webui/.venv/Scripts/python.exe",
+      "runtimeArgs": ["C:/Users/mmebr/Documents/CNN-neurips/webui/server/demo_launch.py", "--stations", "6", "--port", "8900", "--admin-key", "booth"],
+      "port": 8900
+    },
+    {
+      "name": "neurips-demo-dev",
+      "runtimeExecutable": "C:/Users/mmebr/Documents/CNN/webui/.venv/Scripts/python.exe",
+      "runtimeArgs": ["C:/Users/mmebr/Documents/CNN-neurips/webui/server/demo_launch.py", "--stations", "2", "--port", "8950", "--admin-key", "dev"],
+      "port": 8950
+    },
+    {
       "name": "autodetect-sandbox",
       "runtimeExecutable": "C:/Users/mmebr/Documents/CNN/webui/.venv/Scripts/python.exe",
       "runtimeArgs": ["webui/run_server.py", "--sandbox", "--port", "8823", "--no-warmup", "--dist",
