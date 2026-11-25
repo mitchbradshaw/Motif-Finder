@@ -310,7 +310,7 @@ export function Bars({ values, height = 90, color = '#0a84ff', labels }: { value
     <div ref={ref} className="bars">
       {w > 0 && <svg width={w} height={height}>
         {values.map((v, i) => <rect key={i} x={i * bw + 1} y={(1 - v / max) * (height - 16)} width={Math.max(1, bw - 2)} height={(v / max) * (height - 16)} fill={color} opacity={0.8} />)}
-        {labels?.map((l, i) => l ? <text key={i} x={i * bw + bw / 2} y={height - 3} textAnchor="middle" className="axis-t">{l}</text> : null)}
+        {labels?.map((l, i) => l ? <text key={i} x={i === 0 ? 1 : i * bw + bw / 2} y={height - 3} textAnchor={i === 0 ? 'start' : 'middle'} className="axis-t">{l}</text> : null)}
       </svg>}
     </div>
   )

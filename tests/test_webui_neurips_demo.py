@@ -224,3 +224,23 @@ def test_the_qr_code_decodes_back_to_its_text(text):
     img[32:32 + n * 8, 32:32 + n * 8] = np.kron(1 - m, np.ones((8, 8), dtype=np.uint8)) * 255
     val, _, _ = cv2.QRCodeDetector().detectAndDecode(img)
     assert val == text
+
+
+def test_the_live_search_finds_what_the_core_finds():
+    """demo_live's cached-FFT distance and greedy exclusion reproduce the core's match_exemplar (stumpy.match)."""
+    pytest.importorskip("stumpy")
+    sys.path.insert(0, str(ROOT))
+    from Working.discovery import seeded_search as SS
+    import demo_live as L
+
+    rng = np.random.default_rng(3)
+    x = np.cumsum(rng.standard_normal(20000)) * 0.01 - 400.0     # a drifting trace with a large offset, as in V*1000
+    shape = -np.exp(-np.arange(40) / 6.0) * 3.0
+    for at in (1200, 5000, 9100, 15000):
+        x[at:at + 40] += shape * rng.uniform(0.5, 2.0)
+    q = x[5000 - 5:5000 + 45]
+    ser = L.Series(x, m_max=200)
+    mine = L.top_k(ser.profile(q), 11, len(q))
+    core = SS.candidates(x, q, k=11)
+    assert [i for _, i in mine] == [c["index"] for c in core]
+    assert np.allclose([d for d, _ in mine], [c["distance"] for c in core], atol=1e-5)

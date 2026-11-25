@@ -224,11 +224,15 @@ def main():
     ap.add_argument("--workers", type=int, default=3)
     ap.add_argument("--only", default=None, help="one combo id")
     ap.add_argument("--slices", default=None, help="comma-separated slice ids")
+    ap.add_argument("--group", default=None, help="only one Clean group, e.g. rises_w300")
+    ap.add_argument("--reverse", action="store_true", help="work the list from its end (a helper meeting a worker)")
+    ap.add_argument("--worker-base", type=int, default=0, help="first worker folder number (helpers use their own)")
     a = ap.parse_args()
     os.chdir(ROOT)
     slices = json.loads((STORE / "slices.json").read_text())["slices"]
     sids = [s["id"] for s in slices] if not a.slices else [int(v) for v in a.slices.split(",")]
-    cs = [c for c in C.combos() if a.only is None or c["id"] == a.only]
+    cs = [c for c in C.combos() if (a.only is None or c["id"] == a.only)
+          and (a.group is None or f"{c['look_for']}_w{int(round(c['window_s']))}" == a.group)]
     # partition by the Clean prefix (look-for, window) so no two workers share a step-cache prefix
     groups = {}
     for c in cs:
@@ -238,12 +242,14 @@ def main():
         for c in g:
             for sid in sids:
                 buckets[i % len(buckets)].append((c["id"], sid))
+    if a.reverse:
+        buckets = [list(reversed(b)) for b in buckets]
     print(f"{len(cs)} settings x {len(sids)} slices = {sum(len(b) for b in buckets)} chains on {len(buckets)} workers")
     if len(buckets) == 1:
-        print("done", worker((0, buckets[0])))
+        print("done", worker((a.worker_base, buckets[0])))
         return
     with mp.get_context("spawn").Pool(len(buckets)) as pool:
-        print("done", sum(pool.map(worker, list(enumerate(buckets)))))
+        print("done", sum(pool.map(worker, [(a.worker_base + i, b) for i, b in enumerate(buckets)])))
 
 
 if __name__ == "__main__":

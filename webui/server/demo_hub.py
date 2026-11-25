@@ -201,10 +201,7 @@ def create_seed_worker(*, admin_key: str) -> FastAPI:
     ready = threading.Event()
 
     def warm():
-        demo_live.warm()
-        store.surrogates()
-        for sid in store.slices:
-            store.x(sid)
+        demo_live.warm(store)            # every channel's and noise copy's FFT, once
         ready.set()
 
     threading.Thread(target=warm, name="seed-warm", daemon=True).start()
@@ -218,7 +215,10 @@ def create_seed_worker(*, admin_key: str) -> FastAPI:
         if request.headers.get("x-demo-admin") != admin_key:
             raise HTTPException(403, "stations only")
         ready.wait(60)
-        return demo_live.live_search(store, body.slice, body.a, body.b)
+        try:
+            return demo_live.live_search(store, body.slice, body.a, body.b)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
 
     return app
 
@@ -247,11 +247,14 @@ _FRONT = f"""<!doctype html><html lang=en><head><meta charset=utf-8><meta name=v
 <p class=sub>Fungi send electrical spikes through their mycelium. MycoWave finds them in weeks of recordings,
 sorts them into families, and lets you search for more like any one you pick.</p>
 <div class=row><div><a class=go id=go href="/claim">Start the demo</a>
-<p class=small>You get your own private copy. Nothing you do affects anyone else.</p></div>
+<p class=small>You get your own private copy. Nothing you do affects anyone else. <span id=free></span></p></div>
 <div class=qr><img src="/qr.svg" alt="QR code"><div>Scan to try it on your own laptop or tablet</div><div class=url>{{{{URL}}}}</div></div></div>
 <div id=phone style="display:none" class=small><b>On a phone?</b> MycoWave draws long recordings and needs a wider screen:
 please use a laptop or a tablet, or the screen on the table. <a href="/claim">Continue anyway</a></div>
 </div><script>
+async function free() {{ try {{ const r = await (await fetch('/api/hub/status')).json();
+  document.getElementById('free').textContent = r.free + ' of ' + r.stations + ' copies free.' }} catch (e) {{}} }}
+free(); setInterval(free, 5000);
 if (Math.min(screen.width, screen.height) < 600 && /Mobi|Android|iPhone/i.test(navigator.userAgent)) {{
   document.getElementById('phone').style.display = 'block'; document.getElementById('go').style.display = 'none' }}
 </script></body></html>""".replace("{{{{URL}}}}", "{{URL}}")

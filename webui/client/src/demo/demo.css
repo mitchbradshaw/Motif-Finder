@@ -228,3 +228,5 @@ table.cmp tr.mine td { font-weight: 600; background: var(--blue-100); }
 .demo-app .small { font-size: 13px; }
 .step-controls { grid-column: 2; }
 .step-out { grid-column: 3; }
+
+.all-ch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-2); margin-left: 12px; }

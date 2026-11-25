@@ -6,6 +6,7 @@ import { Icicles, Trace, type Box } from '../charts'
 import { api, comboLabel, fmtDur, fmtH, fmtKnob, fmtNum, go, useAsync, useDemo } from '../store'
 import type { Combo, Manifest } from '../api'
 import { tourSignal } from '../tour'
+import { ratioText, ratioTone } from './Discovery'
 
 const LETTER: Record<string, [string, string]> = {
   '0': ['#e5484d', 'fast down'], '1': ['#f5a35c', 'down'], '2': ['#e5e7eb', 'flat'], '3': ['#9cc7ff', 'up'], '4': ['#0a84ff', 'fast up'],
@@ -91,6 +92,7 @@ export function AnalysePage({ build }: { build: boolean }) {
 
       <div className="cta-bar">
         <span className="muted">Your detector: <b className="text">{comboLabel(m, combo.id)}</b></span>
+        {build && <AllChannels combo={combo.id} />}
         <span className="grow" />
         <button className="btn primary big" data-tour="run-btn" data-testid="run-btn"
           onClick={() => { set({ ran: combo.id }); tourSignal('run'); go('discovery') }}>Run it on all 12 channels</button>
@@ -167,4 +169,12 @@ function MiniIcicles({ sid, fs, rows }: { sid: number; fs: number; rows: { s: nu
   })
   if (!ok.length) return <div className="empty-chart" style={{ height: 150 }}>no events in this stretch</div>
   return <Icicles rows={data} height={150} />
+}
+
+/** What this setting finds on all 12 channels, and against chance: the Discovery answer, shown while building. */
+function AllChannels({ combo }: { combo: string }) {
+  const d = useAsync(() => api.discovery(combo), [combo])
+  if (!d.data) return null
+  return <span className="all-ch" data-testid="build-all"><b>{d.data.n.toLocaleString()}</b> events on 12 channels
+    <span className={`badge small ${ratioTone(d.data.ratio)}`}>{ratioText(d.data.ratio)}</span></span>
 }

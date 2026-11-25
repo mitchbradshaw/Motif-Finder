@@ -357,7 +357,7 @@ def stage_seeds():
     ev = {e["id"]: e for e in lib["events"]}
     shelf = []
     for ds in C.DATASETS:
-        fams = [f for f in lib["families"] if f["dataset"] == ds["key"]][:2]
+        fams = [f for f in lib["families"] if f["dataset"] == ds["key"]][:3]
         for f in fams:
             shelf.append((f"{f['name']} (typical drop)", ev[f["medoid"]], f["id"]))
     # lion's mane CH14's two alternating kinds (23 Nov): thin ~8.7 mV / 6.7 s and wide ~13 mV / 22 s
@@ -408,7 +408,7 @@ def _stats_from(events_by_slice, slices, xs, *, key):
     for ds in C.DATASETS:
         sub = [s for s in slices if s["dataset"] == ds["key"]]
         rate = np.zeros(24, dtype=int)
-        ivs, lvs, scatter, ice, slopes = [], [], [], [], []
+        ivs, lvs, cvs, scatter, ice, slopes = [], [], [], [], [], []
         n = 0
         for s in sub:
             evs = sorted(events_by_slice.get(s["id"], []), key=lambda e: e["onset"])
@@ -428,6 +428,8 @@ def _stats_from(events_by_slice, slices, xs, *, key):
             lv = _lv(iv)
             if lv is not None:
                 lvs.append((lv, len(iv)))
+            if len(iv) > 2 and iv.mean() > 0:
+                cvs.append((float(iv.std() / iv.mean()), len(iv)))
             # icicles: each drop from its onset, in mV relative to the onset, at its own scale
             x = xs[s["id"]]
             for e in evs:
@@ -438,7 +440,8 @@ def _stats_from(events_by_slice, slices, xs, *, key):
                 seg = x[max(0, a - pre):end] - x[a]
                 ice.append({"dt": 1.0 / fs, "t0": -pre / fs, "v": seg, "depth": abs(float(e.get("depth_mv") or 0.0))})
         ivs_a = np.asarray(ivs)
-        cv = float(ivs_a.std() / ivs_a.mean()) if len(ivs_a) > 2 and ivs_a.mean() > 0 else None
+        # regularity within an electrode: pooling gaps across electrodes with different rates inflates CV
+        cv = float(sum(c * w for c, w in cvs) / sum(w for _, w in cvs)) if cvs else None
         lv = float(sum(l * w for l, w in lvs) / sum(w for _, w in lvs)) if lvs else None
         hist = None
         if len(ivs_a) > 2:

@@ -457,8 +457,11 @@ def create_station(*, station: int, admin_key: str, hub: str | None, dist: Path 
                 raise HTTPException(r.status_code, f"seed worker: {r.text[:300]}")
             out = r.json()
         else:
-            from demo_live import live_search   # standalone: the core's own match_exemplar, in this process
-            out = live_search(store, body.slice, a, b)
+            from demo_live import live_search   # standalone: the search runs in this process
+            try:
+                out = live_search(store, body.slice, a, b)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
         out["elapsed_s"] = round(time.perf_counter() - t0, 3)
         return out
 
