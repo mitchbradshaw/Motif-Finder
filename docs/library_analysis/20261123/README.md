@@ -280,6 +280,65 @@ Once queue 48 is reviewed:
 Queue 49's accepted regions join step 1 the same way. The 628 one-drop windows join at step 2: each is already a
 single event, so it needs only the "already judged?" check.
 
+**Built 23 Nov, before queues 48 and 49 were reviewed (you asked for it now).** Each drop is judged on its own, so
+the drops of every candidate went in, not only the accepted ones. Step 4 (members) waits for the sequence verdicts.
+`scripts/library_analysis/candidate_events_20261123.py` built two queues, like 48 and 49:
+
+| Queue | What | Drops |
+|---|---|---:|
+| 52 · *Events · drops in candidate sequences (23 Nov)* | your 27 hand-labelled sequences (418), the 126 chains (1,079), the 347 several-drop spans (675) | 2,172 |
+| 53 · *Events · drops in interesting 10-min windows (23 Nov)* | queue 49's 1,390 regions (5,589), then the one-drop windows (541) | 6,130 |
+
+- **The drops.** `whole_drop.span_events` (79d0243e) inside each candidate. Each drop is boxed the way Auto-detect
+  draws its boxes: from its top to its half recovery (or bottom) plus a tenth each side.
+- **Order.** Group by group; within a candidate, its drops in time order.
+- **Already judged, left out: 1,240 drops.**
+  - 1,128 were the only drop of a span you judged as an event (an accepted catalogue span, or a span drawn in Review,
+    the Library or the Excel catalogue, any verdict), or lay mostly inside one.
+  - 10 were the same event as a detection you rejected, marked artifact or unsure.
+  - 102 were caught by Review's own matching rule.
+  - The window labels (the imported 10-minute windows, the blind-test windows) judge a window, not a drop, and leave
+    its drops in.
+- **One drop, one item.** A drop found by two candidates (their falls overlap) went in once. No two boxes share a
+  sample: Review serves overlapping detections of one run on one channel as one item, judged with one key press. A
+  first build (queues 50 and 51) let neighbouring boxes touch and paired 650 drops. It was removed before anyone
+  judged anything (backup `before_candidate_events_rebuild_20261123_205849.sqlite`), and the builder now cuts a box
+  at the next drop's top.
+- **Records.** `candidate_events_applied.json` maps every detection to its candidate. Backups:
+  `DATA/db/backups/before_candidate_events_20261123_205118.sqlite` (before any of it) and `…_210024.sqlite`.
+- **Known quirk.** The item card reads "match d undefined · seed search" because these detections carry no score.
+  It is a display quirk of the Review card, not the data.
+
+**Rebuilt as v2, the same evening, after your first 605 verdicts.**
+
+Your review of the first build:
+- the sequence drops were largely right (93 % interesting), but the boxes needed about ±10 % more padding, and a
+  few drops under ~10 samples were noise;
+- the window drops were often noise (25 of 44 not interesting).
+
+| Queue | Drops |
+|---|---:|
+| 54 · *Events · drops in candidate sequences (v2, 23 Nov)* | 1,321 |
+| 55 · *Events · drops in interesting 10-min windows (v2, 23 Nov)* | 4,476 |
+
+- **Boxes.** A fifth of the drop's length each side, instead of a tenth.
+- **New floors.**
+  - A drop shorter than 5 samples, from top to half recovery (or bottom), is left out: 198.
+  - So is a drop under 15 × its channel's noise: 1,579. Among your first-build verdicts, this floor kept all 12
+    interesting window drops and removed 19 of the 25 not-interesting ones. It removed none of the 561 sequence
+    drops you judged.
+- **Already judged, left out.**
+  - Your 605 verdicts in queues 52 and 53: 581 by their drop, the rest by the rules below.
+  - Drops that are the same event (IoU ≥ 0.5) as any machine detection you judged, any verdict: 599. Most are
+    detector, BEADS and seed-search hits you had accepted; the first build had missed these.
+  - The only drop of a span you judged: 657. Review's own rule: 131.
+- **One drop, one item, with overlapping boxes.** Neighbouring drops sit in different runs: 117 runs, about two per
+  channel. The wider boxes may overlap without Review joining two drops under one verdict. A verdict carries
+  across runs only to the same event.
+- **The swap.** Queues 52 and 53 are closed, each keeping only the items you judged (561 and 44), so your
+  verdicts and their record stay. Their 7,697 detections with no verdict were deleted. Backup:
+  `DATA/db/backups/before_candidate_events_v2_20261123_220456.sqlite`.
+
 ## Two questions you asked: superimposed events, and rises before drops
 
 **Superimposed events.** In plain words: when four small drops sit on a falling background, either one slow drop

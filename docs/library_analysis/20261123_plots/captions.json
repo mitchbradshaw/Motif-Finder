@@ -1,0 +1,410 @@
+{
+ "anatomy_example.png": {
+  "section": "How a drop is measured",
+  "caption": "One ordinary drop with its measures. Amplitude: the top to the bottom. Fall time: the top to the bottom. Width: the top to the moment it has climbed back half of the amplitude. Recovery: the bottom to that moment. The whole-drop rule (79d0243e) finds the top and the bottom; every figure here uses it."
+ },
+ "species_boxplots.png": {
+  "section": "Drops by species",
+  "caption": "Amplitude, width, recovery, fall time and the steep part of the fall of every reviewed drop (the accepted catalogue plus today's accepted queue drops), one box per recording, recordings grouped by species. Box: the middle half; line: the median; whiskers: the 5th to 95th percentile; dots: every drop. Log scales. Width and recovery exist only where the drop climbed half-way back before the next drop or two hours (last panel: how often that happened, and how often the fall ran on as a long tail). The fall time runs from the top to the bottom, so it includes a slow shoulder or tail; the steep part is the fall's fast core alone."
+ },
+ "species_rainclouds.png": {
+  "section": "Drops by species",
+  "caption": "The same drops, one row per species: the shaded hill is how the values are spread (a smoothed histogram of the log values), the box the middle half, the dots the drops. The number is the median."
+ },
+ "species_width_amplitude.png": {
+  "section": "Drops by species",
+  "caption": "Width against amplitude. Small panels: one species each (grey: every other drop), coloured by recording. Large panel: the region holding the densest half (filled) and 90 % (thin line) of each species' drops."
+ },
+ "species_fall_vs_recovery.png": {
+  "section": "Drops by species",
+  "caption": "Is a drop fast down and slow up? Left: fall time against the time to climb half-way back. On the dashed line a drop recovers as fast as it fell. Right: the ratio, one row per species."
+ },
+ "species_typical_shape.png": {
+  "section": "Drops by species",
+  "caption": "Every drop stretched to the same size (its amplitude becomes 1) and the same duration (its fall time, left, or its width, right), then the median across each species. Bands: the middle half of the drops. Left, after 1 the line shows how far each species climbs back in the time it took to fall."
+ },
+ "map_width_medoids.png": {
+  "section": "Shape map",
+  "caption": "The plane cut into cells that split in four while they hold more than 36 drops, so the grid is finest where drops crowd. Each cell with at least 5 drops shows its medoid (its most typical real drop), each drop first divided by its own amplitude (the glyph's height is the same everywhere; its place on the map gives its size). The glyph runs from half a cell-width before the top to 2.5 after; the thin line is the level of the top. Colour along the medoid: blue where the cell's drops agree, red where they differ. Grey band: their middle half. Grey dots: cells too sparse for a waveform. Drops beyond the 0.5th / 99.5th percentile sit on the edge cells."
+ },
+ "map_width_medoids_zoom.png": {
+  "section": "Shape map",
+  "caption": "The same map, zoomed on the region of its finest cells, where the glyphs are too small to read on the whole map."
+ },
+ "map_width_heatmaps.png": {
+  "section": "Shape map",
+  "caption": "The same cells, but each glyph is a heat map of ALL the cell's drops overlaid (dark blue where many traces pass, white where none do), each time-column scaled to its own total; orange: the cell's median trace. A sharp dark line means the cell's drops share one shape; a smear means they differ."
+ },
+ "map_width_cells.png": {
+  "section": "Shape map",
+  "caption": "Left: the drops and the cells of the adaptive grid. Right: each cell coloured by the species most of its drops come from, pale where the species mix; the number is its drop count."
+ },
+ "map_fall_medoids.png": {
+  "section": "Shape map",
+  "caption": "The plane cut into cells that split in four while they hold more than 36 drops, so the grid is finest where drops crowd. Each cell with at least 5 drops shows its medoid (its most typical real drop), each drop first divided by its own amplitude (the glyph's height is the same everywhere; its place on the map gives its size). The glyph runs from half a cell-width before the top to 5 after; the thin line is the level of the top. Colour along the medoid: blue where the cell's drops agree, red where they differ. Grey band: their middle half. Grey dots: cells too sparse for a waveform. Drops beyond the 0.5th / 99.5th percentile sit on the edge cells."
+ },
+ "map_fall_medoids_zoom.png": {
+  "section": "Shape map",
+  "caption": "The same map, zoomed on the region of its finest cells, where the glyphs are too small to read on the whole map."
+ },
+ "map_fall_heatmaps.png": {
+  "section": "Shape map",
+  "caption": "The same cells, but each glyph is a heat map of ALL the cell's drops overlaid (dark blue where many traces pass, white where none do), each time-column scaled to its own total; orange: the cell's median trace. A sharp dark line means the cell's drops share one shape; a smear means they differ."
+ },
+ "map_fall_cells.png": {
+  "section": "Shape map",
+  "caption": "Left: the drops and the cells of the adaptive grid. Right: each cell coloured by the species most of its drops come from, pale where the species mix; the number is its drop count."
+ },
+ "sequences/seq_254_MJu26a_CH14.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 254 · MJu26a CH14, 90.5 h, 1313 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_255_MJu26a_CH14.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 255 · MJu26a CH14, 0.1 h, 5 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_569_MJu26a_CH14.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 569 · MJu26a CH14, 0.1 h, 1 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_570_MJu26a_CH14.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 570 · MJu26a CH14, 0.1 h, 4 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_571_MJu26a_CH14.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 571 · MJu26a CH14, 0.0 h, 1 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_572_MJu26a_CH14.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 572 · MJu26a CH14, 0.0 h, 4 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_573_MJu26a_CH14.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 573 · MJu26a CH14, 0.1 h, 1 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_382_M2_aug_CH14.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 382 · M2_aug CH14, 0.2 h, 4 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_383_M2_aug_CH14.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 383 · M2_aug CH14, 0.2 h, 4 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_384_M2_aug_CH14.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 384 · M2_aug CH14, 0.2 h, 1 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_385_M2_aug_CH14.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 385 · M2_aug CH14, 0.2 h, 1 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_119_M2_aug_CH01.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 119 · M2_aug CH1, 10.0 h, 24 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_120_M2_aug_CH01.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 120 · M2_aug CH1, 2.4 h, 17 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_121_M2_aug_CH01.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 121 · M2_aug CH1, 9.2 h, 68 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_122_M2_aug_CH01.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 122 · M2_aug CH1, 2.6 h, 9 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_123_M2_aug_CH01.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 123 · M2_aug CH1, 0.2 h, 4 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_124_M2_aug_CH04.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 124 · M2_aug CH4, 2.5 h, 85 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_125_M2_concat_CH04.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 125 · M2_concat CH4, 20.0 h, 197 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_126_M2_concat_CH05.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 126 · M2_concat CH5, 7.5 h, 36 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_127_M2_concat_CH05.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 127 · M2_concat CH5, 6.0 h, 37 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_128_M2_aug_CH01.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 128 · M2_aug CH1, 1.1 h, 4 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_129_M2_aug_CH01.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 129 · M2_aug CH1, 2.0 h, 14 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_130_M2_aug_CH01.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 130 · M2_aug CH1, 2.6 h, 24 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_131_M2_aug_CH02.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 131 · M2_aug CH2, 2.0 h, 10 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_132_M2_aug_CH02.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 132 · M2_aug CH2, 60.0 h, 217 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_133_M2_aug_CH02.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 133 · M2_aug CH2, 30.0 h, 182 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_134_M2_aug_CH07.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 134 · M2_aug CH7, 70.0 h, 100 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_135_M2_aug_CH07.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 135 · M2_aug CH7, 1.2 h, 76 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_136_M2_aug_CH06.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 136 · M2_aug CH6, 90.0 h, 253 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_137_M2_aug_CH01.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 137 · M2_aug CH1, 1.8 h, 50 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_138_M2_aug_CH16.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 138 · M2_aug CH16, 19.0 h, 282 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_139_M2_aug_CH16.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 139 · M2_aug CH16, 0.7 h, 11 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_140_M2_aug_CH16.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 140 · M2_aug CH16, 0.3 h, 3 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_141_M2_aug_CH16.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 141 · M2_aug CH16, 1.4 h, 33 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_142_M2_aug_CH16.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 142 · M2_aug CH16, 2.1 h, 44 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_143_M2_aug_CH16.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 143 · M2_aug CH16, 0.8 h, 18 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_144_M2_aug_CH04.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 144 · M2_aug CH4, 45.0 h, 182 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_145_M2_aug_CH04.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 145 · M2_aug CH4, 0.2 h, 12 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_146_M2_aug_CH01.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 146 · M2_aug CH1, 36.3 h, 119 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_147_M2_aug_CH01.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 147 · M2_aug CH1, 47.9 h, 278 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences/seq_148_M2_aug_CH01.png": {
+  "section": "Sequences, one by one",
+  "caption": "seq 148 · M2_aug CH1, 16.7 h, 89 drops. Top: the trace with each drop's fall drawn in blue. Then depth, fall time, width, fall rate and the interval since the previous drop along the sequence, with Kendall's tau (a value near +1 or -1 is a steady rise or fall over time; near 0, no trend). Last panel: all five measures on one scale."
+ },
+ "sequences_overview.png": {
+  "section": "Sequences, one by one",
+  "caption": "All 41 sequences at a glance. Left: each row a sequence stretched to the same length, each tick one drop coloured by its depth against that sequence's median (red deeper, blue shallower). Right: whether depth, width and the interval rise (tau > 0) or fall (tau < 0) along each sequence."
+ },
+ "sequences/ch14_m2aug_windows.png": {
+  "section": "Sequences, one by one",
+  "caption": "The 32 interesting 10-minute windows on M2_aug CH14 (queue 49) as a contact sheet: too short for trends one by one, so drawn together. x: minutes from the window's start."
+ },
+ "types/types_seq_254_MJu26a_CH14.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 254 · MJu26a CH14 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_121_M2_aug_CH01.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 121 · M2_aug CH1 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_124_M2_aug_CH04.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 124 · M2_aug CH4 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_125_M2_concat_CH04.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 125 · M2_concat CH4 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_132_M2_aug_CH02.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 132 · M2_aug CH2 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_133_M2_aug_CH02.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 133 · M2_aug CH2 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_134_M2_aug_CH07.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 134 · M2_aug CH7 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_135_M2_aug_CH07.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 135 · M2_aug CH7 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_136_M2_aug_CH06.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 136 · M2_aug CH6 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_137_M2_aug_CH01.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 137 · M2_aug CH1 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_138_M2_aug_CH16.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 138 · M2_aug CH16 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_142_M2_aug_CH16.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 142 · M2_aug CH16 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_144_M2_aug_CH04.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 144 · M2_aug CH4 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_146_M2_aug_CH01.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 146 · M2_aug CH1 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_147_M2_aug_CH01.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 147 · M2_aug CH1 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/types_seq_148_M2_aug_CH01.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 148 · M2_aug CH1 (every drop of at least 15x the noise): are there two kinds of drop, and how do they take turns? Top: the cut between big and small (and wide and thin) drops and the depth of every drop through time. Middle row, big vs small; bottom row, wide vs thin: (1) the chance that the next drop is big after a small one and after a big one, against the same drops shuffled; (2) each drop's size against the next one's; (3) the typical waveform of each kind; (4) the waits before and after each kind."
+ },
+ "types/kinds_seq_254_MJu26a_CH14.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 254 · MJu26a CH14 (every drop of at least 15x the noise): a mixture model sorts the drops into kinds by depth and width (the number of kinds chosen by BIC; drops that never climbed half-way back form their own grey kind). Top: the kinds in the width-depth plane and through time. Middle: three close-ups of the trace with each fall coloured by its kind - the interleaving by eye. Bottom: each kind's typical drop; what kind follows what, against the same drops shuffled only locally (red: more often than chance, blue: less); and the waits round each kind."
+ },
+ "types/kinds_seq_136_M2_aug_CH06.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 136 · M2_aug CH6 (every drop of at least 15x the noise): a mixture model sorts the drops into kinds by depth and width (the number of kinds chosen by BIC; drops that never climbed half-way back form their own grey kind). Top: the kinds in the width-depth plane and through time. Middle: three close-ups of the trace with each fall coloured by its kind - the interleaving by eye. Bottom: each kind's typical drop; what kind follows what, against the same drops shuffled only locally (red: more often than chance, blue: less); and the waits round each kind."
+ },
+ "types/kinds_seq_138_M2_aug_CH16.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 138 · M2_aug CH16 (every drop of at least 15x the noise): a mixture model sorts the drops into kinds by depth and width (the number of kinds chosen by BIC; drops that never climbed half-way back form their own grey kind). Top: the kinds in the width-depth plane and through time. Middle: three close-ups of the trace with each fall coloured by its kind - the interleaving by eye. Bottom: each kind's typical drop; what kind follows what, against the same drops shuffled only locally (red: more often than chance, blue: less); and the waits round each kind."
+ },
+ "types/kinds_seq_147_M2_aug_CH01.png": {
+  "section": "Two kinds of drop in one sequence",
+  "caption": "seq 147 · M2_aug CH1 (every drop of at least 15x the noise): a mixture model sorts the drops into kinds by depth and width (the number of kinds chosen by BIC; drops that never climbed half-way back form their own grey kind). Top: the kinds in the width-depth plane and through time. Middle: three close-ups of the trace with each fall coloured by its kind - the interleaving by eye. Bottom: each kind's typical drop; what kind follows what, against the same drops shuffled only locally (red: more often than chance, blue: less); and the waits round each kind."
+ },
+ "extra/kymograph_seq_254.png": {
+  "section": "Experiments",
+  "caption": "seq 254 · MJu26a CH14 (every drop of at least 15x the noise): every drop is one thin row, its trace from 0.26 min before its top to 1 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/kymograph_seq_121.png": {
+  "section": "Experiments",
+  "caption": "seq 121 · M2_aug CH1 (every drop of at least 15x the noise): every drop is one thin row, its trace from 3.2 min before its top to 13 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/kymograph_seq_124.png": {
+  "section": "Experiments",
+  "caption": "seq 124 · M2_aug CH4 (every drop of at least 15x the noise): every drop is one thin row, its trace from 0.29 min before its top to 1.1 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/kymograph_seq_125.png": {
+  "section": "Experiments",
+  "caption": "seq 125 · M2_concat CH4 (every drop of at least 15x the noise): every drop is one thin row, its trace from 1.9 min before its top to 7.6 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/kymograph_seq_132.png": {
+  "section": "Experiments",
+  "caption": "seq 132 · M2_aug CH2 (every drop of at least 15x the noise): every drop is one thin row, its trace from 2.6 min before its top to 10 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/kymograph_seq_133.png": {
+  "section": "Experiments",
+  "caption": "seq 133 · M2_aug CH2 (every drop of at least 15x the noise): every drop is one thin row, its trace from 1.5 min before its top to 5.9 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/kymograph_seq_134.png": {
+  "section": "Experiments",
+  "caption": "seq 134 · M2_aug CH7 (every drop of at least 15x the noise): every drop is one thin row, its trace from 10 min before its top to 42 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/kymograph_seq_135.png": {
+  "section": "Experiments",
+  "caption": "seq 135 · M2_aug CH7 (every drop of at least 15x the noise): every drop is one thin row, its trace from 0.22 min before its top to 0.87 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/kymograph_seq_136.png": {
+  "section": "Experiments",
+  "caption": "seq 136 · M2_aug CH6 (every drop of at least 15x the noise): every drop is one thin row, its trace from 11 min before its top to 45 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/kymograph_seq_138.png": {
+  "section": "Experiments",
+  "caption": "seq 138 · M2_aug CH16 (every drop of at least 15x the noise): every drop is one thin row, its trace from 1.2 min before its top to 4.9 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/kymograph_seq_144.png": {
+  "section": "Experiments",
+  "caption": "seq 144 · M2_aug CH4 (every drop of at least 15x the noise): every drop is one thin row, its trace from 3.3 min before its top to 13 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/kymograph_seq_146.png": {
+  "section": "Experiments",
+  "caption": "seq 146 · M2_aug CH1 (every drop of at least 15x the noise): every drop is one thin row, its trace from 5.1 min before its top to 20 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/kymograph_seq_147.png": {
+  "section": "Experiments",
+  "caption": "seq 147 · M2_aug CH1 (every drop of at least 15x the noise): every drop is one thin row, its trace from 2.8 min before its top to 11 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/kymograph_seq_148.png": {
+  "section": "Experiments",
+  "caption": "seq 148 · M2_aug CH1 (every drop of at least 15x the noise): every drop is one thin row, its trace from 1.5 min before its top to 6.1 min after, coloured by how far below its top the trace is (dark = deep). Left: in time order, so slow changes of depth or shape show as gradual bands. Middle: sorted by depth, showing how the shape changes with size. Right: each drop scaled to its own depth, showing shape alone."
+ },
+ "extra/wait_vs_depth.png": {
+  "section": "Experiments",
+  "caption": "If drops behaved like a capacitor that charges and discharges, a longer wait before a drop would give a deeper drop (left), or a deeper drop would need a longer rest after it (middle). Right: one wait against the next (a return map). One row per long sequence, every drop found. Spearman's rho: +1 perfectly together, 0 unrelated, -1 opposite."
+ },
+ "extra/drop_raster.png": {
+  "section": "Experiments",
+  "caption": "Every reviewed drop as a tick on its channel's timeline, coloured by amplitude. This is where the review has looked as much as where the mycelium dropped: long empty stretches are mostly unreviewed, not quiet."
+ },
+ "extra/size_distributions.png": {
+  "section": "Experiments",
+  "caption": "For each size x, the share of drops at least that big, on log-log axes. A curve that bends down steeply has a typical size; a long straight run would mean sizes with no typical scale (as in avalanches). The review sample and the noise floor shape the small end, so read the middle and the tail."
+ },
+ "extra/shape_space.png": {
+  "section": "Experiments",
+  "caption": "Every drop scaled to the same width and amplitude, then compared. Top left: the two directions in which the shapes differ most (principal components). Top middle and right: a t-SNE map, which places drops of similar shape near each other. Bottom: what moving along each component does to the average drop."
+ },
+ "grid10_fall_amplitude_shaded.png": {
+  "section": "Shape grids (uniform 10 x 10)",
+  "caption": "The fall-time map again, on a uniform 10 x 10 grid (equal steps on log scales between the 1st and 99th percentiles; the edge cells hold everything beyond). Each cell shows its medoid, the most typical real drop, divided by its own amplitude, from half a column-width before its top to 5 after, and the middle half of its drops behind it. Each cell is shaded by the share of all drops it holds (a probability map); the medoid is coloured blue where the cell's drops agree and red where they differ."
+ },
+ "grid10_fall_amplitude_opacity.png": {
+  "section": "Shape grids (uniform 10 x 10)",
+  "caption": "The fall-time map again, on a uniform 10 x 10 grid (equal steps on log scales between the 1st and 99th percentiles; the edge cells hold everything beyond). Each cell shows its medoid, the most typical real drop, divided by its own amplitude, from half a column-width before its top to 5 after, and the middle half of its drops behind it. Each waveform's darkness and thickness follow how many drops the cell holds, so the common shapes stand out and the rare ones fade."
+ },
+ "grid10_steepness_recovery_shaded.png": {
+  "section": "Shape grids (uniform 10 x 10)",
+  "caption": "Two measures that do not depend on how long a drop lasts. Down the grid: steepness - how many times steeper the fall's steepest moment is than its average slope (top: gentle straight ramps; bottom: sudden cliffs). Across: how long the drop took to climb half-way back, divided by how long it took to fall (left: quick recoveries, V shapes; right: slow ones; last column: never climbed half-way back). Every drop is scaled to its own fall time (the fall runs from 0 to 1 of the glyph's time) and its own amplitude, so the glyphs show shape alone. Line: the cell's median drop; white band: its middle half; cell shading: how common the cell is."
+ },
+ "grid10_steepness_recovery_opacity.png": {
+  "section": "Shape grids (uniform 10 x 10)",
+  "caption": "The same steepness-by-recovery grid, without shading: each waveform's darkness and thickness follow how many drops its cell holds, so the common shapes stand out and the rare ones fade."
+ },
+ "grid10_steepness_position_shaded.png": {
+  "section": "Shape grids (uniform 10 x 10)",
+  "caption": "Down: steepness (gentle ramps at the top, cliffs at the bottom). Across: where in the fall the drop happens - the moment it is half-way down, as a fraction of its fall time (left: it plunges at once and then creeps; middle: an even fall; right: it creeps first and plunges at the end). The glyphs show two fall times after the top, so the fall itself fills the left part of each glyph."
+ },
+ "grid10_position_recovery_shaded.png": {
+  "section": "Shape grids (uniform 10 x 10)",
+  "caption": "Down: where in the fall the drop happens (bottom row: it plunges at once; top row: it creeps and then plunges at the end). Across: recovery time divided by fall time (last column: never climbed half-way back). Each glyph is the cell's median drop scaled to its own fall time and amplitude."
+ },
+ "species_fingerprints.png": {
+  "section": "Drops by species",
+  "caption": "Each species' fingerprint - the region holding the densest half of its drops - for six pairs of measures. Top: amplitude against fall time and against recovery, and fall time against recovery. Bottom: the time-free shape measures - steepness (how sudden the fall is), recovery time over fall time, and where in the fall the drop happens. Where the shapes separate, the species drop differently; where they overlap, the measure does not tell them apart."
+ }
+}

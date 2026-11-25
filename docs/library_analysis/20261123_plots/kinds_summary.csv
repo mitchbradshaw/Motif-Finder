@@ -1,0 +1,5 @@
+sequence_id,kinds,names
+254,4,"A: 0.68 mV, 52 s (443) | B: 1.8 mV, 2 s (232) | C: 8.7 mV, 6.7 s (266) | D: 12 mV, 24 s (225) | no half recovery (147)"
+136,4,"A: 0.54 mV, 2.3e+02 s (50) | B: 0.77 mV, 39 s (16) | C: 6.5 mV, 1.1e+03 s (66) | D: 18 mV, 7.6e+02 s (35) | no half recovery (86)"
+138,2,"A: 0.64 mV, 98 s (23) | B: 6.2 mV, 71 s (196) | no half recovery (63)"
+147,2,"A: 1.2 mV, 92 s (111) | B: 29 mV, 2.2e+02 s (68) | no half recovery (99)"

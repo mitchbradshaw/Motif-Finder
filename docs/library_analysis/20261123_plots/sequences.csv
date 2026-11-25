@@ -1,0 +1,42 @@
+sequence_id,group,recording_id,dataset,channel_1based,fs,start_idx,end_idx,duration_h,hand_verdict,hand_note,in_queue_48
+254,CH14 chain_accepted_1h,663,MJu26a,14,10.0,13775554,17033510,90.49877777777778,,,True
+255,CH14 chain_accepted_1h,663,MJu26a,14,10.0,22435963,22439669,0.10294444444444445,,,True
+569,CH14 multi_event_span,663,MJu26a,14,10.0,313885,318297,0.12255555555555556,,,True
+570,CH14 multi_event_span,663,MJu26a,14,10.0,5043005,5046775,0.10472222222222222,,,True
+571,CH14 multi_event_span,663,MJu26a,14,10.0,20204795,20205765,0.026944444444444444,,,True
+572,CH14 multi_event_span,663,MJu26a,14,10.0,20608033,20608499,0.012944444444444444,,,True
+573,CH14 multi_event_span,663,MJu26a,14,10.0,21235435,21239205,0.10472222222222222,,,True
+382,CH14 multi_event_span,14,M2_aug,14,1.0,241849,242452,0.1675,,,True
+383,CH14 multi_event_span,14,M2_aug,14,1.0,286080,286686,0.16833333333333333,,,True
+384,CH14 multi_event_span,14,M2_aug,14,1.0,309095,309716,0.1725,,,True
+385,CH14 multi_event_span,14,M2_aug,14,1.0,2483520,2484336,0.22666666666666666,,,True
+119,hand-labelled,1,M2_aug,1,1.0,1209600,1245600,10.0,interesting,amplitude modulation am increasing; frequency modulation fm decreasing; 16 cycles; 20 - 70 mV | R0; R1,True
+120,hand-labelled,1,M2_aug,1,1.0,1132013,1140592,2.3830555555555555,interesting,regular amplitude and frequency;  transition from crestedwave to sharkfin; 16 cycles; 10 mV | R0; R1,True
+121,hand-labelled,1,M2_aug,1,1.0,1033794,1066766,9.158888888888889,interesting,Medley of fast and slow sharkfins; 6 fast sequences; 7 slow cycles; 2 3 6 9 6 1 slow cycles; useful for FHN modelling; tonic bursting | R0; R1,True
+122,hand-labelled,1,M2_aug,1,1.0,1749416,1758658,2.567222222222222,not_interesting,Regular sequence of 100 furrycaterpillars; 30 mV rollinghills | R0; R1,False
+123,hand-labelled,1,M2_aug,1,1.0,962640,963360,0.2,interesting,4 cycles; fm increasing; am constant; 50mV | R0; R1,True
+124,hand-labelled,4,M2_aug,4,1.0,1362600,1371600,2.5,interesting,3 sequences; 20+ 7 9 variable width; 2-3 mV; eg for dynamic attractor self-termination FHN | R0; R1,True
+125,hand-labelled,36,M2_concat,4,1.0,705600,777600,20.0,not_interesting,Multiple sequences; 15mV,False
+126,hand-labelled,37,M2_concat,5,1.0,651600,678600,7.5,unsure,Transitioning equence; 10mV -> 3mV,True
+127,hand-labelled,37,M2_concat,5,1.0,568800,590400,6.0,not_interesting,"All channels identical, apart from DC",False
+128,hand-labelled,1,M2_aug,1,1.0,1213520,1217394,1.076111111111111,interesting,4x sharkfin sequence,True
+129,hand-labelled,1,M2_aug,1,1.0,1132295,1139400,1.9736111111111112,interesting,14x sharkfin sequence,True
+130,hand-labelled,1,M2_aug,1,1.0,1046691,1056005,2.587222222222222,interesting,3 high-freq patterns with 2 larger sharkfins in between,True
+131,hand-labelled,2,M2_aug,2,1.0,68400,75600,2.0,interesting,2 sharps,True
+132,hand-labelled,2,M2_aug,2,1.0,1440000,1656000,60.0,interesting,"long sequence starting at small scale, then larger",True
+133,hand-labelled,2,M2_aug,2,1.0,1062000,1170000,30.0,interesting,larger sharkfin/trough sequence,True
+134,hand-labelled,7,M2_aug,7,1.0,2196000,2448000,70.0,interesting,lots of triangle shaped ridges along a longer low frequency signal,True
+135,hand-labelled,7,M2_aug,7,1.0,1636560,1640880,1.2,interesting,nested sharkfin sequence,True
+136,hand-labelled,6,M2_aug,6,1.0,1332000,1656000,90.0,interesting,lots of little high freq ridges along low frequency signal,True
+137,hand-labelled,1,M2_aug,1,1.0,889920,896400,1.8,interesting,spike train oscillation pattern,True
+138,hand-labelled,16,M2_aug,16,1.0,252000,320400,19.0,interesting,nested sharkfin sequence,True
+139,hand-labelled,16,M2_aug,16,1.0,115560,118080,0.7,interesting,imperfect sharkfin sequence,True
+140,hand-labelled,16,M2_aug,16,1.0,118440,119520,0.3,interesting,flat sharkfin sequence,True
+141,hand-labelled,16,M2_aug,16,1.0,119520,124560,1.4,interesting,long thin sharkfin seq,True
+142,hand-labelled,16,M2_aug,16,1.0,165960,173520,2.1,interesting,multiple sharkfin sequences along low freq ridge,True
+143,hand-labelled,16,M2_aug,16,1.0,288360,291240,0.8,interesting,clean sharkfin seq,True
+144,hand-labelled,4,M2_aug,4,1.0,1458000,1620000,45.0,interesting,spike train of trough spikes,True
+145,hand-labelled,4,M2_aug,4,1.0,1389240,1389960,0.2,interesting,nice sharkfin sequence,True
+146,hand-labelled,1,M2_aug,1,1.0,1134497,1265320,36.33972222222222,interesting,,True
+147,hand-labelled,1,M2_aug,1,1.0,903117,1075467,47.875,interesting,,True
+148,hand-labelled,1,M2_aug,1,1.0,977253,1037371,16.699444444444445,interesting,,True
