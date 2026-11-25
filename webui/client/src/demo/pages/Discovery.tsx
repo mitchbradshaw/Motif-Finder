@@ -14,6 +14,8 @@ export function ratioTone(r: number | null): string {
 export function ratioText(r: number | null): string {
   if (r === null) return 'no null drawn'
   if (r < 1) return 'no better than chance'
+  // when the noise copies find almost nothing the ratio runs into the thousands; past 100 it says nothing more
+  if (r >= 100) return 'over 100× chance'
   return `${r >= 10 ? Math.round(r) : r.toFixed(1)}× chance`
 }
 
