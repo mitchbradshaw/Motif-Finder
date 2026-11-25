@@ -1,0 +1,215 @@
+{
+  "spans": 2959,
+  "status": {
+    "single": 2459,
+    "multiple": 455,
+    "region": 45
+  },
+  "grouped": 2454,
+  "families": 12,
+  "cophenetic": 0.47706678939915304,
+  "ari_jitter": {
+    "0.01": 0.7136774630286292,
+    "0.02": 0.7090052126032661
+  },
+  "per_family": [
+    {
+      "family": 1,
+      "n": 236,
+      "recordings": 8,
+      "datasets": {
+        "M2_aug": 120,
+        "MJu26a": 42,
+        "CO": 21,
+        "M2_concat": 19,
+        "LM": 13,
+        "SO": 10,
+        "M4": 8,
+        "SH": 3
+      },
+      "depth_median_mv": 12.150195622066917,
+      "half_recovery_median_s": 102.89552569343624
+    },
+    {
+      "family": 2,
+      "n": 215,
+      "recordings": 8,
+      "datasets": {
+        "M2_aug": 143,
+        "LM": 21,
+        "CO": 18,
+        "MJu26a": 11,
+        "M2_concat": 10,
+        "SO": 7,
+        "SH": 4,
+        "M4": 1
+      },
+      "depth_median_mv": 5.739091675361976,
+      "half_recovery_median_s": 29.831672652705777
+    },
+    {
+      "family": 3,
+      "n": 348,
+      "recordings": 5,
+      "datasets": {
+        "MJu26a": 315,
+        "M2_aug": 15,
+        "LM": 14,
+        "M2_concat": 3,
+        "M4": 1
+      },
+      "depth_median_mv": 8.26426293544182,
+      "half_recovery_median_s": 4.094293764835788
+    },
+    {
+      "family": 4,
+      "n": 170,
+      "recordings": 8,
+      "datasets": {
+        "M2_aug": 108,
+        "LM": 18,
+        "SH": 14,
+        "M2_concat": 10,
+        "MJu26a": 9,
+        "M4": 7,
+        "CO": 3,
+        "SO": 1
+      },
+      "depth_median_mv": 12.912361085005926,
+      "half_recovery_median_s": 73.60796280832494
+    },
+    {
+      "family": 5,
+      "n": 132,
+      "recordings": 8,
+      "datasets": {
+        "MJu26a": 100,
+        "M2_aug": 14,
+        "CO": 6,
+        "M2_concat": 4,
+        "LM": 4,
+        "SO": 2,
+        "M4": 1,
+        "SH": 1
+      },
+      "depth_median_mv": 10.756828378023954,
+      "half_recovery_median_s": 21.42364847598583
+    },
+    {
+      "family": 6,
+      "n": 26,
+      "recordings": 5,
+      "datasets": {
+        "M2_aug": 16,
+        "CO": 3,
+        "MJu26a": 3,
+        "SO": 3,
+        "SH": 1
+      },
+      "depth_median_mv": 1.2921877618167628,
+      "half_recovery_median_s": 131.52045783510835
+    },
+    {
+      "family": 7,
+      "n": 160,
+      "recordings": 8,
+      "datasets": {
+        "M2_aug": 105,
+        "LM": 15,
+        "CO": 13,
+        "M2_concat": 9,
+        "M4": 8,
+        "SO": 5,
+        "MJu26a": 3,
+        "SH": 2
+      },
+      "depth_median_mv": 6.167794152063379,
+      "half_recovery_median_s": 23.45840006788012
+    },
+    {
+      "family": 8,
+      "n": 149,
+      "recordings": 8,
+      "datasets": {
+        "M2_aug": 84,
+        "LM": 23,
+        "MJu26a": 14,
+        "CO": 10,
+        "SO": 9,
+        "M2_concat": 6,
+        "M4": 2,
+        "SH": 1
+      },
+      "depth_median_mv": 3.200078075837382,
+      "half_recovery_median_s": 12.988319620674655
+    },
+    {
+      "family": 9,
+      "n": 563,
+      "recordings": 8,
+      "datasets": {
+        "M2_aug": 203,
+        "LM": 149,
+        "MJu26a": 67,
+        "M4": 56,
+        "M2_concat": 46,
+        "SO": 19,
+        "SH": 13,
+        "CO": 10
+      },
+      "depth_median_mv": 8.221104909577264,
+      "half_recovery_median_s": 9.889051982884325
+    },
+    {
+      "family": 10,
+      "n": 130,
+      "recordings": 8,
+      "datasets": {
+        "M2_aug": 48,
+        "LM": 27,
+        "MJu26a": 23,
+        "CO": 10,
+        "M2_concat": 7,
+        "SH": 6,
+        "M4": 5,
+        "SO": 4
+      },
+      "depth_median_mv": 8.505962169833452,
+      "half_recovery_median_s": 0.9171809936125669
+    },
+    {
+      "family": 11,
+      "n": 120,
+      "recordings": 8,
+      "datasets": {
+        "MJu26a": 53,
+        "M2_aug": 41,
+        "CO": 9,
+        "LM": 5,
+        "SO": 5,
+        "M4": 3,
+        "M2_concat": 2,
+        "SH": 2
+      },
+      "depth_median_mv": 1.6060622228141312,
+      "half_recovery_median_s": 1.2270181532704463
+    },
+    {
+      "family": 12,
+      "n": 205,
+      "recordings": 8,
+      "datasets": {
+        "MJu26a": 82,
+        "M2_aug": 53,
+        "LM": 19,
+        "M2_concat": 19,
+        "M4": 13,
+        "CO": 8,
+        "SH": 8,
+        "SO": 3
+      },
+      "depth_median_mv": 2.66562619048635,
+      "half_recovery_median_s": 1.9635565331572735
+    }
+  ]
+}

@@ -4,7 +4,7 @@
 Every number reported in the results chapters is traced here to the file that produced it and the script or route that wrote that file. The full ledger, with about 90 rows, is kept in the repository as \texttt{docs/thesis/numbers\_ledger.md}. This appendix carries the headline rows and the resolution of every disagreement between earlier documents. Status \emph{verified} means recomputed from the database (read-only) or read from a machine-written results file.
 
 \begin{table}[htbp]
-\caption{Disagreements between earlier documents (poster, demonstration, research-question files) and their resolution.}
+\caption[{Disagreements between earlier documents.}]{Disagreements between earlier documents (poster, demonstration, research-question files) and their resolution.}
 \label{tab:ledgerfix}
 \footnotesize
 \begin{tabularx}{\textwidth}{p{4.2cm} p{2.6cm} X}
@@ -19,7 +19,7 @@ Number of recordings & 9 & The corpus of Table~\ref{tab:corpus}, with copies and
 Spike seed acceptance & 51/58 (88\,\%) & Judged in queue 24; ``not judged'' was stale\\
 CNN performance & balanced accuracy 0.78--0.83 & Plain accuracy is uninformative: the majority class scores 0.81\\
 Analysis blocks & 59 & Asserted by the test suite\\
-Detection algorithms & 25 detection templates, 12 families & ``24'' was the count of sweep variants\\
+Detection algorithms & 25 detection templates; 13 voting families & ``24'' was the count of sweep variants; the CNNs at 10 and 60 minutes vote as two families (Chapter~\ref{ch:rq1})\\
 Human labels & 15,385 own looks & 11,234 imported window labels; 4,151 given in the tool; carried copies excluded\\
 Accepted events that are falls & 68\,\% (57--80\,\%) & Recomputed on 716 accepted events; the poster's 73\,\% does not reproduce\\
 Cluster-label forest & balanced accuracy 0.625 & Final, not provisional\\
@@ -32,4 +32,8 @@ Add a headline table of the about 30 numbers the thesis quotes most, each with i
 Generate it from \src{docs/thesis/numbers_ledger.md} so the two cannot drift; \src{scripts/thesis/ledger_checks.py}
 recomputes the verifiable rows. Add rows for queue 35, the M4 exam and round B once they are scored. Keep the appendix
 to two pages.
+
+Review note (8 Nov, examiner critique): the disagreements table above reads as internal reconciliation (poster and demo
+numbers). Keep it only if it helps an examiner trust the headline numbers; otherwise cut it and keep the headline
+table.
 \end{instructions}

@@ -3,7 +3,7 @@
   "specHash": "f3cee5c0729a",
   "tasks": 16,
   "label": "drop_detection_v5__same_fraction_0p7",
-  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/drop_detection_v5__same_fraction_0p7_16ch_0-4578553_f3cee5.chain.json",
+  "spec": null,
   "channels": [
     "CH1",
     "CH2",

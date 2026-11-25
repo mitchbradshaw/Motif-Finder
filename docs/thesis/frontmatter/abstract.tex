@@ -1,28 +1,7 @@
 \chapter{Abstract}
 
-\begin{instructions}
-Write last, once the blind seed panel (queue 35), the M4 exam (queue 36) and round B have reported. State what was found,
-not what was attempted. Keep it to about 300 words in five moves:
-(1) problem, in one sentence: long, unlabelled fungal recordings, no agreed events, and detectors that cannot be
-compared;
-(2) the gap: bespoke and unreleased tools, and no shared vocabulary;
-(3) the instrument: \tool{}, a composable, human-in-the-loop application in which every result carries its recipe and a
-surrogate null;
-(4) the three answers, with one headline number each:
-  - detectors: the agreement ladder runs from 0--5\,\% real at 1--2 agreeing families to 40--63\,\% at 9 or more, on
-    every recording;
-  - seeds: blind acceptance of 97--100\,\% for every seed, against 8--25\,\% for random windows of the same length
-    (queue 35);
-  - classifiers: MiniRocket AUC 0.97 leave-one-recording-out, and AUC 0.98 on the held-out recording (queue 36);
-(5) what the events look like: drops dominate (91\,\% of accepted events), and scale normalisation does not remove
-resolution or species. Round B's headline: the recordings repeat themselves beyond noise at every window from 30\,s to
-minutes; event timing is random-like with a slowly drifting rate; and there is no evidence of propagation between
-electrodes (Table~\ref{tab:rbsummary}).
-The August plan's abstract is kept below for reference; replace it.
-\end{instructions}
+Fungal mycelium produces slow electrical signals, but recordings of them are long, unlabelled and hard to compare. There is no agreed set of events to look for, and the published detectors, built for single studies or borrowed from other fields, disagree by orders of magnitude on the same signal. This thesis presents \tool{}, a composable, human-in-the-loop application in which every analysis is a re-runnable recipe, every result is compared with a surrogate copy of the signal that keeps its frequency content, and every human judgement is made blind. It applies the tool to eight recordings of four species from one laboratory.
 
-\begin{instructions}
-Plan draft (August 2026), for reference only: ``Bio-electric potential has been observed and measured in mycelium
-networks for the past five decades \ldots{} The pipeline is evaluated on a single end-to-end run against a recording
-held out and untouched until the analysis is frozen.''
-\end{instructions}
+Three answers follow. Agreement between independent detector families predicts what a human reviewer accepts: 0--5\,\% of candidates are real where one or two families agree, and 40--63\,\% where nine or more do, on every recording, including one held out until the end (0 to 53\,\%). A drop chosen in one oyster recording, used unchanged as a search seed, finds matches in seven other recordings of three species, and 455 of 457 were accepted blind, against 79 of 459 random windows. A classifier trained only on the tool's verdicts ranks the events of recordings it never saw almost as a person would (AUC 0.97 across recordings, and 0.98 on the held-out recording, scored once).
+
+The reviews built a catalogue of 2,959 accepted spans across eight recordings. Most accepted events are falls in potential followed by a slower recovery, and the same shape recurs across species, although a normalised shape still carries a trace of how it was recorded. Event timing is close to random from one event to the next, while activity drifts over hours to days, although one long train consists of two interleaved, near-periodic spike series; structure appears at every time scale from 30 seconds to minutes; and nothing was seen travelling between electrodes. Fungal recordings contain stereotyped, recurring waveforms that are shared across species and can be found, checked and counted reproducibly.

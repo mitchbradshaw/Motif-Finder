@@ -3,7 +3,7 @@
   "specHash": "02f6e4c648df",
   "tasks": 16,
   "label": "signal_threshold__threshold_V_m0p002",
-  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/signal_threshold__threshold_V_m0p002_16ch_0-4578553_02f6e4.chain.json",
+  "spec": null,
   "channels": [
     "CH1",
     "CH2",

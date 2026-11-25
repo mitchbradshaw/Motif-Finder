@@ -26,7 +26,7 @@ The output is `build/main.pdf`. TinyTeX lives at `C:\tools\TinyTeX\bin\windows`.
 | `figures/` | Copied figures: the plan's images, poster panels and charts, demo screenshots, drop-motif figures, run reports. |
 | `data/` | Analysis outputs written by `scripts/thesis/` and `Pipelines/fhn/`. |
 | `numbers_ledger.md` | Every quoted number, with its source and status. Appendix D is generated from it. |
-| `bib/thesis.bib` | BibTeX entries. Those marked `% VERIFY` were added on 26 Oct; check each against the paper. |
+| `bib/thesis.bib` | BibTeX entries, all verified against their sources by the author (9 Nov). |
 
 ## Conventions
 

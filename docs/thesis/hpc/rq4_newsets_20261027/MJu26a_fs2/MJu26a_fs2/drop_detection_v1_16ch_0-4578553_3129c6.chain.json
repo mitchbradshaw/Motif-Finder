@@ -1,0 +1,1036 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "drop_detection_v1",
+  "runKey": null,
+  "sessionId": null,
+  "template": "drop_detection_v1",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "detrend",
+      "params": {
+        "mode": "rolling_mean_nearest",
+        "window_s": 4916.67
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "stage_encoding",
+      "params": {
+        "same_fraction": 0.6,
+        "segment_seconds": 98.33,
+        "slope_sigma": 8.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "drop_detection",
+      "params": {},
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    4578553
+  ],
+  "sourceFile": "MJu26a_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 16,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 692,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH0.npy",
+      "npySha1": "2240984af748095af6252df4e87899b58128c3c5",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 692,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "25209728",
+      "prefixHashes": [
+        "918fc91d1b17921ae05e68cca83d07bbec30e0bed5f440e0ccdd836c0fd85a2f",
+        "6f64fb7b5c278abed6702332b2793dd024b213e79a6875f2e46c938759495d3b",
+        "25209728bf19f7c04ce313902daad7cddb3bae40b0a1912bf1a20980a0b5c4df"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 693,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH1.npy",
+      "npySha1": "93816fcd142eb534d9bb6f3cca429c941bf97329",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 693,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "4eb9628b",
+      "prefixHashes": [
+        "7a2a2506b798ecbd85aee208e254bd82995f7cf6730e245eeb54686ad9bbd722",
+        "af4683f502b3ac2612dbb431b53406daaea302f30d279f5317be3eeb5ad03463",
+        "4eb9628bf5bc657b45fb261138f999418796b5604b9c7496cc050d55e6887ab4"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 694,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH2.npy",
+      "npySha1": "c5a5f348f1f9fe69313ca39f92d74d687ab3a4bf",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 694,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "c4e0e5fe",
+      "prefixHashes": [
+        "545e8dbf00f227789d7adf5d0e6d2f9119db2a98315a30b52c5882a619163222",
+        "55eed8a7296de11d8e041435c3a46f4be9c50d873911038f9551bb84d89037d8",
+        "c4e0e5fefe63afc06e341d78b3e888631e1bdf45704a0793f37f5430fc1527db"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 695,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH3.npy",
+      "npySha1": "39d1cfaa661f685c70d404873d583b5573cfa8ba",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 695,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "0f752fb6",
+      "prefixHashes": [
+        "5cefa782eaa406479a62217d093a72bc510b396552c5329d251a94eadd1869d1",
+        "89fd92e8c85d6b99d20ac2763c34b008f49b5adf485f39f96f62fa51169c0458",
+        "0f752fb6fcf9df1ace76ac1adb62d6056ff6b7b1f28ebb8fc1635e64d62a6c66"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 696,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH4.npy",
+      "npySha1": "d5b50ee675fbee24e82bbe4bd3f0853729a1ffca",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 696,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "9640e442",
+      "prefixHashes": [
+        "5b0ab00090d06ad216c80fb1ebd12c385f2c579ff070a3e6e5dc90c5700c7f97",
+        "28a936a26557b3d2cc41c7c544e6e2e17200139c75a3fb7cb4f77b31a4da22f4",
+        "9640e4420c0701eb7f95693634c4f3219484719e5155400e40a87bda537d468d"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 5,
+      "recordingId": 697,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 5,
+      "channelName": "CH6",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH5.npy",
+      "npySha1": "72590b7b572ef6030df2acada2f5983f13d9f3f5",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 697,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "f0403a74",
+      "prefixHashes": [
+        "7bb1f4803f48623122f6982ccc28b2496985058e2fa4b90386875c9d1fb8b071",
+        "2a0b51c3c22638f97a19da7cfdb39a0698c6e625283a9e9ce66f2695df7aad4f",
+        "f0403a740a18812ff7bcd017a3de1907cf3022f9a0a279cfd35a16f253e507c0"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 6,
+      "recordingId": 698,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 6,
+      "channelName": "CH7",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH6.npy",
+      "npySha1": "68296bf81d06e61e2e06249f4170399520d8e997",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 698,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "0deaaa3b",
+      "prefixHashes": [
+        "eaa9d9e56fbe3fe1426fa283ae1e82e5aa67b87cdda5b0701f3032e3600e0725",
+        "4a6b95609e461ffc62e14daed5719ebbbfc643dacbb4784dec17f242ccd003b6",
+        "0deaaa3b3a41fd2280f12a9966a7a0b1fc7c56dd29f3b942cc7ffcd813053c8a"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 7,
+      "recordingId": 699,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 7,
+      "channelName": "CH8",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH7.npy",
+      "npySha1": "872c791afb7798f5f37800c55e47029e1e76bc69",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 699,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "30306ccb",
+      "prefixHashes": [
+        "ce35659db89a2487967ffcbfdf27b811420a10e61ea45bb83a05429de8a2b8df",
+        "3b2bfc0de32c144424b7ea1f06dc2591607aa444a18403c13cfb30f2f662e839",
+        "30306ccba56544fb36fc5830c1eace2c654f8322f8e0e8b1dc2ca487f4b3c6c4"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 8,
+      "recordingId": 700,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 8,
+      "channelName": "CH9",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH8.npy",
+      "npySha1": "61639e97cd2c56dd1c71a3aa6e66dc2f9a3ff9bf",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 700,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "a811d950",
+      "prefixHashes": [
+        "fd9fc4a05c395b9c55d4b36490a06fb14dd9315fa372f4dcc15e282d72d94f9a",
+        "9a47bb68e88f94c3ac5109ed9064ee878a1eec7f3b587f7acbe2af033989b7cb",
+        "a811d9505ea114969d480ad63c6c71fd68d8d76c636de455749a4f95151a9eb3"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 9,
+      "recordingId": 701,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 9,
+      "channelName": "CH10",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH9.npy",
+      "npySha1": "819b9c4aa69a3ef5c21a4b9f1dbf468548b45893",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 701,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "399eab33",
+      "prefixHashes": [
+        "1d76e919c8bc4b5258a431f3c4d03174278ff4b0dbd5f1e380b15e21c0dae2d6",
+        "10e1eb31d28714e96459c46b4bf706fbfd7f2df9126f8e2105b77af11a6cc48a",
+        "399eab33c04edac0c86c9a22bf690c10fa978acf05ebfac19d21d09180be5044"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 10,
+      "recordingId": 702,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 10,
+      "channelName": "CH11",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH10.npy",
+      "npySha1": "09d72a6db5c7dcc859df7765aa022d4116806d96",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 702,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "ff018365",
+      "prefixHashes": [
+        "7284d4f96a3700f02799e689fdd51b63dbdfafb0b79f0b143028474435f235aa",
+        "8924b3113a5e0452f3e335da94f24aa429a1eef1f1aa9245b0559476a986706e",
+        "ff018365ac792470ff1000ef94f2c97f832c02e683c68c085a5341c59a4c8693"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 11,
+      "recordingId": 703,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 11,
+      "channelName": "CH12",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH11.npy",
+      "npySha1": "034350886653e156d9479c14d10927ab31ec887e",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 703,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b7aac479",
+      "prefixHashes": [
+        "30858212b0a053d889c91ba07d7d251bb05c86a2d982feea269922fc437f0885",
+        "42a0a99c5e29177f1e3435565f510fabf7d2198dc89e0edb53d6f85ec2e8221d",
+        "b7aac479c0c9261e7739849537448ea60292b2d31d1797d7289840f4cab14eae"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 12,
+      "recordingId": 704,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 12,
+      "channelName": "CH13",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH12.npy",
+      "npySha1": "783ce465eaa4b0f5f2d31dbac98ea376cfcf2007",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 704,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "8c6d2012",
+      "prefixHashes": [
+        "7e8d8e4fbb4db6f0f31c79ebfd695e178a5aae3731764c95184052ec0f1eda44",
+        "b77da3ec250220728af1eca63158236335e6285813ecd7b05a0ebf5e01a883cc",
+        "8c6d201232258a3e284b2bfd5f99d20dea408b21f441ffda05b863e4a0a18abf"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 13,
+      "recordingId": 705,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 13,
+      "channelName": "CH14",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH13.npy",
+      "npySha1": "dad707ce2415efe4547bef5d85bfa2793f57cb7b",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 705,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "c62c724f",
+      "prefixHashes": [
+        "6fef17d346250721deed6b00e6e8f112f5ae60f1b367748e018cf56ae4077601",
+        "88260f89ea0ddebd0bbdd772ed5a22d9eb789b336345de95abdda7220bcef6cc",
+        "c62c724fcec2ee56a125e7cbe0aa020ec90608d30afa3484f5d6039cad60ec2f"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 14,
+      "recordingId": 706,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 14,
+      "channelName": "CH15",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH14.npy",
+      "npySha1": "9e9d38f25325148903aabdd8410d6928f433fe6c",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 706,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "d066bb7c",
+      "prefixHashes": [
+        "c97914dc2c70ac90a8759d08475719e750083bb2873e782e3d32796cf971bf1c",
+        "14bc6bf2b3ecfbf41940e476055b1faf6b56e4ea9afdae1667c34e8c4d749511",
+        "d066bb7c33bf54f5a6373644924df650bb1480e0252212f1c847a9125cf78b6c"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 15,
+      "recordingId": 707,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 15,
+      "channelName": "CH16",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH15.npy",
+      "npySha1": "0b60b0175674fe628b156bfef46736840dbb0408",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 707,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "detrend",
+            "params": {
+              "mode": "rolling_mean_nearest",
+              "window_s": 4916.67
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "same_fraction": 0.6,
+              "segment_seconds": 98.33,
+              "slope_sigma": 8.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {},
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "05ddb05a",
+      "prefixHashes": [
+        "e5a5bc288e725f160316ebc3cddf345dd977c3a17d024badd9ab1137b08bf2ad",
+        "dc62d83a79ccbd97c35dfd10cadf9322989f0eecc411eade76353cf0760d5b2c",
+        "05ddb05a690069513761faf18f389a50eb55e0006a4e434bcb5c406a57ed5d9f"
+      ],
+      "chunks": []
+    }
+  ]
+}

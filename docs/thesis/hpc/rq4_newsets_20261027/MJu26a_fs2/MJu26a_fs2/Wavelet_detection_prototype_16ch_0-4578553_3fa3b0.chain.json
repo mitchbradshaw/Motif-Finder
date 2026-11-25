@@ -1,0 +1,952 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "Wavelet_detection_prototype",
+  "runKey": null,
+  "sessionId": null,
+  "template": "Wavelet_detection_prototype",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "wavelet_bands",
+      "params": {
+        "level": 2,
+        "levels": 0,
+        "wavelet": "db4"
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "dehshibi_spikes",
+      "params": {
+        "epsilon_factor": 0.05,
+        "min_roi_wavelet": 30,
+        "min_spike_duration": 60,
+        "n_p": 60
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    4578553
+  ],
+  "sourceFile": "MJu26a_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 16,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 692,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH0.npy",
+      "npySha1": "2240984af748095af6252df4e87899b58128c3c5",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 692,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "732f1499",
+      "prefixHashes": [
+        "c6e6b7e4a1e05f70cb75626774e57c2ad605c1fb85f0e44f87fe31606a975c2b",
+        "732f1499ca0206f3bf55c1956da4df4895abeeffbbbe98cde8491f98cc87b53f"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 693,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH1.npy",
+      "npySha1": "93816fcd142eb534d9bb6f3cca429c941bf97329",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 693,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "6dd012c0",
+      "prefixHashes": [
+        "c5361ac2c7a0d2a533d9c9071ce71b2e18c2c674876e53d96dd69d5abf38d5f7",
+        "6dd012c0592de705da77a6cb7143fe67d00846cd71cd7352d14896c9ef8ca201"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 694,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH2.npy",
+      "npySha1": "c5a5f348f1f9fe69313ca39f92d74d687ab3a4bf",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 694,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "1a0af978",
+      "prefixHashes": [
+        "ce1cbc73caa7efb96f4fb55f702be602d432a325bad844b6adff8d36ba903413",
+        "1a0af97899ad1beea3536feaf6326e0fba09afc8c38da1c27a8efed5f6e9c3bb"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 695,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH3.npy",
+      "npySha1": "39d1cfaa661f685c70d404873d583b5573cfa8ba",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 695,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "5b754687",
+      "prefixHashes": [
+        "6b36ab3db2620d1b844bf6c6c4a2e6321c399c3a40eef8ea7f606c15458e9935",
+        "5b75468726707b91cf5004aad36e0392a0665506ed1cd2dfccc02b5729fb96a9"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 696,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH4.npy",
+      "npySha1": "d5b50ee675fbee24e82bbe4bd3f0853729a1ffca",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 696,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "4b489913",
+      "prefixHashes": [
+        "cd1edcd29c19ca47ae15e9281fdce181c6f2450bccb4d120041f44afb9366c0c",
+        "4b4899138cd1a6e95d643dedfd32d0aba7770d151a5a4be63b1dae7d7eea2686"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 5,
+      "recordingId": 697,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 5,
+      "channelName": "CH6",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH5.npy",
+      "npySha1": "72590b7b572ef6030df2acada2f5983f13d9f3f5",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 697,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "70eebeb8",
+      "prefixHashes": [
+        "d8716790ebdcd0384c26e02caf53598e2e4def86d403e6e186c9e46af7ad2e80",
+        "70eebeb894a26b5ca7f04d473db73b57f05e92738676cdd7af5cd4510c82eb44"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 6,
+      "recordingId": 698,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 6,
+      "channelName": "CH7",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH6.npy",
+      "npySha1": "68296bf81d06e61e2e06249f4170399520d8e997",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 698,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "d75010a4",
+      "prefixHashes": [
+        "f398252e79216555e1f33d02d1b29c2fa0de08415317be8b41d250a9b7452ed9",
+        "d75010a4322eb1639b70ecaff8fd219d9db14ed4d5123df0e3960e8a4157a8ed"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 7,
+      "recordingId": 699,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 7,
+      "channelName": "CH8",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH7.npy",
+      "npySha1": "872c791afb7798f5f37800c55e47029e1e76bc69",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 699,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "2b46aac5",
+      "prefixHashes": [
+        "3da91403d63ed8168858dedd0b41a7cb60910c14a390beebb2935aa01a8809cd",
+        "2b46aac559afedf9f495b74a555945f0361bd04ce9985679bc9c8d9e539445e2"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 8,
+      "recordingId": 700,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 8,
+      "channelName": "CH9",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH8.npy",
+      "npySha1": "61639e97cd2c56dd1c71a3aa6e66dc2f9a3ff9bf",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 700,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "f4c5547a",
+      "prefixHashes": [
+        "593d9d17963923df7511f9b74d66b4a8fcf7478285d2cf7591783945f8af64f0",
+        "f4c5547a30d6dccabecd2516a987211c2289b61fc815b580830025b8dd01cc67"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 9,
+      "recordingId": 701,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 9,
+      "channelName": "CH10",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH9.npy",
+      "npySha1": "819b9c4aa69a3ef5c21a4b9f1dbf468548b45893",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 701,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "df16f9f0",
+      "prefixHashes": [
+        "c5b4fd3302d0dff0a2e856b452c4156dc6b2d911973fab6e79094eb6b8cca28c",
+        "df16f9f01d70ada12f272fcdb268a4cd71478dc3a7be6acd16ac72ad6c25742f"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 10,
+      "recordingId": 702,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 10,
+      "channelName": "CH11",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH10.npy",
+      "npySha1": "09d72a6db5c7dcc859df7765aa022d4116806d96",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 702,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "158e4797",
+      "prefixHashes": [
+        "931db54addd7e95b14832d13fee990202cd4f37e9bde084bfd09948e397bd2cd",
+        "158e4797b038952328f8b2ec97de89db5466b9f58cab1ea917a7566903b7481e"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 11,
+      "recordingId": 703,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 11,
+      "channelName": "CH12",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH11.npy",
+      "npySha1": "034350886653e156d9479c14d10927ab31ec887e",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 703,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "afced9c4",
+      "prefixHashes": [
+        "439e1dda5922b4ae11938e4d773a412fb75b45d2e580daa2d2d04aacdb213b29",
+        "afced9c42f180ebea8c94c579a62c09d95ee1bf753c6ad59eceb9bbdf00e2b5c"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 12,
+      "recordingId": 704,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 12,
+      "channelName": "CH13",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH12.npy",
+      "npySha1": "783ce465eaa4b0f5f2d31dbac98ea376cfcf2007",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 704,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "17a5eea2",
+      "prefixHashes": [
+        "7a32fd9094426248268d8d04336e8ad87ee8df51c61934cae49118ceac1fb057",
+        "17a5eea292084f9f9dd99076f39885481b1ddcf6dec7523dd8e50baf75f8b252"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 13,
+      "recordingId": 705,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 13,
+      "channelName": "CH14",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH13.npy",
+      "npySha1": "dad707ce2415efe4547bef5d85bfa2793f57cb7b",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 705,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "99ce21c9",
+      "prefixHashes": [
+        "e10de144b5b651b38d9c835024bf28f76c73f27661884fa8b6769e53b8184395",
+        "99ce21c93762c19660af8f4dca691862da9a60902698e468c5d6706ac2969e89"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 14,
+      "recordingId": 706,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 14,
+      "channelName": "CH15",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH14.npy",
+      "npySha1": "9e9d38f25325148903aabdd8410d6928f433fe6c",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 706,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "52720d97",
+      "prefixHashes": [
+        "b0247f79471d2f2fd2fb0c9dedd2016a86ab78b85a91d0e5231fc214f6be0bc5",
+        "52720d9708769a58bfd4157ed32de26683456fec9a9125aee113b06eef8d94f8"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 15,
+      "recordingId": 707,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 15,
+      "channelName": "CH16",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH15.npy",
+      "npySha1": "0b60b0175674fe628b156bfef46736840dbb0408",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 707,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 2,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "dehshibi_spikes",
+            "params": {
+              "epsilon_factor": 0.05,
+              "min_roi_wavelet": 30,
+              "min_spike_duration": 60,
+              "n_p": 60
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "42059b45",
+      "prefixHashes": [
+        "9fb2c832367ce9803154e838835c8753bd0af463b0b6aee9d8ce8a260fdd8b09",
+        "42059b4559323894d34744d017fa9b212d27593e498a0c59791113a1d81ef09f"
+      ],
+      "chunks": []
+    }
+  ]
+}

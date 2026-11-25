@@ -1,0 +1,413 @@
+{
+ "rule": {
+  "criterion": "reciprocal_iou_onset",
+  "iou": 0.5,
+  "onset": 0.25
+ },
+ "recordings": {
+  "MJu26a_fs2": {
+   "real_all": {
+    "label": "MJu26a_fs2 real, all settings",
+    "detections": 1160952,
+    "candidates": 838861,
+    "levels": {
+     "1-2": 130013,
+     "3-4": 405505,
+     "5-6": 258290,
+     "7-8": 42927,
+     "9+": 2126
+    },
+    "levels_pct": {
+     "1-2": 15.5,
+     "3-4": 48.34,
+     "5-6": 30.79,
+     "7-8": 5.12,
+     "9+": 0.25
+    },
+    "families_available": 12,
+    "families": [
+     "BEADs_invert_detect_v1",
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "drop_detection_v1",
+     "drop_detection_v5",
+     "matrix_profile",
+     "noise_threshold",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 35,
+    "median_n_agree": 4.0,
+    "seconds": 110.6
+   },
+   "real_same_as_surrogate": {
+    "label": "MJu26a_fs2 real, surrogate settings",
+    "detections": 1125082,
+    "candidates": 819075,
+    "levels": {
+     "1-2": 137811,
+     "3-4": 423646,
+     "5-6": 230023,
+     "7-8": 27578,
+     "9+": 17
+    },
+    "levels_pct": {
+     "1-2": 16.83,
+     "3-4": 51.72,
+     "5-6": 28.08,
+     "7-8": 3.37,
+     "9+": 0.0
+    },
+    "families_available": 10,
+    "families": [
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "drop_detection_v1",
+     "drop_detection_v5",
+     "matrix_profile",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 25,
+    "median_n_agree": 4.0,
+    "seconds": 99.5
+   },
+   "surrogate": {
+    "label": "MJu26a_fs2 surrogate",
+    "detections": 763793,
+    "candidates": 641957,
+    "levels": {
+     "1-2": 81082,
+     "3-4": 457971,
+     "5-6": 101680,
+     "7-8": 1221,
+     "9+": 3
+    },
+    "levels_pct": {
+     "1-2": 12.63,
+     "3-4": 71.34,
+     "5-6": 15.84,
+     "7-8": 0.19,
+     "9+": 0.0
+    },
+    "families_available": 10,
+    "families": [
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "drop_detection_v1",
+     "drop_detection_v5",
+     "matrix_profile",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 25,
+    "median_n_agree": 4.0,
+    "seconds": 22.2
+   },
+   "surrogate_pairs": 367
+  },
+  "SH_fs2": {
+   "real_all": {
+    "label": "SH_fs2 real, all settings",
+    "detections": 227112,
+    "candidates": 157650,
+    "levels": {
+     "1-2": 21519,
+     "3-4": 97927,
+     "5-6": 38149,
+     "7-8": 55,
+     "9+": 0
+    },
+    "levels_pct": {
+     "1-2": 13.65,
+     "3-4": 62.12,
+     "5-6": 24.2,
+     "7-8": 0.03,
+     "9+": 0.0
+    },
+    "families_available": 9,
+    "families": [
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "drop_detection_v5",
+     "matrix_profile",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 24,
+    "median_n_agree": 4.0,
+    "seconds": 16.2
+   },
+   "real_same_as_surrogate": {
+    "label": "SH_fs2 real, surrogate settings",
+    "detections": 199477,
+    "candidates": 136119,
+    "levels": {
+     "1-2": 29583,
+     "3-4": 102124,
+     "5-6": 4412,
+     "7-8": 0,
+     "9+": 0
+    },
+    "levels_pct": {
+     "1-2": 21.73,
+     "3-4": 75.03,
+     "5-6": 3.24,
+     "7-8": 0.0,
+     "9+": 0.0
+    },
+    "families_available": 7,
+    "families": [
+     "OASIS_Deconvolution",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "matrix_profile",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 20,
+    "median_n_agree": 3.0,
+    "seconds": 8.0
+   },
+   "surrogate": {
+    "label": "SH_fs2 surrogate",
+    "detections": 44208,
+    "candidates": 33855,
+    "levels": {
+     "1-2": 15676,
+     "3-4": 16746,
+     "5-6": 1420,
+     "7-8": 13,
+     "9+": 0
+    },
+    "levels_pct": {
+     "1-2": 46.3,
+     "3-4": 49.46,
+     "5-6": 4.19,
+     "7-8": 0.04,
+     "9+": 0.0
+    },
+    "families_available": 7,
+    "families": [
+     "OASIS_Deconvolution",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "matrix_profile",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 20,
+    "median_n_agree": 3.0,
+    "seconds": 1.4
+   },
+   "surrogate_pairs": 72
+  },
+  "SO_fs2": {
+   "real_all": {
+    "label": "SO_fs2 real, all settings",
+    "detections": 297605,
+    "candidates": 230774,
+    "levels": {
+     "1-2": 46219,
+     "3-4": 119967,
+     "5-6": 61752,
+     "7-8": 2836,
+     "9+": 0
+    },
+    "levels_pct": {
+     "1-2": 20.03,
+     "3-4": 51.98,
+     "5-6": 26.76,
+     "7-8": 1.23,
+     "9+": 0.0
+    },
+    "families_available": 8,
+    "families": [
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "matrix_profile",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 23,
+    "median_n_agree": 4.0,
+    "seconds": 18.6
+   },
+   "real_same_as_surrogate": {
+    "label": "SO_fs2 real, surrogate settings",
+    "detections": 274420,
+    "candidates": 213772,
+    "levels": {
+     "1-2": 66772,
+     "3-4": 126032,
+     "5-6": 20663,
+     "7-8": 305,
+     "9+": 0
+    },
+    "levels_pct": {
+     "1-2": 31.24,
+     "3-4": 58.96,
+     "5-6": 9.67,
+     "7-8": 0.14,
+     "9+": 0.0
+    },
+    "families_available": 7,
+    "families": [
+     "OASIS_Deconvolution",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "matrix_profile",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 20,
+    "median_n_agree": 3.0,
+    "seconds": 20.3
+   },
+   "surrogate": {
+    "label": "SO_fs2 surrogate",
+    "detections": 77162,
+    "candidates": 67648,
+    "levels": {
+     "1-2": 27287,
+     "3-4": 38429,
+     "5-6": 1916,
+     "7-8": 16,
+     "9+": 0
+    },
+    "levels_pct": {
+     "1-2": 40.34,
+     "3-4": 56.81,
+     "5-6": 2.83,
+     "7-8": 0.02,
+     "9+": 0.0
+    },
+    "families_available": 7,
+    "families": [
+     "OASIS_Deconvolution",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "matrix_profile",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 20,
+    "median_n_agree": 3.0,
+    "seconds": 1.6
+   },
+   "surrogate_pairs": 74
+  }
+ },
+ "chapter6_tables": {
+  "CO_fs2_d8362297": {
+   "source_file": "CO_fs2.mat",
+   "candidates": 229807,
+   "families": 13,
+   "levels": {
+    "1-2": 42989,
+    "3-4": 83960,
+    "5-6": 63517,
+    "7-8": 27030,
+    "9+": 12311
+   },
+   "created_at": "2026-10-20T02:46:59+00:00"
+  },
+  "L_LM_Jul_26_J_raw_fs2_6e58f5b2": {
+   "source_file": "L_LM_Jul_26_J_raw_fs2.mat",
+   "candidates": 616299,
+   "families": 13,
+   "levels": {
+    "1-2": 70461,
+    "3-4": 216429,
+    "5-6": 190094,
+    "7-8": 92119,
+    "9+": 47196
+   },
+   "created_at": "2026-10-20T02:50:46+00:00"
+  },
+  "LM_fs2_11d7e7e9": {
+   "source_file": "LM_fs2.mat",
+   "candidates": 295239,
+   "families": 13,
+   "levels": {
+    "1-2": 32350,
+    "3-4": 92410,
+    "5-6": 85945,
+    "7-8": 55302,
+    "9+": 29232
+   },
+   "created_at": "2026-10-20T02:47:59+00:00"
+  },
+  "M2_aug_concat_fs1_bf098c00": {
+   "source_file": "M2_aug_concat_fs1.mat",
+   "candidates": 1502319,
+   "families": 13,
+   "levels": {
+    "1-2": 95605,
+    "3-4": 507792,
+    "5-6": 487326,
+    "7-8": 300682,
+    "9+": 110914
+   },
+   "created_at": "2026-10-18T11:06:40+00:00"
+  },
+  "M2_concat_fs1_a74ddbe2": {
+   "source_file": "M2_concat_fs1.mat",
+   "candidates": 455907,
+   "families": 12,
+   "levels": {
+    "1-2": 71719,
+    "3-4": 165752,
+    "5-6": 119438,
+    "7-8": 67834,
+    "9+": 31164
+   },
+   "created_at": "2026-10-20T02:49:20+00:00"
+  },
+  "M4_aug_concat_fs1_ae545821": {
+   "source_file": "M4_aug_concat_fs1.mat",
+   "candidates": 832136,
+   "families": 13,
+   "levels": {
+    "1-2": 114199,
+    "3-4": 404072,
+    "5-6": 226636,
+    "7-8": 56540,
+    "9+": 30689
+   },
+   "created_at": "2026-10-25T22:50:56+00:00"
+  },
+  "Schizophyllum_commune_5b54500c": {
+   "source_file": "Schizophyllum commune.txt",
+   "candidates": 32453,
+   "families": 13,
+   "levels": {
+    "1-2": 974,
+    "3-4": 11417,
+    "5-6": 15732,
+    "7-8": 4252,
+    "9+": 78
+   },
+   "created_at": "2026-10-28T22:20:11+00:00"
+  }
+ }
+}

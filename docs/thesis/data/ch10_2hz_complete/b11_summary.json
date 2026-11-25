@@ -1,0 +1,453 @@
+{
+ "rule": {
+  "criterion": "reciprocal_iou_onset",
+  "iou": 0.5,
+  "onset": 0.25
+ },
+ "recordings": {
+  "MJu26a_fs2": {
+   "real_all": {
+    "label": "MJu26a_fs2 real, all settings",
+    "detections": 1191443,
+    "candidates": 852607,
+    "levels": {
+     "1-2": 122667,
+     "3-4": 339641,
+     "5-6": 251737,
+     "7-8": 93358,
+     "9+": 45204
+    },
+    "levels_pct": {
+     "1-2": 14.39,
+     "3-4": 39.84,
+     "5-6": 29.53,
+     "7-8": 10.95,
+     "9+": 5.3
+    },
+    "families_available": 13,
+    "families": [
+     "BEADs_invert_detect_v1",
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "drop_detection_v1",
+     "drop_detection_v5",
+     "matrix_profile",
+     "noise_threshold",
+     "signal_threshold",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 39,
+    "median_n_agree": 4.0,
+    "seconds": 77.2
+   },
+   "real_same_as_surrogate": {
+    "label": "MJu26a_fs2 real, surrogate settings",
+    "detections": 1158467,
+    "candidates": 836650,
+    "levels": {
+     "1-2": 125215,
+     "3-4": 346324,
+     "5-6": 239539,
+     "7-8": 91518,
+     "9+": 34054
+    },
+    "levels_pct": {
+     "1-2": 14.97,
+     "3-4": 41.39,
+     "5-6": 28.63,
+     "7-8": 10.94,
+     "9+": 4.07
+    },
+    "families_available": 13,
+    "families": [
+     "BEADs_invert_detect_v1",
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "drop_detection_v1",
+     "drop_detection_v5",
+     "matrix_profile",
+     "noise_threshold",
+     "signal_threshold",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 38,
+    "median_n_agree": 4.0,
+    "seconds": 65.8
+   },
+   "surrogate": {
+    "label": "MJu26a_fs2 surrogate",
+    "detections": 923027,
+    "candidates": 788691,
+    "levels": {
+     "1-2": 76547,
+     "3-4": 514706,
+     "5-6": 184801,
+     "7-8": 12120,
+     "9+": 517
+    },
+    "levels_pct": {
+     "1-2": 9.71,
+     "3-4": 65.26,
+     "5-6": 23.43,
+     "7-8": 1.54,
+     "9+": 0.07
+    },
+    "families_available": 13,
+    "families": [
+     "BEADs_invert_detect_v1",
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "drop_detection_v1",
+     "drop_detection_v5",
+     "matrix_profile",
+     "noise_threshold",
+     "signal_threshold",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 38,
+    "median_n_agree": 4.0,
+    "seconds": 18.9
+   },
+   "surrogate_pairs": 464
+  },
+  "SH_fs2": {
+   "real_all": {
+    "label": "SH_fs2 real, all settings",
+    "detections": 240398,
+    "candidates": 164765,
+    "levels": {
+     "1-2": 19209,
+     "3-4": 63007,
+     "5-6": 56697,
+     "7-8": 20141,
+     "9+": 5711
+    },
+    "levels_pct": {
+     "1-2": 11.66,
+     "3-4": 38.24,
+     "5-6": 34.41,
+     "7-8": 12.22,
+     "9+": 3.47
+    },
+    "families_available": 13,
+    "families": [
+     "BEADs_invert_detect_v1",
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "drop_detection_v1",
+     "drop_detection_v5",
+     "matrix_profile",
+     "noise_threshold",
+     "signal_threshold",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 39,
+    "median_n_agree": 5.0,
+    "seconds": 9.2
+   },
+   "real_same_as_surrogate": {
+    "label": "SH_fs2 real, surrogate settings",
+    "detections": 226859,
+    "candidates": 154888,
+    "levels": {
+     "1-2": 17013,
+     "3-4": 60708,
+     "5-6": 52409,
+     "7-8": 19588,
+     "9+": 5170
+    },
+    "levels_pct": {
+     "1-2": 10.98,
+     "3-4": 39.19,
+     "5-6": 33.84,
+     "7-8": 12.65,
+     "9+": 3.34
+    },
+    "families_available": 13,
+    "families": [
+     "BEADs_invert_detect_v1",
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "drop_detection_v1",
+     "drop_detection_v5",
+     "matrix_profile",
+     "noise_threshold",
+     "signal_threshold",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 36,
+    "median_n_agree": 4.0,
+    "seconds": 8.4
+   },
+   "surrogate": {
+    "label": "SH_fs2 surrogate",
+    "detections": 227014,
+    "candidates": 203168,
+    "levels": {
+     "1-2": 15649,
+     "3-4": 114062,
+     "5-6": 65979,
+     "7-8": 7232,
+     "9+": 246
+    },
+    "levels_pct": {
+     "1-2": 7.7,
+     "3-4": 56.14,
+     "5-6": 32.48,
+     "7-8": 3.56,
+     "9+": 0.12
+    },
+    "families_available": 13,
+    "families": [
+     "BEADs_invert_detect_v1",
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "drop_detection_v1",
+     "drop_detection_v5",
+     "matrix_profile",
+     "noise_threshold",
+     "signal_threshold",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 36,
+    "median_n_agree": 4.0,
+    "seconds": 4.7
+   },
+   "surrogate_pairs": 123
+  },
+  "SO_fs2": {
+   "real_all": {
+    "label": "SO_fs2 real, all settings",
+    "detections": 308078,
+    "candidates": 235575,
+    "levels": {
+     "1-2": 44441,
+     "3-4": 93034,
+     "5-6": 74563,
+     "7-8": 18860,
+     "9+": 4677
+    },
+    "levels_pct": {
+     "1-2": 18.86,
+     "3-4": 39.49,
+     "5-6": 31.65,
+     "7-8": 8.01,
+     "9+": 1.99
+    },
+    "families_available": 13,
+    "families": [
+     "BEADs_invert_detect_v1",
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "drop_detection_v1",
+     "drop_detection_v5",
+     "matrix_profile",
+     "noise_threshold",
+     "signal_threshold",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 39,
+    "median_n_agree": 4.0,
+    "seconds": 13.9
+   },
+   "real_same_as_surrogate": {
+    "label": "SO_fs2 real, surrogate settings",
+    "detections": 305409,
+    "candidates": 235023,
+    "levels": {
+     "1-2": 45027,
+     "3-4": 93179,
+     "5-6": 74280,
+     "7-8": 18555,
+     "9+": 3982
+    },
+    "levels_pct": {
+     "1-2": 19.16,
+     "3-4": 39.65,
+     "5-6": 31.61,
+     "7-8": 7.89,
+     "9+": 1.69
+    },
+    "families_available": 13,
+    "families": [
+     "BEADs_invert_detect_v1",
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "drop_detection_v1",
+     "drop_detection_v5",
+     "matrix_profile",
+     "noise_threshold",
+     "signal_threshold",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 34,
+    "median_n_agree": 4.0,
+    "seconds": 12.9
+   },
+   "surrogate": {
+    "label": "SO_fs2 surrogate",
+    "detections": 206111,
+    "candidates": 180105,
+    "levels": {
+     "1-2": 14767,
+     "3-4": 110932,
+     "5-6": 49187,
+     "7-8": 4992,
+     "9+": 227
+    },
+    "levels_pct": {
+     "1-2": 8.2,
+     "3-4": 61.59,
+     "5-6": 27.31,
+     "7-8": 2.77,
+     "9+": 0.13
+    },
+    "families_available": 13,
+    "families": [
+     "BEADs_invert_detect_v1",
+     "OASIS_Deconvolution",
+     "Wavelet_detection_prototype",
+     "cnn_10min",
+     "cnn_60min",
+     "deconvolved_troughs",
+     "drop_detection_v1",
+     "drop_detection_v5",
+     "matrix_profile",
+     "noise_threshold",
+     "signal_threshold",
+     "symbol_search",
+     "wavelet_encoded"
+    ],
+    "settings": 34,
+    "median_n_agree": 4.0,
+    "seconds": 4.3
+   },
+   "surrogate_pairs": 122
+  }
+ },
+ "chapter6_tables": {
+  "CO_fs2_d8362297": {
+   "source_file": "CO_fs2.mat",
+   "candidates": 229807,
+   "families": 13,
+   "levels": {
+    "1-2": 42989,
+    "3-4": 83960,
+    "5-6": 63517,
+    "7-8": 27030,
+    "9+": 12311
+   },
+   "created_at": "2026-10-20T02:46:59+00:00"
+  },
+  "L_LM_Jul_26_J_raw_fs2_6e58f5b2": {
+   "source_file": "L_LM_Jul_26_J_raw_fs2.mat",
+   "candidates": 616299,
+   "families": 13,
+   "levels": {
+    "1-2": 70461,
+    "3-4": 216429,
+    "5-6": 190094,
+    "7-8": 92119,
+    "9+": 47196
+   },
+   "created_at": "2026-10-20T02:50:46+00:00"
+  },
+  "LM_fs2_11d7e7e9": {
+   "source_file": "LM_fs2.mat",
+   "candidates": 295239,
+   "families": 13,
+   "levels": {
+    "1-2": 32350,
+    "3-4": 92410,
+    "5-6": 85945,
+    "7-8": 55302,
+    "9+": 29232
+   },
+   "created_at": "2026-10-20T02:47:59+00:00"
+  },
+  "M2_aug_concat_fs1_bf098c00": {
+   "source_file": "M2_aug_concat_fs1.mat",
+   "candidates": 1502319,
+   "families": 13,
+   "levels": {
+    "1-2": 95605,
+    "3-4": 507792,
+    "5-6": 487326,
+    "7-8": 300682,
+    "9+": 110914
+   },
+   "created_at": "2026-10-18T11:06:40+00:00"
+  },
+  "M2_concat_fs1_a74ddbe2": {
+   "source_file": "M2_concat_fs1.mat",
+   "candidates": 455907,
+   "families": 12,
+   "levels": {
+    "1-2": 71719,
+    "3-4": 165752,
+    "5-6": 119438,
+    "7-8": 67834,
+    "9+": 31164
+   },
+   "created_at": "2026-10-20T02:49:20+00:00"
+  },
+  "M4_aug_concat_fs1_ae545821": {
+   "source_file": "M4_aug_concat_fs1.mat",
+   "candidates": 832136,
+   "families": 13,
+   "levels": {
+    "1-2": 114199,
+    "3-4": 404072,
+    "5-6": 226636,
+    "7-8": 56540,
+    "9+": 30689
+   },
+   "created_at": "2026-10-25T22:50:56+00:00"
+  },
+  "Schizophyllum_commune_5b54500c": {
+   "source_file": "Schizophyllum commune.txt",
+   "candidates": 32453,
+   "families": 13,
+   "levels": {
+    "1-2": 974,
+    "3-4": 11417,
+    "5-6": 15732,
+    "7-8": 4252,
+    "9+": 78
+   },
+   "created_at": "2026-10-28T22:20:11+00:00"
+  }
+ }
+}

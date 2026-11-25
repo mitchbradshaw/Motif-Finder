@@ -7,7 +7,7 @@
 \usepackage[margin=2.5cm]{geometry}
 \usepackage{setspace}
 \onehalfspacing
-\usepackage{parskip}
+\usepackage[skip=4pt plus 1pt]{parskip}  % paragraph gap set here (9 Nov page cut); the package resets \parskip
 \usepackage{microtype}
 
 \usepackage{xcolor}
@@ -37,6 +37,28 @@
 
 \setlength{\emergencystretch}{3em}
 \captionsetup{font=small,labelfont=bf}
+% Float packing (9 Nov page cut): let figures share pages with text instead of sitting alone on half-empty float
+% pages. LaTeX's defaults allow floats on at most 70 % of a text page and need a float page 50 % full.
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.8}
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{4}
+% Tighter spacing (9 Nov page cut): a smaller gap between paragraphs and around floats. Text stays 12 pt, 1.5-spaced.
+\setlength{\parskip}{0.2\baselineskip plus 1pt}
+\setlength{\textfloatsep}{12pt plus 2pt minus 4pt}
+\setlength{\floatsep}{10pt plus 2pt minus 2pt}
+\setlength{\intextsep}{10pt plus 2pt minus 2pt}
+\captionsetup{skip=5pt}
+% Single spacing inside figures and tables (captions, table rows); body text stays 1.5-spaced (9 Nov page cut).
+\usepackage{etoolbox}
+\AtBeginEnvironment{figure}{\singlespacing}
+\AtBeginEnvironment{table}{\singlespacing}
+% Cap very tall figures at 45 % of the text height (9 Nov page cut); keepaspectratio fits each image inside its
+% requested width and this height, so only figures taller than the cap shrink.
+\setkeys{Gin}{height=0.45\textheight,keepaspectratio}
 
 \definecolor{instruc}{RGB}{112,48,160}
 \definecolor{ubblue}{RGB}{10,132,255}

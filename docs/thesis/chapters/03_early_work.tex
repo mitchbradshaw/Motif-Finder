@@ -1,90 +1,20 @@
 \chapter{Early experimental work}
 \label{ch:early}
 
-\begin{instructions}
-New chapter (5 Nov). It gathers the early work that was scattered through the old Chapters 2, 5, 8 and 9 and tells the
-year's story in order: what was tried, what each attempt produced, and what each one taught. It ends with the
-lessons that became \tool{} (Table~\ref{tab:lessons}), so Chapter~\ref{ch:pipeline} can open from them. About 7--9
-pages.
-
-\textbf{Timeline from the repository} (GitHub history; the local clone is shallow):
-\begin{itemize}
-  \item 14 Apr 2026, first commit: the labelling tool and the hand labels, GASF/GADF/recurrence/fusion CNN training,
-        matrix-profile runs, Catch22 + random forest, the SAX encoder ports;
-  \item 15 Apr -- 21 May: more matrix-profile runs; dendrogram clustering of the window matrix; wavelet tests;
-  \item no commits 21 May -- 3 Aug; 3 Aug: the restructure into four stages and the first (Panel) interface;
-  \item 10--14 Aug: dSAX validation and the SAX detection experiments;
-  \item 19 Aug -- 9 Sep: the drop-motif study (for the NeurIPS workshop submission);
-  \item 15 Sep: the React web application begins (Chapter~\ref{ch:pipeline}).
-\end{itemize}
-\textbf{Framing:} the summer project explored the SAX idea in MATLAB (Section~\ref{sec:lituq}); everything in this
-chapter was implemented this year, in the thesis repository. Say so once, early.
-\end{instructions}
-
-The year's work began with a large set of unlabelled recordings and no agreed way of describing them. This chapter follows the experiments that came before \tool{}, in the order they were made.
-
-\begin{instructions}
-Opening paragraph drafted 5 Nov as a placeholder; rewrite it in your words. Suggested shape: about 1,000 hours of oyster
-recordings (M2\_aug and M2\_concat, Figure~\ref{fig:threezooms}), no labels, no field vocabulary; so the first step was
-to label by hand, the second to train on those labels, and each later experiment answered a weakness of the one before.
-\end{instructions}
+The year's work began with about 1,000 hours of unlabelled oyster recordings, M2\_aug and M2\_concat (Figure~\ref{fig:threezooms}), and no agreed way of describing them. This chapter follows the experiments that came before \tool{}, in the order they were made, each answering a weakness of the one before. Hand labels gave the first data. CNNs showed that the labels could be learned, but not yet trusted. Matrix profiles looked for repeats without labels, but were slow and often found quiet stretches. The window matrix and its dendrograms tried to group windows without settling on an answer, SAX made shape searchable at any length, and the drop study was the first to follow one shape across species. The summer project had explored some of these ideas in MATLAB (Section~\ref{sec:lituq}); everything in this chapter was implemented anew this year, in the thesis repository.
 
 \section{Sorting windows by hand}
 \label{sec:handlabels}
 
-\begin{instructions}
-The facts:
-\begin{itemize}
-  \item a labelling tool (\src{Working/Catalogue/labelling/interest_select.py}, ported from the summer MATLAB idea
-        but written anew) stepped through M2\_aug's 16 channels in 10-minute windows of 600 samples, advancing by a
-        third of a window (200 samples), so neighbouring windows overlap by two-thirds;
-  \item each window was marked \emph{interesting}, \emph{not interesting} or \emph{flag} (too straight or structured
-        to be signal; imported later as \texttt{artifact}); saving a label also saved its four image encodings;
-  \item 11,234 windows were labelled: 2,333 interesting, 8,773 not interesting and 128 flagged (ledger A14). An
-        ``interesting'' window was one whose behaviour you judged unlikely to be noise or chance;
-  \item what it bought: the first labelled fungal dataset of this size that we know of. What it cost: labels of windows,
-        not of events; one labeller; not blind; and the 80:20 class imbalance (a model that always says ``not
-        interesting'' scores about 0.79--0.81 accuracy).
-\end{itemize}
-\end{instructions}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{new/ch3_hand_labels.pdf}
-\caption{What the hand labels looked like: ten of the 11,234 labelled 10-minute windows of M2\_aug (shaded), each in half an hour of context either side, with the peak-to-peak range of the panel. Four were labelled interesting, four not interesting and two flagged as artefacts.}
-\label{fig:handlabels}
-\end{figure}
+A labelling tool stepped through the 16 channels of M2\_aug in 10-minute windows of 600 samples, advancing by a third of a window, so that neighbouring windows overlap by two-thirds. Each window was marked interesting, not interesting, or flagged as too straight or too regular to be signal (later imported as artefacts), and saving a label also saved the window's four image encodings. In all, 11,234 windows were labelled: 2,333 interesting, 8,773 not interesting and 128 flagged (Figure~\ref{fig:handlabels}). As far as is known this was the first labelled fungal dataset of its size, but it had clear costs. The labels describe windows rather than events, they come from one labeller who could see each window's context, and four windows in five are not interesting, so a model that always answers ``not interesting'' is already about 80\,\% accurate.
 
 \section{CNNs on image-encoded windows}
 \label{sec:earlycnn}
 
-Initial experiments in this project tested four encodings as CNN inputs, on about 10,000 labelled 10-minute windows drawn at random from all 16 channels. The windows were labelled by hand as `interesting' or `not interesting', meaning behaviour judged unlikely to be noise or chance. That labelling carries a bias the project set out to address. Chapter~\ref{ch:rq3} reports what became of those models when they were later scored against blind labels.
-
-\begin{instructions}
-Spend time here: a CNN trained on ten thousand hand-labelled fungal windows is a notable result in its own right.
-The facts (\src{Working/Catalogue/cnn/cnn_rangapur.py}, CFG lines 17--31; ledger A11, C4--C7):
-\begin{itemize}
-  \item four models, one per encoding (GASF, GADF, recurrence plot, RGB fusion; Section~\ref{sec:encodings}), each an
-        ImageNet-pretrained EfficientNet-B0 fine-tuned at $224\times224$ on 10-minute windows; 25 epochs with early
-        stopping (patience 7), learning rate $10^{-3}$, seed 42, trained on an A100 on rangpur;
-  \item validation was a \textbf{random 80:20 split} (\texttt{val\_split 0.2}; the old ``9:1'' was wrong);
-  \item reported accuracy: GASF 91.98\,\%, GADF 91.84\,\%, recurrence 92.26\,\% and fusion 91.00\,\%;
-  \item \textbf{why that is optimistic, in plain words:} neighbouring windows overlap by two-thirds, and the split was
-        random, so most validation windows had a near-twin in training. It is like a quiz whose questions you have
-        already seen next to yours. The majority-class baseline is also about 0.81;
-  \item \textbf{the honest number:} scored in October against blind labels judged on the site (queue 3), balanced
-        accuracy is 0.78--0.83 and AUC 0.93--0.96 at 10 minutes (Table~\ref{tab:cnns}). At 1 minute the same models
-        are at chance (AUC 0.30--0.46): the 1- and 60-minute ``CNN detectors'' in the sweep are the 10-minute models slid
-        at other scales;
-  \item what this taught: the labels, not the architecture, were the limit (Chapter~\ref{ch:rq3} shows a CNN trained on
-        judged events matches MiniRocket), and training data and splits must be recorded. Both became features.
-\end{itemize}
-The same labels trained a baseline: catch22 plus fast entropy features (24) and a balanced random forest
-(\src{Results/Catalogue/aeon/current/catch22_rf_prelabeled_output.txt}). A KNN with DTW failed outright.
-\end{instructions}
+These labels trained the first models. Four CNNs, one per image encoding (GASF, GADF, recurrence plot and an RGB fusion of the three; Section~\ref{sec:encodings}), each fine-tuned an ImageNet-pretrained EfficientNet-B0 on the 10-minute windows, with early stopping, on an A100 GPU on UQ's rangpur cluster. On a random 80:20 split they scored 91--92\,\% accuracy (Table~\ref{tab:earlymodels}). That number is optimistic. Neighbouring windows overlap by two-thirds, so most validation windows had a near-twin in training, like a quiz whose answers sit next to the questions, and the majority-class baseline is already about 81\,\%. Scored months later against blind labels judged on the site, the same models reached a balanced accuracy of 0.78--0.83 and an AUC of 0.93--0.96 at 10 minutes, and fell to chance at one minute (Figure~\ref{fig:earlycnn}). The same labels trained a baseline of 24 catch22 and entropy features with a balanced random forest, while a nearest-neighbour classifier using dynamic time warping failed. The labels, not the architecture, were the limit, and training data and splits must be recorded (Chapter~\ref{ch:rq3}).
 
 \begin{table}[htbp]
-\caption{The first classifiers on the hand labels. The CNNs' accuracy is on a random split of overlapping windows; their
+\caption[{The first classifiers on the hand labels.}]{The first classifiers on the hand labels. The CNNs' accuracy is on a random split of overlapping windows; their
 balanced accuracy and AUC are from the later blind labels (Table~\ref{tab:cnns}). The forest and the KNN were scored on a
 held-out test set of 711 windows (135 interesting).}
 \label{tab:earlymodels}
@@ -103,224 +33,59 @@ KNN--DTW & held-out test & 0.825 & 0.458 & --\\
 \end{tabular}
 \end{table}
 
-\begin{instructions}
-Check this table before keeping it. Forest: interesting-class precision 0.69 and recall 0.64; F1 0.74 at a threshold
-of 0.40 (\src{..._opt_sweep_output.txt}, line 7). KNN--DTW: interesting-class F1 of 0
-(\src{Results/Catalogue/aeon/current/classifier_KN_output.txt}).
-\end{instructions}
-
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{new/ch3_cnn_blind.pdf}
-\caption{The early CNNs judged against blind labels, months after training. Left: confusion matrices at their own 10-minute scale, on 429 windows labelled blind on the site (two exams pooled: a later time block and unseen channels; ``int.'' is interesting). Right: balanced accuracy when the same models are slid at 1, 10 and 30 minutes. At 1 minute they are at chance.}
+\caption[{The early CNNs judged against blind labels, months after training.}]{The early CNNs judged against blind labels, months after training. Left: confusion matrices at their own 10-minute scale, on 429 windows labelled blind on the site (two exams pooled: a later time block and unseen channels; ``int.'' is interesting). Right: balanced accuracy when the same models are slid at 1, 10 and 30 minutes. At 1 minute they are at chance.}
 \label{fig:earlycnn}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{new/ch3_cnn_trace.pdf}
-\caption{What an early CNN's score looks like along a recording: two days of one M2\_aug channel with the hand labels judged interesting shaded (top), and the fusion CNN's probability of ``interesting'' for each 10-minute window (bottom, from its stored sweep run). On this busy channel the CNN calls most windows interesting, far more than the hand labels do.}
-\label{fig:cnnscoretrace}
 \end{figure}
 
 \section{Matrix profiles and seeded search}
 \label{sec:earlymp}
 
-\begin{instructions}
-The facts (\src{Results/Detection/matrix_profile/_legacy/}, committed 14 Apr -- 21 May; all on M2\_concat at 1\,Hz):
-\begin{itemize}
-  \item whole-signal matrix profiles (stumpy, on rangpur's GPU) on CH0 at 1, 5, 10 and 60 minutes, CH2 at 4.7 and
-        50 minutes and CH13 at 34 minutes;
-  \item on CH0 at 10 minutes, the closest motif pair is at 113.88\,h and 113.92\,h (distance 0.516) and the top discord
-        at 120.40\,h; on CH2 at 50 minutes the closest pair is 64 hours apart (208.48\,h and 272.38\,h);
-  \item the ``Seed Chain Explorer'' then took one subsequence (CH2, 232.08\,h, 50 minutes) and followed its ten nearest
-        neighbours through the recording: the first seeded search (Figure~\ref{fig:mpseedplan});
-  \item the cost that decided everything later: about 40\,h per whole profile for M2\_concat and 260\,h for M2\_aug,
-        against seconds for one seed (MASS, Section~\ref{sec:mp}).
-\end{itemize}
-What this taught: a human-chosen seed is the affordable route to recurring motifs, which became Discovery's seed search
-(RQ2).
-\end{instructions}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{plan/mp_seed_plan.png}
-\caption{The first seeded search: one 50-minute subsequence of M2\_concat CH2 and its nearest neighbours through the recording, found from its matrix profile.}
-\label{fig:mpseedplan}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{early/search_cat04_crestedwave.pdf}
-\caption{Seeded search across channels, from the early work: one hand-catalogued ``crested wave'' on M2\_aug CH00 at 314.5\,h (left) used as a seed. Its matches at a z-normalised distance of at most 0.30 per $\sqrt{m}$ are marked along three channels of the 721-hour recording (middle; 106 in all), and overlaid z-normalised on the seed (right).}
-\label{fig:mpseed}
-\end{figure}
+Matrix profiles looked for repeats without any labels. Whole-signal profiles of M2\_concat at 1\,Hz were computed on the cluster's GPUs at window lengths from 1 to 60 minutes (Figure~\ref{fig:mpintuition} shows one). On CH1 at 10 minutes the closest pair of windows lay only minutes apart, while on CH3 at 50 minutes the closest pair was 64 hours apart, and many of the closest repeats were slow recoveries and quiet stretches, so similarity alone did not mean interest. A ``seed chain'' then took one subsequence and followed its nearest neighbours through the recording, the first seeded search; a later version followed one hand-catalogued shape across channels (Figure~\ref{fig:mpseed}). Cost decided what came next. A whole profile takes about 40 hours for M2\_concat and an estimated 260 hours for M2\_aug, against seconds for one seed, so a human-chosen seed was the affordable route to recurring motifs, and became the seed search of Chapter~\ref{ch:rq2}.
 
 \section{The window matrix and its dendrograms}
 \label{sec:earlywm}
 
-\begin{instructions}
-The facts:
-\begin{itemize}
-  \item the window matrix (Section~\ref{sec:representation}) put every feature of every 10-minute window side by side:
-        CNN scores, random-forest output, entropy and catch22 features (Figure~\ref{fig:windowmatrix});
-  \item clustering it (\src{Working/Catalogue/dendrogram/dendrogram_cluster.py} and
-        \src{Experimentation/Catalogue experiments/dendro_testing.py}, 21 May) on a subsample of M2\_concat: outliers
-        removed at $z>3$, average against complete linkage, silhouette over $k=2$--8, medoids per cluster
-        (Figure~\ref{fig:dendroplan}). No cluster count settled;
-  \item the later test of the idea, cluster labels against your labels, is in Chapter~\ref{ch:rq3} (run 79): they do
-        not replace human labels;
-  \item what this taught: a window matrix has one row per window and no alignment to time, so it cannot be thresholded
-        into events; and a dendrogram cut is not a taxonomy. These became the time-aligned \texttt{Scores} type, the
-        Discovery Map and the Library's groupings, with a cophenetic check on every tree.
-\end{itemize}
-The plan's figure has a dark theme. Re-export it in light, or keep it as historical.
-\end{instructions}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{plan/window_matrix.png}
-\caption{An early Window Matrix computed over 45 hours of the primary recording: model outputs, entropy measures and catch22 features per 10-minute window, above the signal.}
-\label{fig:windowmatrix}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{plan/dendrogram_plan.png}
-\caption{An early dendrogram of 10-minute windows: complete linkage on z-normalised Euclidean distance, with each cluster drawn as its medoids.}
-\label{fig:dendroplan}
-\end{figure}
+The window matrix (Section~\ref{sec:representation}) set every feature of every 10-minute window side by side, from CNN scores and random-forest output to entropy and catch22 features (Figure~\ref{fig:windowmatrix}). Clustering a subsample of M2\_concat's windows into dendrograms, with outliers removed and average and complete linkage compared over two to eight clusters, gave a medoid for each cluster but no settled number of clusters (Figure~\ref{fig:dendroplan}). Two lessons followed. A window matrix has one row per window and no alignment to time, so it cannot be thresholded into events, and a cut through a dendrogram is not a taxonomy. These became the time-aligned Scores type, the Discovery Map and the Library's groupings (Chapter~\ref{ch:pipeline}); cluster labels are tested against human labels in Chapter~\ref{ch:rq3}.
 
 \section{Symbolic encodings and SAX detection}
 \label{sec:earlysax}
 
-\begin{instructions}
-The facts:
-\begin{itemize}
-  \item SAX \cite{lin2007sax} reduces a window to a short string of letters (Section~\ref{sec:distance}). Python ports of
-        published SAX variants were written in April (\src{Working/Detection/sax/}); a directional variant, dSAX,
-        followed in August (validated on 12 synthetic shapes, \src{Experimentation/Detection experiments/dsax_validation/});
-  \item the August experiments (\src{Experimentation/Detection experiments/}): multiscale SAX on a dyadic pyramid;
-        seeded search over SAX strings with exact, MINDIST and edit-distance matchers; and detection calibrated against
-        surrogates with Benjamini--Hochberg correction, cross-checked against stumpy, ruptures and the CNN labels;
-  \item numbers worth one sentence each (from the scripts' docstrings): the MINDIST lower bound held on 40,000 of 40,000
-        pairs; detrending first raised recall on synthetic motifs from 0.22 to 0.85; on a real channel without a rolling
-        z-normalisation, 90\,\% of symbols fell in one bin;
-  \item what this taught: symbols make shape searchable at any duration (\texttt{U+ S? D+} finds sharkfins), but every
-        script fixed its own thresholds and none carried a null. This became the Analyse page's symbolic route and the
-        \texttt{symbol\_search} template, run with surrogates like every other detector.
-\end{itemize}
-\end{instructions}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{new/ch3_sax.pdf}
-\caption{SAX on a real trace. (a) Three hours of M2\_aug. (b) The same, with the slow drift removed and z-normalised, reduced to 3-minute means (bars), each coded as one of four letters by the dotted breakpoints; the most frequent mixed three-letter word is shaded. A few deep falls stretch the scale, so almost every other window becomes the same letter: the problem the early SAX experiments met, and one reason the tool's symbolic route normalises locally.}
-\label{fig:sax}
-\end{figure}
+Symbolic Aggregate Approximation (SAX) \cite{lin2007sax} reduces a window to a short string of letters (Section~\ref{sec:distance}). Python ports of published SAX variants were written in April, and a directional variant, dSAX, followed in August and was validated on twelve synthetic shapes (Figure~\ref{fig:sax}). The August experiments tried multiscale SAX, seeded search over SAX strings with exact, lower-bound and edit-distance matchers, and detection calibrated against surrogates. Detrending first raised recall on synthetic motifs from 0.22 to 0.85, and without a rolling normalisation 90\,\% of a real channel's symbols fell in one bin, because a few deep falls dominate its range of values. Symbols made shape searchable at any duration, but every script fixed its own thresholds and none carried a null. They became the Analyse page's symbolic route and the symbol-search template, run with surrogates like every other detector.
 
 \section{Drops across species and scales}
 \label{sec:dropmotifs}
 
-\begin{instructions}
-The August--September drop-motif study, built before the web tool, with its own claims ledger (Appendix~\ref{app:claims}).
-The store holds 4,023 events: oyster 754 (M2\_aug), reishi 2,425 (F2A, 10\,Hz) and lion's mane 844 (one channel of MJu26a, CH14, region B
-only, so a lower bound). Give one paragraph on detection: the drop detector, and its slope gate.
-\end{instructions}
+The drop-motif study of August and September, built before the web tool, followed one shape across species. A drop detector found falls followed by a slower recovery, gated by the steepness of the fall, and the study's store holds 4,023 events: 754 from oyster (M2\_aug), 2,425 from reishi (F2A, at 10\,Hz) and 844 from one lion's mane channel (MJu26a CH14, a lower bound). After each event is normalised by its own fall, drops spanning 3.6 orders of magnitude in duration and 4.2 in amplitude share one relative shape (Figure~\ref{fig:scalecollapse}); the species do not share one waveform, but a sharp fall and a slower recovery are common to them all. Normalisation is not invariance, though. The normalised shape still predicts how many samples an event was built from (balanced accuracy 0.75, against a chance of 0.25), and the species can be read back from it too, much as a photograph carries the trace of the camera that took it (Figure~\ref{fig:speciesres}; the full ledger is Appendix~\ref{app:claims}). For the plan's question of identity under scale, this is the reportable negative result: scale is not cleanly a property of the motif, because the representation carries the resolution and context it was recorded at.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{drop_motifs/S2_2_scale_collapse.png}
-\caption{Drop shape in native units (left) and after normalising each event by its own fall (right), forty seeded events per species. Median falls of 30\,s, 1.25\,s and 0.65\,s become one approach--fall--recovery shape. Nothing is resampled.}
+\includegraphics[width=0.8\textwidth]{drop_motifs/S2_2_scale_collapse_crop.png}
+\caption[{Scale collapse in the drop-motif study.}]{Scale collapse in the drop-motif study: forty seeded drops per species in native units (left; millivolts against seconds from onset) and after normalising each event by its own fall (right; time in fractions of the fall, value z-scored). Oyster, lion's mane and reishi falls with median durations of 30\,s, 1.25\,s and 0.65\,s collapse onto one approach-and-fall shape. Nothing is resampled; the panels end shortly after the trough, so recovery is not compared here.}
 \label{fig:scalecollapse}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{drop_motifs/ATLAS_shapes.pdf}
-\caption{Forty family medoids from four corpora, placed by native fall duration: 0.3--266\,s, 2.9 orders of magnitude.}
-\label{fig:atlas}
-\end{figure}
-
-\begin{instructions}
-The findings to state, each with its ledger row (\src{Plots/drop_motifs10/CLAIMS.md}):
-\begin{itemize}
-  \item scale collapse: drops spanning 3.6 orders of magnitude of duration and 4.2 of amplitude share one relative
-        shape after normalisation. Not that the species have the same waveform (S2.2);
-  \item \textbf{normalisation is not invariance} (row 9): the 200-point z-normalised vector still predicts how many
-        samples an event was built from, at 0.753 balanced accuracy against a chance of 0.25 ($n=3,012$);
-  \item species is recoverable from absolute scale at 0.781 against a chance of 0.333 (row 12), and from normalised
-        shape at 0.614 (row 13, falsifying ``shape is species-invariant''). But one feature, the number of samples in
-        the fall, already gives 0.575 (row 14);
-  \item family membership tracks resolution at least as strongly as species: matched rate and framing,
-        $V=0.087$ for species against $0.277$ for samples per event (rows 6--8, 10);
-  \item family transfer between species is partial and asymmetric: reishi to oyster ARI 0.52, oyster to the MJu26a CH14 excerpt 0.03
-        (row 16). Yet one species' events sit closer to another's medoids than a surrogate allows, 1.5--8.4$\times$
-        (row 17);
-  \item the duty-cycle reversal: reishi's drops are the broadest relative to their spacing (0.308, against oyster 0.111
-        and lion's mane 0.0046) while being the shortest in absolute time (0.7\,s, against 26\,s and 1.5\,s) (S2.3).
-\end{itemize}
-What this means for the plan's RQ3: scale is not cleanly a property of the motif. The representation carries
-resolution and context. This is the negative result the plan said would be reportable.
-\end{instructions}
-
-\begin{figure}[htbp]
-\centering
-\begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{drop_motifs/SPECIES_vs_RESOLUTION.png}\caption{Species against resolution}\end{subfigure}\hfill
-\begin{subfigure}{0.49\textwidth}\includegraphics[width=\linewidth]{drop_motifs/DECODE_species.png}\caption{Decoding species}\end{subfigure}
-\caption{Family membership and species decoding against measurement resolution, with permutation nulls.}
+\includegraphics[width=\textwidth]{new/ch3_drop_claims.pdf}
+\caption[{What a normalised drop still remembers.}]{What a normalised drop still remembers, from the drop-motif study's claims ledger (Appendix~\ref{app:claims}, rows 6--9 and 12--15). (a) How strongly membership of a shape family is associated with species (dark) and with the number of samples each event was built from, its measurement resolution (light), as Cramér's V; black ticks are the medians of 10,000 shuffled-label draws. On the one contrast matched for sampling rate and framing (oyster against the lion's mane excerpt), families follow resolution far more than species. (b) Balanced accuracy of reading a label back from each event (dashed: chance). After every event is stretched to 200 points and z-normalised, its resolution can still be read back at 0.75, and species at 0.61; a single feature, the number of samples in the fall, already gives 0.57. Normalising a shape does not make it independent of how it was recorded, much as photographs resized to the same dimensions still carry the fingerprint of the camera that took them.}
 \label{fig:speciesres}
 \end{figure}
 
 \subsection{Sequences of drops and their intervals}
 \label{sec:sequences}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{drop_motifs/S3_1_sequence_morph_oyster_id28_ch5_1394131s.png}
-\caption{A drop sequence that morphs: oyster channel 5 at 1,394,131\,s. Every step-to-step shape change is smaller than the change from first to last drop.}
-\label{fig:sequence}
-\end{figure}
-
-\begin{instructions}
-From \src{docs/rq_roundB/notes/drop-motif-sequences.md}:
-\begin{itemize}
-  \item a sequence is at least 5 drops on one channel, with no gap longer than 2$\times$ that channel's typical gap,
-        and either regular (gap CV $\le$ 0.5) or trending (R$^2\ge0.7$);
-  \item 125 sequences of 1,686 events: oyster 19, reishi 98, lion's mane 8;
-  \item of the 15 drawn (S3.1), 4 morph and 11 return to near where they started;
-  \item isolated pairs show no effect (S3.3, not drawn).
-\end{itemize}
-Name the seeds for round B: oyster id28 (DB sequence 3, all 28 steps smaller than the end-to-end change), oyster id35
-(sequence 7), reishi id901 (sequence 22, which morphs while its beat drifts). Caveat: \texttt{oyster\_id22} is 10 real
-cycles stored as 20 events.
-\end{instructions}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{new/ch3_drop_family.pdf}
-\caption{One hand-catalogued drop family from the drop-motif study: catalogue family 22, troughs on M2\_aug CH0 near 291--293\,h. (a) Its 47 events (two detection passes, 24 coarse and 23 fine) in their place in the recording, each window shaded by its onset time. (b) The pure events (one fall per window) drawn from the onset of their fall, baseline removed and amplitude not scaled. (c) Every event as recorded. The same fall-and-recovery repeats for two and a half hours at two time scales.}
-\label{fig:droptrio}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.95\textwidth]{drop_motifs/S2_1_fall_angle.png}
-\caption{The drop-motif study across species: the steepest angle of each fall as a rose plot (top; 45$^\circ$ is the pooled median steepest slope), and forty falls per species normalised by their own fall (bottom). Oyster and reishi falls spread over a range of angles; lion's mane falls are nearly vertical at this scale.}
-\label{fig:dropangles}
-\end{figure}
+The study also looked at sequences, defined as at least five drops on one channel with no gap longer than twice the channel's typical gap, either regular (gap CV at most 0.5) or trending. It found 125 sequences among 1,686 events (oyster 19, reishi 98, lion's mane 8). Of fifteen drawn, four changed shape steadily along the sequence and eleven returned to near where they started (Figure~\ref{fig:sequence}), and trains of near-identical falls could repeat every few minutes for hours (Figure~\ref{fig:droptrio}). Three of these sequences became seeds for the timing studies of Chapter~\ref{ch:roundb}.
 
 \section{What the experiments taught}
 \label{sec:lessons}
 
-\begin{instructions}
-Close the chapter with the table and one paragraph in your words: every experiment worked a little and broke on the
-same things --- results that could not be compared, labels that were not blind, nulls that were missing, and work that
-could not be repeated. \tool{} is the answer to that list (Chapter~\ref{ch:pipeline}, Figure~\ref{fig:lineage}).
-\end{instructions}
+Every experiment worked a little and broke on the same things: results that could not be compared, labels that were not blind, nulls that were missing, and work that could not be repeated (Table~\ref{tab:lessons}). \tool{} is the answer to that list (Chapter~\ref{ch:pipeline}). The experiments had also begun to describe the signal itself, and the later chapters return to each point. About one 10-minute window in five held something judged interesting (2,333 of 11,106 decided windows). The closest repeats in a recording were often slow recoveries and quiet stretches, so similarity alone is not interest. A few deep falls dominate a channel's range of values, so a channel has to be normalised locally before its shapes can be compared. And one fall-and-recovery shape appeared in three species at very different time scales, though how it was recorded leaves a trace in its normalised shape.
 
 \begin{table}[htbp]
-\caption{What each early experiment produced, where it broke, and what it became in \tool{}.}
+\caption[{What each early experiment produced, where it broke, and what it became.}]{What each early experiment produced, where it broke, and what it became in \tool{}.}
 \label{tab:lessons}
 \footnotesize
 \begin{tabularx}{\textwidth}{p{2.6cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X}

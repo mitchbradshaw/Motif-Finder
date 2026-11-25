@@ -1,0 +1,42 @@
+{
+ "tasks": 1014,
+ "real_geometry": 1001,
+ "surrogate_geometry": 979,
+ "real_by_source": {
+  "recomputed_pc": 299,
+  "scratch_latest": 285,
+  "scratch_original": 267,
+  "return_cache_spanset": 78,
+  "db": 72
+ },
+ "surrogate_by_source": {
+  "recomputed_pc": 360,
+  "scratch_latest": 285,
+  "scratch_original": 262,
+  "db": 72
+ },
+ "settings_whole_real": 122,
+ "settings_whole_surrogate": 117,
+ "settings_some_surrogate": 129,
+ "by_recording": {
+  "MJu26a_fs2": {
+   "real": 664,
+   "surrogate": 646,
+   "tasks": 674
+  },
+  "SH_fs2": {
+   "real": 168,
+   "surrogate": 165,
+   "tasks": 170
+  },
+  "SO_fs2": {
+   "real": 169,
+   "surrogate": 168,
+   "tasks": 170
+  }
+ },
+ "tasks_with_notes": 34,
+ "geometry_rows": 3916130,
+ "parquet": "C:\\Users\\mmebr\\AppData\\Local\\Temp\\claude\\3a41d06cc6096a2e\\55c783cf-2a76-451d-bb08-e09ff21dd7b9\\scratchpad\\rq4n_geometry.parquet",
+ "seconds": 17.0
+}

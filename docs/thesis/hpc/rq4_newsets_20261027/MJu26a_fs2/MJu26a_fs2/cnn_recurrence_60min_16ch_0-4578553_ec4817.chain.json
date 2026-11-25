@@ -1,0 +1,1070 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "cnn_recurrence_60min",
+  "runKey": null,
+  "sessionId": null,
+  "template": "cnn_recurrence_60min",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "sliding_windows",
+      "params": {
+        "gap_s": 0.0,
+        "window_s": 3600.0
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "catalogue",
+      "algorithm": "cnn_window_scores",
+      "params": {
+        "image_type": "recurrence",
+        "model_path": "MODELS/recurrence_cnn.pth",
+        "resample_to": 600
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "threshold",
+      "params": {
+        "threshold": 0.5
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    4578553
+  ],
+  "sourceFile": "MJu26a_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 16,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 692,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH0.npy",
+      "npySha1": "2240984af748095af6252df4e87899b58128c3c5",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 692,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b2a8ee6b",
+      "prefixHashes": [
+        "38ab3f5e9090fb231a186585756a6e883b5325abeef5631a8f04794aef119510",
+        "aa27fcf085697e694756d5b1900b47f2d0c5f270458abb821342df082cd53d5c",
+        "b2a8ee6bb4d1bc888b0100c3bdfc16cd86c26feccc794fc74071b0aa9b7b3f32"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 693,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH1.npy",
+      "npySha1": "93816fcd142eb534d9bb6f3cca429c941bf97329",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 693,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "71c02d29",
+      "prefixHashes": [
+        "0b30e8fb0de88d0fd888463fee4e9e14135503225f6a1809df56bd86fa48815e",
+        "8102d13dd3e9527ab23be903580559be974865cd1d18603b9672eac1cd116f64",
+        "71c02d291076f6ccd3ae5525932d060e9f96247b458157a38115563654b9ac38"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 694,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH2.npy",
+      "npySha1": "c5a5f348f1f9fe69313ca39f92d74d687ab3a4bf",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 694,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "5c39bc5f",
+      "prefixHashes": [
+        "bd03d04727782fc1779c8bcaf853cffddc0668d7304f3f1c2f34a9725885de85",
+        "9d96a7df1b6bff42d6c1908d7ae64f496afc107b5e4b7092c70236ac0e80df6e",
+        "5c39bc5fe815e9092dca2854dcf23a58d3f835d6b2a227d74056ce6689584673"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 695,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH3.npy",
+      "npySha1": "39d1cfaa661f685c70d404873d583b5573cfa8ba",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 695,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "c0853b23",
+      "prefixHashes": [
+        "62ebac59f853419c84b94a1503416a1d20c52b27473356b0c7a5c636b80281bf",
+        "52f21fae3de4547ca95bbd9b04e7bfbdf45e486c94927a01e406fe398512ea4e",
+        "c0853b232788118385b3eb25942ada556f0059909d5dc348f81d0ef09ff99d39"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 696,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH4.npy",
+      "npySha1": "d5b50ee675fbee24e82bbe4bd3f0853729a1ffca",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 696,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "b780a7f5",
+      "prefixHashes": [
+        "6b54481c8a82c3c62a3c7550e05c14c6fa5d961b6c9a36d5265f38195f5af44d",
+        "d0108b61789b75024b7e2fc91713bf57f6b524dcc3881279244c616c9dec6e13",
+        "b780a7f5979a995cf4897f66abae365078bc81375da90dc87636d60063b5f513"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 5,
+      "recordingId": 697,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 5,
+      "channelName": "CH6",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH5.npy",
+      "npySha1": "72590b7b572ef6030df2acada2f5983f13d9f3f5",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 697,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "61479a62",
+      "prefixHashes": [
+        "c852cd837a57247ba939e45a01b5906399793531a39fc27d6b51611a6fc08b4b",
+        "4da3c50500d58052347501110d8bcdb419514e52e3ece24fed7bedf04923b86d",
+        "61479a62b60ec65d09e73fca44a0c216474dabb8235feb04f495fa86f7f16bac"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 6,
+      "recordingId": 698,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 6,
+      "channelName": "CH7",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH6.npy",
+      "npySha1": "68296bf81d06e61e2e06249f4170399520d8e997",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 698,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "af137fe5",
+      "prefixHashes": [
+        "35807935896d204f00e1e1136616ec0e779a36c8510280a675e969a5e40c92c2",
+        "57799935a90cf906f091b8ad8838142c8e2fd3e0f373cc4b3a8e0e6ba002f61b",
+        "af137fe552efef64e15de4ef0730c4ba7f79871d12305fe896d0032850239528"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 7,
+      "recordingId": 699,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 7,
+      "channelName": "CH8",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH7.npy",
+      "npySha1": "872c791afb7798f5f37800c55e47029e1e76bc69",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 699,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "96dd3f4a",
+      "prefixHashes": [
+        "9e08eec3f792fcda4b239e33cf600958aa291be1621de2ed15c5a6e104f1f96d",
+        "5173065ea9cb4a13276b01b162d2b51eb97c6436960fb16db3717abffa016190",
+        "96dd3f4a0247b59a851bb5929f6878ca2d229d08a60dcfccc0b4a9ba18b258ce"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 8,
+      "recordingId": 700,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 8,
+      "channelName": "CH9",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH8.npy",
+      "npySha1": "61639e97cd2c56dd1c71a3aa6e66dc2f9a3ff9bf",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 700,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "8c4b363b",
+      "prefixHashes": [
+        "4b5c467893e589ce1ed885181d41e6cebdf645c8d390674cd49a4624868276ce",
+        "a9672d5b6fd232c0a824ab4ab7c38e6c0ea417d48a1d472352f79d2b7d7024aa",
+        "8c4b363b52eee83a9823084f176854a8622a4d698ef373f2c9b613abaaf1ff47"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 9,
+      "recordingId": 701,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 9,
+      "channelName": "CH10",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH9.npy",
+      "npySha1": "819b9c4aa69a3ef5c21a4b9f1dbf468548b45893",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 701,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "c6717358",
+      "prefixHashes": [
+        "77cc2ca5a13ccde0d0c15abd48a7853a06c08d590ad046066a6723ab5dc36d0a",
+        "e33f7135b5f6f7efe97f7a39f32841b369885f9b446432cc9c914cafc746c597",
+        "c671735896c090e390c860927ca2ebc68b5e3628fdf3e69db4b88074353ed79d"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 10,
+      "recordingId": 702,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 10,
+      "channelName": "CH11",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH10.npy",
+      "npySha1": "09d72a6db5c7dcc859df7765aa022d4116806d96",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 702,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "d0b5f209",
+      "prefixHashes": [
+        "443156c648f6e7e20d462615c1e45287f3601bedc24a052c020d2d705ce743fc",
+        "b4694ca4e0e3ae76a41512f1317c146df6a15f6517b3a1d6c43a9f12396f65ee",
+        "d0b5f20908b364e958ea32df73a0b75cbc90810fe2da7be2d71313ecbbce798a"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 11,
+      "recordingId": 703,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 11,
+      "channelName": "CH12",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH11.npy",
+      "npySha1": "034350886653e156d9479c14d10927ab31ec887e",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 703,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "ef441994",
+      "prefixHashes": [
+        "a235e9f0863a820da4ca7634addfe4f851acba852b3cd97ef2202514ced239f3",
+        "43850afe411cd0f2ed81150dcf4c1f85722ad49a67fc6c9e04270ee19e49bd98",
+        "ef441994515235f52268affcf51b5f22b647788286ccb53b987381e32093fc55"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 12,
+      "recordingId": 704,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 12,
+      "channelName": "CH13",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH12.npy",
+      "npySha1": "783ce465eaa4b0f5f2d31dbac98ea376cfcf2007",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 704,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "a215a7f6",
+      "prefixHashes": [
+        "fe8f3c062a81ef9b0fda45492107a7faa631cf9c52c7d945d9faeb9f73361ddf",
+        "a541a2c0f675c925fc337a2aea472945d3ccaaeeeb1f804e37ad504b45902257",
+        "a215a7f642f5294b46c7111f456a2fffb35566663990f3954513475096e6dac2"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 13,
+      "recordingId": 705,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 13,
+      "channelName": "CH14",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH13.npy",
+      "npySha1": "dad707ce2415efe4547bef5d85bfa2793f57cb7b",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 705,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "fab7b951",
+      "prefixHashes": [
+        "396a4189047985bc18942365ffec7d666129ff5e1a57e3e8edabd1d4dd8fbfc1",
+        "9c415ba66c7e8fb811d117852db409dd32ef530ed64729b8f64ab73cdeb2893f",
+        "fab7b951be55627b0ade6f2b6a05a3aefa10228641ce573460a6bcb0c489563d"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 14,
+      "recordingId": 706,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 14,
+      "channelName": "CH15",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH14.npy",
+      "npySha1": "9e9d38f25325148903aabdd8410d6928f433fe6c",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 706,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "bbee4057",
+      "prefixHashes": [
+        "772e997e1ae02e0436447a9f26deace39f00a2b8894dcfaca482c9882726ce70",
+        "df2a75b7d57ddb4c4877a7ca938b10de70ab4f7c1ecb8345b31e8c5209b8fd6f",
+        "bbee4057775a6db90f0c22aef38a6f7a96875b9b550c4645129e7b14df25ad4a"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 15,
+      "recordingId": 707,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 15,
+      "channelName": "CH16",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH15.npy",
+      "npySha1": "0b60b0175674fe628b156bfef46736840dbb0408",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 707,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "sliding_windows",
+            "params": {
+              "gap_s": 0.0,
+              "window_s": 3600.0
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "catalogue",
+            "algorithm": "cnn_window_scores",
+            "params": {
+              "image_type": "recurrence",
+              "model_path": "MODELS/recurrence_cnn.pth",
+              "resample_to": 600
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "threshold",
+            "params": {
+              "threshold": 0.5
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "bb649d2c",
+      "prefixHashes": [
+        "cba8141dda9da22069c10372721b66a1b922c28a32614da597a71fe520d34d0c",
+        "2676c65bbb42c49f2773dbdb92028e73c76e4397335d0c982e2b0f4b6708091b",
+        "bb649d2c725ed97d564d7da3151fbb1671a8d0ea3c0e6c6048c079de1459cf56"
+      ],
+      "chunks": []
+    }
+  ]
+}

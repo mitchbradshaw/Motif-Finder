@@ -1,5 +1,19 @@
 # Thesis, research results and application handoff — 8 November 2026
 
+> **Later:** a whole-thesis review (storyline, voice, figures, two rounds of independent critique) was made on
+> 8–9 November; read [REVIEW_20261109.md](REVIEW_20261109.md) for what changed and the prioritised list of writing
+> still to do. It also records a bug that affected B1 (drop-detector window starts are not fall onsets); B1 and
+> B12's intervals were re-run on true onsets on 9 Nov with their verdicts unchanged
+> ([findings](../rq_roundA_2/findings/b1-intervals-onsets-2026-11-09.md)).
+>
+> **9 Nov, final returns:** the author judged queue 47 and copied the recovery bundle back as
+> `DATA/derived/hpc/recovery_20261108_latest/` (all 285 recovery tasks complete). The 2 Hz sweep is now 1,014/1,014
+> (`data/recovery_latest_20261109/`), queue 47 is scored
+> ([findings](../rq_roundA_2/findings/queue47-diversity-2026-11-09.md)), the inventory is 2,959 spans, and B4 ran on
+> SH/SO in memory. The "HPC state" and "Reviews still awaited" sections below are therefore history; what remains is
+> the boundary review (fallback binding) and the wave-3 screenshots (fallback in Ch4's note). See `numbers_ledger.md`
+> "Final returns — 9 November".
+
 This is the continuation record for the long thesis-writing chat, including the
 Review → Explore boundary correction requested at its end. Start here, then read
 `numbers_ledger.md`, `PROSE_CONTEXT_AUDIT.md` and the linked reports before changing

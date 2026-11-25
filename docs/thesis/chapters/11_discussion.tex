@@ -1,73 +1,43 @@
 \chapter{General discussion and conclusions}
 \label{ch:discussion}
 
-\begin{instructions}
-About 5 pages; Conclusion is 15\,\% of the mark. The marksheet asks for three things here:
-\begin{itemize}
-  \item insight into the significance of the results;
-  \item a critical review of your performance against the stated plan, including goals and schedule
-        (Section~\ref{sec:review});
-  \item a clear summary of the outcomes, in context of the thesis definitions and the literature, with recommendations
-        for continuing the work.
-\end{itemize}
-Write this chapter last but one, before the abstract.
-\end{instructions}
-
 \section{Summary}
 
-\begin{instructions}
-One paragraph per research question, each stating the finding, not the method, with its headline number:
-\begin{itemize}
-  \item RQ1: detector agreement predicts human acceptance on every recording (0--5\,\% $\rightarrow$ 40--63\,\%).
-        Choosy detectors hold across recordings; loose ones measure the spectrum. Against 20 surrogate draws, drop v1
-        and the GADF CNN beat every draw on 16 of 16 channels.
-  \item RQ2 (queue 35, judged blind): every seed beats random windows of its own length, Fisher $p<0.0001$ each (for
-        example drop30 100\,\% against 22\,\%). All 51 earlier yeses held when judged blind (95\,\% interval
-        93--100\,\%).
-  \item RQ3:
-        \begin{itemize}
-          \item MiniRocket on the tool's verdicts reaches AUC 0.971 leave-one-out, against a shuffle null of 0.49 at
-                most.
-          \item On the held-out M4 exam (queue 36, scored once), R4 reaches AUC 0.98 and balanced accuracy 0.93,
-                against 0.59--0.66 AUC for the reference CNNs.
-          \item A CNN trained on R4's own rows and folds matches R4 (pooled AUC 0.970--0.973 against 0.971), so the
-                reference CNNs' gap is their labels.
-          \item Cluster labels do not replace human labels.
-        \end{itemize}
-\end{itemize}
-Then one paragraph each for Chapter~\ref{ch:events} (for example: 91\,\% of accepted events are falls by the
-fastest-edge rule) and Chapter~\ref{ch:roundb} (from Table~\ref{tab:rbsummary}).
-\end{instructions}
+The goal of this thesis was to examine what recurring structures are in fungal bio-electric recordings (Section~\ref{sec:rqs}), and whether they could be automatically detected and trusted, in that they pass human judgement. Both halves have an answer. Recurring structures can be found at scale, and against a blind reviewer and surrogate nulls they can be trusted to a stated degree (Chapters~\ref{ch:rq1}--\ref{ch:rq3}). Characterising them reveals a dominant fall-and-recovery behaviour that recurs across species, with irregular timing and slowly drifting activity, and with no evidence of activity travelling between electrodes (Chapters~\ref{ch:events} and~\ref{ch:roundb}). The electrodes were placed fairly irregularly, on different fruiting bodies, so the chance of detecting propagation was low from the start.
+
+\paragraph{Detectors compared at scale (Chapter~\ref{ch:rq1}).} Thirteen detector families in 45 settings ran over 2,599 hours of recordings and proposed about 3.1 million candidate events, of which 1,959 were judged blind. Agreement between families predicted acceptance on every recording. Where one or two families agreed, 0--5\,\% of candidates were real, and where nine or more agreed, 40--63\,\% were; the held-out M4 showed the same ladder, from 0 to 53\,\%. The choosy drop detectors held their precision across recordings, while the loose detectors fired on the background about as readily as on events. Against 20 surrogate draws, drop v1 and the GADF CNN beat every draw on all 16 channels of M2\_aug.
+
+\paragraph{Seeds (Chapter~\ref{ch:rq2}).} Every seed retrieved matches that were accepted far more often than random windows of the same length, judged blind (100 of 100 drop matches against 9 of 40 random windows, for example; Fisher $p<0.0001$ for each seed), and every earlier positive judgement held when repeated blind. The same drop seed, unchanged, transferred to seven other recordings of three species: 455 of 457 matches were accepted, against 79 of 459 random windows, and on all eight recordings a match on one electrode almost never coincides with a match on another (817 of 836 have none within 50 seconds), so the drops are not disturbances of the whole recording.
+
+\paragraph{Classifiers (Chapter~\ref{ch:rq3}).} MiniRocket trained on the tool's verdicts (R4) reached an AUC of 0.971 on recordings it had not been trained on, against at most 0.49 with shuffled labels, and 0.98 (balanced accuracy 0.93) on the held-out M4, scored once, where the reference CNNs reached 0.59--0.66. A CNN trained on R4's own examples matched R4, so the reference CNNs' gap lay in their training labels rather than their architecture, and labels derived from clusters did not replace human labels.
+
+\paragraph{The events (Chapters~\ref{ch:events} and~\ref{ch:roundb}).} The reviews accumulated 2,959 accepted spans across eight recordings of three species. Most accepted events are falls in potential followed by a slower recovery, from seconds to tens of minutes long and from a few to about a hundred millivolts deep, and one MJu26a channel produced a 90.7-hour train of 530 spikes, made of two interleaved, near-periodic series that differ in size and recovery. From one event to the next the timing is close to random, while activity drifts over hours to days and whole recordings grow busier and quieter together (B1, B5). Shapes recur across recordings and species, but each recording has its own mix of the shared shape families, and these differences between recordings are at least as large as the differences between species (B6, B12). There is structure beyond noise at every window length from 30\,s to minutes, with no preferred scale (B10), and no sign of activity travelling between electrodes (B4).
 
 \section{Discussion}
 
-\begin{instructions}
-Points to link across the chapters:
-\begin{itemize}
-  \item Do two independent routes to ``these belong together'' agree? Compare shape families (Library) with seed-search
-        matches, and with the classifier's high-confidence events.
-  \item Does what detectors miss explain what the classifiers get wrong? Compare R4's errors with the low-agreement
-        strata and the miss-rate re-look list.
-  \item Which techniques were useful, and which were dead ends:
-        \begin{itemize}
-          \item useful: the choosy drop detectors, detector agreement, seed search, MiniRocket, AAFT nulls;
-          \item dead ends: the whole-signal matrix-profile threshold (0\,\% precision); 1-minute CNNs (chance);
-                the fusion encoding not beating its components; the early
-                binned-difference forecasting attempt (report it with its baseline);
-          \item the Dehshibi detector: faithful to its authors' code but unselective on these recordings;
-          \item \texttt{cwt\_events} against AAFT (B9): it finds no more structure than its input's values give.
-        \end{itemize}
-  \item What ``normalisation is not invariance'' means for any shape vocabulary.
-  \item Set the results against the literature: no fungal study reports precision against blind human judgement, or
-        against a surrogate.
-\end{itemize}
-\end{instructions}
+\subsection{What the results say about fungal signals}
+
+\paragraph{The recordings contain stereotyped, recurring waveforms.} One drop recurs hundreds of times in a 30-day oyster recording, while surrogate copies with the same frequency content almost never contain it (Table~\ref{tab:seeds}). This suggests the existence of waveforms unique to the composition of the fungal signals, which randomised surrogates cannot reproduce, further suggesting the possibility of significant biological events. Among the studies reviewed in Chapter~\ref{ch:intro}, this is the first surrogate-controlled evidence of recurrence in these signals, and future recordings should report recurrence against such a null as standard.
+
+\paragraph{The same shape occurs across species.} The drop chosen in oyster was found and accepted in lion's mane, shiitake and two other oyster strains, at amplitudes a hundredfold apart (Figure~\ref{fig:transferexamples}). The fast change followed by a slow return, described since Slayman et al.\ \cite{slayman}, appears to be a common feature, and differences between recordings are as large as differences between species (B6, B12). In order to further compare species fairly, future work would require several recordings of each.
+
+\paragraph{Events are not cleanly separated from the background.} Small falls occur almost continuously, and what a person picks out is the large, sharp end of a continuum (Chapter~\ref{ch:rq1}, Section~\ref{sec:pool}). This is why agreement between methods, and a stated null, matter more here than for a signal such as the ECG, whose events stand clear of the baseline. More reviewers, and the agreement between them, would define that end more firmly.
+
+\paragraph{Timing is irregular, with slowly drifting activity.} No constant period like the 34-minute oscillation of Slayman et al.\ appeared. From one event to the next the timing is close to random, while whole recordings grow busier and quieter over days (B1, B5), though one channel carried two interleaved, near-periodic spike series for more than two days (Section~\ref{sec:mjuch14train}). Logging temperature and humidity alongside the potentials would show whether the drift belongs to the culture or to the room.
+
+\paragraph{No sign of propagation between electrodes.} At these electrode spacings and sampling rates, nothing was seen travelling from one electrode to the next (B4). What separate packs share happens at one instant, which points to the setup or the room. Electrode maps with known spacings, and higher sampling rates, are needed to test propagation directly.
+
+\paragraph{No preferred time scale.} Structure appears at every window length from 30\,s to minutes (B10), and the apparent preferred durations of the wavelet method come from its null (B9). This bears on the multi-scale spiking described by Adamatzky et al.\ \cite{adamatzky2023}: claims of characteristic durations should be tested against a null that keeps the signal's values. An AAFT copy holds exactly the same amplitudes as the recording, with the same distribution of large and small fluctuations and nearly the same frequency content, but in a scrambled order. If a method finds the same durations in that copy, those durations come from the sizes and frequencies of the fluctuations, not from events with a characteristic length.
+
+\subsection{What worked, and what did not}
+
+Several techniques proved their worth: the choosy drop detectors, agreement between detector families as a review priority, seed search, MiniRocket, and AAFT copies as the null for measures that read the signal's values. Others were dead ends on these recordings. The whole-signal matrix-profile threshold found nothing that was accepted in the blind samples, the 1-minute CNNs marked almost every minute and served only as negative controls, the fused image encoding did not beat its components, and the early attempt to forecast the next value was dominated by noise. The Dehshibi detector, ported faithfully from its authors' code, was unselective here, and the wavelet-ridge detector found no more structure than its input's values give. One lesson recurs: resampling a shape to a fixed length removes its duration and amplitude but not its resolution, so a normalised shape still carries a trace of how it was recorded (Section~\ref{sec:dropmotifs}). None of the fungal studies of Chapter~\ref{ch:intro} reports detector precision against blind human judgement or against a surrogate, and here doing so changed several conclusions.
 
 \section{Critical review against the plan}
 \label{sec:review}
 
 \begin{table}[htbp]
-\caption{Where each research question of the thesis plan (August 2026) is answered in this thesis.}
+\caption[{Where each research question of the thesis plan is answered.}]{Where each research question of the thesis plan (August 2026) is answered in this thesis.}
 \label{tab:rqmap}
 \small
 \begin{tabularx}{\textwidth}{p{4.2cm} p{2.2cm} X}
@@ -76,26 +46,21 @@ Points to link across the chapters:
 \midrule
 RQ1 Cluster-derived vs manual labels & RQ3, Ch.~\ref{ch:rq3} & Answered as a baseline (forest on manual labels vs cluster labels, with shuffle null and blind labels), and extended to MiniRocket trained on judged events.\\
 \addlinespace
-RQ2 Seeded search precision vs surrogate & RQ2, Ch.~\ref{ch:rq2} & Answered; blind re-test in queue 35.\\
+RQ2 Seeded search precision vs surrogate & RQ2, Ch.~\ref{ch:rq2} & Answered; blind re-test in the blind seed panel.\\
 \addlinespace
-RQ3 Identity under scale normalisation & Ch.~\ref{ch:rq2} (pilot), Ch.~\ref{ch:events} & Partial: banked scale searches are a pilot; the drop-motif study shows normalisation does not remove resolution or species.\\
+RQ3 Identity under scale normalisation & Ch.~\ref{ch:rq2} (pilot), Ch.~\ref{ch:events} & Partial: scale searches only piloted (Future work); the drop-motif study shows normalisation does not remove resolution or species.\\
 \addlinespace
 RQ4 Bands + symbols vs raw signal & RQ1, Ch.~\ref{ch:rq1} & Generalised into the comparison of 45 detector settings, evaluated against human judgement and surrogates.\\
 \addlinespace
 RQ5 Human vs machine divergence & RQ1, Ch.~\ref{ch:rq1} & Rejection and miss rates per detector answered; the morphology arm was not answerable (verdicts carry no shape tags).\\
 \addlinespace
-RQ6 Recurrence across channels & Ch.~\ref{ch:roundb} (pilot) & Asked again as B4 and run on the real database (28 Oct): no propagation beyond chance on M2\_aug, but a shared driver across electrode packs; MJu26a, SH and SO wait for the 2\,Hz sweep.\\
+RQ6 Recurrence across channels & Ch.~\ref{ch:roundb} (pilot) & Asked again as B4 and run on the real database (28 Oct): no propagation beyond chance on M2\_aug, but a shared driver across electrode packs; MJu26a at 2\,Hz, SH and SO co-occur above chance but at zero lag, the electrodes falling together at one instant.\\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-\begin{instructions}
-Moved here from Chapter~\ref{ch:intro} on 5 Nov: the plan's six questions and where each is answered. Refer to it in the
-review paragraphs. The diagram version was dropped.
-\end{instructions}
-
 \begin{table}[htbp]
-\caption{The thesis plan (August 2026) against what was done.}
+\caption[{The thesis plan (August 2026) against what was done.}]{The thesis plan (August 2026) against what was done.}
 \label{tab:planreview}
 \footnotesize
 \begin{tabularx}{\textwidth}{p{3.8cm} p{3.6cm} X}
@@ -122,7 +87,7 @@ Cluster labels as the route to training data & Human verdicts in blind queues & 
 \end{table}
 
 \begin{table}[htbp]
-\caption{The plan's schedule against what happened.}
+\caption[{The plan's schedule against what happened.}]{The plan's schedule against what happened.}
 \label{tab:schedulereview}
 \footnotesize
 \begin{tabularx}{\textwidth}{p{2.6cm} p{4.4cm} X}
@@ -139,59 +104,21 @@ November & Draft, revision, submission & Draft 5 Nov; submitted by 9 Nov\\
 \end{tabularx}
 \end{table}
 
-\begin{instructions}
-Write the review in your own voice, two or three paragraphs. Be honest about the main trade: much of the year went into
-the instrument. Say what that bought: comparable runs, blind queues, nulls and recipes, which made the later results
-quick to obtain (the sweep and R4 took days, not weeks). Say what it cost: several plan questions are pilots. Name what
-you would do differently: freeze the tool earlier, keep the held-out lock on, and record CNN training provenance.
-\end{instructions}
+Table~\ref{tab:rqmap} maps the plan's six research questions to where they are answered, Table~\ref{tab:planreview} compares the plan with what was done, and Table~\ref{tab:schedulereview} compares its schedule with what happened. The main trade of the year was time spent on the instrument. The plan expected a working tool by the end of August and a season of analysis after it. Instead, the first, Panel-based version did not scale and was rebuilt in React, and the tool was still being built until 21 October. That bought comparable runs, blind review queues, a null beside every result, and recipes that can be re-run, and it made the later results quick to obtain: the detector sweep and the classifier took days rather than weeks. It cost the breadth of the plan, since three of its six questions are answered in full and the scale and cross-channel questions only as pilots.
+
+Three decisions changed the project's direction. When the deadline moved on 23 September, the plan became to build first and answer the questions afterwards, which made the remaining weeks of building worthwhile but left less time for the questions. The six planned questions were narrowed to three, because comparing detectors at scale subsumed the questions on bands and symbols and on human and machine divergence, while the scale and cross-channel questions needed judging there was no time to do. And the excitable-system models of Chapter~\ref{ch:roundb} were parked when they fitted surrogate noise as well as they fitted the data, which kept the effort on results that could be tested.
+
+In hindsight, three things would be done differently: freeze the tool earlier, so that more of the year goes to the questions; keep the held-out recording's lock on throughout, rather than switching it off for the demonstrations; and record each CNN's training data and labels from the start, which would have shown sooner that the reference CNNs' weakness lay in their labels.
 
 \section{Limitations}
 
-\begin{instructions}
-\begin{itemize}
-  \item A single labeller (intra-rater $\kappa$ 0.84); no second rater.
-  \item One lab and four species, with oyster dominant; cross-species comparison rests on few recordings per species.
-  \item Detector-proposed candidates only: there is no free-scan recall.
-  \item One-draw surrogates in the sweep (20 draws on M2\_aug only).
-  \item The Ward groupings are fragile.
-  \item The M4 exposure.
-  \item Shape normalisation does not remove resolution.
-  \item No environment logs were available, so activity was not compared with temperature or humidity.
-\end{itemize}
-\end{instructions}
+All human judgements come from one reviewer, whose repeated verdicts agree 94\,\% of the time; a second, independent reviewer is the most important addition. The recordings come from one laboratory and three species, with oyster dominant, so species comparisons rest on few recordings each. The detector and seed nulls are phase-randomised, which scrambles a sudden fall easily; re-running the seed nulls against AAFT copies, the harder test of Chapter~\ref{ch:roundb}, should come first. Candidates come only from detectors, so there is no estimate of the events every detector missed, and the sweep has one surrogate per run (twenty only on M2\_aug). The groupings into shape families are sensitive to small changes, and shape normalisation does not remove the trace of resolution. The held-out recording was exposed to detector output before its exam (Section~\ref{sec:holdout}). No environment logs were available, so activity could not be compared with temperature or humidity. The later review queues were drawn to fill gaps rather than at random, so the catalogue describes what was looked for, and not all of its event boundaries have been checked. Finally, the timing census rests on one detector's events, and 20 of its 56 channels have fewer than ten; a second detector's census would test it.
 
 \section{Future work}
 \label{sec:futurework}
 
-\begin{instructions}
-Carried from the plan and updated:
-\begin{itemize}
-  \item \textbf{Forecasting}, with a baseline. The binned next-point attempt was highly susceptible to noise; report
-        most-frequent-bin accuracy as its baseline. Forecasting is the precondition for interpretation.
-  \item \textbf{Interpretation}, in that order: only a structure that predicts what follows is worth decoding.
-  \item \textbf{Cross-species validation}: a second unseen-recording exam on another lab's recording was prepared
-        (frozen manifest, blind sample drawn) but not judged; and seeds across recordings.
-  \item \textbf{Multivariate analysis and environment}: an Explore environment view (about 2--2.5 days as costed),
-        covariate series in registration, and event rate against temperature.
-  \item \textbf{A shape-class model}: a classifier over verified named Library classes with an explicit background
-        class, needing 100--200 verified members per class.
-  \item \textbf{Library mechanics}: event extents and merging partial motifs; an average-linkage option; persisted
-        similarity edges.
-  \item \textbf{Statistics}: 20-draw nulls beyond M2\_aug, whose 16 channels are the only ones that have them
-        (Chapter~\ref{ch:rq1}); B1's interval read on every recording, with Benjamini--Hochberg across channels.
-  \item \textbf{Round B's open questions}, unless they return before submission: B7 (multiscale entropy), B8 (motif
-        prevalence) and B11 (the newer datasets).
-  \item \textbf{Method extensions}: the Morse-wavelet component of the Dehshibi detector as a reusable feature;
-        interval temporal logic for sequences of windows; diffusion models for synthetic training data.
-\end{itemize}
-\end{instructions}
+Forecasting comes first. A model that predicts what a culture does next, against a simple baseline such as the most frequent next value, is the precondition for interpretation, because only a structure that predicts what follows is worth decoding. Cross-species validation is half prepared: a second unseen-recording exam, on another laboratory's recording of \emph{Schizophyllum commune}, has a frozen manifest and a drawn blind sample waiting to be judged. Recording the environment alongside the potentials, with covariate series registered with each recording, would test whether activity follows temperature. A classifier over named shape families, with an explicit background class, needs 100--200 verified members per class. Searching across durations was piloted on a 102\,s trough seed at 0.8, 1 and 1.25 times its length. Stretching brought two candidates much closer to the seed, but at the pilot's loose threshold the copies returned more matches than the recording, so each duration needs its own null, and whether a person judges a stretched match to be the same kind of event is untested. The Library needs event extents and a way to merge partial motifs, and the statistics need 20-draw nulls beyond M2\_aug and the interval census on every recording. Two round-B questions, multiscale entropy (B7) and motif prevalence (B8), remain open. Further methods worth adding are the Morse-wavelet component of the Dehshibi detector as a reusable feature, interval temporal logic for sequences of windows, and diffusion models for synthetic training data.
 
 \section{Conclusions}
 
-\begin{instructions}
-Write last. Half a page. Answer the broad question in one sentence: recurring structure can be detected and
-characterised, with stated precision against human judgement and a stated null. Then name the three things a reader
-should take away, and the one thing the field should do next: report detector precision against blind judgement and
-surrogates as standard.
-\end{instructions}
+Recurring structure in fungal bio-electric recordings can be detected automatically and characterised, with a stated precision against blind human judgement and a stated null. Three results stand out. Agreement between independent detectors predicts what a person accepts, on every recording, including one held out until the end. A single drop shape chosen in one oyster recording recurs in lion's mane, shiitake and two other oyster strains and is accepted there almost without exception, so the recordings share a repeatable unit from which a vocabulary could be built. And a classifier trained only on judgements gathered with the tool ranks the events of an unseen recording almost as a person would. What these events mean for the fungus is not yet known: their timing is close to random from one event to the next, their rate drifts over days, and nothing travels between electrodes at these spacings. The field's next step is methodological. Detector results should be reported with their precision against blind judgement and against a surrogate as standard, because without both, a detector's output cannot be told apart from the spectrum of the signal it reads.

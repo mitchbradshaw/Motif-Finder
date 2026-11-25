@@ -3,7 +3,7 @@
   "specHash": "b9b90fd23d93",
   "tasks": 16,
   "label": "drop_detection_v1__slope_sigma_12",
-  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/drop_detection_v1__slope_sigma_12_16ch_0-4578553_b9b90f.chain.json",
+  "spec": null,
   "channels": [
     "CH1",
     "CH2",

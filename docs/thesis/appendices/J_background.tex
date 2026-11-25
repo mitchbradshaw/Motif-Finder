@@ -1,0 +1,121 @@
+\chapter{Background theory and classifier comparisons in detail}
+\label{app:background}
+
+This appendix holds the detailed theory and comparisons that the body summarises: the methods background of Chapter~2, and two comparisons from Chapter~\ref{ch:rq3}.
+
+\section{Frequency, wavelet and entropy analysis}
+\label{sec:frequency}
+
+Fourier and wavelet transforms reveal which frequencies a signal contains, when, and at what strength. A Fourier transform represents a signal as a weighted sum of sinusoids,
+\begin{equation}
+X(j\omega) = \int_{-\infty}^{\infty} x(t) e^{-j\omega t}\,dt
+\end{equation}
+
+For sampled data the discrete transform is computed by the Fast Fourier Transform (FFT) in $O(n \log n)$ rather than $O(n^2)$ time. The FFT assumes a stationary signal, so non-stationary biological signals are analysed with the Short-Time Fourier Transform (STFT), which applies it within an overlapping sliding window,
+\begin{equation}
+X(t,\omega) = \int x(\tau) w(\tau - t) e^{-i\omega\tau}\,d\tau
+\end{equation}
+
+The STFT tracks frequency content over time, usually as a spectrogram, but trades frequency resolution against time resolution, so events across multiple scales remain hard to resolve. A wavelet transform instead decomposes the signal with localised functions called wavelets. The Continuous Wavelet Transform (CWT) is
+\begin{equation}
+W(a,b) = \int x(t)\,\psi^{*}\!\left(\frac{t-b}{a}\right)dt
+\end{equation}
+where $a$ is the scale parameter, $b$ is the translation parameter, and $\psi$ is the mother wavelet.
+
+Wavelets suit signals with spikes and bursts, because high frequencies are analysed with fine temporal resolution and low frequencies over longer durations. Wavelet analysis is the basis of the band decomposition and wavelet detectors in the sweep (Chapter~\ref{ch:rq1}), and of the Dehshibi detector \cite{dehshibi}.
+
+\paragraph{Entropy and complexity.}
+\label{sec:entropy}
+Entropy measures quantify how random or patterned a signal's values are over time. Shannon entropy is the average uncertainty of the values; permutation, SVD and spectral entropy apply the idea to the order of values, the singular values and the spectrum; and sample and approximate entropy ask whether similar patterns stay similar. The first four are the entropy features of the early window matrix and the random forests (Chapter~\ref{ch:early}).
+
+\section{Image encodings and convolutional networks}
+\label{sec:litnn}
+\label{sec:encodings}
+
+Neural networks are a popular choice for time-series classification \cite{bagnall}. Recurrent architectures such as LSTMs were favoured first, but Convolutional Neural Networks (CNNs) have become competitive, and often superior, when the series is first encoded as an image, so that well-developed image classifiers apply directly. Common encodings are recurrence plots, Gramian Angular Fields, Markov Transition Fields and CWT or STFT spectrograms, each capturing a different structural property of the signal.
+
+In EEG analysis, neural-network classifiers have been published since at least 2016; a survey by Mohammed \cite{mohammed} reports accuracies above 90\,\% and hybrid models reaching 99\,\%. Murungi et al.\ \cite{murungi} attribute the field's progress largely to abundant, high-quality public datasets, which mycelium signal analysis lacks, and found CNNs, often trained on spectrograms, the most popular architecture, followed by recurrent networks.
+
+Mariani, Appiah and Tweneboah \cite{mariani} train a CNN on a fusion image, combining a Gramian Angular Difference Field, Gramian Angular Summation Field and Recurrence plot into one three-channel RGB input, tuned by Bayesian optimisation. On seven univariate datasets the fusion method significantly outperformed Dynamic Time Warping and Shapelet Transforms; the datasets are non-stationary, such as facial outlines and word height profiles, but none resembles a bio-electric signal.
+
+A neural network approximates a function $f(X)$ mapping an input vector $X$ to an output $Y$, through layers of neurons whose weights set each input's influence and whose biases shift the decision threshold \cite{ibmnn}. A Gramian Angular Field converts a series $T$ into a Gramian matrix \cite{rgbgaf,devitry}. The series is normalised to $[-1,1]$ and converted to polar form, with $\theta_i = \arccos(x_i)$ and $r_i = t_i/t_n$. The Gramian Angular Summation Field (GASF) sets each entry of the $n\times n$ matrix to $\cos(\theta_i + \theta_j)$, and the Gramian Angular Difference Field (GADF) to $\sin(\theta_i - \theta_j)$. The recurrence matrix sets entry $(i,j)$ to 1 if $|x_i - x_j| \leq \epsilon$ for some $\epsilon$, and to 0 otherwise \cite{recurrence}.
+
+Each of these encodings produces a square image from a window of signal, which can then be presented to a CNN as a single-channel input, or stacked as the three channels of an RGB image in the fusion approach of Mariani et al.\ \cite{mariani} (Figure~\ref{fig:encodings}, Appendix~\ref{app:supp}). The models in this thesis resize each image to $224\times224$ and classify it with an ImageNet-pretrained EfficientNet-B0 \cite{tan2019efficientnet}.
+
+Supervised classifiers face a bootstrap problem in this domain, since no standardised labelled data exist for mycelium signals. Initial labels must come by hand, from clusters found by unsupervised methods such as those in Section~\ref{sec:litmp}, or from human review of what those methods propose. This thesis tried all three, and Chapter~\ref{ch:rq3} compares the classifiers each one produced.
+
+\section{Classification without hand-crafted features}
+\label{sec:litclassifiers}
+\label{sec:minirocket}
+
+The classifiers compared in this thesis span hand-designed, random and learned features, so a comparison between them asks what kind of structure the labels carry. The hand-designed route is catch22, a canonical set of 22 time-series features selected for performance and low redundancy \cite{lubba2019catch22}, classified by a random forest, an ensemble of decision trees fitted on resampled training data whose votes are combined \cite{breiman2001rf}. The random route is ROCKET \cite{dempster2020rocket} and its successor MiniRocket \cite{dempster2021minirocket}, which transform a series with thousands of fixed convolution kernels and train only a linear classifier on top, close to the state of the art on the UCR benchmarks at a fraction of the cost. MiniRocket uses 84 kernels of length 9, with weights from $\{-1, 2\}$, each applied at a range of dilations, so one kernel can respond to nine consecutive samples or to a pattern spread over a minute or more. Each kernel and dilation, with biases taken from quantiles of the data, contributes one feature, the proportion of positive values (PPV) of its output. None of these features is learned. The R4 model of Chapter~\ref{ch:rq3} has 4,992 of them, with a class-balanced ridge classifier on top and Platt scaling to turn its score into a probability \cite{platt1999}. The learned route is the EfficientNet-B0 of Section~\ref{sec:encodings}, a CNN scaled jointly in depth, width and resolution \cite{tan2019efficientnet}, trained on the image encodings.
+
+\section{Distance, normalisation and scale invariance}
+\label{sec:distance}
+
+Every method in this thesis that groups, matches or retrieves a subsequence does so by way of a distance function, and the choice of that function determines what the method is capable of considering ``the same shape''. This section states the distances used and what each is invariant to.
+
+For two subsequences $Q = q_1,\ldots,q_m$ and $C = c_1,\ldots,c_m$ of equal length $m$, the Euclidean distance is
+\begin{equation}
+d(Q,C) = \sqrt{\sum_{i=1}^{m}(q_i - c_i)^2}.
+\end{equation}
+It is sensitive to offset and amplitude, so an identical shape at a different baseline appears distant, and the slow baseline wander of mycelium recordings makes raw Euclidean distance unsuitable for shape comparison. The standard remedy is to z-normalise each subsequence. Writing $\hat{q}_i = (q_i - \mu_Q)/\sigma_Q$ for the mean $\mu_Q$ and standard deviation $\sigma_Q$ of $Q$, the z-normalised Euclidean distance is
+\begin{equation}
+d_z(Q,C) = \sqrt{\sum_{i=1}^{m}(\hat{q}_i - \hat{c}_i)^2},
+\label{eq:znorm}
+\end{equation}
+which is invariant to offset and amplitude scaling and is the distance the matrix profile is defined over \cite{yeh}. It is the default throughout this thesis.
+
+Equation \eqref{eq:znorm} is \emph{not} invariant to duration. Both subsequences must have length $m$, so a shape lasting four minutes in one place and twelve in another is not recovered by a query at either length. This matters here because multiple time scales are documented in these signals \cite{adamatzky2023}, \cite{dehshibi}, and the same morphology has been seen by eye at durations an order of magnitude apart. Three families of approach address this. \textbf{Elastic distances}, such as Dynamic Time Warping, align the two time axes non-linearly and tolerate local stretching, at greater cost and with alignments that are not always physically meaningful. \textbf{Resampling} the query to a range of lengths and keeping the best match is the simplest and fits the matrix-profile machinery, at a cost linear in the number of scales. \textbf{Symbolic encodings} such as SAX \cite{lin2007sax} reduce a window to a short string by piecewise aggregate approximation and quantisation of the z-normalised amplitude; the number of segments rather than samples is fixed, so the string is length-agnostic, and a directional variant (dSAX), which encodes the sign of change per segment, lets a pattern such as \texttt{U+ S? D+} find sharkfin-shaped events at any duration.
+
+The architectural position taken in this thesis is that \emph{scale is a property of a motif, not of the analysis that discovered it}: every span carries its native duration, and every encoding declares whether or not it is scale-normalised. Whether a motif recurs at other scales is then a query that can be asked of the library, rather than an assumption baked into how the library was built. In practice, seeded search uses $d_z$ at the seed's own length, the Library offers four distances including MPdist \cite{gharghabi2018mpdist} and a resampled one, and the drop-motif study resamples each event to a 200-point frame (Section~\ref{sec:dropmotifs}); a search across durations is future work (Section~\ref{sec:futurework}). Resampling removes absolute duration and amplitude but not measurement resolution, since the normalised drop still predicts how many samples it was built from (balanced accuracy 0.753 against a chance of 0.25), so normalisation is not the same as invariance.
+
+\section{Evaluation statistics}
+\label{sec:stats}
+
+\begin{itemize}
+  \item \textbf{Precision}, $\mathrm{TP}/(\mathrm{TP}+\mathrm{FP})$, is the share of a detector's candidates judged real, with a Wilson interval.
+  \item \textbf{Stratified estimates} give the share real across all candidates from a stratified sample, each answer weighted by its stratum's size, with a bootstrap interval \cite{efron1979bootstrap} of 1,000--2,000 resamples.
+  \item \textbf{AUC} is the probability that an accepted example outscores a rejected one, independent of any cut; at 0.97 it does so 97 times in 100, and 0.5 is chance.
+  \item \textbf{Balanced accuracy} is the mean of sensitivity and specificity. Plain accuracy is not reported alone, because always answering ``not interesting'' scores about 0.8 on the 10-minute labels.
+  \item \textbf{Macro F1} averages, over the two classes, the harmonic mean of precision and recall.
+  \item \textbf{Cohen's $\kappa$}, $(p_o-p_e)/(1-p_e)$, compares observed agreement $p_o$ with chance agreement $p_e$; 0 is chance and 1 perfect.
+  \item \textbf{Permutation nulls} shuffle the labels, within recording and example type, and repeat the whole fit, giving the scores a model reaches by chance.
+  \item \textbf{Leave-one-recording-out} validation trains on all but one recording group and tests on the one held out.
+  \item \textbf{Cramér's V} \cite{cramer1946} measures the association between two categorical labels, such as shape family and species, from 0 (none) to 1 (complete).
+  \item \textbf{The cophenetic correlation} \cite{sokal1962cophenetic} measures how faithfully a Ward tree \cite{ward1963} keeps the distances it summarises.
+\end{itemize}
+
+\section{Classifier comparisons in full}
+\label{app:ch8detail}
+
+\subsection{Cluster labels against manual labels}
+
+Two random forest models were initially trained on the same signal features, with the difference being how the training windows were labelled. The first classifier used the manual interesting and not-interesting labels. It scored an unseen-channel macro F1 of 0.793, compared with 0.635 for the classifier trained on the four clusters mapped to the same two categories (Table~\ref{tab:forests}). The manual model also scored more highly on a later time block.
+
+However, the cluster-derived training labels already disagreed substantially with the human reference. Of the 1,271 training windows manually marked interesting, 979 (77\,\%) belonged to clusters mapped to not interesting. The classifier was therefore being taught to reject most of these human-accepted windows before its performance was evaluated. Its lower score reflects this disagreement in the training targets as well as the subsequent classification. It does not establish that clustering is generally unable to organise useful waveform groups.
+
+A later model used seven waveform-shape clusters mapped to interesting or not interesting. Against the blind window labels, it achieved an unseen-channel macro F1 of 0.450 [0.404--0.495], compared with a permutation-null mean of 0.368 ($p=0.001$). Its balanced accuracy was 0.625 [0.586--0.664], with precision 0.256, recall 0.908 and Cohen's $\kappa$ of 0.13. On the later block, macro F1 was 0.482 [0.426--0.536], compared with a null mean of 0.382 ($p=0.001$), with balanced accuracy 0.641 and $\kappa$ of 0.16. The predictions therefore contained information about the human labels, but the high recall came with many rejected windows being flagged.
+
+To compare the practical behaviour of the models, the original manual forest and revised cluster forest were scored on the same 429 blind ten-minute windows (Table~\ref{tab:forestblind}). The manual model was selective: 89\,\% of its positive predictions were accepted, but it found only 41\,\% of the interesting windows. The cluster model recovered 93\,\% of the interesting windows, but only 24\,\% of its positive predictions were accepted. It would therefore present more useful windows for review, alongside a much larger number of rejected ones.
+
+Removing windows that overlapped an earlier label reduced the manual model's macro F1 to 0.702, against 0.439 for the cluster model. The 95\,\% interval for the paired difference in macro F1 was 0.164--0.357. Balanced accuracy was much closer, at 0.659 and 0.642, because the two models failed in different directions. On M2\_concat, the manual model's macro F1 fell further to 0.591 and recall to 0.15. Only 13 of the 129 windows in this subset were interesting, limiting the precision of the transfer comparison.
+
+This later comparison is not fully independent of training. Three of the revised forest's held-out channels (CH13--16) had been seen by the manual forest, which held out CH4\_A2, CH8\_B2, CH12\_C2 and CH16\_D2, and the revision also changed the number of trees and features, so it compares two whole pipelines, not only their labels. Overall, the cluster mapping recovered many interesting windows, but giving a whole shape group a single label did not reproduce the finer distinctions made during human review.
+
+% Sources: RQ1-cluster-vs-manual-labels.md; rq1-v2-blind-2026-10-26.md;
+% data/rq1_v2_blind/run79_armA_vs_run1613_10min.json.
+
+\subsection{CNN against MiniRocket on the same events}
+
+The original reference CNNs were next shown the same 2,456 events used to evaluate R4 (Table~\ref{tab:cnnvsr4}). Their pooled AUC was 0.722--0.790, compared with R4's 0.971. The strongest reference encoding, GADF, was lower by approximately 0.18, with a paired 95\,\% interval of 0.16--0.20 for R4 minus GADF. However, these CNNs had learned from earlier fixed-window labels, while R4 had learned from reviewed candidate spans with context. This comparison therefore combined a change in model architecture with a change in the examples used to teach it.
+
+A matched-data comparison was therefore performed, training EfficientNet-B0 on R4's examples using the same recording folds. GASF, GADF and fusion encodings were each trained for 12 epochs, using a batch size of 64, learning rate of 0.001 and one fixed random seed. No augmentation or hyperparameter search was performed. The 18 tasks covered three encodings and six folds.
+
+With the training examples and folds aligned, pooled CNN AUC increased to 0.970--0.973, compared with 0.971 for R4 (Table~\ref{tab:faircnn}). Every paired interval included zero, both pooled and by recording. Balanced accuracy was 0.915--0.916, compared with R4's 0.919. These results did not establish an advantage for either architecture on this comparison. The initial gap could not be attributed to CNN architecture alone, since training on examples appropriate to the candidate-review task brought the CNNs to a similar level.
+
+The shared recording folds also shared the MJu26a overlap described above, and one random seed without tuning cannot show that these are the best results available from either model family. The retrained CNNs were not added to the M4 examination, so their comparable performance is shown on the shared recording folds only.
+
+% Sources: reference_comparison.json; rq1b-fair-cnn-2026-10-29.md and .json;
+% Appendix G, Round 5 (retrained CNNs excluded from the original frozen M4 exam).
+

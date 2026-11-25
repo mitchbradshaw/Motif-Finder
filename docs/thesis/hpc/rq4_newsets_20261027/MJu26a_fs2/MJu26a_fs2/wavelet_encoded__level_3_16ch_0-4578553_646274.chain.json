@@ -1,0 +1,1410 @@
+{
+  "version": 1,
+  "kind": "detection_chain",
+  "label": "wavelet_encoded__level_3",
+  "runKey": null,
+  "sessionId": null,
+  "template": "wavelet_encoded__level_3",
+  "band": null,
+  "steps": [
+    {
+      "stage": "preprocessing",
+      "algorithm": "wavelet_bands",
+      "params": {
+        "level": 3,
+        "levels": 0,
+        "wavelet": "db4"
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "stage_encoding",
+      "params": {
+        "merge_gap_segments": 0,
+        "noise_estimator": "second_difference",
+        "same_fraction": 0.6,
+        "segment_seconds": 60,
+        "slope_sigma": 8,
+        "threshold_mode": "quantile",
+        "trend_estimator": "ols_slope"
+      },
+      "side_inputs": {}
+    },
+    {
+      "stage": "detection",
+      "algorithm": "drop_detection",
+      "params": {
+        "bracket_on_fall_runs": true,
+        "bracket_on_up_runs": true,
+        "bracket_rise_on_separation": false,
+        "lookahead_mult": 3,
+        "min_depth_frac": 0.1,
+        "min_fall_dominance": 0.5,
+        "min_rise_frac": 0.5,
+        "min_separation_s": 0,
+        "morphology": "auto",
+        "noise_estimator": "second_difference",
+        "slope_sigma": 8,
+        "tighten_windows": true,
+        "trough_knee_frac": 0.05,
+        "walk_onset_back": true,
+        "window_cap_mult": 6,
+        "window_pad_frac": 0.25
+      },
+      "side_inputs": {}
+    }
+  ],
+  "span": [
+    0,
+    4578553
+  ],
+  "sourceFile": "MJu26a_fs2.mat",
+  "null": {
+    "paired": true,
+    "params": {
+      "method": "phase_randomize",
+      "seed": 0
+    },
+    "draws": 1
+  },
+  "profile": {
+    "gpu": false,
+    "partition": "cpu",
+    "cpus": 8,
+    "condaEnv": "aeon-env",
+    "wallMinutes": 20,
+    "wallVerified": false
+  },
+  "tasks": 16,
+  "targets": [
+    {
+      "index": 0,
+      "recordingId": 692,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 0,
+      "channelName": "CH1",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH0.npy",
+      "npySha1": "2240984af748095af6252df4e87899b58128c3c5",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 692,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "2dde0a7d",
+      "prefixHashes": [
+        "263a85ec65a99093448282ba31eb1cc39b29bf25e5c7f4478a6f13ffde94df82",
+        "54b72d0c5bed2787fc0a20c2d9c70c11bd57cd7da8df7cd9a3778b4b2604abb4",
+        "2dde0a7dd8aa545cadd66c7ca2f5b9a1792b93767287159ad1b1ce3928db34f5"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 1,
+      "recordingId": 693,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 1,
+      "channelName": "CH2",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH1.npy",
+      "npySha1": "93816fcd142eb534d9bb6f3cca429c941bf97329",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 693,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "ac423122",
+      "prefixHashes": [
+        "72e465a4ab37fce2759fcb44b16a46d56e78996a84c469f153e1be0573d9a6cd",
+        "a871536794a023db7438c3402d2c6f78cfb7010a19d28ef92a287b8dd2d73da3",
+        "ac4231225913639801851b6ddaacb04516001754ce3b68073cfd806a136cadcc"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 2,
+      "recordingId": 694,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 2,
+      "channelName": "CH3",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH2.npy",
+      "npySha1": "c5a5f348f1f9fe69313ca39f92d74d687ab3a4bf",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 694,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "9552a23b",
+      "prefixHashes": [
+        "6c4fcd66d2012f36bc29a9f7a0ec7da7982a0fca7b1bd57d602efc50f192615f",
+        "22b0b856ceef993d9915075d43878494cae90194026e0072b6e79163c11a3f7a",
+        "9552a23bb5bec4f14a69e7687d70afffc5cc7549170006661336d5dc2d2195b0"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 3,
+      "recordingId": 695,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 3,
+      "channelName": "CH4",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH3.npy",
+      "npySha1": "39d1cfaa661f685c70d404873d583b5573cfa8ba",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 695,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "8b6f052c",
+      "prefixHashes": [
+        "a731cefd60a4beb39b0d82d098f486667a7e67d7a4ef9069d3a4d246c6c4d619",
+        "4ef5a398ae75409e77d70829012ba2993414013cc7bbd3334011a103f267c669",
+        "8b6f052c1cdac926a3dc85446eef7dedd3878beeabf97ff149c00225730e5749"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 4,
+      "recordingId": 696,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 4,
+      "channelName": "CH5",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH4.npy",
+      "npySha1": "d5b50ee675fbee24e82bbe4bd3f0853729a1ffca",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 696,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "ac3978b9",
+      "prefixHashes": [
+        "2128f894a0749d973d684b0b833b564a2256df14ab87bc3534096f64eed5624d",
+        "ffdc386667b58d21c0c90b16e16702893e0626d234c67dc9e893bf9554185f81",
+        "ac3978b97852f28ec0a721938775fe537c3a224d2b5f520b54f95da66fe0dee0"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 5,
+      "recordingId": 697,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 5,
+      "channelName": "CH6",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH5.npy",
+      "npySha1": "72590b7b572ef6030df2acada2f5983f13d9f3f5",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 697,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "bfd7e99b",
+      "prefixHashes": [
+        "e4904edb06d7d814e79a77f2dbf2488abccef2d3bef0a2a646cb49b82af52a92",
+        "1bc78e295acac811c279ecef98c3da5c9cf0380c4ddfc6b0bc39af6fa9fad789",
+        "bfd7e99bf28923585a50b3d3c2a847bd27f52a31d694a38701e2b64c78789a06"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 6,
+      "recordingId": 698,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 6,
+      "channelName": "CH7",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH6.npy",
+      "npySha1": "68296bf81d06e61e2e06249f4170399520d8e997",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 698,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "47868cf1",
+      "prefixHashes": [
+        "20dfed23f50c122083c53c9658227e9a27258578c195b36313ef13a4a56bece3",
+        "80cdc4e21113ffe9f3b080a0f6ac986073629e34f3a43d0663445395d5394d88",
+        "47868cf1232b4a396de8bb38a096e50473446cb2b2c842c84b8cb3edca6b8e51"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 7,
+      "recordingId": 699,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 7,
+      "channelName": "CH8",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH7.npy",
+      "npySha1": "872c791afb7798f5f37800c55e47029e1e76bc69",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 699,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "5d543985",
+      "prefixHashes": [
+        "92d169c01956a6f2ae2cd170bad5aa5a8497f3625124824c2cda033f5077baba",
+        "eed049f4d05feaf733737734a92cb874d894c32b19154e64d8145f618b41c9b2",
+        "5d5439853c3d436aa91194f3483c235f9641e8a380eb1816c35c3216d9f43111"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 8,
+      "recordingId": 700,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 8,
+      "channelName": "CH9",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH8.npy",
+      "npySha1": "61639e97cd2c56dd1c71a3aa6e66dc2f9a3ff9bf",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 700,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "e3a79eb4",
+      "prefixHashes": [
+        "f061d0e81f29373c98b79d59da0923f9375dbf6256df0daea697b40de1df234b",
+        "3a5bd59beefa81bcab4a2c7c7e1b93ee1f2fa8831bf26b299c06b4215541d018",
+        "e3a79eb4d4ac6b9dca54ebdc9e15912d438257ec6fb5125536833ceea6107e74"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 9,
+      "recordingId": 701,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 9,
+      "channelName": "CH10",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH9.npy",
+      "npySha1": "819b9c4aa69a3ef5c21a4b9f1dbf468548b45893",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 701,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "896fd1ad",
+      "prefixHashes": [
+        "b6f3b76f3e97ff202dba928b93d86a17a6d6b2d1161c32ac7451e7b5640f0385",
+        "f6d6be99fd79fcfb2fda1280662a1e90627f1f36d645041ca14e238398fb50e9",
+        "896fd1ad2ae268da463efe489ac9ce4d2fe70bcab02b6dcac5cff06797eedca7"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 10,
+      "recordingId": 702,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 10,
+      "channelName": "CH11",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH10.npy",
+      "npySha1": "09d72a6db5c7dcc859df7765aa022d4116806d96",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 702,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "1ec04f98",
+      "prefixHashes": [
+        "752d6cba9329678f1620d581736f4b149c4d51293a74d1d9b314a0396a52927e",
+        "c8971fb673a97c868db205547a77effeb8bd45470b2b657025cb85016b8b0bde",
+        "1ec04f98e9f381c7b7cf929ec017c6fd93f9161120a0f40f2d37b0516db4786a"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 11,
+      "recordingId": 703,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 11,
+      "channelName": "CH12",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH11.npy",
+      "npySha1": "034350886653e156d9479c14d10927ab31ec887e",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 703,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "a1d1b9bf",
+      "prefixHashes": [
+        "ee9278842aff81f7436b1597812983952a90ca2cb0d181f321d2a33801e62b5c",
+        "b1b6b422d7656d571f223435b1bf4fad5876f98427e683d9bc0c2b118035e302",
+        "a1d1b9bf482a0166ca89c642bd202d55abe2f563c98c9c9aea3954d92298475a"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 12,
+      "recordingId": 704,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 12,
+      "channelName": "CH13",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH12.npy",
+      "npySha1": "783ce465eaa4b0f5f2d31dbac98ea376cfcf2007",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 704,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "110be1b7",
+      "prefixHashes": [
+        "025d1c2f10a4bffd27cc2ab3b112136487882376357263e173d396ba06db4004",
+        "e7dc14909e0870009599038656789bc9c4bac8478fad3328e372bd537c291727",
+        "110be1b753dac72d6cf6d447a1db8c24e383b1fbfe66d983c4cca54576c6da55"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 13,
+      "recordingId": 705,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 13,
+      "channelName": "CH14",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH13.npy",
+      "npySha1": "dad707ce2415efe4547bef5d85bfa2793f57cb7b",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 705,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "e28ecf68",
+      "prefixHashes": [
+        "471ec5cc919bed7414aa25ae1b63b87905fbdc9be0e5fb39ac6c4563f0a3fd29",
+        "f54526eddbafacc030d76004a6d637259652c5e8ad994dcd8380d1d2202c1542",
+        "e28ecf68d2e3c049a67a2e9f9099d2bca378c76d538f3d65f651b9f4b67b6389"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 14,
+      "recordingId": 706,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 14,
+      "channelName": "CH15",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH14.npy",
+      "npySha1": "9e9d38f25325148903aabdd8410d6928f433fe6c",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 706,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "9501e068",
+      "prefixHashes": [
+        "c95a77b17dfdad9d36a831f3b9878abe11bb9711cd79ae04f9ed2af580b1fb5e",
+        "69441e9f65ffbcd51265113bd6d8f7103be793342dd0b4637fa83d931008374d",
+        "9501e0686d086f54f23e724fa114b2928a4860e2459dc5df562bf420a31b08bf"
+      ],
+      "chunks": []
+    },
+    {
+      "index": 15,
+      "recordingId": 707,
+      "sourceFile": "MJu26a_fs2.mat",
+      "channel": 15,
+      "channelName": "CH16",
+      "fs": 2.0,
+      "nSamples": 4578553,
+      "globalOffset": 0,
+      "units": "V",
+      "unitsNote": "set to V for the RQ4 batch build (scripts/rq4_overnight.py); the real database must say the same before import",
+      "npy": "DATA/derived/channels/MJu26a_fs2/CH15.npy",
+      "npySha1": "0b60b0175674fe628b156bfef46736840dbb0408",
+      "npyBytes": 36628552,
+      "span": [
+        0,
+        4578553
+      ],
+      "recipe": {
+        "recording_id": 707,
+        "span": [
+          0,
+          4578553
+        ],
+        "steps": [
+          {
+            "stage": "preprocessing",
+            "algorithm": "wavelet_bands",
+            "params": {
+              "level": 3,
+              "levels": 0,
+              "wavelet": "db4"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "stage_encoding",
+            "params": {
+              "merge_gap_segments": 0,
+              "noise_estimator": "second_difference",
+              "same_fraction": 0.6,
+              "segment_seconds": 60,
+              "slope_sigma": 8,
+              "threshold_mode": "quantile",
+              "trend_estimator": "ols_slope"
+            },
+            "side_inputs": {}
+          },
+          {
+            "stage": "detection",
+            "algorithm": "drop_detection",
+            "params": {
+              "bracket_on_fall_runs": true,
+              "bracket_on_up_runs": true,
+              "bracket_rise_on_separation": false,
+              "lookahead_mult": 3,
+              "min_depth_frac": 0.1,
+              "min_fall_dominance": 0.5,
+              "min_rise_frac": 0.5,
+              "min_separation_s": 0,
+              "morphology": "auto",
+              "noise_estimator": "second_difference",
+              "slope_sigma": 8,
+              "tighten_windows": true,
+              "trough_knee_frac": 0.05,
+              "walk_onset_back": true,
+              "window_cap_mult": 6,
+              "window_pad_frac": 0.25
+            },
+            "side_inputs": {}
+          }
+        ],
+        "surrogate": true
+      },
+      "configHash": "c1e55ba2",
+      "prefixHashes": [
+        "7c297ed5f2fab35f2cb7b8b55a1f3e715447a9dd264ea1bd3fed80d63c170610",
+        "23e58d825cc200d3e4b5bb25163000c53f785e17c822e4f30630047aeae6c954",
+        "c1e55ba2c87916654e2d1c35393ef493b09c9ccc8c62addb6b1522a8632b6e6c"
+      ],
+      "chunks": []
+    }
+  ]
+}

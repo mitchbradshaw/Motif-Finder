@@ -1,0 +1,182 @@
+{
+  "queue_id": 47,
+  "live_counts": {
+    "total": 850,
+    "judged": 850,
+    "remaining": 0
+  },
+  "presentations": 850,
+  "answered": 850,
+  "carried_only": 0,
+  "span_corrected": {
+    "diversity_candidate": 148,
+    "background_control": 1,
+    "rq2_repeat": 1
+  },
+  "diversity_candidates": {
+    "reviewed": 750,
+    "accepted": 231,
+    "rate": 0.308,
+    "wilson_lo": 0.2760071631708287,
+    "wilson_hi": 0.34194971265029867,
+    "interesting": 227,
+    "seed": 4,
+    "not_interesting": 401,
+    "unsure": 115,
+    "artifact": 3,
+    "decided": 632,
+    "rate_excluding_unsure_artifact": 0.36550632911392406
+  },
+  "background_controls": {
+    "reviewed": 54,
+    "accepted": 5,
+    "rate": 0.09259259259259259,
+    "wilson_lo": 0.040200542070567336,
+    "wilson_hi": 0.1991012753065453,
+    "interesting": 5,
+    "seed": 0,
+    "not_interesting": 48,
+    "unsure": 0,
+    "artifact": 1,
+    "decided": 53,
+    "rate_excluding_unsure_artifact": 0.09433962264150944
+  },
+  "candidates_vs_controls_fisher_p": 0.0005184878561223804,
+  "repeats": {
+    "items": 46,
+    "answered": 46,
+    "same_accept_decision": 44,
+    "accepted_then_not": 1,
+    "not_then_accepted": 1,
+    "identical_word": 42,
+    "kappa_accept": 0.9123809523809524,
+    "by_primary_group": {
+      "control": {
+        "items": 24,
+        "first_accepted": 3,
+        "now_accepted": 3
+      },
+      "transfer_match": {
+        "items": 22,
+        "first_accepted": 22,
+        "now_accepted": 22
+      }
+    },
+    "transitions": [
+      {
+        "primary_group": "control",
+        "first": "interesting",
+        "now": "interesting",
+        "n": 2
+      },
+      {
+        "primary_group": "control",
+        "first": "interesting",
+        "now": "unsure",
+        "n": 1
+      },
+      {
+        "primary_group": "control",
+        "first": "not_interesting",
+        "now": "interesting",
+        "n": 1
+      },
+      {
+        "primary_group": "control",
+        "first": "not_interesting",
+        "now": "not_interesting",
+        "n": 18
+      },
+      {
+        "primary_group": "control",
+        "first": "not_interesting",
+        "now": "unsure",
+        "n": 1
+      },
+      {
+        "primary_group": "control",
+        "first": "unsure",
+        "now": "unsure",
+        "n": 1
+      },
+      {
+        "primary_group": "transfer_match",
+        "first": "interesting",
+        "now": "interesting",
+        "n": 21
+      },
+      {
+        "primary_group": "transfer_match",
+        "first": "seed",
+        "now": "interesting",
+        "n": 1
+      }
+    ],
+    "agreement": 0.9565217391304348,
+    "agreement_wilson": [
+      0.8546747708094659,
+      0.9879948064111691
+    ]
+  },
+  "catalogue": {
+    "generated_at": "2026-11-09T00:30:53.503747+00:00",
+    "cutoff": {
+      "adjudications": 65284,
+      "annotations": 13309,
+      "review_audit": 8148
+    },
+    "read_only": true,
+    "thesis_span_components": 2959,
+    "previous_thesis_span_components": 2718,
+    "previous_cutoff": {
+      "adjudications": 62509,
+      "annotations": 13155,
+      "review_audit": 7246
+    },
+    "per_dataset": {
+      "M2_aug": 1127,
+      "M2_concat": 168,
+      "M4": 126,
+      "LM": 370,
+      "CO": 143,
+      "MJu26a": 849,
+      "SH": 79,
+      "SO": 97
+    },
+    "previous_per_dataset": {
+      "M2_aug": 1123,
+      "M2_concat": 147,
+      "M4": 121,
+      "LM": 356,
+      "CO": 107,
+      "MJu26a": 815,
+      "SH": 27,
+      "SO": 22
+    },
+    "linked_to_queue_47": 261,
+    "by_boundary_status": {
+      "needs_check": 2619,
+      "human_edited": 165,
+      "machine_proposed": 175
+    },
+    "accepted_observations": 6579,
+    "accepted_observations_by_source": {
+      "adjudication": 3172,
+      "imported_10min": 2333,
+      "excel_catalog": 28,
+      "manual_ui": 4,
+      "blind_test_review": 235,
+      "library_review": 461,
+      "review-span-edit": 166,
+      "explore.take_for_review": 3,
+      "researcher_train_region": 2,
+      "researcher_train_acceptance": 175
+    },
+    "wider_project_components": 55
+  },
+  "cutoff": {
+    "adjudications": 65284,
+    "annotations": 13309,
+    "review_audit": 8148
+  }
+}

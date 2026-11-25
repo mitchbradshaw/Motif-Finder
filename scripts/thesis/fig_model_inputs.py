@@ -40,10 +40,11 @@ def main():
     colours = [blue, purple, green]
     titles = ["Image encodings", "Convolution responses", "Statistical summaries"]
     for x, colour, title in zip(centres, colours, titles):
-        fig.add_artist(FancyArrowPatch((0.50, 0.715), (x, 0.685),
+        fig.add_artist(FancyArrowPatch((0.50, 0.715), (x, 0.69),
                        arrowstyle="-|>", mutation_scale=12, lw=1.4,
                        color=colour, transform=fig.transFigure,
-                       connectionstyle="arc3,rad=0.12" if x != 0.5 else "arc3"))
+                       # both side arcs bow upward, so neither crosses its heading
+                       connectionstyle=("arc3,rad=0.12" if x < 0.5 else "arc3,rad=-0.12") if x != 0.5 else "arc3"))
         fig.text(x, 0.665, title, ha="center", fontsize=8.2, color=colour, weight="bold")
     encodings = [compute_GASF(y), compute_GADF(y), compute_recurrence(y), compute_fusion(y)]
     for i, (name, img) in enumerate(zip(["GASF", "GADF", "Recurrence", "Fusion (RGB)"], encodings)):

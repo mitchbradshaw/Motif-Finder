@@ -1,0 +1,56 @@
+{
+  "generated_at": "2026-11-09T00:30:53.503747+00:00",
+  "cutoff": {
+    "adjudications": 65284,
+    "annotations": 13309,
+    "review_audit": 8148
+  },
+  "read_only": true,
+  "thesis_span_components": 2959,
+  "previous_thesis_span_components": 2718,
+  "previous_cutoff": {
+    "adjudications": 62509,
+    "annotations": 13155,
+    "review_audit": 7246
+  },
+  "per_dataset": {
+    "M2_aug": 1127,
+    "M2_concat": 168,
+    "M4": 126,
+    "LM": 370,
+    "CO": 143,
+    "MJu26a": 849,
+    "SH": 79,
+    "SO": 97
+  },
+  "previous_per_dataset": {
+    "M2_aug": 1123,
+    "M2_concat": 147,
+    "M4": 121,
+    "LM": 356,
+    "CO": 107,
+    "MJu26a": 815,
+    "SH": 27,
+    "SO": 22
+  },
+  "linked_to_queue_47": 261,
+  "by_boundary_status": {
+    "needs_check": 2619,
+    "human_edited": 165,
+    "machine_proposed": 175
+  },
+  "accepted_observations": 6579,
+  "accepted_observations_by_source": {
+    "adjudication": 3172,
+    "imported_10min": 2333,
+    "excel_catalog": 28,
+    "manual_ui": 4,
+    "blind_test_review": 235,
+    "library_review": 461,
+    "review-span-edit": 166,
+    "explore.take_for_review": 3,
+    "researcher_train_region": 2,
+    "researcher_train_acceptance": 175
+  },
+  "wider_project_components": 55
+}

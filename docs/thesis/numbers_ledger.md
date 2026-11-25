@@ -1,5 +1,29 @@
 # Thesis numbers ledger (2026-10-26)
 
+## Final returns — 9 November (queue 47 judged; recovery bundle returned as `recovery_20261108_latest`)
+
+Supersedes the "831/1,014", "queue 47 pending", "2,718 spans" and "SH/SO not run" rows below, which keep the earlier
+audit.
+
+| Quantity | Verified value | Source |
+|---|---|---|
+| 2 Hz sweep, complete | 1,014/1,014 tasks complete, 129/129 whole settings (43 per recording); spec, cache, runtime and model hashes verified; nothing pending | `data/recovery_latest_20261109/audit.json` |
+| 2 Hz counts by family (recording/copy) | e.g. OASIS MJu26a 358,284/7,175; wavelet encoded 5,072/117,050; drop v1 1,529/460 (default 463/33, SH 21/0, SO 28/0 unchanged) | `data/ch10_2hz_complete/counts_by_family.csv`; Table 10.2 |
+| B10 CNN scales, 2 Hz | encodings beating their copy (ratio > 1, most channels): 60 min 3/3/4 of 4 (MJu26a/SH/SO), 10 min 2/0/2, 1 min 0/0/0 | `data/ch10_b10/cnn_scales_2hz_20261109.csv` |
+| Queue 47 diversity proposals | 231/750 accepted (30.8 %, Wilson 27.6–34.2); 401 not, 115 unsure, 3 artefact; 148 extents redrawn | `data/queue47_20261109/summary.json`, `acceptance.csv` |
+| Queue 47 background windows | 5/54 (9.3 %, 4.0–19.9); Fisher vs proposals p = 0.0005 | same |
+| Queue 47 repeats (queue 38 items) | 44/46 same accept decision (95.7 %, Wilson 85.5–98.8); κ 0.91; matches 22/22 again, controls one no→yes and one yes→unsure | same |
+| Accepted-span inventory | 2,959 = M2_aug 1,127, M2_concat 168, M4 126, LM 370, CO 143, MJu26a 849, SH 79, SO 97; +237 from queue 47, net +4 M2_aug boundary splits; 165 extents redrawn by hand, none boundary-checked | `data/accepted_catalogue_20261109/summary.json` |
+| B4 on SH and SO | drop v1 recomputed in memory, counts equal the cluster's (SH 21, SO 28); co-occurrences within 50 s: SH 2 vs 0.01, SO 6 vs 0.02 under rotation (p 0.001); all but one at zero lag, SO two three-electrode instants (22.4 h, 215.8 h) | `data/ch10_b4/b4_sh_so_20261109.json` |
+| Transfer matches alone on their electrode | 451/464 on the seven recordings (chance ~2.1 with a match elsewhere); with M2_aug's 366/372, 817/836 | `data/transfer_cooccurrence_20261109.json` |
+| Inventory measures (Ch9) | 2,959 spans: 2,459 single events measured (event-shape block, polarity auto), 455 multi-fall and 45 region-length (>1 h) left out; median depth 7.4 mV (0.4–68), fall 16.5 s (1.3–116), half-recovery 18 s (0.7–490; 39 % not reached), 94 % falls | `data/ch9_inventory_20261109/summary_by_recording.csv` |
+| Inventory families (Ch9) | 2,454 events, Ward on 100-point z-normalised cuts, 12 families; 10 on all eight recordings, 11 on all three species; cophenetic 0.48; jitter ARI 0.71 (1 % and 2 %) | `data/ch9_inventory_20261109/grouping.json` |
+| B6/B12 re-read (inventory) | family × recording 0.42 bits (null 0.02, p 0.001), × species 0.24; timing ε² up to 0.47 by recording, depth 0.04; without MJu26a: 0.13 bits by recording, 0.06 by species, species timing ε² ≤ 0.02 vs recordings 0.04–0.08 | `data/ch9_inventory_20261109/b6_inventory.json`, `b12_inventory.csv` |
+| CH14 train bands (Ch10) | 530 spikes: lower band 334 (8.7 mV, half-recovery 2.3 s, same-band gap 16 min, LV 0.10), upper band 152 from 402 h (13.0 mV, 13 s, 25 min, LV 0.03), 44 shallow (2.0 mV); upper followed by lower 99 % vs 64 % shuffled (p 0.0005); all spikes from 406 h LV 0.77, before 0.37 | `data/ch14_bands_20261109/` |
+| 2 Hz positions (B5, B11) | real 1,001/1,014 and copies 979/1,014 channel runs; missing ones recomputed on the PC from frozen specs, accepted only when both counts equal the cluster's (360 of 370) | `data/ch10_2hz_complete/geometry_coverage.json`, `recompute_check.csv` |
+| B5, completed 2 Hz sweep | co-modulation median MJu26a 0.21, SH 0.26, SO 0.27; shifted 0.00; copies 0.02; 24/24 channels beat shifts; bands real/copy SO 0.41/0.17 (p 0.005), SH 0.07 (p 0.23)/0.25, MJu26a 0.14/0.25 | `data/ch10_2hz_complete/b5_summary.json` |
+| B11, completed 2 Hz sweep | like for like, 7+ families: MJu26a 15.0 % vs 1.6 %, SH 16.0 vs 3.7, SO 9.6 vs 2.9; 5+: 43.6 vs 25.0, 49.8 vs 36.2, 41.2 vs 30.2; all settings 7+ 16.2/15.7/10.0 %, 9+ 5.3/3.5/2.0 % (Ch6 recordings 17–29 % / 5.4–9.9 %). The morning partial read (SH no excess) is superseded | `data/ch10_2hz_complete/b11_summary.json` |
+
 ## Completed-review and recovery update — 8 November evening
 
 Later author-requested follow-up (all proposal counts are distinct from human judgements):

@@ -3,7 +3,7 @@
   "specHash": "b5db9866d8fd",
   "tasks": 16,
   "label": "Wavelet_detection_prototype__epsilon_factor_0p1",
-  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/Wavelet_detection_prototype__epsilon_factor_0p1_16ch_0-4578553_b5db98.chain.json",
+  "spec": null,
   "channels": [
     "CH1",
     "CH2",

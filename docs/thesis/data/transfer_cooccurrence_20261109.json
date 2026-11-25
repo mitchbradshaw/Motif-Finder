@@ -1,0 +1,140 @@
+{
+  "cut": 2.2080859509008204,
+  "window_s": 50.0,
+  "draws": 1000,
+  "recordings": [
+    {
+      "recording": "M2_concat",
+      "channels": 16,
+      "channels_with_matches": 14,
+      "matches": 76,
+      "with_other_channel_within_50s": 4,
+      "chance_mean": 0.391,
+      "chance_p95": 2.0,
+      "p": 0.025974025974025976,
+      "co_occurring_channel_pairs": [
+        [
+          "CH4",
+          "CH5"
+        ],
+        [
+          "CH4",
+          "CH6"
+        ],
+        [
+          "CH4",
+          "CH7"
+        ],
+        [
+          "CH5",
+          "CH6"
+        ],
+        [
+          "CH5",
+          "CH7"
+        ],
+        [
+          "CH6",
+          "CH7"
+        ]
+      ]
+    },
+    {
+      "recording": "M4",
+      "channels": 16,
+      "channels_with_matches": 9,
+      "matches": 66,
+      "with_other_channel_within_50s": 0,
+      "chance_mean": 0.154,
+      "chance_p95": 2.0,
+      "p": 1.0,
+      "co_occurring_channel_pairs": []
+    },
+    {
+      "recording": "LM",
+      "channels": 4,
+      "channels_with_matches": 4,
+      "matches": 195,
+      "with_other_channel_within_50s": 4,
+      "chance_mean": 1.317,
+      "chance_p95": 4.0,
+      "p": 0.12687312687312688,
+      "co_occurring_channel_pairs": [
+        [
+          "CH0",
+          "CH1"
+        ],
+        [
+          "CH1",
+          "CH3"
+        ]
+      ]
+    },
+    {
+      "recording": "CO",
+      "channels": 4,
+      "channels_with_matches": 4,
+      "matches": 15,
+      "with_other_channel_within_50s": 0,
+      "chance_mean": 0.002,
+      "chance_p95": 0.0,
+      "p": 1.0,
+      "co_occurring_channel_pairs": []
+    },
+    {
+      "recording": "MJu26a",
+      "channels": 16,
+      "channels_with_matches": 9,
+      "matches": 71,
+      "with_other_channel_within_50s": 5,
+      "chance_mean": 0.158,
+      "chance_p95": 2.0,
+      "p": 0.000999000999000999,
+      "co_occurring_channel_pairs": [
+        [
+          "CH10",
+          "CH11"
+        ],
+        [
+          "CH10",
+          "CH12"
+        ],
+        [
+          "CH11",
+          "CH12"
+        ],
+        [
+          "CH13",
+          "CH4"
+        ]
+      ]
+    },
+    {
+      "recording": "SH",
+      "channels": 4,
+      "channels_with_matches": 4,
+      "matches": 21,
+      "with_other_channel_within_50s": 0,
+      "chance_mean": 0.014,
+      "chance_p95": 0.0,
+      "p": 1.0,
+      "co_occurring_channel_pairs": []
+    },
+    {
+      "recording": "SO",
+      "channels": 4,
+      "channels_with_matches": 3,
+      "matches": 20,
+      "with_other_channel_within_50s": 0,
+      "chance_mean": 0.016,
+      "chance_p95": 0.0,
+      "p": 1.0,
+      "co_occurring_channel_pairs": []
+    }
+  ],
+  "total": {
+    "matches": 464,
+    "with_other_channel_within_50s": 13,
+    "chance_mean": 2.052
+  }
+}

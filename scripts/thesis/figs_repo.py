@@ -84,11 +84,8 @@ def seed_distribution():
     bx.grid(axis="y", visible=False)
     for spine in ("left", "right", "top"):
         bx.spines[spine].set_visible(False)
-    fig.suptitle("Drop seed · 377 s · 372 matches across 16 channels",
-                 x=0.16, ha="left", fontsize=10)
-    fig.text(0.16, 0.92, "Common shape-distance threshold: 2.208 · star: original seed",
-             fontsize=8, color=fs.INK_2)
-    fig.subplots_adjust(left=0.16, right=0.98, bottom=0.1, top=0.86)
+    # no in-figure title: the caption carries the seed, its length, the 372 matches and the threshold
+    fig.subplots_adjust(left=0.16, right=0.98, bottom=0.1, top=0.93)
     return fs.save(fig, "ch7_drop_distribution")
 
 
@@ -299,7 +296,7 @@ def b4():
     fig, ax = fs.figure("wide", 2.5)
     y = np.arange(len(order))[::-1]
     left = np.zeros(len(order))
-    cols = [fs.CATEGORICAL[0], fs.CATEGORICAL[2], fs.CATEGORICAL[1], fs.NEUTRAL]
+    cols = [fs.CATEGORICAL[3], fs.CATEGORICAL[2], fs.CATEGORICAL[4], fs.NEUTRAL]   # non-species colours
     for (b, lab), c in zip(bins, cols):
         v = t[b].to_numpy() if b in t else np.zeros(len(order))
         ax.barh(y, v, left=left, color=c, height=0.6, label=lab, edgecolor="white", lw=1.0)
@@ -332,7 +329,7 @@ def detrates():
     d = d[d["recording"].isin(recs)].copy()
     d["rate"] = d["real"] / (d["tasks"] * d["recording"].map(hours))
     lad = json.load(open(os.path.join(DATA, "ledger_checks.json")))["ladder"]
-    prec = {}
+    prec, judged = {}, {}
     for f in FAMILY_NAMES:
         num = den = 0.0
         for v in lad.values():
@@ -341,6 +338,7 @@ def detrates():
                 num += g["precision"] * g["n_sampled"]
                 den += g["n_sampled"]
         prec[f] = num / den if den else np.nan
+        judged[f] = int(den)
     fams = sorted(FAMILY_NAMES, key=lambda f: (f == "cnn_1min", -(prec[f] if np.isfinite(prec[f]) else -1)))
     M = np.full((len(fams), len(recs)), np.nan)
     for i, f in enumerate(fams):
@@ -351,13 +349,21 @@ def detrates():
     fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 4.3))
     gs = fig.add_gridspec(1, 2, width_ratios=[3.2, 1.3], wspace=0.08)
     ax = fig.add_subplot(gs[0, 0])
-    L = np.log10(np.where(M > 0, M, np.nan))
-    im = ax.imshow(L, cmap="Blues", aspect="auto", vmin=-3.5, vmax=1.5)
+    # zero detections take the lowest colour; a family never run on a recording is grey and marked "n/r"
+    vmin, vmax = -3.5, 1.5
+    L = np.where(M > 0, np.log10(np.where(M > 0, M, 1.0)), vmin)
+    L = np.ma.masked_where(~np.isfinite(M), L)
+    cmap = fs.plt.get_cmap("Blues").copy()
+    cmap.set_bad("#efeeea")
+    im = ax.imshow(L, cmap=cmap, aspect="auto", vmin=vmin, vmax=vmax)
     for (i, j), v in np.ndenumerate(M):
         if np.isfinite(v):
             txt = "0" if v == 0 else (f"{v:.3f}" if v < 0.01 else f"{v:.2f}" if v < 1 else f"{v:.1f}")
-            dark = np.isfinite(L[i, j]) and L[i, j] > 0.0
+            dark = v > 0 and np.log10(v) > 0.0
             ax.text(j, i, txt, ha="center", va="center", fontsize=7, color="white" if dark else fs.INK)
+        else:
+            ax.text(j, i, "n/r", ha="center", va="center", fontsize=6.5, color=fs.MUTED, style="italic")
+    print("detrates: not-run cells", int((~np.isfinite(M)).sum()), "zero cells", int((M == 0).sum()))
     ax.set_xticks(range(len(recs)))
     ax.set_xticklabels([fs.label(r).replace(" (", "\n(") for r in recs], fontsize=7.5)
     ax.xaxis.tick_top()
@@ -370,13 +376,21 @@ def detrates():
     bx = fig.add_subplot(gs[0, 1], sharey=ax)
     pv = np.array([prec[f] * 100 for f in fams])
     bx.barh(range(len(fams)), np.nan_to_num(pv), color=fs.SPECIES_COLOUR["oyster"], height=0.6)
-    for i, v in enumerate(pv):
-        bx.text((0 if not np.isfinite(v) else v) + 2, i, "--" if not np.isfinite(v) else f"{v:.0f}%", va="center", fontsize=7)
-    bx.set_xlim(0, 115)
+    for i, (f, v) in enumerate(zip(fams, pv)):
+        txt = "--" if not np.isfinite(v) else f"{v:.0f}%  (n={judged[f]})"
+        bx.text((0 if not np.isfinite(v) else v) + 2, i, txt, va="center", fontsize=7)
+    print("detrates: judged per family", {FAMILY_NAMES[f]: judged[f] for f in fams})
+    bx.set_xlim(0, 150)
+    bx.set_xticks([0, 50, 100])
     bx.tick_params(axis="y", left=False, labelleft=False)
     bx.set_xlabel("judged real (%)", fontsize=8)
     bx.grid(axis="y", visible=False)
     bx.set_title("precision", fontsize=8.5, pad=24)
+    ticks = np.arange(-3, 2)
+    cb = fig.colorbar(im, ax=[ax, bx], orientation="horizontal", fraction=0.035, pad=0.15, aspect=40, ticks=ticks)
+    cb.ax.set_xticklabels([f"{10.0 ** k:g}" for k in ticks], fontsize=7)
+    cb.set_label("detections per setting per channel-hour (log scale; grey n/r = not run)", fontsize=7.5)
+    cb.outline.set_visible(False)
     return fs.save(fig, "ch6_detrates")
 
 

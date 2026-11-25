@@ -3,7 +3,7 @@
   "specHash": "9101e55c5ad0",
   "tasks": 16,
   "label": "BEADs_invert_detect_v1__delta_mv_5",
-  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/BEADs_invert_detect_v1__delta_mv_5_16ch_0-4578553_9101e5.chain.json",
+  "spec": null,
   "channels": [
     "CH1",
     "CH2",

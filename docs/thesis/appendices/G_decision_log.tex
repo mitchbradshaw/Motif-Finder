@@ -4,7 +4,7 @@
 The research decisions that shaped the results, with their dates and the record in which each was made (\texttt{QUESTIONS.md} rows are cited by number).
 
 \begin{table}[htbp]
-\caption{Research decisions.}
+\caption[{Research decisions.}]{Research decisions.}
 \label{tab:decisions}
 \footnotesize
 \begin{tabularx}{\textwidth}{p{1.7cm} X p{2.6cm}}
@@ -13,7 +13,7 @@ The research decisions that shaped the results, with their dates and the record 
 \midrule
 15 Sep 2026 & Rebuild the interface in React and FastAPI after prototyping three stacks & ADR 0001\\
 21 Sep & Retire the Panel interface & tag \texttt{archive/\allowbreak panel-ui}\\
-23 Sep & Deadline moved: a polished tool by 21 Oct, then answer questions with it & CLAUDE.md\\
+23 Sep & Deadline moved: a polished tool by 21 Oct, then answer questions with it & project notes, 23 Sep\\
 1 Oct & Port the Dehshibi detector from the authors' code, not the printed paper & Q33\\
 5 Oct & Fix the verdict vocabulary at five words & Q45\\
 14 Oct & Skip gaps (NaN-aware) rather than refuse & NaN policy\\
@@ -31,6 +31,9 @@ The research decisions that shaped the results, with their dates and the record 
 27 Oct & B4: a detector census judged within packs, against rotation and random-time nulls; the cross-channel explorer specified (S0--S9) & \texttt{B4-cross-\allowbreak channel.md}\\
 28 Oct & B3: the restitution test and per-cycle model tracking (fall plus recovery, FHN, Izhikevich), judged by held-out cycles; FHN stays backend; the fair CNN stays out of the M4 exam & Round 5\\
 5 Nov & g-11 is the final grouping for Chapters~\ref{ch:events} and~\ref{ch:roundb}; species labels corrected (M2\_concat is oyster; chocolate and snow oyster are strains of \emph{P.\ ostreatus}) & ledger A19\\
+9 Nov & Time drop-detector events from their fall onsets, not their window starts (B1, B12 intervals); every run recomputed and checked against the database; B1's verdicts unchanged & \texttt{b1-intervals-\allowbreak onsets-2026-11-09.md}\\
+9 Nov & Hold the main text to 100 pages: 34 supporting figures and tables moved, whole and unchanged, to Appendix~\ref{app:supp}; three empty screenshot placeholders dropped; the scale pilot moved to future work and Chapter~\ref{ch:rq3}'s weighting discussion shortened, as the examiner suggested & \texttt{move\_floats\_\allowbreak 20261109.py}\\
+9 Nov & Measure and regroup the whole accepted inventory rather than the earlier g-11 Library: 2,459 single events (multi-fall and region-length spans left out), 12 families; B6 and B12 re-read on them, with the same reading once MJu26a's spike train is set aside & \texttt{ch9\_inventory\_\allowbreak events\_20261109.py}\\
 \bottomrule
 \end{tabularx}
 \end{table}

@@ -17,10 +17,12 @@
 \input{frontmatter/abstract}
 
 \tableofcontents
-\listoffigures
+% Lists use each float's short caption (\caption[short]{long}) and single spacing (9 Nov page cut).
+{\singlespacing\listoffigures}
 \addcontentsline{toc}{chapter}{List of Figures}
-\listoftables
+{\singlespacing\listoftables}
 \addcontentsline{toc}{chapter}{List of Tables}
+\input{frontmatter/names}
 \cleardoublepage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Main matter %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -54,5 +56,7 @@
 \input{appendices/F_exam_record}
 \input{appendices/G_decision_log}
 \input{appendices/H_detector_overlap}
+\input{appendices/I_supplementary}
+\input{appendices/J_background}
 
 \end{document}

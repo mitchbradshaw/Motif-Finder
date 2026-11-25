@@ -3,10 +3,11 @@
   "recording": "MJu26a_fs2",
   "setting": "BEADs_invert_detect_v1",
   "tasks": 16,
-  "complete": 0,
+  "complete": 15,
   "whole": false,
   "states": {
-   "missing": 16
+   "complete": 15,
+   "refused": 1
   },
   "packs": [
    "rq4n_cpu1"
@@ -17,10 +18,10 @@
   "recording": "MJu26a_fs2",
   "setting": "BEADs_invert_detect_v1__delta_mv_25",
   "tasks": 16,
-  "complete": 0,
-  "whole": false,
+  "complete": 16,
+  "whole": true,
   "states": {
-   "missing": 16
+   "complete": 16
   },
   "packs": [
    "rq4n_cpu1"
@@ -31,10 +32,10 @@
   "recording": "MJu26a_fs2",
   "setting": "BEADs_invert_detect_v1__delta_mv_5",
   "tasks": 16,
-  "complete": 0,
-  "whole": false,
+  "complete": 16,
+  "whole": true,
   "states": {
-   "missing": 16
+   "complete": 16
   },
   "packs": [
    "rq4n_cpu1"
@@ -101,11 +102,10 @@
   "recording": "MJu26a_fs2",
   "setting": "Wavelet_detection_prototype__epsilon_factor_0p02",
   "tasks": 16,
-  "complete": 14,
-  "whole": false,
+  "complete": 16,
+  "whole": true,
   "states": {
-   "complete": 14,
-   "missing": 2
+   "complete": 16
   },
   "packs": [
    "rq4n_cpu2"
@@ -116,10 +116,10 @@
   "recording": "MJu26a_fs2",
   "setting": "Wavelet_detection_prototype__epsilon_factor_0p1",
   "tasks": 16,
-  "complete": 0,
-  "whole": false,
+  "complete": 16,
+  "whole": true,
   "states": {
-   "missing": 16
+   "complete": 16
   },
   "packs": [
    "rq4n_cpu2"
@@ -145,11 +145,11 @@
   "recording": "MJu26a_fs2",
   "setting": "cnn_fusion3_1min",
   "tasks": 16,
-  "complete": 5,
+  "complete": 13,
   "whole": false,
   "states": {
-   "complete": 5,
-   "missing": 11
+   "complete": 13,
+   "refused": 3
   },
   "packs": [
    "rq4n_gpuA",
@@ -191,10 +191,11 @@
   "recording": "MJu26a_fs2",
   "setting": "cnn_gadf_1min",
   "tasks": 16,
-  "complete": 0,
+  "complete": 15,
   "whole": false,
   "states": {
-   "missing": 16
+   "complete": 15,
+   "refused": 1
   },
   "packs": [
    "rq4n_gpuA",
@@ -236,10 +237,11 @@
   "recording": "MJu26a_fs2",
   "setting": "cnn_gasf_1min",
   "tasks": 16,
-  "complete": 0,
+  "complete": 8,
   "whole": false,
   "states": {
-   "missing": 16
+   "complete": 8,
+   "missing": 8
   },
   "packs": [
    "rq4n_gpuA",
@@ -281,10 +283,11 @@
   "recording": "MJu26a_fs2",
   "setting": "cnn_recurrence_1min",
   "tasks": 16,
-  "complete": 0,
+  "complete": 2,
   "whole": false,
   "states": {
-   "missing": 16
+   "complete": 2,
+   "missing": 14
   },
   "packs": [
    "rq4n_gpuA",
@@ -367,10 +370,10 @@
   "recording": "MJu26a_fs2",
   "setting": "drop_detection_v1__slope_sigma_12",
   "tasks": 16,
-  "complete": 0,
-  "whole": false,
+  "complete": 16,
+  "whole": true,
   "states": {
-   "missing": 16
+   "complete": 16
   },
   "packs": [
    "rq4n_cpu1"
@@ -381,10 +384,10 @@
   "recording": "MJu26a_fs2",
   "setting": "drop_detection_v1__slope_sigma_4",
   "tasks": 16,
-  "complete": 0,
-  "whole": false,
+  "complete": 16,
+  "whole": true,
   "states": {
-   "missing": 16
+   "complete": 16
   },
   "packs": [
    "rq4n_cpu1"
@@ -409,10 +412,10 @@
   "recording": "MJu26a_fs2",
   "setting": "drop_detection_v5__same_fraction_0p5",
   "tasks": 16,
-  "complete": 0,
-  "whole": false,
+  "complete": 16,
+  "whole": true,
   "states": {
-   "missing": 16
+   "complete": 16
   },
   "packs": [
    "rq4n_cpu1"
@@ -423,10 +426,10 @@
   "recording": "MJu26a_fs2",
   "setting": "drop_detection_v5__same_fraction_0p7",
   "tasks": 16,
-  "complete": 0,
-  "whole": false,
+  "complete": 16,
+  "whole": true,
   "states": {
-   "missing": 16
+   "complete": 16
   },
   "packs": [
    "rq4n_cpu1"
@@ -452,10 +455,10 @@
   "recording": "MJu26a_fs2",
   "setting": "noise_threshold",
   "tasks": 16,
-  "complete": 0,
-  "whole": false,
+  "complete": 16,
+  "whole": true,
   "states": {
-   "missing": 16
+   "complete": 16
   },
   "packs": [
    "rq4n_cpu1"
@@ -466,10 +469,10 @@
   "recording": "MJu26a_fs2",
   "setting": "noise_threshold__k_sigma_3",
   "tasks": 16,
-  "complete": 0,
-  "whole": false,
+  "complete": 16,
+  "whole": true,
   "states": {
-   "missing": 16
+   "complete": 16
   },
   "packs": [
    "rq4n_cpu1"
@@ -480,10 +483,11 @@
   "recording": "MJu26a_fs2",
   "setting": "noise_threshold__k_sigma_6",
   "tasks": 16,
-  "complete": 0,
+  "complete": 14,
   "whole": false,
   "states": {
-   "missing": 16
+   "refused": 2,
+   "complete": 14
   },
   "packs": [
    "rq4n_cpu1"
@@ -494,10 +498,11 @@
   "recording": "MJu26a_fs2",
   "setting": "signal_threshold",
   "tasks": 16,
-  "complete": 0,
+  "complete": 15,
   "whole": false,
   "states": {
-   "missing": 16
+   "complete": 15,
+   "refused": 1
   },
   "packs": [
    "rq4n_cpu1"
@@ -508,10 +513,10 @@
   "recording": "MJu26a_fs2",
   "setting": "signal_threshold__threshold_V_m0p002",
   "tasks": 16,
-  "complete": 0,
-  "whole": false,
+  "complete": 16,
+  "whole": true,
   "states": {
-   "missing": 16
+   "complete": 16
   },
   "packs": [
    "rq4n_cpu1"
@@ -522,10 +527,10 @@
   "recording": "MJu26a_fs2",
   "setting": "signal_threshold__threshold_V_m0p01",
   "tasks": 16,
-  "complete": 0,
-  "whole": false,
+  "complete": 16,
+  "whole": true,
   "states": {
-   "missing": 16
+   "complete": 16
   },
   "packs": [
    "rq4n_cpu1"
@@ -550,11 +555,11 @@
   "recording": "MJu26a_fs2",
   "setting": "symbol_search__seconds_per_symbol_10",
   "tasks": 16,
-  "complete": 13,
+  "complete": 15,
   "whole": false,
   "states": {
-   "complete": 13,
-   "refused": 3
+   "complete": 15,
+   "refused": 1
   },
   "packs": [
    "rq4n_cpu1"
@@ -621,10 +626,11 @@
   "recording": "SH_fs2",
   "setting": "BEADs_invert_detect_v1",
   "tasks": 4,
-  "complete": 0,
+  "complete": 3,
   "whole": false,
   "states": {
-   "missing": 4
+   "complete": 3,
+   "refused": 1
   },
   "packs": [
    "rq4n_cpu1"
@@ -635,10 +641,10 @@
   "recording": "SH_fs2",
   "setting": "BEADs_invert_detect_v1__delta_mv_25",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -649,10 +655,10 @@
   "recording": "SH_fs2",
   "setting": "BEADs_invert_detect_v1__delta_mv_5",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -705,10 +711,10 @@
   "recording": "SH_fs2",
   "setting": "Wavelet_detection_prototype",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu2"
@@ -719,10 +725,10 @@
   "recording": "SH_fs2",
   "setting": "Wavelet_detection_prototype__epsilon_factor_0p02",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu2"
@@ -733,10 +739,10 @@
   "recording": "SH_fs2",
   "setting": "Wavelet_detection_prototype__epsilon_factor_0p1",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu2"
@@ -765,7 +771,7 @@
   "complete": 0,
   "whole": false,
   "states": {
-   "missing": 4
+   "refused": 4
   },
   "packs": [
    "rq4n_gpuA",
@@ -969,10 +975,10 @@
   "recording": "SH_fs2",
   "setting": "drop_detection_v1",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -983,10 +989,10 @@
   "recording": "SH_fs2",
   "setting": "drop_detection_v1__slope_sigma_12",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -997,10 +1003,10 @@
   "recording": "SH_fs2",
   "setting": "drop_detection_v1__slope_sigma_4",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1011,10 +1017,10 @@
   "recording": "SH_fs2",
   "setting": "drop_detection_v5",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1025,10 +1031,11 @@
   "recording": "SH_fs2",
   "setting": "drop_detection_v5__same_fraction_0p5",
   "tasks": 4,
-  "complete": 0,
+  "complete": 3,
   "whole": false,
   "states": {
-   "missing": 4
+   "complete": 3,
+   "refused": 1
   },
   "packs": [
    "rq4n_cpu1"
@@ -1039,10 +1046,10 @@
   "recording": "SH_fs2",
   "setting": "drop_detection_v5__same_fraction_0p7",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1056,7 +1063,7 @@
   "complete": 0,
   "whole": false,
   "states": {
-   "missing": 2
+   "refused": 2
   },
   "packs": [
    "rq4n_gpuA",
@@ -1068,10 +1075,10 @@
   "recording": "SH_fs2",
   "setting": "noise_threshold",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1082,10 +1089,10 @@
   "recording": "SH_fs2",
   "setting": "noise_threshold__k_sigma_3",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1096,10 +1103,10 @@
   "recording": "SH_fs2",
   "setting": "noise_threshold__k_sigma_6",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1110,10 +1117,10 @@
   "recording": "SH_fs2",
   "setting": "signal_threshold",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1124,10 +1131,10 @@
   "recording": "SH_fs2",
   "setting": "signal_threshold__threshold_V_m0p002",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1138,10 +1145,10 @@
   "recording": "SH_fs2",
   "setting": "signal_threshold__threshold_V_m0p01",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1152,10 +1159,11 @@
   "recording": "SH_fs2",
   "setting": "symbol_search",
   "tasks": 4,
-  "complete": 0,
+  "complete": 3,
   "whole": false,
   "states": {
-   "missing": 4
+   "complete": 3,
+   "refused": 1
   },
   "packs": [
    "rq4n_cpu1"
@@ -1166,10 +1174,10 @@
   "recording": "SH_fs2",
   "setting": "symbol_search__seconds_per_symbol_10",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1180,10 +1188,11 @@
   "recording": "SH_fs2",
   "setting": "symbol_search__seconds_per_symbol_40",
   "tasks": 4,
-  "complete": 0,
+  "complete": 3,
   "whole": false,
   "states": {
-   "missing": 4
+   "complete": 3,
+   "refused": 1
   },
   "packs": [
    "rq4n_cpu1"
@@ -1236,10 +1245,10 @@
   "recording": "SO_fs2",
   "setting": "BEADs_invert_detect_v1",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1250,10 +1259,10 @@
   "recording": "SO_fs2",
   "setting": "BEADs_invert_detect_v1__delta_mv_25",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1264,10 +1273,10 @@
   "recording": "SO_fs2",
   "setting": "BEADs_invert_detect_v1__delta_mv_5",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1320,10 +1329,10 @@
   "recording": "SO_fs2",
   "setting": "Wavelet_detection_prototype",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu2"
@@ -1334,10 +1343,10 @@
   "recording": "SO_fs2",
   "setting": "Wavelet_detection_prototype__epsilon_factor_0p02",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu2"
@@ -1348,10 +1357,10 @@
   "recording": "SO_fs2",
   "setting": "Wavelet_detection_prototype__epsilon_factor_0p1",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu2"
@@ -1380,7 +1389,8 @@
   "complete": 0,
   "whole": false,
   "states": {
-   "missing": 4
+   "refused": 2,
+   "missing": 2
   },
   "packs": [
    "rq4n_gpuA",
@@ -1584,10 +1594,10 @@
   "recording": "SO_fs2",
   "setting": "drop_detection_v1",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1598,10 +1608,10 @@
   "recording": "SO_fs2",
   "setting": "drop_detection_v1__slope_sigma_12",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1612,10 +1622,10 @@
   "recording": "SO_fs2",
   "setting": "drop_detection_v1__slope_sigma_4",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1626,10 +1636,10 @@
   "recording": "SO_fs2",
   "setting": "drop_detection_v5",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1640,10 +1650,10 @@
   "recording": "SO_fs2",
   "setting": "drop_detection_v5__same_fraction_0p5",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1654,10 +1664,10 @@
   "recording": "SO_fs2",
   "setting": "drop_detection_v5__same_fraction_0p7",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1671,7 +1681,7 @@
   "complete": 0,
   "whole": false,
   "states": {
-   "missing": 2
+   "refused": 2
   },
   "packs": [
    "rq4n_gpuA",
@@ -1683,10 +1693,10 @@
   "recording": "SO_fs2",
   "setting": "noise_threshold",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1697,10 +1707,10 @@
   "recording": "SO_fs2",
   "setting": "noise_threshold__k_sigma_3",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1711,10 +1721,10 @@
   "recording": "SO_fs2",
   "setting": "noise_threshold__k_sigma_6",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1725,10 +1735,10 @@
   "recording": "SO_fs2",
   "setting": "signal_threshold",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1739,10 +1749,10 @@
   "recording": "SO_fs2",
   "setting": "signal_threshold__threshold_V_m0p002",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1753,10 +1763,10 @@
   "recording": "SO_fs2",
   "setting": "signal_threshold__threshold_V_m0p01",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1767,10 +1777,10 @@
   "recording": "SO_fs2",
   "setting": "symbol_search",
   "tasks": 4,
-  "complete": 0,
-  "whole": false,
+  "complete": 4,
+  "whole": true,
   "states": {
-   "missing": 4
+   "complete": 4
   },
   "packs": [
    "rq4n_cpu1"
@@ -1781,10 +1791,11 @@
   "recording": "SO_fs2",
   "setting": "symbol_search__seconds_per_symbol_10",
   "tasks": 4,
-  "complete": 0,
+  "complete": 1,
   "whole": false,
   "states": {
-   "missing": 4
+   "complete": 1,
+   "refused": 3
   },
   "packs": [
    "rq4n_cpu1"
@@ -1795,10 +1806,11 @@
   "recording": "SO_fs2",
   "setting": "symbol_search__seconds_per_symbol_40",
   "tasks": 4,
-  "complete": 0,
+  "complete": 3,
   "whole": false,
   "states": {
-   "missing": 4
+   "refused": 1,
+   "complete": 3
   },
   "packs": [
    "rq4n_cpu1"

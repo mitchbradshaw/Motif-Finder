@@ -1,22 +1,24 @@
 \chapter{Methodology}
 \label{ch:method}
 
-\begin{instructions}
-About 4--5 pages. Built from the plan's Chapter 4 and corrected. The corpus is now nine recordings of four species,
-not four oyster recordings. Native rates are kept rather than resampled to 1\,Hz. The judging
-protocol (5.4) is new, and is what makes every result chapter's ``against blind human judgement'' meaningful. The
-held-out section (5.6) records the planned protocol, what actually happened, and the exam as run.
-\end{instructions}
-
 This chapter describes the corpus, the preprocessing applied to it, how data are represented, how human judgements are collected, the controls that every reported result carries, and the held-out exam. Chapter~\ref{ch:pipeline} described the software; this chapter describes how it was used.
 
 \section{Corpus}
 \label{sec:corpus}
 
-The recordings are long multi-electrode potential measurements from living fungal cultures. All come from the Underground Brains research facility at UQ and were recorded inside a Faraday cage: \emph{Pleurotus ostreatus} (oyster) arrays of 16 electrodes with a shared ground, plus later recordings of other species and setups. Table~\ref{tab:corpus} lists every recording and its role in this thesis.
+The recordings are long multi-electrode potential measurements from living fungal cultures. Each measurement is the potential difference, in volts, between an electrode and a reference point, the ground. For most of the datasets in this thesis, the electrodes were inserted into the fruiting bodies of the cultures and measured against a common ground at the base of the fruiting bodies, which gives a meaningful way of distinguishing relative behaviour across the array of electrodes. Most cultures were grown in grow packs or jars, self-contained systems that give the mycelium all the nutrients and conditions it needs to grow once it is exposed to fresh oxygen (Figure~\ref{fig:setup}). A typical setup has four measurement electrodes per pack; in M2\_aug, 16 channels record four sets of four electrodes, in packs A--D. Absolute levels can differ widely between electrodes, with baseline potentials from about 0 to $-3{,}000$\,mV. This is largely due to the setup, drift and artefacts, so every analysis reads changes in potential, not absolute levels. All recordings in the laboratory are taken inside a Faraday cage, to avoid interference from external electrical signals.
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{figures/new/ch5_kit_b.jpg}{\includegraphics[width=0.49\textwidth]{new/ch5_kit_a.jpg}\hfill\includegraphics[width=0.49\textwidth]{new/ch5_kit_b.jpg}}{\includegraphics[height=7.5cm]{new/ch5_setup.jpg}}
+\caption[{The recording setup.}]{The recording setup in the Underground Brains laboratory: \IfFileExists{figures/new/ch5_kit_b.jpg}{a grow kit on a shelf of the grow tent, with electrodes inserted into its fruiting bodies and their leads running out of the tent}{grow packs on the shelves of a grow tent, with electrodes inserted into their fruiting bodies and wired out of the tent to the recording computer, whose screens show recorded potentials}.}
+\label{fig:setup}
+\end{figure}
+
+All recordings come from the Underground Brains research facility at UQ. The first were \emph{Pleurotus ostreatus} (oyster) arrays of 16 electrodes with a shared ground, followed by recordings of other species and setups. Table~\ref{tab:corpus} lists every recording and its role in this thesis. The recordings keep the names they have in the laboratory's files, which the later chapters use throughout. M2\_aug, for example, is the primary 30-day oyster recording, and MJu26a the lion's mane culture grown in a jar. In the oyster arrays, the letter in a channel's name gives its pack (CH12\_C2 is electrode 12, in pack C). The results chapters draw on three species, oyster (with its chocolate and snow oyster strains), lion's mane and shiitake; reishi appears only in the early drop study of Chapter~\ref{ch:early}.
 
 \begin{table}[htbp]
-\caption{The corpus: nine recordings of four species, all grown and recorded in the Underground Brains laboratory at UQ inside a Faraday cage. 10\,Hz recordings are analysed as 2\,Hz derivations. Hours are $n_\text{samples}/f_s$.}
+\caption[{The corpus: nine recordings of four species.}]{The corpus: nine recordings of four species, all grown and recorded in the Underground Brains laboratory at UQ inside a Faraday cage. 10\,Hz recordings are analysed as 2\,Hz derivations. Hours are $n_\text{samples}/f_s$.}
 \label{tab:corpus}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
@@ -37,223 +39,84 @@ F2A & Reishi (\emph{G.~lingzhi}) & 5 & 10 & 0.3 & mV & petri dish & Drop-motif s
 \end{tabularx}
 \end{table}
 
-\begin{instructions}
-Dataset notes (5 Nov):
-\begin{itemize}
-  \item copies of a recording at another rate, and subsets of another recording, were deactivated, so that every
-        active set is an independent recording;
-  \item one name per recording: a result from part of MJu26a names its channels, e.g.\ ``MJu26a (CH10, 13--16)'' for
-        the five-channel copy, or ``the MJu26a CH14 excerpt (4\,h)'';
-  \item 10\,Hz sets are analysed as 2\,Hz derivations (non-overlapping means of five samples, nothing else changed);
-  \item the electrode type, and what A1 and A2 mean in M2's channel names, are not recorded;
-  \item M2\_aug and M2\_concat are different data, not crops of each other (best $d/\sqrt{m}\approx0.79$).
-\end{itemize}
-\end{instructions}
+Some recordings exist in more than one copy, at another sampling rate or as a subset of another recording's channels. Only one copy of each is analysed as a recording in its own right, so every dataset counted is an independent recording. M2\_aug and M2\_concat, in particular, are separate recordings, not crops of one another.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{new/ch5_gallery.pdf}
-\caption{What each recording looks like: one channel of each over one day (left), coloured by species and strain, and its 30 minutes with the widest range of values (right, shaded on the left). The recordings differ in drift, noise and how often they fall; the oyster arrays and CO fall sharply and often, MJu26a oscillates in small steps, and SO and SH drift slowly on this day.}
+\includegraphics[width=\textwidth,height=0.6\textheight,keepaspectratio]{new/ch5_gallery.pdf}
+\caption[{What each recording looks like.}]{What each recording looks like: one channel of each over one day (left), coloured by species and strain, and its 30 minutes with the widest range of values (right, shaded on the left). Each panel has its own voltage scale. The recordings differ in drift, noise and how often they fall; the oyster arrays and CO fall sharply and often, MJu26a oscillates in small steps, and SO and SH drift slowly on this day.}
 \label{fig:gallery}
 \end{figure}
 
 \section{Preprocessing}
 \label{sec:preprocessing}
 
-\begin{instructions}
-Rewrite. The plan's resampling story (an 18\,Hz DAC with drifting $\Delta t$, resampled to 1\,Hz) is not what the
-software does. As built:
-\begin{itemize}
-  \item each dataset keeps its native rate: 1\,Hz for the oyster arrays, 2 or 10\,Hz for others.
-        The rate is read from the file, inferred from the sample count, or stated by the researcher, and recorded in
-        \texttt{fs\_source};
-  \item uneven time axes are linearly interpolated onto a uniform grid (MJu26a: $\Delta t$ 0.124--2.83\,s onto 10\,Hz)
-        by \src{scripts/derive_raw_mat.py};
-  \item units are declared per dataset (V or mV), and every block that prints millivolts reads through
-        \texttt{read\_as\_mv} (fixed 15 Oct, when the drop detector had assumed volts);
-  \item gaps are skipped, NaN-aware, rather than refused (your decision, 14 Oct);
-  \item analysis is per channel. The ``concat'' files are 16-channel files of joined recording sessions, not one
-        concatenated channel.
-\end{itemize}
-Artefacts: \texttt{artifact} is a human verdict. Cross-channel near-copies ($r\ge0.98$ where both are real events) are
-machine-flagged into a suspected-artifact Review queue, and a human decides. Keep the plan's flagged-data figure as an
-example of what is excluded.
-\end{instructions}
+Preprocessing is kept light, so that what the detectors see is close to what the electrodes recorded. Each recording keeps its native sampling rate, 1\,Hz for the oyster arrays and 2 or 10\,Hz for the others. To account for drift and uneven sampling from the logger's analogue-to-digital converter, each dataset is linearly interpolated back onto an even grid at its native sampling rate, so that every series is evenly sampled before processing. The 10\,Hz recordings are analysed as 2\,Hz derivations, each sample the mean of five consecutive native samples, with nothing else changed. Units are declared per recording, in volts or millivolts, so that analysis results can accurately compare like units.
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{plan/flagged.png}
-\caption{Examples of flagged data: a logger drift segment shown at two zoom levels.}
-\label{fig:flagged}
-\end{figure}
+Artefacts are not removed automatically. ``Artefact'' is a human verdict (Section~\ref{sec:judging}), given to stretches too straight or too regular to come from a culture, such as the two flagged windows of Figure~\ref{fig:handlabels}. Near-identical waveforms on two channels at the same instant are flagged by the machine for a person to check, and only confirmed artefacts are excluded.
 
 \section{Data representation: spans, windows and features}
 \label{sec:representation}
 
-A central component of the framework is the representation of the time-series data as a collection of fixed-length windows. Given a time-series $T = (x_1, x_2, \ldots, x_n)$, the signal is divided into overlapping or non-overlapping subsequences of length $w$. Each window represents a local segment of the signal at a particular time scale, which allows the analysis to capture both short-term dynamics, such as spikes, and longer-term trends.
-
-Regions of interest that are not of fixed length --- a manually flagged region, a segment returned by a change-point detector, the set of matches to a query --- are represented instead as \emph{spans}: intervals with a start, a duration, and optionally a label. Windows are extracted from spans; the two are not interchangeable, and the distinction is enforced by the type system described in Section~\ref{sec:types}.
-
-To organise the results of analysis, a structured data object referred to as a \emph{Window Matrix} is used. In this representation, each row corresponds to a window, referred by the window's start index, and each column corresponds to a feature extracted from that window. Features include statistical properties (mean, variance), frequency-based features, time-domain characteristics (spike amplitude, width, inter-spike interval), complexity and entropy measures, catch22 canonical features, symbolic encodings, and model outputs such as classification labels and cluster assignments.
-
-The Window Matrix provides a unified structure for storing heterogeneous outputs from multiple analytical techniques, enabling direct comparison and integration. It is important to note what it is not: it carries one row per window and has no alignment to individual timepoints, and so cannot be thresholded to produce regions of interest. That role belongs to the time-aligned \texttt{Scores} profile (Section~\ref{sec:types}).
-
-Figure~\ref{fig:windowmatrix} shows an early example (Chapter~\ref{ch:early}).
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.95\textwidth]{new/ch5_anatomy_event.pdf}
-\caption{How an event is measured, on one accepted drop from M2\_aug. The tool's event-shape block finds the onset of the fall, the trough and the point of half recovery; from them come the depth (amplitude), the fall time, the recovery time, the duration (onset to half recovery) and the full width at half depth (FWHM). Chapter~\ref{ch:events} reports these measures for every accepted event.}
-\label{fig:anatomyevent}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{new/ch5_anatomy_train.pdf}
-\caption{How a train of events is measured: four hours of M2\_concat with the onsets the drop detector (v1) found, and the interval between each onset and the next, in seconds. Interval measures summarise this sequence: the coefficient of variation (CV) compares the spread of the intervals to their mean; CV2 and the local variation (LV) compare each interval only with its neighbour, so a slowly drifting rate does not inflate them. A random (Poisson) train has CV, CV2 and LV of about 1; a regular one is near 0. This train gives CV 0.90, CV2 0.73 and LV 0.55. The detector is choosy: it marks the clearest drops, not every one.}
-\label{fig:anatomytrain}
-\end{figure}
+The analysis works with two kinds of region. A \emph{window} is a fixed-length stretch cut at regular intervals, to divide a signal into discrete chunks for broad analysis; windows with their labels trained the early classifiers (Chapter~\ref{ch:early}). A \emph{span} is a region of any length, with a specific start and end and an optional label recording its source: a detection, a seed match, or a manually flagged stretch of signal. Windows can be cut from spans, but the two are not interchangeable, and the tool's type system keeps them apart (Section~\ref{sec:types}). Per-window results are collected in a \emph{Window Matrix}, one row per window and one column per feature, from statistics, spectral and entropy features and catch22 to symbolic codes, model scores and cluster labels (Figure~\ref{fig:windowmatrix} is an early example). An event is measured from its span by its depth, the speed of its fall, its width at half depth and its recovery (Chapter~\ref{ch:events}), and a train of events by the gaps between consecutive onsets (Chapter~\ref{ch:roundb}).
 
 \section{Judging protocol}
 \label{sec:judging}
 
-\begin{instructions}
-New section, about one page, central to every result. Cover:
-\begin{itemize}
-  \item the five-word verdict vocabulary;
-  \item what ``interesting'' means operationally: in your own words, the rule you applied;
-  \item each kind of queue and what it was used for (Table~\ref{tab:queues});
-  \item blind presentation, with machine sections masked;
-  \item stratified sampling of candidate events by detector agreement and by rare detector family, so that rare
-        strata are seen;
-  \item carried copies excluded from counts;
-  \item your re-test reliability: 98 blind repeats, 94\,\% agreement ($\kappa$ 0.84), 6 changed answers (4 yes to no,
-        2 no to yes), so an 11.5\,\% miss per look (95\,\% range 4.6--23\,\%);
-  \item your pace: a median of 1.4\,s per verdict;
-  \item the limitation: a single labeller, so every precision here is precision against your judgement.
-\end{itemize}
-\end{instructions}
+Every result reported against human judgement rests on verdicts given by one reviewer, on the tool's Review page.
+
+In reviewing spans or windows as a single researcher, telling an ``interesting'' stretch of signal from a ``not interesting'' one came down to whether there appeared to be evidence of a distinct behaviour in the signal, one unlikely to occur in otherwise broadly flat noise with drifts. Stretches were labelled interesting because they appeared to have sharp drops, sharp peaks, or distinct waveform shapes uncharacteristic of regular noise. Sequences were easily detected as a stretch of repeating waveforms with a level of evolution. Artefacts were flagged where a sequence continued for a long stretch with no evolution or noise, indicating an external oscillating error, or where large spikes or drops occurred across only one or two samples, indicating a glitch rather than an event. Figure~\ref{fig:handlabels} (Appendix~\ref{app:supp}) shows interesting, not-interesting and artefact windows side by side.
+
+A verdict is one of five words: interesting, not interesting, unsure, artefact, or seed. A seed is an interesting event worth searching for, and counts as interesting throughout. Each result states how it treats unsure answers; Chapter~\ref{ch:rq1} sets them aside, while the seed panels keep them in the denominator, which is stricter.
+
+Most reviews were blind. Candidates were shuffled, and nothing the machine knew was shown, whether the detector or seed that proposed a candidate, its score, how many detectors agreed on it, or whether it was a match or a random control. Only the signal was shown, with context either side, and a span's extent could be redrawn while judging. Where a sample had to estimate how often candidates are real (the detector panels and the held-out exam), candidates were drawn at random within strata, five bands of detector agreement from one or two families up to nine or more, plus one stratum for each rarely firing detector, so that rare kinds of candidate were seen at all. Each answer is then weighted by its stratum's size (Chapter~\ref{ch:rq1}). A verdict on one detection is copied to the detections of the same event in other runs, so it is not asked again, and these carried copies never count as new judgements. Table~\ref{tab:queues} lists every review. The later reviews, from the transfer panel on, filled specific gaps rather than being stratified samples, so their acceptance rates are not comparable with those of the detector panels and the held-out exam.
+
+Two judgements made by the same person on the same span at different times do not always agree, as the verdicts are ultimately subjective. In a total of 144 blind repeats, eight answers changed, five from interesting to not interesting or unsure and three the other way, an agreement rate of 94\,\%. Cohen's $\kappa$, which discounts the agreement that chance alone would give (0 is chance, 1 is perfect), was 0.84 and 0.91 in the two checks that make up these repeats. This largely supports the consistency of the human judgement; further work would compare the accepted events with a blind review by a second researcher. The median time per verdict was 1.4\,s, as most candidates could be identified at a glance as noise or as containing an event. All verdicts come from one reviewer, so every precision in this thesis is precision against that reviewer's judgement.
 
 \begin{table}[htbp]
-\caption{Review queues that supply the human judgements in this thesis.}
+\caption[{The reviews that supply the human judgements in this thesis.}]{The reviews that supply the human judgements in this thesis, by the names used in the text (the tool's queue number in brackets).}
 \label{tab:queues}
 \small
-\begin{tabularx}{\textwidth}{p{2.2cm} p{4.0cm} r X}
+\begin{tabularx}{\textwidth}{p{3.3cm} p{3.6cm} r X}
 \toprule
-\textbf{Queue} & \textbf{Content} & \textbf{Verdicts} & \textbf{Used in}\\
+\textbf{Review (queue)} & \textbf{Content} & \textbf{Verdicts} & \textbf{Used in}\\
 \midrule
-Imported labels & 10-minute windows, M2\_aug, early manual labelling & 11,234 & RQ3 baseline forests; reference CNNs\\
-3 & Blind random 1/10/30-min windows (M2\_aug, M2\_concat) & 986 & RQ3 blind exam; RQ2 base rate (22\,\%)\\
-24 & Spike-seed matches (unblinded) & 61 & RQ2\\
-25 & Stratified blind candidate events, M2\_aug & 800 & RQ1; R4 training\\
-28 & Stratified blind candidate events, CO, LM, M2\_concat, MJu26a (CH10, 13--16) & 1,159 & RQ1; R4 training\\
+Hand labels & 10-minute windows, M2\_aug, early manual labelling & 11,234 & RQ3 baseline forests; reference CNNs\\
+Blind window labels (3) & Blind random 1/10/30-min windows (M2\_aug, M2\_concat) & 986 & RQ3 blind exam; RQ2 base rate (21\,\%)\\
+Spike-seed review (24) & Spike-seed matches (unblinded) & 61 & RQ2\\
+Blind detector panel, M2\_aug (25) & Stratified blind candidate events, M2\_aug & 800 & RQ1; R4 training\\
+Blind detector panel, other recordings (28) & Stratified blind candidate events, CO, LM, M2\_concat, MJu26a (CH10, 13--16) & 1,159 & RQ1; R4 training\\
 Library review & Library members & 247 & Accepted set\\
-35 & Blind seed panel: drop30, spike37, re-judged dips, random controls & 249 & RQ2 blind test\\
-36 & M4 held-out exam, stratified blind candidates & 290 & RQ3 exam, RQ1 on M4\\
+Blind seed panel (35) & Drop and spike seeds, re-judged dips, random controls & 249 & RQ2 blind test\\
+Held-out exam (36) & M4, stratified blind candidates & 290 & RQ3 exam, RQ1 on M4\\
+Transfer panel (38) & Blind drop-seed transfer: matches on seven other recordings and duration-matched random windows & 916 & RQ2 transfer (Section~\ref{sec:seedtransfer}); accepted catalogue\\
+CH14 train review (45) & The MJu26a CH14 spike train, 382.5--473.2\,h & 559 & Chapter~\ref{ch:roundb} case study; accepted catalogue\\
+Library shape review (46) & Library shape proposals not yet judged (g-11, M2\_aug) & 322 & Shape families; accepted catalogue\\
+Diversity panel (47) & Diversity proposals across recordings, random controls and 46 repeats from the transfer panel & 850 & Accepted catalogue (Chapter~\ref{ch:events}); repeat consistency (Section~\ref{sec:seedtransfer})\\
 \bottomrule
 \end{tabularx}
 \end{table}
-
-\begin{instructions}
-Queues 35 (249 items) and 36 (290) are filled in (5 Nov). Check the dip-seed queue ids and counts
-(256/263 and 94/104) against \src{docs/rq_roundA_2/RQ2b-second-seed.md}.
-\end{instructions}
 
 \section{Controls}
 \label{sec:controls}
 
 \subsection{Surrogate comparison}
 
-\begin{instructions}
-Point back to Section~\ref{sec:surrogates} and say per result chapter which null was used:
-\begin{itemize}
-  \item paired one-draw phase-randomised runs for the sweep, with 20-draw re-runs prepared;
-  \item 200 draws per channel for seed searches;
-  \item 200 label shuffles for classifiers;
-  \item AAFT for value-reading measures.
-\end{itemize}
-State the second kind of null, used where humans judge: the blind base rate. 235 of 1,084 random windows were called
-interesting (22\,\%), and the blind seed panel's duration-matched random windows give its own controls.
-\end{instructions}
+Section~\ref{sec:surrogates} introduced the two references every result is held against. The first is a surrogate, a copy of the signal that keeps its frequency content but scrambles its timing, so that anything a method finds only by responding to the spectrum turns up in the copy too. Each chapter uses the null suited to its question. The detector sweep (Chapter~\ref{ch:rq1}) runs one phase-randomised copy beside every real run, with 20 copies per channel for six settings on M2\_aug as a check. Seed searches (Chapter~\ref{ch:rq2}) use 200 phase-randomised copies per channel. The classifiers (Chapter~\ref{ch:rq3}) are tested against 200 shuffles of their training labels. Measures that read the signal's values, such as matrix-profile distances (Chapter~\ref{ch:roundb}), use AAFT copies, which keep every value of the recording and, approximately, its spectrum, but change the order in which the values occur, so any shape that depends on when they occur is broken up.
+
+The second reference, used wherever a person judges, is the blind base rate, the share of randomly chosen stretches that are accepted. Of 986 random windows judged blind, 210 were called interesting (21\,\%). Each seed panel also carried its own random windows of matched duration on the same channels.
 
 \subsection{Cross-channel classification}
 \label{sec:crosschannel}
 
-All channels within a recording sit on a single mycelium network with a shared ground, so cross-channel co-occurrence is confounded by construction. A motif family matched across several channels may reflect a recording artefact, a single event propagating through the substrate, or genuine independent recurrence, and these are not the same finding. Matched pairs are therefore classified into three bins by inter-channel lag and waveform correlation (Table~\ref{tab:crosschannel}). A pair counts only if it beats its own random-time null.
-
-\begin{table}[htbp]
-\caption[Classification of cross-channel matches]{Classification of cross-channel matches, as implemented in \texttt{Working/cross\_channel.py}. Bin edges are editable in Settings.}
-\label{tab:crosschannel}
-\begin{center}
-\small
-\begin{tabular}{p{3.2cm} p{4.6cm} p{5.6cm}}
-\toprule
-\textbf{Bin} & \textbf{Signature} & \textbf{Interpretation}\\
-\midrule
-Artifact (common mode) & $|\text{lag}|\le1$\,s and $|r|\ge0.98$ & Recording artefact via the shared ground; flagged for a human, excluded from recurrence counts only once confirmed\\
-\addlinespace
-Propagation & 1--50\,s lag and $|r|\ge0.5$ & A single network propagation event; counted once\\
-\addlinespace
-Independent recurrence & Anything else that beats chance & Genuine recurrence; counted once per instance\\
-\bottomrule
-\end{tabular}
-\end{center}
-\end{table}
-
-\begin{instructions}
-The plan's bins were described qualitatively; give the implemented edges, as in the table. State that only
-human-confirmed artefacts are removed. Correction (27 Oct): the ``64 flagged pairs'' were sandbox numbers on g-05; the
-real database holds no cross-channel rows. B4's explorer (Chapter~\ref{ch:roundb}) adds a fourth bin, the shared
-driver, judges propagation only within a pack, and counts a detector census. Update this table if the census is built
-before the freeze.
-\end{instructions}
+All channels within a recording share a common ground, while the electrodes of one pack sit on a single culture and different packs on separate ones, so cross-channel co-occurrence is confounded by construction. A shape matched across several channels may reflect a recording artefact, a single event propagating through the substrate, separate cultures responding to the same outside influence, or genuine independent recurrence, and these are not the same finding. Matched pairs are therefore classified into four bins by inter-channel lag, waveform correlation and whether the two electrodes share a pack (Table~\ref{tab:crosschannel}). A pair counts only if it beats its own random-time null. Only human-confirmed artefacts are removed, and pairs where one channel has no pack assigned are counted apart, so on recordings without packs set (M2\_concat, MJu26a) no shared-driver or propagation bin can be separated.
 
 \section{The held-out recording and its exam}
 \label{sec:holdout}
 
 The thesis plan, dated 14 August 2026, held one recording out: M4, a 16-channel oyster recording of 505 hours. It was not to be inspected, labelled, clustered or used for any parameter selection. It was reserved for a single end-to-end run after the analysis was frozen. The plan put it this way: ``A holdout declared in advance is a matter of record; a holdout declared afterwards is a claim.'' This section reports, in the same spirit, how far that record held.
 
-\begin{table}[htbp]
-\caption{Exposure record of the held-out recording M4 (times AEST). From \texttt{audit\_log}, \texttt{runs} and \texttt{annotations}.}
-\label{tab:exposure}
-\small
-\begin{tabularx}{\textwidth}{p{3.3cm} X}
-\toprule
-\textbf{When} & \textbf{What}\\
-\midrule
-4 Aug 2026 & 11 early runs, and one ``interesting'' annotation on channel 0 (samples 748,871--763,617), made before the plan declared M4 held out\\
-14 Aug & Thesis plan declares M4 held out\\
-Early Oct & Held-out lock enforced: every route refuses M4\\
-17 Oct, 15:02 & Lock switched off for the demonstrations (audit 519)\\
-19 Oct & Detector sweep: 1,264 runs on M4 (632 surrogates), with settings chosen on other recordings; imported into Discovery\\
-20--21 Oct & M4's detection rates visible on the Discovery Map and in the poster's detector figure (marked held out)\\
-26 Oct, 08:34 & Lock switched on again (audit 536)\\
-26 Oct, 08:40 & Exam manifest frozen, sha256 \texttt{db32fdc7\ldots} (audit 537)\\
-26 Oct, 08:52 & Stratified blind sample drawn: queue 36, 290 candidate events (audit 538)\\
-26 Oct, 09:11 & Manifest amendment 1, adding the CNNs, before any judging (audit 539)\\
-28 Oct, 10:36--12:00 UTC & Exam judged with the lock briefly off (audit 1157), lock restored (audit 1159), then scored once\\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-\begin{instructions}
-In your words, state what the exposure was and was not:
-\begin{itemize}
-  \item what M4 was exposed to: detector output, displayed;
-  \item what it was never exposed to: no human verdict on any M4 detection, no Library entry, no model trained or tuned
-        on it, and no detector parameter chosen on it.
-\end{itemize}
-Then describe the exam as run:
-\begin{itemize}
-  \item the manifest: model and file hashes, the sampling design, the metrics, and the protocol;
-  \item the sample: 5 agreement strata of 40, plus 6 rare-detector strata of 15, from 832,136 candidate events (built
-        from 1,186,189 detections);
-  \item blind judging;
-  \item the scorer's refusals, which make the exam one-shot (\src{scripts/m4_exam_score.py}).
-\end{itemize}
-Manifest: \src{docs/rq_roundA_2/exam/M4-exam-manifest.json}. Amendment:
-\src{docs/rq_roundA_2/exam/M4-exam-amendment-1.json} (sha256 \texttt{5286bac3\ldots}).
-\end{instructions}
+The exam dataset, M4, was frozen before any judging (Appendix~\ref{app:exam}) and was exposed to detector output only, which was displayed during the October demonstrations. Apart from one annotation made before M4 was declared held out, no human verdict was given on any M4 detection and no M4 event entered the Library, so no model was trained or tuned on it and no detector parameter was chosen on it; Table~\ref{tab:exposure} gives the dated record. The sweep's 632 detector runs on M4, the CNN templates among them, made 1,186,189 detections, which were merged into 832,136 candidate events. The models under test, MiniRocket R4 and the four reference CNNs, had not been trained or tuned on M4. For judging, 40 candidates were drawn from each of the five agreement strata and 15 from each of six rarely firing detectors, a sample of 290. The 290 were judged blind in one queue, with M4's lock lifted for that queue only, and the verdicts were then used to score the exam once. The manifest fixing the sample, the models, the detectors and the metrics was protected by its hash, recorded before judging, so that no later work on M4 could change what was scored. Chapter~\ref{ch:rq3} reports the result.
 
 \section{Evaluation criteria}
 \label{sec:evaluation}
@@ -280,9 +143,4 @@ Data handling follows appropriate practices to ensure integrity and reproducibil
 
 Two project risks were recorded in the plan. The first was computational: all-pairs similarity search over multi-hundred-hour recordings exceeds what is practical on a single workstation. This was mitigated by seeded search and by running long jobs on UQ's rangpur cluster. The second was that the signals might not show clear or consistent recurring patterns. Because every result is reported against a null, a finding of no recurrence would have been reportable rather than a failed project.
 
-\begin{instructions}
-Add the risk that did materialise: data loss. On 21 Sep, \texttt{git worktree remove} followed a directory junction
-and emptied the real \texttt{DATA/db} and \texttt{DATA/derived} (7.8\,GB). The database was recovered from a sandbox
-copy and the channels were re-derived. The mitigations that followed: the bridge's sandbox copies, automatic backups at
-start-up, and the rule to unlink junctions first.
-\end{instructions}
+One risk not in the plan did materialise: data loss. On 21 September, a routine clean-up command followed a directory link out of a working copy and emptied the project's real database and derived-data folders, 7.8\,GB in all. The database was recovered from a copy the tool had made for a sandbox session, and the derived channel files were regenerated from the raw recordings. Three safeguards followed: development runs use a sandbox copy of the database, the tool backs up the database each time it starts, and links into the data folder are removed before any working copy is deleted.

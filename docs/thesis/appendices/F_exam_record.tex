@@ -7,7 +7,7 @@ only prefixes. Point to the files.
 \end{instructions}
 
 \begin{table}[htbp]
-\caption{The M4 exam, as frozen before any judging.}
+\caption[{The M4 exam, as frozen before any judging.}]{The M4 exam, as frozen before any judging.}
 \label{tab:examrecord}
 \footnotesize
 \begin{tabularx}{\textwidth}{p{3.4cm} X}
@@ -29,6 +29,29 @@ Judged (28 Oct) & Lock off, audit 1157 (10:36 UTC); all 290 items judged (276 an
 Classifier population & 257 readable, mapped cases: 59 interesting and 198 negative (193 not interesting, five artefacts). The frozen binary mapping omits seven seed verdicts; 12 further spans are unreadable. R4: 52 hits, six false alarms, seven misses, 192 correct rejections. The 276 answered judgements remain the candidate-acceptance population, where seed counts as accepted\\
 Unit declared & M4 declared V during judging, audit 1158, so that Review could draw its traces; the scorers already read an undeclared unit as volts, so no score changed\\
 Scored (28 Oct) & Once, 12:00 UTC, by \texttt{scripts/m4\_exam\_score.py} (sha256 \texttt{68fbecfb\ldots0588}); \texttt{DATA/derived/exam/M4/results.json}; \texttt{docs/rq\_roundA\_2/findings/m4-exam-2026-10-28.md}\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[htbp]
+\caption[{Exposure record of the held-out recording M4 (times AEST).}]{Exposure record of the held-out recording M4 (times AEST). From \texttt{audit\_log}, \texttt{runs} and \texttt{annotations}.}
+\label{tab:exposure}
+\small
+\begin{tabularx}{\textwidth}{p{3.3cm} X}
+\toprule
+\textbf{When} & \textbf{What}\\
+\midrule
+4 Aug 2026 & 11 early runs, and one ``interesting'' annotation on channel 0 (samples 748,871--763,617), made before the plan declared M4 held out\\
+14 Aug & Thesis plan declares M4 held out\\
+Early Oct & Held-out lock enforced: every route refuses M4\\
+17 Oct, 15:02 & Lock switched off for the demonstrations (audit 519)\\
+19 Oct & Detector sweep: 1,264 runs on M4 (632 surrogates), with settings chosen on other recordings; imported into Discovery\\
+20--21 Oct & M4's detection rates visible on the Discovery Map and in the poster's detector figure (marked held out)\\
+26 Oct, 08:34 & Lock switched on again (audit 536)\\
+26 Oct, 08:40 & Exam manifest frozen, sha256 \texttt{db32fdc7\ldots} (audit 537)\\
+26 Oct, 08:52 & Stratified blind sample drawn: queue 36, 290 candidate events (audit 538)\\
+26 Oct, 09:11 & Manifest amendment 1, adding the CNNs, before any judging (audit 539)\\
+28 Oct, 10:36--12:00 UTC & Exam judged with the lock briefly off (audit 1157), lock restored (audit 1159), then scored once\\
 \bottomrule
 \end{tabularx}
 \end{table}

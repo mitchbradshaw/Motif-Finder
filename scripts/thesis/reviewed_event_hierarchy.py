@@ -122,12 +122,13 @@ def case_analysis(project,data,out):
     for ax,t in zip(axs,thirds):
         mid=int(t[len(t)//2]);rr=children[max(0,mid-2):mid+3]
         lo=max(0,min(r['start_idx'] for r in rr)-a-300);hi=min(len(x),max(r['end_idx'] for r in rr)-a+300)
-        tt=np.arange(lo,hi)/fs
-        ax.plot(tt/60,x[lo:hi],color=style.INK,lw=.65)
+        tt=(a+np.arange(lo,hi))/fs/3600   # hours from the recording's start
+        ax.plot(tt,x[lo:hi],color=style.INK,lw=.65)
         for j,r in enumerate(rr):
-            ax.axvspan((r['start_idx']-a)/fs/60,(r['end_idx']-a)/fs/60,color=style.CATEGORICAL[j%len(style.CATEGORICAL)],alpha=.17)
-            p=r['peak_idx']-a;ax.plot(p/fs/60,x[p],'o',ms=3,color=style.INK)
-        ax.set(xlabel='Minutes from start of the 90.7-hour selection',ylabel='mV')
+            ax.axvspan(r['start_idx']/fs/3600,r['end_idx']/fs/3600,color=style.CATEGORICAL[j%len(style.CATEGORICAL)],alpha=.17)
+            p=r['peak_idx']-a;ax.plot((a+p)/fs/3600,x[p],'o',ms=3,color=style.INK)
+        ax.set(xlabel='Recording time (h)',ylabel='mV')
+        ax.ticklabel_format(axis='x',useOffset=False)
         ax.tick_params(labelsize=7)
     style.save(fig,'ch10_ch14_separate_events');plt.close(fig)
     return summary,children
@@ -176,6 +177,19 @@ def family_hierarchy(project,data,out):
     csv_write(out/'family_parent_observations.csv',parents)
     examples=sorted([p for p in parents if len(p['individual_event_ids'])>1],key=lambda p:len(p['individual_event_ids']))
     picked=[examples[i] for i in np.linspace(0,len(examples)-1,4,dtype=int)]
+    # The fewest-children example can hold a sub-0.1 mV proposal on a 1.5 mV axis; take instead the
+    # fewest-children parent whose smallest proposal (onset to extremum) spans at least a quarter of the plotted range.
+    def clarity(parent):
+        rec=recs[parent['recording_id']];fs=rec['fs'];s,e=parent['start_idx'],parent['end_idx']
+        arr=cache[parent['recording_id']]
+        a,b=max(0,s-round(120*fs)),min(rec['n_samples'],e+round(120*fs))
+        span=max(1e-12,float(np.ptp(np.asarray(arr[a:b],dtype=float))))
+        return min(abs(float(arr[events[i]['start_idx']])-float(arr[events[i]['peak_idx']]))
+                   for i in parent['individual_event_ids'])/span
+    picked[0]=next((p for p in examples if clarity(p)>=.25 and p not in picked[1:]),picked[0])
+    print('ch9 hierarchy panel 1:',picked[0]['event_id'],picked[0]['dataset'],picked[0]['channel'],
+          picked[0]['start_idx'],'clarity',round(clarity(picked[0]),2),flush=True)
+    picked[0]=next((p for p in examples if clarity(p)>=.5 and p not in picked[1:]),picked[0])
     fig,axes=plt.subplots(4,1,figsize=(6.3,7),layout='constrained')
     for ax,parent in zip(axes,picked):
         rid=parent['recording_id'];rec=recs[rid];fs=rec['fs'];s,e=parent['start_idx'],parent['end_idx']
@@ -191,6 +205,11 @@ def family_hierarchy(project,data,out):
             p=child['peak_idx'];ax.plot((p-s)/fs/60,float(cache[rid][p])*{'V':1000.,'mV':1.,'uV':.001}[rec['units']],'.',ms=4,color=col)
         ax.set_title(f"{parent['dataset'].replace('_',' ')} CH{parent['channel']+1}: one parent observation, {len(parent['individual_event_ids'])} separate proposals",fontsize=9)
         ax.set(xlabel='Minutes from parent-observation start',ylabel='mV');ax.tick_params(labelsize=7)
+    from matplotlib.patches import Patch
+    fig.legend(handles=[Patch(color='#e7a93d',alpha=.25,label='accepted parent observation'),
+                        Patch(color=style.CATEGORICAL[0],alpha=.3,label='one proposal per colour (dot = its extremum)'),
+                        Patch(color=style.CATEGORICAL[0],alpha=.55,label='darker part of a proposal: inside the parent; lighter: beyond it')],
+               loc='outside lower center',ncol=2,fontsize=7.5)
     style.save(fig,'ch9_event_sequence_hierarchy');plt.close(fig)
     return summary
 

@@ -83,9 +83,9 @@ def acceptance(audit):
         ax.errorbar(xx, yy, xerr=np.maximum(0, [low, high]), fmt="o" if j else "s",
                     ms=4, color="#2a78d6" if j else "#9a9893", capsize=2,
                     label="Seed matches" if j else "Random controls")
-        for y, r in zip(yy, rr):
+        for y, r in zip(range(len(order)), rr):   # on the row's own line, beside its label
             ax.text(108 if j else 126, y, f"{r['accepted']}/{r['reviewed']}",
-                    va="center", ha="center", fontsize=8, color=style.INK if j else style.INK_2)
+                    va="center_baseline", ha="center", fontsize=8, color=style.INK if j else style.INK_2)
     ax.set_yticks(range(len(order)), [r.replace("_", " ") for r in order])
     ax.invert_yaxis(); ax.set_xlim(-3, 138); ax.set_xticks([0,25,50,75,100])
     ax.set_xlabel("Accepted presentations (%)")
@@ -187,13 +187,13 @@ def main():
             bottom=ax.get_ylim()[0]
             ax.plot([ev["start_s"]/3600 for ev in hits],[bottom]*len(hits),"|",color="#eb6834",ms=5)
             ax.axvspan(excerpt_h,excerpt_h+4,color="#2a78d6",alpha=.15)
-            ax.set_title("Newly reviewed CH14 train; blue band marks the earlier four-hour excerpt",fontsize=8)
+            ax.set_title("(a) Newly reviewed CH14 train; blue band marks the earlier four-hour excerpt",fontsize=8,loc="left")
         else:
             for ev in hits:
                 left=ev["start_s"]/3600 if i==1 else ev["start_s"]-s
                 right=ev["end_s"]/3600 if i==1 else ev["end_s"]-s
                 ax.axvspan(left,right,color="#eb6834",alpha=.28)
-            ax.set_title("Earlier excerpt on the same physical channel" if i==1 else "One local view with accepted spans",fontsize=8)
+            ax.set_title("(b) Earlier excerpt on the same physical channel" if i==1 else "(c) One local view with accepted spans",fontsize=8,loc="left")
         ax.set_ylabel("mV");ax.set_xlabel("Recording time (hours)" if i<2 else "Seconds from view start")
         ax.tick_params(labelsize=7)
     style.save(fig,"ch10_mju_ch14_reviewed_train");plt.close(fig)

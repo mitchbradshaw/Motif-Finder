@@ -3,7 +3,7 @@
   "specHash": "5563954c5a33",
   "tasks": 16,
   "label": "cnn_gasf_1min",
-  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_gasf_1min_16ch_0-4578553_556395.chain.json",
+  "spec": null,
   "channels": [
     "CH1",
     "CH2",

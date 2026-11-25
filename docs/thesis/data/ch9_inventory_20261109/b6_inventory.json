@@ -1,0 +1,17 @@
+{
+  "families": 12,
+  "families_on_2plus_recordings": 12,
+  "families_on_all_8": 10,
+  "families_on_all_3_species": 11,
+  "recording": {
+    "mi_bits": 0.42096467478265914,
+    "null_mean": 0.023669274185715992,
+    "p": 0.000999000999000999
+  },
+  "species": {
+    "mi_bits": 0.24258702232853438,
+    "null_mean": 0.006618794457466006,
+    "p": 0.000999000999000999
+  },
+  "within_species_bits": 0.17837765245412476
+}

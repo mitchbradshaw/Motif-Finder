@@ -3,7 +3,7 @@
   "specHash": "dbab5e1fd255",
   "tasks": 16,
   "label": "cnn_recurrence_1min",
-  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_recurrence_1min_16ch_0-4578553_dbab5e.chain.json",
+  "spec": null,
   "channels": [
     "CH1",
     "CH2",

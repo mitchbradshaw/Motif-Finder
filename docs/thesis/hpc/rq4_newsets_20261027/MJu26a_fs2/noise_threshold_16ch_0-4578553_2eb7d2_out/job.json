@@ -3,7 +3,7 @@
   "specHash": "2eb7d2ec9a82",
   "tasks": 16,
   "label": "noise_threshold",
-  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/noise_threshold_16ch_0-4578553_2eb7d2.chain.json",
+  "spec": null,
   "channels": [
     "CH1",
     "CH2",

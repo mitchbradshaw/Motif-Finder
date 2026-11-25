@@ -1,0 +1,13 @@
+setting,recording,real,surrogate,table_real,table_surrogate,match
+drop_detection_v1,MJu26a_fs2,463,33,463,33,True
+drop_detection_v1,SH_fs2,21,0,21,0,True
+drop_detection_v1,SO_fs2,28,0,28,0,True
+OASIS_Deconvolution,MJu26a_fs2,127429,2007,127429,2007,True
+OASIS_Deconvolution,SH_fs2,20095,353,20095,353,True
+OASIS_Deconvolution,SO_fs2,25556,364,25556,364,True
+OASIS_Deconvolution__threshold_5,MJu26a_fs2,2453,68,2453,68,True
+OASIS_Deconvolution__threshold_5,SH_fs2,859,19,859,19,True
+OASIS_Deconvolution__threshold_5,SO_fs2,400,11,400,11,True
+wavelet_encoded,MJu26a_fs2,1883,38714,1883,38714,True
+wavelet_encoded,SH_fs2,21,7241,21,7241,True
+wavelet_encoded,SO_fs2,12,7286,12,7286,True

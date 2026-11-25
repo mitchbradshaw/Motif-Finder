@@ -3,7 +3,7 @@
   "specHash": "def93915147f",
   "tasks": 16,
   "label": "cnn_gadf_1min",
-  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/cnn_gadf_1min_16ch_0-4578553_def939.chain.json",
+  "spec": null,
   "channels": [
     "CH1",
     "CH2",

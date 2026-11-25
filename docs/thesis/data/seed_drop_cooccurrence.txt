@@ -1,0 +1,5 @@
+W=   50s: 6/372 matches have another channel's match within W (1.6%); 2/372 with a match in another pack (0.5%); channels-at-once histogram {1: 366, 2: 6}
+W=  300s: 22/372 matches have another channel's match within W (5.9%); 10/372 with a match in another pack (2.7%); channels-at-once histogram {1: 350, 2: 22}
+W= 1800s: 102/372 matches have another channel's match within W (27.4%); 61/372 with a match in another pack (16.4%); channels-at-once histogram {1: 270, 2: 91, 3: 11}
+chance (uniform times, same per-channel counts), W=50s: mean 4.6, 95th pct 10
+chance (uniform times, same per-channel counts), W=300s: mean 26.7, 95th pct 39

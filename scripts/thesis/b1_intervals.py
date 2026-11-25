@@ -4,7 +4,13 @@ random, on every swept recording?
 
 Protocol (fixed before the read; B1's first read was M2_aug only, Chapter 10):
   * unit: one channel's complete ``drop_detection_v1`` run (the same runs as B12: whole channel, not superseded, not a
-    surrogate; the longest, latest run per channel); onsets = detection start / fs;
+    surrogate; the longest, latest run per channel); event times = the detector's own fall onsets / fs.
+    Correction (9 Nov): the 5 Nov read took each event's time as its detection's start, which for this detector is
+    the start of the window it framed, not the fall: on the encoder's 98.33 s grid and typically ~10 min before the
+    onset. The onsets (and troughs) are only in the detector's span label, which the database does not store, so
+    ``b1_onsets.py`` recomputes every run in memory and checks each window against the database first; this script
+    reads its ``b1_onsets.csv``. ``--times trough`` is the sensitivity read on troughs, and ``--times window_start``
+    reproduces the superseded 5 Nov read for the record (outputs suffixed ``_troughs`` / ``_windowstarts``);
   * per channel, LV and CV2 against the two nulls of ``Working.interrogation.intervals.interval_nulls`` (1,000 seeded
     draws, the Intervals block's own code): a rate-matched Poisson train, and the channel's own gaps shuffled;
   * a two-sided p per channel, measure and null, with the direction (below the band = more regular than Poisson, or
@@ -37,7 +43,21 @@ SPECIES = dict(B12_SPECIES, MJu26a_fs2="lion's mane", SH_fs2="unknown", SO_fs2="
 L_LM = ("L_LM_Jul_26_J_raw_fs2.mat", "L_LM_Jul_26_J_raw.mat")
 
 OUT = os.path.join(ROOT, "docs", "thesis", "data", "ch10_b1")
+ONSETS = os.path.join(OUT, "b1_onsets.csv")
 TESTS = [(m, n) for m in ("lv", "cv2") for n in ("poisson", "shuffle")]
+TIMES = {"onset": "", "trough": "_troughs", "window_start": "_windowstarts"}     # event time -> output suffix
+
+
+def event_times(c, run, fs, times="onset"):
+    """One run's event times in seconds: the detector's fall onsets (default), its troughs, or its window starts."""
+    db = [s for (s,) in c.execute("SELECT start_idx FROM detections WHERE run_id = ?", (int(run),))]
+    if times == "window_start":
+        return np.array(db, dtype=float) / float(fs)
+    on = pd.read_csv(ONSETS)
+    on = on[on["run"] == int(run)]
+    if len(on) != len(db) or sorted(on["start_idx"]) != sorted(db):
+        raise ValueError(f"run {run}: b1_onsets.csv has {len(on)} rows for {len(db)} detections; run b1_onsets.py")
+    return on[f"{times}_idx"].to_numpy(float) / float(fs)
 
 
 def channel_runs(c):
@@ -56,12 +76,11 @@ def channel_runs(c):
     return runs.sort_values(["recording_id", "len", "run"]).drop_duplicates("recording_id", keep="last")
 
 
-def measure(c, runs):
+def measure(c, runs, times="onset"):
     from Working.interrogation.intervals import interval_nulls
     rows = []
     for _, r in runs.iterrows():
-        on = np.array([s for (s,) in c.execute("SELECT start_idx FROM detections WHERE run_id = ?", (int(r.run),))],
-                      dtype=float) / float(r.fs)
+        on = event_times(c, r.run, r.fs, times)
         nl = interval_nulls(on, resolution_s=1.0 / float(r.fs))
         row = {"run": int(r.run), "recording_id": int(r.recording_id), "dataset": SHORT[r.source_file],
                "species": SPECIES[SHORT[r.source_file]], "channel": int(r.channel),
@@ -104,7 +123,7 @@ def summary(df):
     return pd.DataFrame(rows)
 
 
-def plot(df):
+def plot(df, suffix=""):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -129,21 +148,25 @@ def plot(df):
     fig.suptitle(f"B1: grey bar = the null's 95 % band; blue = below it, red = above it, after BH across {len(df)} "
                  "channels", fontsize=9)
     fig.tight_layout()
-    fig.savefig(os.path.join(OUT, "b1_lv.png"), dpi=130)
+    fig.savefig(os.path.join(OUT, f"b1_lv{suffix}.png"), dpi=130)
 
 
-def main():
+def main(times="onset"):
+    suffix = TIMES[times]
     os.makedirs(OUT, exist_ok=True)
     db = os.path.join(ROOT, "DATA", "db", "annotations.sqlite").replace("\\", "/")
     c = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-    df = correct(measure(c, channel_runs(c)))
-    df.to_csv(os.path.join(OUT, "b1_channels.csv"), index=False)
+    df = correct(measure(c, channel_runs(c), times))
+    df.insert(df.columns.get_loc("n_events"), "event_time", times)
+    df.to_csv(os.path.join(OUT, f"b1_channels{suffix}.csv"), index=False)
     s = summary(df)
-    s.to_csv(os.path.join(OUT, "b1_summary.csv"), index=False)
-    plot(df)
+    s.to_csv(os.path.join(OUT, f"b1_summary{suffix}.csv"), index=False)
+    plot(df, suffix)
     pd.set_option("display.width", 250)
+    print(f"event times: {times}")
     print(s.to_string(index=False))
 
 
 if __name__ == "__main__":
-    main()
+    args = sys.argv[1:]
+    main(args[args.index("--times") + 1] if "--times" in args else "onset")

@@ -3,7 +3,7 @@
   "specHash": "206e1eb2d672",
   "tasks": 16,
   "label": "symbol_search__seconds_per_symbol_10",
-  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/symbol_search__seconds_per_symbol_10_16ch_0-4578553_206e1e.chain.json",
+  "spec": null,
   "channels": [
     "CH1",
     "CH2",

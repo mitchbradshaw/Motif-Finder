@@ -65,13 +65,10 @@ def _thumb(ax, t, y, a, b, colour, title=None):
 
 # ------------------------------------------------------------------------------------------------ Chapter 8 --
 def m4():
-    """Link R4's candidate overlay to exact spans from the blind M4 exam."""
+    """Link R4's decisions to exact spans from the blind M4 exam (only the exam items in this excerpt are shaded)."""
     stem = [f[:-4] for f in B.ls("m4_exam") if f.startswith("m4_exam__") and f.endswith(".npz")][0]
     x, meta = B.series(f"m4_exam/{stem}")
     t = B.time_h(meta, len(x))
-    c = B.csv(f"m4_exam/{stem}__candidates_r4")
-    pos = c[c["r4_readable"] & c["r4_interesting"].eq(1)]
-    events = _nms(pos, start="start_s", end="end_s", score="r4_decision", max_len=1800)
     items = B.csv("m4_exam/exam_items")
     items = items[(items["recording_id"] == meta["recording_id"]) & (items["start"] >= meta["start_idx"])
                   & (items["end"] <= meta["end_idx"])].copy()
@@ -80,42 +77,60 @@ def m4():
     items["scorable"] = items["answered"] & items["r4_readable"]
     items["agree"] = items["scorable"] & items["event"].eq(items["r4_interesting"])
     items["mid_h"] = (items["start_s"] + items["end_s"]) / 7200
-    positives = items[items["event"] & items["agree"]].sort_values("mid_h")
-    # The first, middle and last confirmed examples span the excerpt.
-    examples = positives.iloc[[0, (len(positives) - 1) // 2, -1]]
+    positives = items[items["event"] & items["agree"]].sort_values("mid_h").reset_index(drop=True)
+    # Three accepted items R4 also calls events, spread across the excerpt: the one nearest each of
+    # 1/6, 1/2 and 5/6 of the way through, never the same item twice.
+    span_h = t[-1] - t[0]
+    picks = []
+    for f in (1 / 6, 1 / 2, 5 / 6):
+        d = (positives["mid_h"] - (t[0] + f * span_h)).abs()
+        d[picks] = np.inf
+        picks.append(int(d.idxmin()))
+    examples = positives.iloc[sorted(picks)]
     blue, orange = fs.colour("M2_aug"), "#b85422"
+    n_ans = int(items["answered"].sum())
+    print(f"m4: {len(items)} exam items in the excerpt, {n_ans} answered, {int((~items['answered']).sum())} unsure; "
+          f"R4 agrees with {int(items['agree'].sum())} of {int(items['scorable'].sum())} answered (scorable) items; "
+          f"{len(positives)} accepted items R4 also calls events")
 
     fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 5.7))
     gs = fig.add_gridspec(4, 3, height_ratios=[1, 1.15, 0.16, 1.15],
                           left=0.12, right=0.98, top=0.93, bottom=0.10, hspace=0.60, wspace=0.37)
     a = fig.add_subplot(gs[0, :])
     b = fig.add_subplot(gs[1, :], sharex=a, sharey=a)
-    for r in events.itertuples():
-        b.axvspan(r.start_s / 3600, r.end_s / 3600, color=blue, alpha=0.22, lw=0)
+    for r in items.sort_values("r4_interesting").itertuples():   # R4-negative first, so a positive is never hidden
+        yes = r.r4_readable and r.r4_interesting == 1
+        b.axvspan(r.start_s / 3600, r.end_s / 3600, color=blue if yes else fs.NEUTRAL, alpha=0.55 if yes else 0.5,
+                  lw=0, zorder=1)
+    b.grid(axis="x", visible=False)   # vertical grid lines would read as exam items
     for ax in (a, b):
-        ax.plot(t, x, color=fs.INK, lw=0.65)
+        ax.plot(t, x, color=fs.INK, lw=0.65, zorder=2)
         ax.set_ylabel("mV")
         ax.set_xlim(t[0], t[-1])
         ax.margins(y=0.20)
     a.set_title(f"(a) Held-out M4 · {meta['channel_name']} · recorded voltage", loc="left")
     a.tick_params(labelbottom=False)
-    b.set_title("(b) Same trace with R4-positive candidates and blind exam verdicts", loc="left")
+    b.set_title("(b) Same trace with the blind exam items, shaded by R4's decision", loc="left")
     b.set_xlabel("Time in recording (h)")
-    for test, marker, face, edge, label in [
-        (items["event"], "o", fs.INK, fs.INK, "Event"),
-        (items["answered"] & ~items["event"], "o", "white", fs.INK, "Rejected"),
-        (~items["answered"], "D", "white", orange, "Unsure"),
+    # accepted items on the upper row, rejected and unsure on the lower one, so items that overlap in time stay apart
+    y_event, y_other = 0.90, 0.79
+    for test, y, marker, face, edge, label in [
+        (items["event"], y_event, "o", fs.INK, fs.INK, "Human: event"),
+        (items["answered"] & ~items["event"], y_other, "o", "white", fs.INK, "Human: not an event"),
+        (~items["answered"], y_other, "D", "white", orange, "Human: unsure"),
     ]:
-        b.scatter(items.loc[test, "mid_h"], np.full(test.sum(), 0.86), marker=marker, s=17, facecolor=face,
+        b.scatter(items.loc[test, "mid_h"], np.full(test.sum(), y), marker=marker, s=17, facecolor=face,
                   edgecolor=edge, lw=0.75, transform=b.get_xaxis_transform(), label=label, zorder=4)
     legend = fig.add_subplot(gs[2, :])
     legend.axis("off")
     handles, labels = b.get_legend_handles_labels()
-    handles.insert(0, fs.plt.Line2D([], [], color=blue, alpha=0.45, lw=5))
-    labels.insert(0, "R4-positive span")
-    legend.legend(handles, labels, ncol=4, loc="center", title="Overlay and blind verdicts", title_fontsize=8)
+    handles = [fs.plt.Line2D([], [], color=blue, alpha=0.5, lw=5),
+               fs.plt.Line2D([], [], color=fs.NEUTRAL, alpha=0.5, lw=5)] + handles
+    labels = ["R4: event", "R4: not an event"] + labels
+    legend.legend(handles, labels, ncol=5, loc="center", fontsize=7.2, columnspacing=1.1, handletextpad=0.5,
+                  title="Exam item shading (R4) and markers (blind human verdict)", title_fontsize=8)
     for i, (tag, r) in enumerate(zip("ABC", examples.itertuples())):
-        b.annotate(tag, (r.mid_h, 0.88), xycoords=b.get_xaxis_transform(), xytext=(0, 5),
+        b.annotate(tag, (r.mid_h, y_event + 0.02), xycoords=b.get_xaxis_transform(), xytext=(0, 4),
                    textcoords="offset points", ha="center", va="bottom", fontsize=8, fontweight="bold")
         ax = fig.add_subplot(gs[3, i])
         duration = r.end_s - r.start_s
@@ -127,6 +142,9 @@ def m4():
         ax.set_title(f"{tag}   {r.mid_h:.2f} h · {duration / 60:.1f} min", loc="left", fontsize=8.3)
         ax.set_xlabel("Minutes from span start", fontsize=7.3)
         ax.set_ylabel("mV", fontsize=8)
+        print(f"m4 example {tag}: event {r.event_id}, {r.start_s / 3600:.3f}-{r.end_s / 3600:.3f} h "
+              f"(mid {r.mid_h:.2f} h), {duration:.0f} s = {duration / 60:.1f} min, verdict {r.exam_verdict}, "
+              f"R4 {r.r4_decision:+.2f}")
     return fs.save(fig, "ch8_m4_before_after")
 
 
@@ -140,10 +158,14 @@ def r4_examples():
     idx["human"] = idx["exam_verdict"].eq("interesting").astype(int)
     idx = idx[idx["exam_verdict"].isin(["interesting", "not_interesting", "artifact"])
               & idx["r4_interesting"].notna()]
-    groups = [("Hits: the human verdict and R4 both say event", (idx["human"] == 1) & (idx["r4_interesting"] == 1), False),
-              ("False alarms: R4 says event, the human verdict says not", (idx["human"] == 0) & (idx["r4_interesting"] == 1), False),
-              ("Misses: the human verdict says event, R4 says not", (idx["human"] == 1) & (idx["r4_interesting"] == 0), True)]
-    fig, axes = fs.figure("full", 4.6, 3, 4)
+    groups = [("Hits: R4 yes, human yes", (idx["human"] == 1) & (idx["r4_interesting"] == 1), False),
+              ("False alarms: R4 yes, human no", (idx["human"] == 0) & (idx["r4_interesting"] == 1), False),
+              ("Misses: R4 no, human yes", (idx["human"] == 1) & (idx["r4_interesting"] == 0), True)]
+    n_cr = int(((idx["human"] == 0) & (idx["r4_interesting"] == 0)).sum())
+    print("r4 examples: " + ", ".join(f"{t.split(':')[0]} {int(m.sum())}" for t, m, _ in groups)
+          + f", correct rejections {n_cr} (total {len(idx)})")
+    accepted_c, rejected_c = fs.SPECIES_COLOUR["oyster"], fs.NEUTRAL
+    fig, axes = fs.figure("full", 4.9, 3, 4)
     for row, (title, m, asc) in enumerate(groups):
         sub = idx[m].sort_values("r4_decision", ascending=asc).head(4)
         for col in range(4):
@@ -152,13 +174,19 @@ def r4_examples():
                 ax.axis("off")
                 continue
             r = sub.iloc[col]
-            tt, yy = st.window(int(r.name) if False else int(st.index.index[st.index["event_id"] == r["event_id"]][0]))
-            _thumb(ax, tt / 60, yy, r["item_t0_s"] / 60, r["item_t1_s"] / 60,
-                   fs.SPECIES_COLOUR["oyster"] if row == 0 else fs.CATEGORICAL[1],
-                   f"R4 {r['r4_decision']:+.2f} · {(r['item_t1_s'] - r['item_t0_s']) / 60:.0f} min")
-        txt = axes[row, 0].text(0, 1.36, f"{title} ({int(m.sum())})", transform=axes[row, 0].transAxes,
-                                fontsize=8.5)
-    fig.subplots_adjust(left=0.02, right=0.98, bottom=0.02, top=0.88, hspace=0.9, wspace=0.12)
+            tt, yy = st.window(int(st.index.index[st.index["event_id"] == r["event_id"]][0]))
+            dur = r["item_t1_s"] - r["item_t0_s"]
+            _thumb_scaled(ax, tt, yy, r["item_t0_s"], r["item_t1_s"],
+                          accepted_c if r["human"] == 1 else rejected_c,
+                          f"R4 {r['r4_decision']:+.2f} · {dur / 60:.0f} min" if dur >= 120 else
+                          f"R4 {r['r4_decision']:+.2f} · {dur:.0f} s")
+        axes[row, 0].text(0, 1.36, f"{title} ({int(m.sum())})", transform=axes[row, 0].transAxes,
+                          fontsize=8.5, fontweight="bold")
+    h = [fs.plt.Line2D([], [], color=accepted_c, alpha=0.4, lw=6, label="judged span, human accepted"),
+         fs.plt.Line2D([], [], color=rejected_c, alpha=0.4, lw=6, label="judged span, human rejected"),
+         fs.plt.Line2D([], [], color=fs.INK, lw=1.4, label="bar: mV scale of that thumbnail")]
+    fig.legend(handles=h, loc="lower center", ncol=3, fontsize=7.2, bbox_to_anchor=(0.5, 0.0))
+    fig.subplots_adjust(left=0.02, right=0.93, bottom=0.08, top=0.90, hspace=0.9, wspace=0.28)
     return fs.save(fig, "ch8_r4_examples")
 
 
@@ -170,6 +198,7 @@ REC_OF_FILE = {"M2_aug_concat_fs1.mat": "M2_aug", "M2_concat_fs1.mat": "M2_conca
 def _thumb_scaled(ax, t_s, y, a_s, b_s, colour, label=None):
     """A thumbnail at its real scale: time in s from the event start, with a mV bar and a duration bar."""
     t = t_s - a_s
+    ax.set_facecolor("none")          # the mV label sits right of the axes; a white patch next door would hide it
     ax.plot(t, y, color=fs.INK, lw=0.8)
     ax.axvspan(0, b_s - a_s, color=colour, alpha=0.22, lw=0)
     ax.set_xticks([]); ax.set_yticks([])
@@ -210,43 +239,79 @@ def accepted():
             _thumb_scaled(ax, t, y, r["item_t0_s"], r["item_t1_s"], fs.colour(name))
         axes[row, 0].text(-0.08, 0.5, fs.label(name), transform=axes[row, 0].transAxes, rotation=90,
                           ha="right", va="center", fontsize=8, color=fs.colour(name))
-    fig.subplots_adjust(left=0.05, right=0.95, bottom=0.02, top=0.95, hspace=0.45, wspace=0.35)
+    fig.subplots_adjust(left=0.05, right=0.92, bottom=0.02, top=0.95, hspace=0.45, wspace=0.62)
     return fs.save(fig, "ch9_accepted_gallery")
 
 
-def rec385():
-    """Figure 9.3: the 4-hour MJu26a CH14 excerpt with its Library members coloured by shape family."""
+def rec385(min_members=5):
+    """Figure 9.3: the 4-hour MJu26a CH14 excerpt with its Library members coloured by shape family.
+
+    The coloured families are the largest ones in the excerpt with at least `min_members` members whose members are
+    mostly falls (at most three); a family whose members mostly rise (recovery-only spans) is skipped and reported.
+    """
     x, meta = B.series("full_channels/Mushroom_260720__CH0__full")
     th = B.time_h(meta, len(x))
     mem = B.csv("library_events/rec385_members_g05")
     fams = mem["g05_family_label"].value_counts()
-    top = [f for f in fams.index[:3]]
-    cols = {f: c for f, c in zip(top, [fs.CATEGORICAL[0], fs.CATEGORICAL[1], fs.CATEGORICAL[2]])}
+
+    def n_falls(m):
+        k = n = 0
+        for r in m.itertuples():
+            seg = x[int(r.start_idx):int(r.end_idx)]
+            if len(seg) < 3:
+                continue
+            n += 1
+            k += (seg[0] - np.nanmin(seg)) > (np.nanmax(seg) - seg[0])   # deeper below its start than above it
+        return k, n
+
+    top, skipped = [], []
+    for f, cnt in fams.items():
+        if cnt < min_members or len(top) == 3:
+            break
+        k, n = n_falls(mem[mem["g05_family_label"] == f])
+        kind = "mostly falls" if k > n / 2 else "mostly rises (recovery-only)"
+        print(f"rec385: family {f}: {cnt} members, {k}/{n} falls -> {kind}"
+              + ("" if k > n / 2 else ", skipped"))
+        (top if k > n / 2 else skipped).append(f)
+    print(f"rec385: no other family has {min_members}+ members (next largest: "
+          f"{', '.join(f'{f} {c}' for f, c in fams[fams < min_members].head(3).items())})")
+    cols = {f: c for f, c in zip(top, ["#eb6834", "#b33f12", "#6f6d68"])}   # lion's-mane tones and a neutral grey
+    n_col = int(mem["g05_family_label"].isin(top).sum())
+    print(f"rec385: coloured families {top}; {len(mem)} Library members shaded in (a), {n_col} of them in colour")
     fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 4.6))
-    gs = fig.add_gridspec(2, 3, height_ratios=[1.0, 0.95], hspace=0.45, wspace=0.28)
-    a = fig.add_subplot(gs[0, :])
+    gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 0.95], hspace=0.5)
+    a = fig.add_subplot(gs[0])
     a.plot(th, x, color=fs.INK, lw=0.6, zorder=2)
     for r in mem.itertuples():
         c = cols.get(r.g05_family_label, fs.NEUTRAL)
         a.axvspan(r.start_s / 3600, r.end_s / 3600, color=c, alpha=0.35 if c != fs.NEUTRAL else 0.08,
                   lw=0, zorder=1)
     a.set_xlim(th[0], th[-1]); a.set_ylabel("mV"); a.set_xlabel("time in the excerpt (h)")
-    a.set_title(f"(a) MJu26a CH14, a 4-hour excerpt: {len(mem)} Library members (the three largest families in colour)",
-                loc="left")
+    which = "the one family" if len(top) == 1 else f"the {len(top)} families"
+    a.set_title(f"(a) MJu26a CH14, a 4-hour excerpt: {len(mem)} Library members ({which} of {min_members}+ falls "
+                "in colour)", loc="left")
     fsr = float(meta["fs"])
-    for k, f in enumerate(top):
-        ax = fig.add_subplot(gs[1, k])
+    # the coloured families, then the largest skipped (recovery-only) family in grey, so the reader sees why it is out
+    panels = [(f, cols[f], f"{len(mem[mem['g05_family_label'] == f])} members, all falls") for f in top]
+    if skipped:
+        f = skipped[0]
+        panels.append((f, fs.NEUTRAL, f"{len(mem[mem['g05_family_label'] == f])} members, "
+                                      "all recoveries\n(the rise after a spike)"))
+    sub = gs[1].subgridspec(1, len(panels), wspace=0.3)
+    for k, (f, colour, what) in enumerate(panels):
+        ax = fig.add_subplot(sub[0, k])
         m = mem[mem["g05_family_label"] == f]
         for r in m.itertuples():
             i0 = int(r.start_idx); i1 = int(r.end_idx)
             seg = x[i0:i1]
             if len(seg) < 3:
                 continue
-            ax.plot((np.arange(len(seg))) / fsr, seg - seg[0], color=cols[f], lw=0.9, alpha=0.75)
-        ax.set_title(f"({'bcd'[k]}) family {f}: {len(m)} members", loc="left", fontsize=8.5)
-        ax.set_xlabel("s from onset")
+            ax.plot((np.arange(len(seg))) / fsr, seg - seg[0], color=colour, lw=0.9, alpha=0.75)
+        ax.set_title(f"({'bcd'[k]}) family {f}: {what}", loc="left", fontsize=8)
+        ax.set_xlabel("s from span start")
         if k == 0:
-            ax.set_ylabel("mV from onset")
+            ax.set_ylabel("mV from span start")
+    print("rec385: lower panels", [(f, c) for f, c, _ in panels])
     return fs.save(fig, "ch9_rec385")
 
 
@@ -348,13 +413,18 @@ def mpintuition():
     ytop = np.nanmax(x) + 0.08 * (np.nanmax(x) - np.nanmin(x))
     for k, c in ((i, fs.CATEGORICAL[0]), (j, fs.CATEGORICAL[0]), (d, fs.CATEGORICAL[1])):
         a.scatter([(k + m / 2) / 3600], [ytop], marker="v", s=40, color=c, zorder=3)
+    # the discord's 10-minute window is a hair at this zoom, so its band is drawn at least 1.5 h wide, centred on it
+    dc, dw = (d + m / 2) / 3600, max(m / 3600, 1.5)
+    a.axvspan(dc - dw / 2, dc + dw / 2, color=fs.CATEGORICAL[1], alpha=0.4, lw=0, zorder=0)
+    print(f"mp intuition: discord window {d / 3600:.2f}-{(d + m) / 3600:.2f} h, shaded band {dc - dw / 2:.2f}-{dc + dw / 2:.2f} h")
     a.set_ylabel("mV"); a.tick_params(labelbottom=False)
     a.set_title("(a) M2_concat CH1, 282 hours", loc="left")
     b = fig.add_subplot(gs[1, :2], sharex=a)
     b.plot(np.arange(n) / 3600, mp, color=fs.INK_2, lw=0.4)
     b.scatter([i / 3600, j / 3600], [mp[i], mp[j]], color=fs.CATEGORICAL[0], s=18, zorder=3, label="closest pair")
     b.scatter([d / 3600], [mp[d]], color=fs.CATEGORICAL[1], s=18, zorder=3, label="most unusual (discord)")
-    b.set_ylabel("distance to\nnearest match"); b.set_xlabel("time (h)"); b.legend(fontsize=7, loc="upper right")
+    b.set_ylabel("distance to\nnearest match"); b.set_xlabel("time (h)")
+    b.legend(fontsize=7, loc="upper right", frameon=True, facecolor="white", edgecolor="none", framealpha=0.9)
     b.set_xlim(0, th[-1])
     c = fig.add_subplot(gs[:, 2])
     zn = lambda v: (v - v.mean()) / (v.std() + 1e-12)
@@ -362,6 +432,8 @@ def mpintuition():
     c.plot(tt, zn(x[i:i + m]), color=fs.CATEGORICAL[0], lw=1.4, label=f"{i / 3600:.1f} h")
     c.plot(tt, zn(x[j:j + m]), color="#164b8f", lw=1.4, ls="--", label=f"{j / 3600:.1f} h")
     c.set_xlabel("minutes"); c.set_ylabel("z-score"); c.legend(fontsize=7, loc="lower right")
+    c.yaxis.set_label_position("right"); c.yaxis.tick_right()      # keep the label clear of panel (a)
+    c.spines["right"].set_visible(True); c.spines["left"].set_visible(False)
     c.set_title("(b) the closest pair,\nz-normalised", loc="left", fontsize=8.5)
     print(f"mp intuition: pair {i / 3600:.2f} h and {j / 3600:.2f} h, distance {mp[i]:.3f}; discord {d / 3600:.2f} h ({mp[d]:.2f}); m={m}")
     return fs.save(fig, "ch2_mp_intuition")
@@ -478,9 +550,14 @@ def agreement():
     gs = fig.add_gridspec(3, 1, height_ratios=[1.0, 2.1, 0.9], hspace=0.22)
     a = fig.add_subplot(gs[0]); a.plot(th, x, color=fs.INK, lw=0.6)
     a.set_ylabel("mV"); a.tick_params(labelbottom=False); a.set_xlim(th[0], th[-1])
-    a.set_title(f"(a) M2_aug channel index {meta.get('channel')}: 12 hours", loc="left", fontsize=8.5)
+    a.set_title(f"(a) M2_aug {meta['channels'][0]['channel_name']}: 12 hours", loc="left", fontsize=8.5)
     b = fig.add_subplot(gs[1], sharex=a)
     rows = FAM + [("cnn_1min", "CNN 1 min (control)")]
+    # The matrix profile was never run on this channel (the database holds matrix-profile runs on M2_aug CH0, CH1
+    # and CH7 only), so its row is marked rather than left looking like "ran, found nothing".
+    rows = [(f, lab + " (not run here)" if f == "matrix_profile" and not (det["family"] == f).any() else lab)
+            for f, lab in rows]
+    print("agreement: rows marked not run:", [lab for f, lab in rows if lab.endswith("(not run here)")])
     for k, (f, lab) in enumerate(rows):
         _spans(b, det[det["family"] == f], len(rows) - 1 - k, fs.NEUTRAL if f == "cnn_1min" else fs.INK_2)
     b.set_yticks(range(len(rows))); b.set_yticklabels([lab for _, lab in rows][::-1], fontsize=7)
@@ -500,7 +577,8 @@ def agreement():
         good = r.verdict in ("interesting", "seed")
         c.scatter([(r.start_s + r.end_s) / 2 / 3600], [r.n_agree], marker="o", s=38,
                   color=fs.CATEGORICAL[1] if good else "white", edgecolor=fs.INK, lw=1.0, zorder=4)
-    c.set_ylim(0, 13.8); c.set_ylabel("families\nagreeing"); c.set_xlabel("time in the recording (h)")
+    c.set_ylim(0, 12.8); c.set_ylabel("families\nagreeing"); c.set_xlabel("time in the recording (h)")
+    c.set_title("(c) how many families agree on each candidate, with the blind verdicts", loc="left", fontsize=8.5)
     h = [fs.plt.Line2D([], [], ls="", marker="o", color=fs.CATEGORICAL[1], mec=fs.INK, label="blind verdict: event"),
          fs.plt.Line2D([], [], ls="", marker="o", mfc="white", color=fs.INK, label="blind verdict: not an event")]
     c.legend(handles=h, loc="lower right", fontsize=7, ncol=2, frameon=True, facecolor="white", edgecolor="white")
@@ -559,6 +637,14 @@ def realsurr():
 
 
 # ------------------------------------------------------------------------------------------------ Chapter 7 --
+def _m2_aug_channel_names():
+    """M2_aug's channel names by channel index (CH1_A1 ... CH16_D2), from the all-channel stack's sidecar."""
+    name = [f[:-4] for f in B.ls("windows") if f.startswith("b4_stack__M2_aug__") and f.endswith(".npz")][0]
+    _, meta = B.series(f"windows/{name}")
+    return [c["channel_name"] for c in sorted(meta["channels"], key=lambda c: int(c["channel"]))]
+
+
+
 def seeds(which=("drop30", "spike37")):
     """Figure 7.1: two library seeds, their blind-judged matches across M2_aug's channels, and random windows of the
     same length judged in the same blind queue."""
@@ -567,9 +653,10 @@ def seeds(which=("drop30", "spike37")):
     items = B.csv("queues/queue_items")
     items = items[items["queue"] == 35]
     qi = qw.index.reset_index().rename(columns={"index": "pos"})
+    names = _m2_aug_channel_names()
     zn = lambda v: (v - np.nanmean(v)) / (np.nanstd(v) + 1e-12)
     fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 2.35 * len(which) + 0.3))
-    gs = fig.add_gridspec(len(which), 4, width_ratios=[0.8, 1.4, 1.0, 1.0], wspace=0.42, hspace=0.62)
+    gs = fig.add_gridspec(len(which), 4, width_ratios=[0.8, 1.5, 1.0, 1.0], wspace=0.62, hspace=0.62)
     for r_, key in enumerate(which):
         sr = sw.index[sw.index["seed_key"] == key].index[0]
         t, y = sw.window(int(sr))
@@ -582,13 +669,19 @@ def seeds(which=("drop30", "spike37")):
         mt = qi[qi["stratum"] == key]
         ctl = qi[(qi["stratum"] == "control") & (np.isclose(qi["item_t1_s"] - qi["item_t0_s"], L))]
         bx = fig.add_subplot(gs[r_, 1])
-        for _, rr in mt.iterrows():
-            good = rr["verdict_own"] in ("interesting", "seed")
-            bx.scatter([rr["item_t0_s"] / 3600], [rr["channel"]], s=14, color=fs.SPECIES_COLOUR["oyster"] if good
-                       else "white", edgecolor=fs.SPECIES_COLOUR["oyster"], lw=0.8)
+        good = mt["verdict_own"].isin(["interesting", "seed"])
+        bx.scatter(mt.loc[good, "item_t0_s"] / 3600, mt.loc[good, "channel"], s=14,
+                   color=fs.SPECIES_COLOUR["oyster"], edgecolor=fs.SPECIES_COLOUR["oyster"], lw=0.8, zorder=3)
         bx.scatter([a0 / 3600], [sw.index.loc[sr, "channel"]], marker="*", s=90, color=fs.INK, zorder=4)
-        bx.set_ylim(-0.8, 15.8); bx.set_xlim(0, 721); bx.set_yticks([0, 5, 10, 15])
-        bx.set_xlabel("time in M2_aug (h)"); bx.set_ylabel("channel")
+        # not accepted (unsure or rejected): open, larger and drawn last, so a dense run of filled ones cannot hide it
+        bx.scatter(mt.loc[~good, "item_t0_s"] / 3600, mt.loc[~good, "channel"], s=26, facecolor="white",
+                   edgecolor=fs.INK, lw=1.0, zorder=5)
+        print(f"seeds {key}: {int(good.sum())} filled, {int((~good).sum())} open markers "
+              f"({mt.loc[~good, 'verdict_own'].value_counts().to_dict()})")
+        bx.set_ylim(-0.8, 15.8); bx.set_xlim(0, 721)
+        bx.set_yticks(range(len(names)), names, fontsize=5.3)
+        bx.grid(axis="y", visible=False)
+        bx.set_xlabel("time in M2_aug (h)")   # the tick labels name the channels
         n_ok = int(mt["verdict_own"].isin(["interesting", "seed"]).sum()); n_j = int(mt["verdict_own"].isin(
             ["interesting", "seed", "not_interesting", "unsure", "artifact"]).sum())
         bx.set_title(f"matches: {n_ok}/{n_j} accepted", fontsize=8, loc="left")
@@ -627,7 +720,7 @@ def gallery():
     """Figure 5.1: one channel of each recording over a day, and its busiest 30 minutes."""
     files = {f.split("__")[1]: f[:-4] for f in B.ls("windows") if f.startswith("gallery__") and f.endswith(".npz")}
     rows = [(k, d) for k, d in GALLERY if k in files]
-    fig, axes = fs.figure("full", 1.0 * len(rows) + 0.4, len(rows), 2, gridspec_kw={"width_ratios": [2.6, 1.0]})
+    fig, axes = fs.figure("full", 1.15 * len(rows) + 0.4, len(rows), 2, gridspec_kw={"width_ratios": [2.6, 1.0]})
     for r_, (k, desc) in enumerate(rows):
         x, meta, th = _window(files[k])
         col = fs.colour(k.replace("_aug", "") if k == "M4_aug" else k)
@@ -647,9 +740,8 @@ def gallery():
         b.plot(tz, x[j:j + w], color=col, lw=0.8)
         nm = {"M4_aug": "M4", "MJu26a_fs2": "MJu26a", "LM_fs2": "LM", "CO_fs2": "CO", "SO_fs2": "SO", "SH_fs2": "SH"}.get(k, k)
         a.set_ylabel("mV", fontsize=7)
-        a.text(0.01, 0.95, f"{nm} ({desc}), channel index {meta['channel']}, {th[0]:.0f}–{th[-1]:.0f} h",
-               transform=a.transAxes, fontsize=7, va="top", color=fs.INK,
-               bbox=dict(facecolor="white", edgecolor="none", alpha=0.85, pad=1.0))
+        a.set_title(f"{nm} ({desc}), {meta['channels'][0]['channel_name']}, {th[0]:.0f}–{th[-1]:.0f} h",
+                    loc="left", fontsize=7, pad=2.5, color=fs.INK)   # above the axes, clear of the trace
         for ax in (a, b):
             ax.tick_params(labelsize=6.5)
             ax.margins(x=0)
@@ -657,7 +749,7 @@ def gallery():
             a.tick_params(labelbottom=False); b.tick_params(labelbottom=False)
     axes[-1, 0].set_xlabel("hours from the start of the day shown")
     axes[-1, 1].set_xlabel("minutes (the shaded 30)")
-    fig.subplots_adjust(left=0.08, right=0.99, bottom=0.06, top=0.99, hspace=0.18, wspace=0.18)
+    fig.subplots_adjust(left=0.08, right=0.99, bottom=0.06, top=0.97, hspace=0.42, wspace=0.18)
     return fs.save(fig, "ch5_gallery")
 
 
@@ -709,8 +801,8 @@ def anatomyevent():
         ax.text((tt[k0] + tt[k1]) / 2, yy + 0.01 * rngv, lab, fontsize=7, ha="center", va="bottom", color=fs.INK_2)
     half = y[on] - amp / 2 if np.isfinite(amp) else np.nan
     ax.axhline(half, color=fs.MUTED, lw=0.8, ls=":")
-    ax.text(tt[0], half, f"half depth: the event is below this line for {float(f['fwhm_s']):.0f} s (FWHM)", fontsize=7,
-            va="bottom", ha="left", color=fs.INK_2)
+    # 9 Nov: the half-depth line is explained in the caption, not labelled on the plot (author's request)
+    print("anatomy event FWHM s:", float(f["fwhm_s"]))
     ax.set_xlabel("seconds"); ax.set_ylabel("mV")
     ax.set_ylim(yb - 0.2 * rngv, np.nanmax(y) + 0.05 * rngv)
     print("anatomy event:", r["event_id"], r["source_file"], f[["event_amplitude_mv", "duration_s", "fwhm_s", "recovery_time_s"]].to_dict())
@@ -729,11 +821,76 @@ def _train_window():
     return best
 
 
+_ONSETS = {}
+DB_RO = "file:" + os.path.join(fs.ROOT, "DATA", "db", "annotations.sqlite").replace("\\", "/") + "?mode=ro"
+
+
+def _train_onsets(name, on):
+    """The drop detector's own fall onsets (s, channel-absolute) for the detections `on` in train window `name`.
+
+    A detection's start_s is its window start, which sits on the encoder's segment grid and can be minutes before the
+    fall. The onset is only in the detector's label, which the database does not store (meta_json is empty), so the
+    run is recomputed in memory: its own three steps (read read-only from the database's config) on the bundle's
+    copy of the whole channel. Every recomputed window must match the run's database rows, or this raises.
+    """
+    if name in _ONSETS:
+        return _ONSETS[name]
+    import json
+    import sqlite3
+    sys.path.insert(0, fs.ROOT)
+    from Adapters.preprocessing_detrend import _run as detrend
+    from Adapters.detection_stage_encoding import _run as encode
+    from Adapters.detection_drop_detection import _run as drop
+    run_id = int(on["run_id"].unique().item())
+    con = sqlite3.connect(DB_RO, uri=True)
+    try:
+        cfg = json.loads(con.execute("SELECT c.config_json FROM runs r JOIN configs c ON c.id = r.config_id "
+                                     "WHERE r.id = ?", (run_id,)).fetchone()[0])
+        db = pd.read_sql("SELECT id, start_idx, end_idx FROM detections WHERE run_id = ?", con, params=(run_id,))
+    finally:
+        con.close()
+    steps = [s["algorithm"] for s in cfg["steps"]]
+    if steps != ["detrend", "stage_encoding", "drop_detection"]:
+        raise ValueError(f"run {run_id}: unexpected chain {steps}")
+    _, rec, ch = name.split("__")[:3]
+    x, meta = B.series(f"full_channels/{rec}__{ch}__full")
+    if int(meta["recording_id"]) != int(on["recording_id"].iloc[0]):
+        raise ValueError(f"{name}: full channel is recording {meta['recording_id']}, run is on another")
+    s0, s1 = cfg["span"]
+    fsr = float(meta["fs"])
+    xv = x[s0:s1] / float(meta.get("mv_factor") or 1.0)          # back to the stored unit the run read
+    t = (s0 + np.arange(len(xv))) / fsr
+    p = [s["params"] for s in cfg["steps"]]
+    xd = detrend(xv, t, fsr, **p[0]).value.x
+    enc = encode(xd, t, fsr, **p[1])
+    res = drop(xd, t, fsr, value=enc.value, units=meta.get("units_original") or "V", **p[2]).value
+    rc = pd.DataFrame({"start_idx": res.starts, "end_idx": res.ends, "label": res.labels})
+    rc["start_idx"] += s0; rc["end_idx"] += s0
+    m = db.merge(rc, on=["start_idx", "end_idx"], how="outer", indicator=True)
+    if len(rc) != len(db) or not (m["_merge"] == "both").all():
+        raise ValueError(f"run {run_id}: recomputed {len(rc)} windows do not match the {len(db)} database rows")
+    m["onset_s"] = m["label"].str.extract(r"onset=(\d+)")[0].astype(float) / fsr
+    out = on.merge(m[["id", "onset_s"]], left_on="detection_id", right_on="id", how="left")
+    if out["onset_s"].isna().any():
+        raise ValueError(f"run {run_id}: a detection in {name} has no recomputed onset")
+    print(f"train onsets {name}: run {run_id}, {len(db)} windows recomputed, all match the database")
+    _ONSETS[name] = np.sort(out["onset_s"].to_numpy(float))
+    return _ONSETS[name]
+
+
+def _train_stats(o):
+    g = np.diff(np.sort(o))
+    cv = np.std(g) / np.mean(g)
+    cv2 = np.mean(2 * np.abs(np.diff(g)) / (g[1:] + g[:-1]))
+    lv = 3 * np.mean(((g[:-1] - g[1:]) / (g[:-1] + g[1:])) ** 2)
+    return cv, cv2, lv
+
+
 def anatomytrain():
     """Figure 5.3: how a train is measured - four hours of drops with the interval between onsets written in."""
     name, on = _train_window()
     x, meta, th = _window(name)
-    o = on["start_s"].to_numpy(float)
+    o = _train_onsets(name, on)        # the detector's fall onsets, not its window starts
     g = np.diff(o)
     fig = fs.plt.figure(figsize=(fs.TEXT_WIDTH_IN, 2.9))
     gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 0.42], hspace=0.05)
@@ -742,7 +899,8 @@ def anatomytrain():
         a.axvline(v / 3600, color=fs.SPECIES_COLOUR["oyster"], lw=0.8, alpha=0.6)
     a.set_ylabel("mV"); a.tick_params(labelbottom=False); a.set_xlim(th[0], th[-1])
     rec = name.split("__")[1]
-    a.set_title(f"{fs.label(rec)}, channel index {meta['channel']}: {len(o)} drops (drop detector v1) in four hours",
+    a.set_title(f"{fs.label(rec)} {meta['channels'][0]['channel_name']}: {len(o)} drops (drop detector v1) in four hours, "
+                "marked at their onsets",
                 loc="left", fontsize=8.5)
     b = fig.add_subplot(gs[1], sharex=a)
     for k, (v0, v1) in enumerate(zip(o[:-1], o[1:])):
@@ -753,15 +911,15 @@ def anatomytrain():
         b.axvline(v / 3600, color=fs.SPECIES_COLOUR["oyster"], lw=0.8, alpha=0.6, ymax=0.95)
     b.set_ylim(0, 1); b.set_yticks([]); b.grid(False)
     b.set_xlabel("time in the recording (h); numbers are the seconds between onsets")
-    cv2 = np.mean(2 * np.abs(np.diff(g)) / (g[1:] + g[:-1]))
-    lv = 3 * np.mean(((g[:-1] - g[1:]) / (g[:-1] + g[1:])) ** 2)
-    print(f"anatomy train {name}: n={len(o)}, CV={np.std(g) / np.mean(g):.2f}, CV2={cv2:.2f}, LV={lv:.2f}")
+    cv, cv2, lv = _train_stats(o)
+    print(f"anatomy train {name} (from onsets): n={len(o)}, mean gap {np.mean(g):.0f} s, CV={cv:.3f}, "
+          f"CV2={cv2:.3f}, LV={lv:.3f}; gaps {g.astype(int).tolist()}")
     return fs.save(fig, "ch5_anatomy_train")
 
 
 # ------------------------------------------------------------------------------------------------ Chapter 4 --
 def sixdetectors(h0=69.2, h1=73.2):
-    """Figure 4.2: one signal, six detectors - four hours of M2_aug channel index 8 with each detector's spans."""
+    """Figure 4.2: one signal, six detectors - four hours of M2_aug CH9_C1 (channel index 8) with each detector's spans."""
     name = [f[:-4] for f in B.ls("windows") if f.startswith("agreement__") and f.endswith(".npz")][0]
     x, meta, th = _window(name)
     m = (th >= h0) & (th <= h1)
@@ -774,7 +932,7 @@ def sixdetectors(h0=69.2, h1=73.2):
     fig, axes = fs.figure("full", 6.2, len(rows) + 1, 1, sharex=True,
                           gridspec_kw={"height_ratios": [1.6] + [1.0] * len(rows), "hspace": 0.12})
     axes[0].plot(th[m], x[m], color=fs.INK, lw=0.7)
-    axes[0].set_ylabel("mV"); axes[0].set_title("M2_aug, channel index 8: four hours, as recorded", loc="left",
+    axes[0].set_ylabel("mV"); axes[0].set_title(f"M2_aug {meta['channels'][0]['channel_name']}: four hours, as recorded", loc="left",
                                                 fontsize=8.5)
     for ax, (v, lab) in zip(axes[1:], rows):
         d = det[det["variant"] == v]
@@ -843,13 +1001,13 @@ def threezooms():
     return fs.save(fig, "ch1_three_zooms")
 
 
-def surrogates():
-    """Figure 2.3: six hours of M2_aug beside an AAFT copy and a block-shuffled copy."""
+def surrogates(seed=7):
+    """Figure 2.3: six hours of M2_aug beside a phase-randomised copy, an AAFT copy and a block-shuffled copy."""
     name = [f[:-4] for f in B.ls("windows") if f.startswith("gallery__M2_aug__") and f.endswith(".npz")][0]
     x, meta, th = _window(name)
     j = _busiest(x, 6 * 3600)
     y = x[j:j + 6 * 3600].copy(); t = th[j:j + 6 * 3600]
-    rng = np.random.default_rng(7)
+    rng = np.random.default_rng(seed)
     n = len(y)
     g = np.sort(rng.standard_normal(n))[np.argsort(np.argsort(y))]         # Gaussian, ordered like y
     G = np.fft.rfft(g); ph = rng.uniform(0, 2 * np.pi, len(G)); ph[0] = 0
@@ -859,17 +1017,30 @@ def surrogates():
     nb = n // blk
     order = rng.permutation(nb)
     bs = np.concatenate([y[k * blk:(k + 1) * blk] for k in order] + [y[nb * blk:]])
-    fig, axes = fs.figure("full", 4.4, 3, 1, sharex=True, sharey=True, gridspec_kw={"hspace": 0.35})
+    # Phase randomisation (drawn last from the same generator, so the AAFT and block-shuffle copies are unchanged):
+    # keep every Fourier amplitude, draw each phase uniformly; the mean (DC) term keeps phase 0 and, for an even
+    # length, so does the Nyquist term, so the spectrum stays conjugate-symmetric and the copy is real.
+    Y = np.fft.rfft(y - y.mean())
+    php = rng.uniform(0, 2 * np.pi, len(Y)); php[0] = 0
+    if n % 2 == 0:
+        php[-1] = 0
+    pr = np.fft.irfft(np.abs(Y) * np.exp(1j * php), n=n) + y.mean()
+    assert np.allclose(np.abs(np.fft.rfft(pr - pr.mean())), np.abs(Y), rtol=1e-6, atol=1e-6 * np.abs(Y).max())
+    print(f"surrogates: seed {seed} (numpy default_rng; AAFT and block shuffle drawn first, then the phases), "
+          f"{n} samples from {t[0]:.2f} h, {nb} blocks of {blk} s")
+    fig, axes = fs.figure("full", 5.6, 4, 1, sharex=True, sharey=True, gridspec_kw={"hspace": 0.42})
     for ax, v, lab, c in ((axes[0], y, "(a) the recording: six hours of M2_aug", fs.colour("M2_aug")),
-                          (axes[1], aaft, "(b) an AAFT copy: the same values and frequencies, the shapes scrambled",
+                          (axes[1], pr, "(b) phase-randomised: keeps the power spectrum; loses the shapes and "
+                                        "the value distribution", fs.INK_2),
+                          (axes[2], aaft, "(c) AAFT: keeps the values and (nearly) the spectrum; loses the shapes",
                            fs.INK_2),
-                          (axes[2], bs, "(c) a block-shuffled copy: half-hour blocks kept whole, their order shuffled",
+                          (axes[3], bs, "(d) 30-min block shuffle: keeps each block whole; loses their order",
                            fs.INK_2)):
         ax.plot(t - t[0], v, color=c, lw=0.6)
         ax.set_title(lab, loc="left", fontsize=8.5); ax.set_ylabel("mV")
     for k in range(1, nb):
-        axes[2].axvline(k * blk / 3600, color=fs.MUTED, lw=0.5, ls=":")
-    axes[2].set_xlabel("hours")
+        axes[3].axvline(k * blk / 3600, color=fs.MUTED, lw=0.5, ls=":")
+    axes[3].set_xlabel("hours")
     return fs.save(fig, "ch2_surrogate_example")
 
 
@@ -886,7 +1057,7 @@ def cnntrace():
     for r in hl.itertuples():
         if r.label == "interesting":
             a.axvspan(r.start_s / 3600, r.end_s / 3600, color=fs.SPECIES_COLOUR["oyster"], alpha=0.25, lw=0)
-    a.set_title(f"M2_aug, channel index {meta['channel']}: two days, hand labels shaded (interesting)", loc="left",
+    a.set_title(f"M2_aug {meta['channels'][0]['channel_name']}: two days, hand labels shaded (interesting)", loc="left",
                 fontsize=8.5)
     d = sc[sc["variant"] == "cnn_fusion3_10min"].sort_values("start_s")
     b.fill_between(d["start_s"] / 3600, d["p_interesting"], step="post", color=fs.CATEGORICAL[0], alpha=0.3, lw=0)
@@ -941,7 +1112,7 @@ def sax(seg_s=180, alpha=4, word=3, hours=3):
 def b1train():
     """Chapter 10, B1: a real drop train against a random train with the same rate, and the real gaps shuffled."""
     name, on = _train_window()
-    o = np.sort(on["start_s"].to_numpy(float)); g = np.diff(o)
+    o = _train_onsets(name, on); g = np.diff(o)       # the detector's fall onsets, not its window starts
     rng = np.random.default_rng(5)
     span = o[-1] - o[0]
     pois = o[0] + np.cumsum(rng.exponential(np.mean(g), len(g) * 3))
@@ -957,9 +1128,13 @@ def b1train():
         ax.vlines((tt - o[0]) / 3600, y - 0.32, y + 0.32, color=c, lw=1.6)
         ax.text(-0.02, y, f"{lab}\nLV {lv(np.diff(tt)):.2f}", transform=ax.get_yaxis_transform(), ha="right",
                 va="center", fontsize=7.5)
+    cv, cv2, lvr = _train_stats(o)
+    print(f"b1 train {name}: recorded n={len(o)} CV={cv:.3f} CV2={cv2:.3f} LV={lvr:.3f}; random same rate "
+          f"n={len(pois)} LV={lv(np.diff(pois)):.3f}; shuffled gaps LV={lv(np.diff(shuf)):.3f} (seed 5)")
     ax.set_yticks([]); ax.set_ylim(-0.6, 2.6); ax.set_xlabel("hours"); ax.grid(axis="y", visible=False)
     rec = name.split("__")[1]
-    ax.set_title(f"Drop onsets on {fs.label(rec)} (four hours), a random train and the shuffled gaps", loc="left",
+    chname = _window(name)[1]["channels"][0]["channel_name"]
+    ax.set_title(f"Drop onsets on {fs.label(rec)} {chname} (four hours), a random train and the shuffled gaps", loc="left",
                  fontsize=8.5)
     return fs.save(fig, "ch10_b1_train")
 
@@ -989,6 +1164,14 @@ def b4stack():
         ax.axhline(-edge, color=fs.GRID, lw=0.65)
     for r in co.itertuples():
         ax.axvline((r.onset_a_s + r.onset_b_s) / 7200, color=fs.MUTED, lw=0.65, alpha=0.65, zorder=0)
+    # the burst in which almost every channel jumps at once; most of the census co-occurrences fall inside it
+    burst = (41.0, 41.35)
+    ax.axvspan(*burst, color=fs.GRID, alpha=0.8, lw=0, zorder=-1)
+    ax.text(burst[1], 1.005, "burst on most channels", transform=ax.get_xaxis_transform(), ha="right",
+            va="bottom", fontsize=7, color=fs.INK_2)
+    mid = (co["onset_a_s"] + co["onset_b_s"]) / 7200
+    print(f"b4 stack: burst band {burst[0]:.2f}-{burst[1]:.2f} h holds {int(mid.between(*burst).sum())} of "
+          f"{len(co)} census co-occurrences")
     ax.set_yticks(-np.arange(len(names)), names, fontsize=6.9)
     ax.grid(axis="y", visible=False)
     ax.set(xlabel="Time in recording (h)", xlim=(th[0], th[-1]), ylim=(-15.6, 0.7))

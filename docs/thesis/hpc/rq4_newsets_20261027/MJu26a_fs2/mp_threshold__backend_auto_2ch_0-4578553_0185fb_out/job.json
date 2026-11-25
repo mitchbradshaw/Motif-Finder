@@ -3,7 +3,7 @@
   "specHash": "0185fbbbce3b",
   "tasks": 2,
   "label": "mp_threshold__backend_auto",
-  "spec": "docs/thesis/hpc/rq4_newsets_20261027/MJu26a_fs2/mp_threshold__backend_auto_2ch_0-4578553_0185fb.chain.json",
+  "spec": null,
   "channels": [
     "CH1",
     "CH2"

@@ -1,0 +1,213 @@
+{
+  "generated_by": "scripts/thesis/b4_sh_so_20261109.py",
+  "read_only": true,
+  "detector": "drop_detection_v1",
+  "censuses": [
+    {
+      "recording": "SH_fs2",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SH_fs2/drop_detection_v1_4ch_0-3456000_bff1bb.chain.json",
+      "channels": [
+        {
+          "channel": "CH1",
+          "recording_id": 708,
+          "events": 6,
+          "cluster_detections": 6
+        },
+        {
+          "channel": "CH2",
+          "recording_id": 709,
+          "events": 4,
+          "cluster_detections": 4
+        },
+        {
+          "channel": "CH3",
+          "recording_id": 710,
+          "events": 6,
+          "cluster_detections": 6
+        },
+        {
+          "channel": "CH4",
+          "recording_id": 711,
+          "events": 5,
+          "cluster_detections": 5
+        }
+      ],
+      "n_events": 21,
+      "hours": 480.0,
+      "ceiling_s": 50.0,
+      "co_occurrences": 2,
+      "rotation_draws": 1000,
+      "rotation_null_mean": 0.011,
+      "rotation_null_p95": 0.0,
+      "p": 0.000999000999000999,
+      "packs": "not set: every pair counted together, as on CO and LM",
+      "pairs": [
+        {
+          "a": 708,
+          "b": 709,
+          "observed": 1,
+          "null_mean": 0.002
+        },
+        {
+          "a": 708,
+          "b": 710,
+          "observed": 0,
+          "null_mean": 0.002
+        },
+        {
+          "a": 708,
+          "b": 711,
+          "observed": 1,
+          "null_mean": 0.001
+        },
+        {
+          "a": 709,
+          "b": 710,
+          "observed": 0,
+          "null_mean": 0.003
+        },
+        {
+          "a": 709,
+          "b": 711,
+          "observed": 0,
+          "null_mean": 0.001
+        },
+        {
+          "a": 710,
+          "b": 711,
+          "observed": 0,
+          "null_mean": 0.002
+        }
+      ],
+      "examples": [
+        {
+          "a": 708,
+          "b": 709,
+          "onset_a_h": 139.7865277777778,
+          "lag_s": -1.5
+        },
+        {
+          "a": 708,
+          "b": 711,
+          "onset_a_h": 22.36486111111111,
+          "lag_s": 0.0
+        }
+      ]
+    },
+    {
+      "recording": "SO_fs2",
+      "spec": "docs/thesis/hpc/rq4_newsets_20261027/SO_fs2/drop_detection_v1_4ch_0-3456000_233593.chain.json",
+      "channels": [
+        {
+          "channel": "CH1",
+          "recording_id": 712,
+          "events": 9,
+          "cluster_detections": 9
+        },
+        {
+          "channel": "CH2",
+          "recording_id": 713,
+          "events": 4,
+          "cluster_detections": 4
+        },
+        {
+          "channel": "CH3",
+          "recording_id": 714,
+          "events": 14,
+          "cluster_detections": 14
+        },
+        {
+          "channel": "CH4",
+          "recording_id": 715,
+          "events": 1,
+          "cluster_detections": 1
+        }
+      ],
+      "n_events": 28,
+      "hours": 480.0,
+      "ceiling_s": 50.0,
+      "co_occurrences": 6,
+      "rotation_draws": 1000,
+      "rotation_null_mean": 0.021,
+      "rotation_null_p95": 0.0,
+      "p": 0.000999000999000999,
+      "packs": "not set: every pair counted together, as on CO and LM",
+      "pairs": [
+        {
+          "a": 712,
+          "b": 713,
+          "observed": 2,
+          "null_mean": 0.003
+        },
+        {
+          "a": 712,
+          "b": 714,
+          "observed": 2,
+          "null_mean": 0.009
+        },
+        {
+          "a": 712,
+          "b": 715,
+          "observed": 0,
+          "null_mean": 0.001
+        },
+        {
+          "a": 713,
+          "b": 714,
+          "observed": 2,
+          "null_mean": 0.006
+        },
+        {
+          "a": 713,
+          "b": 715,
+          "observed": 0,
+          "null_mean": 0.0
+        },
+        {
+          "a": 714,
+          "b": 715,
+          "observed": 0,
+          "null_mean": 0.002
+        }
+      ],
+      "examples": [
+        {
+          "a": 712,
+          "b": 713,
+          "onset_a_h": 22.36486111111111,
+          "lag_s": 0.0
+        },
+        {
+          "a": 712,
+          "b": 713,
+          "onset_a_h": 215.78819444444446,
+          "lag_s": 0.0
+        },
+        {
+          "a": 712,
+          "b": 714,
+          "onset_a_h": 22.36486111111111,
+          "lag_s": 0.0
+        },
+        {
+          "a": 712,
+          "b": 714,
+          "onset_a_h": 215.78819444444446,
+          "lag_s": 0.0
+        },
+        {
+          "a": 713,
+          "b": 714,
+          "onset_a_h": 22.36486111111111,
+          "lag_s": 0.0
+        },
+        {
+          "a": 713,
+          "b": 714,
+          "onset_a_h": 215.78819444444446,
+          "lag_s": 0.0
+        }
+      ]
+    }
+  ]
+}

@@ -38,25 +38,20 @@ No AI tool made a human judgement. Every verdict used as a label or as ground tr
 
 \textbf{Figures.} Data figures are produced by code, much of it AI-written, from the recorded signals and my verdicts. The schematic diagrams were drafted with AI assistance from my specification and edited by me. The project poster was laid out with Claude through the Canva connector.
 
-\textbf{Research questions and text.} The research questions originate in my reading and in supervisor meetings. Claude was used to press each draft question until it named a baseline, a null and a measurable discriminator. This document was scaffolded with AI assistance from my notes, the repository record and my prior assessed work: the chapter structure, the content notes and the collation of numbers and figures. The prose is my own, and AI was also used for \LaTeX{} syntax, grammar and phrasing.
+\textbf{Research questions and text.} The research questions originate in my reading and in supervisor meetings. Claude was used to press each draft question until it named a baseline, a null and a measurable discriminator. This document was scaffolded with AI assistance from my notes, the repository record and my prior assessed work: the chapter structure, the content notes and the collation of numbers and figures. Much of the prose was drafted by Claude from my notes, my written responses for each section and the analysis results, and I then reviewed, corrected and edited it; some passages are my own writing throughout. AI was also used for \LaTeX{} syntax, grammar and phrasing. I take responsibility for every sentence and every number in this thesis.
 
 \bigskip
 
-{\small
-\begin{tabular}{
-|c|c|c|c|c|c|c|c|c|c|c|
->{\centering\arraybackslash}p{3.3cm}|
-}
+{\footnotesize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\tabularxcolumn}[1]{m{#1}}
+\noindent\begin{tabularx}{\textwidth}{|c|c|c|c|c|c|c|c|c|c|c|>{\centering\arraybackslash}X|}
 \hline
 \multirow{2}{*}{%
-  \parbox{2.1cm}{%
-    \centering
-     \textbf{AI model and date}
-  }%
+  \parbox{2.1cm}{\centering\textbf{AI model and date}}%
 }
 & \multicolumn{11}{c|}{%
-    \textbf{Artificial Intelligence (AI) tool usage}
-    (tick all that apply)
+    \textbf{Artificial Intelligence (AI) tool usage} (tick all that apply)%
   }
 \\ \cline{2-12}
 & \rotatedheading{Topic exploration}
@@ -74,27 +69,34 @@ No AI tool made a human judgement. Every verdict used as a label or as ground tr
 % ChatGPT
 \makecell{ChatGPT 4o\\ 23/02/26 -- 14/08/26}
 & & & \(\checkmark\) & & & & & & \(\checkmark\) & \(\checkmark\)
-& \makecell{reference formatting;\\ summarising papers\\ already located}
+& reference formatting; summarising papers already located
 \\ \hline
 % Perplexity
 \makecell{Perplexity\\ 23/03/26 -- 23/04/26}
 & \(\checkmark\) & & \(\checkmark\) & & & & & & &
-& \makecell{locating candidate\\ papers for reading}
+& locating candidate papers for reading
 \\ \hline
 % Claude
 \makecell{Claude (Anthropic;\\ Haiku, Sonnet,\\ Opus, Fable)\\ 15/03/26 -- 09/11/26}
 & & \(\checkmark\) & & \(\checkmark\) & \(\checkmark\) & \(\checkmark\) & \(\checkmark\) & & \(\checkmark\) & \(\checkmark\)
-& \makecell{implementation code\\ from my specifications;\\ grilling, spec, tickets;\\ analysis scripts run\\ under my direction;\\ poster layout (Canva)}
+& implementation code from my specifications; grilling, spec, tickets; analysis scripts run under my direction; poster layout (Canva)
 \\ \hline
 % DeepSeek
 \makecell{DeepSeek V4\\ (flash, pro)\\ 25/08/26 -- 09/26}
 & & & & & & & & & &
-& \makecell{implementation code\\ for tickets of the first,\\ Panel-based version\\ and its structures}
+& implementation code for tickets of the first, Panel-based version and its structures
 \\ \hline
-\end{tabular}
+\end{tabularx}
 }
 
 \begin{instructions}
 Check: the Claude model families and the date range (session logs); the DeepSeek end date (the last orchestrator run in
 \src{orchestrator/} reports); and whether Canva's own AI features were used. If they were, add a Canva row.
+
+\textbf{Important, before signing (8 Nov review):} the sentence ``The prose is my own'' must match how the text was
+actually produced. Much of Chapters 6--10 was drafted by Claude from your own section responses in the writing loop and
+then edited (\src{docs/thesis/CHAPTER_0*_RESPONSES.md}), and the 8--9 Nov review added and reworded sentences and
+captions across the thesis. The ``Written content creation'' box is already ticked; make the sentence say the same
+thing in your own words (for example, that prose was drafted with AI assistance from your notes and responses, and
+that you reviewed, corrected and take responsibility for every sentence), so the statement and the text agree.
 \end{instructions}

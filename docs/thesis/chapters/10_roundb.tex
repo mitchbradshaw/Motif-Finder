@@ -14,9 +14,14 @@ or imply propagation, a physiological oscillator, or a complete low-amplitude ev
 \end{instructions}
 
 \begin{instructions}
-About 7--9 pages: ten short studies (B4 is being redesigned separately), each about half a page plus one figure.
-The list was fixed on 27 Oct (Round 4) and B3's design on 28 Oct (Round 5). B4's page was specified in the
-cross-channel workshop (27 Oct) but is not yet built. Experiments freeze Tue 3 Nov.
+About 7--9 pages. The list was fixed on 27 Oct and B3's design on 28 Oct; B4's census was built and run on 28 Oct.
+
+\textbf{Structure for the final version (review, 8 Nov; both critics):} five sections with plain headings, in this
+order: (1) does activity travel between electrodes? (B4); (2) how are events spaced in time? (B1 with the CH14 train);
+(3) are shapes shared between recordings and species? (B6 and B12 together); (4) is there a preferred time scale? (B9
+and B10 together); (5) the newer 2\,Hz recordings, in a few sentences (B5 and B11, read on the completed sweep). B2, B3 and
+the rest of B5 go to an appendix table of question, null, result and verdict, with their figures, so nothing is lost.
+Keep the B-numbers only in tables and notes; in the prose, name each study by its question.
 
 Every study states these decisions:
 \begin{itemize}
@@ -39,11 +44,42 @@ Every study states these decisions:
         computation is allowed where a page cannot do the arithmetic.
 \end{itemize}
 Candidate notes and evidence: \src{docs/rq_roundB/README.md} and \src{docs/rq_roundB/notes/drop-motif-sequences.md}.
+
+\textbf{Review note (8 Nov), from both critics.} This chapter is where a reader most easily gets lost in measures
+(LV, CV2, BH, AAFT, Stouffer $z$, bits of mutual information, $\varepsilon^2$). Write every study in the same three
+plain steps: the question in everyday words, the answer in one sentence with one number, and what it means for the
+mushrooms; the statistics go in the summary table or a footnote. Give each measure an everyday reading the first time
+it appears (LV: raindrops on a roof score about 1, a dripping tap 0; AAFT: the same values in a scrambled order). On
+length, the examiner recommends keeping B1 (with the CH14 case), B4, B6 and B12 together, and B9 and B10 together in
+the body, and moving B2, B3, B5 and B11 to an appendix table of studies with their nulls and verdicts; your own cut
+order already allows the signal plots of B2, B3, B10 and B11 to go. B4 (does activity travel between electrodes?) is
+the question a lay reader cares about most, so consider putting it first.
 \end{instructions}
 
-The three research questions asked what the instrument can do. This chapter uses it to ask what the signals do: a set of shorter questions about sequences, recovery, shapes, channels, detectors, time scales and methods borrowed from other fields. Each is answered with the site as it stood, and each is judged against a null.
+The three research questions asked what the instrument can do. This chapter uses it to ask what the signals do: a set of shorter questions about sequences, recovery, shapes, channels, detectors, time scales and methods borrowed from other fields. Each is answered with the \tool{} site as it stands, and each is judged against a null. The studies of this chapter were fixed on 27 October from the questions the earlier chapters left open, under four rules: each had to be answerable on the site with little new building, and to have one null, one figure, and a stated claim and non-claim (Table~\ref{tab:roundb}, Appendix~\ref{app:supp}). Table~\ref{tab:rbquestions} lists the questions in plain words, numbered B1 to B12 as they were fixed, with the section that answers each, and each section below names the questions it addresses.
 
-\section{How the questions were chosen}
+\begin{table}[H]
+\caption[{The questions of this chapter.}]{The questions of this chapter, numbered as they were fixed on 27 October, and the sections that answer them. B7 and B8 were not run and are left for further work; each study's null, claim and non-claim are in Table~\ref{tab:roundb}.}
+\label{tab:rbquestions}
+\small
+\begin{tabularx}{\textwidth}{@{}l X l@{}}
+\toprule
+ & \textbf{Question} & \textbf{Section}\\
+\midrule
+B1 & How are events spaced in time: regularly, in bursts, or at random? & \ref{sec:rb_sequences}, \ref{sec:mjuch14train}\\
+B2 & Do drops in a sequence change shape step by step? & \ref{sec:rb_sequences}\\
+B3 & Does a drop recover more slowly after a longer rest? & \ref{sec:rb_models}\\
+B4 & Does activity travel from one electrode to another? & \ref{sec:rb_channels}\\
+B5 & When and where do the detectors fire? & \ref{sec:rb_detectors}\\
+B6 & Do the same shape families recur across recordings and species? & \ref{sec:rb_families}\\
+B9 & Do events prefer particular durations? & \ref{sec:rb_methods}\\
+B10 & At which time scales does the signal hold structure? & \ref{sec:rb_methods}\\
+B11 & Do the detectors find the same events on the newer recordings? & \ref{sec:rb_detectors}\\
+B12 & Do event shapes and intervals differ between recordings and species? & \ref{sec:rb_families}\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
 
 \begin{instructions}
 Rules: answerable on the site with little new building; one null per question; one figure; a stated claim and a
@@ -54,104 +90,30 @@ B3 as fixed also asked whether an excitable-system model describes the drop cycl
 (4 Nov, Section~\ref{sec:rb_models}), so the table lists only the restitution question.
 \end{instructions}
 
-\begin{table}[htbp]
-\caption{The questions studied in this chapter: the site page that answers each, its data, its null, and the building it needed. B7 (multiscale entropy) and B8 (motif prevalence) were not run; they are future work (Section~\ref{sec:futurework}).}
-\label{tab:roundb}
-\footnotesize
-\begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3.1cm} >{\raggedright\arraybackslash}p{2.5cm} >{\raggedright\arraybackslash}p{2.3cm} >{\raggedright\arraybackslash}p{1.5cm}@{}}
-\toprule
-\textbf{\#} & \textbf{Question} & \textbf{On the site} & \textbf{Data} & \textbf{Null} & \textbf{Build}\\
-\midrule
-B1 & Are the intervals between events regular, bursty or random? & Interrogation $\rightarrow$ Intervals (LV, CV2) & drop-detector events, active sets & random timing; shuffled intervals & small\\
-B2 & Do drop sequences change shape step by step more than chance? & Library $\rightarrow$ Sequences, on g-11 & M2\_aug, M2\_concat, CO, LM & shuffled order & small\\
-B3 & Does a drop's recovery depend on the gap before it? & Event shape and Intervals (restitution) & sequences and chains; the drop-detector census & shuffled gaps & backend\\
-B4 & Is cross-channel activity propagation or a shared-ground artefact? (plan RQ6) & Explore $\rightarrow$ Cross-channel (the explorer, S0--S1 at least) & the seven sets & rotation; random time & explorer build\\
-B5 & What do the Discovery Maps show about when and where detectors fire? & Discovery $\rightarrow$ Map & all swept sets & paired surrogate runs; time-shifted rates & none\\
-B6 & Do the same shape families occur across recordings and species? & Library $\rightarrow$ Atlas, Recurrence, on g-11 & M2\_aug, M2\_concat, CO, LM & shuffled recording labels & none\\
-B9 & Do event durations cluster at preferred scales? & \texttt{cwt\_events} & all swept sets & AAFT surrogates & none\\
-B10 & At which time scales does structure beyond noise appear? & \texttt{motif\_lengths}; CNN templates at 1, 10, 60\,min; \texttt{spike\_event\_\allowbreak features} & M2\_aug, M2\_concat, CO, LM, MJu26a & AAFT surrogates & none\\
-B11 & Do the detectors find the same events on the newer datasets? & Discovery $\rightarrow$ Compare; Compare every stage & CO, LM, MJu26a, SH, SO & per-run surrogate & none\\
-B12 & Do spike and drop shapes and intervals differ between recordings and species? & Interrogation $\rightarrow$ Event shape, Intervals, on accepted events & M2\_aug, M2\_concat, CO, LM & shuffled recording labels & none\\
-\bottomrule
-\end{tabularx}
-\end{table}
+\section{Which events each study uses}
 
-\subsection{What the expanded Library changes}
+Each study below uses the population that was complete when it was run: the g-11 shape families (Section~\ref{sec:families}), the 716 accepted events of the blind detector queues, or a census of one detector over whole channels. The later reviews that grew the Library to 2,959 spans (Chapter~\ref{ch:events}) add recordings, notably shiitake, snow oyster and more of MJu26a, and the shape comparisons (B6, B12) were repeated on them once they had been measured and regrouped (Section~\ref{sec:families}), with the same reading. They add examples rather than sequences, though. A sample of accepted event shapes does not show how often a culture produces events. To estimate how often events occur, the timing studies need a census over whole channels, every event one detector finds from start to end, and they use the drop detector because Chapter~\ref{ch:rq1} found its candidates the most often accepted (Section~\ref{sec:rb_sequences}). The train of Section~\ref{sec:mjuch14train} is a 90.7-hour run of 530 spikes on MJu26a CH14, reviewed in full because its events are particularly clean and its sequence unusually long.
 
-The completed follow-up reviews enlarged the accepted inventory to 2,718 spans across eight recordings. This supplies more material for the questions in this chapter, particularly the inclusion of MJu26a in the Library family comparisons and accepted examples from shiitake and snow oyster. MJu26a was already represented by its five-channel copy in the earlier blind shape comparison; its additional channels therefore broaden that recording's coverage. The family-composition tests used g-11, while the shape comparisons used the 716 accepted blind detector-review spans. Those results retain their original denominators until equivalent analyses are repeated on the expanded material.
-
-The main distinction is between collecting examples and observing a sequence. A diverse sample of accepted shapes can strengthen a waveform comparison, but the gaps between sampled examples cannot describe the timing of all events in a recording. A broad accepted span can also contain several events. Individual waveforms must remain separate entries, with a train or sequence linking them in order; shared recovery context is insufficient reason to merge them. The CH14 case below applies this distinction explicitly. For B1--B3, checked identities and onset/recovery boundaries are more valuable than simply adding further isolated interesting windows. For B6 and the shape part of B12, the enlarged material needs regrouping and source-aware comparisons, with individual trains prevented from dominating the apparent species differences.
-
-The machine-only questions have a different dependency. The recovered classical detectors can already extend selected comparisons, while a complete new detector-agreement census for B5 and B11 still requires the remaining CNN tasks. Their completion is not required to review the available classical proposals. A further blind queue therefore prioritises SH and SO, other MJu26a channels and periods, and a range of amplitudes, durations and provisional polarities. It also includes background controls and the planned repeat checks. Those labels are intended to broaden the collection and assess judgement consistency; their selected composition does not supply an unbiased estimate of event prevalence.
-
-\section{A longer reviewed train on MJu26a CH14}
-\label{sec:mjuch14train}
-
-\subsection{The selection and its individual events}
-
-A further review examined a selected train on MJu26a CH14 from 382.5 to 473.2 hours, a span of approximately 90.7 hours (Figure~\ref{fig:mjuch14train}). This is a longer part of the same physical channel containing the earlier four-hour excerpt. It is distinct from the CH15 train at 206--283 hours. BEADS preprocessing, with a 2,000\,s baseline period and downward polarity, was followed by a signal threshold at $-0.957$\,mV, a minimum duration of 1.5\,s and short context margins. The resulting candidates were reviewed by the researcher, yielding accepted observations linked to 509 spans in the reconciled catalogue.
-
-The trace shows repeated downward excursions alongside a substantial change in the baseline over the longer recording. At a closer scale, neighbouring deflections differ in depth, recovery and internal structure. The accepted detector intervals often capture only the narrowest part of a drop, while some small deflections occur during the recovery of a larger one. Thus 509 accepted spans should not be interpreted as 509 final, independently bounded spikes. The four-hour excerpt and the L\_LM and 2\,Hz copies are linked to their parent coordinates, rather than added as further independent recordings.
-
-An exploratory separation pass used the 10\,Hz parent signal, smoothed with a Gaussian standard deviation of 0.5\,s, and located negative extrema with at least 1\,mV prominence and 3\,s separation. Each of the 534 positive source observations was linked to the extrema it contained. A cropped observation could be linked to a nearby extremum only where its prominence-width interval covered at least half the observed span and the extremum was no further away than the shorter of 120\,s or the observed span's duration. Distinct extrema retained distinct identities even where their recovery windows overlapped. This produced 530 individual event proposals supported by the positive observations. Thirteen observations contained several retained extrema; 19 could not be mapped cleanly and remain unresolved. The parent observations and their ordered child proposals are preserved separately. These numbers describe the extraction rule, rather than 530 new independent human judgements.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{new/ch10_mju_ch14_reviewed_train.pdf}
-\caption{The newly reviewed MJu26a CH14 train and its relation to the earlier four-hour case study. Top: the approximately 90.7-hour signal, displayed as a minimum--maximum envelope to preserve narrow excursions; orange ticks mark accepted-span starts and the blue band locates the older excerpt. Bottom left: that four-hour region drawn from the same 10\,Hz parent channel, with accepted spans shaded orange. Bottom right: a local view around 427 hours showing a deep drop, its recovery and a following smaller drop. Shading marks the accepted spans, rather than asserting completed onset-to-recovery boundaries. The panels show different time and voltage scales. The repeated shapes and baseline drift are descriptive features of this selected recording; the plot does not establish a physiological oscillator or propagation between channels.}
-\label{fig:mjuch14train}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{new/ch10_ch14_separate_events.pdf}
-\caption{Separating individual events within the longer CH14 train. The panels show five consecutive supported proposals near the middle of each event-order third, with the surrounding signal retained. Black dots locate the individual trough anchors. Different colours distinguish neighbouring proposed extents and do not denote different waveform families. An uncoloured deflection is outside the five displayed proposals and is not thereby labelled uninteresting. Recovery is bounded by the next detected excursion, so a following event remains a separate member rather than being absorbed into the preceding event's tail. The onsets and recovery extents are machine proposals linked to the earlier accepted observations, and remain available for explicit boundary checking.}
-\label{fig:ch14individuals}
-\end{figure}
-
-\subsection{Variation in amplitude and recovery}
-
-The individual proposals show that the train cannot be described adequately by one average waveform. Onset-to-trough depth had a median of 9.22\,mV, with a 5th--95th percentile range of 2.47--14.65\,mV. The median depth increased from 6.57\,mV in the first event-order third to 9.13\,mV in the middle third and 10.08\,mV in the last. Several depth tracks are visible later in the recording (Figure~\ref{fig:ch14measures}), alongside smaller intervening deflections. These are within-recording changes; they are not sufficient evidence of distinct physiological event types.
-
-The event-shape routines measured each proposal on the native signal, using the proposed onset and trough anchors. Onsets used the existing steepest-fall shoulder rule, bounded after the preceding extremum. Half recovery means the first return from the trough through half of the onset-to-trough depth. It was measurable for 529 of the 530 proposals, with a median of 2.49\,s and a 5th--95th percentile range of 0.83--17.44\,s. A return through half the depth is different from a complete recovery: 25 proposals did not reach the 95\,\% recovery level before the next detected excursion. Their extents were censored there, preserving the next event's separate identity. These proposal-based measurements should therefore be checked before being used as final duration statistics or evidence for restitution.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{new/ch10_ch14_event_measures.pdf}
-\caption{Exploratory measurements of the 530 individually anchored CH14 proposals supported by positive review observations. Top left: onset-to-trough depth against recording time, showing changing depths and several later tracks. Top right: the interval from each retained trough to the preceding retained trough, plotted at the later event's time. Bottom left: the distribution of these 529 intervals. Bottom right: the 529 measurable trough-to-half-recovery times; one proposal did not reach that level within its permitted recovery search. Amplitudes and recovery values use the native signal with machine-proposed anatomy. Half recovery is not full event duration. The retained events are a selected, reviewed subset, and the plots do not establish a complete census of every smaller fluctuation in the train.}
-\label{fig:ch14measures}
-\end{figure}
-
-\subsection{Timing structure and sensitivity to event definition}
-
-The median interval between retained troughs was 603\,s, or approximately 10.0 minutes, with a 5th--95th percentile range of 51--1,359\,s. These are peak-to-peak intervals, which depend less on the unfinished onset boundaries. Their local variation was 0.708 and CV2 was 0.785. Both were below the 95\,\% bands from 1,000 random-timing draws with the same number of points and observed time span: LV 0.905--1.093 and CV2 0.943--1.060. The retained train was therefore more regular locally than this homogeneous random-timing reference, rather than perfectly periodic.
-
-Shuffling the retained intervals gave an LV band of 0.724--0.811, also above the observed value (two-sided permutation $p=0.006$). Under the 1\,mV rule, neighbouring gaps were therefore more alike than the same gaps in random order. This part of the result depended on which smaller events were included (Table~\ref{tab:ch14sensitivity}). Increasing the prominence floor to 2\,mV retained 503 supported extrema and preserved the difference from random timing, but the gap-order result disappeared. The observed structure therefore supports a selected, relatively regular train, while its finer serial organisation depends on the operational event definition.
-
-\begin{table}[htbp]
-\centering\small
-\caption{Sensitivity of the selected CH14 train to the prominence floor, with 0.5\,s smoothing and 3\,s minimum separation held fixed. Counts include only extrema linked to positive review observations. The nulls use 1,000 draws and the existing two-sided permutation calculation. These are exploratory comparisons on a visually selected train, rather than a new recording-wide discovery test.}
-\label{tab:ch14sensitivity}
-\begin{tabular}{@{}rrrrr@{}}
-\toprule
-\makecell[r]{\textbf{Prominence}\\\textbf{floor (mV)}} & \makecell[r]{\textbf{Supported}\\\textbf{extrema}} & \textbf{LV} & \makecell[r]{\textbf{Random timing}\\\boldmath$p$} & \makecell[r]{\textbf{Shuffled gaps}\\\boldmath$p$}\\
-\midrule
-0.5 & 542 & 0.712 & 0.002 & 0.002\\
-1.0 & 530 & 0.708 & 0.002 & 0.006\\
-2.0 & 503 & 0.682 & 0.002 & 0.885\\
-\bottomrule
-\end{tabular}
-\end{table}
-
-This case complements the full-channel detector census below. A deliberately selected, human-accepted train can show regularity even where the broader census did not establish recording-wide regularity after correction. The two tests use different selections and counting units. Likewise, the observed amplitude changes do not establish a mechanism, and a single-channel train cannot establish propagation between channels. The main contribution is a traceable progression from reviewed spans to individual waveform proposals and ordered sequence structure, with the unresolved observations, recovery censoring and threshold sensitivity retained explicitly.
-
-% Completed queue 45 / run 8750; frozen review snapshot and canonical spans in
-% data/reviews_completed_20261108/. Native CH14 data, no duplicate-copy counts.
-% Individual-event follow-up: data/event_hierarchy_20261108/ch14_case.json and
-% ch14_individual_proposals.csv; reviewed_event_hierarchy.py. No new human labels.
+\begin{instructions}
+Review note (8 Nov): the paragraph above replaces three paragraphs of process detail. Landed 9 Nov: queue 47 is
+judged (it adds 237 spans, most on SH and SO, Chapter~\ref{ch:events}; its 46 repeats agree 44 times,
+Chapter~\ref{ch:rq2}); its selected make-up cannot estimate prevalence. The 2\,Hz sweep is complete, so B5 and B11
+below are read on all of it.
+\end{instructions}
 
 \section{Sequences and timing}
 \label{sec:rb_sequences}
+
+How are events spaced in time (B1)? The census uses one detector, the drop detector (v1), because its candidates were the most often accepted of any detector in Chapter~\ref{ch:rq1} (an estimated 92--100\,\% on each of the five recordings), so the events it counts are nearly all events a person would accept. Each event is timed from the moment its fall begins, and the gaps between consecutive events on a channel are measured (Figure~\ref{fig:anatomytrain} shows these measures on a stretch of the reviewed train of Section~\ref{sec:mjuch14train}). Two references, both standard in the analysis of neural spike trains, say what the gaps would look like by chance. The first is a random (Poisson) train: the same number of events over the same time span, placed at random times. The second keeps the channel's own gaps and shuffles them into a random order, which keeps how long the gaps are but destroys any relation between one gap and the next. The measure is the local variation (LV) of Shinomoto et al.\ \cite{shinomoto2003lv}, which compares each gap $I_i$ only with the next one,
+\[ \mathrm{LV} = \frac{3}{n-1}\sum_{i=1}^{n-1}\left(\frac{I_i - I_{i+1}}{I_i + I_{i+1}}\right)^{2}, \]
+so a slow drift in the overall rate barely changes it. A random train scores about 1, like raindrops on a roof, a perfectly regular one 0, like a dripping tap, and a bursty one more than 1. On the 44 channels of five recordings with enough events, no channel's timing differed from random once the many channels tested were accounted for, and only two were more regular by a companion measure, CV2 (Figure~\ref{fig:b1lv}). Neighbouring gaps were, however, more alike than in a shuffled order on 15 channels, and on every recording: the rate drifts, busier for some hours and quieter for others.\footnote{Events are timed from the fall onset the detector marks. The database keeps only the window the detector drew around each event, which starts a median of 9.7 minutes earlier, so every run was recomputed and checked against the database first (Appendix~\ref{app:decisions}).} For the mushrooms, the timing looks random from one event to the next, while the overall level of activity rises and falls over hours to days. Sequences of drops told a similar story (B2): neighbouring drops in a sequence stay alike rather than changing steadily from one to the next (Table~\ref{tab:rbsummary}). A single channel can still produce a long and more regular train, as the next section shows.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{new/ch10_train_example.pdf}
+\caption[{How a train of events is measured.}]{How a train of events is measured: three hours (388--391\,h) of the reviewed MJu26a CH14 train of Section~\ref{sec:mjuch14train}, with each of its seven spikes marked at its onset and the gap to the next, in minutes. Interval measures summarise such a sequence: the coefficient of variation (CV) compares the spread of the gaps to their mean, while CV2 and the local variation (LV) compare each gap only with its neighbour, so a slowly drifting rate does not inflate them. A random (Poisson) train has CV, CV2 and LV of about 1, like raindrops on a roof; a perfectly regular one has 0, like a dripping tap. This stretch is a dripping tap: gaps of 25--26 minutes give CV 0.02, CV2 0.01 and LV 0.00. The smaller deflections of 1--2\,mV between the spikes are not part of the reviewed train.}
+\label{fig:anatomytrain}
+\end{figure}
 
 \begin{instructions}
 \textbf{B1}, intervals:
@@ -161,29 +123,39 @@ This case complements the full-channel detector census below. A deliberately sel
   \item Data: drop-detector events on the active sets, and the \texttt{chain\_cycles} chains.
   \item Build: done 28 Oct. The Intervals block reports both nulls, 1,000 seeded draws per group
         (\src{Working/interrogation/intervals.py}).
-  \item First read (M2\_aug, \texttt{drop\_detection\_v1}, one 721\,h run per channel):
-        \begin{itemize}
-          \item against random timing, LV and CV2 sit inside the band on most channels. CH3 ($n=127$) is more regular:
-                LV 0.72 against 0.82--1.20, $p=0.004$, which is borderline once 16 channels are corrected for;
-          \item against shuffled gaps, LV sits below the band on 11 of 16 channels. Neighbouring gaps are more alike
-                than their mix implies: the rate drifts slowly over the 30 days.
-        \end{itemize}
-  \item \textbf{Final read (5 Nov)}, on every recording with a complete \texttt{drop\_detection\_v1} run: 56 channels
-        of M2\_aug, M2\_concat, CO, LM and MJu26a (its 2\,Hz copy, imported 5 Nov; it replaces MJu26a's five-channel copy,
-        CH10, 13--16). SH and SO have no \texttt{drop\_detection\_v1} run yet. Each channel is one complete run, the same
-        kind as B12's. 44 channels have the three events a measure needs. Benjamini--Hochberg at 0.05 runs across
-        those 44, separately for each measure and null. Sources: \src{scripts/thesis/b1_intervals.py},
-        \src{docs/rq_roundA_2/findings/b1-intervals-2026-11-05.md}; ledger J1b; Figure~\ref{fig:b1lv}.
+  \item First read (M2\_aug only, one 721\,h run per channel): the pilot of the final read below, which repeats it on
+        every recording; its findings were the same.
+  \item \textbf{Final read (5 Nov, event times corrected 9 Nov)}, on every recording with a complete
+        \texttt{drop\_detection\_v1} run: 56 channels of M2\_aug, M2\_concat, CO, LM and MJu26a (its 2\,Hz copy, imported
+        5 Nov; it replaces MJu26a's five-channel copy, CH10, 13--16). SH and SO have no \texttt{drop\_detection\_v1} run
+        in the database yet. Each channel is one complete run, the same kind as B12's. Each event is timed from the
+        moment its fall begins, as the detector marks it. 44 channels have the three events a measure needs.
+        Benjamini--Hochberg at 0.05 runs across those 44, separately for each measure and null. Channel names below are
+        1-based (the CSVs index from 0). Sources: \src{scripts/thesis/b1_onsets.py},
+        \src{scripts/thesis/b1_intervals.py}, \src{docs/rq_roundA_2/findings/b1-intervals-onsets-2026-11-09.md}; ledger
+        J1b; Figure~\ref{fig:b1lv}.
         \begin{itemize}
           \item \textbf{Against random timing, random-like.} LV is outside the Poisson band at $p<0.05$ on 9 of 44
-                channels, but none survives correction. CV2 leaves two channels more regular than random: M2\_aug CH3
-                (127 events, CV2 0.78) and LM CH1 (30 events, LV 0.47, CV2 0.60).
-          \item \textbf{Against shuffled gaps, neighbouring gaps are more alike than their mix} on 18 of 44 channels
-                after correction (LV), on every recording: M2\_aug 9 of 16, M2\_concat 2 of 15, LM 2 of 4, CO 1 of 2,
-                MJu26a 4 of 7. The rate drifts slowly. One M2\_concat channel (CH6) goes the other way: long and short
+                channels, but none survives correction (the closest three at $q=0.06$). CV2 leaves two channels more
+                regular than random: M2\_aug CH4\_A2 (127 events, LV 0.74, CV2 0.79) and LM CH2 (30 events, LV 0.46,
+                CV2 0.58). Two more (9 and 24 events) look burstier by CV2 at $q=0.044$, but not when timed from troughs.
+          \item \textbf{Against shuffled gaps, neighbouring gaps are more alike than their mix} on 15 of 44 channels
+                after correction (LV), on every recording: M2\_aug 7 of 16, M2\_concat 2 of 15, LM 2 of 4, CO 1 of 2,
+                MJu26a 3 of 7. The rate drifts slowly. One M2\_concat channel (CH7) goes the other way: long and short
                 gaps alternate.
           \item \textbf{Caveat.} 20 channels have fewer than 10 events, among them nine of MJu26a's 16 (at most two
                 events each at 2\,Hz) and most of CO's. The read rests on the busier channels.
+          \item \textbf{The event-time correction (9 Nov).} The 5 Nov read timed each event from the start of the window
+                the detector drew around it, not from the fall. Those starts sit on the stage encoder's 98.33\,s grid, a
+                median of 9.7\,min before the fall (up to 77\,min), and the database does not keep the detector's onset
+                label. Every run was therefore recomputed in memory from its own settings, and all 56 matched the
+                database window for window and depth for depth (\src{scripts/thesis/b1_onsets.py}). Because the lead is
+                similar from one event to the next, the gaps (median 1.8\,h) moved by a median of 3.5\,min, and LV by a
+                median of $+0.004$, with no consistent direction (lower on 19 channels, higher on 25). The verdicts
+                stand; the shuffled-gap count falls from 18 to 15 as three borderline channels move just past
+                $q=0.05$. Timing from troughs gives the same counts. In the text, one sentence in the method says events
+                are timed from their fall onsets; the correction itself belongs in a footnote or Appendix~\ref{app:decisions},
+                not in the result. The window-start outputs are kept as \texttt{*\_windowstarts.csv}.
         \end{itemize}
 \end{itemize}
 
@@ -213,22 +185,49 @@ This case complements the full-channel detector census below. A deliberately sel
 \end{itemize}
 \end{instructions}
 
-\begin{figure}[htbp]
+\begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{new/ch10_b1_lv.pdf}
-\caption{B1: the LV of the intervals between \texttt{drop\_detection\_v1} events, one point per channel, coloured by recording. Grey bars are each null's 95\,\% band: a rate-matched random (Poisson) train (top) and the channel's own gaps shuffled (bottom). Diamonds pass Benjamini--Hochberg across the 44 measurable channels. No channel leaves the random band, but on 18 channels neighbouring gaps are more alike than shuffled: the timing is random-like with a drifting rate.}
+\caption[{B1: the LV of the intervals between \texttt{drop\_detection\_v1} events.}]{B1: the LV of the intervals between \texttt{drop\_detection\_v1} events, each timed from the moment its fall begins, one point per channel, coloured by recording. Grey bars are each null's 95\,\% band: a rate-matched random (Poisson) train (top) and the channel's own gaps shuffled (bottom). Diamonds pass Benjamini--Hochberg across the 44 measurable channels. Nine channels sit outside their uncorrected random band, but none survives the correction; against shuffled gaps, 15 channels have neighbouring gaps more alike than chance, on every recording, and one alternates. From one event to the next the timing is close to random, but the rate drifts.}
 \label{fig:b1lv}
 \end{figure}
 
-\begin{figure}[htbp]
+\section{A longer reviewed train on MJu26a CH14}
+\label{sec:mjuch14train}
+
+B1 can also be asked of a single train that was reviewed spike by spike. The longest reviewed sequence in the thesis is a train of spikes on MJu26a CH14, from 382.5 to 473.2 hours: 90.7 hours, nearly four days (Figure~\ref{fig:ch14bands}a). On this channel a spike is a brief downward deflection, a fall and a fast return. A detector tuned to brief downward spikes\footnote{BEADS baseline removal (2,000\,s period, downward polarity), then a signal threshold at $-0.957$\,mV with a minimum duration of 1.5\,s.} proposed candidates along the whole train, and each was reviewed: 515 of the 559 were accepted. Measured with the event-shape rules of Chapter~\ref{ch:events}, the accepted spans hold 530 individual spikes, with a median depth of 9.2\,mV and a median half-recovery time of 2.5\,s.
+
+Plotted against time, the spikes' depths fall into two distinct bands that both drift upward over the four days (Figure~\ref{fig:ch14bands}b). Each spike was assigned to a band by its depth relative to the local level of the lower band, and the two separate cleanly, the upper band sitting 1.3 to 1.6 times deeper (Figure~\ref{fig:ch14bandmeasures}). A third, small group of 44 shallow spikes, about 2\,mV deep, is kept apart. The lower band runs through the whole train: 334 spikes of about 8.7\,mV that recover halfway in about 2\,s. The upper band appears at about 402 hours and continues to the end: 152 spikes of about 13\,mV that recover far more slowly, halfway in about 13\,s.
+
+Each band on its own is almost perfectly regular. The gap from one lower-band spike to the next shrinks slowly from about 27 to 11 minutes over the train, and the gap between upper-band spikes settles near 23--25 minutes (Figure~\ref{fig:ch14bands}c). Their local variation is 0.10 and 0.03, close to a dripping tap. The two bands also interleave: an upper spike is followed by a lower one 99\,\% of the time, against 64\,\% when the band labels are shuffled ($p<0.001$). Taken together, the 450 spikes from 406 hours on give an LV of 0.77, close to random, so the apparent irregularity of the whole train comes from two regular series running side by side. Before the upper band appears, the train is a single series with an LV of 0.37.
+
+This is the clearest structure in the thesis. One electrode records two distinct, near-periodic series of spikes, which differ in size and in how fast they recover, and which run together for more than two days. Whether they come from two sources near the electrode or from one source in two states cannot be told from one channel. It is one train on one channel, and the detector census shows close-to-random timing elsewhere (Section~\ref{sec:rb_sequences}), so it is a case study rather than a rule.
+
+\begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{new/ch10_b1_train.pdf}
-\caption{B1 in the signal: the drop onsets of four hours of M2\_concat (top; the train of Figure~\ref{fig:anatomytrain}), a random (Poisson) train with the same number of onsets over the same time (middle), and the recorded gaps in a shuffled order (bottom), each with its LV. Neighbouring gaps in the recorded train are more alike than in the shuffled order (LV 0.55 against 0.73): short gaps follow short ones and long follow long, which is what a slowly drifting rate looks like.}
-\label{fig:b1train}
+\includegraphics[width=\textwidth]{new/ch10_ch14_train_bands.pdf}
+\caption[{The reviewed MJu26a CH14 train and its two amplitude bands.}]{The reviewed MJu26a CH14 train and its two amplitude bands. (a) The 90.7-hour signal as one-minute minima and maxima; each spike is a brief downward line. (b) Each of the 530 spikes' depth, onset to trough, against time, coloured by band: the lower band (blue) throughout, the upper band (orange) from about 402 hours (dotted line), and 44 shallow spikes (grey). (c) The gap from each spike to the next spike of the same band: each band is close to periodic, with the lower band's gap shrinking slowly over the four days.}
+\label{fig:ch14bands}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{new/ch10_ch14_band_measures.pdf}
+\caption[{The two CH14 bands compared.}]{The two CH14 bands compared. Left: each spike's depth divided by the local level of the lower band, which separates the bands cleanly. Centre: half-recovery time, about 2\,s for the lower band and about 13\,s for the upper. Right: the gap to the next spike of the same band, about 16 and 25 minutes at the median.}
+\label{fig:ch14bandmeasures}
 \end{figure}
 
 \section{Recovery and the gap before it}
 \label{sec:rb_models}
+
+Does a drop recover more slowly when the gap before it was long, as heart muscle recovers according to how long it has rested (B3)? Within the reviewed trains (the 74 of the Library's 117 reviewed drop sequences in which drops recover at least halfway before the next one, 987 consecutive pairs of drops), the gap after a drop predicted its recovery time far more strongly than the gap before, as a recovery is usually cut shorter when the next drop arrives (Figure~\ref{fig:b3restitution}). Although across the longer gaps between events flagged by the detector census there seemed to be a weak link on the two M2 recordings, this was halved once the duration of the fall was accounted for. There is therefore no evidence that a drop's recovery depends on the rest before it within trains, and only a bounded hint across long gaps. The excitable-system models first planned for this question were set aside when they fitted surrogate noise as well as the data.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{new/ch10_b3_restitution.pdf}
+\caption[{Restitution: does a drop recover more slowly after a long gap?}]{Restitution: does a drop recover more slowly when the gap before it was long? Each dot is one train's Spearman $\rho$ between recovery time and (a) the gap before each drop or (b), as a control, the gap after it. Rows group the trains (oyster and reishi sequences, the three long chains, and every channel of the drop-detector census by recording); dot area is the number of pairs, filled dots have permutation $p<0.05$, and black bars are pair-weighted means. Recovery correlates more strongly with the gap \emph{after} a drop ($\rho=+0.31$ over all trains) than with the gap before it ($+0.17$). A recovery cut short by the next drop produces exactly this, so within trains the apparent link is a censoring artefact rather than restitution.}
+\label{fig:b3restitution}
+\end{figure}
 
 \begin{instructions}
 \textbf{B3}: does a drop's recovery depend on the gap before it? Only the restitution test is reported here.
@@ -291,20 +290,16 @@ Caveat: the Library's stored recovery times are measured on detrended snippets, 
 Open follow-up: a censoring-aware recovery, by survival analysis with the next onset as the censoring time.
 \end{instructions}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{data/ch10_fhn/b3_restitution_rho.png}
-\caption{Restitution. Each dot is one train's Spearman $\rho$ between recovery time and the gap before each drop (left) or the gap after it (right, a control). Dot size is the number of pairs, red marks permutation $p<0.05$, and bars are pair-weighted means. Recovery correlates as strongly with the gap after as with the gap before: a censoring artefact, not restitution.}
-\label{fig:b3restitution}
-\end{figure}
-
 \section{Shapes and families across recordings}
 \label{sec:rb_families}
+
+Are shapes shared between recordings and species (B6), and do their measures differ between them (B12)? On the full inventory's 2,459 accepted single events and their twelve shape families (Section~\ref{sec:families}), every family holds events from at least two recordings, ten hold events from all eight, and eleven from all three species (Figure~\ref{fig:inventoryfamilies}). Families are not spread at random, though: which family an event falls in depends on its recording (0.42 bits of mutual information, against 0.02 for shuffled labels). The timing measures differ strongly between recordings, while depth hardly does (Table~\ref{tab:inventorymeasures}). Much of both comes from one unusual source, MJu26a's train of fast spikes. Without MJu26a, the lean by recording falls to 0.13 bits, of which species accounts for about half, and the species differ in timing far less than the recordings do (effect sizes $\varepsilon^2\le0.02$ between species, against 0.04--0.08 between recordings). The first read, on the 716 accepted blind-panel events and the earlier g-11 families (Figures~\ref{fig:b6species} and~\ref{fig:b12shape}), reached the same conclusion. For the mushrooms, the same shapes occur across recordings and species, and once a single unusual train is set aside, the differences between cultures and setups are at least as large as the differences between species.
 
 \begin{instructions}
 \textbf{B6}: do the same shape families occur across recordings and species? \textbf{Answered (3 Nov).}
 Sources: \src{docs/rq_roundA_2/findings/b6-families-species-2026-11-03.md}; ledger J7;
-Figure~\ref{fig:b6recurrence}.
+Figure~\ref{fig:b6species}. (The site's Recurrence screenshot was cut in review, 8 Nov: unreadable at print size, and
+its caption named a recording it did not show.)
 
 \textbf{Method.} Read off the Recurrence page for g-11 (42 families, 804 members). Recording labels were shuffled
 across members 10,000 times, keeping each family's size and each recording's count. \textbf{Re-run 5 Nov} with the
@@ -356,44 +351,27 @@ prior-run sources are not wired. So every test ran on the core functions the pag
   \item \textbf{The yardstick.} Recordings of one species differ more than the species do: 7 of 15 features pass BH
         among the three \emph{P.\ ostreatus} recordings, and 7 of 15 between LM and MJu26a (CH10, 13--16), whose
         waveforms differ at $R^2=0.039$. By strain, 7 of 15 pass, as for the recordings the strains are made of.
-  \item \textbf{Intervals}, on complete drop-detector v1 runs (45 channels). LV by dataset gives $p=0.057$ and CV2
-        $p=0.070$; neither passes BH. By species, $p=0.09$ (LV) and 0.16 (CV2); by strain 0.24 and 0.38. The
-        \emph{P.\ ostreatus} datasets differ among themselves ($p=0.047$ and 0.036). Median LV is M2\_aug 0.99, CO 1.06,
-        M2\_concat 1.42, LM 0.82 and MJu26a (CH10, 13--16) 0.85.
+  \item \textbf{Intervals}, on complete drop-detector v1 runs (45 channels), each event timed from its fall onset
+        (re-read 9 Nov with B1's corrected times; \src{scripts/thesis/b12_intervals_onsets.py}). LV by dataset gives
+        $p=0.060$ and CV2 $p=0.11$; neither passes BH. By species, $p=0.09$ (LV) and 0.19 (CV2); by strain 0.26 and
+        0.43. The \emph{P.\ ostreatus} datasets differ among themselves only at the margin ($p=0.053$ and 0.055; timed
+        from window starts they gave 0.047 and 0.036), so do not report a difference between them. Median LV is M2\_aug
+        0.99, CO 1.14, M2\_concat 1.40, LM 0.83 and MJu26a (CH10, 13--16) 0.86.
   \item The fastest-edge rule calls 91\,\% of accepted events falls (76--98\,\% per recording).
 \end{itemize}
 \end{instructions}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.72\textwidth]{roundb/b6_recurrence_g11_counts_p1.png}
-\caption{B6 on the site: Library $\rightarrow$ Recurrence for grouping g-11, member counts per channel of M2\_aug, M2\_concat and CO. Each row is a family, with its shape, the number of recordings it holds and its size.}
-\label{fig:b6recurrence}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{new/ch10_b6_species.pdf}
-\caption{B6 in the signal: the two g-11 families with at least four members on each of the three strains, each member z-normalised and stretched so its event runs from 0 to 1 (dashed), with half its length of context either side; the bold line is the median. The same sudden fall and slow recovery appears in oyster, chocolate oyster and lion's mane.}
-\label{fig:b6species}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{new/ch10_b12_shape.pdf}
-\caption{B12: six shape measures of the 716 accepted blind-queue events, by recording, coloured by species and strain (boxes are quartiles, whiskers the 5--95\,\% range). The recordings differ, but only a little, and two recordings of one species differ about as much as the species do.}
-\label{fig:b12shape}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{new/ch10_b12_waveforms.pdf}
-\caption{B12 in the signal: each recording's accepted events stretched to a common length (start to end of the judged span), with the median shift and range removed; the line is the median and the band the middle half. Every recording's typical event is a fall, placed at different points in its span; the shapes differ in detail, and LM's events more often begin with a rise.}
-\label{fig:b12waves}
-\end{figure}
-
 \section{Activity across channels}
 \label{sec:rb_channels}
+
+Does activity travel from one electrode to another (B4)? A census of drop-detector events looked for pairs on two channels within 50 seconds of each other, measured each pair's delay and waveform similarity, and compared the count with whole trains shifted in time against each other. On M2\_aug, channels in the same pack co-occurred more often than chance (8 against 1.9 expected), but only one pair survived correction for testing many pairs, and it showed no consistent delay. Across packs, 18 pairs co-occurred against 6.3 expected, all at the same instant, and most fell inside bursts in which almost every channel jumps at once (Figure~\ref{fig:b4stack}). M2\_concat's co-occurrences are copies between four electrodes (CH5--8), CO and LM had none, and MJu26a, SH and SO co-occurred above chance but only at one instant (Figure~\ref{fig:b4bins}). Nothing was seen travelling between electrodes at these spacings and sampling rates, although the electrodes were placed fairly irregularly, on different fruiting bodies, so propagation was never likely to be detected here. What separate packs share at one moment looks like the setup or the room, not the culture.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{new/ch10_b4_stack.pdf}
+\caption[{Cross-channel co-occurrences in six hours of M2\_aug.}]{Cross-channel co-occurrences in six hours of M2\_aug. (a) The census marked seven pairs of detections (vertical lines); traces are scaled and clipped for the overview, and the coloured markers locate the two pairs enlarged below. Five of the seven fall in twenty minutes near 41 hours (grey band), when almost every channel jumps at once: a disturbance of the whole recording, not activity passing from one electrode to the next. (b) A near-copy from that burst on CH10 and CH11: square pulses of about 150\,mV at the same instant, correlation 0.982. (c) The CH15--CH16 pair the census flagged with a 21\,s waveform lag (correlation 0.680), also inside the burst, with spikes of 500--750\,mV, far larger than the falls elsewhere on these channels. Each inset shows voltage change from the local baseline, with vertical lines at the detected onsets. The census tests found no consistent lag across events.}
+\label{fig:b4stack}
+\end{figure}
 
 \begin{instructions}
 \textbf{B4}: is cross-channel activity propagation, or an artefact of the shared ground? This is the plan's RQ6.
@@ -445,7 +423,24 @@ the site on the four recordings with a full \texttt{drop\_detection\_v1} census.
           \item \textbf{No evidence of propagation.} Channels fire together more often than chance, at the same
                 instant. Without packs, a shared driver cannot be told from the setup.
         \end{itemize}
-  \item \textbf{Not included:} SH and SO, whose \texttt{drop\_detection\_v1} runs are still on the cluster.
+  \item \textbf{SH and SO} (9 Nov; \src{scripts/thesis/b4_sh_so_20261109.py},
+        \src{docs/thesis/data/ch10_b4/b4_sh_so_20261109.json}). Their \texttt{drop\_detection\_v1} runs came back from
+        the cluster but were never imported, so the census page cannot run on them. The script reran the detector in
+        memory from each cluster task's frozen specification (same channel files, checked by SHA-1); every channel gave
+        exactly the cluster's count (SH 21 events: 6, 4, 6, 5; SO 28: 9, 4, 14, 1). The co-occurrence count and its
+        rotation null are the census's own functions; packs are not set, so no bins are separated.
+        \begin{itemize}
+          \item SH: 2 co-occurrences within 50\,s, against 0.01 under rotation ($p=0.001$); SO: 6, against 0.02
+                ($p=0.001$).
+          \item All but one are at zero lag, and SO's six are two instants at which three of its four electrodes
+                fell together (22.4\,h and 215.8\,h). One SH pair fell at the same 22.4\,h from the start, and the
+                other at 139.8\,h with a 1.5\,s lag (a single event, so no timetable).
+          \item \textbf{No evidence of propagation.} As on MJu26a, electrodes fall together at one instant more often
+                than chance; that SH and SO both did so 22.4\,h into their recordings points to the setup or the room,
+                not to either culture.
+          \item Caveat: 21 and 28 events are few, and the waveform tests (copy or not) were not run, because they need
+                the census's database rows.
+        \end{itemize}
 \end{itemize}
 Caveats:
 \begin{itemize}
@@ -454,21 +449,20 @@ Caveats:
   \item the breadth null runs under rotation as a stated deviation from D18 (Chapter~\ref{ch:method});
   \item the bin counts in Figure~\ref{fig:b4bins} are classifications, not tests; the claims are the tests above.
 \end{itemize}
+Review note (8 Nov): Figure~\ref{fig:b4stack} shows five of its seven co-occurrences inside a 20-minute burst near
+41\,h in which almost every channel jumps at once, with pulses of 150--750\,mV. Before writing the shared-driver
+sentence, count how many of M2\_aug's 18 cross-pack and 8 within-pack co-occurrences fall inside whole-recording
+bursts like this one. If most do, the plain reading is that the ``shared driver'' is mostly disturbances of the
+recording setup, which strengthens the no-propagation conclusion and should be said in those words; the one surviving
+within-pack pair (CH15--CH16) sits inside this burst too.
 \end{instructions}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{new/ch10_b4_bins.pdf}
-\caption{The B4 census: \texttt{drop\_detection\_v1} events that occur on two or more channels together, per recording, by what the census classifies them as. These are per-event classifications, not tests; the tests against rotation and random-time nulls are in the text. M2\_concat's are copies between channels; CO and LM have none.}
-\label{fig:b4bins}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{new/ch10_b4_stack.pdf}
-\caption{Cross-channel co-occurrences in six hours of M2\_aug. (a) The census marked seven pairs of detections (vertical lines). Traces are scaled and clipped for the overview. The coloured markers locate the two pairs enlarged below. (b) A near-copy on CH10 and CH11, with zero waveform lag and a correlation of 0.982. (c) A candidate on CH15 and CH16 with a waveform lag of 21\,s and a correlation of 0.680. Each inset shows voltage change from the local baseline, with vertical lines at the detected onsets. The lag candidate illustrates one pair of events. The census tests found no consistent lag across events.}
-\label{fig:b4stack}
-\end{figure}
+\begin{instructions}
+Signal reading for this section, to state in plain words once the numbers are final: there is no sign that a spike on
+one electrode travels to its neighbours; when separate packs do react together, it is all at once, which points to the
+room or the equipment rather than to the mycelium. This matters for the literature on signal propagation in mycelium
+\cite{mayne,phillips}: at these electrode spacings and sampling rates, propagation was not seen.
+\end{instructions}
 
 \section{What the detectors show}
 \label{sec:rb_detectors}
@@ -486,8 +480,11 @@ script bins exactly as the page does: all 39 settings on M2\_aug CH6 match.
   \item \textbf{When.} On every channel the settings' rates rise and fall together: co-modulation 0.21--0.35 (median
         per recording), against 0.00 under random time shifts. The paired phase-randomised surrogates reach only
         0.02--0.04. So the bursts and quieter stretches are the recordings' own changes over hours and days.
-  \item \textbf{Channels.} Channels rise and fall together on M2\_aug, CO and MJu26a's five-channel copy (B4's shared driver), but not on
-        LM. On M2\_concat the surrogates band as well, because CH5--8 are copies.
+  \item \textbf{Channels.} Channels rise and fall together on M2\_aug, CO and MJu26a's five-channel copy, but not on
+        LM. On M2\_concat the surrogates band as well, because CH5--8 are copies. (Review note, 8 Nov: an earlier draft
+        called this ``B4's shared driver''; B4 found no co-occurrences at all on CO and no shared-driver events on MJu26a,
+        so keep the two apart: B5 is rates rising and falling together over hours, B4 is single events at the same
+        moment.)
   \item \textbf{Silence.} No 3-hour bin is ever silent: the loose detectors fire everywhere.
   \item \textbf{Caveats.}
         \begin{itemize}
@@ -499,7 +496,8 @@ script bins exactly as the page does: all 39 settings on M2\_aug CH6 match.
 \end{itemize}
 
 \textbf{B5 on the 2\,Hz sets} (5 Nov; \src{docs/rq_roundA_2/findings/rq4n-partial-2026-11-05.md}; ledger J8b;
-Figure~\ref{fig:b5newsets}). The first cluster round returned 31 of the 129 jobs whole:
+the 5 Nov Map screenshot \src{figures/roundb/b5_map_dataset_MJu26a_fs2.png}, cut in review because it was two-thirds
+``not yet returned''). The first cluster round returned 31 of the 129 jobs whole:
 \begin{itemize}
   \item 13 settings on MJu26a, and 9 each on SH and SO;
   \item the settings are OASIS, deconvolved troughs and wavelet encoded, plus, on MJu26a, \texttt{drop\_detection\_v1},
@@ -516,58 +514,70 @@ On those settings the same read gives:
         families, share more events than the 38--44 settings on the other recordings.
 \end{itemize}
 
+\textbf{B5 on the completed 2\,Hz sweep} (9 Nov; supersedes the 5 Nov read above;
+\src{scripts/thesis/rq4n_complete_20261109.py}, \src{docs/thesis/data/ch10_2hz_complete/b5_summary.json}). All
+1,014 tasks returned; the detections' positions were read from the returned task databases, caches and the imported
+runs, and recomputed on this PC from each task's frozen specification where they never came back (accepted only
+where both the recording's and the copy's counts equal the cluster's; \src{recompute_check.csv}). So 1,001 of the
+1,014 channel runs and 979 of their copies have positions, about 40 of 43 settings per channel. The same script
+functions, 3-hour bins and 200 shifts give:
+\begin{itemize}
+  \item \textbf{When.} Co-modulation per channel, median by recording, is MJu26a 0.21, SH 0.26 and SO 0.27,
+        against 0.00 under random time shifts and 0.02 for the paired surrogates. All 24 channels beat
+        their shifts. With the whole sweep the 2\,Hz values sit inside the five main recordings' range
+        (0.21--0.35 against 0.02--0.04); the 5 Nov surrogate values of 0.08--0.13 came from too few, too similar
+        settings.
+  \item \textbf{Channels.} Channels band together beyond their surrogate only on SO (0.41, $p=0.005$; surrogate
+        0.17). On SH the recording does not band (0.07, $p=0.23$), and on MJu26a the surrogates band more than the
+        recording (0.25 against 0.14), as before.
+  \item \textbf{Silence.} No 3-hour bin is silent on any channel.
+  \item \textbf{Verdict} unchanged and now on the full settings: a whole recording grows busier and quieter over hours
+        to days, on every 2\,Hz channel too.
+\end{itemize}
+
 \textbf{B11}: do the detectors find the same events on the newer datasets?
 \begin{itemize}
   \item On the site: Discovery $\rightarrow$ Compare, and Compare every stage.
   \item Data: CO, LM and the 2\,Hz copies of MJu26a, SH and SO.
   \item Null: each run's surrogate.
-  \item Needs the whole 2\,Hz sweep. Updated return audit (8 Nov): 729/1,014 tasks are complete and 79/129 settings have every channel back. A recovery bundle covers the remaining 285 tasks. The older 5 Nov map/timing results above still describe their original 31-setting subset; they have not been recomputed using the larger partial return.
+  \item Run 9 Nov on the completed 2\,Hz sweep, without importing it (\src{scripts/thesis/rq4n_complete_20261109.py},
+        \src{docs/thesis/data/ch10_2hz_complete/b11_summary.json}): candidate events built with the Chapter~\ref{ch:rq1}
+        rules (\texttt{candidate\_events.build\_events}, \texttt{add\_agreement}; 1-minute CNNs left out), on the
+        positions described under B5 (1,001 of 1,014 channel runs, 979 copies), so all 13 families are present on every
+        recording. A first read that morning, before the missing positions were recomputed, lacked up to five
+        classical families and understated agreement; it is kept as \src{b11_summary_partial.json} and superseded.
+  \item \textbf{Like for like} (the same 34--38 settings on the recording and its copy), the share of candidates found
+        by seven or more families: MJu26a 15.0\,\% against 1.6\,\% on the copies, SH 16.0 against 3.7\,\%, SO 9.6
+        against 2.9\,\%; by five or more: 43.6 against 25.0\,\%, 49.8 against 36.2\,\%, 41.2 against 30.2\,\%.
+  \item \textbf{All settings} (recordings only; 853,000, 165,000 and 236,000 candidates): seven or more families
+        agree on 16.2, 15.7 and 10.0\,\%, nine or more on 5.3, 3.5 and 2.0\,\%, against 17--29\,\% and 5.4--9.9\,\% on
+        Chapter~\ref{ch:rq1}'s five recordings: at or just below their range, closest to CO.
+  \item \textbf{Verdict:} supported. On all three newer recordings the detectors agree on the same stretches far
+        more than on their copies (three to nine times as often at seven or more families), as on the judged
+        recordings. CO and LM's agreement is Chapter~\ref{ch:rq1}'s. No 2\,Hz candidate has been judged, so this is
+        agreement, not precision.
   \item State the lesson of Chapter~\ref{ch:rq1}: one-draw surrogate counts measure a detector's response to the
         spectrum, not event quality.
 \end{itemize}
 \end{instructions}
 
-\paragraph{Additional 2\,Hz returns.}
-The returns inspected on 8 November contained 497 completed tasks on MJu26a, and 116 each on SH and SO, from planned totals of 674, 170 and 170 respectively. Complete channel coverage was available for 25, 26 and 28 settings respectively. A further 258 tasks were missing and 27 had failed, including temporary-file write conflicts and disk-I/O errors. These incomplete computations are not zero-detection results.
+When and where do the detectors fire (B5), and do they find the same events on the newer recordings (B11)? Across the eight recordings, about 40 detector settings ran on every channel, each beside a phase-randomised copy of the channel, which keeps its spectrum but not its events (Chapter~\ref{ch:rq1}). The detectors fire on every channel and in every three-hour stretch, but not evenly: on every channel their rates rise and fall together over hours to days, far more than on the copies (a median co-modulation of 0.21--0.35 per recording, against 0.02--0.04 on the copies). A whole recording grows busier and quieter, and every detector follows it. The detectors also differ in what they respond to. On the 2\,Hz recordings, as on the judged ones, OASIS, the deconvolved troughs, the noise and matrix-profile thresholds, the drop detector and the 60-minute CNNs found from about twice to over a hundred times more on the recordings than on their copies, while the wavelet-encoded setting, symbol search, BEADs, the signal threshold and the 1-minute CNNs found more on the copies (Table~\ref{tab:rq4partialreturns}). Where several detector families mark the same stretch of signal, that stretch is far more likely to lie on a recording than on its copy: seven or more families mark 17--29\,\% of candidates on the five judged recordings and 10--16\,\% on the three 2\,Hz recordings, against 2--4\,\% on their copies. On the judged recordings this agreement tracked acceptance, from 0--5\,\% of candidates judged real where one or two families agree to 40--63\,\% where nine or more do (Figure~\ref{fig:ladder}); no 2\,Hz candidate has yet been reviewed. Further work requires reviewing more of these detected candidates to better evaluate their acceptance rates.
 
-On settings with complete coverage, OASIS and the drop detector returned more detections in the recordings than in their paired phase-randomised copies, while the wavelet-encoded setting returned substantially more in the surrogates (Table~\ref{tab:rq4partialreturns}). This reproduces the distinction between detectors responding differently to phase scrambling. One draw per channel gives a count comparison, not a well-resolved null distribution, and neither direction establishes human acceptance. The outstanding CNN and matrix-profile tasks prevent a complete comparison of agreement across all detector families.
+% Counts: data/ch10_2hz_complete/counts_by_family.csv and counts_by_setting.csv (all 1,014 tasks, audit in
+% data/recovery_latest_20261109/); none of these detections has a human verdict.
 
-\begin{table}[htbp]
-\centering
-\caption{Selected settings with every planned channel returned in the 2\,Hz extension. Cells give real/surrogate detection counts, summed over 16 channels for MJu26a and four each for SH and SO. Each channel has one phase-randomised surrogate. These are detection counts, not grouped or human-accepted event counts.}
-\label{tab:rq4partialreturns}
-\small
-\begin{tabularx}{\textwidth}{@{}Xrrr@{}}
-\toprule
-\textbf{Setting} & \textbf{MJu26a} & \textbf{SH} & \textbf{SO}\\
-\midrule
-Drop v1 & 463/33 & 21/0 & 28/0\\
-OASIS, default & 127,429/2,007 & 20,095/353 & 25,556/364\\
-OASIS, threshold 5 & 2,453/68 & 859/19 & 400/11\\
-Wavelet encoded, default & 1,883/38,714 & 21/7,241 & 12/7,286\\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-% Additional return counts: data/hpc_return_20261108/rq4_summary.csv and audit.json.
-% No new human verdicts or completed B11 agreement analysis are claimed here.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{roundb/b5_map_channel_M2_aug_CH6.png}
-\caption{B5 on the site: Discovery $\rightarrow$ Map, M2\_aug CH6. Every detector setting is shown in 3-hour bins over 30 days, under the signal's hourly mean. Most settings fire densely in days 0--8 and around days 15--17 and thin out together elsewhere. This is the co-modulation that the paired surrogates do not reproduce.}
-\label{fig:b5timeline}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.85\textwidth]{roundb/b5_map_dataset_MJu26a_fs2.png}
-\caption{The first part of the 2\,Hz sweep on the site: Discovery $\rightarrow$ Map, MJu26a (2\,Hz), one cell per channel and setting, with rows sorted by detections. The 13 settings whose jobs came back whole are filled; the rest (hatched) still have to run on the cluster.}
-\label{fig:b5newsets}
-\end{figure}
 
 \section{Time scales and methods from other fields}
 \label{sec:rb_methods}
+
+Do fungal events prefer particular durations (B9), and at which time scales does the signal hold structure (B10)? Both questions need a fair reference for what a method finds in a signal without real events. The AAFT copy provides it: it keeps every value of the recording and how much the signal wanders slowly or quickly, but scrambles the order in which the values arrive, so the copy has the same ingredients but no real events. Whatever a method still finds in the copy comes from those ingredients, not from the fungus. A wavelet-ridge method borrowed from mass spectrometry, which marks drops of any duration, seemed to find drops clustered at particular durations. On the AAFT copies, however, it found even more drops (1,087 against 632 on the recordings), with the same spread of durations and the same apparent clusters (Figure~\ref{fig:b9hist}); only on M2\_concat did the real drops run somewhat longer. The clusters come from the signal's values, not from events preferring one duration. The matrix profile, which looks for the closest repeat of every stretch of a chosen length, was run at lengths from 30 seconds to tens of minutes. On four recordings, stretches repeated more closely than in the AAFT copies at every length from 30 seconds up to between 4 and 25 minutes, most strongly at the shortest, with no length standing out (Figure~\ref{fig:b10motif}, Appendix~\ref{app:supp}); on MJu26a, whose stretch is a steady oscillation of about 20 minutes that the copy keeps, no length did. The CNN templates agree: those reading 10- and 60-minute windows find more on the recordings than on their copies, and those reading 1-minute windows do not. So on no recording, and in neither species, did the events prefer one time scale over another: structure spans every scale from seconds to minutes, and, as for the detectors, the verdict depends on the choice of null.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth,height=0.55\textheight,keepaspectratio]{new/ch10_b9_durations.pdf}
+\caption[{B9: how long the wavelet-ridge detector's events last.}]{B9: how long the events found by the wavelet-ridge detector (\texttt{cwt\_events}) last, on one-day spans of five recordings, against copies of the same spans (event counts in brackets). Solid: the recording; dashed: its AAFT copy, which keeps every value of the recording but scrambles their order; dotted: its phase-randomised copy. The AAFT copies give about twice as many events as the recordings, with the same spread of durations from about ten seconds to minutes, and neither shows separate peaks at preferred durations. The phase-randomised copies give almost none, which is why the method looked selective when it was judged against that null alone.}
+\label{fig:b9hist}
+\end{figure}
 
 \begin{instructions}
 Each study asks what a method borrowed from another field reveals on fungal signals, and whether it beats its null.
@@ -604,7 +614,11 @@ Each study asks what a method borrowed from another field reveals on fungal sign
           \item \textbf{CNN templates} (existing sweep, real against one phase-randomised copy): the 10-minute
                 templates beat their copy on all five recordings and the 60-minute ones on CO, M2\_aug and MJu26a.
                 The 1-minute ones beat it on none (their copies give 2--8 times more). After B9, read these margins as
-                an upper bound against AAFT.
+                an upper bound against AAFT. On the completed 2\,Hz sweep (9 Nov,
+                \src{docs/thesis/data/ch10_b10/cnn_scales_2hz_20261109.csv}; ratio above 1 and most channels above
+                their copy) the order is the same: the 60-minute templates beat their copies on MJu26a, SH and SO (3, 3
+                and 4 of the four encodings), the 10-minute ones on MJu26a and SO (GADF and GASF) but not SH, and the
+                1-minute ones on none (their copies give up to 30 times more).
           \item Earlier result: on the MJu26a CH14 excerpt (4\,h) every judged length from 30\,s to 16\,min repeated beyond noise,
                 strongest at 30\,s. \texttt{spike\_event\_features} was not run.
         \end{itemize}
@@ -615,27 +629,29 @@ structure beyond AAFT at every judged length from 30\,s to minutes on four recor
 not beat AAFT at all. The null's choice decides the verdict, as Chapter~\ref{ch:rq1} found for the detectors.
 \end{instructions}
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.78\textwidth]{roundb/b10_motif_lengths_m2aug.png}
-\caption{B10 on the site: \texttt{motif\_lengths} on M2\_aug, 356.5--364.5\,h, with the pan matrix profile, the span and the verdict per window length. The lengths that repeat beyond AAFT noise run from 30\,s to 16.3\,min.}
-\label{fig:b10motif}
-\end{figure}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{data/ch10_b9/durations_hist.png}
-\caption{B9: \texttt{cwt\_events} durations (log$_{10}$ seconds), real (blue) against AAFT copies (orange) and phase-randomised copies (grey), per recording and pooled. AAFT gives more drops than the real recordings, with the same durations.}
-\label{fig:b9hist}
-\end{figure}
-
 \section{Summary}
+
+Table~\ref{tab:rbsummary} shows the summarised questions and results discussed in this chapter. For the sake of brevity, many of the detailed explanations of these results and their corresponding figures can be viewed in Appendix~\ref{app:supp}. It was found from these experiments that, largely, signal events recur in shared shapes across recordings and species. The intervals between events (limited by the accuracy of the drop detector for event detection) are numerically random, and overall activity can drift over hours to days. Structure is seen at every time scale from seconds to minutes, and event shapes are not seen to travel between electrodes. Each verdict is compared to a stated null, the choice of which the results were sensitive to. These results are to be seen as a tentative exploration of potential questions the large candidate base across recordings and species allows; more rigorous statistical analysis and event definitions are necessary.
 
 \begin{instructions}
 Table~\ref{tab:rbsummary} holds every round-B result as it stood at the freeze (3 Nov); each row's number is in the
-ledger (J1--J3, J6--J11; B1's final read is J1b, 5 Nov).
+ledger (J1--J3, J6--J11; B1's final read is J1b, 5 Nov, with its event times corrected to fall onsets on 9 Nov).
 \begin{itemize}
   \item \textbf{Prose:} add one sentence per study on what it changes.
+  \item \textbf{Close the chapter with one paragraph on what the studies say about the signals together} (review note,
+        8 Nov; this is the paragraph a non-specialist and the supervisor will both look for). In plain words: events
+        arrive at irregular, random-like intervals whose rate drifts over hours and days, and a whole recording's activity
+        rises and falls together (B1, B5), though a single culture can also produce long, more regular trains (the CH14
+        case); a drop's recovery does not depend on the gap before it within a train (B3); the same shapes recur
+        across recordings and species, and two recordings of one species differ about as much as the species do (B6,
+        B12); there is no sign of spikes travelling between electrodes, and what separate packs share looks like the
+        setup (B4); and there is no preferred time scale: structure appears at every window from 30\,s to minutes, and
+        apparent preferred durations come from the null, not the signal (B9, B10). Then set three of these against the
+        literature: Slayman's constant 34-minute period in \emph{Neurospora} \cite{slayman} against random-like timing
+        here; Adamatzky's distinct spike scales \cite{adamatzky2023} against no preferred scale here; and the
+        propagation and transmission work of Mayne and Phillips \cite{mayne,phillips} against no propagation here, at
+        these electrode spacings and sampling rates. B1 was re-run on true fall onsets (9 Nov) and its reading stands,
+        so the timing sentence can be written as it is here.
   \item \textbf{When the open row returns,} update it: B11 needs the 2\,Hz sweep.
   \item \textbf{B6 and B12 rows} were re-run on 5 Nov with M2\_concat as oyster and chocolate oyster as a strain of \emph{P.\ ostreatus} (ledger J7b, J9b).
   \item \textbf{Verdicts:} supported, bounded (a real but limited or partial result), not supported, or open.
@@ -643,24 +659,24 @@ ledger (J1--J3, J6--J11; B1's final read is J1b, 5 Nov).
 \end{instructions}
 
 \begin{table}[htbp]
-\caption{The studies of this chapter at the freeze: each question's null, its result and the verdict. B3 reports only its restitution half; B7 and B8 were not run (future work), and B11 waits on the rest of the 2\,Hz sweep.}
+\caption[{The signal studies: each question's null, result and verdict.}]{The studies of this chapter at the freeze: each question's null, its result and the verdict. B3 reports only its restitution half; B7 and B8 were not run (future work).}
 \label{tab:rbsummary}
-\fontsize{10}{11.5}\selectfont
+\fontsize{8.6}{10}\selectfont
 \setlength{\tabcolsep}{4pt}
-\begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}p{5.4cm} >{\raggedright\arraybackslash}p{2.2cm}@{}}
+\begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{1.9cm} >{\raggedright\arraybackslash}p{4.5cm} >{\raggedright\arraybackslash}p{3.5cm}@{}}
 \toprule
-\textbf{\#} & \textbf{Question} & \textbf{Null} & \textbf{Result} & \textbf{Verdict}\\
+\textbf{\#} & \textbf{Question} & \textbf{Null} & \textbf{Result} & \textbf{Verdict, and what it means for the mushrooms}\\
 \midrule
-B1 & Are intervals regular, bursty or random? & rate-matched Poisson; shuffled intervals & 44 measurable channels, five recordings: no channel's LV leaves the Poisson band after BH (CV2: two more regular); neighbouring gaps more alike than shuffled on 18, on every recording; one alternates & supported: random-like timing with a drifting rate\\
-B2 & Do sequences change shape step by step? & shuffled order & morph fraction: 0 of 5 testable sequences; step size: 5 of 19 closer than shuffled (4 after BH), ratios 0.58--0.84; 5 alternate & bounded: persistence, not a steady morph\\
-B3 & Does recovery depend on the gap before it? & gaps shuffled within trains & within trains, $z=+2.9$ falls to $+0.6$ given depth, and the gap after gives $+9.9$ (censoring); across census gaps, M2\_aug $z=+5.0$ and M2\_concat $+3.1$, halved by fall duration & not within trains; bounded across census gaps\\
-B4 & Propagation, or a shared ground? & rotation; random time & M2\_aug within packs 8 against 1.9 ($p=0.002$), one pair after BH, no consistent lag; across packs 18 against 6.3 ($p=0.001$); M2\_concat CH5--8 are copies; none on CO, LM; MJu26a 16 against 3.2 ($p=0.001$), both timetables at zero lag & propagation not supported; a shared driver\\
-B5 & When and where do detectors fire? & random time shifts; paired surrogates & settings rise and fall together on 45 of 45 channels: 0.21--0.35 against 0.00 shifted and 0.02--0.04 for surrogates; on the 2\,Hz sets' first 9--13 settings, 24 of 24 (0.33--0.46) & supported: changes over hours to days\\
-B6 & Do families recur across recordings and species? & shuffled recording labels & 39 of 42 families on two or more recordings, 28 on both species; the mix is not random (0.22 against 0.13 bits by recording, $p=0.0001$), and the lean by species is no larger than by recording & supported, with leanings by recording\\
-B9 & Do event durations prefer some scales? & AAFT & AAFT copies give more drops (1,087 against 632) with the same durations (pooled KS $p=0.59$); the ``modes'' appear in AAFT too & not supported\\
-B10 & At which time scales is there structure? & AAFT & every judged length from 30\,s up to 4.4--25.1\,min repeats beyond AAFT on four recordings, strongest at 30\,s; none on MJu26a & supported: one band, no preferred scale\\
-B11 & Same events on the newer datasets? & per-run surrogate & 31 of the 2\,Hz sweep's 129 jobs imported; the rest back on the cluster & open\\
-B12 & Do shapes and intervals differ by recording and species? & shuffled labels & recordings differ a little (11 of 15 features pass BH; $\varepsilon^2\le0.06$); species: 1 of 15 (share of falls, carried by LM), against 7 of 15 between recordings of one species; intervals borderline by dataset ($p=0.06$--0.07), not by species ($p=0.09$) & bounded: small recording effects; species not shown beyond recording\\
+B1 & Are intervals regular, bursty or random? & rate-matched Poisson; shuffled intervals & 44 measurable channels, five recordings, timed from fall onsets: no channel's LV leaves the Poisson band after BH (CV2: two more regular); neighbouring gaps more alike than shuffled on 15, on every recording; one alternates & supported: close to random from one event to the next, with a rate that drifts over hours to days; the one long reviewed train (CH14) is two interleaved, near-periodic series\\
+B2 & Do sequences change shape step by step? & shuffled order & morph fraction: 0 of 5 testable sequences; step size: 5 of 19 closer than shuffled (4 after BH), ratios 0.58--0.84; 5 alternate & bounded: drops in a sequence stay alike rather than changing steadily\\
+B3 & Does recovery depend on the gap before it? & gaps shuffled within trains & within trains, $z=+2.9$ falls to $+0.6$ given depth, and the gap after gives $+9.9$ (censoring); across census gaps, M2\_aug $z=+5.0$ and M2\_concat $+3.1$, halved by fall duration & not within trains (recovery is cut short by the next drop); bounded across long gaps on the two M2 recordings\\
+B4 & Propagation, or a shared ground? & rotation; random time & M2\_aug within packs 8 against 1.9 ($p=0.002$), one pair after BH, no consistent lag; across packs 18 against 6.3 ($p=0.001$); M2\_concat CH5--8 are copies; none on CO, LM; MJu26a 16 against 3.2 ($p=0.001$), both timetables at zero lag; SH 2 and SO 6 against 0.01--0.02, at one instant & not supported: no sign of spikes travelling between electrodes; what separate packs share at one moment looks like the setup\\
+B5 & When and where do detectors fire? & random time shifts; paired surrogates & settings rise and fall together on 45 of 45 channels: 0.21--0.35 against 0.00 shifted and 0.02--0.04 for surrogates; on the completed 2\,Hz sweep 24 of 24 (medians 0.21--0.27, surrogates 0.02) & supported: a whole recording grows busier and quieter over hours to days\\
+B6 & Do families recur across recordings and species? & shuffled recording labels & full inventory: 12 of 12 families on two or more recordings, 10 on all eight, 11 on all three species; the mix leans by recording (0.42 against 0.02 bits, $p=0.001$), and without MJu26a's spike train species explains about half of a smaller lean (0.06 of 0.13 bits); first read on g-11 the same & supported: the same shapes occur in different recordings and in both species, each recording with its own leanings\\
+B9 & Do event durations prefer some scales? & AAFT & AAFT copies give more drops (1,087 against 632) with the same durations (pooled KS $p=0.59$); the ``modes'' appear in AAFT too & not supported: apparent preferred durations come from the null, not the signal\\
+B10 & At which time scales is there structure? & AAFT & every judged length from 30\,s up to 4.4--25.1\,min repeats beyond AAFT on four recordings, strongest at 30\,s; none on MJu26a & supported: structure at every length from 30\,s to minutes, with no preferred scale\\
+B11 & Same events on the newer datasets? & per-run surrogate & on the same settings, candidates found by seven or more families: MJu26a 15\,\% against 1.6\,\% on the copies, SH 16 against 3.7\,\%, SO 9.6 against 2.9\,\% & supported: on all three newer recordings the detectors pick out the same stretches far more often than on scrambled copies\\
+B12 & Do shapes and intervals differ by recording and species? & shuffled labels & full inventory: timing differs strongly by recording ($\varepsilon^2$ up to 0.47), depth hardly (0.04), largely through MJu26a's spike train; without it species differ less than recordings ($\varepsilon^2\le0.02$ against 0.04--0.08); first read on 716 events the same; intervals borderline by dataset (LV $p=0.06$), not by species ($p=0.09$) & bounded: recordings differ a little; the species differ no more than two recordings of one species\\
 \bottomrule
 \end{tabularx}
 \end{table}
