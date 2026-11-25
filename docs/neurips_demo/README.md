@@ -97,5 +97,21 @@ It does not need the real `DATA/`: everything the demo reads is in `DATA/neurips
 
 | Folder | Size |
 |---|---|
-| `DATA/neurips_demo/store` | ~110 MB |
+| `DATA/neurips_demo/store` | 120 MB |
 | `DATA/neurips_demo/slices` | 11 MB |
+
+## How it was checked (2026-11-25 night)
+
+- **Unit tests:** `tests/test_webui_neurips_demo.py`, 14 tests, with webui/.venv. They cover the station's reads and
+  its claim guard, the stable quiz, a restart that keeps its visitor, the live-seed limits and the batched snippets.
+  They also check the hub's hand-out, return, busy page and idle hand-on, the QR code (decoded by OpenCV), and that
+  the live search returns the core's matches. `tests/test_import_boundaries.py` passes.
+- **Six visitors at once** on the six-station launch (`walk.py --visitors 6 --stress`): each got their own station.
+  Each did 26 steps with a median of 0.07-0.12 s per step, with no console error, failed request or red card. A
+  seventh visitor got the busy page, and an operator reset made the old tab say its copy had moved on.
+- **The guided tour** ran through all 16 steps. One visitor walking every stop took a median of 0.05 s per step,
+  with nothing over 1 s.
+- **Live seed search** takes 0.32-0.38 s alone and 0.44 s with three at once (server side).
+- **The normal site build** (`npm run build`) is unchanged and carries no demo code.
+
+Screens from the walks are in [screens/](screens/).
