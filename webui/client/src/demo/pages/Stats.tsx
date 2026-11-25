@@ -32,7 +32,7 @@ export function StatsPage() {
           return (
             <div key={ds.key} className="card stats-col">
               <div className="ds-head"><b>{ds.name}</b> <i className="muted">{ds.latin}</i></div>
-              <div className="num-row"><b>{d?.n ?? 0}</b> events in 24 h on 4 electrodes</div>
+              <div className="num-row"><b>{d?.n ?? 0}</b> {d?.n === 1 ? 'event' : 'events'} in 24 h on 4 electrodes</div>
               {!d || d.n === 0 ? <div className="empty-chart" style={{ height: 120 }}>no events</div> : <>
                 <Block title="Events per hour"><Bars values={d.rate_per_h} labels={d.rate_per_h.map((_, i) => i % 6 === 0 ? `${i} h` : '')} /></Block>
                 <Block title="Gaps between events" foot={<>median {fmtDur(d.median_interval_s ?? 0)} · CV {fmtNum(d.cv, 2)} · LV {fmtNum(d.lv, 2)}</>}

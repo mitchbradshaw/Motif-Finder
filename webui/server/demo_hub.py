@@ -65,7 +65,7 @@ class Station:
 
 
 def create_hub(*, stations: list[Station], admin_key: str, port: int, public_url: str | None = None,
-               http: httpx.Client | None = None, poll: bool = True) -> FastAPI:
+               http: httpx.Client | None = None, poll: bool = True, wifi: str | None = None) -> FastAPI:
     """`http` and `poll` are for tests: a client whose transport reaches in-process stations, and no poller thread."""
     app = FastAPI(title="MycoWave demo hub", docs_url=None, redoc_url=None, openapi_url=None)
     lock = threading.Lock()
@@ -103,7 +103,12 @@ def create_hub(*, stations: list[Station], admin_key: str, port: int, public_url
         return urls[0] if urls else f"http://127.0.0.1:{port}/"
 
     def claim_station(prefer: tuple[int, str] | None):
-        poll_once()
+        # the poller keeps the stations' state fresh (every POLL_S) and the hub's own claims update it under the
+        # lock, so a hand-out needs no round of status calls; only right after start, before the first poll
+        with lock:
+            known = any(st.alive for st in stations)
+        if not known or not poll:
+            poll_once()
         with lock:
             if prefer:
                 for st in stations:
@@ -122,7 +127,9 @@ def create_hub(*, stations: list[Station], admin_key: str, port: int, public_url
 
     @app.get("/", response_class=HTMLResponse)
     def front():
-        return HTMLResponse(_FRONT.replace("{{URL}}", html.escape(public())), headers={"Cache-Control": "no-store"})
+        note = f"<div class=wifi>First join the Wi-Fi <b>{html.escape(wifi)}</b></div>" if wifi else ""
+        return HTMLResponse(_FRONT.replace("{{URL}}", html.escape(public())).replace("{{WIFI}}", note),
+                            headers={"Cache-Control": "no-store"})
 
     @app.get("/qr.svg")
     def qr():
@@ -234,7 +241,7 @@ _STYLE = """
  padding:16px 34px;border-radius:12px;text-decoration:none;box-shadow:0 6px 18px rgba(34,160,107,.35)} .go:hover{background:var(--green-600)}
  .qr{text-align:center;color:var(--muted);font-size:14px} .qr img{width:190px;height:190px;border:1px solid var(--border);border-radius:12px;display:block;margin:0 auto 8px}
  .url{font-family:'Geist Mono',Consolas,monospace;font-size:15px;color:var(--text)} .small{color:var(--muted);font-size:14px;margin-top:22px}
- .wave{height:56px;margin:4px 0 18px} table{border-collapse:collapse;width:100%;font-size:15px} td,th{border-bottom:1px solid var(--border);padding:8px;text-align:left}
+ .wave{height:56px;margin:4px 0 18px} .wifi{font-size:15px;color:var(--text);margin-bottom:10px} table{border-collapse:collapse;width:100%;font-size:15px} td,th{border-bottom:1px solid var(--border);padding:8px;text-align:left}
 </style>"""
 
 _WAVE = ('<svg class="wave" viewBox="0 0 600 56" preserveAspectRatio="none"><path fill="none" stroke="#0a84ff" stroke-width="2.2" '
@@ -248,7 +255,7 @@ _FRONT = f"""<!doctype html><html lang=en><head><meta charset=utf-8><meta name=v
 sorts them into families, and lets you search for more like any one you pick.</p>
 <div class=row><div><a class=go id=go href="/claim">Start the demo</a>
 <p class=small>You get your own private copy. Nothing you do affects anyone else. <span id=free></span></p></div>
-<div class=qr><img src="/qr.svg" alt="QR code"><div>Scan to try it on your own laptop or tablet</div><div class=url>{{{{URL}}}}</div></div></div>
+<div class=qr>{{{{WIFI}}}}<img src="/qr.svg" alt="QR code"><div>Scan to try it on your own laptop or tablet</div><div class=url>{{{{URL}}}}</div></div></div>
 <div id=phone style="display:none" class=small><b>On a phone?</b> MycoWave draws long recordings and needs a wider screen:
 please use a laptop or a tablet, or the screen on the table. <a href="/claim">Continue anyway</a></div>
 </div><script>
@@ -257,7 +264,7 @@ async function free() {{ try {{ const r = await (await fetch('/api/hub/status'))
 free(); setInterval(free, 5000);
 if (Math.min(screen.width, screen.height) < 600 && /Mobi|Android|iPhone/i.test(navigator.userAgent)) {{
   document.getElementById('phone').style.display = 'block'; document.getElementById('go').style.display = 'none' }}
-</script></body></html>""".replace("{{{{URL}}}}", "{{URL}}")
+</script></body></html>""".replace("{{{{URL}}}}", "{{URL}}").replace("{{{{WIFI}}}}", "{{WIFI}}")
 
 _BUSY = f"""<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <meta http-equiv=refresh content="10;url=/claim"><title>MycoWave · all stations busy</title>{_STYLE}</head><body><div class=card>

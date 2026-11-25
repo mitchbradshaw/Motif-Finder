@@ -31,6 +31,7 @@ def main():
     ap.add_argument("--public-url", default=None)
     ap.add_argument("--dist", default=str(ROOT / "webui" / "client" / "dist-neurips"))
     ap.add_argument("--admin-key", default=None)
+    ap.add_argument("--wifi", default=None, help='shown above the QR code, e.g. "MycoWave · password fungi123"')
     ap.add_argument("--role", default="launch", choices=["launch", "seed"], help=argparse.SUPPRESS)
     a = ap.parse_args()
     os.chdir(ROOT)
@@ -57,6 +58,12 @@ def main():
                                 "--seed-worker", f"http://127.0.0.1:{seed_port}", "--dist", a.dist]
     logs = ROOT / "DATA/neurips_demo/logs"
     logs.mkdir(parents=True, exist_ok=True)
+    # a fresh launch starts every station free (yesterday's visitors are gone); a station the supervisor restarts
+    # after a crash keeps its visitor, because its state file is left alone after this point
+    for n in range(1, a.stations + 1):
+        f = ROOT / "DATA/neurips_demo/state" / f"station-{a.port + n}.json"
+        if f.exists():
+            f.unlink()
     procs: dict[str, subprocess.Popen] = {}
     stop = threading.Event()
 
@@ -80,7 +87,7 @@ def main():
 
     from demo_hub import Station, create_hub, lan_urls
     stations = [Station(n, a.port + n) for n in range(1, a.stations + 1)]
-    app = create_hub(stations=stations, admin_key=key, port=a.port, public_url=a.public_url)
+    app = create_hub(stations=stations, admin_key=key, port=a.port, public_url=a.public_url, wifi=a.wifi)
     urls = [a.public_url] if a.public_url else lan_urls(a.port)
     print(f"[demo] MycoWave demo: {a.stations} stations on ports {a.port + 1}-{a.port + a.stations}", flush=True)
     print(f"[demo] on this laptop: http://127.0.0.1:{a.port}/", flush=True)

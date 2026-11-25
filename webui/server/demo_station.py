@@ -272,9 +272,10 @@ class Snips(BaseModel):
 
 
 def create_station(*, station: int, admin_key: str, hub: str | None, dist: Path = DIST,
-                   store_dir: Path = STORE, state_dir: Path = STATE_DIR, seed_worker: str | None = None) -> FastAPI:
+                   store_dir: Path = STORE, state_dir: Path = STATE_DIR, seed_worker: str | None = None,
+                   state_name: str | None = None) -> FastAPI:
     store = Store(store_dir)
-    state = State(state_dir / f"station-{station}.json")
+    state = State(state_dir / (state_name or f"station-{station}.json"))
     app = FastAPI(title=f"MycoWave demo station {station}", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.store, app.state.visitor = store, state
 
@@ -497,8 +498,9 @@ def main():
     a = ap.parse_args()
     os.chdir(ROOT)
     import uvicorn
+    # the state file is named by port: two launches (the booth's and a test one) never share a visitor
     app = create_station(station=a.station, admin_key=a.admin_key, hub=a.hub, dist=Path(a.dist),
-                         seed_worker=a.seed_worker)
+                         seed_worker=a.seed_worker, state_name=f"station-{a.port}.json")
     uvicorn.run(app, host=a.host, port=a.port, log_level="warning", access_log=False)
 
 

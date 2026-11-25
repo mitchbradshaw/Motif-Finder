@@ -76,7 +76,7 @@ export function AnalysePage({ build }: { build: boolean }) {
           {chain.data?.letters && <Letters letters={chain.data.letters} a={a} b={b} />}
           <Trace sid={s.id} fs={s.fs} a={a} b={b} height={150} combo={combo.id} boxes={boxes} color="#1d6fd9" testid="find-trace" />
           <div className="stat-line" data-testid="events-in-span">
-            {chain.loading ? 'finding…' : <><b>{evs.length}</b> events in this stretch · <b>{chain.data?.n ?? 0}</b> in 24 h on {s.label}</>}
+            {chain.loading ? 'finding…' : <><b>{evs.length}</b> {evs.length === 1 ? 'event' : 'events'} in this stretch · <b>{chain.data?.n ?? 0}</b> in 24 h on {s.label}</>}
           </div>
         </Step>
 
@@ -175,6 +175,6 @@ function MiniIcicles({ sid, fs, rows }: { sid: number; fs: number; rows: { s: nu
 function AllChannels({ combo }: { combo: string }) {
   const d = useAsync(() => api.discovery(combo), [combo])
   if (!d.data) return null
-  return <span className="all-ch" data-testid="build-all"><b>{d.data.n.toLocaleString()}</b> events on 12 channels
+  return <span className="all-ch" data-testid="build-all"><b>{d.data.n.toLocaleString()}</b> {d.data.n === 1 ? 'event' : 'events'} on 12 channels
     <span className={`badge small ${ratioTone(d.data.ratio)}`}>{ratioText(d.data.ratio)}</span></span>
 }

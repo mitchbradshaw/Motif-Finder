@@ -101,3 +101,32 @@ instance, and nothing can break.
 - **Client.** It is a separate entry in the same Vite project (`webui/client/demo.html`, `src/demo/`), built with
   `--mode neurips` into `dist-neurips/`. It reuses `theme.css` and the kit, so it looks like MycoWave. The normal
   build does not import it.
+
+## What the build did differently from the recommendations, and why (2026-11-25 night)
+
+Each of these is a judgement made during the build. Change it in the morning if you disagree.
+
+- **Split gill has no accepted catalogue.** Your 366 "interesting" verdicts on it (queue 37) are on windows of about
+  10 minutes, not on single drops. Its Library is therefore every drop the approved whole-drop rule finds inside
+  those windows, with overlapping windows read once. That gives 31 drops. Lion's mane and oyster use the 23 Nov
+  per-drop table (catalogue main drops + accepted queue drops): 155 and 91 drops.
+- **Auto-detect in Explore** applies the 24 Nov pool's own quality rules on top of confidence >= 0.5: no
+  unclear/swing-back/too-long/context flag, and clarity >= 15. Without them, lion's mane CH5 showed 751 "drops",
+  mostly oscillation swings. With them: CH14 341, CH5 121, split gill CH6 259.
+- **The Discovery null (10 noise copies)** counts what the chain finds up to the detector. Event shape and intervals
+  never remove an event, so the count is the same. Measuring several hundred noise events ten times over was 95 % of
+  a sensitive setting's time.
+- **Auto-detect has no null.** Its reference row says "no null drawn": running the auto-detect on noise copies was
+  not part of the 24 Nov pool.
+- **The seed shelf** holds the medoids of the three biggest shape families per dataset, plus a CH14 thin drop and a
+  wide drop. The page shows only seeds with at least 3 matches closer than chance. The CH14 wide drop and lion's
+  mane family B find oyster drops too: the cross-species story.
+- **Live seed search** uses the core's distance (z-normalised, stumpy.match's greedy exclusion zone) with every
+  channel's FFT computed once. It takes about 0.8 s on a loaded machine; the core's own call took 2.5-4.3 s. A test
+  checks it returns the core's matches. A stretch for live search is at most 5 minutes.
+- **The builder's sensitive corner.** 5 s letters at a 4σ gate finds up to 1,900 "events" a day on split gill, and
+  its noise copies find nearly as many. It stays on the menu and reads, honestly, as "no better than chance".
+- **Statistics' CV** is each electrode's CV averaged, weighted by gaps, as LV is. Pooling gaps across electrodes
+  with very different rates read 3.6 for lion's mane, while its CH14 train alone is 0.62.
+- **The hub** also accepts `--wifi "name · password"`, printed above the QR code.
+- **A fresh launch frees every station.** A station the supervisor restarts after a crash keeps its visitor.

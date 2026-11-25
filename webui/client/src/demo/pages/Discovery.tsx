@@ -3,7 +3,7 @@
    detectors the researcher prepared. */
 import { useEffect } from 'react'
 import { Strip } from '../charts'
-import { api, comboLabel, fmtNum, go, useAsync, useDemo } from '../store'
+import { api, comboLabel, fmtNum, go, plural, useAsync, useDemo } from '../store'
 import { tourSignal } from '../tour'
 
 export function ratioTone(r: number | null): string {
@@ -42,7 +42,7 @@ export function DiscoveryPage() {
       {d && m.datasets.map(ds => (
         <div key={ds.key} className="card ds-block">
           <div className="ds-head"><b>{ds.name}</b> <i className="muted">{ds.latin}</i>
-            <span className="grow" /><span className="muted small">{d.by_dataset[ds.key]?.n ?? 0} events · chance {fmtNum(d.by_dataset[ds.key]?.null ?? null, 0)}</span></div>
+            <span className="grow" /><span className="muted small">{plural(d.by_dataset[ds.key]?.n ?? 0, 'event')} · chance {fmtNum(d.by_dataset[ds.key]?.null ?? null, 0)}</span></div>
           {d.per_slice.filter(p => slice(p.slice).dataset === ds.key).map(p => {
             const s = slice(p.slice)
             return (
@@ -64,7 +64,7 @@ export function DiscoveryPage() {
             {d && <tr className="mine"><td>Your detector</td>{m.datasets.map(ds => <td key={ds.key}>{d.by_dataset[ds.key]?.n ?? 0}</td>)}
               <td><span className={`badge small ${ratioTone(d.ratio)}`}>{ratioText(d.ratio)}</span></td></tr>}
             {refs.data?.map(r => <tr key={r.key}><td>{r.label}</td>{m.datasets.map(ds => <td key={ds.key}>{r.by_dataset[ds.key]?.n ?? 0}</td>)}
-              <td><span className={`badge small ${ratioTone(r.ratio)}`}>{r.combo === null ? 'judged by eye' : ratioText(r.ratio)}</span></td></tr>)}
+              <td><span className={`badge small ${ratioTone(r.ratio)}`}>{r.combo === null ? 'no null drawn' : ratioText(r.ratio)}</span></td></tr>)}
           </tbody>
         </table>
       </div>

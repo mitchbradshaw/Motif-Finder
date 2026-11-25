@@ -107,6 +107,11 @@ export function comboLabel(m: Manifest, id: string, short = false): string {
   return short ? head : [head, ...knobs, `drift ${Math.round(c.window_s / 60)} min`].join(' · ')
 }
 
+/** "1 event", "2 events". */
+export function plural(n: number, word: string, many = `${word}s`): string {
+  return `${n.toLocaleString()} ${n === 1 ? word : many}`
+}
+
 export function fmtKnob(v: number): string {
   return Number.isInteger(v) ? String(v) : String(Math.round(v))
 }

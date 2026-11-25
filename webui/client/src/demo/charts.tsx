@@ -296,7 +296,7 @@ export function Rose({ slopes, refSlope, size = 170, color = '#0a84ff' }: { slop
       {[0.33, 0.66, 1].map(f => <path key={f} d={`M${cx + R * f},${cy}A${R * f},${R * f} 0 0 1 ${cx},${cy + R * f}`} fill="none" stroke="#e5e7eb" />)}
       <line x1={cx} y1={cy} x2={cx + R * Math.cos(Math.PI / 4)} y2={cy + R * Math.sin(Math.PI / 4)} stroke="#d1d5db" strokeDasharray="3 3" />
       {counts.map((_, k) => <path key={k} d={wedge(k)} fill={color} opacity={0.7} stroke="#fff" strokeWidth={0.5} />)}
-      <text x={cx + R + 2} y={cy + 10} className="axis-t">gentle</text>
+      <text x={cx + R - 2} y={cy + 12} textAnchor="end" className="axis-t">gentle</text>
       <text x={cx + 2} y={cy + R + 12} className="axis-t">steep</text>
     </svg>
   )

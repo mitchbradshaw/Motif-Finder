@@ -27,9 +27,12 @@ export function ExplorePage() {
   }
   const zoom = (sec: number) => setView((a + b) / 2, Math.min(s.n, Math.round(sec * s.fs)))
   const pickSlice = (id: number) => {
+    // keep the same stretch of TIME: the species are recorded at different rates (2 Hz, 1 Hz)
     const t = slice(id)
-    const w = Math.min(t.n, width)
-    set({ slice: id, span: null, view: [Math.max(0, Math.min(a, t.n - w)), Math.max(0, Math.min(a, t.n - w)) + w] })
+    const k = t.fs / s.fs
+    const w = Math.min(t.n, Math.round(width * k))
+    const p = Math.max(0, Math.min(Math.round(a * k), t.n - w))
+    set({ slice: id, span: null, view: [p, p + w] })
   }
   const span = thread.span
   const spanS = span ? (span[1] - span[0]) / s.fs : 0
