@@ -1,0 +1,50 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "autodetect-pages",
+      "runtimeExecutable": "C:/ProgramData/anaconda3/python.exe",
+      "runtimeArgs": ["-m", "http.server", "8791", "--bind", "127.0.0.1", "--directory", "docs/autodetect"],
+      "port": 8791
+    },
+    {
+      "name": "mycowave-project",
+      "runtimeExecutable": "C:/Users/mmebr/Documents/CNN/webui/.venv/Scripts/python.exe",
+      "runtimeArgs": ["webui/run_server.py", "--project", "--port", "8765"],
+      "port": 8765
+    },
+    {
+      "name": "drop-plots",
+      "runtimeExecutable": "C:/ProgramData/anaconda3/python.exe",
+      "runtimeArgs": ["-m", "http.server", "8793", "--bind", "127.0.0.1", "--directory", "docs/library_analysis/20261123_plots"],
+      "port": 8793
+    },
+    {
+      "name": "sequence-review-sandbox",
+      "runtimeExecutable": "C:/Users/mmebr/Documents/CNN/webui/.venv/Scripts/python.exe",
+      "runtimeArgs": ["webui/run_server.py", "--sandbox", "--port", "8812", "--no-warmup"],
+      "port": 8812
+    },
+    {
+      "name": "archive-sandbox",
+      "runtimeExecutable": "C:/Users/mmebr/Documents/CNN/webui/.venv/Scripts/python.exe",
+      "runtimeArgs": ["webui/run_server.py", "--sandbox", "--port", "8824", "--no-warmup", "--dist",
+                      "C:/Users/mmebr/AppData/Local/Temp/claude/3a41d06cc6096a2e/6f66a460-b66d-4eca-9aad-9880f44ef8f2/scratchpad/dist_arch"],
+      "port": 8824
+    },
+    {
+      "name": "archive-live-check",
+      "runtimeExecutable": "C:/Users/mmebr/Documents/CNN/webui/.venv/Scripts/python.exe",
+      "runtimeArgs": ["webui/run_server.py", "--sandbox", "--port", "8825", "--no-warmup", "--dist",
+                      "C:/Users/mmebr/AppData/Local/Temp/claude/3a41d06cc6096a2e/6f66a460-b66d-4eca-9aad-9880f44ef8f2/scratchpad/dist_arch"],
+      "port": 8825
+    },
+    {
+      "name": "autodetect-sandbox",
+      "runtimeExecutable": "C:/Users/mmebr/Documents/CNN/webui/.venv/Scripts/python.exe",
+      "runtimeArgs": ["webui/run_server.py", "--sandbox", "--port", "8823", "--no-warmup", "--dist",
+                      "C:/Users/mmebr/AppData/Local/Temp/claude/3a41d06cc6096a2e/6f66a460-b66d-4eca-9aad-9880f44ef8f2/scratchpad/dist_ad"],
+      "port": 8823
+    }
+  ]
+}
