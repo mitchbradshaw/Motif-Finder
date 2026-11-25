@@ -81,7 +81,7 @@ export function ExplorePage() {
           <div className="card">
             <h3>Auto-detect</h3>
             <button className={`btn ${thread.autoOn ? 'ghost' : 'primary'}`} data-tour="auto" data-testid="auto-btn"
-              onClick={() => { set({ autoOn: !thread.autoOn }); if (!thread.autoOn) tourSignal('auto') }}>
+              onClick={() => { set({ autoOn: !thread.autoOn }); tourSignal('auto') }}>
               {thread.autoOn ? 'Hide drops' : 'Auto-detect drops'}
             </button>
             {thread.autoOn && auto.data && <div className="stat-line" data-testid="auto-count">

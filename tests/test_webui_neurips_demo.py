@@ -95,6 +95,7 @@ def test_station_reads_the_store_and_hides_file_paths(store):
     assert [r["key"] for r in refs] == ["r", "auto"] and refs[1]["ratio"] is None
     assert c.get("/api/demo/stats?source=library").status_code == 200
     assert c.get("/api/demo/stats?source=nope").status_code == 404
+    assert c.get("/api/demo/stats?source=../manifest").status_code == 404, "a source never escapes the store"
 
 
 def test_snippets_answer_many_short_envelopes_in_one_request(store):

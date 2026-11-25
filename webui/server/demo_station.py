@@ -468,6 +468,9 @@ def create_station(*, station: int, admin_key: str, hub: str | None, dist: Path 
 
     @app.get("/api/demo/stats")
     def stats(source: str):
+        # only names the store holds: the value becomes part of a file path
+        if source not in ("library", "auto") and source not in store.combos:
+            raise HTTPException(404, f"no statistics for {source!r}")
         return store.stats(source)
 
     # ── the client ──
