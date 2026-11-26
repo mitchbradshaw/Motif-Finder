@@ -39,7 +39,7 @@ export type Family = { id: string; dataset: string; name: string; n: number; med
   median_depth_mv: number | null; median_width_s: number | null }
 export type Train = { id: string; dataset: string; slice: number; n: number; members: string[]; start: number; end: number;
   median_interval_s: number | null; cv: number | null }
-export type Library = { events: LibEv[]; families: Family[]; trains: Train[]; totals: { catalogue_spans: number; species: number; hours: number } }
+export type Library = { events: LibEv[]; families: Family[]; trains: Train[]; totals: { catalogue_spans?: number; recordings?: number } }
 export type Match = { slice: number; dataset: string; index: number; length: number; distance: number; snip?: Snip; pad?: number }
 export type Seed = { id: string; name: string; dataset: string; slice: number; event?: string; family?: string | null;
   a: number; b: number; fs: number; exemplar: Snip; matches: Match[]; n_matches: number; null: number[]; null_draws: number;

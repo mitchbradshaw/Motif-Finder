@@ -8,7 +8,7 @@ real checkout READ ONLY (the 24 Nov drop pool, the 23 Nov per-drop table) and wr
     auto/<slice>.json           Auto-detect's drops on the slice (v4, drops only, confidence >= 0.5): the 24 Nov pool's
                                 candidates, unchanged, in slice samples
     library.json                the researcher-accepted drops in the slices, their snippets, shape families, trains
-    seeds.json                  the seed shelf, each seed searched over all 12 slices with its null and cut
+    seeds.json                  the seed shelf, each seed searched over every slice with its null and cut
     surrogates/<slice>.npy      3 phase-randomised copies per slice (float32), for the live seed search's null
     stats/<source>/<dataset>.json   Spike statistics per source (a builder setting, the library, Auto-detect)
 
@@ -36,6 +36,7 @@ REAL = Path(C.REAL_ROOT)
 DEMO = ROOT / C.DEMO_DATA
 STORE = DEMO / "store"
 DROP_TABLE = REAL / "docs/library_analysis/20261123_plots/events.csv"
+CATALOGUE = REAL / "docs/thesis/data/accepted_catalogue_20261109/accepted_spans.csv"
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -115,9 +116,9 @@ def stage_auto():
 def _library_events():
     """The researcher-accepted drops inside the slices.
 
-    Lion's mane and oyster: the 23 Nov per-drop table (catalogue main drops + accepted queue drops, the whole-drop
-    rule). Split gill has no catalogue: its drops are Auto-detect's inside the windows the researcher called
-    interesting (queue 37), i.e. pool candidates whose `label` is accepted."""
+    Lion's mane, oyster and chocolate oyster: the 23 Nov per-drop table (catalogue main drops + accepted queue
+    drops, the whole-drop rule). A dataset with `library_from: accepted_windows` (split gill) has no per-drop
+    catalogue: its drops are the whole-drop rule's inside the windows the researcher called interesting (queue 37)."""
     sl = _slices()
     by_src = {}
     import sqlite3
@@ -146,13 +147,14 @@ def _library_events():
                     "depth_mv": _num(r.depth_mv), "fall_s": _num(r.fall_s), "width_s": _num(r.width_s),
                     "recovery_s": _num(r.recovery_s), "steep_s": _num(r.steep_s), "source": str(r.source),
                     "ref": str(r.event_id)})
-    # Split gill: every drop (the approved whole-drop rule, its own floors) inside a window the researcher called
-    # interesting in queue 37; the windows overlap, so the same drop is read once (the dedupe below).
+    # Judged on windows (split gill): every drop (the approved whole-drop rule, its own floors) inside a window the
+    # researcher called interesting in queue 37; the windows overlap, so the same drop is read once (the dedupe below).
     from Working.interrogation import whole_drop as WD
 
     yes = json.loads((STORE / "researcher_events.json").read_text())
+    by_windows = {d["key"] for d in C.DATASETS if d.get("library_from") == "accepted_windows"}
     for s in sl:
-        if s["dataset"] != "split_gill":
+        if s["dataset"] not in by_windows:
             continue
         x = np.asarray(np.load(ROOT / s["npy"], mmap_mode="r"), dtype=float)
         to_mv = 1000.0 if (s["units"] or "V") == "V" else 1.0
@@ -264,7 +266,10 @@ def stage_library():
                 trains.append(_train(run, sid, fs, ds["key"], len(trains)))
         print(f"library {ds['key']:11s} {len(keep)} drops, {len(fams)} families, "
               f"{sum(1 for t in trains if t['dataset'] == ds['key'])} trains")
-    totals = {"catalogue_spans": 2959, "species": 6, "hours": 1000}
+    # the whole catalogue, counted off its own file: spans and the recordings they come from (not species: chocolate
+    # oyster is a strain of oyster and some recordings have no species set, so a species count would be a guess)
+    cat = pd.read_csv(CATALOGUE, usecols=["dataset"])
+    totals = {"catalogue_spans": int(len(cat)), "recordings": int(cat["dataset"].nunique())}
     _write(STORE / "library.json", {"events": events, "families": families, "trains": trains, "totals": totals})
 
 

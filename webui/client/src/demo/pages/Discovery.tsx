@@ -3,7 +3,7 @@
    detectors the researcher prepared. */
 import { useEffect } from 'react'
 import { Strip } from '../charts'
-import { api, comboLabel, fmtNum, go, plural, useAsync, useDemo } from '../store'
+import { api, breadth, comboLabel, fmtNum, go, plural, useAsync, useDemo } from '../store'
 import { tourSignal } from '../tour'
 
 export function ratioTone(r: number | null): string {
@@ -36,7 +36,7 @@ export function DiscoveryPage() {
 
       {sum.error && <div className="card error-line">{sum.error.message}</div>}
       {d && <div className="card big-stat" data-tour="chance" data-testid="disc-summary">
-        <div><div className="num">{d.n.toLocaleString()}</div><div className="lab">events on 12 channels, 3 species</div></div>
+        <div><div className="num">{d.n.toLocaleString()}</div><div className="lab">events on {breadth(m).channels} channels, {breadth(m).species} species</div></div>
         <div><div className="num muted">{fmtNum(d.null, 0)}</div><div className="lab">on noise copies of the same channels</div></div>
         <div className={`badge ${ratioTone(d.ratio)}`} data-testid="disc-ratio">{ratioText(d.ratio)}</div>
       </div>}

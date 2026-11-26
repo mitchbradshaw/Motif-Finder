@@ -4,7 +4,7 @@ The distance is the core's (`Adapters.detection_seed_matches.match_exemplar` = `
 Euclidean distance of the seed to every window, and matches taken closest first with an exclusion zone of
 ceil(m / 2) samples around each one. The core recomputes the distance profile from scratch every call (about 25-150
 ms a channel); here every channel's and every noise copy's FFT and running sums are computed ONCE at start, so a
-search is one FFT per series and the 12 channels plus their 36 noise copies take well under a second.
+search is one FFT per series and the 16 channels plus their 48 noise copies take well under a second.
 `tests/test_webui_neurips_demo.py` checks these matches against the core's on real slices.
 
 The cut is the core's (`Working.discovery.seeded_search.recommended_cut`); the null is three phase-randomised copies

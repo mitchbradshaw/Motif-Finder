@@ -1,6 +1,6 @@
-/* Stop 8 · Spike statistics: the events as a population, the three species side by side. The same measures for
-   whichever events you choose: your detector's, the researcher's accepted ones, or Auto-detect's. */
-import type { ReactNode } from 'react'
+/* Stop 8 · Spike statistics: the events as a population, one column per recording, side by side. The same measures
+   for whichever events you choose: your detector's, the researcher's accepted ones, or Auto-detect's. */
+import type { CSSProperties, ReactNode } from 'react'
 import { Bars, Hist, Icicles, Rose, Scatter } from '../charts'
 import { api, comboLabel, fmtDur, fmtNum, useAsync, useDemo } from '../store'
 
@@ -26,13 +26,13 @@ export function StatsPage() {
       </div>
       {st.error && <div className="card error-line">{st.error.message}</div>}
       {!S && !st.error && <div className="skeleton" style={{ height: 500 }} />}
-      {S && <div className="stats-grid" data-testid="stats-grid">
+      {S && <div className="stats-grid" data-testid="stats-grid" style={{ '--n': m.datasets.length } as CSSProperties}>
         {m.datasets.map(ds => {
           const d = S[ds.key]
           return (
             <div key={ds.key} className="card stats-col">
               <div className="ds-head"><b>{ds.name}</b> <i className="muted">{ds.latin}</i></div>
-              <div className="num-row"><b>{d?.n ?? 0}</b> {d?.n === 1 ? 'event' : 'events'} in 24 h on 4 electrodes</div>
+              <div className="num-row"><b>{d?.n ?? 0}</b> {d?.n === 1 ? 'event' : 'events'} in 24 h on {ds.channels.length} electrodes</div>
               {!d || d.n === 0 ? <div className="empty-chart" style={{ height: 120 }}>no events</div> : <>
                 <Block title="Events per hour"><Bars values={d.rate_per_h} labels={d.rate_per_h.map((_, i) => i % 6 === 0 ? `${i} h` : '')} /></Block>
                 <Block title="Gaps between events" foot={<>median {fmtDur(d.median_interval_s ?? 0)} · CV {fmtNum(d.cv, 2)} · LV {fmtNum(d.lv, 2)}</>}
@@ -42,7 +42,7 @@ export function StatsPage() {
                 <Block title="Depth against width"><Scatter pts={d.scatter} /></Block>
                 <Block title="Every event at its own size" info="Each drop from its onset, unscaled. Normalising would hide that big and small drops share one shape.">
                   <Icicles rows={d.icicles} height={170} /></Block>
-                <Block title="How steep the fastest fall is" info="An angle per event: 45° is the typical steepness across all three species.">
+                <Block title="How steep the fastest fall is" info="An angle per event: 45° is the typical steepness across every recording here.">
                   <Rose slopes={d.slopes_mv_s} refSlope={refSlope} /></Block>
               </>}
             </div>

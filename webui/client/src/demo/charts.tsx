@@ -196,6 +196,9 @@ export function Hist({ edges, series, logX, cut, height = 150, xLabel, testid }:
   const X = (v: number) => padL + ((tx(v) - x0) / (x1 - x0 || 1)) * (w - padL - padR)
   const Y = (c: number) => padT + (1 - c / maxC) * (height - padT - padB)
   const ticks = logX ? edges.filter((_, i) => i % 5 === 0) : edges.filter((_, i) => i % Math.ceil(edges.length / 6) === 0)
+  // decimals from the spacing of the ticks, so close ticks never print the same label twice (0.42 and 0.46 as "0.4")
+  const step = ticks.length > 1 ? Math.abs(ticks[1] - ticks[0]) : 1
+  const nd = step >= 5 ? 0 : step >= 0.5 ? 1 : step >= 0.05 ? 2 : 3
   return (
     <div ref={ref} className="hist" data-testid={testid}>
       {w > 0 && <svg width={w} height={height}>
@@ -205,16 +208,22 @@ export function Hist({ edges, series, logX, cut, height = 150, xLabel, testid }:
         <line x1={padL} x2={w - padR} y1={Y(0)} y2={Y(0)} stroke="#d1d5db" />
         {cut != null && <g><line x1={X(cut)} x2={X(cut)} y1={padT} y2={Y(0)} stroke="#22a06b" strokeWidth={2} strokeDasharray="4 3" />
           <text x={X(cut) + 4} y={padT + 10} className="axis-t" fill="#1a8a5a">cut</text></g>}
-        {ticks.map((t, i) => <text key={i} x={X(t)} y={height - 8} textAnchor="middle" className="axis-t">{fmtTick(t, logX)}</text>)}
+        {ticks.map((t, i) => {
+          // a label at either end is anchored inward, so a narrow column does not clip it to "min" or ".0 s"
+          const x = X(t)
+          const anchor = x < 30 ? 'start' : x > w - 30 ? 'end' : 'middle'
+          return <text key={i} x={anchor === 'start' ? Math.max(0, x - 2) : anchor === 'end' ? Math.min(w, x + 2) : x} y={height - 8}
+            textAnchor={anchor} className="axis-t">{fmtTick(t, logX, nd)}</text>
+        })}
       </svg>}
       {(series.length > 1 || xLabel) && <div className="legend">{series.length > 1 && series.map(s => <span key={s.label}><i style={{ background: s.color }} />{s.label}</span>)}{xLabel && <span className="grow" />}{xLabel && <span>{xLabel}</span>}</div>}
     </div>
   )
 }
 
-function fmtTick(v: number, logX?: boolean) {
+function fmtTick(v: number, logX?: boolean, nd = 1) {
   if (logX) return v >= 3600 ? `${(v / 3600).toFixed(v >= 36000 ? 0 : 1)} h` : v >= 60 ? `${Math.round(v / 60)} min` : `${Math.round(v)} s`
-  return Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(1)
+  return v.toFixed(nd)
 }
 
 /** Depth against width, log-log: every point an event. */

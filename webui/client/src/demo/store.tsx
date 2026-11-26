@@ -112,6 +112,19 @@ export function plural(n: number, word: string, many = `${word}s`): string {
   return `${n.toLocaleString()} ${n === 1 ? word : many}`
 }
 
+/** How far the demo reaches, read off the manifest so no page types a count: electrodes, recordings, species.
+ *  Species counts distinct Latin names (chocolate oyster is a strain of oyster, so it adds a recording, not a species). */
+export function breadth(m: Manifest): { channels: number; recordings: number; species: number } {
+  return { channels: m.slices.length, recordings: m.datasets.length, species: new Set(m.datasets.map(d => d.latin)).size }
+}
+
+const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
+
+/** 3 -> "three": a small count reads better as a word inside a sentence. */
+export function numWord(n: number): string {
+  return WORDS[n] ?? n.toLocaleString()
+}
+
 export function fmtKnob(v: number): string {
   return Number.isInteger(v) ? String(v) : String(Math.round(v))
 }

@@ -1,7 +1,7 @@
 """Walk the NeurIPS demo like visitors do, and fail loudly on anything a visitor would see go wrong.
 
     "/c/ProgramData/anaconda3/python.exe" scripts/neurips_demo/walk.py [--hub http://127.0.0.1:8900] [--visitors 1]
-                                                                      [--shots DIR] [--tour]
+                                                                      [--shots DIR] [--tour] [--size 1180x820]
 
 Each visitor is its own browser context (its own cookies and storage, like its own device): it claims a station at
 the hub, then visits every stop and does that stop's one action, timing each. With --tour it follows the guided tour
@@ -23,8 +23,11 @@ from playwright.async_api import async_playwright
 ROOT = Path(__file__).resolve().parents[2]
 
 
+VIEWPORT = {"width": 1440, "height": 900}
+
+
 async def visitor(browser, hub: str, k: int, shots: Path | None, tour: bool, report: dict, keep: list | None = None):
-    ctx = await browser.new_context(viewport={"width": 1440, "height": 900})
+    ctx = await browser.new_context(viewport=VIEWPORT)
     page = await ctx.new_page()
     errs, fails, times = [], [], {}
     page.on("console", lambda m: errs.append(f"console.{m.type}: {m.text}") if m.type == "error" else None)
@@ -52,7 +55,7 @@ async def visitor(browser, hub: str, k: int, shots: Path | None, tour: bool, rep
     if tour:
         await walk_tour(page, timed, errs)
     else:
-        await walk_stops(page, timed)
+        await walk_stops(page, timed, shot)
     report.setdefault("visitors", []).append({"k": k, "station": station, "times": times, "errors": errs, "failed": fails})
     if keep is not None:
         keep.append((ctx, page, errs))
@@ -92,9 +95,16 @@ async def stress_after(browser, hub: str, admin_key: str, keep: list, report: di
         await c.close()
 
 
-async def walk_stops(page, timed):
+async def walk_stops(page, timed, shot):
     await timed("welcome→explore", page.click('[data-testid="explore-free"]'), '[data-testid="explore-trace"] svg')
     await timed("auto-detect", page.click('[data-testid="auto-btn"]'), '[data-testid="auto-count"]')
+    # every recording's day with its Auto-detect drops, then back to the first, where the rest of the walk starts
+    ds = page.locator('[data-testid^="ds-"]')
+    keys = [await ds.nth(i).get_attribute("data-testid") for i in range(await ds.count())]
+    for key in keys[1:] + keys[:1]:
+        await timed(f"explore({key[3:]})", page.click(f'[data-testid="{key}"]'), f'[data-testid="{key}"].on')
+        await page.wait_for_load_state("networkidle")
+        await shot(f"explore({key[3:]})")       # again, now that its trace has arrived (the first is mid-load)
     box = await page.locator('[data-testid="explore-trace"] svg').bounding_box()
     await page.mouse.move(box["x"] + box["width"] * 0.42, box["y"] + 120)
     await page.mouse.down()
@@ -115,11 +125,19 @@ async def walk_stops(page, timed):
     await timed("seed(family)", page.click('[data-testid="family-seed"]'), '[data-testid="seed-summary"], [data-testid="seed-searching"]')
     await page.wait_for_selector('[data-testid="seed-summary"]', timeout=30000)
     await timed("seed(shelf)", page.click('[data-testid^="seed-S"] >> nth=0'), '[data-testid="seed-gallery"]')
+    # the last family: its own seed finds fewer than 3 matches closer than chance, so it is not on the shelf; the
+    # Seed page must still answer it (a blank page here was a dead end)
+    await timed("library again", page.click('[data-testid="stop-library"]'), '[data-testid^="fam-"]')
+    await timed("family(last)", page.click('[data-testid^="fam-"] >> nth=-1'), '[data-testid="family-detail"]')
+    await timed("seed(last family)", page.click('[data-testid="family-seed"]'), '[data-testid="seed-summary"]', timeout=30000)
     await timed("stats", page.click('[data-testid="to-stats"]'), '[data-testid="stats-grid"]')
     await timed("stats(mine)", page.click('[data-testid="src-mine"]'), '[data-testid="stats-grid"]')
     await timed("stats(auto)", page.click('[data-testid="src-auto"]'), '[data-testid="stats-grid"]')
-    # a live seed from Explore
+    # a live seed from Explore, on the last recording in the switch (the walk's first stops stay on the first)
     await timed("explore again", page.click('[data-testid="stop-explore"]'), '[data-testid="explore-trace"] svg')
+    last = await page.locator('[data-testid^="ds-"] >> nth=-1').get_attribute("data-testid")
+    await timed(f"explore({last[3:]})", page.click(f'[data-testid="{last}"]'), f'[data-testid="{last}"].on')
+    await page.wait_for_load_state("networkidle")
     await page.click("text=5 min")
     box = await page.locator('[data-testid="explore-trace"] svg').bounding_box()
     await page.mouse.move(box["x"] + box["width"] * 0.40, box["y"] + 120)
@@ -183,7 +201,10 @@ async def main():
     ap.add_argument("--tour", action="store_true")
     ap.add_argument("--stress", action="store_true", help="after the walks: a busy visitor and an operator reset")
     ap.add_argument("--admin-key", default="booth")
+    ap.add_argument("--size", default="1440x900", help="the visitors' window, e.g. 1180x820 for a tablet held sideways")
     a = ap.parse_args()
+    w, h = (int(v) for v in a.size.lower().split("x"))
+    VIEWPORT.update(width=w, height=h)
     SHOTS = Path(a.shots) if a.shots else None
     if SHOTS:
         SHOTS.mkdir(parents=True, exist_ok=True)

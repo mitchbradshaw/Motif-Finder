@@ -1,4 +1,5 @@
-/* The welcome screen: what MycoWave is in one sentence, the three recordings, and the two ways in. */
+/* The welcome screen: what MycoWave is in one sentence, the recordings, and the two ways in. */
+import type { CSSProperties } from 'react'
 import { Trace } from '../charts'
 import { go, useDemo } from '../store'
 import { startTour } from '../tour'
@@ -16,7 +17,7 @@ export function WelcomePage() {
           <button className="btn big" data-testid="explore-free" onClick={() => go('explore')}>Explore on my own</button>
         </div>
       </div>
-      <div className="species">
+      <div className="species" style={{ '--n': m.datasets.length } as CSSProperties}>
         {m.datasets.map(d => {
           const s = m.slices.find(x => x.dataset === d.key)!
           return (

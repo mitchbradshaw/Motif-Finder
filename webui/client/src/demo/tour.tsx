@@ -2,9 +2,12 @@
    waits for the visitor to do the thing it points at (pages call tourSignal) or offers Next. Skippable, and
    restartable from "?". Progress lives in localStorage, per station. */
 import { useEffect, useLayoutEffect, useState, type CSSProperties } from 'react'
-import { go } from './store'
+import type { Manifest } from './api'
+import { breadth, go, numWord, useDemo } from './store'
 
-export type TourStep = { route: string; target?: string; title: string; text: string; wait?: string; skip?: string }
+/** A step's text may read the manifest, so a count in it ("all 16 electrodes") follows the data. */
+export type TourStep = { route: string; target?: string; title: string; text: string | ((m: Manifest) => string);
+  wait?: string; skip?: string }
 
 export const STEPS: TourStep[] = [
   { route: 'explore', target: 'trace', title: 'A day in the life of a mushroom',
@@ -24,7 +27,7 @@ export const STEPS: TourStep[] = [
   { route: 'build', target: 'detectors', title: 'Build your own', wait: 'knob',
     text: 'Change a setting: try 5 s letters and watch more drops appear. Every combination answers at once, because all 108 were computed in advance.' },
   { route: 'build', target: 'run-btn', title: 'Run it everywhere', wait: 'run',
-    text: 'Run your detector on all 12 electrodes, in three species.' },
+    text: m => `Run your detector on all ${breadth(m).channels} electrodes, in ${numWord(breadth(m).species)} species.` },
   { route: 'discovery', target: 'chance', title: 'Better than chance?',
     text: 'MycoWave also runs your detector on noise copies of the same channels. Real events should beat chance by a wide margin.' },
   { route: 'discovery', target: 'judge-btn', title: 'People decide', wait: 'judge',
@@ -34,9 +37,9 @@ export const STEPS: TourStep[] = [
   { route: 'library', target: 'families', title: 'The Library', wait: 'family',
     text: 'Drops the researcher accepted, grouped by shape. Open a family.' },
   { route: 'library', target: 'family-seed', title: 'More like these', wait: 'family-seed',
-    text: 'Search every channel of all three species for drops like these.' },
+    text: m => `Search every channel of all ${numWord(breadth(m).species)} species for drops like these.` },
   { route: 'seed', target: 'seed-result', title: 'Across species',
-    text: 'Every match closer than chance allows, across the 12 electrodes. Try the CH14 wide drop on the shelf: it turns up in oyster too.' },
+    text: m => `Every match closer than chance allows, across the ${breadth(m).channels} electrodes. Try the CH14 wide drop on the shelf: it turns up in oyster too.` },
   { route: 'stats', target: 'icicles', title: 'The population',
     text: 'How often, how regular, and every event at its own size: big and small drops share one shape.' },
 ]
@@ -68,6 +71,7 @@ export function onTourSkip(name: string, f: () => void) {
 }
 
 export function Tour({ route }: { route: string }) {
+  const { m } = useDemo()
   const [n, setN] = useState<number | null>(tourStep)
   const [rect, setRect] = useState<DOMRect | null>(null)
   useEffect(() => {
@@ -129,7 +133,7 @@ export function Tour({ route }: { route: string }) {
       <div className="tour-pop" style={popStyle} data-testid="tour-pop">
         <div className="tour-n">{n + 1} / {STEPS.length}</div>
         <div className="tour-title">{step.title}</div>
-        <div className="tour-text">{step.text}</div>
+        <div className="tour-text">{typeof step.text === 'function' ? step.text(m) : step.text}</div>
         <div className="tour-actions">
           {!onPage && <button className="btn primary" onClick={() => go(step.route)}>Take me there</button>}
           {onPage && <button className={`btn ${step.wait ? '' : 'primary'}`} onClick={next} data-testid="tour-next">{step.wait ? 'Skip' : n + 1 === STEPS.length ? 'Finish' : 'Next'}</button>}

@@ -1,9 +1,9 @@
-/* Stop 6 · Library: the drops the researcher accepted, inside the three recordings, grouped into shape families
+/* Stop 6 · Library: the drops the researcher accepted, inside the demo's recordings, grouped into shape families
    (each drop drawn at its own size: normalising would hide that small and large drops share a shape), and the
    trains they form. */
 import { useMemo, useState } from 'react'
 import { Icicles, ShapeLine, Spark, Strip } from '../charts'
-import { api, fmtDur, fmtH, fmtNum, go, useAsync, useDemo } from '../store'
+import { api, fmtDur, fmtH, fmtNum, go, numWord, useAsync, useDemo } from '../store'
 import type { Family, LibEv, Library } from '../api'
 import { tourSignal } from '../tour'
 
@@ -44,10 +44,11 @@ export function LibraryPage() {
   return (
     <div className="page-body library">
       <div className="card big-stat">
-        <div><div className="num">{L.events.length}</div><div className="lab">drops the researcher accepted in these three recordings</div></div>
+        <div><div className="num">{L.events.length}</div><div className="lab">drops the researcher accepted in these {numWord(m.datasets.length)} recordings</div></div>
         <div><div className="num">{L.families.length}</div><div className="lab">shape families</div></div>
         <div><div className="num">{L.trains.length}</div><div className="lab">trains: five or more drops, under an hour apart</div></div>
-        <div className="muted small" style={{ maxWidth: 220 }}>The full catalogue holds {L.totals.catalogue_spans.toLocaleString()} accepted spans from {L.totals.species} species.</div>
+        {L.totals.catalogue_spans != null && L.totals.recordings != null && <div className="muted small" style={{ maxWidth: 220 }}>
+          The full catalogue holds {L.totals.catalogue_spans.toLocaleString()} accepted spans from {L.totals.recordings} recordings.</div>}
       </div>
 
       {m.datasets.map(ds => {

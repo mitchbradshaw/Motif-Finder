@@ -16,8 +16,9 @@ REAL_ROOT = r"C:\Users\mmebr\Documents\CNN"
 #: Where the demo's own data lives, relative to the repo root the scripts and stations run from.
 DEMO_DATA = "DATA/neurips_demo"
 
-#: The three datasets, each a 24 h slice x 4 channels (0-based channel numbers, as stored). The first is the one
-#: the tour follows. Windows chosen by accepted events per 24 h (DECISIONS round 2 item 1).
+#: The four datasets, each a 24 h slice x 4 channels (0-based channel numbers, as stored), in the order the pages
+#: show them. The first is the one the tour follows. Windows chosen by accepted events per 24 h (DECISIONS round 2
+#: item 1; chocolate oyster added 2026-11-26). Three species: chocolate oyster is a strain of oyster.
 DATASETS = [
     {
         "key": "lions_mane", "name": "Lion's mane", "latin": "Hericium erinaceus",
@@ -33,13 +34,26 @@ DATASETS = [
         "verdict_source": {"source_file": "M2_aug_concat_fs1.mat", "decimation": 1},
     },
     {
+        # the busiest day of judged drops (31 in 2-26 h); CH3 and CH2 carry them, CH1 and CH4 are quiet
+        "key": "chocolate_oyster", "name": "Chocolate oyster", "latin": "Pleurotus ostreatus",
+        "source_file": "CO_fs2.mat", "recording": "CO", "channels": [2, 1, 0, 3], "hours": [2, 26],
+        "blurb": "A second oyster strain: sharp falls and slow recoveries, many a day on two electrodes.",
+        "verdict_source": {"source_file": "CO_fs2.mat", "decimation": 1},
+    },
+    {
         "key": "split_gill", "name": "Split gill", "latin": "Schizophyllum commune",
         "source_file": "Schizophyllum commune.txt", "recording": "Adamatzky S. commune", "channels": [3, 6, 0, 5],
         "hours": [0, 24],
         "blurb": "Another lab's public recording (Adamatzky et al.), searched with the same tools.",
         "verdict_source": {"source_file": "Schizophyllum commune.txt", "decimation": 1},
+        # judged on ~10 min windows, not single drops: its Library is every drop inside a window called interesting
+        "library_from": "accepted_windows",
     },
 ]
+
+#: Slice ids are handed out in THIS order, not the display order above, so adding a dataset never renumbers the
+#: slices already computed (every store file is keyed by slice id).
+SLICE_ID_ORDER = ["lions_mane", "oyster", "split_gill", "chocolate_oyster"]
 
 
 def channel_label(ch: int) -> str:

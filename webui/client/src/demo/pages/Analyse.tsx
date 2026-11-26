@@ -95,7 +95,7 @@ export function AnalysePage({ build }: { build: boolean }) {
         {build && <AllChannels combo={combo.id} />}
         <span className="grow" />
         <button className="btn primary big" data-tour="run-btn" data-testid="run-btn"
-          onClick={() => { set({ ran: combo.id }); tourSignal('run'); go('discovery') }}>Run it on all 12 channels</button>
+          onClick={() => { set({ ran: combo.id }); tourSignal('run'); go('discovery') }}>Run it on all {m.slices.length} channels</button>
       </div>
     </div>
   )
@@ -171,10 +171,11 @@ function MiniIcicles({ sid, fs, rows }: { sid: number; fs: number; rows: { s: nu
   return <Icicles rows={data} height={150} />
 }
 
-/** What this setting finds on all 12 channels, and against chance: the Discovery answer, shown while building. */
+/** What this setting finds on every channel, and against chance: the Discovery answer, shown while building. */
 function AllChannels({ combo }: { combo: string }) {
+  const { m } = useDemo()
   const d = useAsync(() => api.discovery(combo), [combo])
   if (!d.data) return null
-  return <span className="all-ch" data-testid="build-all"><b>{d.data.n.toLocaleString()}</b> {d.data.n === 1 ? 'event' : 'events'} on 12 channels
+  return <span className="all-ch" data-testid="build-all"><b>{d.data.n.toLocaleString()}</b> {d.data.n === 1 ? 'event' : 'events'} on {m.slices.length} channels
     <span className={`badge small ${ratioTone(d.data.ratio)}`}>{ratioText(d.data.ratio)}</span></span>
 }

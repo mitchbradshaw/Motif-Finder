@@ -5,7 +5,8 @@
 This is a small, fast copy of MycoWave built for strangers at a booth. Think of it as a museum exhibit rather than
 the workshop.
 
-- It holds three mushrooms (lion's mane, oyster, split gill), one day of four electrodes each.
+- It holds four recordings of three species: lion's mane, oyster, chocolate oyster (a strain of oyster) and split
+  gill. Each is one day of four electrodes, 16 electrodes in all.
 - Every answer a visitor can ask for was worked out in advance, overnight, so every click answers at once.
 - Each visitor's device gets its own private copy (a "station"). What one person builds never appears on another's
   screen.
@@ -58,14 +59,14 @@ The eight stops, in the rail on the left:
    mark a stretch.
 2. **Analyse** the stretch: the thesis drop detector, step by step (raw → cleaned → events → their shapes).
 3. **Build** your own detector: three slots with notched knobs, 108 settings in all, each one pre-computed.
-4. **Discovery:** your detector on all 12 electrodes, against chance (10 noise copies of each), beside three
+4. **Discovery:** your detector on all 16 electrodes, against chance (10 noise copies of each), beside three
    detectors you prepared.
 5. **Judge five** of the detections. Each counts as yes, no or not sure, and is compared with your verdicts where you
    judged the same stretch.
 6. **Library:** your accepted drops in these recordings, in shape families, and the trains they form.
 7. **Seed search:** a shelf of seeds searched in advance, plus any stretch a visitor marks (five minutes or less),
    searched live.
-8. **Spike statistics:** the three species side by side. Rate, gaps (CV, LV), depth against width, every event at
+8. **Spike statistics:** the four recordings side by side. Rate, gaps (CV, LV), depth against width, every event at
    its own size, the steepest-slope rose.
 
 ## Rebuilding the data (only if the choices change)
@@ -83,6 +84,11 @@ What to change, and where:
 
 - The datasets, windows and builder menu are in `scripts/neurips_demo/demo_config.py`.
 - The chain grid takes about 1.5 hours on three workers; the other stages take minutes.
+- **Adding a dataset** (as chocolate oyster was on 26 Nov): add it to `DATASETS` where the pages should show it, and
+  at the END of `SLICE_ID_ORDER`. The slices already computed keep their numbers, so only the new ones need the grid:
+  run `build_slices.py`, then `precompute_chains.py --slices <the new ids>`, then the remaining steps above.
+  `build_slices.py` prints the ids. Four 2 Hz slices took about 20 minutes on three workers plus three helpers
+  (`--group <look>_w<window> --reverse --worker-base <n>`).
 - Check the result by walking it:
 
       "/c/ProgramData/anaconda3/python.exe" scripts/neurips_demo/walk.py --visitors 6
@@ -97,8 +103,21 @@ It does not need the real `DATA/`: everything the demo reads is in `DATA/neurips
 
 | Folder | Size |
 |---|---|
-| `DATA/neurips_demo/store` | 120 MB |
-| `DATA/neurips_demo/slices` | 11 MB |
+| `DATA/neurips_demo/store` | 161 MB |
+| `DATA/neurips_demo/slices` | 16 MB |
+
+## How it was checked again (2026-11-26, with chocolate oyster)
+
+- **Unit tests** (the 14 above) and `tests/test_import_boundaries.py` pass. The client type-checks and builds.
+- **Six visitors at once** (`walk.py --visitors 6 --stress`): 33 steps each, a median of 0.06-0.09 s per step, with no
+  console error, failed request or red card. The walk now visits every recording in Explore. It also opens a
+  family whose seed is not on the shelf; that used to show an empty Seed page. Busy page and operator reset as
+  before.
+- **The guided tour** ran through all 16 steps. One visitor walking every stop at desktop size (1440x900), and again
+  at tablet size (`--size 1180x820`), took a median of 0.04-0.06 s per step, with nothing over 1 s.
+- **Live seed search** searches 16 electrodes now. It takes 0.5-0.6 s alone, about 0.9 s with three at once and about
+  1.4 s with six at once (server side). The six-visitor walk sends all six live searches in the same second, with six
+  browsers drawing on this laptop as well; there a live search took up to 5.5 s.
 
 ## How it was checked (2026-11-25 night)
 

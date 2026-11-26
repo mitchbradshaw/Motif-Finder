@@ -3,7 +3,8 @@
 The researcher set the brief on 2026-11-25. Two grilling rounds followed. Round 1 was answered in full. For round 2,
 the researcher wrote "I accept all recs for round 2, I am AFK, continue with the build", so every round-2 line below is
 the recommendation, taken as accepted. **Read round 2 first when you are back.** Anything here can be changed in the
-morning; the build is designed so that most of these are one config edit.
+morning; the build is designed so that most of these are one config edit. **Since 26 Nov the demo has a fourth recording,
+chocolate oyster** (the last section); where an earlier line says three recordings or 12 electrodes, read four and 16.
 
 ## The brief (researcher, 2026-11-25)
 
@@ -130,3 +131,37 @@ Each of these is a judgement made during the build. Change it in the morning if 
   with very different rates read 3.6 for lion's mane, while its CH14 train alone is 0.62.
 - **The hub** also accepts `--wifi "name · password"`, printed above the QR code.
 - **A fresh launch frees every station.** A station the supervisor restarts after a crash keeps its visitor.
+
+## 2026-11-26: chocolate oyster added as a fourth recording (researcher)
+
+The morning report proposed swapping split gill for chocolate oyster, citing 143 judged drops. The researcher said
+yes. Before computing, two facts turned out to weaken that case, and the question was put again:
+
+- **The 143 drops span the whole 20-day recording.** Its busiest single day, which is what the demo shows, holds 31.
+  That is the same count as split gill's Library, although these 31 were judged one drop at a time.
+- **Chocolate oyster is a strain of oyster** (*Pleurotus ostreatus*; the researcher's ruling of 5 Nov). A swap
+  would have left two species.
+
+**The researcher chose to add it as a fourth recording and keep split gill.** The demo keeps three species and the
+other lab's public data, and gains the clearest drops in the collection: sharp falls with slow recoveries.
+
+- **Window.** `CO_fs2.mat` 2-26 h, the day with the most judged drops (31). Electrodes CH3, CH2, CH1, CH4
+  (0-based 2, 1, 0, 3). CH3 and CH2 carry the drops (13 and 15 judged; Auto-detect finds 184 and 549). CH1 and CH4
+  are quiet (1 and 2 judged).
+- **Pages.** Chocolate oyster sits beside oyster. Every count on the pages is read off the data: 16 electrodes,
+  four recordings, three species (distinct Latin names). Spike statistics and the welcome screen get one column per
+  recording.
+- **Library.** 31 drops in 2 shape families, and 1 train.
+- **Nothing already computed was redone.** Slice ids follow `SLICE_ID_ORDER`, not the display order, so the first
+  twelve slices kept their ids and are byte-identical. Only the four new slices went through the grid (432 chains).
+  The seed shelf, the statistics and the summaries were rebuilt over all 16.
+- **The seed shelf** now holds 8 seeds with at least 3 matches closer than chance. Chocolate oyster's typical drop
+  (family B) finds 24, 20 of them in oyster. Its family A seed is a 10 s sliver of a sharp fall and beats chance
+  nowhere. The tour's line still holds: the CH14 wide drop finds 25 lion's mane drops and 10 oyster ones.
+- **The catalogue line on the Library** now reads "2,959 accepted spans from 8 recordings", counted from the
+  catalogue file. It used to say "six species", a typed-in number that counted chocolate oyster as a species (round 2
+  item 5).
+- **Fixes found while checking it:**
+  - "More like these" on a family whose own seed is not on the shelf showed an empty Seed page. It now shows that
+    seed's answer, "0 matches closer than chance" when that is the answer.
+  - The histogram labels no longer clip at a column's edge or print the same number twice.

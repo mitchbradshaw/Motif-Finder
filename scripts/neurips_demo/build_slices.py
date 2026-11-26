@@ -1,4 +1,4 @@
-"""Cut the demo's three 24 h slices out of the real data and register them in the demo's work database.
+"""Cut the demo's 24 h slices out of the real data and register them in the demo's work database.
 
     "/c/ProgramData/anaconda3/python.exe" scripts/neurips_demo/build_slices.py
 
@@ -6,7 +6,8 @@ Run from the demo worktree's root. Reads the real checkout (demo_config.REAL_ROO
 ?mode=ro and its channel files with mmap. Writes only under <this root>/DATA/neurips_demo/:
 
     slices/<dataset>/CH<n>.npy      one 1-D float64 array per channel, the 24 h window, as stored (V or mV)
-    work/demo.sqlite                init_db + datasets + one recordings row per slice channel (ids 1..12),
+    work/demo.sqlite                init_db + datasets + one recordings row per slice channel (ids 1..16, in
+                                    demo_config.SLICE_ID_ORDER),
                                     npy_path repo-relative, units as the source
     store/slices.json               the slice table the precompute and the stations read
     store/researcher_events.json    every human verdict inside the slices, in slice samples (Library, Judge five)
@@ -58,7 +59,10 @@ def main():
 
     slices = []
     rid = 0
-    for ds in C.DATASETS:
+    by_key = {d["key"]: d for d in C.DATASETS}
+    if sorted(by_key) != sorted(C.SLICE_ID_ORDER):
+        raise SystemExit("demo_config.SLICE_ID_ORDER must name every dataset once")
+    for ds in (by_key[k] for k in C.SLICE_ID_ORDER):
         for ch in ds["channels"]:
             src = recs[(ds["source_file"], ch)]
             fs = float(src["fs"])

@@ -69,7 +69,8 @@ def _redirect_core(worker: int):
     _tsh.RESULTS_DIR = str(base / "tsh")
     _csc.RESULTS_DIR = str(base / "csc")
     db = base / "demo.sqlite"
-    if not db.exists():
+    # a copy older than the work database (build_slices.py rebuilt it, e.g. to add a dataset) lacks its new slices
+    if not db.exists() or db.stat().st_mtime < (WORK / "demo.sqlite").stat().st_mtime:
         shutil.copyfile(WORK / "demo.sqlite", db)
     return str(db)
 

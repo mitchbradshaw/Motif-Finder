@@ -5,7 +5,7 @@
 Run from the repo root. Every answer is read from the pre-cooked store under DATA/neurips_demo/store/ (written by
 scripts/neurips_demo/) and the slice arrays; nothing a visitor does reaches the store, a database or any other
 station. The visitor's own state (their runs, verdicts) is one JSON file, state/station-<n>.json, which a reset
-deletes. The one computation a visitor can start is a live seed search on the 12 slices (numpy, under a second).
+deletes. The one computation a visitor can start is a live seed search on the 16 slices (numpy, under a second).
 
 Loud failure: a bad request is a 4xx with a reason, a bug is a 500 with its traceback in the log. Nothing is caught
 into a blank.

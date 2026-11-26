@@ -156,11 +156,15 @@ table.cmp tr.mine td { font-weight: 600; background: var(--blue-100); }
 .match-meta { font-size: 11px; color: var(--muted); font-family: var(--font-mono); padding: 2px 2px 0; }
 .sp { border-radius: 4px; padding: 0 4px; font-family: var(--font-ui); }
 .sp-lions_mane { background: #f1eaff; color: #6b3fd4; } .sp-oyster { background: #e6f1ff; color: #0066d6; } .sp-split_gill { background: #fff3e0; color: #a6630a; }
+.sp-chocolate_oyster { background: #f4ece6; color: #7a4a26; }
 .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 4px; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 
-.stats-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+/* one column per recording; --n is set from the manifest on the element */
+.stats-grid { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 14px; }
 .stats-col { display: flex; flex-direction: column; gap: 12px; }
+/* the Latin name on its own line in every column, so a long name ("Chocolate oyster") does not push its rows down */
+.stats-col .ds-head { flex-direction: column; align-items: flex-start; gap: 0; }
 .num-row { font-size: 14px; color: var(--muted); } .num-row b { font-size: 22px; color: var(--text); font-family: var(--font-mono); }
 .block { display: flex; flex-direction: column; gap: 4px; }
 .block-h { font-size: 13px; font-weight: 600; color: var(--text-2); display: flex; align-items: center; gap: 6px; }
@@ -175,7 +179,7 @@ table.cmp tr.mine td { font-weight: 600; background: var(--blue-100); }
 .hero h1 { font-size: 46px; margin: 0; letter-spacing: -0.02em; } .hero h1 span { color: var(--blue); }
 .lede { font-size: 19px; color: var(--text-2); max-width: 720px; line-height: 1.5; margin: 12px 0 24px; }
 .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
-.species { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.species { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 14px; }
 .sp-card p { font-size: 14px; color: var(--text-2); margin: 8px 0 4px; }
 .sp-head i { color: var(--muted); font-size: 13px; }
 
@@ -204,7 +208,6 @@ table.cmp tr.mine td { font-weight: 600; background: var(--blue-100); }
   .step { grid-template-columns: 150px auto 1fr; gap: 12px; }
   .step-controls { min-width: 210px; }
   .page-body { padding: 10px 18px 96px; } .head2 { padding: 18px 18px 4px; }
-  .species { grid-template-columns: 1fr 1fr 1fr; }
   .fam-detail-grid { grid-template-columns: 1fr 260px; }
   .train-row { grid-template-columns: 50px 240px 1fr 44px; }
 }

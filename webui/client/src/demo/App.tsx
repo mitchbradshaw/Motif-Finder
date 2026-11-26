@@ -2,8 +2,8 @@
    handed to someone else says so instead of letting an old tab write into the next visitor's copy. A page that
    throws shows a red card (loud, never blank) and the rest of the demo stays usable. */
 import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { api, claimToken, hubClaimUrl } from './api'
-import { go, useDemo } from './store'
+import { api, claimToken, hubClaimUrl, type Manifest } from './api'
+import { breadth, go, numWord, useDemo } from './store'
 import { Tour, startTour, tourStep } from './tour'
 import { AnalysePage } from './pages/Analyse'
 import { DiscoveryPage } from './pages/Discovery'
@@ -14,11 +14,11 @@ import { SeedPage } from './pages/Seed'
 import { StatsPage } from './pages/Stats'
 import { WelcomePage } from './pages/Welcome'
 
-const STOPS: { key: string; label: string; title: string; sub: string }[] = [
+const STOPS: { key: string; label: string; title: string; sub: string | ((m: Manifest) => string) }[] = [
   { key: 'explore', label: 'Explore', title: 'Explore a recording', sub: 'One electrode, 24 hours' },
   { key: 'analyse', label: 'Analyse', title: 'Analyse a stretch', sub: 'The steps of a detector, one by one' },
   { key: 'build', label: 'Build', title: 'Build your own detector', sub: 'Every setting answers at once' },
-  { key: 'discovery', label: 'Discovery', title: 'Run it everywhere', sub: 'All 12 electrodes, three species, against chance' },
+  { key: 'discovery', label: 'Discovery', title: 'Run it everywhere', sub: m => `All ${breadth(m).channels} electrodes, ${numWord(breadth(m).species)} species, against chance` },
   { key: 'judge', label: 'Judge', title: 'Judge five', sub: 'Machines propose, people decide' },
   { key: 'library', label: 'Library', title: 'The Library', sub: 'Accepted drops, by shape family' },
   { key: 'seed', label: 'Seed search', title: 'Find more like this', sub: 'One shape, searched across species' },
@@ -65,7 +65,7 @@ function useStation() {
 }
 
 export function App() {
-  const { route, reset } = useDemo()
+  const { route, reset, m } = useDemo()
   const { lost, hub } = useStation()
   const [confirm, setConfirm] = useState(false)
   const page = route.page
@@ -107,7 +107,7 @@ export function App() {
         </div>
       </nav>
       <main className="main2">
-        {stop && <header className="head2"><div><h1>{stop.title}</h1><div className="sub">{stop.sub}</div></div>
+        {stop && <header className="head2"><div><h1>{stop.title}</h1><div className="sub">{typeof stop.sub === 'function' ? stop.sub(m) : stop.sub}</div></div>
           {idx < STOPS.length - 1 && <button className="btn ghost small" onClick={() => go(STOPS[idx + 1].key)} data-testid="next-stop">Next: {STOPS[idx + 1].label} →</button>}</header>}
         {small && <div className="phone-note">MycoWave is best on a laptop or tablet screen.</div>}
         <Boundary key={page} label={page}>{body}</Boundary>

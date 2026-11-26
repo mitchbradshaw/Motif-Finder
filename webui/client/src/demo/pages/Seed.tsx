@@ -1,9 +1,9 @@
-/* Stop 7 · Seed search: "find more like this one". A shelf of seeds searched in advance over all 12 channels, and
+/* Stop 7 · Seed search: "find more like this one". A shelf of seeds searched in advance over every channel, and
    the stretch the visitor marked in Explore, searched live. A match counts when it is closer than chance allows:
    the cut is set where the same search on noise copies of the channels would rarely reach. */
 import { useEffect, useMemo, useState } from 'react'
 import { Hist, Spark } from '../charts'
-import { api, fmtH, go, useDemo } from '../store'
+import { api, breadth, fmtH, go, numWord, useDemo } from '../store'
 import type { Seed } from '../api'
 import { tourSignal } from '../tour'
 
@@ -12,11 +12,11 @@ const LIVE = new Map<string, Seed>()
 
 export function SeedPage() {
   const { m, thread, set, slice } = useDemo()
-  const [shelf, setShelf] = useState<Seed[] | null>(null)
+  const [seeds, setSeeds] = useState<Seed[] | null>(null)
   const [live, setLive] = useState<Seed | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [searching, setSearching] = useState(false)
-  useEffect(() => { api.seeds().then(r => setShelf(r.seeds.filter(s => s.n_kept >= 3)), e => setErr(String(e.message || e))) }, [])
+  useEffect(() => { api.seeds().then(r => setSeeds(r.seeds), e => setErr(String(e.message || e))) }, [])
   const sl = slice(thread.slice)
   // a marked stretch is a seed only when it can be searched: 8 samples to 5 minutes
   const span = thread.span && thread.span[1] - thread.span[0] >= 8 && (thread.span[1] - thread.span[0]) / sl.fs <= 300 ? thread.span : null
@@ -31,7 +31,13 @@ export function SeedPage() {
       e => { setErr(String(e.message || e)); setSearching(false) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thread.seed, liveKey])
-  const chosen: Seed | null = thread.seed === 'live' ? live : (shelf?.find(s => s.id === thread.seed) ?? null)
+  // a family's own seed, opened from the Library, is answered even when it is not on the shelf (the shelf keeps the
+  // seeds with at least 3 matches closer than chance): "none closer than chance" is an answer too, a blank page is not
+  const chosen: Seed | null = thread.seed === 'live' ? live : (seeds?.find(s => s.id === thread.seed) ?? null)
+  const shelf = useMemo(() => {
+    const on = seeds?.filter(s => s.n_kept >= 3) ?? null
+    return on && chosen && thread.seed !== 'live' && !on.includes(chosen) ? [chosen, ...on] : on
+  }, [seeds, chosen, thread.seed])
   useEffect(() => { if (chosen) tourSignal('seed') }, [chosen?.id])
 
   return (
@@ -53,7 +59,7 @@ export function SeedPage() {
       </div>
 
       {err && <div className="card error-line">{err}</div>}
-      {searching && <div className="card searching" data-testid="seed-searching"><span className="spinner" /> Searching 12 channels in 3 species…</div>}
+      {searching && <div className="card searching" data-testid="seed-searching"><span className="spinner" /> Searching {breadth(m).channels} channels in {numWord(breadth(m).species)} species…</div>}
       {!chosen && !searching && !err && <div className="card hint-card">Pick a seed above{span ? ', or search for your marked stretch' : ''}.</div>}
       {chosen && !searching && <SeedResult s={chosen} />}
     </div>
